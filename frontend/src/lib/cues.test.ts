@@ -1,25 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { cuesBetween, springsUp, stampBetween, type Cue } from "#lib/cues.ts";
+import { cuesBetween, isChairCue, springsUp, stampBetween, type Cue } from "#lib/cues.ts";
 import { chairs as seatedChairs, LOST_GAME, ramschResult, table as tableWithResult } from "#lib/result.fixtures.ts";
+import {
+    auction,
+    chairsWithCards,
+    declaringAt,
+    EVERY_HAND_DEALT,
+    FOREHAND,
+    MIDDLEHAND,
+    playing,
+    REARHAND,
+    table,
+} from "#lib/cues.fixtures.ts";
 import { words } from "#lib/words.ts";
 import type {
-    Auction,
     AuctionWord,
     Card,
     Chair,
-    Declaring,
     GiveUp,
     Kontra,
     LastTrick,
-    Playing,
-    Position,
     SeatedCard,
     Table,
 } from "../routes/(start)/tables.ts";
 
-const FOREHAND = 1;
-const MIDDLEHAND = 2;
-const REARHAND = 3;
 const KREUZ_KING: Card = { suit: "kreuz", rank: "king" };
 const KREUZ_ACE: Card = { suit: "kreuz", rank: "ace" };
 const HERZ_NINE: Card = { suit: "herz", rank: "nine" };
@@ -27,112 +31,6 @@ const PIK_TEN: Card = { suit: "pik", rank: "ten" };
 const KARO_SEVEN: Card = { suit: "karo", rank: "seven" };
 const KARO_EIGHT: Card = { suit: "karo", rank: "eight" };
 const KARO_JACK: Card = { suit: "karo", rank: "jack" };
-
-const EVERY_HAND_DEALT: [number, number, number] = [10, 10, 10];
-
-function auction(spoken: AuctionWord[] = []): Auction {
-    return {
-        turn_seat: null,
-        facing_seat: null,
-        awaiting: null,
-        standing: null,
-        values: [],
-        words: spoken,
-        declared: null,
-    };
-}
-
-function declaringAt(stage: Declaring["stage"]): Declaring {
-    return { declarer_seat: MIDDLEHAND, stage, declaration: null, open_cards: [] };
-}
-
-const POSITIONS: Record<number, Position> = { 1: "forehand", 2: "middlehand", 3: "rearhand" };
-
-function chairsWithCards(cards: [number, number, number]): Chair[] {
-    return [FOREHAND, MIDDLEHAND, REARHAND].map((seat, index) => ({
-        seat,
-        occupant_name: `player ${String(seat)}`,
-        occupant_kind: "person",
-        is_mine: false,
-        is_away: false,
-        ready: false,
-        total: null,
-        hand: { position: POSITIONS[seat] as Position, card_count: cards[index] as number },
-        former_holder_name: null,
-        is_mine_to_return: false,
-        nudge: null,
-    }));
-}
-
-function playing(changes: Partial<Playing>): Playing {
-    return {
-        turn_seat: FOREHAND,
-        current_trick: [],
-        last_trick: null,
-        taken: [
-            { seat: 1, tricks: 0 },
-            { seat: 2, tricks: 0 },
-            { seat: 3, tricks: 0 },
-        ],
-        legal_cards: [],
-        running_points: null,
-        give_up: null,
-        kontra: null,
-        ...changes,
-    };
-}
-
-// A table of one hand: `current` and `last` are the playing state, `cards` the cards each chair still holds.
-function table(
-    version: number,
-    cards: [number, number, number],
-    changes: {
-        declaring?: Declaring | null;
-        current?: SeatedCard[];
-        last?: Playing["last_trick"];
-        giveUp?: GiveUp | null;
-        spoken?: AuctionWord[];
-        kontra?: Kontra | null;
-    } = {},
-): Table {
-    const hasPlaying = changes.current !== undefined || changes.last !== undefined || changes.kontra !== undefined;
-    return {
-        id: "a".repeat(32),
-        version,
-        chairs: chairsWithCards(cards),
-        watchers: 0,
-        opened_by_me: false,
-        hand: {
-            dealer_seat: REARHAND,
-            own_cards: [],
-            skat_count: 2,
-            waiting_seat: null,
-            abort: null,
-            abortable: false,
-            ramsch: false,
-            pushing: null,
-            pushes: 0,
-            push_factor: 1,
-            auction: auction(changes.spoken),
-            declaring: changes.declaring === undefined ? declaringAt("picked") : changes.declaring,
-            playing: hasPlaying
-                ? playing({
-                      current_trick: changes.current ?? [],
-                      last_trick: changes.last ?? null,
-                      give_up: changes.giveUp ?? null,
-                      kontra: changes.kontra ?? null,
-                  })
-                : null,
-        },
-        result: null,
-        passed_in: null,
-        series: null,
-        aborted: null,
-        options: null,
-        bock: null,
-        ended: null,
-    };
-}
 
 const FIRST_TRICK_LAST = {
     cards: [KREUZ_KING, HERZ_NINE, KREUZ_ACE],
@@ -538,6 +436,124 @@ describe("the bubble that springs up", () => {
         { name: "a chair without a bubble", said, seat: 1, bubble: null, springs: false },
     ] as const)("is $springs for $name", ({ said: bid, seat, bubble, springs }) => {
         expect(springsUp(bid, seat, bubble)).toBe(springs);
+    });
+});
+
+describe("the chairs that changed hands between two versions of a table", () => {
+    const OPEN_SEAT = 3;
+
+    function chairOf(seat: number, name: string | null, kind: Chair["occupant_kind"], mine = false): Chair {
+        return {
+            ...(chairsWithCards(EVERY_HAND_DEALT)[0] as Chair),
+            seat,
+            occupant_name: name,
+            occupant_kind: name === null ? null : kind,
+            is_mine: mine,
+            hand: null,
+        };
+    }
+
+    // A table at `version` whose running hand waits for a sitter at the open seat, or has every chair taken.
+    function chairsTable(version: number, waits: boolean, ...chairs: Chair[]): Table {
+        const base = table(version, EVERY_HAND_DEALT);
+        return {
+            ...base,
+            chairs,
+            hand: { ...(base.hand as NonNullable<Table["hand"]>), waiting_seat: waits ? OPEN_SEAT : null },
+        };
+    }
+
+    const anna = chairOf(1, "Anna", "person");
+    const felix = chairOf(2, "Felix", "person", true);
+    const free = chairOf(OPEN_SEAT, null, null);
+    const nova = chairOf(OPEN_SEAT, "Nova", "agent");
+    const lena = chairOf(OPEN_SEAT, "Lena", "person");
+
+    it.each([
+        {
+            name: "an agent sits on a chair that was free between hands",
+            previous: chairsTable(1, false, anna, felix, free),
+            next: chairsTable(2, false, anna, felix, nova),
+            cue: { kind: "chair-taken", seat: OPEN_SEAT, name: "Nova", agent: true, mine: false, inHand: false },
+        },
+        {
+            name: "a person sits on a chair that was free between hands",
+            previous: chairsTable(1, false, anna, felix, free),
+            next: chairsTable(2, false, anna, felix, lena),
+            cue: { kind: "chair-taken", seat: OPEN_SEAT, name: "Lena", agent: false, mine: false, inHand: false },
+        },
+        {
+            name: "a person takes the open chair of the running hand",
+            previous: chairsTable(1, true, anna, felix, free),
+            next: chairsTable(2, false, anna, felix, lena),
+            cue: { kind: "chair-taken", seat: OPEN_SEAT, name: "Lena", agent: false, mine: false, inHand: true },
+        },
+        {
+            name: "the viewer sits down herself",
+            previous: chairsTable(1, false, anna, chairOf(2, null, null), lena),
+            next: chairsTable(2, false, anna, felix, lena),
+            cue: { kind: "chair-taken", seat: 2, name: "Felix", agent: false, mine: true, inHand: false },
+        },
+        {
+            name: "a person stands up between hands",
+            previous: chairsTable(1, false, anna, felix, lena),
+            next: chairsTable(2, false, anna, felix, free),
+            cue: { kind: "chair-stood", seat: OPEN_SEAT, name: "Lena", agent: false, mine: false },
+        },
+        {
+            name: "an agent leaves between hands",
+            previous: chairsTable(1, false, anna, felix, nova),
+            next: chairsTable(2, false, anna, felix, free),
+            cue: { kind: "chair-stood", seat: OPEN_SEAT, name: "Nova", agent: true, mine: false },
+        },
+        {
+            name: "an agent leaves a chair of the running hand",
+            previous: chairsTable(1, false, anna, felix, nova),
+            next: chairsTable(2, true, anna, felix, free),
+            cue: { kind: "chair-opened", seat: OPEN_SEAT, name: "Nova", agent: true, mine: false },
+        },
+        {
+            name: "a person stands up from the running hand",
+            previous: chairsTable(1, false, anna, felix, lena),
+            next: chairsTable(2, true, anna, felix, free),
+            cue: { kind: "chair-opened", seat: OPEN_SEAT, name: "Lena", agent: false, mine: false },
+        },
+        {
+            name: "the viewer stands up from the running hand herself",
+            previous: chairsTable(1, false, anna, felix, lena),
+            next: chairsTable(2, true, anna, chairOf(2, null, null), lena),
+            cue: { kind: "chair-opened", seat: 2, name: "Felix", agent: false, mine: true },
+        },
+    ] satisfies { name: string; previous: Table; next: Table; cue: Cue }[])(
+        "brings $name as one chair cue",
+        ({ previous, next, cue }) => {
+            expect(cuesBetween(previous, next).filter(isChairCue)).toEqual([cue]);
+        },
+    );
+
+    it.each([
+        {
+            name: "a page that has no table before it",
+            previous: undefined,
+            next: chairsTable(2, false, anna, felix, nova),
+        },
+        {
+            name: "a table that is not newer",
+            previous: chairsTable(2, false, anna, felix, free),
+            next: chairsTable(2, false, anna, felix, nova),
+        },
+        {
+            name: "chairs that stay as they were",
+            previous: chairsTable(1, false, anna, felix, nova),
+            next: chairsTable(2, false, anna, felix, nova),
+        },
+        {
+            name: "a chair that stays open",
+            previous: chairsTable(1, true, anna, felix, free),
+            next: chairsTable(2, true, anna, felix, free),
+        },
+    ])("bring nothing for $name", ({ previous, next }) => {
+        expect(cuesBetween(previous, next)).toEqual([]);
     });
 });
 

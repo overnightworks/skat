@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { cuesBetween } from "#lib/cues.ts";
 import { handWaits, lockedChairs, noticeStanding, seatNotice, sitQuestionLine } from "#lib/openChair.ts";
 import { words } from "#lib/words.ts";
 import { declarerStage, type Chair, type Hand, type Table } from "../routes/(start)/tables.ts";
@@ -105,12 +106,18 @@ describe("the line under the question before a sit", () => {
     });
 });
 
-describe("the notice to the others about a chair of the running hand", () => {
+// The notice the page reads once when a streamed table follows `before`.
+function noticeBetween(before: Table, after: Table): ReturnType<typeof seatNotice> {
+    const next = { ...after, version: before.version + 1 };
+    return seatNotice(cuesBetween(before, next), next);
+}
+
+describe("the notice to the others about a chair changing hands", () => {
     it("says an agent left when its chair opens in the running hand", () => {
         const before = tableOf(handOf(null), felix, anna, novaThere);
         const after = tableOf(handOf(OPEN_SEAT), felix, anna, openAfterNova);
 
-        expect(seatNotice(before, after)).toEqual({
+        expect(noticeBetween(before, after)).toEqual({
             text: words["table.agentLeft"]({ name: "Nova" }),
             initials: [null],
             seat: OPEN_SEAT,
@@ -122,7 +129,7 @@ describe("the notice to the others about a chair of the running hand", () => {
         const before = tableOf(handOf(null), felix, anna, chairOf(OPEN_SEAT, "Lena", "person"));
         const after = tableOf(handOf(OPEN_SEAT), felix, anna, chairOf(OPEN_SEAT, null, null, "Lena"));
 
-        expect(seatNotice(before, after)).toEqual({
+        expect(noticeBetween(before, after)).toEqual({
             text: words["table.standUpNotice"]({ name: "Lena" }),
             initials: ["L"],
             seat: OPEN_SEAT,
@@ -133,14 +140,14 @@ describe("the notice to the others about a chair of the running hand", () => {
     it("tells a viewer who holds no chair of the hand that a person stood up but not that an agent left", () => {
         const watcher = { ...felix, is_mine: false };
         const lena = chairOf(OPEN_SEAT, "Lena", "person");
-        const standing = seatNotice(
+        const standing = noticeBetween(
             tableOf(handOf(null), watcher, anna, lena),
             tableOf(handOf(OPEN_SEAT), watcher, anna, chairOf(OPEN_SEAT, null, null, "Lena")),
         );
 
         expect(standing?.text).toBe(words["table.standUpNotice"]({ name: "Lena" }));
         expect(
-            seatNotice(
+            noticeBetween(
                 tableOf(handOf(null), watcher, anna, novaThere),
                 tableOf(handOf(OPEN_SEAT), watcher, anna, openAfterNova),
             ),
@@ -151,27 +158,27 @@ describe("the notice to the others about a chair of the running hand", () => {
         const before = tableOf(handOf(null), felix, anna, { ...chairOf(OPEN_SEAT, "Lena", "person"), is_mine: true });
         const after = tableOf(handOf(OPEN_SEAT), felix, anna, chairOf(OPEN_SEAT, null, null, "Lena"));
 
-        expect(seatNotice(before, after)).toBeNull();
+        expect(noticeBetween(before, after)).toBeNull();
     });
 
     it("says nothing when a person stands up between hands", () => {
         const before = tableOf(null, felix, anna, chairOf(OPEN_SEAT, "Lena", "person"));
         const after = tableOf(null, felix, anna, chairOf(OPEN_SEAT, null, null));
 
-        expect(seatNotice(before, after)).toBeNull();
+        expect(noticeBetween(before, after)).toBeNull();
     });
 
     it("says nothing when an agent leaves between hands", () => {
         const before = tableOf(null, felix, anna, novaThere);
         const after = tableOf(null, felix, anna, chairOf(OPEN_SEAT, null, null));
 
-        expect(seatNotice(before, after)).toBeNull();
+        expect(noticeBetween(before, after)).toBeNull();
     });
 
     it("says nothing while the chair stays open", () => {
         const before = tableOf(handOf(OPEN_SEAT), felix, anna, openAfterNova);
 
-        expect(seatNotice(before, tableOf(handOf(OPEN_SEAT), felix, anna, openAfterNova))).toBeNull();
+        expect(noticeBetween(before, tableOf(handOf(OPEN_SEAT), felix, anna, openAfterNova))).toBeNull();
     });
 
     it.each([
@@ -181,7 +188,7 @@ describe("the notice to the others about a chair of the running hand", () => {
         const before = tableOf(handOf(OPEN_SEAT), felix, anna, openAfterNova);
         const after = tableOf(handOf(null), felix, anna, taker);
 
-        expect(seatNotice(before, after)).toEqual({
+        expect(noticeBetween(before, after)).toEqual({
             text: words["table.playsOn"]({ name: taker.occupant_name as string }),
             initials: [initial],
             seat: OPEN_SEAT,
@@ -193,14 +200,39 @@ describe("the notice to the others about a chair of the running hand", () => {
         const before = tableOf(handOf(OPEN_SEAT), felix, anna, openAfterNova);
         const after = tableOf(handOf(null), felix, anna, { ...chairOf(OPEN_SEAT, "Lena", "person"), is_mine: true });
 
-        expect(seatNotice(before, after)).toBeNull();
+        expect(noticeBetween(before, after)).toBeNull();
     });
 
-    it("says nothing about a chair taken between hands, which the agent notice owns", () => {
+    it("names an agent who sits on a chair that was free between hands", () => {
         const before = tableOf(null, felix, anna, chairOf(OPEN_SEAT, null, null));
         const after = tableOf(null, felix, anna, novaThere);
 
-        expect(seatNotice(before, after)).toBeNull();
+        expect(noticeBetween(before, after)).toEqual({
+            text: words["table.agentSits"]({ name: "Nova" }),
+            initials: [null],
+            seat: OPEN_SEAT,
+            occupied: true,
+        });
+    });
+
+    it("names the agent although a person sat on another chair in the same update", () => {
+        const before = tableOf(null, chairOf(1, null, null), anna, chairOf(OPEN_SEAT, null, null));
+        const after = tableOf(null, chairOf(1, "Lena", "person"), anna, novaThere);
+
+        expect(noticeBetween(before, after)?.text).toBe(words["table.agentSits"]({ name: "Nova" }));
+    });
+
+    it("says nothing when a person sits on a chair that was free between hands", () => {
+        const before = tableOf(null, felix, anna, chairOf(OPEN_SEAT, null, null));
+        const after = tableOf(null, felix, anna, chairOf(OPEN_SEAT, "Lena", "person"));
+
+        expect(noticeBetween(before, after)).toBeNull();
+    });
+
+    it("says nothing while an agent stays in its chair between hands", () => {
+        const before = tableOf(null, felix, anna, novaThere);
+
+        expect(noticeBetween(before, tableOf(null, felix, anna, novaThere))).toBeNull();
     });
 });
 

@@ -174,6 +174,94 @@ describe("a finished trick on the page's stage", () => {
     });
 });
 
+const SITTER = { seat: TAKER_SEAT, name: "Nova", agent: true, mine: false };
+const CHAIR_TAKEN: Cue = { kind: "chair-taken", inHand: false, ...SITTER };
+const CHAIR_STOOD: Cue = { kind: "chair-stood", ...SITTER };
+const OTHER_SEAT = 1;
+const SIT_MILLISECONDS = MOTION_SETS.verspielt.chairSitsSeconds * 1000;
+const EMPTY_MILLISECONDS = MOTION_SETS.verspielt.chairEmptiesSeconds * 1000;
+
+describe("a chair that changes hands on the page's stage", () => {
+    it("moves from the update until the set's time is over, and no other chair moves", async () => {
+        const { stage } = await stageOnAPage(MOVING);
+
+        stage.receiveOnStage(TABLE_BETWEEN_HANDS, [CHAIR_TAKEN]);
+
+        expect(stage.chairMoving(TAKER_SEAT)).toBe("chair-taken");
+        expect(stage.chairMoving(OTHER_SEAT)).toBeNull();
+
+        vi.advanceTimersByTime(SIT_MILLISECONDS - 1);
+        expect(stage.chairMoving(TAKER_SEAT)).toBe("chair-taken");
+
+        vi.advanceTimersByTime(1);
+        expect(stage.chairMoving(TAKER_SEAT)).toBeNull();
+    });
+
+    it("gives way to the next update, whose chairs move for their own time", async () => {
+        const { stage } = await stageOnAPage(MOVING);
+        stage.receiveOnStage(TABLE_BETWEEN_HANDS, [CHAIR_TAKEN]);
+
+        stage.receiveOnStage(TABLE_BETWEEN_HANDS, [CHAIR_STOOD]);
+
+        expect(stage.chairMoving(TAKER_SEAT)).toBe("chair-stood");
+        vi.advanceTimersByTime(EMPTY_MILLISECONDS);
+        expect(stage.chairMoving(TAKER_SEAT)).toBeNull();
+    });
+
+    it("ends with an update that moves no chair", async () => {
+        const { stage } = await stageOnAPage(MOVING);
+        stage.receiveOnStage(TABLE_BETWEEN_HANDS, [CHAIR_TAKEN]);
+
+        stage.receiveOnStage(TABLE_BETWEEN_HANDS, [AUCTION_ENDED]);
+
+        expect(stage.chairMoving(TAKER_SEAT)).toBeNull();
+    });
+
+    it("stands still when the device asks for reduced motion and the player has not overridden it", async () => {
+        const { stage } = await stageOnAPage({});
+
+        stage.receiveOnStage(TABLE_BETWEEN_HANDS, [CHAIR_TAKEN]);
+
+        expect(stage.chairMoving(TAKER_SEAT)).toBeNull();
+    });
+
+    it("stands still while the window is hidden", async () => {
+        const { stage } = await stageOnAPage(MOVING, { hidden: true });
+
+        stage.receiveOnStage(TABLE_BETWEEN_HANDS, [CHAIR_TAKEN]);
+
+        expect(stage.chairMoving(TAKER_SEAT)).toBeNull();
+    });
+
+    it.each([
+        {
+            name: "the window jumps",
+            end: (stage: Awaited<ReturnType<typeof stageOnAPage>>["stage"]) => {
+                stage.jumpStage();
+            },
+        },
+        {
+            name: "the page resets",
+            end: (stage: Awaited<ReturnType<typeof stageOnAPage>>["stage"]) => {
+                stage.resetStage();
+            },
+        },
+        {
+            name: "a page sees its first table",
+            end: (stage: Awaited<ReturnType<typeof stageOnAPage>>["stage"]) => {
+                stage.receiveOnStage(undefined, []);
+            },
+        },
+    ])("stands still at once when $name", async ({ end }) => {
+        const { stage } = await stageOnAPage(MOVING);
+        stage.receiveOnStage(TABLE_BETWEEN_HANDS, [CHAIR_TAKEN]);
+
+        end(stage);
+
+        expect(stage.chairMoving(TAKER_SEAT)).toBeNull();
+    });
+});
+
 describe("the look at a pile's last trick", () => {
     it("holds the seat looked at until the player stops", async () => {
         const { stage } = await stageOnAPage(MOVING);
