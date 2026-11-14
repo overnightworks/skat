@@ -1,7 +1,8 @@
 import type { NoiseVoice, ToneVoice, Voice } from "./sound.ts";
 import type { Key } from "./words.ts";
 
-export type SoundMoment = "card-played" | "bid-said" | "word-said" | "trick-swept";
+export type SoundMoment =
+    "card-played" | "bid-said" | "word-said" | "trick-swept" | "chair-taken" | "chair-stood" | "chair-opened";
 
 export interface SoundSet {
     readonly id: string;
@@ -50,11 +51,30 @@ function cardGlint(gain: number): readonly [ToneVoice, NoiseVoice, ToneVoice] {
 /** The two knocks of a Kontra or a Re are this far apart. */
 const KNOCK_GAP_SECONDS = 0.12;
 
-function knock(at: number, gain: number): readonly [ToneVoice, NoiseVoice, ToneVoice] {
+const KNOCK_PITCH_HERTZ = 190;
+
+// A wooden knock that falls from its pitch; the overtone sits a little above twice the pitch and falls as well.
+function knock(at: number, gain: number, pitch = KNOCK_PITCH_HERTZ): readonly [ToneVoice, NoiseVoice, ToneVoice] {
     return [
-        { kind: "tone", wave: "sine", at, seconds: 0.07, frequency: 190, endFrequency: 118, gain },
+        {
+            kind: "tone",
+            wave: "sine",
+            at,
+            seconds: 0.07,
+            frequency: pitch,
+            endFrequency: Math.round(pitch * 0.62),
+            gain,
+        },
         { kind: "noise", at, seconds: 0.025, frequency: 1300, quality: 3, gain: gain * 0.6 },
-        { kind: "tone", wave: "triangle", at, seconds: 0.03, frequency: 456, endFrequency: 266, gain: gain * 0.15 },
+        {
+            kind: "tone",
+            wave: "triangle",
+            at,
+            seconds: 0.03,
+            frequency: Math.round(pitch * 2.4),
+            endFrequency: Math.round(pitch * 1.4),
+            gain: gain * 0.15,
+        },
     ];
 }
 
@@ -176,6 +196,96 @@ function sweepGlint(gain: number): readonly [NoiseVoice, ToneVoice, ToneVoice] {
     ];
 }
 
+/** A chair's sound starts this long after its cue, as the chair begins to move. */
+const CHAIR_HIT_SECONDS = 0.1;
+/** The second note of a chair's bells follows the first this far behind. */
+const CHAIR_BELL_GAP_SECONDS = 0.1;
+
+// A struck bell: its tone with two overtones that die away sooner.
+function bell(
+    at: number,
+    frequency: number,
+    gain: number,
+    seconds: number,
+): readonly [ToneVoice, ToneVoice, ToneVoice] {
+    return [
+        { kind: "tone", wave: "sine", at, seconds, frequency, gain },
+        { kind: "tone", wave: "sine", at, seconds: seconds * 0.6, frequency: frequency * 2.01, gain: gain * 0.3 },
+        { kind: "tone", wave: "sine", at, seconds: seconds * 0.3, frequency: frequency * 3.02, gain: gain * 0.12 },
+    ];
+}
+
+// A dry knock of the chair on the floor.
+function chairKnock(gain: number): readonly Voice[] {
+    return knock(CHAIR_HIT_SECONDS, 0.32 * gain, 230);
+}
+
+// A chair that opens knocks lower and softer.
+function chairKnockLow(gain: number): readonly Voice[] {
+    return knock(CHAIR_HIT_SECONDS, 0.22 * gain, 140);
+}
+
+// The chair is pulled in with a scrape and knocks as it stands.
+function chairScrapeKnock(gain: number): readonly Voice[] {
+    return [
+        {
+            kind: "noise",
+            at: CHAIR_HIT_SECONDS - 0.08,
+            seconds: 0.22,
+            frequency: 280,
+            endFrequency: 760,
+            quality: 7,
+            gain: 0.2 * gain,
+        },
+        ...knock(CHAIR_HIT_SECONDS + 0.12, 0.34 * gain, 170),
+    ];
+}
+
+// A chair that stands up again knocks on its own.
+function chairKnockDeep(gain: number): readonly Voice[] {
+    return knock(CHAIR_HIT_SECONDS, 0.34 * gain, 170);
+}
+
+// A chair that opens slides back with a soft scrape and settles with a thud.
+function chairSlide(gain: number): readonly Voice[] {
+    return [
+        {
+            kind: "noise",
+            at: CHAIR_HIT_SECONDS,
+            seconds: 0.26,
+            frequency: 520,
+            endFrequency: 200,
+            quality: 2,
+            gain: 0.18 * gain,
+        },
+        {
+            kind: "tone",
+            wave: "sine",
+            at: CHAIR_HIT_SECONDS + 0.12,
+            seconds: 0.12,
+            frequency: 200,
+            endFrequency: 120,
+            gain: 0.2 * gain,
+        },
+    ];
+}
+
+// Two bells, the second higher: someone sits down.
+function chairBellsUp(gain: number): readonly Voice[] {
+    return [
+        ...bell(CHAIR_HIT_SECONDS, 784, 0.14 * gain, 0.35),
+        ...bell(CHAIR_HIT_SECONDS + CHAIR_BELL_GAP_SECONDS, 1047, 0.12 * gain, 0.35),
+    ];
+}
+
+// Two bells, the second lower: someone stands up, or a chair opens.
+function chairBellsDown(gain: number): readonly Voice[] {
+    return [
+        ...bell(CHAIR_HIT_SECONDS, 784, 0.14 * gain, 0.35),
+        ...bell(CHAIR_HIT_SECONDS + CHAIR_BELL_GAP_SECONDS, 587, 0.1 * gain, 0.3),
+    ];
+}
+
 type VoicesOf = (gain: number) => readonly Voice[];
 
 // Each moment is brought to one loudness at the full volume, so no set and no moment sounds markedly quieter than another;
@@ -193,6 +303,9 @@ export const SOUND_SETS = {
             "bid-said": levelled(bidTip, 2.68),
             "word-said": levelled(knocksPlain, 0.66),
             "trick-swept": levelled(sweepSoft, 2.63),
+            "chair-taken": levelled(chairKnock, 1.42),
+            "chair-stood": levelled(chairKnock, 1.42),
+            "chair-opened": levelled(chairKnockLow, 3.46),
         },
     },
     stammtisch: {
@@ -203,6 +316,9 @@ export const SOUND_SETS = {
             "bid-said": levelled(bidBlub, 1.09),
             "word-said": levelled(knocksDeep, 0.62),
             "trick-swept": levelled(sweepThud, 1.9),
+            "chair-taken": levelled(chairScrapeKnock, 1.63),
+            "chair-stood": levelled(chairKnockDeep, 1.63),
+            "chair-opened": levelled(chairSlide, 1.83),
         },
     },
     funkeln: {
@@ -213,6 +329,9 @@ export const SOUND_SETS = {
             "bid-said": levelled(bidPair, 1.45),
             "word-said": levelled(knocksWave, 0.72),
             "trick-swept": levelled(sweepGlint, 1.56),
+            "chair-taken": levelled(chairBellsUp, 0.78),
+            "chair-stood": levelled(chairBellsDown, 0.85),
+            "chair-opened": levelled(chairBellsDown, 0.85),
         },
     },
 } as const satisfies Record<string, SoundSet>;

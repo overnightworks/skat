@@ -11,6 +11,8 @@ import type { Table } from "../routes/(start)/tables.ts";
 /** A card another player lays sounds quieter than the player's own. */
 const FOREIGN_CARD_GAIN = 0.65;
 const OWN_CARD_GAIN = 1;
+/** A person standing up sounds this much of a person sitting down. */
+const STAND_UP_GAIN = 0.4;
 /** Two cards of one update land on the felt together; heard together they sound as one. */
 const MOMENT_STAGGER_SECONDS = 0.12;
 const ARMING_EVENTS = ["pointerup", "keydown"] as const;
@@ -56,12 +58,19 @@ function momentOf(cue: Cue, table: Table): Moment | undefined {
             return cue.word.action === "pass" ? undefined : { moment: "bid-said", gain: 1 };
         case "word-said":
             return { moment: "word-said", gain: 1 };
+        case "chair-taken":
+            return { moment: "chair-taken", gain: 1 };
+        case "chair-stood":
+            return { moment: "chair-stood", gain: STAND_UP_GAIN };
+        case "chair-opened":
+            return { moment: "chair-opened", gain: 1 };
         default:
             return undefined;
     }
 }
 
-// From the cue to the moment the table shows it: a card touches the felt, a bubble has sprung, the stamp hits.
+// From the cue to the moment the table shows it: a card touches the felt, a bubble has sprung, the stamp hits. A chair's
+// own sound starts when it begins to move, so the set keeps that time.
 const LANDS_AFTER: Record<Cue["kind"], (motion: MotionSet) => number> = {
     "card-played": (motion) => motion.cardLandsSeconds,
     "bid-said": (motion) => motion.bidSpringsSeconds,

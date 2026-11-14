@@ -3,7 +3,15 @@ import type { Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundMoment } from "./soundSets.ts";
 import { LIMITER_THRESHOLD_DECIBELS } from "./webAudio.ts";
 
-const MOMENTS: SoundMoment[] = ["card-played", "bid-said", "word-said", "trick-swept"];
+const MOMENTS: SoundMoment[] = [
+    "card-played",
+    "bid-said",
+    "word-said",
+    "trick-swept",
+    "chair-taken",
+    "chair-stood",
+    "chair-opened",
+];
 const LONGEST_SOUND_SECONDS = 0.6;
 const LONGEST_SWEEP_SECONDS = 0.4;
 /** The most a moment may stray from the target and still sound as loud as the others. */

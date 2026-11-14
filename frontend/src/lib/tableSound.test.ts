@@ -170,6 +170,94 @@ describe("the sound of a card", () => {
     );
 });
 
+const SITTER = { seat: THIRD_SEAT, name: "Nova", agent: true, mine: false };
+const CHAIR_TAKEN: Cue = { kind: "chair-taken", inHand: false, ...SITTER };
+const CHAIR_STOOD: Cue = { kind: "chair-stood", ...SITTER };
+const CHAIR_OPENED: Cue = { kind: "chair-opened", ...SITTER };
+const CHAIR_CUES = [CHAIR_TAKEN, CHAIR_STOOD, CHAIR_OPENED];
+// Tone voices below the bells' overtones, in the order they start.
+const BELL_NOTES_OF = (port: FakePort): number[] =>
+    port.played
+        .filter(({ voice }) => voice.kind === "tone" && [587, 784, 1047].includes(voice.frequency))
+        .sort((first, second) => first.voice.at - second.voice.at)
+        .map(({ voice }) => (voice as Extract<Voice, { kind: "tone" }>).frequency);
+
+describe("the sound of a chair", () => {
+    it.each(
+        Object.keys(SOUND_SETS).flatMap((soundSet) =>
+            CHAIR_CUES.map((cue) => ({ soundSet: soundSet as SoundSetId, cue, name: `${cue.kind} in ${soundSet}` })),
+        ),
+    )("sounds $name", ({ soundSet, cue }) => {
+        const port = new FakePort();
+
+        soundAt(port, { soundSet }).forCues([cue], tableSeenFrom(OWN_SEAT));
+
+        expect(port.played.length).toBeGreaterThan(0);
+    });
+
+    it.each(CHAIR_CUES.map((cue) => ({ cue, name: cue.kind })))(
+        "sounds $name differently in each sound set",
+        ({ cue }) => {
+            const heard = (soundSet: SoundSetId): string => {
+                const port = new FakePort();
+                soundAt(port, { soundSet }).forCues([cue], tableSeenFrom(OWN_SEAT));
+                return JSON.stringify(port.played);
+            };
+
+            const sets = Object.keys(SOUND_SETS) as SoundSetId[];
+
+            expect(new Set(sets.map(heard)).size).toBe(sets.length);
+        },
+    );
+
+    it.each(Object.keys(SOUND_SETS) as SoundSetId[])(
+        "stands up quieter than it sits down in the set %s",
+        (soundSet) => {
+            const [sits, stands] = [new FakePort(), new FakePort()];
+
+            soundAt(sits, { soundSet }).forCues([CHAIR_TAKEN], tableSeenFrom(OWN_SEAT));
+            soundAt(stands, { soundSet }).forCues([CHAIR_STOOD], tableSeenFrom(OWN_SEAT));
+
+            expect(loudest(stands)).toBeLessThan(loudest(sits));
+        },
+    );
+
+    it("rings the stand bells, the second lower, in Funkeln when a chair opens", () => {
+        const port = new FakePort();
+
+        soundAt(port, { soundSet: "funkeln" }).forCues([CHAIR_OPENED], tableSeenFrom(OWN_SEAT));
+
+        expect(BELL_NOTES_OF(port)).toEqual([784, 587]);
+    });
+
+    it("rings the sit bells, the second higher, in Funkeln when a chair is taken", () => {
+        const port = new FakePort();
+
+        soundAt(port, { soundSet: "funkeln" }).forCues([CHAIR_TAKEN], tableSeenFrom(OWN_SEAT));
+
+        expect(BELL_NOTES_OF(port)).toEqual([784, 1047]);
+    });
+
+    it("sounds a chair at the same time whatever motion set the table moves in", () => {
+        const [still, quiet, playful] = [new FakePort(), new FakePort(), new FakePort()];
+
+        soundAt(still).forCues([CHAIR_TAKEN], tableSeenFrom(OWN_SEAT));
+        soundAt(quiet, { motion: "dezent" }).forCues([CHAIR_TAKEN], tableSeenFrom(OWN_SEAT));
+        soundAt(playful, { motion: "verspielt" }).forCues([CHAIR_TAKEN], tableSeenFrom(OWN_SEAT));
+
+        expect(earliest(quiet)).toBe(earliest(still));
+        expect(earliest(playful)).toBe(earliest(still));
+    });
+
+    it("says nothing with the voice on", () => {
+        const port = new FakePort();
+
+        soundAt(port, { voice: true }).forCues(CHAIR_CUES, tableSeenFrom(OWN_SEAT));
+
+        expect(port.spoken).toEqual([]);
+    });
+});
+
 describe("the sound of a swept trick", () => {
     it.each(Object.keys(SOUND_SETS) as SoundSetId[])("is the sweep of the set %s", (soundSet) => {
         const port = new FakePort();
