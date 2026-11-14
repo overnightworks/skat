@@ -240,14 +240,14 @@ def test_every_away_chair_of_an_undealt_table_says_its_minutes_and_a_lost_line_d
         "title", text(SOURCE_LANGUAGE, "lobby.otherSeatFreeIn", count=5, minutes="5", name="Mara")
     )
     expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
-    expect(person.locator(".lobby")).to_have_class(re.compile(r"\bstale\b"))
+    expect(person.locator(".lobby-lists")).to_have_class(re.compile(r"\bstale\b"))
     expect(card).to_be_visible()
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_enabled()
 
     line["state"] = "back"
 
     expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_have_count(0)
-    expect(person.locator(".lobby.stale")).to_have_count(0)
+    expect(person.locator(".lobby-lists.stale")).to_have_count(0)
 
 
 @pytest.mark.parametrize(

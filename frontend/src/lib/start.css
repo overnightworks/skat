@@ -112,7 +112,7 @@ body {
 }
 
 /* The lobby: Meine Tische above Offene Tische, each a grid of cards as wide as the page's columns allow. */
-.lobby {
+.lobby-lists {
     --accent: var(--accent-stage, #7aa7f0);
     --columns: 1;
     --gap: 12px;
@@ -127,7 +127,7 @@ body {
     margin-top: 12px;
 }
 
-.lobby h2 {
+.lobby-lists h2 {
     margin: 8px 0 12px;
     color: color-mix(in srgb, var(--brass) 80%, transparent);
     font-size: 14px;
@@ -552,15 +552,15 @@ body {
 }
 
 @media (min-width: 900px) {
-    .lobby {
+    .lobby-lists {
         --gap: 22px;
     }
 
-    .lobby[data-columns="2"] {
+    .lobby-lists[data-columns="2"] {
         --columns: 2;
     }
 
-    .lobby[data-columns="3"] {
+    .lobby-lists[data-columns="3"] {
         --columns: 3;
     }
 
@@ -997,7 +997,7 @@ body {
 
 /* The last view stays, dimmed and still, until the line is back. */
 .room .stale,
-.lobby.stale {
+.lobby-lists.stale {
     filter: saturate(0.45) brightness(0.55);
     pointer-events: none;
 }

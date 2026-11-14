@@ -273,7 +273,7 @@
 {/snippet}
 
 {#if shown}
-    <div class="lobby" class:stale={!connected} data-columns={columns}>
+    <div class="lobby-lists" class:stale={!connected} data-columns={columns}>
         {#if mine.length > 0}
             <section class="lobby-section" aria-labelledby="my-tables-heading">
                 <h2 id="my-tables-heading">{words["lobby.myTables"]}</h2>

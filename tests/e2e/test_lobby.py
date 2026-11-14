@@ -189,7 +189,8 @@ def test_a_private_table_shows_its_lock_to_its_chair_holder_and_no_other_member_
     expect(mine.get_by_role("img", name=PRIVATE)).to_be_visible()
     expect(other.get_by_role("heading", name=OPEN_TABLES)).to_be_visible()
     expect(other.get_by_role("heading", name=title_of(owner_name))).to_have_count(0)
-    other.goto(f"{e2e_server.base_url}{path}")
+    # A navigation Playwright starts away from a page with app code is aborted by the browser coverage collector.
+    other.evaluate("address => location.assign(address)", f"{e2e_server.base_url}{path}")
     expect(other.locator(".chair")).to_have_count(3)
 
 
