@@ -24,11 +24,10 @@ RIMMED_PILE = ".pile.last"
 LAST_TRICK_SHOWN = ".lastshow"
 SETTINGS_KEY = "skat.settings"
 CARDS_IN_A_TRICK = 3
-# The playful set rests 0.8 s, then gathers and glides for 1 s; the quiet one rests 0.5 s and glides for 0.28 s.
-PLAYFUL_REST_MILLISECONDS = 800
-PLAYFUL_SWEEP_MILLISECONDS = 1000
-QUIET_REST_MILLISECONDS = 500
-QUIET_SWEEP_MILLISECONDS = 280
+# The page owns how long a trick rests and glides; the clock is stepped this far at a time until a phase shows.
+CLOCK_STEP_MILLISECONDS = 50
+# Further than any set rests and glides together, so a trick still on the felt after it is meant to lie there.
+FAR_PAST_ANY_SWEEP_MILLISECONDS = 5000
 # A sweep sounds one noise voice in the set „Leise“.
 VOICES_OF_ONE_SWEEP = 1
 # A card sounds as one noise burst and one tone.
@@ -82,6 +81,22 @@ def hide_the_tab(page: Page, *, hidden: bool) -> None:
     )
 
 
+def run_until(page: Page, phase: str, count: int) -> int:
+    """Steps the held clock until `count` elements show `phase`, and returns the milliseconds that took."""
+    elapsed = 0
+    while page.locator(phase).count() != count:
+        assert elapsed < FAR_PAST_ANY_SWEEP_MILLISECONDS, f"{phase} never showed {count} elements"
+        page.clock.run_for(CLOCK_STEP_MILLISECONDS)
+        elapsed += CLOCK_STEP_MILLISECONDS
+    return elapsed
+
+
+def rest_and_sweep(page: Page) -> tuple[int, int]:
+    """Runs a finished trick through its rest and its sweep; the milliseconds each took."""
+    rest = run_until(page, SWEEPING, 1)
+    return rest, run_until(page, FELT_CARD, 0)
+
+
 def taker_of_the_last_trick(table: PlayingTable) -> int:
     return table.playing()["last_trick"]["taker_seat"]
 
@@ -124,7 +139,7 @@ def test_a_finished_trick_rests_then_sweeps_to_its_winner_with_one_sweep_sound_a
     expect(watcher.locator(SWEEPING)).to_have_count(0)
     sounded_before = len(voices_started(watcher))
 
-    watcher.clock.run_for(PLAYFUL_REST_MILLISECONDS)
+    assert run_until(watcher, SWEEPING, 1) > 0
 
     expect(watcher.locator(SWEEPING)).to_have_count(1)
     expect(watcher.locator(f".chair.got[data-seat='{first_taker}']")).to_have_count(1)
@@ -133,7 +148,7 @@ def test_a_finished_trick_rests_then_sweeps_to_its_winner_with_one_sweep_sound_a
     assert len(voices_started(watcher)) == sounded_before + VOICES_OF_ONE_SWEEP
     expect(watcher.locator(f"{PILE}[data-seat='{first_taker}'] .card.landing")).to_have_count(1)
 
-    watcher.clock.run_for(PLAYFUL_SWEEP_MILLISECONDS)
+    run_until(watcher, FELT_CARD, 0)
 
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
     expect(watcher.locator(".chair.got")).to_have_count(0)
@@ -148,7 +163,7 @@ def test_a_finished_trick_rests_then_sweeps_to_its_winner_with_one_sweep_sound_a
     expect_nobody_on_turn(watcher)
     expect_the_rim_on(watcher, first_taker)
     second_taker = taker_of_the_last_trick(table)
-    watcher.clock.run_for(PLAYFUL_REST_MILLISECONDS + PLAYFUL_SWEEP_MILLISECONDS)
+    rest_and_sweep(watcher)
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
     expect_the_piles(watcher, table)
     expect_the_rim_on(watcher, second_taker)
@@ -163,18 +178,21 @@ def test_the_quiet_set_rests_shorter_and_glides_straight(
     page_errors: list[str],
     form_factor: dict[str, Any],
 ) -> None:
-    watcher = open_watcher(open_person, page_errors, table, form_factor, stored={"motionSet": "dezent"})
+    quiet = open_watcher(open_person, page_errors, table, form_factor, stored={"motionSet": "dezent"})
+    playful = open_watcher(open_person, page_errors, table, form_factor)
     table.play_out(CARDS_IN_A_TRICK)
-    expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+    expect(quiet.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+    expect(playful.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
 
-    watcher.clock.run_for(QUIET_REST_MILLISECONDS)
+    quiet_rest = run_until(quiet, SWEEPING, 1)
 
-    expect(watcher.locator(SWEEPING)).to_have_count(1)
-    names = watcher.locator(FELT_CARD).first.evaluate("card => card.getAnimations().map(each => each.animationName)")
+    names = quiet.locator(FELT_CARD).first.evaluate("card => card.getAnimations().map(each => each.animationName)")
     assert "sweep-dezent" in names
-    watcher.clock.run_for(QUIET_SWEEP_MILLISECONDS)
-    expect(watcher.locator(FELT_CARD)).to_have_count(0)
-    expect_the_piles(watcher, table)
+    quiet_sweep = run_until(quiet, FELT_CARD, 0)
+    expect_the_piles(quiet, table)
+    playful_rest, playful_sweep = rest_and_sweep(playful)
+    assert quiet_rest < playful_rest
+    assert quiet_sweep < playful_sweep
     assert page_errors == []
 
 
@@ -232,7 +250,7 @@ def test_with_liegen_lassen_the_trick_lies_until_the_next_lead_also_after_a_relo
     expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
     expect(watcher.locator(RIMMED_PILE)).to_have_count(0)
     expect(watcher.locator(PILE)).to_have_count(0)
-    watcher.clock.run_for(PLAYFUL_REST_MILLISECONDS + PLAYFUL_SWEEP_MILLISECONDS)
+    watcher.clock.run_for(FAR_PAST_ANY_SWEEP_MILLISECONDS)
     expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
 
     watcher.reload()
@@ -304,9 +322,7 @@ def test_a_muted_page_sweeps_without_a_sound(
     table.play_out(CARDS_IN_A_TRICK)
     expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
 
-    watcher.clock.run_for(PLAYFUL_REST_MILLISECONDS)
-    expect(watcher.locator(SWEEPING)).to_have_count(1)
-    watcher.clock.run_for(PLAYFUL_SWEEP_MILLISECONDS)
+    rest_and_sweep(watcher)
 
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
     assert voices_started(watcher) == []

@@ -240,6 +240,7 @@
             clearTimeout(wonTimer);
             clearTimeout(seatNoteTimer);
             stopWatching();
+            resetStage();
         };
     });
 
