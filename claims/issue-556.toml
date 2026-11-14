@@ -1,7 +1,0 @@
-claim_id = "23b9265bd2bf40e09bcb29c1f87e2950"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "b71e740aa53c0d6b5fd251da59b5fc84922f215f"
-branch = "claude/issue-556-s13-3b3-picture-a-first-card-kontra-tabl"
-scope = ["docs/mockups/start.html", "docs/mockups/table.html"]
-opened_commit = "59e3db1d8a185d1e1142442f6156ffcd9b7cccdd"
