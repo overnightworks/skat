@@ -267,8 +267,10 @@ class _PostgresTableTransaction:
         # A command that already holds its table's row reads the receipt's table unlocked: a lock here could cycle
         # with a command at that table. A command holding no row reads it under the shared lock.
         table = _table_record(self._connection, receipt.table_id, row_lock=None if self._holds_row else "share")
-        # The receipt's foreign key guarantees the table, which stays as a tombstone after its end.
-        assert table is not None  # noqa: S101 - narrows the type for a row the schema guarantees
+        # The forgetting sweep deletes an ended table with its receipts: a receipt read before the sweep commits can
+        # find its table gone, and a receipt that expired answers as none.
+        if table is None:
+            return None
         return Replay(
             command=receipt.command,
             payload=receipt.payload,

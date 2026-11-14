@@ -786,3 +786,20 @@ def test_a_second_forgetting_changes_nothing(service, transactions, stored, engi
     forgetting_service(transactions).forget_ended_tables(ENDED_TABLE_DAYS)
 
     assert (rows_of(engine, gameless.value), rows_of(engine, with_games.value)) == after_first
+
+
+def test_a_create_retry_that_reads_its_receipt_as_the_forgetting_deletes_the_table_makes_a_new_table(
+    service, transactions, engine
+):
+    forgotten = undealt_table(service, "one")
+    ended_at(transactions, forgotten)
+
+    with transactions.begin() as forgetting:
+        forgetting.forget_ended_before(FORGOTTEN_AT)
+        retry = WorkInAThread(lambda: service.create(OPENER, CreateTable(command_id="open-one")))
+        retry.start()
+        wait_until_a_session_waits_for_a_lock(engine, retry)
+
+    retry.join()
+    assert retry.outcome[0].id != forgotten.value
+    assert not any(rows_of(engine, forgotten.value).values())
