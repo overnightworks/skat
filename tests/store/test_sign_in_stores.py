@@ -97,6 +97,12 @@ class TestASignInEntry:
 
         assert (count(engine, accounts), count(engine, sessions)) == (0, 0)
 
+    def test_whose_session_write_fails_keeps_the_tokens_out_of_the_error_text(self, stores):
+        with pytest.raises(Exception, match="NUL") as failure:  # noqa: PT011 - the driver's own error type is the subject
+            sign_in(stores, refresh_token="secret-refresh-token\x00")
+
+        assert "secret-refresh-token" not in str(failure.value)
+
     def test_reports_its_events_in_order_when_it_ends_cleanly(self, stores, audit):
         sign_in(stores)
 

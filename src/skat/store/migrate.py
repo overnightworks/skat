@@ -71,9 +71,12 @@ class DatabaseHealth:
 
 
 def create_store_engine(database_url: str) -> Engine:
-    """An engine on psycopg 3, whichever Postgres scheme the URL names."""
+    """An engine on psycopg 3, whichever Postgres scheme the URL names. Statement parameters stay out of error text,
+    because a failed write of a session carries its tokens as parameters.
+    """
     return create_engine(
         make_url(database_url).set(drivername=POSTGRES_DRIVER),
+        hide_parameters=True,
         pool_pre_ping=True,
         connect_args={"connect_timeout": STORE_CONNECT_TIMEOUT_SECONDS},
     )
