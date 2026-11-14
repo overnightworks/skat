@@ -67,9 +67,9 @@ class TestTheDeclarerCouldTakeNoFurtherTrick:
         plays_open(herz_hand, FOREHAND)
 
         result = herz_hand.result()
-        assert result["declarer_points"] + result["opponents_points"] == 120
+        assert (result["won"], result["declarer_points"], result["opponents_points"]) == (True, 70, 50)
         (entry,) = herz_hand.record.game_list
-        assert entry.declarer_points == result["declarer_points"]
+        assert (entry.declarer_points, entry.won) == (70, True)
 
     def test_a_retry_with_the_same_id_and_version_ends_the_game_once(self, herz_hand):
         herz_hand.played_out(NINE_TRICKS)
