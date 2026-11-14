@@ -1,7 +1,9 @@
+import json
 import logging
 import secrets
 
 import pytest
+import structlog
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy import inspect, text
@@ -11,6 +13,7 @@ from skat.host.main import create_database_engine, main, uvicorn_options
 from skat.store import migrate as migrate_module
 from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine, migrate
 from skat.store.rule_sets import PostgresRuleSets
+from skat.web.constants import LOGIN_PATH
 from skat.web.secret_files import StartRefusedError
 from skat.web.settings import DatabaseSettings
 from tests.e2e.support.server import SERVER_STOP_TIMEOUT_SECONDS
@@ -32,6 +35,23 @@ class ServerRecorder:
 def every_health_ask_probes_and_awaits_it(monkeypatch):
     monkeypatch.setattr(migrate_module, "READINESS_REUSE_SECONDS", 0)
     monkeypatch.setattr(migrate_module, "READINESS_PATIENCE_SECONDS", 60)
+
+
+@pytest.fixture
+def logging_left_as_found():
+    """Gives back structlog's and the standard library's configuration that `main` replaces."""
+    names = ["", "logline.request", "httpx", "httpx2", "httpcore", "uvicorn", "uvicorn.error", "uvicorn.access"]
+    found = [(logging.getLogger(name), logging.getLogger(name).level) for name in names]
+    handlers = {logger: list(logger.handlers) for logger, _ in found}
+    filters = {logger: list(logger.filters) for logger, _ in found}
+    propagation = {logger: logger.propagate for logger, _ in found}
+    yield
+    structlog.reset_defaults()
+    for logger, level in found:
+        logger.handlers[:] = handlers[logger]
+        logger.filters[:] = filters[logger]
+        logger.propagate = propagation[logger]
+        logger.setLevel(level)
 
 
 @pytest.fixture
@@ -60,6 +80,17 @@ class TestMain:
         configured_environment(database_url, host="127.0.0.1", port=9090)
         main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
         assert [(run["host"], run["port"]) for run in server.runs] == [("127.0.0.1", 9090)]
+
+    def test_writes_each_request_of_the_served_app_as_one_json_line_of_the_skat_service(
+        self, server, configured_environment, database_url, logging_left_as_found, capsys
+    ):
+        configured_environment(database_url)
+        main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
+
+        TestClient(server.runs[0]["app"]).get(LOGIN_PATH)
+
+        lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+        assert [(line["service"], line["status"]) for line in lines if line["event"] == "request"] == [("skat", 200)]
 
     def test_refuses_to_start_without_the_page_build_and_names_the_build_command(
         self, server, configured_environment, database_url, tmp_path
