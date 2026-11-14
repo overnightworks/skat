@@ -8,6 +8,7 @@ from skat.engine.declaration import Announcement, Declaration, Declare
 from skat.engine.games import GameKind
 from skat.engine.tricks import CardPlayed, play_card
 from skat.engine.value import Matadors
+from skat.table.game_cards import GameCards, SeatedCard
 from skat.table.game_list import GameEnding, ListEntry, RamschEntry
 from skat.table.hand_state import playing_of
 from skat.table.records import (
@@ -174,3 +175,15 @@ def with_agents(record: TableRecord, *seats: int, owner_account: str | None = No
         for chair in record.chairs
     )
     return replace(record, chairs=chairs)
+
+
+def a_game_cards() -> GameCards:
+    """The cards of a played-out game on the deck as dealt to seats 1 to 3: seat 1 put the skat away, and each trick
+    is led by seat 1 and holds the next card of each hand.
+    """
+    hands = (DECK[0:10], DECK[10:20], DECK[20:30])
+    skat = DECK[30:32]
+    tricks = tuple(
+        tuple(SeatedCard(seat, hand[number]) for seat, hand in enumerate(hands, start=1)) for number in range(10)
+    )
+    return GameCards(hands=hands, skat=skat, put_away=tuple(SeatedCard(1, card) for card in skat), tricks=tricks)

@@ -14,7 +14,9 @@ from skat.engine.declaration import Announcement, Declaration, Declare
 from skat.engine.games import GameKind
 from skat.engine.kontra import KontraReach
 from skat.engine.play import legal_cards
+from skat.engine.tricks import CardPlayed
 from skat.engine.value import Matadors
+from skat.store.game_list import read_game_cards
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
@@ -25,6 +27,7 @@ from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import Actor, CreateTable, SitDown
 from skat.table.service import TableService
+from tests.support.played_game import a_game_cards
 
 pytestmark = pytest.mark.postgres
 
@@ -298,6 +301,81 @@ class TestTheThirtiethCard:
             restarted_engine.dispose()
 
         assert restarted == ended.record
+
+
+def stored_cards(engine, table_id, number=1):
+    with engine.connect() as connection:
+        return read_game_cards(connection, table_id, number)
+
+
+class TestTheCardsOfTheGame:
+    def test_the_thirtieth_card_stores_every_card_of_the_game_with_its_entry(self, game, last, engine):
+        position, card, version = last
+        plays = (*game.record.progress.plays, CardPlayed(position, card))
+        seats = {each: SEATED.index(actor) + 1 for each, actor in game.actors.items()}
+        game.play(position, card, LAST_CARD, version)
+
+        cards = stored_cards(engine, game.table_id)
+
+        assert [(each.seat, each.card) for trick in cards.tricks for each in trick] == [
+            (seats[play.position], play.card) for play in plays
+        ]
+        assert [len(hand) for hand in cards.hands] == [10, 10, 10]
+        assert (len(cards.skat), cards.put_away) == (2, ())
+
+    def test_a_restart_reads_the_same_cards(self, ended, database_url, engine):
+        restarted_engine = create_store_engine(database_url)
+        try:
+            restarted = stored_cards(restarted_engine, ended.table_id)
+        finally:
+            restarted_engine.dispose()
+
+        assert restarted == stored_cards(engine, ended.table_id)
+
+    def test_the_cards_are_written_in_the_transaction_of_the_entry(self, game, last, engine):
+        position, card, version = last
+        before = game.record
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "CREATE FUNCTION refuse_card_rows() RETURNS trigger LANGUAGE plpgsql"
+                    " AS $$ BEGIN RAISE EXCEPTION 'the cards refuse this row'; END $$"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE TRIGGER refuse_card_rows BEFORE INSERT ON game_cards"
+                    " FOR EACH ROW EXECUTE FUNCTION refuse_card_rows()"
+                )
+            )
+
+        with pytest.raises(DBAPIError):
+            game.play(position, card, LAST_CARD, version)
+
+        assert game.record == before
+        assert len(stored_list_rows(engine, game.table_id)) == 0
+
+    @pytest.mark.parametrize(
+        ("second", "cards"),
+        [
+            pytest.param(replace(END_OVER, cards=a_game_cards()), a_game_cards(), id="an-entry-with-cards"),
+            pytest.param(END_OVER, None, id="an-entry-without-cards"),
+        ],
+    )
+    def test_a_second_entry_stores_the_cards_it_carries_and_no_others(self, ended, transactions, engine, second, cards):
+        record = ended.record
+        first = record.game_list[0]
+
+        with transactions.begin() as transaction:
+            transaction.save_table(
+                replace(record, version=record.version + 1, game_list=(first, second)), played_at=None
+            )
+
+        assert ended.record.game_list == (first, second)
+        assert stored_cards(engine, ended.table_id, 2) == cards
+
+    def test_a_number_outside_the_list_has_no_cards(self, ended, engine):
+        assert stored_cards(engine, ended.table_id, 7) is None
 
 
 class TestTheList:
