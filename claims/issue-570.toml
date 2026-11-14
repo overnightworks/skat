@@ -1,8 +1,0 @@
-claim_id = "8bc3607151ea4e3d9eac0bb3c80f770d"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "d5e856c770c53e6ba3afd66c5a4f4505d5be387b"
-branch = "claude/issue-570-a-card-is-played-by-swiping-or-dragging"
-scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/catalogs/en.po", "frontend/src/lib/playView.test.ts", "frontend/src/lib/playView.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui/OwnHand.svelte", "frontend/src/lib/ui/PlayControls.svelte", "frontend/src/lib/words", "src/skat/web/words.py", "tests/e2e/test_table_playing.py"]
-opened_commit = "6e12acd8e596d74070f302ea1f7233a34138d58a"
-whole_reason = "One gesture on the own hand: the drag, its threshold, the arrow and the tap path that stays are judged together in one drive."
