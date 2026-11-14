@@ -9,6 +9,7 @@ import type {
     Declaring,
     GiveUp,
     Kontra,
+    LastTrick,
     Playing,
     Position,
     SeatedCard,
@@ -166,6 +167,7 @@ describe("the cards laid between two versions of a table", () => {
             }),
             next: table(4, [9, 9, 9], { current: [], last: FIRST_TRICK_LAST }),
             laid: [{ seat: REARHAND, card: KREUZ_ACE }],
+            completes: FIRST_TRICK_LAST,
         },
         {
             name: "the completing card and then the lead are laid, in that order, when both arrive together",
@@ -183,13 +185,16 @@ describe("the cards laid between two versions of a table", () => {
                 { seat: REARHAND, card: KREUZ_ACE },
                 { seat: MIDDLEHAND, card: PIK_TEN },
             ],
+            completes: { ...FIRST_TRICK_LAST, taker_seat: MIDDLEHAND },
         },
-    ] satisfies { name: string; previous: Table; next: Table; laid: SeatedCard[] }[])(
+    ] satisfies { name: string; previous: Table; next: Table; laid: SeatedCard[]; completes?: LastTrick }[])(
         "$name",
-        ({ previous, next, laid }) => {
-            expect(cuesBetween(previous, next)).toEqual(
-                laid.map(({ seat, card }) => ({ kind: "card-played", seat, card })),
-            );
+        ({ previous, next, laid, completes }) => {
+            const played = laid.map(({ seat, card }): Cue => ({ kind: "card-played", seat, card }));
+            const taken: Cue[] = completes === undefined ? [] : [{ kind: "trick-taken", trick: completes }];
+
+            // The finished trick is named right after the card that finished it, before any lead.
+            expect(cuesBetween(previous, next)).toEqual([...played.slice(0, 1), ...taken, ...played.slice(1)]);
         },
     );
 

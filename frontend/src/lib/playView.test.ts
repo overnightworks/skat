@@ -6,12 +6,16 @@ import {
     dragVerdict,
     gameInPlay,
     ownCardSlotOpen,
+    pileOf,
+    playedCards,
     sideNames,
+    trickInPile,
     trickOnTheFelt,
     type PlayingHand,
 } from "#lib/playView.ts";
+import { SETTLED, type StageState } from "#lib/stage.ts";
 import { words } from "#lib/words.ts";
-import type { Auction, Card, Chair, Playing, Position, Table } from "../routes/(start)/tables.ts";
+import type { Auction, Card, Chair, LastTrick, Playing, Position, Table } from "../routes/(start)/tables.ts";
 
 const KARO_SEVEN: Card = { suit: "karo", rank: "seven" };
 const KARO_ACE: Card = { suit: "karo", rank: "ace" };
@@ -114,7 +118,7 @@ describe("the trick on the felt", () => {
         { viewer: 1, slots: { 1: "near", 2: "left" } },
         { viewer: WATCHER, slots: { 1: "left", 2: "right" } },
     ])("lays each card at its player's side as viewer $viewer sees the chairs", ({ viewer, slots }) => {
-        const laid = trickOnTheFelt(chairs(viewer), twoCards);
+        const laid = trickOnTheFelt(chairs(viewer), twoCards, SETTLED, "sweep");
 
         expect(laid.map(({ seat, slot }) => [seat, slot])).toEqual([
             [1, slots[1]],
@@ -123,7 +127,9 @@ describe("the trick on the felt", () => {
     });
 
     it("tags each card with its player's name", () => {
-        expect(trickOnTheFelt(chairs(WATCHER), twoCards).map(({ name, card }) => [name, card])).toEqual([
+        expect(
+            trickOnTheFelt(chairs(WATCHER), twoCards, SETTLED, "sweep").map(({ name, card }) => [name, card]),
+        ).toEqual([
             ["player 1", KARO_SEVEN],
             ["player 2", KARO_ACE],
         ]);
@@ -139,13 +145,13 @@ describe("the trick on the felt", () => {
             seats: [3, 1, 2],
         },
     ])(
-        "keeps the last trick in turn from its leader, seat $leader, until the next card is led",
+        "keeps the last trick in turn from its leader, seat $leader, until the next card is led, as „liegen lassen“ asks",
         ({ leader, positions, seats }) => {
             const last = playing({
                 last_trick: { cards: [KARO_SEVEN, KARO_ACE, HERZ_TEN], leader_seat: leader, taker_seat: leader },
             });
 
-            const laid = trickOnTheFelt(chairs(WATCHER, positions), last);
+            const laid = trickOnTheFelt(chairs(WATCHER, positions), last, SETTLED, "stay");
 
             expect(laid.map(({ seat, card }) => [seat, card])).toEqual([
                 [seats[0], KARO_SEVEN],
@@ -161,7 +167,7 @@ describe("the trick on the felt", () => {
             last_trick: { cards: [KARO_SEVEN, KARO_ACE, { suit: "karo", rank: "ten" }], leader_seat: 1, taker_seat: 3 },
         });
 
-        expect(trickOnTheFelt(chairs(WATCHER), next).map(({ card }) => card)).toEqual([HERZ_TEN]);
+        expect(trickOnTheFelt(chairs(WATCHER), next, SETTLED, "sweep").map(({ card }) => card)).toEqual([HERZ_TEN]);
     });
 
     it.each([
@@ -174,23 +180,25 @@ describe("the trick on the felt", () => {
         const cards = current.map((seat) => ({ seat, card: KARO_SEVEN }));
         const view = playing({ turn_seat: turn, current_trick: cards });
 
-        expect(ownCardSlotOpen(chairs(viewer), trickOnTheFelt(chairs(viewer), view), turn)).toBe(open);
+        expect(ownCardSlotOpen(chairs(viewer), trickOnTheFelt(chairs(viewer), view, SETTLED, "sweep"), turn)).toBe(
+            open,
+        );
     });
 
     it("keeps the viewer's slot shut while the turn is held back", () => {
         const view = playing({ turn_seat: 2 });
 
-        expect(ownCardSlotOpen(chairs(2), trickOnTheFelt(chairs(2), view), undefined)).toBe(false);
+        expect(ownCardSlotOpen(chairs(2), trickOnTheFelt(chairs(2), view, SETTLED, "sweep"), undefined)).toBe(false);
     });
 
     it("lays nothing before the first card", () => {
-        expect(trickOnTheFelt(chairs(WATCHER), playing({}))).toEqual([]);
+        expect(trickOnTheFelt(chairs(WATCHER), playing({}), SETTLED, "sweep")).toEqual([]);
     });
 
     it("tags the viewer's own card „Du“ and keeps the initial of the account name", () => {
         const named = chairs(2).map((chair) => (chair.is_mine ? { ...chair, occupant_name: "Felix" } : chair));
 
-        expect(trickOnTheFelt(named, twoCards).map(({ name, initial }) => [name, initial])).toEqual([
+        expect(trickOnTheFelt(named, twoCards, SETTLED, "sweep").map(({ name, initial }) => [name, initial])).toEqual([
             ["player 1", "p"],
             [words["play.sideYou"], "F"],
         ]);
@@ -199,7 +207,151 @@ describe("the trick on the felt", () => {
     it("tags a card with an empty name when its chair has none", () => {
         const empty = chairs(WATCHER).map((chair) => ({ ...chair, occupant_name: null }));
 
-        expect(trickOnTheFelt(empty, twoCards).map(({ name }) => name)).toEqual(["", ""]);
+        expect(trickOnTheFelt(empty, twoCards, SETTLED, "sweep").map(({ name }) => name)).toEqual(["", ""]);
+    });
+});
+
+const FINISHED: LastTrick = { cards: [KARO_SEVEN, KARO_ACE, HERZ_TEN], leader_seat: 1, taker_seat: 3 };
+const EARLIER: LastTrick = { cards: [KARO_SEVEN, KARO_ACE, HERZ_TEN], leader_seat: 2, taker_seat: 1 };
+
+function onTheMove(phase: StageState["phase"], before: Playing | null = null): StageState {
+    return { phase, until: 0, trick: FINISHED, before, glideMilliseconds: 750 };
+}
+
+describe("the finished trick on the felt", () => {
+    const lead = { seat: 3, card: { suit: "pik", rank: "nine" } satisfies Card };
+
+    it("lies on the felt while the stage holds it, whatever the received table already shows", () => {
+        const received = playing({ last_trick: FINISHED, current_trick: [lead] });
+
+        const laid = trickOnTheFelt(chairs(WATCHER), received, onTheMove("resting"), "sweep");
+
+        expect(laid.map(({ card }) => card)).toEqual(FINISHED.cards);
+    });
+
+    it("lies on the felt while the stage sweeps it", () => {
+        const laid = trickOnTheFelt(chairs(WATCHER), playing({ last_trick: FINISHED }), onTheMove("gliding"), "sweep");
+
+        expect(laid).toHaveLength(FINISHED.cards.length);
+    });
+
+    it("is gone from the felt once swept, until the next lead", () => {
+        const received = playing({ last_trick: FINISHED });
+
+        expect(trickOnTheFelt(chairs(WATCHER), received, SETTLED, "sweep")).toEqual([]);
+    });
+
+    it("stays after the settled stage with „liegen lassen“ and gives way to the next lead", () => {
+        const lying = trickOnTheFelt(chairs(WATCHER), playing({ last_trick: FINISHED }), SETTLED, "stay");
+        const next = playing({ last_trick: FINISHED, current_trick: [lead] });
+
+        expect(lying).toHaveLength(FINISHED.cards.length);
+        expect(trickOnTheFelt(chairs(WATCHER), next, SETTLED, "stay").map(({ card }) => card)).toEqual([lead.card]);
+    });
+
+    it("is read in the order it was played, each card with its player's name", () => {
+        expect(playedCards(chairs(WATCHER), FINISHED).map(({ seat, name }) => [seat, name])).toEqual([
+            [1, "player 1"],
+            [2, "player 2"],
+            [3, "player 3"],
+        ]);
+    });
+});
+
+describe("the piles of taken tricks", () => {
+    const received = playing({
+        last_trick: FINISHED,
+        taken: [
+            { seat: 1, tricks: 1 },
+            { seat: 2, tricks: 0 },
+            { seat: 3, tricks: 2 },
+        ],
+    });
+    const before = playing({ last_trick: EARLIER, taken: [{ seat: 1, tricks: 1 }] });
+
+    it.each([
+        {
+            name: "a pile that took nothing is empty",
+            seat: 2,
+            stage: SETTLED,
+            mode: "sweep" as const,
+            pile: { tricks: 0, rimmed: false, landing: false },
+        },
+        {
+            name: "the pile of the last trick wears the rim once the trick is swept",
+            seat: 3,
+            stage: SETTLED,
+            mode: "sweep" as const,
+            pile: { tricks: 2, rimmed: true, landing: false },
+        },
+        {
+            name: "another pile wears none",
+            seat: 1,
+            stage: SETTLED,
+            mode: "sweep" as const,
+            pile: { tricks: 1, rimmed: false, landing: false },
+        },
+        {
+            name: "the taker's pile leaves the resting trick out",
+            seat: 3,
+            stage: onTheMove("resting", before),
+            mode: "sweep" as const,
+            pile: { tricks: 1, rimmed: false, landing: false },
+        },
+        {
+            name: "the rim stays on the earlier last trick while the trick rests",
+            seat: 1,
+            stage: onTheMove("resting", before),
+            mode: "sweep" as const,
+            pile: { tricks: 1, rimmed: true, landing: false },
+        },
+        {
+            name: "no rim stands while the first trick rests",
+            seat: 1,
+            stage: onTheMove("resting"),
+            mode: "sweep" as const,
+            pile: { tricks: 1, rimmed: false, landing: false },
+        },
+        {
+            name: "the taker's pile counts the gliding trick as its landing top",
+            seat: 3,
+            stage: onTheMove("gliding", before),
+            mode: "sweep" as const,
+            pile: { tricks: 2, rimmed: true, landing: true },
+        },
+        {
+            name: "the earlier pile loses the rim as the trick glides",
+            seat: 1,
+            stage: onTheMove("gliding", before),
+            mode: "sweep" as const,
+            pile: { tricks: 1, rimmed: false, landing: false },
+        },
+        {
+            name: "with „liegen lassen“ the trick on the felt is left out of its pile",
+            seat: 3,
+            stage: SETTLED,
+            mode: "stay" as const,
+            pile: { tricks: 1, rimmed: false, landing: false },
+        },
+        {
+            name: "with „liegen lassen“ no pile wears the rim while the trick lies",
+            seat: 1,
+            stage: onTheMove("resting", before),
+            mode: "stay" as const,
+            pile: { tricks: 1, rimmed: false, landing: false },
+        },
+    ])("$name", ({ seat, stage, mode, pile }) => {
+        expect(pileOf(seat, received, stage, mode)).toEqual(pile);
+    });
+
+    it("gives the rim back to the pile of the last trick once the next lead clears the felt", () => {
+        const led = playing({ ...received, current_trick: [{ seat: 3, card: KARO_SEVEN }] });
+
+        expect(pileOf(3, led, SETTLED, "stay")).toEqual({ tricks: 2, rimmed: true, landing: false });
+    });
+
+    it("has no last trick in a pile before the first trick is taken", () => {
+        expect(trickInPile(playing({}), SETTLED, "sweep")).toBeNull();
     });
 });
 

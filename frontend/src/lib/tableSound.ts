@@ -65,6 +65,7 @@ const LANDS_AFTER: Record<Cue["kind"], (motion: MotionSet) => number> = {
     "bid-said": (motion) => motion.bidSpringsSeconds,
     "word-said": (motion) => motion.stampLandsSeconds,
     "auction-ended": () => 0,
+    "trick-taken": () => 0,
     "give-up-refused": () => 0,
 };
 

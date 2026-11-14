@@ -1,4 +1,5 @@
 import { POSITION_TOKENS } from "#lib/wire.ts";
+import type { LastTrickMode, StageState } from "#lib/stage.ts";
 import { words } from "#lib/words.ts";
 import {
     drawingOrder,
@@ -45,10 +46,14 @@ function lastTrickBySeat(chairs: readonly Chair[], last: LastTrick): SeatedCard[
     return last.cards.map((card, index) => ({ seat: seats[index] as number, card }));
 }
 
-// The trick in progress, or the last one until the next card is led, each card at its player's side.
-export function trickOnTheFelt(chairs: Chair[], playing: Playing): LaidCard[] {
-    const { current_trick: current, last_trick: last } = playing;
-    const trick = current.length > 0 || last === null ? current : lastTrickBySeat(chairs, last);
+// The finished trick that lies on the felt: the one the stage holds or sweeps, or with „liegen lassen“ the last one
+// until the next card is led, which a reload shows too.
+function finishedTrickOnTheFelt(playing: Playing, stage: StageState, mode: LastTrickMode): LastTrick | null {
+    if (stage.trick !== null) return stage.trick;
+    return mode === "stay" && playing.current_trick.length === 0 ? playing.last_trick : null;
+}
+
+function laidCards(chairs: Chair[], trick: readonly SeatedCard[]): LaidCard[] {
     const order = drawingOrder(chairs);
     return trick.map(({ seat, card }) => {
         const place = order.findIndex((chair) => chair.seat === seat);
@@ -62,6 +67,43 @@ export function trickOnTheFelt(chairs: Chair[], playing: Playing): LaidCard[] {
             initial: accountName.slice(0, 1),
         };
     });
+}
+
+// The trick in progress, or the finished one while the stage moves it or the player lets it lie; each card at its
+// player's side.
+export function trickOnTheFelt(chairs: Chair[], playing: Playing, stage: StageState, mode: LastTrickMode): LaidCard[] {
+    const finished = finishedTrickOnTheFelt(playing, stage, mode);
+    return laidCards(chairs, finished === null ? playing.current_trick : lastTrickBySeat(chairs, finished));
+}
+
+// The trick the brass rim stands for, which is the one a tap on its pile shows: the last one that lies in a pile.
+// While a finished trick still lies on the felt it is not yet in a pile, so the rim stays on the one before it, and
+// with „liegen lassen“ on none.
+export function trickInPile(playing: Playing, stage: StageState, mode: LastTrickMode): LastTrick | null {
+    const finished = finishedTrickOnTheFelt(playing, stage, mode);
+    if (finished === null) return playing.last_trick;
+    if (stage.phase === "gliding") return finished;
+    return mode === "sweep" ? (stage.before?.last_trick ?? null) : null;
+}
+
+/** The tricks a seat has taken that lie in its pile, whether the pile holds the last trick, and whether its top card is landing. */
+export type Pile = { tricks: number; rimmed: boolean; landing: boolean };
+
+// A pile counts the tricks taken but the one that still lies on the felt; the one that glides onto it lands as its top card.
+export function pileOf(seat: number, playing: Playing, stage: StageState, mode: LastTrickMode): Pile {
+    const finished = finishedTrickOnTheFelt(playing, stage, mode);
+    const gliding = stage.phase === "gliding";
+    const taken = playing.taken.find((each) => each.seat === seat)?.tricks ?? 0;
+    return {
+        tricks: taken - (finished?.taker_seat === seat && !gliding ? 1 : 0),
+        rimmed: trickInPile(playing, stage, mode)?.taker_seat === seat,
+        landing: gliding && finished?.taker_seat === seat,
+    };
+}
+
+/** The cards of a trick in the order they were played, each with its player's name. */
+export function playedCards(chairs: Chair[], trick: LastTrick): LaidCard[] {
+    return laidCards(chairs, lastTrickBySeat(chairs, trick));
 }
 
 // The viewer's dashed slot on the felt, where their card will lie: it is their turn and the near place holds no card.
