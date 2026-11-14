@@ -8,6 +8,7 @@ from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.mcp import (
     AUCTION_PASS_TOOL,
+    CONTINUE_AFTER_RESULT_TOOL,
     RAMSCH_DECLARE_GRAND_HAND_TOOL,
     RAMSCH_PUSH_SKAT_TOOL,
 )
@@ -15,6 +16,7 @@ from skat.web.pushing import TABLE_PUSHING_PUSH_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in_text, with_known_deal
 from tests.web.support.playing import (
+    DECLARER_SEAT,
     FOREHAND,
     HERZ_GAME,
     JUNGFRAU_DEAL,
@@ -33,7 +35,7 @@ from tests.web.support.playing import (
 )
 from tests.web.support.ramsch_stage import accepted, play_stage, stage_table
 from tests.web.support.series import deal_next, headers_of, tap_new_series, tap_weiter
-from tests.web.support.skat import Skat
+from tests.web.support.skat import AgentTable, Skat
 
 
 @pytest.fixture
@@ -91,11 +93,24 @@ def list_rows(table):
     return answer.json()["entries"]
 
 
-def next_hand(table):
-    """Everyone taps „Weiter“ after the game, then the next hand is dealt: PLAIN_DEAL, which all three pass."""
+def next_hand(table, agent=None):
+    """Everyone taps „Weiter“ after the game, then the next hand is dealt: PLAIN_DEAL, which all three pass.
+
+    The `agent`, who holds the middlehand's seat, taps through its tool.
+    """
     skat, people = table.skat, headers_of(table)
     games = len(table.record.game_list)
     for chair in table.record.chairs:
+        if agent is not None and chair.seat == DECLARER_SEAT:
+            tapped = agent.call(
+                CONTINUE_AFTER_RESULT_TOOL,
+                table_id=table.table_id,
+                command_id=table.fresh_id(),
+                ordinal=games,
+                series=1,
+            )
+            assert not tapped.is_error, tapped.text
+            continue
         answer = tap_weiter(skat, people[chair.seat - 1], table.table_id, f"weiter-{games}-{chair.seat}", games)
         assert answer.status_code == 200, answer.text
     assert deal_next(skat, table.table_id, [chair.occupant.account_id for chair in table.record.chairs])
@@ -327,20 +342,6 @@ class TestAHandDealtInARamschRound:
         assert (read(table)["result"]["bock_factor"], table.record.bock) == (1, BockRounds(()))
 
     @pytest.mark.parametrize("occasion", ROUND_OCCASIONS)
-    def test_follows_game_after_game_until_the_ramsch_round_is_used_up_and_then_runs_an_auction(self, skat, occasion):
-        table = ramsch_table(skat, "re", occasion=occasion, ramsch_games=2)
-        table.played_out(PLAIN_HAND)
-        next_hand(table)
-        second = hand_of(table)["ramsch"]
-        table.played_out(PLAIN_HAND)
-        next_hand(table)
-
-        after_the_round = hand_of(table)
-
-        assert (second, after_the_round["ramsch"], after_the_round["auction"]["awaiting"]) == (True, False, "bid")
-        assert table.record.bock == BockRounds(())
-
-    @pytest.mark.parametrize("occasion", ROUND_OCCASIONS)
     def test_waits_for_the_bock_games_pending_which_are_dealt_with_their_auction(self, skat, occasion):
         table = ramsch_table(skat, "re", occasion=occasion, pending=(2,), ramsch_games=3)
 
@@ -349,38 +350,55 @@ class TestAHandDealtInARamschRound:
         assert (answer["ramsch"], answer["auction"]["awaiting"]) == (False, "bid")
 
 
-class TestABockRoundThatEnds:
+def bock_game_then_ramsch_round(table, *, play, hand_of, next_hand):
+    """The Bock round's last game, declared after its auction, then the hands dealt up to the first with an auction.
+
+    Returns the pending rounds after each game and, of each hand dealt, whether it is a Ramsch and what it awaits.
+    """
+    table.declared_hand_game()
+    play(HERZ_GAME)
+    pending = [table.record.bock]
+    dealt = []
+    for _ in range(4):
+        next_hand()
+        hand = hand_of()
+        dealt.append((hand["ramsch"], hand["auction"]["awaiting"]))
+        if hand["ramsch"]:
+            play(PLAIN_HAND)
+            pending.append(table.record.bock)
+    return pending, dealt
+
+
+THREE_RAMSCH_GAMES_THEN_AN_AUCTION = (
+    [BockRounds((), 3), BockRounds((), 2), BockRounds((), 1), BockRounds(())],
+    [(True, None), (True, None), (True, None), (False, "bid")],
+)
+
+
+class TestTheRamschRoundAfterABockRound:
     @pytest.mark.parametrize("occasion", ROUND_OCCASIONS)
-    @pytest.mark.parametrize(
-        ("pending", "ramsch_games", "expected"),
-        [
-            pytest.param((3,), 0, BockRounds((2,), 0), id="a-game-before-the-end-adds-none"),
-            pytest.param((1,), 0, BockRounds((), 3), id="its-last-game-adds-three-ramsch-round-games"),
-            pytest.param((1,), 2, BockRounds((), 5), id="and-three-to-those-still-pending"),
-        ],
-    )
-    def test_its_bock_game_keeps_its_auction_and_the_round_adds_three_ramsch_games_after_its_last(
-        self, skat, occasion, pending, ramsch_games, expected
-    ):
-        table = ramsch_table(skat, "re", occasion=occasion, deal=None, pending=pending, ramsch_games=ramsch_games)
-        table.declared_hand_game()
-        table.played_out(HERZ_GAME)
+    def test_the_three_games_after_the_last_bock_game_are_ramsch_games_and_an_auction_follows(self, skat, occasion):
+        table = ramsch_table(skat, "re", occasion=occasion, deal=None, pending=(1,))
 
-        assert (read(table)["result"]["bock_factor"], table.record.bock) == (2, expected)
+        played = bock_game_then_ramsch_round(
+            table, play=table.played_out, hand_of=lambda: hand_of(table), next_hand=lambda: next_hand(table)
+        )
 
-    def test_the_third_pass_of_a_table_with_both_that_plays_the_last_bock_game_as_a_ramsch_adds_three_too(self, skat):
-        table = ramsch_table(skat, "re", occasion="passed-in-and-bock-rounds", pending=(1,))
+        assert played == THREE_RAMSCH_GAMES_THEN_AN_AUCTION
 
-        played_ramsch(table)
+    @pytest.mark.parametrize("occasion", ROUND_OCCASIONS)
+    def test_an_agent_reads_and_plays_them_through_mcp_and_continues_after_each_result(self, skat, agent, occasion):
+        table = AgentTable(skat, agent, MIDDLEHAND, options_of("re", occasion=occasion))
+        with_pending(table, 1)
 
-        assert (read(table)["result"]["bock_factor"], table.record.bock) == (2, BockRounds((), 3))
+        played = bock_game_then_ramsch_round(
+            table,
+            play=lambda game: agent_plays(agent, table, game),
+            hand_of=lambda: agent.read(table.table_id).json()["hand"],
+            next_hand=lambda: next_hand(table, agent),
+        )
 
-    def test_a_table_with_the_third_pass_alone_adds_none(self, skat):
-        table = ramsch_table(skat, "re", occasion="passed-in", deal=None, pending=(1,))
-        table.declared_hand_game()
-        table.played_out(HERZ_GAME)
-
-        assert table.record.bock == BockRounds(())
+        assert played == THREE_RAMSCH_GAMES_THEN_AN_AUCTION
 
 
 class TestAHandOutsideARamschRound:
@@ -464,33 +482,23 @@ class TestPushingAndAGrandHandInARamschRound:
         assert (hand_of(table)["ramsch"], hand_of(table)["auction"]["awaiting"]) == (False, "bid")
 
 
-class AgentRoundTable(Table):
-    """The agent opens a table of Ramsch rounds and holds seat 1, the middlehand; two people sit at seats 2 and 3, and
-    the hand is dealt as a Ramsch-round game with `ramsch_games` of them pending.
+def agent_round_table(skat, agent, occasion, *, pushing=None, ramsch_games=2):
+    """The agent holds the middlehand's seat at a table of Ramsch rounds, dealt as a Ramsch-round game with
+    `ramsch_games` of them pending.
     """
-
-    def __init__(self, skat, agent, occasion, *, pushing=None, ramsch_games=2):
-        self.skat = skat
-        self._commands = iter(range(1, 1000))
-        agent_headers = agent.admitted()
-        options = options_of("re", occasion=occasion)
-        if pushing is not None:
-            options["ramsch"]["pushing"] = pushing
-        self.table_id = agent.open_table(options=options).json()["id"]
-        people = [skat.member() for _ in range(3)]
-        for seat, (headers, _) in zip((2, 3), people[:2], strict=True):
-            skat.sit(headers, self.table_id, seat, command_id=f"command-sit-{seat}")
-        with_known_deal(skat, self.table_id)
-        self.with_deal(PLAIN_DEAL)
-        with_pending(self, ramsch_games=ramsch_games)
-        self.at = {MIDDLEHAND: agent_headers, REARHAND: people[0][0], FOREHAND: people[1][0]}
-        self.watcher = people[2][0]
+    options = options_of("re", occasion=occasion)
+    if pushing is not None:
+        options["ramsch"]["pushing"] = pushing
+    table = AgentTable(skat, agent, MIDDLEHAND, options)
+    table.with_deal(PLAIN_DEAL)
+    with_pending(table, ramsch_games=ramsch_games)
+    return table
 
 
 def agent_plays(agent, table, hand=PLAIN_HAND):
-    for number, played in enumerate(hand, 1):
+    for played in hand:
         if table.holder_of(played) is MIDDLEHAND:
-            assert not agent.play(table, played, command_id=f"agent-card-{number:02d}").is_error
+            assert not agent.play(table, played, command_id=table.fresh_id()).is_error
         else:
             table.accepted(played)
 
@@ -516,7 +524,7 @@ class TestAnAgentAtATableOfRamschRounds:
     def test_plays_a_hand_dealt_as_a_ramsch_round_with_no_auction_and_uses_a_ramsch_round_game_up(
         self, skat, agent, occasion
     ):
-        table = AgentRoundTable(skat, agent, occasion)
+        table = agent_round_table(skat, agent, occasion)
         hand = agent.read(table.table_id).json()["hand"]
         passed = agent.take_step(AUCTION_PASS_TOOL, table, command_id="agent-pass")
 
@@ -528,7 +536,7 @@ class TestAnAgentAtATableOfRamschRounds:
 
     @pytest.mark.parametrize("occasion", ROUND_OCCASIONS)
     def test_pushes_the_skat_on_at_a_ramsch_round_hand_as_at_a_three_pass_ramsch(self, skat, agent, occasion):
-        table = AgentRoundTable(skat, agent, occasion, pushing={"rule": "jacks-stay"})
+        table = agent_round_table(skat, agent, occasion, pushing={"rule": "jacks-stay"})
         table.act(TABLE_PUSHING_PUSH_SUFFIX, table.at[FOREHAND])
 
         pushed = agent.take_step(RAMSCH_PUSH_SKAT_TOOL, table, command_id="agent-push")
@@ -543,7 +551,7 @@ class TestAnAgentAtATableOfRamschRounds:
     def test_declares_a_grand_hand_instead_of_the_ramsch_at_a_ramsch_round_hand_and_it_uses_the_game_up(
         self, skat, agent, occasion
     ):
-        table = AgentRoundTable(skat, agent, occasion, pushing={"rule": "jacks-stay", "grand_hand": "allowed"})
+        table = agent_round_table(skat, agent, occasion, pushing={"rule": "jacks-stay", "grand_hand": "allowed"})
         table.act(TABLE_PUSHING_PUSH_SUFFIX, table.at[FOREHAND])
 
         declared = agent.take_step(RAMSCH_DECLARE_GRAND_HAND_TOOL, table, command_id="agent-grand-hand")
