@@ -432,8 +432,9 @@ class TestTheFirstCardDeadline:
         assert say_as(played, FOREHAND, KONTRA).refusal is KontraRefusal.TOO_LATE
 
     def test_the_cards_after_the_first_wait_for_no_word(self):
-        played = with_words(first_card_table(), plays=1)
-        next_card = a_whole_game(played)[1]
+        table = first_card_table()
+        played = with_words(table, plays=1)
+        next_card = a_whole_game(table)[1]
         command = PlayCardCommand("command-1", played.id.value, played.version, next_card.card)
 
         assert decide_card(played, actor(next_card.position), command).refusal is None

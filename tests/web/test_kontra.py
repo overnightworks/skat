@@ -31,8 +31,8 @@ def kontra_options(sayer=ANY, reach=KONTRA_RE, deadline="own-card"):
 def open_table(server, monkeypatch):
     """A table for the three people and a watcher, opened through the API with the options a test names."""
 
-    def open_with(sayer=ANY, reach=KONTRA_RE):
-        monkeypatch.setattr(server, "create", partial(server.create, options=kontra_options(sayer, reach)))
+    def open_with(sayer=ANY, reach=KONTRA_RE, deadline="own-card"):
+        monkeypatch.setattr(server, "create", partial(server.create, options=kontra_options(sayer, reach, deadline)))
         return Table(server)
 
     return open_with
@@ -234,6 +234,80 @@ class TestTheDoubledScoreOfAPlayedGame:
         ).json()["entries"]
 
         assert [entry["kontra_word"] for entry in entries] == [word]
+
+
+class TestTheFirstCardDeadline:
+    @pytest.fixture
+    def first_card_hand(self, open_table):
+        table = open_table(deadline="first-card")
+        table.declared_hand_game()
+        return table
+
+    def first_card_refused(self, table, reason="words-due"):
+        table.refused(table.at[FOREHAND], HERZ_GAME[0], reason)
+
+    def test_the_first_card_is_refused_until_both_opponents_said_a_word_or_answered_no_word(self, first_card_hand):
+        table = first_card_hand
+        self.first_card_refused(table)
+
+        answered_no_word(table, FOREHAND)
+        self.first_card_refused(table)
+        answered_no_word(table, REARHAND)
+
+        table.accepted(HERZ_GAME[0])
+
+    def test_the_view_of_every_viewer_tells_that_the_first_card_waits_on_a_word_until_the_words_are_in(
+        self, first_card_hand
+    ):
+        table = first_card_hand
+        viewers = (table.at[FOREHAND], table.at[MIDDLEHAND], table.watcher)
+        waiting = [kontra_view(table, headers)["first_card_waits"] for headers in viewers]
+        answered_no_word(table, FOREHAND)
+        answered_no_word(table, REARHAND)
+        decided = [kontra_view(table, headers)["first_card_waits"] for headers in viewers]
+
+        assert (waiting, decided) == ([True] * 3, [False] * 3)
+
+    def test_a_no_word_answer_is_a_decline_the_opponent_cannot_take_back_by_saying_kontra(self, first_card_hand):
+        answered_no_word(first_card_hand, FOREHAND)
+        before = first_card_hand.record
+
+        answered_no_word(first_card_hand, FOREHAND)
+        refused(first_card_hand, FOREHAND, "kontra", "not-your-word")
+
+        assert first_card_hand.record == before
+
+    def test_the_declarer_owes_re_to_a_kontra_and_the_opponent_left_with_no_word_is_not_awaited(self, first_card_hand):
+        table = first_card_hand
+        said(table, FOREHAND, "kontra")
+        self.first_card_refused(table)
+
+        said(table, MIDDLEHAND, "re")
+
+        table.accepted(HERZ_GAME[0])
+
+    def test_the_declarers_no_word_answer_to_a_kontra_clears_the_first_card(self, first_card_hand):
+        said(first_card_hand, FOREHAND, "kontra")
+
+        answered_no_word(first_card_hand, MIDDLEHAND)
+
+        first_card_hand.accepted(HERZ_GAME[0])
+
+    def test_where_the_table_asks_it_the_answer_of_an_opponent_who_never_bid_is_refused_and_he_is_not_awaited(
+        self, open_table
+    ):
+        table = open_table(BIDDERS, deadline="first-card")
+        contested_auction(table)
+        self.first_card_refused(table)
+
+        table.refused_act(TABLE_NO_WORD_SUFFIX, table.at[REARHAND], "did-not-bid")
+        answered_no_word(table, FOREHAND)
+
+        table.accepted(HERZ_GAME[0])
+
+    def test_the_table_with_the_time_of_the_own_card_plays_the_first_card_at_once(self, herz_hand):
+        herz_hand.accepted(HERZ_GAME[0])
+        assert kontra_view(herz_hand, herz_hand.watcher)["first_card_waits"] is False
 
 
 class TestTheDeadlines:
@@ -451,7 +525,7 @@ class TestWhatEveryViewerSees:
 
         assert table.record.progress.words == ()
         assert [(kontra_view(table, table.at[position])) for position in (FOREHAND, REARHAND)] == [
-            {"said": [], "factor": 1, "my_word": "kontra", "my_word_answered": False}
+            {"said": [], "factor": 1, "my_word": "kontra", "my_word_answered": False, "first_card_waits": False}
         ] * 2
 
 
@@ -462,6 +536,7 @@ class TestOpeningATable:
             pytest.param(kontra_options(), id="kontra"),
             pytest.param(kontra_options(BIDDERS, UP_TO_HIRSCH), id="bidders-up-to-hirsch"),
             pytest.param(kontra_options(ANY, WITH_STANDINGS), id="standings"),
+            pytest.param(kontra_options(deadline="first-card"), id="first-card"),
         ],
     )
     def test_the_answer_carries_the_options_as_sent(self, server, options):
@@ -505,7 +580,7 @@ class TestOpeningATable:
     @pytest.mark.parametrize(
         "options",
         [
-            pytest.param(kontra_options(deadline="first-card"), id="first-card"),
+            pytest.param(kontra_options(deadline="at-the-end"), id="unknown-deadline"),
             pytest.param(kontra_options(sayer="everyone"), id="unknown-sayer"),
             pytest.param(kontra_options(reach="all-words"), id="unknown-reach"),
             pytest.param({"kontra": {"sayer": ANY, "reach": KONTRA_RE}}, id="missing-deadline"),

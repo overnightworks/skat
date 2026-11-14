@@ -10,15 +10,15 @@ from skat.table.records import RamschOccasion, RamschSetting, TableOptions
 
 
 class KontraOptionsRequest(BaseModel):
-    """The opener names all three Kontra choices or none: the program defaults none of them. The table accepts the
-    deadline of the player's own next card only.
+    """The opener names all three Kontra choices or none: the program defaults none of them. The deadline is the
+    player's own next card, or the first card of the hand, which waits for each word or decline.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     sayer: KontraSayer
     reach: KontraReach
-    deadline: Literal[KontraDeadline.OWN_CARD]
+    deadline: KontraDeadline
 
 
 class BockOptionsRequest(BaseModel):

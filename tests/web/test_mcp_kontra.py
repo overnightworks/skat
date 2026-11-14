@@ -5,8 +5,8 @@ from dataclasses import replace
 import pytest
 
 from skat.engine.deal import Position
-from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraRefusal, KontraSayer
-from skat.table.records import TableOptions
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraRefusal, KontraSayer, Word
+from skat.table.records import NoWordSaid, TableOptions
 from skat.web.mcp import SAY_KONTRA_TOOL, SAY_NO_WORD_TOOL
 from tests.web.support.skat import AgentTable, Skat, stored
 
@@ -46,6 +46,7 @@ class TestSayKontra:
             "factor": 2,
             "my_word": None,
             "my_word_answered": False,
+            "first_card_waits": False,
         }
         assert kontra_table.record.progress.words[0].position is FOREHAND
 
@@ -76,3 +77,21 @@ class TestSayNoWord:
         kontra = agent.read(kontra_table.table_id).json()["hand"]["playing"]["kontra"]
         assert (kontra["my_word"], kontra["my_word_answered"], kontra["said"]) == ("kontra", True, [])
         assert [each.position for each in kontra_table.record.progress.no_words] == [FOREHAND]
+
+    def test_an_agent_opponents_no_word_at_a_first_card_table_is_a_decline_that_ends_its_wait(
+        self, agent, kontra_table
+    ):
+        first_card = KontraOptions(KontraSayer.ANY_OPPONENT, KontraReach.KONTRA_RE, KontraDeadline.FIRST_CARD)
+        kontra_table.skat.store.tables[kontra_table.table_id] = replace(
+            kontra_table.record, options=TableOptions(kontra=first_card)
+        )
+        kontra = agent.read(kontra_table.table_id).json()["hand"]["playing"]["kontra"]
+        assert (kontra["my_word"], kontra["first_card_waits"]) == ("kontra", True)
+
+        answer = self.say_no_word(agent, kontra_table)
+
+        assert not answer.is_error, answer.text
+        kontra = agent.read(kontra_table.table_id).json()["hand"]["playing"]["kontra"]
+        assert (kontra["my_word"], kontra["first_card_waits"]) == (None, True)
+        assert self.say_no_word(agent, kontra_table, command_id="agent-no-word-0002").is_error is False
+        assert kontra_table.record.progress.no_words == {NoWordSaid(FOREHAND, Word.KONTRA)}

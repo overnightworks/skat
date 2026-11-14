@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING
 
 from skat.engine.cards import DECK
 from skat.engine.deal import seats_from
-from skat.engine.kontra import KontraRefusal
 from skat.engine.giving_up import give_up, opponent_gives_up, shorten, throw_down
+from skat.engine.kontra import KontraRefusal
 from skat.engine.ramsch import RamschPlayedOut, RamschPlaying, play_ramsch_card
 from skat.engine.tricks import CardPlayed, Playing, PlayRefusal, play_card
 from skat.table.bock import bock_after
