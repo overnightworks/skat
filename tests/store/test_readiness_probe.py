@@ -166,3 +166,21 @@ class TestReadinessLogging:
                 clock.now += READINESS_REUSE_SECONDS
 
         assert [(entry["was"], entry["now"]) for entry in logs] == [("ready", "unreachable")]
+
+    def test_a_stalled_probe_logs_the_verdict_it_reads_and_its_recovery_once_each(
+        self, readiness, database, clock, monkeypatch
+    ):
+        monkeypatch.setattr(migrate_module, "READINESS_PATIENCE_SECONDS", 0.05)
+        asyncio.run(readiness())
+        database.stalled = True
+        clock.now += READINESS_REUSE_SECONDS
+
+        async def stall_then_recover() -> None:
+            await asyncio.wait_for(burst(readiness), timeout=STALL_GUARD_SECONDS)
+            database.released.set()
+            await asyncio.gather(*(task for task in asyncio.all_tasks() if task is not asyncio.current_task()))
+
+        with capture_logs() as logs:
+            asyncio.run(stall_then_recover())
+
+        assert [(entry["was"], entry["now"]) for entry in logs] == [("ready", "unreachable"), ("unreachable", "ready")]

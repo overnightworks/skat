@@ -195,10 +195,10 @@ class ReadinessProbe:
 
     A burst of asks costs one probe connection and one thread, never one per ask: an ask that arrives while a probe
     runs awaits that probe's verdict, but only until `READINESS_PATIENCE_SECONDS` after the probe started; a probe
-    that has not answered by then reads unready, so a stalled database turns the verdict within the sum of both,
+    that has not answered by then reads unready, as unreachable, so a stalled database turns the verdict within the sum of both,
     not after the health deadline. The reuse runs from the probe's start, because a ready verdict read the database
     after that start, so it outlives a stop by at most the reuse time. A verdict that differs from
-    the previous one is logged once with its cause; the first probe is compared with ready, which `require_head`
+    the previous one, one read from a stalled probe included, is logged once with its cause; the first probe is compared with ready, which `require_head`
     established before Skat served.
     """
 
@@ -220,15 +220,21 @@ class ReadinessProbe:
         patience = self._started_at + READINESS_PATIENCE_SECONDS - self._clock()
         # `wait` leaves the probe running when its time is up or an asker is cancelled, for the others to await.
         await asyncio.wait({running}, timeout=max(patience, 0))
-        return running.result() if running.done() else False
+        if running.done():
+            return running.result()
+        self._record(ReadinessVerdict.UNREACHABLE)
+        return False
+
+    def _record(self, verdict: ReadinessVerdict) -> None:
+        if verdict is not self._verdict:
+            log.warning("database_readiness_changed", was=self._verdict.value, now=verdict.value)
+            self._verdict = verdict
 
     async def _refresh(self, started_at: float) -> bool:
         try:
             health = await asyncio.to_thread(self._probe)
             self._reusable_until = started_at + READINESS_REUSE_SECONDS
-            if health.verdict is not self._verdict:
-                log.warning("database_readiness_changed", was=self._verdict.value, now=health.verdict.value)
-                self._verdict = health.verdict
+            self._record(health.verdict)
             return health.ready
         finally:
             self._running = None
