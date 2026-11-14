@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -33,6 +34,8 @@ VOICES_OF_ONE_SWEEP = 1
 # A card sounds as one noise burst and one tone.
 VOICES_OF_THREE_CARDS = 6
 HAND_CARD = ".own-hand .card"
+# An installed clock keeps ticking until paused, and pausing only moves time forward, so it stops this far ahead.
+CLOCK_HOLD_LEAD = timedelta(seconds=5)
 
 
 @pytest.fixture
@@ -56,7 +59,7 @@ def open_watcher(
     moving: bool = True,
     clock: bool = True,
 ) -> Page:
-    """The table's watcher page, moving unless the device asks for less, with a clock the test holds."""
+    """The table's watcher page, moving unless the device asks for less, with a clock only the test moves."""
     watcher = record_page_errors(
         open_person(reduced_motion="no-preference" if moving else "reduce", **form_factor), page_errors
     )
@@ -64,6 +67,7 @@ def open_watcher(
         watcher.add_init_script(f"localStorage.setItem({SETTINGS_KEY!r}, {json.dumps(json.dumps(stored))})")
     if clock:
         watcher.clock.install()
+        watcher.clock.pause_at(datetime.now(UTC) + CLOCK_HOLD_LEAD)
     watcher.goto(table.watcher.url)
     expect(watcher.locator(".chair")).to_have_count(3)
     # The first key press wakes the sound.
