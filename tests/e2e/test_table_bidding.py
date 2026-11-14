@@ -439,6 +439,7 @@ def test_the_own_turn_ring_breathes_and_holds_still_for_reduced_motion(
     table = dealt_table(open_person, e2e_server, page_errors, {**DESKTOP, "reduced_motion": motion})
 
     expect(table.middlehand.locator(TURN_CHAIR)).to_have_count(1)
+    expect(table.middlehand.locator(".chair[data-moving]")).to_have_count(0)
     tile = table.middlehand.locator(f"{TURN_CHAIR} .tile")
     assert ("breathe" in tile.evaluate("(tile) => getComputedStyle(tile).animationName")) is animated
 
