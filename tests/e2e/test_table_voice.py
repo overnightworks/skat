@@ -34,8 +34,8 @@ pytestmark = pytest.mark.e2e
 SETTINGS_KEY = "skat.settings"
 SOUND_PANEL = text(SOURCE_LANGUAGE, "sound.panelName")
 VOICE = text(SOURCE_LANGUAGE, "sound.voice")
-# The file of a recording is named by its catalog key and a hash of its bytes.
-RECORDED_KEY = re.compile(r"/(voice\.\w+)-[\w-]+\.mp3$")
+# The file of a recording is named by its catalog key and a hash of its bytes, after a dot.
+RECORDED_KEY = re.compile(r"/(voice\.\w+)\.[\w-]+\.mp3$")
 # The recordings of the page's language, which the page decodes once its voice is on.
 RECORDING_COUNT = sum(key.startswith("voice.") for key in WORDS[SOURCE_LANGUAGE])
 # The voices one bid or one word of Kontra start in each sound set, at the table's first tap.
