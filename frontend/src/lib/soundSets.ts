@@ -117,21 +117,41 @@ function knocksWave(gain: number): readonly Voice[] {
     ];
 }
 
+type VoicesOf = (gain: number) => readonly Voice[];
+
+// Each moment is brought to one loudness at the full volume, so no set and no moment sounds markedly quieter than another;
+// the sets' test measures the result, and a voice that changes is levelled anew by the factor beside its name.
+function levelled(voices: VoicesOf, level: number): VoicesOf {
+    return (gain) => voices(gain * level);
+}
+
 export const SOUND_SETS = {
     leise: {
         id: "leise",
         name: "sound.setLeise",
-        voices: { "card-played": cardSnap, "bid-said": bidTip, "word-said": knocksPlain },
+        voices: {
+            "card-played": levelled(cardSnap, 2.54),
+            "bid-said": levelled(bidTip, 2.68),
+            "word-said": levelled(knocksPlain, 0.66),
+        },
     },
     stammtisch: {
         id: "stammtisch",
         name: "sound.setStammtisch",
-        voices: { "card-played": cardClap, "bid-said": bidBlub, "word-said": knocksDeep },
+        voices: {
+            "card-played": levelled(cardClap, 1.26),
+            "bid-said": levelled(bidBlub, 1.09),
+            "word-said": levelled(knocksDeep, 0.62),
+        },
     },
     funkeln: {
         id: "funkeln",
         name: "sound.setFunkeln",
-        voices: { "card-played": cardGlint, "bid-said": bidPair, "word-said": knocksWave },
+        voices: {
+            "card-played": levelled(cardGlint, 1.26),
+            "bid-said": levelled(bidPair, 1.45),
+            "word-said": levelled(knocksWave, 0.72),
+        },
     },
 } as const satisfies Record<string, SoundSet>;
 
