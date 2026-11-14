@@ -1,4 +1,4 @@
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from skat.engine.ramsch import RamschPlayedOut
     from skat.engine.tricks import PlayedOut
     from skat.engine.value import Level, Matadors
+    from skat.table.game_cards import GameCards
     from skat.table.records import Occupant, TableOptions, TableRecord
 
 
@@ -43,7 +44,8 @@ class ListEntry:
     display name is the one held at the end of the game, None for an entry stored before names were kept. The score
     is the list score with the Bock factor and the doubling applied; `bock_factor` is 1 outside a Bock game and
     `kontra_word` the last word said, None for a game without one. `ended_by_seat` is the seat whose give-up or
-    throw-down ended the game, None exactly when the game was played out.
+    throw-down ended the game, None exactly when the game was played out. `cards` are the game's cards while the entry
+    waits to be saved and None once read back; they stay out of the comparison, so a stored entry equals its record.
     """
 
     seat_accounts: tuple[str, str, str]
@@ -63,6 +65,7 @@ class ListEntry:
     bock_factor: int
     ending: GameEnding
     ended_by_seat: int | None
+    cards: GameCards | None = field(default=None, compare=False)
 
     @property
     def opponents_points(self) -> int:
@@ -87,7 +90,8 @@ class RamschEntry:
     that took all ten tricks and won by it (None if no seat did or the table scores it as any loser) and whether
     a seat with no trick doubled the loser's score. Each seat's display name is the one held at the end of the game.
     `bock_factor` is the Bock factor the Ramsch ran under, 1 outside a Bock game, and `pushes` the times the skat was
-    pushed on unseen; the scores are multiplied by both, a Durchmarsch's too unless the table scores it flat.
+    pushed on unseen; the scores are multiplied by both, a Durchmarsch's too unless the table scores it flat. `cards`
+    are the game's cards as they are for a declared game's entry.
     """
 
     seat_accounts: tuple[str, str, str]
@@ -98,6 +102,7 @@ class RamschEntry:
     jungfrau: bool
     bock_factor: int
     pushes: int
+    cards: GameCards | None = field(default=None, compare=False)
 
 
 type GameEntry = ListEntry | RamschEntry

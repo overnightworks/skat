@@ -66,12 +66,22 @@ def declaring_of(table: TableRecord) -> Declaring | None:
     return declaring_after(Declaring.start(declared, deal), (_GRAND_HAND_INSTEAD, *table.progress.declaring))
 
 
+def played_deal_of(table: TableRecord) -> Deal | None:
+    """The four holdings the running hand's game starts from: the cards as dealt, or as a Ramsch's stage left them;
+    None while no game is decided to be played.
+    """
+    stage = pushing_of(table)
+    if table.hand is None or stage is None:
+        return table.hand
+    return stage.deal if stage.result is not None else None
+
+
 def _play_start(table: TableRecord) -> Playing | None:
     declared = declaring_of(table)
-    if table.hand is None or declared is None or declared.declaration is None:
+    deal = played_deal_of(table)
+    if deal is None or declared is None or declared.declaration is None:
         return None
-    in_the_stage = _declared_in_the_stage(table)
-    return start_play(declared, table.hand if in_the_stage is None else in_the_stage[1])
+    return start_play(declared, deal)
 
 
 def playing_of(table: TableRecord) -> Playing | None:
