@@ -34,6 +34,7 @@ from skat.table.records import (  # noqa: E402
     TABLE_ID_PATTERN,
     EndReason,
     RamschOccasion,
+    Visibility,
 )
 from skat.table.rule_sets import RULE_SET_NAME_MAX, SWITCH_ON_OPTIONS  # noqa: E402
 from skat.table.rules import CHAIRS_PER_TABLE  # noqa: E402
@@ -134,6 +135,7 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "WAITING_CASE_TOKENS": WaitingCase,
     "GAME_ENDING_TOKENS": GameEnding,
     "WORD_TOKENS": Word,
+    "VISIBILITY_TOKENS": Visibility,
 }
 
 

@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => ({
             include: [
                 "src/lib/**/*.ts",
                 "src/routes/(start)/tables.ts",
+                "src/routes/(start)/openTable.ts",
                 "src/routes/(start)/lobby.ts",
                 "src/routes/(start)/agents.ts",
                 "src/routes/(start)/nudge.ts",

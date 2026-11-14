@@ -15,6 +15,7 @@ from tests.e2e.support.tables import (
     assert_never_reloaded,
     mark_page,
     open_new_table,
+    open_start_page,
     sit_in,
     watch,
 )
@@ -41,14 +42,6 @@ ENDS_IN_DAYS = re.compile(r"endet in \d+ Tagen")
 TAP_TARGET_PIXELS = 44
 EVENT_STREAM = "text/event-stream"
 SEAT_COUNT = 3
-
-
-def open_start_page(person: Page, server: RunningServer) -> Page:
-    # The browser coverage collector answers a Playwright navigation away from a page with app code with a 204 that
-    # aborts it; a navigation the page starts itself is taken and re-issued.
-    person.evaluate("address => location.assign(address)", f"{server.base_url}/")
-    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
-    return person
 
 
 def card_of(person: Page, path: str):
@@ -116,7 +109,7 @@ def test_the_list_follows_another_person_sitting_down_and_standing_up_without_a_
     assert_never_reloaded(host)
 
 
-def test_a_member_who_sits_at_no_table_sees_the_start_page_as_before_and_never_another_members_table(
+def test_a_member_who_sits_at_no_table_has_no_meine_tische_and_another_members_table_is_no_link_of_his(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]
 ) -> None:
     other = record_page_errors(open_person(username="Olga", **DESKTOP), page_errors)
@@ -126,8 +119,7 @@ def test_a_member_who_sits_at_no_table_sees_the_start_page_as_before_and_never_a
     open_start_page(lonely, e2e_server)
 
     expect(lonely.get_by_role("heading", name=MY_TABLES)).to_have_count(0)
-    expect(lonely.locator(".lobby-card")).to_have_count(0)
-    expect(lonely.locator(".start")).not_to_have_class(re.compile(r"with-tables"))
+    expect(lonely.locator("a.lobby-card")).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -248,14 +240,14 @@ def test_every_away_chair_of_an_undealt_table_says_its_minutes_and_a_lost_line_d
         "title", text(SOURCE_LANGUAGE, "lobby.otherSeatFreeIn", count=5, minutes="5", name="Mara")
     )
     expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
-    expect(person.locator(".my-tables")).to_have_class(re.compile(r"\bstale\b"))
+    expect(person.locator(".lobby-lists")).to_have_class(re.compile(r"\bstale\b"))
     expect(card).to_be_visible()
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_enabled()
 
     line["state"] = "back"
 
     expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_have_count(0)
-    expect(person.locator(".my-tables")).to_have_count(0)
+    expect(person.locator(".lobby-lists.stale")).to_have_count(0)
 
 
 @pytest.mark.parametrize(

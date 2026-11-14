@@ -63,8 +63,36 @@ msgctxt "start.newTableFailed"
 msgid "Der Tisch konnte nicht eröffnet werden."
 msgstr ""
 
+msgctxt "start.visibility"
+msgid "Wer den Tisch sieht"
+msgstr ""
+
+msgctxt "start.visibilityOpen"
+msgid "Offen"
+msgstr ""
+
+msgctxt "start.visibilityPrivate"
+msgid "Privat"
+msgstr ""
+
+msgctxt "start.visibilityInfoButton"
+msgid "Info"
+msgstr ""
+
+msgctxt "start.visibilityInfo"
+msgid "Offen: steht in der Lobby. Privat: nur mit dem Link."
+msgstr ""
+
 msgctxt "lobby.myTables"
 msgid "Meine Tische"
+msgstr ""
+
+msgctxt "lobby.openTables"
+msgid "Offene Tische"
+msgstr ""
+
+msgctxt "lobby.noOpenTables"
+msgid "Sonst ist kein Tisch offen"
 msgstr ""
 
 msgctxt "lobby.openTable"
@@ -149,6 +177,26 @@ msgstr ""
 
 msgctxt "lobby.chipSeriesOver"
 msgid "Serie vorbei"
+msgstr ""
+
+msgctxt "lobby.private"
+msgid "Privat"
+msgstr ""
+
+msgctxt "lobby.sitAt"
+msgid "{title}: hinsetzen"
+msgstr ""
+
+msgctxt "lobby.sitFailed"
+msgid "Das Hinsetzen hat nicht geklappt"
+msgstr ""
+
+msgctxt "lobby.chipGameWaits"
+msgid "Spiel wartet"
+msgstr ""
+
+msgctxt "lobby.chipPaused"
+msgid "pausiert"
 msgstr ""
 
 msgctxt "lobby.endsInDays.one"
