@@ -968,7 +968,7 @@ const annaKnock=(x,y,ks,es)=>knock(x,y,ks,.3)+emote('👊','anna',{x,y,ox:x,oy:y
 
 frame('call-end-390','Gewonnen im Anruf','Handy 390 px','p390',
   pbRoom({left:0})
-  +confetti({n:48,box:[8,60,382,640],origins:[[195,540],[320,96]],size:12,k:1.25,seed:11})
+  +confetti({n:16,box:[8,60,382,640],origins:[[195,540],[320,96]],size:12,k:1.25,seed:11})
   +result(195,168,354,0)
   +pbSeats({video:true,anna:['decl'],youWin:true,novaWin:true,score:[26,102,95],layout:PB_BACK})
   +annaKnock(180,126,50,34)
@@ -976,7 +976,7 @@ frame('call-end-390','Gewonnen im Anruf','Handy 390 px','p390',
 
 frame('call-end-1280','Gewonnen im Anruf','Desktop 1280 px','d1280',
   dbRoom({left:0})
-  +confetti({n:70,box:[240,40,1040,640],origins:[[187,632],[1140,270]],size:18,k:1.25,seed:5})
+  +confetti({n:16,box:[240,40,1040,640],origins:[[187,632],[1140,270]],size:18,k:1.25,seed:5})
   +result(640,104,470,0)
   +dbSeats({video:true,anna:['decl'],youWin:true,novaWin:true,score:[26,102,95]})
   +annaKnock(300,292,76,48)
@@ -1245,7 +1245,7 @@ const endCard=(d,o)=>`<div class="result end ${o.won?'':'lost'} ${o.snug||o.calc
   ${calcRows(o)}
   ${o.eyes?pointsNamed(o.eyes,o.names,0):''}
   ${reckoning(o)}</div>`;
-const declarerWinsConfetti=(d)=>d?confetti({n:70,box:[240,40,1040,640],origins:[[187,632]],size:18,k:1.25,seed:5}):confetti({n:48,box:[8,60,382,640],origins:[[195,540]],size:12,k:1.25,seed:11});
+const declarerWinsConfetti=(d)=>d?confetti({n:16,box:[240,40,1040,640],origins:[[187,632]],size:18,k:1.25,seed:5}):confetti({n:16,box:[8,60,382,640],origins:[[195,540]],size:12,k:1.25,seed:11});
 const OWN_GAME=['Du','Gegner'];
 /* each game's calc holds what the engine's value rules take: the matadors, the steps that count, the base value, the bid, and whether the declarer won */
 const KREUZ_MIT_2={suit:'c',base:12,mit:true,count:2,steps:['Spiel']};
