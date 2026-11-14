@@ -3,6 +3,7 @@ import itertools
 import secrets
 import threading
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -11,7 +12,7 @@ import structlog
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 from structlog.testing import capture_logs
-from webauth.config import WebAuthConfig, installed_web_auth_config
+from webauth.config import WebAuthConfig, install_web_auth_config, installed_web_auth_config
 from webauth.dependencies import session_id_from_request
 
 from skat.host.app import UNPLAYED_SWEEP_SECONDS, create_app
@@ -438,6 +439,7 @@ class UnplayedTables:
         self.tables = service(self.store, now=lambda: self.clock[0])
         self.scheduler = RecordedScheduler()
         self.settings = sign_in_settings(paused_table_days=UNPLAYED_DAYS, ended_table_days=ENDED_DAYS).settings
+        self.stores = in_memory_stores()
 
     def dealt(self, command_id):
         table = self.tables.create(OPENER, CreateTable(command_id=command_id))
@@ -455,8 +457,14 @@ class UnplayedTables:
             tables=self.tables,
             rule_sets=in_memory_rule_sets(),
             chair_scheduler=self.scheduler,
-            stores=in_memory_stores(),
+            stores=self.stores,
         )
+
+    def app_on_a_clock(self, wall_clock):
+        """The app with webauth reading `wall_clock`, as the sessions' expiry is judged by it."""
+        app = self.app()
+        install_web_auth_config(app, replace(installed_web_auth_config(app), wall_clock=wall_clock))
+        return app
 
     async def stop_while_held(self, reached, free, *, free_during_the_stop):
         """Serve until the hourly run, started past the days, reaches the hold `reached`, then stop the server.
@@ -750,5 +758,62 @@ class TestEndedTables:
             forgotten = unplayed.tables.view(OPENER, table_id.value, frozenset())
 
         assert (kept is None, forgotten is None) == (False, True)
+        assert [entry["error"] for entry in logs] == ["ConnectionError"]
+        assert "account-anna" not in str(logs)
+
+
+def failing_with(message):
+    def fail(_now):
+        raise ConnectionError(message)
+
+    return fail
+
+
+class TestExpiredSessions:
+    @pytest.fixture
+    def now(self):
+        return [NOW.timestamp()]
+
+    @pytest.fixture
+    def app(self, unplayed, now):
+        return unplayed.app_on_a_clock(lambda: now[0])
+
+    def seeded(self, unplayed, app, expires_in):
+        return seed_member(unplayed.stores, installed_web_auth_config(app), expires_in=expires_in)
+
+    def test_are_gone_before_the_first_request_and_the_live_ones_stay_when_the_server_starts(self, unplayed, app):
+        expired = self.seeded(unplayed, app, timedelta(seconds=-1))
+        live = self.seeded(unplayed, app, timedelta(hours=1))
+
+        with TestClient(app):
+            kept = [unplayed.stores.sessions.load(member.session.id) is not None for member in (expired, live)]
+
+        assert kept == [False, True]
+
+    def test_that_expire_while_the_server_runs_are_gone_with_the_next_hourly_run(self, unplayed, app, now):
+        member = self.seeded(unplayed, app, timedelta(hours=1))
+
+        with TestClient(app) as client:
+            ((_, tick),) = unplayed.scheduler.sweeps()
+            client.portal.call(tick)
+            before_the_expiry = unplayed.stores.sessions.load(member.session.id)
+            now[0] += timedelta(hours=1, seconds=1).total_seconds()
+            client.portal.call(tick)
+            after_the_expiry = unplayed.stores.sessions.load(member.session.id)
+
+        assert (before_the_expiry is not None, after_the_expiry) == (True, None)
+
+    def test_whose_deletion_fails_in_an_hourly_run_are_logged_by_type_and_the_run_still_ends_tables(
+        self, unplayed, app
+    ):
+        table_id = unplayed.dealt("command-open")
+        with TestClient(app) as client:
+            ((_, tick),) = unplayed.scheduler.sweeps()
+            unplayed.play_on(UNPLAYED_DAYS)
+            unplayed.stores.sessions.delete_expired = failing_with("account-anna")
+            with capture_logs() as logs:
+                client.portal.call(tick)
+
+        assert unplayed.ended(table_id).reason is EndReason.UNPLAYED
         assert [entry["error"] for entry in logs] == ["ConnectionError"]
         assert "account-anna" not in str(logs)
