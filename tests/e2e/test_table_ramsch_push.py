@@ -210,6 +210,9 @@ def test_the_seat_on_turn_declares_a_grand_hand_with_a_second_tap_and_the_hand_p
     assert table.view(table.seat_of("forehand"))["result"]["kind"] == "declared"
     for person in table.everyone:
         expect(person.locator(CARD)).to_contain_text(GRAND_HAND_GAME)
+    # The list of the series names the game its declarer played.
+    forehand.locator(".series-count").click()
+    expect(forehand.locator(".game-list .grow small")).to_contain_text(text(SOURCE_LANGUAGE, "game.grand"))
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
