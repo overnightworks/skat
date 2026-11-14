@@ -192,6 +192,7 @@ _PLAY_TOOLS: Final = frozenset(
         SAY_KONTRA_TOOL,
         SAY_NO_WORD_TOOL,
         GIVE_UP_GAME_TOOL,
+        SHORTEN_GAME_TOOL,
         AGREE_TO_GIVE_UP_TOOL,
         DECLINE_GIVE_UP_TOOL,
         THROW_DOWN_CARDS_TOOL,
