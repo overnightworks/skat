@@ -17,6 +17,8 @@ export type BidWord = { action: Exclude<AuctionAction, "play">; value: number | 
 export type Cue =
     | { kind: "card-played"; seat: number; card: Card }
     | { kind: "auction-ended" }
+    // The trick this update's completing card finished, which goes to its taker.
+    | { kind: "trick-taken"; trick: LastTrick }
     // The seats of the opponents who both said no to the declarer's give-up.
     | { kind: "give-up-refused"; seats: number[] }
     | { kind: "bid-said"; seat: number; word: BidWord }
@@ -28,7 +30,11 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     if (previous === undefined || next.version <= previous.version) return [];
     const cues: Cue[] = [];
     if (auctionJustEnded(previous, next)) cues.push({ kind: "auction-ended" });
-    for (const { seat, card } of cardsLaidBetween(previous, next)) cues.push({ kind: "card-played", seat, card });
+    const { laid, completed } = cardsLaidBetween(previous, next);
+    for (const [index, { seat, card }] of laid.entries()) {
+        cues.push({ kind: "card-played", seat, card });
+        if (index === 0 && completed !== null) cues.push({ kind: "trick-taken", trick: completed });
+    }
     const refusers = giveUpRefusedBetween(previous, next);
     if (refusers !== null) cues.push({ kind: "give-up-refused", seats: refusers });
     const bid = bidSaidBetween(previous, next);
@@ -97,23 +103,29 @@ function auctionJustEnded(previous: Table, next: Table): boolean {
     return !!previous.hand && !previous.hand.declaring && next.hand?.declaring?.stage === "choosing";
 }
 
-// The cards this update laid on the felt, in the order they were laid; none unless every change is explained.
-function cardsLaidBetween(previous: Table, next: Table): SeatedCard[] {
+type TrickStep = { laid: SeatedCard[]; completed: LastTrick | null };
+const NO_STEP: TrickStep = { laid: [], completed: null };
+
+// The cards this update laid on the felt, in the order they were laid, and the trick they completed if any; nothing
+// unless every change is explained.
+function cardsLaidBetween(previous: Table, next: Table): TrickStep {
     const before = previous.hand?.playing;
     const after = next.hand?.playing;
-    if (!before || !after) return [];
-    const laid = trickStepBetween(before, after, next.chairs);
-    return laid !== null && handCountsExplain(previous.chairs, next.chairs, laid) ? laid : [];
+    if (!before || !after) return NO_STEP;
+    const step = trickStepBetween(before, after, next.chairs);
+    return step !== null && handCountsExplain(previous.chairs, next.chairs, step.laid) ? step : NO_STEP;
 }
 
 // Either the trick on the felt grew, or it completed: then its last card and the cards on the new trick are laid.
-function trickStepBetween(before: Playing, after: Playing, chairs: Chair[]): SeatedCard[] | null {
-    if (sameJson(before.last_trick, after.last_trick))
-        return cardsAddedToTrick(before.current_trick, after.current_trick);
+function trickStepBetween(before: Playing, after: Playing, chairs: Chair[]): TrickStep | null {
+    if (sameJson(before.last_trick, after.last_trick)) {
+        const added = cardsAddedToTrick(before.current_trick, after.current_trick);
+        return added === null ? null : { laid: added, completed: null };
+    }
     const completed = after.last_trick;
     if (completed === null || before.current_trick.length === 0) return null;
     const completing = completingCard(before.current_trick, chairs, completed);
-    return completing === null ? null : [completing, ...after.current_trick];
+    return completing === null ? null : { laid: [completing, ...after.current_trick], completed };
 }
 
 function cardsAddedToTrick(before: SeatedCard[], after: SeatedCard[]): SeatedCard[] | null {

@@ -1084,7 +1084,7 @@ scenes(SKAT_SCENES);
 /* ===== the ideas, one line each ===== */
 const IDEAS=[
   ['🂠','Austeilen','Beim Geben fliegen die Karten in Paketen vom Stapel zu jedem Stuhl.','deal-mine, deal-watch, call-bid'],
-  ['↘','Stich einsammeln','Die drei Karten rücken zusammen und gleiten zum Stuhl, der sticht; der Stuhl blitzt gold. Laufende Augen zeigt erst das Ergebnis.','call-trick'],
+  ['↘','Stich einsammeln','Der fertige Stich liegt kurz, dann rücken die drei Karten zusammen und gleiten auf den Stapel neben dem Stuhl, der sticht; der Stuhl blitzt gold. Der Stapel mit dem letzten Stich trägt einen Messingrand, ein Tipp hebt diesen Stich aufgedeckt heraus. „Letzter Stich: liegen lassen“ lässt ihn bis zum nächsten Ausspielen liegen. Laufende Augen zeigt erst das Ergebnis.','call-trick, last-trick-rest, last-trick-sweep, last-trick-pile, last-trick-shown, sound-panel-more'],
   ['🔥','Emotes werfen','Jeder im Anruf, auch Zuschauer, wirft ein Emoji im Bogen auf den Filz; es hüpft, liegt kurz, verblasst.','call-play'],
   ['👊','Klopfen','Auf den Tisch klopfen wie in der Kneipe: zwei Ringe auf dem Filz, als Gruß oder Respekt.','call-end'],
   ['❗','Ansage-Stempel','Kontra, Re, Schneider und spätere Hausregeln landen als ein Stempel mit dem Gesicht des Rufers; der Tisch zuckt kurz.','solo-play, call-end'],
@@ -2356,6 +2356,53 @@ const soundScenes=(list,look='')=>list.forEach(([id,title,widths,draw,notes])=>w
   frame(`${id}-${w}`,title,desk?'Desktop 1280 px':`Handy ${w} px`,`${desk?'d1280':w===360?'p390 p360':'p390'} ${look}`,html,notes);
   ORDER.push(`${id}-${w}`);}));
 soundScenes(SOUND_SCENES);
+/* ===== S15.4: the trick goes to its winner: it rests, sweeps onto the winner's pile, and the last trick can be looked at again ===== */
+/* Felix's table in game 8 of 36, the third trick: Anna leads the ♠ king, Nova adds the 7, Felix takes it with the ace. Anna won the second trick, Felix the first */
+const PILE_W=(d)=>d?50:32;
+/* each pile lies on the felt beside its chair, clear of the fans, the coaster and the own hand */
+const PILE_AT={felix:(d)=>d?{x:338,y:556}:{x:PB.you.x-46,y:PB.you.y+46},anna:(d)=>d?{x:322,y:190}:{x:62,y:232}};
+/* a pile: one back per trick, crossed every other trick as players stack them; the last trick lies crossed on top with a brass rim, and only that pile is a button */
+const pile=(d,who,tricks,o={})=>{const p=PILE_AT[who](d),w=PILE_W(d);
+  const cards=Array.from({length:tricks},(_,i)=>{const top=i===tricks-1,rot=i%2?84+(i*7)%9-4:(i*5)%9-4;
+    const cls=[top&&o.last&&'last',top&&o.landing&&'landing mo'].filter(Boolean).join(' ');
+    return `<div class="card ${cls}" style="${at({'--w':w,'--rot':`${rot}deg`,'--lift':`${-i*2}px`,'--k':top&&o.landing?'1.35s':undefined})}"><svg viewBox="0 0 100 140" aria-hidden="true"><use href="#cardback"/></svg></div>`;}).join('');
+  const button=o.last?`role="button" tabindex="0" title="Letzter Stich" aria-label="Letzter Stich"`:'';
+  return `<div class="pile ${o.last?'last':''}" ${button} style="${at({left:p.x,top:p.y})}">${cards}</div>`;};
+/* the third trick on the felt, Felix's ace where the near card goes; the 360 felt is 64 px shorter, so there all three cards shrink a little, the far two rise and the near one sinks, and no card covers a name */
+const nearSlot=(d)=>slotAt(d,{...TRICK_SLOT.near(d),y:d?432:narrow()?PB.you.y-54:PB.you.y-57,...(narrow()?{w:64}:{})});
+const THIRD_TRICK=[['K','s','anna','left'],['7','s','nova','right'],['A','s','felix','near']];
+const slotOf=(d,slot)=>slot==='near'?nearSlot(d):slotAt(d,{...TRICK_SLOT[slot](d),...(narrow()?{y:280,w:64}:{})});
+const restingTrick=(d)=>THIRD_TRICK.map(([r,s,k,slot])=>played(r,s,k,{...slotOf(d,slot),fresh:k==='felix',fx:'0px',fy:'120px',fr:'0deg'})).join('');
+/* the sweep: 0.8 s at rest, 0.25 s to gather in the middle, 0.75 s along the arc onto the pile, where the cards turn into its crossed top */
+const gatherAt=(d)=>d?{x:640,y:340}:{x:PB.cx,y:(slotOf(d,'left').y+nearSlot(d).y)/2};
+const sweepingTrick=(d)=>{const g=gatherAt(d),p=PILE_AT.felix(d),w=nearSlot(d).w;
+  return THIRD_TRICK.map(([r,s,k,slot],i)=>{const c=slotOf(d,slot);
+    const vars=at({left:c.x,top:c.y,'--gx':`${g.x-c.x}px`,'--gy':`${g.y-c.y}px`,'--gr':`${(i-1)*5}deg`,'--wx':`${p.x-c.x}px`,'--wy':`${p.y-c.y}px`,'--pr':'84deg','--ps':(PILE_W(d)/w).toFixed(2),'--k':'1.35s'});
+    return `<div class="gather mo" style="${vars}">${played(r,s,k,{...c,x:0,y:0}).replace('class="tag ','class="tag mo ')}</div>`;}).join('');};
+/* the arc the trick travels, drawn as the dotted trail an emote leaves */
+const sweepTrail=(d,w)=>{const g=gatherAt(d),p=PILE_AT.felix(d),W=w,H=d?800:w===360?780:844,cx=(g.x+p.x)/2-(d?40:30),cy=Math.min(g.y,p.y)+(d?40:30);
+  const q=(t,a,b,c)=>((1-t)**2*a+2*(1-t)*t*b+t*t*c).toFixed(0),pts=Array.from({length:10},(_,i)=>{const t=.1+i*.09;return `${q(t,g.x,cx,p.x)} ${q(t,g.y,cy,p.y)}`;}).join('L');
+  return `<svg class="trail mo" style="${at({width:W,height:H,'--d':'.9s','--k':'.6s'})}" viewBox="0 0 ${W} ${H}"><path d="M${pts}"/></svg>`;};
+/* the last trick shown again: it rises out of the pile, face up, in the order it was played, each card with its player's tag (on a phone only the face, the names do not fit under three cards); the card that took it wears the pile's rim */
+const faceTag=(k)=>`<span class="tag face ${P[k].agent?'agent':''}">${faceDot(k)}</span>`;
+const lastShown=(d)=>{const p=PILE_AT.felix(d),cx=d?480:PB.cx-20,w=d?84:58;
+  const cards=THIRD_TRICK.map(([r,s,k],i)=>`<div class="lt-card ${k==='felix'?'took':''}" style="${at({'--rot':`${(i-1)*5}deg`})}">${card(r,s,'',at({'--w':w}))}${d?tag(k):faceTag(k)}</div>`).join('');
+  return `<div class="lastshow" role="dialog" aria-label="Letzter Stich" style="${at({left:cx,top:d?p.y-50:PB.you.y-12,'--caret':`${p.x-cx}px`})}"><div class="lt-head">Letzter Stich</div><div class="lt-cards">${cards}</div></div>`;};
+const trickTable=(d,w,o)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:7,count:true,glow:o.glow})+kreuz(d)+(o.felt||'')+pile(d,'anna',1,{last:o.annaLast})+pile(d,'felix',o.felixTricks,{last:!o.annaLast,landing:o.landing})
+    +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:o.turn?['turn']:[],got:o.got})+chairCoasters(L,TOTALS_BEFORE)
+    +ownCards(d,AFTER_HAND)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d)})+soundTop(d,w)+(o.over||'');};
+const TRICK_SCENES=[
+  ['last-trick-rest','Letzter Stich: der Stich liegt',[360,390,1280],(d,w)=>trickTable(d,w,{felt:restingTrick(d),annaLast:true,felixTricks:1}),
+    ['Felix sticht Annas Pik-König mit dem Ass, Nova hat die 7 zugegeben. Die drei Karten liegen 0,8 Sekunden still mit ihren Namen, so dass jeder sieht, wer was gab; niemand ist dran. Neben Annas Stuhl liegt ihr Stapel vom zweiten Stich mit Messingrand: noch ist er der letzte Stich. Neben Felix liegt sein erster.']],
+  ['last-trick-sweep','Letzter Stich: wegfegen',[360,390,1280],(d,w)=>trickTable(d,w,{felt:sweepingTrick(d)+sweepTrail(d,w),felixTricks:2,landing:true,got:'.6s;--d:1.1s'}),
+    ['„Letzter Stich: wegfegen“: nach der Pause rücken die Karten in 0,25 Sekunden in der Mitte zusammen, die Namen verblassen, und der Stich gleitet in 0,75 Sekunden auf dem gepunkteten Bogen auf Felix’ Stapel, wo er sich quer auf den ersten legt; Felix’ Stuhl blitzt gold, und beim Gleiten spielt das Wischen des gewählten Klangs. „Nochmal“ spielt es ab. Mit reduzierter Bewegung, im verborgenen Fenster oder nach dem Neuladen liegt der Stich sofort auf dem Stapel. Mit „liegen lassen“ (die Zeile in „sound-panel-more“) bleibt er liegen, bis die nächste Karte ausgespielt wird, und geht dann ohne Bogen auf den Stapel.']],
+  ['last-trick-pile','Letzter Stich: der Stapel',[360,390,1280],(d,w)=>trickTable(d,w,{glow:turnGlow(d),felixTricks:2,turn:true}),
+    ['Der Filz ist leer, Felix spielt aus. Der Messingrand ist von Annas Stapel zu seinem gewandert: nur der Stapel mit dem letzten Stich trägt ihn, und nur er lässt sich antippen. Das gilt für jeden Stuhl und jeden Zuschauer gleich.']],
+  ['last-trick-shown','Letzter Stich: angeschaut',[360,390,1280],(d,w)=>trickTable(d,w,{glow:turnGlow(d),felixTricks:2,turn:true,over:lastShown(d)}),
+    ['Ein Tipp auf den Stapel hebt den letzten Stich aufgedeckt darüber, in der Reihenfolge, in der er fiel, jede Karte mit ihrem Namen, das stechende Ass mit dem Messingrand des Stapels. Ein Tipp irgendwo legt ihn zurück, ohne eine Karte zu spielen; landet inzwischen die nächste Karte auf dem Filz, sinkt er von selbst zurück.']],
+];
+soundScenes(TRICK_SCENES);
 /* ===== Strandbar: the table's second style, drawn from the same scenes: only the look changes (a beach at dusk, a round bar table of light wood with a woven rim, stools, straw coasters, the style's own card backs, a shell and a cocktail at the rim) ===== */
 const STRAND_SIZE={360:[360,780],390:[390,844],1280:[1280,800]};
 /* the beach behind the table: dusk sky, the sea's horizon with the sun's path, foam along the shore, sand; sized to its frame */
@@ -2395,14 +2442,11 @@ const SHELL=`<svg viewBox="0 0 72 62" aria-hidden="true"><ellipse cx="36" cy="57
   <path d="M30 56h12l-2 4H32z" fill="#e8bfae"/></svg>`;
 const strandDecor=(d,phoneAt)=>{const t=(d?DB:PB).table,cx=t.x+t.w/2,cy=t.y+t.h/2,a=t.w/2,b=t.h/2,rad=(deg)=>deg*Math.PI/180;
   const rim=(deg)=>[cx+a*Math.cos(rad(deg)),cy+b*Math.sin(rad(deg))];
-  const [gx,gy]=!d&&phoneAt?phoneAt.glass:rim(d?38:36),[sx,sy]=!d&&phoneAt?phoneAt.shell:rim(d?142:144);
+  const [gx,gy]=!d&&phoneAt?phoneAt.glass:rim(d?38:36),[sx,sy]=!d&&phoneAt?phoneAt.shell:rim(d?150:144);
   return `<span class="decor cocktail" style="${at({left:gx,top:gy,'--h':d?84:62})}">${COCKTAIL}</span><span class="decor shell" style="${at({left:sx,top:sy,'--h':d?44:34})}">${SHELL}</span>`;};
 /* a scene of Klassik drawn in the style: the beach behind, the style's card backs, the decoration at the rim */
 const strandView=(draw,phoneAt)=>(d,w)=>{const [fw,fh]=STRAND_SIZE[w];
   return beach(fw,fh,d)+draw(d,w).replaceAll('href="#cardback"','href="#cardback-strand"')+strandDecor(d,phoneAt);};
-/* the last trick lies beside the plaque: three faces, fanned, with its name */
-const lastTrick=(d)=>{const w=d?52:36,x=d?404:70,y=d?372:382;
-  return `<div class="lasttrick" style="${at({left:x,top:y,'--w':w})}">${[['B','h',-12,0],['9','h',-3,10],['10','h',7,20]].map(([r,s,rot,dx])=>card(r,s,'',at({position:'absolute','--w':w,left:dx*(d?1.4:1),top:0,transform:`rotate(${rot}deg)`}))).join('')}<span class="tag">Letzter Stich</span></div>`;};
 const SEA_CAPTION='Dazu klingt das Meer: leises, gleichmäßiges Rauschen der Brandung unter dem Spiel, in der Lautstärke der Tafel und still bei „Ton aus“. Die Wellen am Strand rollen langsam ein und aus; bei der Bewegung „dezent“ und bei „Bewegung reduzieren“ stehen sie still, wie dieses Bild.';
 const LOOK_PREVIEW={
   Klassik:`<svg class="prev" viewBox="0 0 120 76" aria-hidden="true"><rect width="120" height="76" fill="#1b130d"/><rect x="8" y="10" width="104" height="56" rx="28" fill="#7a4c2a"/><rect x="12" y="14" width="96" height="48" rx="24" fill="#1d7a55"/><rect x="48" y="26" width="13" height="19" rx="2" fill="#22386a" stroke="#d6b46a" stroke-width=".8" transform="rotate(-8 54 36)"/><rect x="60" y="26" width="13" height="19" rx="2" fill="#22386a" stroke="#d6b46a" stroke-width=".8" transform="rotate(7 66 36)"/><rect x="2" y="30" width="16" height="14" rx="3" fill="#3a3a40"/><rect x="102" y="30" width="16" height="14" rx="3" fill="#2a3b5e"/></svg>`,
@@ -2413,8 +2457,8 @@ const strandRows=(s)=>[{kind:'look',label:'Stil',options:STYLES,picked:'Strandba
 const STRAND_SCENES=[
   ['strand-auction','Strandbar: Reizen',[360,390,1280],strandView(BID_SCENES.find(([id])=>id==='bid-middle')[2]),
     ['Der Tisch „Reizen“, dieselben Stühle, Karten und Tasten wie in Klassik, im Stil Strandbar: Strand in der Abenddämmerung, runder Barhocker-Tisch aus hellem Holz mit Rattanrand, Strohuntersetzer an den Plätzen, eigene Kartenrücken. Muschel und Cocktail stehen am Rand des Tisches und decken keine Karte und keine Taste.',SEA_CAPTION]],
-  ['strand-trick','Strandbar: ein Stich',[360,390,1280],strandView((d,w)=>soundTable(d,w)+lastTrick(d)),
-    ['Annas Kreuz-König und Novas Sieben liegen im Stich; links daneben liegt der letzte Stich offen, mit seinem Namen.',SEA_CAPTION]],
+  ['strand-trick','Strandbar: ein Stich',[360,390,1280],strandView((d,w)=>trickTable(d,w,{felt:restingTrick(d),annaLast:true,felixTricks:1})),
+    ['Der Stich liegt mit seinen Namen auf dem Tisch: Annas Pik-König, Novas Sieben, Felix’ Ass. Neben Annas Stuhl liegt ihr Stapel mit dem letzten Stich und dem hellen Rand, neben Felix sein erster.',SEA_CAPTION]],
   ['strand-result','Strandbar: das Ergebnis',[360,390,1280],strandView((d)=>endScene(d,OWN_WIN,tapButton,1,declarerWinsConfetti(d)),{glass:[336,590],shell:[54,596]}),
     ['Die Ergebniskarte bleibt dunkles Glas mit hellem Text, die Strohuntersetzer tragen die Punkte.',SEA_CAPTION]],
   ['strand-choose','Strandbar: der Stil in der Tafel',[360,390,1280],strandView((d,w)=>soundTable(d,w,{open:true,over:soundPanel(d,strandRows(soundState()))})),
@@ -2640,6 +2684,34 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .chip b.n{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;margin-right:-4px;border-radius:999px;background:rgba(122,167,240,.34);color:var(--on-stage);font-size:12px;font-weight:700;line-height:1}
 </style>
 <style>
+/* ---------- S15.4: the trick's way to its winner's pile, the pile, the last trick shown again ---------- */
+.pile{z-index:8}
+.pile .card{position:absolute;left:calc(var(--w) * -.5);top:calc(var(--w) * -.7);transform:translateY(var(--lift,0px)) rotate(var(--rot));
+  box-shadow:0 1px 0 #d9d2c2,0 2px 0 #aaa18e,0 7px 12px -5px rgba(0,0,0,.75)}
+.pile .card.last{outline:2px solid var(--brass-hi);outline-offset:2px;filter:drop-shadow(0 0 7px rgba(243,207,122,.55))}
+.pile.last{cursor:pointer}
+.gather{width:0;height:0;z-index:20}
+.lastshow{z-index:40;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 14px 16px;border-radius:18px;
+  background:var(--glass-dark);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:inset 0 0 0 1px rgba(240,214,150,.3),0 18px 36px -12px rgba(0,0,0,.9)}
+.lastshow::after{content:"";position:absolute;bottom:-7px;left:calc(50% + var(--caret) - 7px);width:14px;height:14px;rotate:45deg;background:inherit;box-shadow:inset -1px -1px 0 rgba(240,214,150,.3)}
+.lt-head{font-size:13px;font-weight:600;color:var(--on-stage-soft)}
+.lt-cards{display:flex;gap:10px}
+.d1280 .lt-cards{gap:16px}
+.lt-card{position:relative;rotate:var(--rot)}
+.lt-card .tag{position:absolute;left:50%;bottom:-10px;translate:-50% 0;rotate:calc(var(--rot) * -1)}
+.lt-card .tag.face{padding:0 4px}
+.lt-card.took .card{outline:2px solid var(--brass-hi);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){
+  /* rest 0.8 s, gather by 1.05 s, glide onto the pile by 1.8 s and turn into its top */
+  .gather.mo{animation:gather 1.8s var(--d,0s) both}
+  @keyframes gather{0%,44%{translate:0 0;rotate:0deg;animation-timing-function:cubic-bezier(.5,0,.4,1)}58%{translate:var(--gx) var(--gy);rotate:var(--gr);animation-timing-function:cubic-bezier(.45,.05,.3,1)}
+    90%{opacity:1}100%{translate:var(--wx) var(--wy);rotate:var(--pr);scale:var(--ps);opacity:0}}
+  .gather .tag.mo{animation:fadeout .2s ease-out .8s both}
+  .pile .card.landing.mo{animation:settle 1.92s ease-out both}
+  @keyframes settle{0%,84%{opacity:0;scale:1.15}100%{opacity:1;scale:1}}
+  .lastshow{animation:liftoff .35s cubic-bezier(.2,.9,.3,1.2) both}
+  @keyframes liftoff{from{opacity:0;translate:0 24px;scale:.8}}
+}
 /* ---------- Strandbar: a second look for the same table; every rule hangs on .strand, so Klassik's frames stay as they are ---------- */
 .frame.strand{--sand:#f3e2bd;--straw:#e4c27d;--straw-deep:#b98f48;--driftwood:#d9b27c;--rattan:#e9cf9b;--cream:#fbf6ea;--ink:#2b1b10;
   --glass-dark:rgba(28,17,22,.72);--stage-fade:rgba(25,19,46,.94);--lamp:rgba(255,196,120,.2);
@@ -2724,12 +2796,10 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .strand .confetti i{box-shadow:0 3px 6px rgba(25,12,30,.4)}
 .p390.strand .cbar,.p390.strand .sbar{background:linear-gradient(to top,var(--stage-fade) 55%,transparent)}
 .strand .card{filter:drop-shadow(0 1px 1px rgba(30,15,10,.5)) drop-shadow(0 6px 8px rgba(30,15,10,.4))}
-/* the shell and the cocktail on the rim, and the last trick beside the plaque */
+/* the shell and the cocktail on the rim */
 .decor{z-index:3;pointer-events:none;height:var(--h);transform:translate(-50%,-78%);filter:drop-shadow(0 6px 5px rgba(25,12,30,.5))}
 .decor svg{display:block;height:100%;width:auto}
 .decor.shell{transform:translate(-50%,-62%) rotate(-14deg)}
-.lasttrick{transform:translate(-50%,0);z-index:4;width:0;height:0}
-.lasttrick .tag{position:absolute;left:0;top:calc(var(--w) * 1.4 + 8px);transform:translateX(-50%)}
 /* the style row of the panel: two tiles, each with a small preview */
 .snd-look{flex:1 0 100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .snd-look span{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 6px 8px;border-radius:14px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(240,214,150,.22);font-size:14px;font-weight:600;cursor:pointer}

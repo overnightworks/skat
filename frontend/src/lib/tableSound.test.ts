@@ -5,12 +5,14 @@ import type { AudioPort, Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundSetId } from "./soundSets.ts";
 import { createTableSound, type TableSound } from "./tableSound.ts";
 import { everyRecording } from "./voice.ts";
-import type { Card, Chair, Table } from "../routes/(start)/tables.ts";
+import { stubBrowser } from "../testing/stubBrowser.ts";
+import type { Card, Chair, LastTrick, Table } from "../routes/(start)/tables.ts";
 
 const OWN_SEAT = 1;
 const OTHER_SEAT = 2;
 const THIRD_SEAT = 3;
 const CARD: Card = { suit: "kreuz", rank: "king" };
+const TRICK: LastTrick = { cards: [CARD, CARD, CARD], leader_seat: OWN_SEAT, taker_seat: OTHER_SEAT };
 const SETTINGS = { muted: false, volume: 70 };
 const FUNKELN_VOICES = 3;
 // Waking the device plays one silent sample, which the stand-in counts as a start.
@@ -168,9 +170,47 @@ describe("the sound of a card", () => {
     );
 });
 
+describe("the sound of a swept trick", () => {
+    it.each(Object.keys(SOUND_SETS) as SoundSetId[])("is the sweep of the set %s", (soundSet) => {
+        const port = new FakePort();
+
+        soundAt(port, { soundSet }).forGlide();
+
+        expect(port.played.map(({ voice }) => voice)).toEqual(SOUND_SETS[soundSet].voices["trick-swept"](1));
+    });
+
+    it("waits for the trick to gather in a set that gathers it, and not otherwise", () => {
+        const [quiet, playful] = [new FakePort(), new FakePort()];
+
+        soundAt(quiet, { motion: "dezent" }).forGlide();
+        soundAt(playful, { motion: "verspielt" }).forGlide();
+
+        expect(earliest(quiet)).toBe(0);
+        expect(earliest(playful)).toBe(MOTION_SETS.verspielt.trickGatherSeconds);
+    });
+
+    it("is silent while muted", () => {
+        const port = new FakePort();
+        const muted = createTableSound({
+            port,
+            settings: () => ({ ...SETTINGS, muted: true }),
+            soundSet: () => SOUND_SETS.leise,
+            motion: () => undefined,
+            voiceOn: () => false,
+            recording: () => undefined,
+            recordings: () => [],
+        });
+
+        muted.forGlide();
+
+        expect(port.played).toEqual([]);
+    });
+});
+
 describe("cues without a sound", () => {
     it.each([
         { name: "an auction that ended", cues: [{ kind: "auction-ended" } satisfies Cue] },
+        { name: "a trick taken", cues: [{ kind: "trick-taken", trick: TRICK } satisfies Cue] },
         { name: "a give-up refused", cues: [{ kind: "give-up-refused", seats: [OTHER_SEAT] } satisfies Cue] },
         { name: "no cue at all", cues: [] },
     ])("start no voice for $name", ({ cues }) => {
@@ -372,69 +412,6 @@ describe("the page's sound", () => {
         vi.unstubAllGlobals();
     });
 
-    function stubBrowser(options: { reducedMotion: boolean; stored?: string }) {
-        const started: number[] = [];
-        const gains: { setValueAtTime: ReturnType<typeof vi.fn> }[] = [];
-        const node = () => ({
-            gain: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
-            frequency: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
-            Q: {},
-            threshold: {},
-            ratio: {},
-            knee: {},
-            attack: {},
-            release: {},
-            connect: <Next>(next: Next): Next => next,
-            start: (at = 0) => started.push(at),
-            stop: vi.fn(),
-        });
-        class StubContext {
-            static made: StubContext[] = [];
-            constructor() {
-                StubContext.made.push(this);
-            }
-
-            state = "suspended";
-            currentTime = 0;
-            sampleRate = 4;
-            destination = node();
-            createGain = () => {
-                const gain = node();
-                gains.push(gain.gain);
-                return gain;
-            };
-            createDynamicsCompressor = node;
-            createBufferSource = node;
-            createOscillator = node;
-            createBiquadFilter = node;
-            createBuffer = (_channels: number, length: number) => ({ getChannelData: () => new Float32Array(length) });
-            decodeAudioData = vi.fn(() => Promise.resolve({}));
-            resume = () => {
-                this.state = "running";
-                return Promise.resolve();
-            };
-        }
-        const listeners = new Map<string, () => void>();
-        vi.stubGlobal("window", {
-            fetch: vi.fn(() => Promise.resolve({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(1)) })),
-            AudioContext: StubContext,
-            navigator: {},
-            document: { hidden: false },
-            matchMedia: () => ({ matches: options.reducedMotion, addEventListener: vi.fn() }),
-            localStorage: { getItem: () => options.stored ?? null },
-            addEventListener: (type: string, handler: () => void) => listeners.set(type, handler),
-            removeEventListener: (type: string) => listeners.delete(type),
-        });
-        const decodes = (): number =>
-            StubContext.made.reduce((all, one) => all + one.decodeAudioData.mock.calls.length, 0);
-        return {
-            started,
-            listeners,
-            decodes,
-            masterLoudness: () => gains[0]?.setValueAtTime.mock.calls[0]?.[0] as number,
-        };
-    }
-
     it("sounds a card only after the first tap and none before it", async () => {
         const { started, listeners } = stubBrowser({ reducedMotion: true });
         const { armSound, soundForCues } = await import("./tableSound.ts");
@@ -449,6 +426,20 @@ describe("the page's sound", () => {
         expect(started.length).toBeGreaterThan(0);
         disarm();
         expect(listeners.size).toBe(0);
+    });
+
+    it("sounds the sweep of a trick only after the first tap and none before it", async () => {
+        const { started, listeners } = stubBrowser({ reducedMotion: true });
+        const { armSound, soundForGlide } = await import("./tableSound.ts");
+        armSound();
+
+        soundForGlide();
+        const before = started.length;
+        listeners.get("pointerup")?.();
+        soundForGlide();
+
+        expect(before).toBe(0);
+        expect(started.length).toBeGreaterThan(0);
     });
 
     it.each([
