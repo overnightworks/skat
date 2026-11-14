@@ -15,6 +15,8 @@ const OWN_CARD_GAIN = 1;
 const STAND_UP_GAIN = 0.4;
 /** Two cards of one update land on the felt together; heard together they sound as one. */
 const MOMENT_STAGGER_SECONDS = 0.12;
+/** The grumble follows the ring this far behind. */
+const GRUMBLE_AFTER_THE_RING_SECONDS = 0.5;
 const ARMING_EVENTS = ["pointerup", "keydown"] as const;
 /** One short buzz, for a device that can vibrate. */
 const TURN_VIBRATION_MILLISECONDS: readonly number[] = [40];
@@ -77,6 +79,8 @@ function momentOf(cue: Cue, table: Table): Moment | undefined {
             return { moment: "chair-stood", gain: STAND_UP_GAIN };
         case "chair-opened":
             return { moment: "chair-opened", gain: 1 };
+        case "nudged":
+            return { moment: "nudged", gain: 1 };
         default:
             return undefined;
     }
@@ -97,6 +101,7 @@ const LANDS_AFTER: Record<Cue["kind"], (motion: MotionSet) => number> = {
     "chair-taken": () => 0,
     "chair-stood": () => 0,
     "chair-opened": () => 0,
+    nudged: (motion) => motion.bellRingsSeconds,
 };
 
 // The gains count up from the moment the result has risen, and tick as long as the set's count runs.
@@ -162,7 +167,8 @@ export function createTableSound({
             for (const { cue, lands } of landings) {
                 const key = voiceKeyOf(cue);
                 const url = key === undefined ? undefined : recording(key);
-                if (url !== undefined) sound.speak(url, lands);
+                if (url !== undefined)
+                    sound.speak(url, lands + (cue.kind === "nudged" ? GRUMBLE_AFTER_THE_RING_SECONDS : 0));
             }
         },
         forGlide() {

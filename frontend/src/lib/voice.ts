@@ -11,8 +11,21 @@ const RECORDINGS = import.meta.glob<string>("./voice/*/*.mp3", {
     eager: true,
 });
 
+// The lines a nudged chair grumbles; the next pick says the next line.
+const GRUMBLES = [
+    "voice.grumbleComing",
+    "voice.grumbleRush",
+    "voice.grumbleThinking",
+] as const satisfies readonly VoiceKey[];
+
+/** The line a nudged chair grumbles for the pick of its cue. */
+export function grumbleOf(pick: number): VoiceKey {
+    return GRUMBLES[pick % GRUMBLES.length] as VoiceKey;
+}
+
 /** The word the voice says for a cue, or nothing when the cue shows nothing a voice would repeat. */
 export function voiceKeyOf(cue: Cue): VoiceKey | undefined {
+    if (cue.kind === "nudged") return grumbleOf(cue.pick);
     if (cue.kind === "word-said") return `voice.${cue.said.word}`;
     if (cue.kind !== "bid-said") return undefined;
     // The server names a value with every bid and every hold.

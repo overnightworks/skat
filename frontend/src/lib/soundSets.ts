@@ -12,7 +12,8 @@ export type SoundMoment =
     | "result-lost"
     | "chair-taken"
     | "chair-stood"
-    | "chair-opened";
+    | "chair-opened"
+    | "nudged";
 
 export interface SoundSet {
     readonly id: string;
@@ -507,6 +508,49 @@ function chairBellsDown(gain: number): readonly Voice[] {
     ];
 }
 
+/** The two strikes of a ringing cowbell are this far apart. */
+const COWBELL_STRIKE_GAP_SECONDS = 0.17;
+
+// One strike on a cowbell: two tones that are no octave apart, the upper a little under a fifth above the lower, and the click
+// of the clapper.
+function cowbellStrike(
+    at: number,
+    gain: number,
+    wave: OscillatorType,
+    pitch: number,
+    seconds: number,
+): readonly [ToneVoice, ToneVoice, NoiseVoice] {
+    return [
+        { kind: "tone", wave, at, seconds, frequency: pitch, gain },
+        { kind: "tone", wave, at, seconds: seconds * 0.7, frequency: Math.round(pitch * 1.48), gain: gain * 0.7 },
+        { kind: "noise", at, seconds: 0.02, frequency: 3400, quality: 1.5, gain: gain * 0.5 },
+    ];
+}
+
+// A soft cowbell of sines, the second strike quieter.
+function cowbellSoft(gain: number): readonly Voice[] {
+    return [
+        ...cowbellStrike(0, 0.2 * gain, "sine", 587, 0.26),
+        ...cowbellStrike(COWBELL_STRIKE_GAP_SECONDS, 0.14 * gain, "sine", 587, 0.26),
+    ];
+}
+
+// A clanking cowbell of squares, as drum machines play it.
+function cowbellClank(gain: number): readonly Voice[] {
+    return [
+        ...cowbellStrike(0, 0.16 * gain, "square", 540, 0.22),
+        ...cowbellStrike(COWBELL_STRIKE_GAP_SECONDS, 0.16 * gain, "square", 540, 0.3),
+    ];
+}
+
+// A bright cowbell of triangles, the second strike higher.
+function cowbellBright(gain: number): readonly Voice[] {
+    return [
+        ...cowbellStrike(0, 0.2 * gain, "triangle", 680, 0.22),
+        ...cowbellStrike(COWBELL_STRIKE_GAP_SECONDS, 0.2 * gain, "triangle", 820, 0.3),
+    ];
+}
+
 type VoicesOf = (gain: number) => readonly Voice[];
 
 // Each moment is brought to one loudness at the full volume, so no set and no moment sounds markedly quieter than another;
@@ -537,6 +581,7 @@ export const SOUND_SETS = {
             "chair-taken": levelled(chairKnock, 1.42),
             "chair-stood": levelled(chairKnock, 1.42),
             "chair-opened": levelled(chairKnockLow, 3.46),
+            nudged: levelled(cowbellSoft, 0.64),
         },
         counts: levelledCounts(countTicks, 4.7),
     },
@@ -555,6 +600,7 @@ export const SOUND_SETS = {
             "chair-taken": levelled(chairScrapeKnock, 1.63),
             "chair-stood": levelled(chairKnockDeep, 1.63),
             "chair-opened": levelled(chairSlide, 1.83),
+            nudged: levelled(cowbellClank, 0.5),
         },
         counts: levelledCounts(countBell, 1),
     },
@@ -573,6 +619,7 @@ export const SOUND_SETS = {
             "chair-taken": levelled(chairBellsUp, 0.78),
             "chair-stood": levelled(chairBellsDown, 0.85),
             "chair-opened": levelled(chairBellsDown, 0.85),
+            nudged: levelled(cowbellBright, 0.7),
         },
         counts: levelledCounts(countCoins, 1.09),
     },

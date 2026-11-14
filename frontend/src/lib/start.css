@@ -2081,7 +2081,7 @@ body {
 }
 
 /* The bell at the top-left corner of the chair the table waits for: a button inside a 44 px tap area while it may be
-   tapped, a mark with a tick once nudged; the dealer's badge sits at the same corner, so the bell steps below it. */
+   tapped; the dealer's badge sits at the same corner, so the bell steps below it. */
 .room .mark.bell {
     position: absolute;
     z-index: 2;
@@ -2124,74 +2124,164 @@ body {
     inset: -8px;
 }
 
-.room .mark.bell i {
+/* The nudge's answer: a cowbell swings from its strap over the top of the chair and rings, the chair's tile shakes, and the
+   nudged one grumbles in a bubble like a call. The cowbell hangs still where motion is not welcome. */
+.room .cowbell {
     position: absolute;
-    right: -5px;
-    bottom: -5px;
-    display: grid;
-    place-items: center;
-    width: 15px;
-    height: 15px;
-    border-radius: 50%;
-    color: #0d1013;
-    background: var(--ok-stage);
-    box-shadow: 0 0 0 2px var(--stage-ink, #0c0e11);
+    z-index: 4;
+    left: 50%;
+    top: calc(var(--chair-width) * -0.22);
+    width: calc(var(--chair-width) * 0.45);
+    margin-left: calc(var(--chair-width) * -0.225);
+    pointer-events: none;
+    filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.55));
+    transform-origin: 50% 14%;
 }
 
-.room .mark.bell i svg {
-    width: 9px;
-    height: 9px;
+.room .cowbell svg {
+    display: block;
+    width: 100%;
+    height: auto;
 }
 
-/* The nudged person's own bell, ringing once: two arcs beside it, and the bell swinging where motion is welcome. */
-.room .mark.bell.shaken::before,
-.room .mark.bell.shaken::after {
-    content: "";
+.room .cowbell .body {
+    fill: var(--brass);
+    stroke: #5a4416;
+}
+
+.room .cowbell .shine {
+    fill: var(--brass-hi);
+    opacity: 0.55;
+}
+
+.room .cowbell .ring {
     position: absolute;
-    top: 6px;
-    width: 6px;
-    height: 16px;
-    border: 2px solid var(--accent-stage, #7aa7f0);
+    top: 30%;
+    width: 12%;
+    height: 34%;
+    border: 2.5px solid var(--accent-stage, #7aa7f0);
     border-radius: 50%;
 }
 
-.room .mark.bell.shaken::before {
-    left: -10px;
+.room .cowbell .ring.left {
+    left: -22%;
     border-right: 0;
 }
 
-.room .mark.bell.shaken::after {
-    right: -10px;
+.room .cowbell .ring.right {
+    right: -22%;
     border-left: 0;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .room .mark.bell.shaken > svg {
-        animation: bell-shake 0.8s ease-in-out 0.5s both;
-        transform-origin: 50% 22%;
+.room .bubble.grumble {
+    z-index: 5;
+    gap: 5px;
+    padding: 3px 12px 3px 5px;
+    font-size: 17px;
+}
+
+.room .bubble.grumble .dot {
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+}
+
+/* The near chair's grumble is wider than the room left of the chair on a phone: it hangs above the chair, over the cowbell's strap. */
+.room .chair:nth-child(3) .bubble.grumble {
+    right: auto;
+    bottom: calc(100% + var(--chair-width) * 0.22 + 8px);
+    left: 50%;
+    top: auto;
+    transform: translateX(-50%);
+    --tail: 50%;
+}
+
+.room .chair:nth-child(3) .bubble.grumble::after {
+    top: calc(100% - 6px);
+    right: auto;
+    left: var(--tail);
+    transform: translateX(-50%) rotate(45deg);
+}
+
+.room[data-motion] .cowbell {
+    animation: cowbell-swing 1.6s ease-in-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room[data-motion="dezent"] .cowbell {
+    animation-duration: 1.2s; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes cowbell-swing {
+    0% {
+        translate: 0 -60px;
+        rotate: -30deg;
+        opacity: 0;
+    }
+
+    14% {
+        translate: 0 0;
+        rotate: -16deg;
+        opacity: 1;
+    }
+
+    32% {
+        rotate: 15deg;
+    }
+
+    50% {
+        rotate: -11deg;
+    }
+
+    68% {
+        rotate: 7deg;
+    }
+
+    84% {
+        rotate: -3deg;
+        opacity: 1;
+    }
+
+    100% {
+        rotate: 0deg;
+        opacity: 0;
     }
 }
 
-@keyframes bell-shake {
+.room[data-motion] .chair.shaken .tile {
+    animation: chair-shake 0.6s linear 0.5s; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room[data-motion] .chair.turn.shaken .tile {
+    animation: /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+        breathe 2.4s ease-in-out infinite,
+        chair-shake 0.6s linear 0.5s;
+}
+
+@keyframes chair-shake {
     0%,
     100% {
+        translate: 0 0;
         rotate: 0deg;
     }
 
-    20% {
-        rotate: -16deg;
+    15% {
+        translate: 5px 0;
+        rotate: 1.6deg;
     }
 
-    40% {
-        rotate: 14deg;
+    35% {
+        translate: -5px 0;
+        rotate: -1.6deg;
     }
 
-    60% {
-        rotate: -9deg;
+    55% {
+        translate: 4px 0;
+        rotate: 1.2deg;
     }
 
-    80% {
-        rotate: 5deg;
+    75% {
+        translate: -3px 0;
+        rotate: -0.8deg;
     }
 }
 
