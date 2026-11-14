@@ -1,0 +1,8 @@
+claim_id = "4a15ae170ac844cc89c4c8aca7db0739"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "f1c0b56c762c3cdc1f8cf1498e0faaa0d15d7e85"
+branch = "claude/issue-534-an-ended-table-without-games-is-gone-aft"
+scope = ["README.md", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/closed.ts", "frontend/src/lib/words", "frontend/src/routes/(start)/t/[id]/TableClosed.svelte", "src/skat/host/app.py", "src/skat/store/tables.py", "src/skat/table/records.py", "src/skat/table/service.py", "src/skat/web/settings.py", "src/skat/web/words.py", "tests/e2e/test_table_end.py", "tests/host/test_app.py", "tests/store/test_tables_end.py", "tests/table/test_service_end.py"]
+opened_commit = "7edd7cdded3a9f2610c1aaedef534ff7fdc01d7d"
+whole_reason = "The setting, the sweep that reads it and the deletion it drives are one path: a setting no sweep reads changes nothing, and a sweep that deletes without the name's expiry leaves line 12 A's one-week bound unmet."
