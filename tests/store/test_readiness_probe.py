@@ -5,7 +5,12 @@ import pytest
 from structlog.testing import capture_logs
 
 from skat.store import migrate as migrate_module
-from skat.store.migrate import READINESS_REUSE_SECONDS, DatabaseHealth, ReadinessProbe
+from skat.store.migrate import (
+    READINESS_PATIENCE_SECONDS,
+    READINESS_REUSE_SECONDS,
+    DatabaseHealth,
+    ReadinessProbe,
+)
 
 READY = DatabaseHealth(serves_queries=True, at_head=True)
 UNREACHABLE = DatabaseHealth(serves_queries=False, at_head=False)
@@ -80,15 +85,15 @@ class TestReadinessProbe:
 
     def test_a_second_ask_within_the_reuse_time_costs_no_probe(self, readiness, database, clock):
         asyncio.run(readiness())
-        clock.now += READINESS_REUSE_SECONDS / 2
+        clock.now += READINESS_REUSE_SECONDS / 4
         asyncio.run(readiness())
 
         assert database.probes_started == 1
 
     def test_the_reuse_time_runs_from_the_start_of_the_probe(self, readiness, database, clock):
-        database.seconds_per_probe = READINESS_REUSE_SECONDS * 0.8
+        database.seconds_per_probe = READINESS_REUSE_SECONDS * 0.4
         asyncio.run(readiness())
-        clock.now = READINESS_REUSE_SECONDS
+        clock.now = READINESS_REUSE_SECONDS * 0.6
         asyncio.run(readiness())
 
         assert database.probes_started == 2
@@ -104,6 +109,13 @@ class TestReadinessProbe:
         recovered = asyncio.run(readiness())
 
         assert (before, stopped, recovered) == (True, False, True)
+
+    def test_a_ready_verdict_leaves_room_for_the_patience_within_the_reuse_time(self, readiness, database, clock):
+        asyncio.run(readiness())
+        database.health = UNREACHABLE
+        clock.now += READINESS_REUSE_SECONDS - READINESS_PATIENCE_SECONDS
+
+        assert asyncio.run(readiness()) is False
 
     def test_a_stalled_probe_reads_unready_once_the_patience_is_up_without_a_second_probe(
         self, readiness, database, clock, monkeypatch

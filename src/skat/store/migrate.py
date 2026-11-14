@@ -32,10 +32,10 @@ STORE_CONNECT_TIMEOUT_SECONDS: Final = 5
 HEALTH_DEADLINE_SECONDS: Final = 5
 # Bounds the work the health check leaves on a database that is slow but answering.
 HEALTH_STATEMENT_TIMEOUT_MILLISECONDS: Final = 2_000
-# How long, from the start of its probe, a verdict answers every ask, and how long, from its start, an unfinished
-# probe is awaited before its asks read unready. Readiness follows the database within their sum, one second, far
-# below the period in which the edge probes.
-READINESS_REUSE_SECONDS: Final = 0.5
+# The time within which readiness follows the database, far below the period in which the edge probes: a verdict
+# answers every ask until the time left after the patience has run from the start of its probe, and an unfinished
+# probe is awaited for the patience, from its start, before its asks read unready.
+READINESS_REUSE_SECONDS: Final = 1.0
 READINESS_PATIENCE_SECONDS: Final = 0.5
 
 log = structlog.get_logger()
@@ -191,15 +191,16 @@ def database_health(engine: Engine) -> DatabaseHealth:
 
 
 class ReadinessProbe:
-    """The readiness verdict, computed by at most one probe at a time and reused for `READINESS_REUSE_SECONDS`.
+    """The readiness verdict, computed by at most one probe at a time and following the database within
+    `READINESS_REUSE_SECONDS`.
 
     A burst of asks costs one probe connection and one thread, never one per ask: an ask that arrives while a probe
     runs awaits that probe's verdict, but only until `READINESS_PATIENCE_SECONDS` after the probe started; a probe
-    that has not answered by then reads unready, as unreachable, so a stalled database turns the verdict within the sum of both,
-    not after the health deadline. The reuse runs from the probe's start, because a ready verdict read the database
-    after that start, so it outlives a stop by at most the reuse time. A verdict that differs from
-    the previous one, one read from a stalled probe included, is logged once with its cause; the first probe is compared with ready, which `require_head`
-    established before Skat served.
+    that has not answered by then reads unready, as unreachable, not after the health deadline. A verdict answers
+    asks until the reuse time less the patience has run from the probe's start, because it read the database after
+    that start; so a stop turns the verdict within the reuse time, whether the probe then answers or stalls. A
+    verdict that differs from the previous one, one read from a stalled probe included, is logged once with its
+    cause; the first probe is compared with ready, which `require_head` established before Skat served.
     """
 
     def __init__(self, probe: Callable[[], DatabaseHealth], *, clock: Callable[[], float] = time.monotonic) -> None:
@@ -233,7 +234,7 @@ class ReadinessProbe:
     async def _refresh(self, started_at: float) -> bool:
         try:
             health = await asyncio.to_thread(self._probe)
-            self._reusable_until = started_at + READINESS_REUSE_SECONDS
+            self._reusable_until = started_at + READINESS_REUSE_SECONDS - READINESS_PATIENCE_SECONDS
             self._record(health.verdict)
             return health.ready
         finally:
