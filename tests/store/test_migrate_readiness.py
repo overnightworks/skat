@@ -179,6 +179,19 @@ class TestReadinessLogging:
 
         assert [(entry["was"], entry["now"]) for entry in logs] == [("ready", "unreachable")]
 
+    def test_a_database_slower_than_the_patience_but_reachable_logs_one_slow_verdict_and_answers_unready(
+        self, readiness, database, clock
+    ):
+        database.seconds_per_probe = READINESS_PATIENCE_SECONDS * 1.2
+
+        with capture_logs() as logs:
+            answers = []
+            for _ in range(4):
+                answers.append(asyncio.run(readiness()))
+                clock.now += READINESS_REUSE_SECONDS
+
+        assert (answers, [(entry["was"], entry["now"]) for entry in logs]) == ([False] * 4, [("ready", "slow")])
+
     def test_a_stalled_probe_logs_the_verdict_it_reads_and_its_recovery_once_each(
         self, readiness, database, clock, monkeypatch
     ):
@@ -195,4 +208,4 @@ class TestReadinessLogging:
         with capture_logs() as logs:
             asyncio.run(stall_then_recover())
 
-        assert [(entry["was"], entry["now"]) for entry in logs] == [("ready", "unreachable"), ("unreachable", "ready")]
+        assert [(entry["was"], entry["now"]) for entry in logs] == [("ready", "slow"), ("slow", "ready")]

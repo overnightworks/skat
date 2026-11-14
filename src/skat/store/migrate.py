@@ -49,6 +49,7 @@ class ReadinessVerdict(StrEnum):
     READY = "ready"
     UNREACHABLE = "unreachable"
     NOT_AT_HEAD = "not_at_head"
+    SLOW = "slow"
 
 
 @dataclass(frozen=True)
@@ -196,11 +197,13 @@ class ReadinessProbe:
 
     A burst of asks costs one probe connection and one thread, never one per ask: an ask that arrives while a probe
     runs awaits that probe's verdict, but only until `READINESS_PATIENCE_SECONDS` after the probe started; a probe
-    that has not answered by then reads unready, as unreachable, not after the health deadline. A verdict answers
+    that has not answered by then reads unready, as slow, not after the health deadline. A verdict answers
     asks until the reuse time less the patience has run from the probe's start, because it read the database after
     that start; so a stop turns the verdict within the reuse time, whether the probe then answers or stalls. A
-    verdict that differs from the previous one, one read from a stalled probe included, is logged once with its
-    cause; the first probe is compared with ready, which `require_head` established before Skat served.
+    verdict that differs from the previous one is logged once with its cause; a probe that answers ready after the
+    patience stays slow, as its askers were told, and a stalled probe turns only a ready verdict to slow, so that a
+    slow database logs one verdict and not one per probe. The first probe is compared with ready, which
+    `require_head` established before Skat served.
     """
 
     def __init__(self, probe: Callable[[], DatabaseHealth], *, clock: Callable[[], float] = time.monotonic) -> None:
@@ -223,7 +226,8 @@ class ReadinessProbe:
         await asyncio.wait({running}, timeout=max(patience, 0))
         if running.done():
             return running.result()
-        self._record(ReadinessVerdict.UNREACHABLE)
+        if self._verdict is ReadinessVerdict.READY:
+            self._record(ReadinessVerdict.SLOW)
         return False
 
     def _record(self, verdict: ReadinessVerdict) -> None:
@@ -235,7 +239,9 @@ class ReadinessProbe:
         try:
             health = await asyncio.to_thread(self._probe)
             self._reusable_until = started_at + READINESS_REUSE_SECONDS - READINESS_PATIENCE_SECONDS
-            self._record(health.verdict)
-            return health.ready
+            late = self._clock() - started_at > READINESS_PATIENCE_SECONDS
+            verdict = ReadinessVerdict.SLOW if late and health.ready else health.verdict
+            self._record(verdict)
+            return verdict is ReadinessVerdict.READY
         finally:
             self._running = None
