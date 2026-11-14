@@ -101,6 +101,7 @@ export const SERIES_LENGTH_STEP = 3;
 export const SERIES_LENGTH_DEFAULT = 36;
 export const CHAIRS_PER_TABLE = 3;
 export const RULE_SET_NAME_MAX = 40;
+export const STREAM_HEARTBEAT_SECONDS = 15;
 export const SWITCH_ON_OPTIONS = {
     show_running_points: false,
     kontra: {

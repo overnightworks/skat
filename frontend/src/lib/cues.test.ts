@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { cuesBetween, type Cue } from "#lib/cues.ts";
+import { cuesBetween, springsUp, stampBetween, type Cue } from "#lib/cues.ts";
+import { words } from "#lib/words.ts";
 import type {
     Auction,
+    AuctionWord,
     Card,
     Chair,
     Declaring,
     GiveUp,
+    Kontra,
     Playing,
     Position,
     SeatedCard,
@@ -25,14 +28,14 @@ const KARO_JACK: Card = { suit: "karo", rank: "jack" };
 
 const EVERY_HAND_DEALT: [number, number, number] = [10, 10, 10];
 
-function auction(): Auction {
+function auction(spoken: AuctionWord[] = []): Auction {
     return {
         turn_seat: null,
         facing_seat: null,
         awaiting: null,
         standing: null,
         values: [],
-        words: [],
+        words: spoken,
         declared: null,
     };
 }
@@ -63,6 +66,11 @@ function playing(changes: Partial<Playing>): Playing {
         turn_seat: FOREHAND,
         current_trick: [],
         last_trick: null,
+        taken: [
+            { seat: 1, tricks: 0 },
+            { seat: 2, tricks: 0 },
+            { seat: 3, tricks: 0 },
+        ],
         legal_cards: [],
         running_points: null,
         give_up: null,
@@ -80,9 +88,11 @@ function table(
         current?: SeatedCard[];
         last?: Playing["last_trick"];
         giveUp?: GiveUp | null;
+        spoken?: AuctionWord[];
+        kontra?: Kontra | null;
     } = {},
 ): Table {
-    const hasPlaying = changes.current !== undefined || changes.last !== undefined;
+    const hasPlaying = changes.current !== undefined || changes.last !== undefined || changes.kontra !== undefined;
     return {
         id: "a".repeat(32),
         version,
@@ -100,13 +110,14 @@ function table(
             pushing: null,
             pushes: 0,
             push_factor: 1,
-            auction: auction(),
+            auction: auction(changes.spoken),
             declaring: changes.declaring === undefined ? declaringAt("picked") : changes.declaring,
             playing: hasPlaying
                 ? playing({
                       current_trick: changes.current ?? [],
                       last_trick: changes.last ?? null,
                       give_up: changes.giveUp ?? null,
+                      kontra: changes.kontra ?? null,
                   })
                 : null,
         },
@@ -354,5 +365,165 @@ describe("the moment both opponents refused a give-up", () => {
         },
     ] satisfies { name: string; previous: Table | undefined; next: Table }[])("is not $name", ({ previous, next }) => {
         expect(cuesBetween(previous, next).some((cue) => cue.kind === "give-up-refused")).toBe(false);
+    });
+});
+
+describe("the bid a chair said between two versions of a table", () => {
+    const BID_EIGHTEEN: AuctionWord = { seat: MIDDLEHAND, action: "bid", value: 18 };
+    const HOLD_EIGHTEEN: AuctionWord = { seat: REARHAND, action: "hold", value: 18 };
+    const PASS: AuctionWord = { seat: FOREHAND, action: "pass", value: null };
+    const auctionTable = (version: number, spoken: AuctionWord[]): Table =>
+        table(version, EVERY_HAND_DEALT, { declaring: null, spoken });
+
+    it.each([
+        { name: "a bid", spoken: [BID_EIGHTEEN], cue: { seat: MIDDLEHAND, word: { action: "bid", value: 18 } } },
+        {
+            name: "a hold, with the standing bid it answered",
+            spoken: [BID_EIGHTEEN, HOLD_EIGHTEEN],
+            before: [BID_EIGHTEEN],
+            cue: { seat: REARHAND, word: { action: "hold", value: 18 } },
+        },
+        {
+            name: "a pass",
+            spoken: [PASS, BID_EIGHTEEN],
+            before: [BID_EIGHTEEN],
+            cue: { seat: FOREHAND, word: { action: "pass", value: null } },
+        },
+        {
+            name: "a raised bid of a chair that bid before",
+            spoken: [{ ...BID_EIGHTEEN, value: 20 }],
+            before: [BID_EIGHTEEN],
+            cue: { seat: MIDDLEHAND, word: { action: "bid", value: 20 } },
+        },
+    ] satisfies { name: string; spoken: AuctionWord[]; before?: AuctionWord[]; cue: object }[])(
+        "is $name",
+        ({ spoken, before, cue }) => {
+            expect(cuesBetween(auctionTable(1, before ?? []), auctionTable(2, spoken))).toEqual([
+                { kind: "bid-said", ...cue },
+            ]);
+        },
+    );
+
+    it("is the last chair's word when several chairs said theirs at once", () => {
+        const cues = cuesBetween(auctionTable(1, []), auctionTable(3, [PASS, BID_EIGHTEEN, HOLD_EIGHTEEN]));
+
+        expect(cues).toEqual([{ kind: "bid-said", seat: REARHAND, word: { action: "hold", value: 18 } }]);
+    });
+
+    it.each([
+        { name: "the first answer of the page", previous: undefined, next: auctionTable(2, [BID_EIGHTEEN]) },
+        {
+            name: "a table that is not newer",
+            previous: auctionTable(2, []),
+            next: auctionTable(2, [BID_EIGHTEEN]),
+        },
+        {
+            name: "words that did not change",
+            previous: auctionTable(1, [BID_EIGHTEEN]),
+            next: auctionTable(2, [BID_EIGHTEEN]),
+        },
+        {
+            name: "a hand with no words yet",
+            previous: { ...auctionTable(1, []), hand: null },
+            next: auctionTable(2, []),
+        },
+        {
+            name: "a play, which shows nothing at the table",
+            previous: auctionTable(1, []),
+            next: auctionTable(2, [{ seat: FOREHAND, action: "play", value: 18 }]),
+        },
+    ] satisfies { name: string; previous: Table | undefined; next: Table }[])("is not $name", ({ previous, next }) => {
+        expect(cuesBetween(previous, next).some((cue) => cue.kind === "bid-said")).toBe(false);
+    });
+});
+
+describe("the word of Kontra said between two versions of a table", () => {
+    const SAID_KONTRA = { seat: FOREHAND, word: "kontra" } as const;
+    const SAID_RE = { seat: MIDDLEHAND, word: "re" } as const;
+    const kontra = (said: Kontra["said"]): Kontra => ({ said, factor: 2 ** said.length, my_word: null });
+    const wordTable = (version: number, said: Kontra["said"] | null): Table =>
+        table(version, EVERY_HAND_DEALT, { declaring: null, kontra: said === null ? null : kontra(said) });
+    const stampOfFelix = {
+        text: words["kontra.stamp"]({ word: words["kontra.kontra"] }),
+        label: words["kontra.saidBy"]({ name: "player 1", word: words["kontra.kontra"] }),
+        initial: "p",
+        agent: false,
+    };
+
+    it("is the word the update brought", () => {
+        expect(cuesBetween(wordTable(5, []), wordTable(6, [SAID_KONTRA]))).toEqual([
+            { kind: "word-said", said: SAID_KONTRA },
+        ]);
+    });
+
+    it("is the last of two words said at once", () => {
+        expect(cuesBetween(wordTable(5, []), wordTable(7, [SAID_KONTRA, SAID_RE]))).toEqual([
+            { kind: "word-said", said: SAID_RE },
+        ]);
+    });
+
+    it.each([
+        { name: "the same words again", previous: wordTable(5, [SAID_KONTRA]), next: wordTable(6, [SAID_KONTRA]) },
+        { name: "words of another hand", previous: wordTable(5, [SAID_KONTRA, SAID_RE]), next: wordTable(6, []) },
+        { name: "a table without Kontra", previous: wordTable(5, null), next: wordTable(6, null) },
+        {
+            name: "a hand that has just ended",
+            previous: wordTable(5, [SAID_KONTRA]),
+            next: { ...wordTable(6, []), hand: null },
+        },
+    ])("is not $name", ({ previous, next }) => {
+        expect(cuesBetween(previous, next).some((cue) => cue.kind === "word-said")).toBe(false);
+    });
+
+    it("stamps the word with its mark and the sayer's face", () => {
+        expect(stampBetween(wordTable(5, []), wordTable(6, [SAID_KONTRA]))).toEqual(stampOfFelix);
+    });
+
+    it("stamps the last of two words said at once", () => {
+        expect(stampBetween(wordTable(5, []), wordTable(7, [SAID_KONTRA, SAID_RE]))).toMatchObject({
+            text: words["kontra.stamp"]({ word: words["kontra.re"] }),
+            initial: "p",
+        });
+    });
+
+    it("stamps a hand's first word, as the table before it had no hand", () => {
+        expect(stampBetween({ ...wordTable(5, []), hand: null }, wordTable(6, [SAID_KONTRA]))).toEqual(stampOfFelix);
+    });
+
+    it("shows an agent's word with the agent's mark", () => {
+        const agents = wordTable(6, [SAID_KONTRA]);
+        (agents.chairs[0] as Chair).occupant_kind = "agent";
+
+        expect(stampBetween(wordTable(5, []), agents)).toMatchObject({ agent: true });
+    });
+
+    it("has no initial for a chair that has since been left", () => {
+        const left = wordTable(6, [SAID_KONTRA]);
+        (left.chairs[0] as Chair).occupant_name = null;
+
+        expect(stampBetween(wordTable(5, []), left)?.initial).toBe("");
+    });
+
+    it.each([
+        { name: "a page that has no table before it", previous: undefined, next: wordTable(6, [SAID_KONTRA]) },
+        { name: "a table that is not newer", previous: wordTable(6, []), next: wordTable(6, [SAID_KONTRA]) },
+        { name: "the same words again", previous: wordTable(5, [SAID_KONTRA]), next: wordTable(6, [SAID_KONTRA]) },
+    ])("stamps nothing for $name", ({ previous, next }) => {
+        expect(stampBetween(previous, next)).toBeNull();
+    });
+});
+
+describe("the bubble that springs up", () => {
+    const said = { seat: 1, word: { action: "bid", value: 20 } } as const;
+
+    it.each([
+        { name: "the bid just said by its chair", said, seat: 1, bubble: { kind: "bid", value: 20 }, springs: true },
+        { name: "no bid said", said: null, seat: 1, bubble: { kind: "bid", value: 20 }, springs: false },
+        { name: "another chair's bid", said, seat: 2, bubble: { kind: "bid", value: 20 }, springs: false },
+        { name: "an earlier bid of the chair", said, seat: 1, bubble: { kind: "bid", value: 18 }, springs: false },
+        { name: "a hold at the value", said, seat: 1, bubble: { kind: "hold", value: 20 }, springs: false },
+        { name: "a chair without a bubble", said, seat: 1, bubble: null, springs: false },
+    ] as const)("is $springs for $name", ({ said: bid, seat, bubble, springs }) => {
+        expect(springsUp(bid, seat, bubble)).toBe(springs);
     });
 });

@@ -13,8 +13,9 @@ from skat.web.mcp import Exclusion, excluded
 from skat.web.streams import (
     SourceMessage,
     StreamEvent,
+    StreamKind,
     event_stream_response,
-    message_of,
+    messages_with_end_log,
     session_admission,
     stream_messages,
 )
@@ -23,7 +24,7 @@ from skat.web.tables import actor_of
 from skat.web.wakes import AccountTopic, OpenTablesTopic, TableTopic
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable
+    from collections.abc import Callable
 
     from webauth.ports import SessionRecordStore
 
@@ -344,12 +345,11 @@ def create_lobby_router(
         ]
         admit = session_admission(request, sessions)
 
-        async def messages() -> AsyncIterator[str]:
-            async for item in stream_messages(
-                sources, admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
-            ):
-                yield message_of(item)
-
-        return event_stream_response(messages(), slots.take(account_id))
+        messages = messages_with_end_log(
+            stream_messages(sources, admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds),
+            lambda: presence.stopped,
+            StreamKind.LOBBY,
+        )
+        return event_stream_response(messages, slots.take(account_id))
 
     return router

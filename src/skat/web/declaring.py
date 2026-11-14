@@ -7,16 +7,14 @@ from pydantic import Field
 
 from skat.engine.declaration import SKAT_SIZE, Declare, PutBack, TakeSkat
 from skat.table.declaring import DeclaringCommand
+from skat.web.declaration_tokens import GAME_TOKENS, AnnouncementToken, GameToken
 from skat.web.mcp import DECLARE_GAME_MARK, PUT_BACK_CARDS_MARK, TAKE_SKAT_MARK
 from skat.web.tables import (
     ANNOUNCEMENTS_OF_TOKEN,
     COMMAND_RESPONSES,
-    GAME_TOKENS,
     TABLES_PATH,
-    AnnouncementToken,
     CardChoice,
     CommandRequest,
-    GameToken,
     TableAnswer,
     actor_of,
     card_of,
