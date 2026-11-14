@@ -1272,12 +1272,12 @@ msgid "Ramsch beim Einpassen"
 msgstr "Ramsch when everyone passes"
 
 msgctxt "rules.nameRamschBockRounds"
-msgid "Ramsch in den Bockrunden"
-msgstr "Ramsch in the Bock rounds"
+msgid "Ramschrunde nach jeder Bockrunde"
+msgstr "Ramsch round after each Bock round"
 
 msgctxt "rules.nameRamschPassedInAndBockRounds"
-msgid "Ramsch beim Einpassen und in den Bockrunden"
-msgstr "Ramsch when everyone passes and in the Bock rounds"
+msgid "Ramsch beim Einpassen und Ramschrunde nach jeder Bockrunde"
+msgstr "Ramsch when everyone passes and Ramsch round after each Bock round"
 
 msgctxt "rules.namePushing"
 msgid "Schieberamsch"
