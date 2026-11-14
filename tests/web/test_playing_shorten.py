@@ -330,15 +330,14 @@ class TestBothOpponentsSayYes:
         assert ending_of(frames[0]["result"]) == ("shortened", SEAT[MIDDLEHAND])
         assert {cards_in_text(read.text) == set() for read in map(herz_hand.read_as, herz_hand.at.values())} == {True}
 
-    def test_the_same_opponents_yes_twice_changes_nothing_and_does_not_end_the_game(self, herz_hand):
+    def test_the_same_opponents_yes_twice_is_refused_as_already_answered_and_the_game_goes_on(self, herz_hand):
         shortens(herz_hand)
         says_yes(herz_hand, FOREHAND)
-        before = herz_hand.record
 
-        assert says_yes(herz_hand, FOREHAND).status_code == 200
+        herz_hand.refused_act(TABLE_GIVE_UP_AGREE_SUFFIX, herz_hand.at[FOREHAND], Refusal.ALREADY_ANSWERED)
 
-        assert herz_hand.record == before
         assert herz_hand.record.hand is not None
+        assert shortenings_read(herz_hand) == [asked(NONE, SEAT[FOREHAND])] * 4
 
     def test_a_yes_retried_with_the_same_id_and_version_answers_the_same_and_ends_the_game_once(self, herz_hand):
         shortens(herz_hand)

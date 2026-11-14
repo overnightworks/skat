@@ -172,6 +172,7 @@ class Refusal(StrEnum):
     WRONG_PHASE = "wrong-phase"
     NOT_DECLARER = "not-declarer"
     NO_REQUEST = "no-request"
+    ALREADY_ANSWERED = "already-answered"
     REQUEST_PENDING = "request-pending"
     NO_RESULT = "no-result"
     STALE_RESULT = "stale-result"

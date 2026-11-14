@@ -288,8 +288,8 @@ def _answerer(
 
 def decide_agree_to_give_up(table: TableRecord, actor: Actor, command: AgreeToGiveUpCommand) -> Decision:
     """The other side says yes: the game ends as the engine settles the give-up, by the seat that asked. The declarer's
-    shortening needs both opponents' yes: the first is kept, the same opponent's again changes nothing, and the
-    other's ends the game as the engine settles the shortening.
+    shortening needs both opponents' yes: the first is kept, the same opponent's again is refused as already
+    answered, and the other's ends the game as the engine settles the shortening.
     """
     answering = _answerer(table, actor, command.version)
     if not isinstance(answering, tuple):
@@ -308,7 +308,7 @@ def _agree_to_shortening(
     if asked.agreed_by is None:
         return _with_request(table, replace(asked, agreed_by=position))
     if asked.agreed_by is position:
-        return Decision(table)
+        return Decision(table, Refusal.ALREADY_ANSWERED)
     return _end_of(table, shorten(state, all_agreed=True, claim=claim), GameEnding.SHORTENED, asked.asker)
 
 

@@ -223,9 +223,10 @@ def _add_agree_to_give_up(router: APIRouter, tables: TableService, presence: Pre
         `hand.playing.give_up` or `hand.playing.shortening` is set in the answer of read_table or the state of your
         table's view. The table id and the version come from that answer. The command id names this step: the same id
         with the same version is a retry that changes nothing twice. The declarer's shortening needs the yes of both
-        opponents: the first is kept in `hand.playing.shortening`, a second yes of the same opponent changes nothing. A
-        refusal (a stale version, nothing asked, the asking side's own chair, not seated) comes back as a failed result
-        with its reason, leaves the table as it was and spends the command id: the next attempt takes a new command id.
+        opponents: the first is kept in `hand.playing.shortening`, a second yes of the same opponent is refused as
+        already answered. A refusal (a stale version, nothing asked, the asking side's own chair, not seated) comes back
+        as a failed result with its reason, leaves the table as it was and spends the command id: the next attempt takes
+        a new command id.
         """
         command = AgreeToGiveUpCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(
