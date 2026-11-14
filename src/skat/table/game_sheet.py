@@ -90,11 +90,13 @@ class RamschCount:
 
 @dataclass(frozen=True)
 class GameSheetView:
-    """One game of the table's current series opened from its list, the same for every viewer; `cards` is None for a
-    game finished before games kept their cards.
+    """One game of the table's current series opened from its list, the same for every viewer; `seat_names` are the
+    names stored with the game (None for a game stored before names were kept), and `cards` is None for a game
+    finished before games kept their cards.
     """
 
     number: int
+    seat_names: tuple[str | None, str | None, str | None]
     count: DeclaredCount | RamschCount
     cards: SheetCards | None
 
@@ -179,5 +181,8 @@ def game_sheet_of(table: TableRecord, number: int, cards: GameCards | None) -> G
     """
     entry = table.game_list[number - 1]
     return GameSheetView(
-        number=number, count=_count_of(entry), cards=None if cards is None else _sheet_cards_of(table, entry, cards)
+        number=number,
+        seat_names=entry.seat_names,
+        count=_count_of(entry),
+        cards=None if cards is None else _sheet_cards_of(table, entry, cards),
     )

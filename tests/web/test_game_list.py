@@ -127,6 +127,7 @@ class TestOpeningAGame:
         assert answer.status_code == 200, answer.text
         sheet = answer.json()
         assert (sheet["number"], sheet["count"]["kind"]) == (1, "declared")
+        assert sheet["seat_names"] == list(table.record.game_list[0].seat_names)
         cards = sheet["cards"]
         assert [len(hand["cards"]) for hand in cards["hands"]] == [10, 10, 10]
         assert len(cards["skat"]) == 2

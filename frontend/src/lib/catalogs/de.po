@@ -487,6 +487,70 @@ msgctxt "table.seriesPushed"
 msgid "{count}× geschoben"
 msgstr ""
 
+msgctxt "table.sheetTitle"
+msgid "Spiel {number}"
+msgstr ""
+
+msgctxt "table.sheetBack"
+msgid "Zurück zur Liste"
+msgstr ""
+
+msgctxt "table.sheetFailed"
+msgid "Das Spiel lässt sich nicht laden"
+msgstr ""
+
+msgctxt "table.sheetNoCards"
+msgid "Für dieses Spiel sind keine Karten gespeichert."
+msgstr ""
+
+msgctxt "table.sheetSkat"
+msgid "Skat"
+msgstr ""
+
+msgctxt "table.sheetPutAway"
+msgid "Gedrückt"
+msgstr ""
+
+msgctxt "table.sheetSkatTaker"
+msgid "Der Skat ging an {name}"
+msgstr ""
+
+msgctxt "table.sheetPutBy"
+msgid "Gedrückt von {name}"
+msgstr ""
+
+msgctxt "table.sheetCardPutAway"
+msgid "gedrückt"
+msgstr ""
+
+msgctxt "table.sheetCardUnplayed"
+msgid "nicht gespielt"
+msgstr ""
+
+msgctxt "table.sheetTrick"
+msgid "Stich {number}"
+msgstr ""
+
+msgctxt "table.sheetShortened"
+msgid "Abgekürzt"
+msgstr ""
+
+msgctxt "table.sheetThrownDown"
+msgid "Hingelegt"
+msgstr ""
+
+msgctxt "table.sheetPlayedOpen"
+msgid "Offen gelegt"
+msgstr ""
+
+msgctxt "table.sheetDecided"
+msgid "Entschieden"
+msgstr ""
+
+msgctxt "table.sheetDurchmarsch"
+msgid "Durchmarsch"
+msgstr ""
+
 msgctxt "table.newSeries"
 msgid "Neue Serie"
 msgstr ""

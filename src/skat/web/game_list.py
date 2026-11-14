@@ -130,6 +130,7 @@ class RamschCountAnswer(BaseModel):
 
 class GameSheetAnswer(BaseModel):
     number: int
+    seat_names: list[str | None]
     count: Annotated[DeclaredCountAnswer | RamschCountAnswer, Field(discriminator="kind")]
     cards: SheetCardsAnswer | None
 
@@ -178,7 +179,10 @@ def _sheet_answer_of(sheet: GameSheetView) -> GameSheetAnswer:
             kind="ramsch", seat_points=list(count.seat_points), durchmarsch_seat=count.durchmarsch_seat
         )
     return GameSheetAnswer(
-        number=sheet.number, count=counted, cards=None if sheet.cards is None else _cards_answer_of(sheet.cards)
+        number=sheet.number,
+        seat_names=list(sheet.seat_names),
+        count=counted,
+        cards=None if sheet.cards is None else _cards_answer_of(sheet.cards),
     )
 
 
@@ -220,15 +224,18 @@ def create_game_list_router(tables: TableService) -> APIRouter:
         openapi_extra=excluded(Exclusion.GAME_SHEET),
     )
     async def read_game_sheet(table_id: str, number: int, response: Response) -> GameSheetAnswer:
-        """Read one finished game of the table's current series, the same for every caller: its `number` in the list,
-        what it `count`ed (the declarer's and the opponents' card points and how it `ended`, or each seat's points in
-        a Ramsch) and its `cards`, or null for a game finished before games kept their cards. The cards are every
-        seat's `hands` as the game started with what became of each card (`played`, `put-away` or `unplayed`), the
-        `skat` as it lay, the cards `put_away` with the seat that put each away, and the `tricks` in the order played,
-        each with its cards from the lead on, its `taker_seat` and its card `points`, both null for a trick an early
-        end interrupted. A Ramsch names the seats its skat counted for in `skat_takers`. A 404 means no table has this
-        id or its list has no game of this number; a table that has ended has no game.
+        """Read one finished game of the table's current series, the same for every caller.
+
+        It has its `number` in the list, the `seat_names` stored with the game (null for a game stored before names
+        were kept), what it `count`ed (the declarer's and the opponents' card points and how it `ended`, or each
+        seat's points in a Ramsch) and its `cards`, or null for a game finished before games kept their cards. The
+        cards are every seat's `hands` as the game started with what became of each card (`played`, `put-away` or
+        `unplayed`), the `skat` as it lay, the cards `put_away` with the seat that put each away, and the `tricks` in
+        the order played, each with its cards from the lead on, its `taker_seat` and its card `points`, both null for
+        a trick an early end interrupted. A Ramsch names the seats its skat counted for in `skat_takers`. A 404 means
+        no table has this id or its list has no game of this number; a table that has ended has no game.
         """
+
         response.headers["Cache-Control"] = "no-store"
         sheet = await run_in_threadpool(tables.game_sheet, table_id, number)
         if sheet is None:
