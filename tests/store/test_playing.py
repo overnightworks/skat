@@ -22,10 +22,16 @@ from skat.table.playing import (
     ShortenCommand,
     ThrowDownCommand,
 )
-from skat.table.records import GiveUpAsked, Refusal
+from skat.table.records import CreateTable, GiveUpAsked, Refusal
 from skat.table.service import TableService
-from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
-from tests.support.stored_game import card_id, count_rows, nobody_connected, seated_game
+from tests.support.faulty_tables import (
+    WAIT_DEADLINE_SECONDS,
+    BothReadBeforeEitherWrites,
+    FaultyTableTransactions,
+    HoldsTheRowLock,
+)
+from tests.support.stored_game import card_id, count_rows, nobody_connected, person, seated_game
+from tests.support.table_rows import WorkInAThread, wait_until_a_session_waits_for_a_lock
 
 pytestmark = pytest.mark.postgres
 
@@ -323,6 +329,29 @@ def test_a_wrong_open_play_waits_for_the_declarer_across_a_restart_and_refuses_a
 
     assert refused.refusal == Refusal.REQUEST_PENDING
     assert stored_open_play(engine) == ("forehand", True)
+
+
+def test_an_open_play_in_flight_blocks_reads_of_its_table_until_it_commits_and_reads_of_no_other_table(
+    game, engine, transactions, stored, service
+):
+    other_table = service.create(person("Dana"), CreateTable(command_id="command-other")).id
+    holding = HoldsTheRowLock(transactions)
+    command = PlayOpenCommand(command_id="open", table_id=game.table_id, version=game.record.version)
+    playing = WorkInAThread(
+        lambda: TableService(holding).play_open(game.actors[Position.FOREHAND], command, nobody_connected())
+    )
+    playing.start()
+    assert holding.held.wait(WAIT_DEADLINE_SECONDS)
+
+    assert stored(transactions, other_table).id.value == other_table
+    reading = WorkInAThread(lambda: stored(transactions, game.table_id))
+    reading.start()
+    wait_until_a_session_waits_for_a_lock(engine, reading)
+    holding.release.set()
+    playing.join()
+    reading.join()
+
+    assert reading.outcome[0].progress.give_up == GiveUpAsked(Position.FOREHAND, open_play=True)
 
 
 def test_the_declarers_yes_after_a_restart_writes_the_game_as_played_open_by_the_asking_opponent(
