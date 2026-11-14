@@ -80,8 +80,7 @@ function chairCuesBetween(previous: Table, next: Table): ChairCue[] {
     const opensForHand = handWaits(next.hand);
     const tookOpenChair = handWaits(previous.hand);
     return next.chairs.flatMap((after): ChairCue[] => {
-        const before = previous.chairs.find((chair) => chair.seat === after.seat);
-        if (before === undefined) return [];
+        const before = previous.chairs.find((chair) => chair.seat === after.seat) as Chair;
         if (before.occupant_name === null && after.occupant_name !== null)
             return [{ kind: "chair-taken", inHand: tookOpenChair, ...sitterOf(after) }];
         if (before.occupant_name !== null && after.occupant_name === null)
