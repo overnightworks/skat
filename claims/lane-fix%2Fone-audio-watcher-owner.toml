@@ -3,5 +3,6 @@ agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
 role = "builder"
 base = "d5e856c770c53e6ba3afd66c5a4f4505d5be387b"
 branch = "fix/one-audio-watcher-owner"
-scope = [".github/workflows/ci.yml", "tests/e2e/support/audio.py", "tests/e2e/test_table_sound_settings.py"]
+scope = [".github/workflows/ci.yml", "frontend/scripts/browser-coverage-report.js", "tests/e2e/support/audio.py", "tests/e2e/test_table_sound_settings.py"]
 opened_commit = "ff1d3c159a06968e55a498cc1cce9947a4695796"
+whole_reason = "Main's CI passes again: the e2e helper, the shard count and the coverage converter are the three causes of one red CI"
