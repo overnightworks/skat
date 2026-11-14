@@ -6921,7 +6921,8 @@ body {
 
 .room .game-list .skatline {
     display: flex;
-    gap: 22px;
+    flex-wrap: wrap;
+    gap: 6px 22px;
     justify-content: center;
     padding: 2px 0;
 }
