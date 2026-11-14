@@ -78,6 +78,9 @@ def test_a_declared_game_given_up_in_its_first_trick_shows_its_count_its_cards_a
     open_the_game(person)
 
     expect(person.locator(f"{GAME_SHEET} .points")).to_be_visible()
+    assert person.locator(f"{GAME_SHEET} .points .side").evaluate_all(
+        "sides => sides.every(side => side.scrollWidth <= side.clientWidth)"
+    )
     expect(person.locator(f"{GAME_SHEET} .hc.put-away")).to_have_count(PUT_AWAY_FROM_THE_HAND)
     expect(person.locator(f"{GAME_SHEET} .hc.unplayed")).to_have_count(DEALT_CARDS - PUT_AWAY_FROM_THE_HAND - 1)
     trick = person.locator(f"{GAME_SHEET} .tricks .trick-row:not(.ended)")
