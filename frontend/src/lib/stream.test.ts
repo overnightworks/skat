@@ -3,8 +3,9 @@ import { openStream, type StreamOptions } from "./stream.ts";
 import { STREAM_HEARTBEAT_SECONDS } from "#lib/wire.ts";
 
 const STREAM_PATH = "/api/things/a/events";
-const SESSION_PATH = "/api/things/a";
 const SIGNED_OUT = 401;
+const NOT_FOUND = 404;
+const TOO_MANY = 429;
 const LOST_CONNECTION = 500;
 const HEARTBEAT_MILLISECONDS = STREAM_HEARTBEAT_SECONDS * 1000;
 
@@ -64,7 +65,6 @@ async function failLatest() {
 function optionsWith(overrides: Partial<StreamOptions> = {}): StreamOptions {
     return {
         events: {},
-        sessionPath: SESSION_PATH,
         onConnection: vi.fn(),
         onRefused: vi.fn(),
         ...overrides,
@@ -225,8 +225,22 @@ describe("openStream", () => {
         expect(FakeEventSource.opened).toHaveLength(2);
     });
 
-    it("ends the stream on a 401 with the sign-in hand-over and never opens again", async () => {
-        vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: SIGNED_OUT }));
+    it("asks the stream's own address why it failed, and lets go of that answer's stream at once", async () => {
+        openStream(STREAM_PATH, optionsWith());
+
+        await failLatest();
+
+        expect(fetch).toHaveBeenCalledOnce();
+        const [asked, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(asked).toBe(STREAM_PATH);
+        expect(init?.signal?.aborted).toBe(true);
+    });
+
+    it.each([
+        ["a 401", SIGNED_OUT, "signedOut"],
+        ["a 404", NOT_FOUND, "notFound"],
+    ])("ends the stream on %s, names the refusal and never opens again", async (_name, status, refusal) => {
+        vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status }));
         const onRefused = vi.fn();
         const onConnection = vi.fn();
         openStream(STREAM_PATH, optionsWith({ onRefused, onConnection }));
@@ -235,8 +249,21 @@ describe("openStream", () => {
         await vi.advanceTimersByTimeAsync(60_000);
 
         expect(FakeEventSource.opened).toHaveLength(1);
-        expect(onRefused).toHaveBeenCalledOnce();
+        expect(onRefused.mock.calls).toEqual([[refusal]]);
         expect(onConnection).toHaveBeenLastCalledWith(false);
+    });
+
+    it("names a 429 for every failed attempt and keeps retrying, since the slot may come free", async () => {
+        vi.mocked(fetch).mockResolvedValue(new Response(null, { status: TOO_MANY }));
+        const onRefused = vi.fn();
+        openStream(STREAM_PATH, optionsWith({ onRefused }));
+
+        await failLatest();
+        await vi.advanceTimersByTimeAsync(60_000);
+        await failLatest();
+
+        expect(FakeEventSource.opened).toHaveLength(2);
+        expect(onRefused.mock.calls).toEqual([["tooMany"], ["tooMany"]]);
     });
 
     it("reconnects at once when the tab becomes visible again and not before", async () => {

@@ -11,6 +11,10 @@ msgctxt "app.reconnecting"
 msgid "verbinde neu"
 msgstr "reconnecting"
 
+msgctxt "app.tooManyStreams"
+msgid "zu viele Seiten offen"
+msgstr "too many pages open"
+
 msgctxt "app.unreachable"
 msgid "Skat ist gerade nicht erreichbar."
 msgstr "Skat is not reachable right now."
@@ -262,6 +266,10 @@ msgstr "Lobby, {count} tables are waiting for you"
 msgctxt "table.reconnecting"
 msgid "verbinde neu"
 msgstr "reconnecting"
+
+msgctxt "table.tooManyStreams"
+msgid "zu viele Seiten offen"
+msgstr "too many pages open"
 
 msgctxt "table.sitDown"
 msgid "Hinsetzen"

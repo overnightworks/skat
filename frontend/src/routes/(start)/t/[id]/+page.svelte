@@ -121,6 +121,7 @@
     let note = $state("");
     let taken: string | null = $state(null);
     let connected = $state(true);
+    let streamsFull = $state(false);
     // The number of the person's other tables that wait for him; a lost stream sets it back to none, so a count is never stale.
     let attention = $state(0);
     // The declarer's put-back and the Ramsch's stage each pick two cards; a table has only one of them at a time.
@@ -196,6 +197,7 @@
     $effect(() => {
         outcome = null;
         connected = true;
+        streamsFull = false;
         attention = 0;
         justWon = false;
         countedOrdinal = null;
@@ -227,10 +229,20 @@
                     },
                     (isConnected) => {
                         connected = isConnected;
-                        if (!isConnected) {
+                        if (isConnected) streamsFull = false;
+                        else {
                             shown = undefined;
                             attention = 0;
                         }
+                    },
+                    (refusal) => {
+                        if (refusal === "tooMany") {
+                            streamsFull = true;
+                            return;
+                        }
+                        // No table has the id any more, and nothing reconnects to one.
+                        outcome = { kind: "missing" };
+                        connected = true;
                     },
                 );
             }
@@ -787,7 +799,7 @@
         {/if}
     </main>
     <div class="reconnect" role="status" hidden={connected}>
-        <span class="spin"></span>{words["table.reconnecting"]}
+        <span class="spin"></span>{streamsFull ? words["table.tooManyStreams"] : words["table.reconnecting"]}
     </div>
     <footer class="legal">
         <LegalLinks links={legalLinks(words)} newTab words={data.kitWords} />

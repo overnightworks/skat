@@ -7,6 +7,7 @@ const pluralRules = new Intl.PluralRules("de");
 export type Words = {
     readonly "app.name": string;
     readonly "app.reconnecting": string;
+    readonly "app.tooManyStreams": string;
     readonly "app.unreachable": string;
     readonly "app.pageNotFound": string;
     readonly "app.pageFailed": string;
@@ -62,6 +63,7 @@ export type Words = {
     readonly "table.lobby": string;
     readonly "table.lobbyWaiting": (count: number) => string;
     readonly "table.reconnecting": string;
+    readonly "table.tooManyStreams": string;
     readonly "table.sitDown": string;
     readonly "table.standUp": string;
     readonly "table.standUpArmed": string;
@@ -473,6 +475,7 @@ export type Words = {
 export const words: Words = {
     "app.name": "Skat",
     "app.reconnecting": "verbinde neu",
+    "app.tooManyStreams": "zu viele Seiten offen",
     "app.unreachable": "Skat ist gerade nicht erreichbar.",
     "app.pageNotFound": "Diese Seite gibt es nicht.",
     "app.pageFailed": "Diese Seite lässt sich nicht laden.",
@@ -584,6 +587,7 @@ export const words: Words = {
         other: "Lobby, " + numberFormat.format(count) + " Tische warten auf dich",
     })[pluralRules.select(count)],
     "table.reconnecting": "verbinde neu",
+    "table.tooManyStreams": "zu viele Seiten offen",
     "table.sitDown": "Hinsetzen",
     "table.standUp": "Aufstehen",
     "table.standUpArmed": "Wirklich aufstehen?",
