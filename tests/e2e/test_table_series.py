@@ -32,6 +32,8 @@ GAME_LIST = ".game-list"
 ROWS = f"{GAME_LIST} .grow"
 SHEET = f"{GAME_LIST} .game-sheet"
 TRICKS = f"{SHEET} .tricks"
+# The list of tricks closes with a row for how the game ended, which holds no cards.
+PLAYED_TRICKS = f"{TRICKS} .trick-row:not(.ended)"
 TRICKS_IN_A_GAME = 10
 PLAYS_IN_A_TRICK = 3
 SEATS = 3
@@ -103,7 +105,7 @@ def expect_the_tricks_to_lay_their_cards_side_by_side_in_the_panels_one_frame(pe
     assert sheet is not None
     assert sheet["x"] - panel["x"] <= FRAME_PADDING
     assert panel["x"] + panel["width"] - (sheet["x"] + sheet["width"]) <= FRAME_PADDING
-    for trick in person.locator(f"{TRICKS} .trick-row").all():
+    for trick in person.locator(PLAYED_TRICKS).all():
         lefts = [box["x"] for box in (card.bounding_box() for card in trick.locator(".mini").all()) if box]
         assert len({round(left) for left in lefts}) == PLAYS_IN_A_TRICK, f"cards overlap at x={lefts}"
 
@@ -256,7 +258,7 @@ def test_a_game_of_the_list_opens_with_every_seat_and_every_trick_and_the_way_ba
     person.locator(ROWS).click()
 
     expect(person.locator(f"{SHEET} .held-row")).to_have_count(SEATS)
-    expect(person.locator(f"{TRICKS} .trick-row")).to_have_count(TRICKS_IN_A_GAME)
+    expect(person.locator(PLAYED_TRICKS)).to_have_count(TRICKS_IN_A_GAME)
     # Every card of a trick names the seat that played it.
     expect(person.locator(f"{TRICKS} .by")).to_have_count(TRICKS_IN_A_GAME * PLAYS_IN_A_TRICK)
     expect_the_sheet_inside_the_panel(person)
