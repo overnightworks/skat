@@ -1,32 +1,43 @@
 import { describe, expect, it } from "vitest";
 import type { Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundMoment } from "./soundSets.ts";
-import { LIMITER_THRESHOLD_DECIBELS } from "./webAudio.ts";
+import { MOTION_SETS } from "./motionSets.ts";
+import voiceLevel from "./voice/level.json";
+import {
+    ENVELOPE_FLOOR,
+    GAIN_FLOOR,
+    LIMITER_THRESHOLD_DECIBELS,
+    NOISE_ATTACK_SECONDS,
+    TAIL_SECONDS,
+    TONE_ATTACK_SECONDS,
+} from "./webAudio.ts";
 
 const MOMENTS: SoundMoment[] = [
     "card-played",
     "bid-said",
     "word-said",
     "trick-swept",
+    "turn-came",
+    "dealt",
+    "result-won",
+    "result-lost",
     "chair-taken",
     "chair-stood",
     "chair-opened",
 ];
 const LONGEST_SOUND_SECONDS = 0.6;
 const LONGEST_SWEEP_SECONDS = 0.4;
+/** A cue, a turn, a result or a single card of the deal sounds under 400 ms; the deal's shuffle and the count run longer. */
+const SHORT_MOMENTS: SoundMoment[] = ["turn-came", "result-won", "result-lost"];
+const LONGEST_SHORT_SECONDS = 0.4;
+const LONGEST_DEAL_SECONDS = 1.5;
 /** The most a moment may stray from the target and still sound as loud as the others. */
 const TOLERANCE_DECIBELS = 1.5;
 /** The most the loudest peak may stay below the limiter before the sets are called too quiet. */
 const HEADROOM_LEFT_DECIBELS = 1.5;
 
 const SAMPLE_RATE = 48000;
-const RENDER_SECONDS = 0.8;
 const NOISE_DRAWS = 8;
-const TONE_ATTACK_SECONDS = 0.004;
-const NOISE_ATTACK_SECONDS = 0.003;
-const TAIL_SECONDS = 0.05;
-const ENVELOPE_FLOOR = 0.0001;
-const GAIN_FLOOR = 0.0002;
 
 const WINDOW_SECONDS = 0.2;
 const SPEAKER_CUTOFF_HERTZ = 200;
@@ -72,6 +83,8 @@ function peakOf(samples: ArrayLike<number>): number {
 const WAVES: Partial<Record<OscillatorType, (phase: number) => number>> = {
     sine: (phase) => Math.sin(2 * Math.PI * phase),
     triangle: (phase) => 4 * Math.abs(phase - Math.floor(phase + 0.5)) - 1,
+    square: (phase) => (phase - Math.floor(phase) < 0.5 ? 1 : -1),
+    sawtooth: (phase) => 2 * (phase - Math.floor(phase + 0.5)),
 };
 
 // The same noise on every run, so the measurement is repeatable.
@@ -129,9 +142,15 @@ function renderVoice(voice: Voice, into: Float64Array, random: () => number): vo
     }
 }
 
+function endOf(voice: Voice): number {
+    return (
+        voice.at + (voice.kind === "tone" ? TONE_ATTACK_SECONDS : NOISE_ATTACK_SECONDS) + voice.seconds + TAIL_SECONDS
+    );
+}
+
 /** The samples a moment makes at the full volume, as the engine's graph would play it with one draw of the noise. */
 function renderMoment(voices: readonly Voice[], seed: number): Float64Array {
-    const samples = new Float64Array(Math.round(RENDER_SECONDS * SAMPLE_RATE));
+    const samples = new Float64Array(Math.ceil(Math.max(...voices.map(endOf)) * SAMPLE_RATE));
     const random = randomSource(seed);
     for (const voice of voices) renderVoice(voice, samples, random);
     return samples;
@@ -144,15 +163,21 @@ function renderDraws(voices: readonly Voice[]): Float64Array[] {
 
 interface Measure {
     readonly set: string;
-    readonly moment: SoundMoment;
+    readonly moment: string;
     readonly decibels: number;
     readonly peak: number;
 }
 
 // Every moment of every set at the full volume, its loudness the mean over the draws and its peak the highest of them.
 const MEASURES: Measure[] = Object.values(SOUND_SETS).flatMap((set) =>
-    MOMENTS.map((moment) => {
-        const draws = renderDraws(set.voices[moment](1));
+    [
+        ...MOMENTS.map((moment) => ({ moment, voices: set.voices[moment](1) })),
+        ...Object.values(MOTION_SETS).map((motion) => ({
+            moment: `count in ${motion.id}`,
+            voices: set.counts(1, motion.countSeconds),
+        })),
+    ].map(({ moment, voices }) => {
+        const draws = renderDraws(voices);
         const decibels = draws.map(loudnessDecibels);
         return {
             set: set.id,
@@ -165,12 +190,37 @@ const MEASURES: Measure[] = Object.values(SOUND_SETS).flatMap((set) =>
 const LIMITER_CEILING = 10 ** (LIMITER_THRESHOLD_DECIBELS / 20);
 
 describe.each(Object.values(SOUND_SETS))("the set $id", (set) => {
-    it.each(MOMENTS)("sounds %s in under 600 ms", (moment) => {
+    it.each(MOMENTS.filter((moment) => moment !== "dealt"))("sounds %s in under 600 ms", (moment) => {
         const voices = set.voices[moment](1);
 
         expect(voices.length).toBeGreaterThan(0);
         for (const voice of voices) expect(voice.at + voice.seconds).toBeLessThan(LONGEST_SOUND_SECONDS);
     });
+
+    it.each(SHORT_MOMENTS)("sounds %s in under 400 ms", (moment) => {
+        for (const voice of set.voices[moment](1)) expect(voice.at + voice.seconds).toBeLessThan(LONGEST_SHORT_SECONDS);
+    });
+
+    it("sounds each card of the deal in under 400 ms and the whole deal in about a second", () => {
+        const voices = set.voices.dealt(1);
+
+        for (const voice of voices) expect(voice.seconds).toBeLessThan(LONGEST_SHORT_SECONDS);
+        expect(Math.max(...voices.map((voice) => voice.at + voice.seconds))).toBeLessThan(LONGEST_DEAL_SECONDS);
+    });
+
+    it.each(Object.values(MOTION_SETS))(
+        "ticks the count of $id as long as the motion counts, and each tick briefly",
+        (motion) => {
+            const voices = set.counts(1, motion.countSeconds);
+            const ticks = voices.filter((voice) => voice.at < motion.countSeconds);
+
+            expect(ticks.length).toBeGreaterThan(0);
+            for (const voice of ticks) expect(voice.seconds).toBeLessThan(LONGEST_SHORT_SECONDS);
+            expect(Math.max(...voices.map((voice) => voice.at))).toBeLessThan(
+                motion.countSeconds + LONGEST_SHORT_SECONDS,
+            );
+        },
+    );
 
     it("sounds the swept trick in under 400 ms", () => {
         for (const voice of set.voices["trick-swept"](1))
@@ -182,6 +232,12 @@ describe.each(Object.values(SOUND_SETS))("the set $id", (set) => {
 
         expect(loudest(1)).toBeGreaterThan(loudest(0.5));
     });
+
+    it("counts louder at a higher gain", () => {
+        const loudest = (gain: number): number => Math.max(...set.counts(gain, 1).map((voice) => voice.gain));
+
+        expect(loudest(1)).toBeGreaterThan(loudest(0.5));
+    });
 });
 
 describe("the sets together", () => {
@@ -189,6 +245,12 @@ describe("the sets together", () => {
         const loudness = MEASURES.map((measure) => measure.decibels);
 
         expect(Math.max(...loudness) - Math.min(...loudness)).toBeLessThanOrEqual(2 * TOLERANCE_DECIBELS);
+    });
+
+    it("sit within a few decibels of the loudness the voice is levelled to", () => {
+        const mean = MEASURES.reduce((sum, measure) => sum + measure.decibels, 0) / MEASURES.length;
+
+        expect(Math.abs(voiceLevel.decibels - mean)).toBeLessThanOrEqual(TOLERANCE_DECIBELS);
     });
 
     it.each(MEASURES)("sound $moment of $set below the limiter's threshold at the full volume", ({ peak }) => {

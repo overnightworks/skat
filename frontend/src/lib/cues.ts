@@ -1,6 +1,7 @@
 import type { Bubble } from "./auctionMarks.ts";
 import { stampOf, type SaidWord, type Stamp } from "./kontra.ts";
 import { handWaits } from "./openChair.ts";
+import { declaredResult, resultIsGood } from "./result.ts";
 import {
     type AuctionAction,
     type Card,
@@ -36,7 +37,13 @@ export type Cue =
     // The seats of the opponents who both said no to the declarer's give-up.
     | { kind: "give-up-refused"; seats: number[] }
     | { kind: "bid-said"; seat: number; word: BidWord }
-    | { kind: "word-said"; said: SaidWord };
+    | { kind: "word-said"; said: SaidWord }
+    // The viewer is on turn in a phase of the hand where another chair, or no chair, was before.
+    | { kind: "turn-came" }
+    // A hand was dealt to a table that was waiting for one.
+    | { kind: "dealt" }
+    // The declared result the update brought: whether it is good news for the viewer, and whether a seat's gain counts up.
+    | { kind: "result-appeared"; ordinal: number; won: boolean; counts: boolean };
 
 // The one owner of what just happened between two versions of a table. A table that is not newer than the one
 // before it yields nothing, and so does a change the two versions do not fully explain.
@@ -55,6 +62,10 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     if (bid !== null) cues.push({ kind: "bid-said", ...bid });
     const said = wordSaidBetween(previous, next);
     if (said !== null) cues.push({ kind: "word-said", said });
+    if (turnCameBetween(previous, next)) cues.push({ kind: "turn-came" });
+    if (dealtBetween(previous, next)) cues.push({ kind: "dealt" });
+    const appeared = resultAppearedBetween(previous, next);
+    if (appeared !== null) cues.push(appeared);
     return cues;
 }
 
@@ -96,6 +107,47 @@ function sitterOf(chair: Chair): Sitter {
         name: chair.occupant_name as string,
         agent: chair.occupant_kind === "agent",
         mine: chair.is_mine,
+    };
+}
+
+type Turn = { phase: "auction" | "declare" | "push" | "play"; seat: number };
+
+// Where the hand waits for one chair: the auction's bidder, the declarer who chooses the game, the player of the stage
+// before a Ramsch or of the play. A turn is the chair together with that phase, so a chair that acts in two phases in a row
+// is on turn twice, and the steps inside one phase make one turn. No chair is on turn while the hand waits for a sitter.
+function turnOf(table: Table): Turn | null {
+    const hand = table.hand;
+    if (hand === null || handWaits(hand)) return null;
+    if (hand.playing !== null) return { phase: "play", seat: hand.playing.turn_seat as number };
+    if (hand.pushing !== null) return { phase: "push", seat: hand.pushing.turn_seat };
+    if (hand.declaring !== null)
+        return hand.declaring.stage === "declared" ? null : { phase: "declare", seat: hand.declaring.declarer_seat };
+    return hand.auction.awaiting === null ? null : { phase: "auction", seat: hand.auction.turn_seat as number };
+}
+
+function turnCameBetween(previous: Table, next: Table): boolean {
+    const own = next.chairs.find((chair) => chair.is_mine);
+    const now = turnOf(next);
+    if (own === undefined || now?.seat !== own.seat) return false;
+    const before = turnOf(previous);
+    return before?.seat !== now.seat || before.phase !== now.phase;
+}
+
+// A hand is dealt when a table without one gets one, or when the dealer changes from hand to hand.
+function dealtBetween(previous: Table, next: Table): boolean {
+    return next.hand !== null && previous.hand?.dealer_seat !== next.hand.dealer_seat;
+}
+
+// The declared result that the update brings to a page that watches; a page that opens later or reconnects sees the
+// result as it stands, so it has none.
+function resultAppearedBetween(previous: Table, next: Table): Extract<Cue, { kind: "result-appeared" }> | null {
+    const result = declaredResult(next);
+    if (result === null || previous.result?.ordinal === result.ordinal) return null;
+    return {
+        kind: "result-appeared",
+        ordinal: result.ordinal,
+        won: resultIsGood(result, next.chairs),
+        counts: result.gains.some((seat) => seat.gain > 0),
     };
 }
 

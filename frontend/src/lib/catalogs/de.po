@@ -855,6 +855,18 @@ msgctxt "kontra.commandFailed"
 msgid "Das hat nicht geklappt"
 msgstr ""
 
+msgctxt "kontra.decline"
+msgid "Kein {word}"
+msgstr ""
+
+msgctxt "kontra.firstCardWaits"
+msgid "Erste Karte wartet auf {names}"
+msgstr ""
+
+msgctxt "kontra.you"
+msgid "dich"
+msgstr ""
+
 msgctxt "bid.hold"
 msgid "Halten"
 msgstr ""
@@ -1313,6 +1325,14 @@ msgstr ""
 
 msgctxt "sound.lastTrickStay"
 msgid "liegen lassen"
+msgstr ""
+
+msgctxt "sound.turnInBackground"
+msgid "Du bist dran im Hintergrund"
+msgstr ""
+
+msgctxt "sound.vibration"
+msgid "Vibration"
 msgstr ""
 
 msgctxt "sound.motionDezent"

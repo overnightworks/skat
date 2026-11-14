@@ -11,7 +11,7 @@ import {
     type StageState,
     type Step,
 } from "./stage.ts";
-import { soundForGlide } from "./tableSound.ts";
+import { soundForGlide, soundForTurn } from "./tableSound.ts";
 import type { LastTrick, Table } from "../routes/(start)/tables.ts";
 
 // The one stage of the page's table: the pacing of the trick that is on the move, apart from the received table.
@@ -22,11 +22,18 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 // The chairs that changed hands in the latest update, while their motion lasts.
 let moving: readonly ChairCue[] = $state([]);
 let movingTimer: ReturnType<typeof setTimeout> | undefined;
+// Whether the cards of a new deal are flying in; a table that is shown as it stands never deals.
+let dealing = $state(false);
+let dealTimer: ReturnType<typeof setTimeout> | undefined;
+/** The cards of a deal take well under this long to fly in. */
+const DEAL_MILLISECONDS = 2000;
 
-function apply(step: Step): void {
+// The cues are those of the update that brought the step, which the turn waits for when it is shown at once.
+function apply(step: Step, cues: readonly Cue[] = []): void {
     clearTimeout(timer);
     stage = step.stage;
-    if (step.beats.length > 0) soundForGlide();
+    if (step.beats.includes("glide-started")) soundForGlide();
+    if (step.beats.includes("turn-shown")) soundForTurn(cues);
     if (stage.phase === "settled") return;
     const phaseEnds = stage.until;
     timer = setTimeout(() => {
@@ -62,9 +69,24 @@ function stopChairs(): void {
 /** The first table of a page, a reconnect and a table left behind show at once, as the received table says. */
 export function resetStage(): void {
     clearTimeout(timer);
+    clearTimeout(dealTimer);
     stage = SETTLED;
     looking = null;
     stopChairs();
+    dealing = false;
+}
+
+/** Whether the cards of a new deal fly in now, so only a deal this page saw moves them. */
+export function isDealing(): boolean {
+    return dealing;
+}
+
+function startDealing(): void {
+    clearTimeout(dealTimer);
+    dealing = true;
+    dealTimer = setTimeout(() => {
+        dealing = false;
+    }, DEAL_MILLISECONDS);
 }
 
 /** The update `cues` brought to the table that followed `previous`. */
@@ -74,6 +96,7 @@ export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[]
         return;
     }
     if (cues.some((cue) => cue.kind === "card-played")) looking = null;
+    if (cues.some((cue) => cue.kind === "dealt")) startDealing();
     const motion = motionInForce();
     const motionSet = motion === undefined ? undefined : MOTION_SETS[motion];
     stopChairs();
@@ -90,6 +113,7 @@ export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[]
             mode: currentSettings().lastTrick,
             now: Date.now(),
         }),
+        cues,
     );
 }
 

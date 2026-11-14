@@ -216,7 +216,7 @@ const FINISHED: LastTrick = { cards: [KARO_SEVEN, KARO_ACE, HERZ_TEN], leader_se
 const EARLIER: LastTrick = { cards: [KARO_SEVEN, KARO_ACE, HERZ_TEN], leader_seat: 2, taker_seat: 1 };
 
 function onTheMove(phase: StageState["phase"], before: Playing | null = null): StageState {
-    return { phase, until: 0, trick: FINISHED, before, glideMilliseconds: 750 };
+    return { phase, until: 0, trick: FINISHED, before, glideMilliseconds: 750, turnPending: false };
 }
 
 describe("the finished trick on the felt", () => {
@@ -394,6 +394,12 @@ describe("the cards the viewer may play", () => {
 
     it("are none with no hand on the table", () => {
         expect(cardsToPlay({ ...table(1, {}), hand: null })).toBeNull();
+    });
+
+    it("are none while the first card waits for a Kontra word", () => {
+        const kontra = { said: [], factor: 1, my_word: null, first_card_waits_on: [2], first_card_declined: [] };
+
+        expect(cardsToPlay(table(1, { turn_seat: 1, legal_cards: legal, kontra }))).toBeNull();
     });
 });
 

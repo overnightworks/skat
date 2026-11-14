@@ -22,9 +22,18 @@ export interface StageState {
     readonly before: Playing | null;
     /** How long the glide lasts once the rest is over; none means the trick drops to the next lead with no arc. */
     readonly glideMilliseconds: number;
+    /** Whether the viewer's turn came with the update that finished this trick; it is shown once the trick has settled. */
+    readonly turnPending: boolean;
 }
 
-export const SETTLED: StageState = { phase: "settled", until: 0, trick: null, before: null, glideMilliseconds: 0 };
+export const SETTLED: StageState = {
+    phase: "settled",
+    until: 0,
+    trick: null,
+    before: null,
+    glideMilliseconds: 0,
+    turnPending: false,
+};
 
 /** What a moving table takes; null is a budget of zero, where every state shows at once. */
 export interface Timing {
@@ -53,8 +62,8 @@ export function chairMoveMilliseconds(cues: readonly Cue[], motion: MotionSet | 
     return Math.max(0, ...seconds) * MILLISECONDS;
 }
 
-/** The moment the sweep begins, which the swept trick sounds at. */
-export type Beat = "glide-started";
+/** The moments the stage hands to the sound: the sweep begins, and the table is settled for the viewer's turn. */
+export type Beat = "glide-started" | "turn-shown";
 
 export interface Step {
     readonly stage: StageState;
@@ -69,15 +78,32 @@ export interface Received {
     readonly now: number;
 }
 
-/** The moment is over at once: a trick that has not begun to glide still sounds its sweep once. */
+/** The moment is over at once: a trick that has not begun to glide still sounds its sweep once, and a turn that waited is shown. */
 export function jump(stage: StageState): Step {
     if (stage.phase === "settled") return { stage, beats: [] };
-    return { stage: SETTLED, beats: stage.phase === "resting" && stage.glideMilliseconds > 0 ? ["glide-started"] : [] };
+    const sweeps = stage.phase === "resting" && stage.glideMilliseconds > 0;
+    return { stage: SETTLED, beats: [...(sweeps ? ["glide-started" as const] : []), ...turnBeat(stage)] };
 }
 
-// A card laid ends the moment before it, since the table has moved on; the finished trick of this update then begins its own.
-export function receive(stage: StageState, { cues, before, timing, mode, now }: Received): Step {
-    const jumped = cues.some((cue) => cue.kind === "card-played") ? jump(stage) : { stage, beats: [] };
+function turnBeat(stage: StageState): readonly Beat[] {
+    return stage.turnPending ? ["turn-shown"] : [];
+}
+
+// The viewer's turn is shown once the table is settled: at once, or when the moment that holds it is over.
+export function receive(stage: StageState, received: Received): Step {
+    const step = receiveTrick(stage, received);
+    if (!received.cues.some((cue) => cue.kind === "turn-came")) return step;
+    return step.stage.phase === "settled"
+        ? { stage: step.stage, beats: [...step.beats, "turn-shown"] }
+        : { stage: { ...step.stage, turnPending: true }, beats: step.beats };
+}
+
+// A card laid ends the moment before it, since the table has moved on, and with it the turn that waited for that moment;
+// the finished trick of this update then begins its own.
+function receiveTrick(stage: StageState, { cues, before, timing, mode, now }: Received): Step {
+    const jumped = cues.some((cue) => cue.kind === "card-played")
+        ? jump({ ...stage, turnPending: false })
+        : { stage, beats: [] };
     const takenAt = cues.findIndex((cue) => cue.kind === "trick-taken");
     if (takenAt === -1) return jumped;
     const { trick } = cues[takenAt] as Extract<Cue, { kind: "trick-taken" }>;
@@ -103,12 +129,12 @@ function resting(
     restMilliseconds: number,
     glideMilliseconds: number,
 ): StageState {
-    return { phase: "resting", until: now + restMilliseconds, trick, before, glideMilliseconds };
+    return { phase: "resting", until: now + restMilliseconds, trick, before, glideMilliseconds, turnPending: false };
 }
 
 /** The moment the phase ends, the next begins. */
 export function advance(stage: StageState, now: number): Step {
     if (stage.phase === "settled" || now < stage.until) return { stage, beats: [] };
-    if (stage.phase === "gliding" || stage.glideMilliseconds === 0) return { stage: SETTLED, beats: [] };
+    if (stage.phase === "gliding" || stage.glideMilliseconds === 0) return { stage: SETTLED, beats: turnBeat(stage) };
     return { stage: { ...stage, phase: "gliding", until: now + stage.glideMilliseconds }, beats: ["glide-started"] };
 }

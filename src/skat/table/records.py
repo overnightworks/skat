@@ -308,8 +308,9 @@ class HandProgress:
     its first card.
 
     `give_up`, `no_words` and `abort_yes` are no step logs: the end of the hand or a deal clears them, a card clears
-    `give_up`, and a chair that changes hands takes its seat's part of them. `abort_yes` holds the seats that voted to
-    abort the hand while one of its chairs is open; empty means no proposal. `seats_held` ends with the hand likewise.
+    `give_up`, and a chair that changes hands takes its seat's part of them, except the no-word answers at a first-card
+    table, which are declines for good. `abort_yes` holds the seats that voted to abort the hand while one of its
+    chairs is open; empty means no proposal. `seats_held` ends with the hand likewise.
     A chair left in the hand names its leaver in `former_holders` until someone sits in it or the hand ends.
 
     `shortening_refused_by` is the opponent whose no to the declarer's shortening left his cards open for the rest of

@@ -20,6 +20,14 @@ export interface MotionSet {
     readonly chairSitsSeconds: number;
     /** How long a chair that stands up or opens fades; the set's CSS keeps the same time. */
     readonly chairEmptiesSeconds: number;
+    /** From the cue to the moment the result has risen and its stamp lands; the set's CSS keeps the same time. */
+    readonly resultLandsSeconds: number;
+    /** From the cue to the moment the gains begin to count up; the set's CSS keeps the same time. */
+    readonly countStartsSeconds: number;
+    /** How long the gains count up; the set's CSS keeps the same time. */
+    readonly countSeconds: number;
+    /** How many suit pieces a won result throws; none is none. */
+    readonly confettiPieces: number;
 }
 
 export const MOTION_SETS = {
@@ -34,6 +42,10 @@ export const MOTION_SETS = {
         trickGlideSeconds: 0.28,
         chairSitsSeconds: 0.9,
         chairEmptiesSeconds: 0.3,
+        resultLandsSeconds: 0.52,
+        countStartsSeconds: 0.3,
+        countSeconds: 0.7,
+        confettiPieces: 0,
     },
     verspielt: {
         id: "verspielt",
@@ -46,6 +58,10 @@ export const MOTION_SETS = {
         trickGlideSeconds: 0.75,
         chairSitsSeconds: 1.4,
         chairEmptiesSeconds: 0.4,
+        resultLandsSeconds: 0.83,
+        countStartsSeconds: 0.3,
+        countSeconds: 1.1,
+        confettiPieces: 16,
     },
 } as const satisfies Record<string, MotionSet>;
 

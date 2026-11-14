@@ -2,14 +2,14 @@ import itertools
 import json
 from dataclasses import replace
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple
 
 from playwright.sync_api import Locator, Page, expect
 
 from skat.engine.bidding import VALID_BIDS
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import TableId
-from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
+from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
@@ -43,6 +43,26 @@ DECLARING_STEP_SUFFIXES = {
 }
 
 
+class AuctionCall(NamedTuple):
+    """One call of an auction: the seat's position at the table, the call's path and the value of a bid."""
+
+    position: str
+    suffix: str
+    value: int | None = None
+
+
+def bids(position: str, value: int) -> AuctionCall:
+    return AuctionCall(position, TABLE_AUCTION_BID_SUFFIX, value)
+
+
+def holds(position: str) -> AuctionCall:
+    return AuctionCall(position, TABLE_AUCTION_HOLD_SUFFIX)
+
+
+def passes(position: str) -> AuctionCall:
+    return AuctionCall(position, TABLE_AUCTION_PASS_SUFFIX)
+
+
 def button_of(person: Page, name: str) -> Locator:
     return person.get_by_role("button", name=name, exact=True)
 
@@ -56,6 +76,12 @@ class DeclaringTable:
     """A dealt table: three browsers at their chairs, one watching, and the declarer known by API, not by the page."""
 
     declarer_position = "middlehand"
+    # The middlehand holds the highest bid there is, so any game the page declares lies below it.
+    auction: ClassVar[tuple[AuctionCall, ...]] = (
+        bids("middlehand", VALID_BIDS[-1]),
+        passes("forehand"),
+        passes("rearhand"),
+    )
 
     def __init__(
         self,
@@ -133,10 +159,8 @@ class DeclaringTable:
             person.clock.pause_at(stopped_at)
 
     def _win_the_auction(self, seat_at: dict[str, int]) -> None:
-        """The middlehand holds the highest bid there is, so any game the page declares lies below it."""
-        self.step(seat_at["middlehand"], TABLE_AUCTION_BID_SUFFIX, value=VALID_BIDS[-1])
-        self.step(seat_at["forehand"], TABLE_AUCTION_PASS_SUFFIX)
-        self.step(seat_at["rearhand"], TABLE_AUCTION_PASS_SUFFIX)
+        for call in self.auction:
+            self.step(seat_at[call.position], call.suffix, **({} if call.value is None else {"value": call.value}))
 
     def step(self, seat: int, suffix: str, **fields: object) -> None:
         session = self.sessions[seat]

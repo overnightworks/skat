@@ -17,7 +17,7 @@ from skat.engine.kontra import (
     KontraSayer,
     Word,
     WordSaid,
-    awaits_words,
+    awaited_positions,
     bidders_of,
     decline,
     doubled_reckoning,
@@ -328,8 +328,8 @@ def test_a_word_is_accepted_or_refused_as_the_table_rules_say(
 
 def answered_in(
     options: KontraOptions, steps: tuple[AuctionStep, ...], events: tuple[object, ...]
-) -> tuple[Doubling, KontraRefusal | None, bool]:
-    """The doubling, the refusal of the last event and whether the lead waits; every event but the last is accepted."""
+) -> tuple[Doubling, KontraRefusal | None, frozenset[Position]]:
+    """The doubling, the refusal of the last event and the positions the lead waits on; all events before it pass."""
     state, doubling, refusal = playing_with(MIDDLEHAND), Doubling.start(), None
     bidders = bidders_of(steps)
     for event in events:
@@ -343,7 +343,7 @@ def answered_in(
         else:
             outcome = say(doubling, options, state, bidders, position, word)
         doubling, refusal = outcome.doubling, outcome.refusal
-    return doubling, refusal, awaits_words(doubling, options, bidders, MIDDLEHAND)
+    return doubling, refusal, awaited_positions(doubling, options, bidders, MIDDLEHAND)
 
 
 @pytest.mark.parametrize(
@@ -409,6 +409,26 @@ def answered_in(
             2,
             False,
             id="6-declarer-declines",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, KONTRA), (MIDDLEHAND, RE)),
+            4,
+            False,
+            id="5-the-opponent-left-with-no-word-is-not-awaited",
+        ),
+        pytest.param(
+            ANY,
+            KONTRA_RE,
+            FIRST_CARD,
+            MIDDLEHAND_DECLARES,
+            ((FOREHAND, KONTRA), (MIDDLEHAND, DECLINE)),
+            2,
+            False,
+            id="6-the-opponent-left-with-no-word-is-not-awaited-after-the-declarers-decline",
         ),
         pytest.param(
             ANY,
@@ -568,7 +588,25 @@ def test_play_waits_for_each_answer_when_the_words_end_with_the_first_card(
         return
     assert refusal is None
     assert doubling.factor == expected
-    assert awaiting is waits
+    assert bool(awaiting) is waits
+
+
+@pytest.mark.parametrize(
+    ("sayer", "events", "awaited"),
+    [
+        pytest.param(ANY, (), {FOREHAND, REARHAND}, id="every-opponent-before-a-word"),
+        pytest.param(BIDDERS, (), {FOREHAND}, id="only-the-opponent-who-bid-where-only-bidders-say-kontra"),
+        pytest.param(ANY, ((FOREHAND, DECLINE),), {REARHAND}, id="the-opponent-who-did-not-decline"),
+        pytest.param(ANY, ((FOREHAND, KONTRA),), {MIDDLEHAND}, id="the-declarer-once-a-kontra-stands"),
+        pytest.param(ANY, ((FOREHAND, KONTRA), (MIDDLEHAND, RE)), set(), id="no-one-once-the-reach-is-met"),
+    ],
+)
+def test_the_first_lead_waits_on_the_positions_that_owe_a_word(
+    sayer: KontraSayer, events: tuple[object, ...], awaited: set[Position]
+) -> None:
+    _, refusal, awaiting = answered_in(options_of(sayer, KONTRA_RE, FIRST_CARD), MIDDLEHAND_DECLARES, events)
+    assert refusal is None
+    assert awaiting == awaited
 
 
 def test_a_refused_word_leaves_the_doubling_as_it_was() -> None:

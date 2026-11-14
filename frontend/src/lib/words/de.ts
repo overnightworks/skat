@@ -204,6 +204,9 @@ export type Words = {
     readonly "kontra.stamp": (gaps: { readonly word: string }) => string;
     readonly "kontra.saidBy": (gaps: { readonly name: string; readonly word: string }) => string;
     readonly "kontra.commandFailed": string;
+    readonly "kontra.decline": (gaps: { readonly word: string }) => string;
+    readonly "kontra.firstCardWaits": (gaps: { readonly names: string }) => string;
+    readonly "kontra.you": string;
     readonly "bid.hold": string;
     readonly "bid.pass": string;
     readonly "voice.pass": string;
@@ -319,6 +322,8 @@ export type Words = {
     readonly "sound.lastTrick": string;
     readonly "sound.lastTrickSweep": string;
     readonly "sound.lastTrickStay": string;
+    readonly "sound.turnInBackground": string;
+    readonly "sound.vibration": string;
     readonly "sound.motionDezent": string;
     readonly "sound.motionVerspielt": string;
     readonly "card.letterJack": string;
@@ -746,6 +751,9 @@ export const words: Words = {
     "kontra.stamp": (gaps: { readonly word: string }) => gaps.word + "!",
     "kontra.saidBy": (gaps: { readonly name: string; readonly word: string }) => gaps.name + " sagt " + gaps.word,
     "kontra.commandFailed": "Das hat nicht geklappt",
+    "kontra.decline": (gaps: { readonly word: string }) => "Kein " + gaps.word,
+    "kontra.firstCardWaits": (gaps: { readonly names: string }) => "Erste Karte wartet auf " + gaps.names,
+    "kontra.you": "dich",
     "bid.hold": "Halten",
     "bid.pass": "Weg",
     "voice.pass": "Weg",
@@ -861,6 +869,8 @@ export const words: Words = {
     "sound.lastTrick": "Letzter Stich",
     "sound.lastTrickSweep": "wegfegen",
     "sound.lastTrickStay": "liegen lassen",
+    "sound.turnInBackground": "Du bist dran im Hintergrund",
+    "sound.vibration": "Vibration",
     "sound.motionDezent": "dezent",
     "sound.motionVerspielt": "verspielt",
     "card.letterJack": "B",

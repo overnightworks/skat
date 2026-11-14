@@ -2,7 +2,17 @@ import type { NoiseVoice, ToneVoice, Voice } from "./sound.ts";
 import type { Key } from "./words.ts";
 
 export type SoundMoment =
-    "card-played" | "bid-said" | "word-said" | "trick-swept" | "chair-taken" | "chair-stood" | "chair-opened";
+    | "card-played"
+    | "bid-said"
+    | "word-said"
+    | "trick-swept"
+    | "turn-came"
+    | "dealt"
+    | "result-won"
+    | "result-lost"
+    | "chair-taken"
+    | "chair-stood"
+    | "chair-opened";
 
 export interface SoundSet {
     readonly id: string;
@@ -10,6 +20,8 @@ export interface SoundSet {
     readonly name: Key;
     /** For each moment, the voices it sounds at the given gain (1 is a moment of the player's own). */
     readonly voices: Readonly<Record<SoundMoment, (gain: number) => readonly Voice[]>>;
+    /** The ticks of the gains counting up over the given seconds, and the chime that ends them. */
+    readonly counts: (gain: number, seconds: number) => readonly Voice[];
 }
 
 const CARD_LEVEL = 0.45;
@@ -196,12 +208,7 @@ function sweepGlint(gain: number): readonly [NoiseVoice, ToneVoice, ToneVoice] {
     ];
 }
 
-/** A chair's sound starts this long after its cue, as the chair begins to move. */
-const CHAIR_HIT_SECONDS = 0.1;
-/** The second note of a chair's bells follows the first this far behind. */
-const CHAIR_BELL_GAP_SECONDS = 0.1;
-
-// A struck bell: its tone with two overtones that die away sooner.
+// Two partials above the pitch make a small bell of a sine.
 function bell(
     at: number,
     frequency: number,
@@ -214,6 +221,220 @@ function bell(
         { kind: "tone", wave: "sine", at, seconds: seconds * 0.3, frequency: frequency * 3.02, gain: gain * 0.12 },
     ];
 }
+
+// A quiet tone with a high partial.
+function turnTone(gain: number): readonly [ToneVoice, ToneVoice] {
+    return [
+        { kind: "tone", wave: "sine", at: 0, seconds: 0.3, frequency: 660, gain: 0.16 * gain },
+        { kind: "tone", wave: "sine", at: 0, seconds: 0.2, frequency: 1320, gain: 0.03 * gain },
+    ];
+}
+
+// Two friendly bells, the second higher.
+function turnBells(gain: number): readonly Voice[] {
+    return [...bell(0, 523, 0.18 * gain, 0.3), ...bell(0.13, 784, 0.2 * gain, 0.25)];
+}
+
+// Three playful notes going up.
+function turnRun(gain: number): readonly Voice[] {
+    return [523, 659, 784].flatMap((frequency, index): Voice[] => [
+        { kind: "tone", wave: "triangle", at: index * 0.09, seconds: 0.18, frequency, gain: 0.22 * gain },
+        { kind: "tone", wave: "sine", at: index * 0.09, seconds: 0.08, frequency: frequency * 2, gain: 0.05 * gain },
+    ]);
+}
+
+/** Cards land on the table this long after the cue and this far apart, as the cards of the hand fly in. */
+const DEAL_FIRST_LANDING_SECONDS = 0.45;
+const DEAL_LANDING_GAP_SECONDS = 0.055;
+const DEAL_LANDING_CARDS = [2, 5, 8, 11, 14, 16] as const;
+const DEAL_LANDINGS_SECONDS = DEAL_LANDING_CARDS.map(
+    (card) => DEAL_FIRST_LANDING_SECONDS + card * DEAL_LANDING_GAP_SECONDS,
+);
+const SHUFFLE_BURSTS = 26;
+const SHUFFLE_BURST_GAP_SECONDS = 0.016;
+
+// The cards are dealt out with a soft snap each.
+function dealSnaps(gain: number): readonly Voice[] {
+    return DEAL_LANDINGS_SECONDS.flatMap((at) => [
+        { kind: "noise", at, seconds: 0.045, frequency: 2800, quality: 0.9, gain: 0.22 * gain } as const,
+        {
+            kind: "tone",
+            wave: "sine",
+            at,
+            seconds: 0.06,
+            frequency: 170,
+            endFrequency: 110,
+            gain: 0.055 * gain,
+        } as const,
+    ]);
+}
+
+// A short shuffle, then the snaps.
+function dealShuffled(gain: number): readonly Voice[] {
+    const bursts = Array.from({ length: SHUFFLE_BURSTS }, (_, index): Voice => ({
+        kind: "noise",
+        at: index * SHUFFLE_BURST_GAP_SECONDS,
+        seconds: 0.03,
+        frequency: 1500 + ((index * 97) % 2200),
+        quality: 0.8,
+        gain: (0.16 + (index % 3) * 0.04) * gain,
+    }));
+    const snaps = DEAL_LANDINGS_SECONDS.map((at): Voice => ({
+        kind: "noise",
+        at,
+        seconds: 0.045,
+        frequency: 3000,
+        quality: 0.9,
+        gain: 0.3 * gain,
+    }));
+    return [...bursts, ...snaps];
+}
+
+// Quick flicks that climb.
+function dealRiffle(gain: number): readonly Voice[] {
+    return DEAL_LANDINGS_SECONDS.flatMap((at, index): Voice[] => {
+        const frequency = 1800 + index * 190;
+        return [
+            {
+                kind: "tone",
+                wave: "triangle",
+                at,
+                seconds: 0.035,
+                frequency,
+                endFrequency: frequency * 0.7,
+                gain: 0.12 * gain,
+            },
+            { kind: "noise", at, seconds: 0.025, frequency: frequency * 1.4, quality: 1.4, gain: 0.22 * gain },
+        ];
+    });
+}
+
+// The low blow of a stamp on the felt.
+function stampBlow(gain: number): readonly [ToneVoice, NoiseVoice, NoiseVoice] {
+    return [
+        { kind: "tone", wave: "sine", at: 0, seconds: 0.22, frequency: 95, endFrequency: 48, gain },
+        { kind: "noise", at: 0, seconds: 0.09, frequency: 420, quality: 0.7, gain: gain * 0.9 },
+        { kind: "noise", at: 0, seconds: 0.025, frequency: 2600, quality: 1, gain: gain * 0.5 },
+    ];
+}
+
+// The stamp, then one bell.
+function resultWonBell(gain: number): readonly Voice[] {
+    return [...stampBlow(0.5 * gain), ...bell(0.1, 784, 0.14 * gain, 0.28)];
+}
+
+// The stamp, then a note that sinks.
+function resultLostSigh(gain: number): readonly Voice[] {
+    return [
+        ...stampBlow(0.5 * gain),
+        {
+            kind: "tone",
+            wave: "triangle",
+            at: 0.1,
+            seconds: 0.28,
+            frequency: 330,
+            endFrequency: 290,
+            gain: 0.16 * gain,
+        },
+    ];
+}
+
+// The stamp, then a rising chord of bells.
+function resultWonChord(gain: number): readonly Voice[] {
+    return [
+        ...stampBlow(0.6 * gain),
+        ...[523, 659, 784].flatMap((frequency, index) => bell(0.1 + index * 0.06, frequency, 0.15 * gain, 0.17)),
+    ];
+}
+
+// The stamp, then two sinking notes.
+function resultLostPair(gain: number): readonly Voice[] {
+    return [
+        ...stampBlow(0.6 * gain),
+        { kind: "tone", wave: "triangle", at: 0.12, seconds: 0.16, frequency: 330, gain: 0.18 * gain },
+        { kind: "tone", wave: "triangle", at: 0.2, seconds: 0.18, frequency: 262, gain: 0.18 * gain },
+    ];
+}
+
+// The stamp, then a fanfare.
+function resultWonFanfare(gain: number): readonly Voice[] {
+    return [
+        ...stampBlow(0.6 * gain),
+        ...[523, 659, 784, 1047].flatMap((frequency, index): Voice[] => [
+            { kind: "tone", wave: "square", at: 0.1 + index * 0.05, seconds: 0.12, frequency, gain: 0.06 * gain },
+            ...bell(0.1 + index * 0.05, frequency, 0.1 * gain, 0.14),
+        ]),
+    ];
+}
+
+// The stamp, then four falling notes.
+function resultLostFall(gain: number): readonly Voice[] {
+    return [
+        ...stampBlow(0.6 * gain),
+        ...[392, 370, 349, 294].map((frequency, index): Voice => ({
+            kind: "tone",
+            wave: "sawtooth",
+            at: 0.1 + index * 0.05,
+            seconds: 0.12,
+            frequency,
+            endFrequency: frequency * 0.93,
+            gain: 0.07 * gain,
+        })),
+    ];
+}
+
+const COUNT_TICKS = 16;
+/** The chime that ends a count follows its last tick by this long. */
+const COUNT_CHIME_AFTER_SECONDS = 0.02;
+
+// The ticks fall at the pace the number climbs: quick at first, slowing as it settles.
+function tickTimes(seconds: number): number[] {
+    return Array.from(
+        { length: COUNT_TICKS },
+        (_, index) => (1 - (1 - (index + 1) / COUNT_TICKS) ** (1 / 3)) * seconds,
+    );
+}
+
+// Dry little ticks.
+function countTicks(gain: number, seconds: number): readonly Voice[] {
+    return tickTimes(seconds).map((at): Voice => ({
+        kind: "noise",
+        at,
+        seconds: 0.015,
+        frequency: 4500,
+        quality: 3,
+        gain: 0.22 * gain,
+    }));
+}
+
+// Ticks with one bell to close.
+function countBell(gain: number, seconds: number): readonly Voice[] {
+    return [
+        ...tickTimes(seconds).flatMap((at): Voice[] => [
+            { kind: "noise", at, seconds: 0.018, frequency: 4200, quality: 3, gain: 0.24 * gain },
+            { kind: "tone", wave: "sine", at, seconds: 0.02, frequency: 1700, gain: 0.05 * gain },
+        ]),
+        ...bell(seconds + COUNT_CHIME_AFTER_SECONDS, 988, 0.16 * gain, 0.3),
+    ];
+}
+
+// Coins that climb, two bells to close.
+function countCoins(gain: number, seconds: number): readonly Voice[] {
+    return [
+        ...tickTimes(seconds).flatMap((at, index): Voice[] => [
+            { kind: "tone", wave: "square", at, seconds: 0.045, frequency: 1100 + index * 55, gain: 0.05 * gain },
+            { kind: "noise", at, seconds: 0.012, frequency: 5200, quality: 2, gain: 0.12 * gain },
+        ]),
+        ...[1318, 1760].flatMap((frequency, index) =>
+            bell(seconds + COUNT_CHIME_AFTER_SECONDS + index * 0.08, frequency, 0.12 * gain, 0.2),
+        ),
+    ];
+}
+
+/** A chair's sound starts this long after its cue, as the chair begins to move. */
+const CHAIR_HIT_SECONDS = 0.1;
+/** The second note of a chair's bells follows the first this far behind. */
+const CHAIR_BELL_GAP_SECONDS = 0.1;
 
 // A dry knock of the chair on the floor.
 function chairKnock(gain: number): readonly Voice[] {
@@ -294,6 +515,12 @@ function levelled(voices: VoicesOf, level: number): VoicesOf {
     return (gain) => voices(gain * level);
 }
 
+type CountsOf = (gain: number, seconds: number) => readonly Voice[];
+
+function levelledCounts(counts: CountsOf, level: number): CountsOf {
+    return (gain, seconds) => counts(gain * level, seconds);
+}
+
 export const SOUND_SETS = {
     leise: {
         id: "leise",
@@ -303,10 +530,15 @@ export const SOUND_SETS = {
             "bid-said": levelled(bidTip, 2.68),
             "word-said": levelled(knocksPlain, 0.66),
             "trick-swept": levelled(sweepSoft, 2.63),
+            "turn-came": levelled(turnTone, 1.01),
+            dealt: levelled(dealSnaps, 3.38),
+            "result-won": levelled(resultWonBell, 0.92),
+            "result-lost": levelled(resultLostSigh, 1.02),
             "chair-taken": levelled(chairKnock, 1.42),
             "chair-stood": levelled(chairKnock, 1.42),
             "chair-opened": levelled(chairKnockLow, 3.46),
         },
+        counts: levelledCounts(countTicks, 4.7),
     },
     stammtisch: {
         id: "stammtisch",
@@ -316,10 +548,15 @@ export const SOUND_SETS = {
             "bid-said": levelled(bidBlub, 1.09),
             "word-said": levelled(knocksDeep, 0.62),
             "trick-swept": levelled(sweepThud, 1.9),
+            "turn-came": levelled(turnBells, 0.63),
+            dealt: levelled(dealShuffled, 1.93),
+            "result-won": levelled(resultWonChord, 0.78),
+            "result-lost": levelled(resultLostPair, 1),
             "chair-taken": levelled(chairScrapeKnock, 1.63),
             "chair-stood": levelled(chairKnockDeep, 1.63),
             "chair-opened": levelled(chairSlide, 1.83),
         },
+        counts: levelledCounts(countBell, 1),
     },
     funkeln: {
         id: "funkeln",
@@ -329,10 +566,15 @@ export const SOUND_SETS = {
             "bid-said": levelled(bidPair, 1.45),
             "word-said": levelled(knocksWave, 0.72),
             "trick-swept": levelled(sweepGlint, 1.56),
+            "turn-came": levelled(turnRun, 0.71),
+            dealt: levelled(dealRiffle, 2.71),
+            "result-won": levelled(resultWonFanfare, 0.64),
+            "result-lost": levelled(resultLostFall, 1.17),
             "chair-taken": levelled(chairBellsUp, 0.78),
             "chair-stood": levelled(chairBellsDown, 0.85),
             "chair-opened": levelled(chairBellsDown, 0.85),
         },
+        counts: levelledCounts(countCoins, 1.09),
     },
 } as const satisfies Record<string, SoundSet>;
 
