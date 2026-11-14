@@ -5,12 +5,13 @@ import type { AudioPort, Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundSetId } from "./soundSets.ts";
 import { createTableSound, type TableSound } from "./tableSound.ts";
 import { everyRecording } from "./voice.ts";
-import type { Card, Chair, Table } from "../routes/(start)/tables.ts";
+import type { Card, Chair, LastTrick, Table } from "../routes/(start)/tables.ts";
 
 const OWN_SEAT = 1;
 const OTHER_SEAT = 2;
 const THIRD_SEAT = 3;
 const CARD: Card = { suit: "kreuz", rank: "king" };
+const TRICK: LastTrick = { cards: [CARD, CARD, CARD], leader_seat: OWN_SEAT, taker_seat: OTHER_SEAT };
 const SETTINGS = { muted: false, volume: 70 };
 const FUNKELN_VOICES = 3;
 // Waking the device plays one silent sample, which the stand-in counts as a start.
@@ -167,9 +168,47 @@ describe("the sound of a card", () => {
     );
 });
 
+describe("the sound of a swept trick", () => {
+    it.each(Object.keys(SOUND_SETS) as SoundSetId[])("is the sweep of the set %s", (soundSet) => {
+        const port = new FakePort();
+
+        soundAt(port, { soundSet }).forGlide();
+
+        expect(port.played.map(({ voice }) => voice)).toEqual(SOUND_SETS[soundSet].voices["trick-swept"](1));
+    });
+
+    it("waits for the trick to gather in a set that gathers it, and not otherwise", () => {
+        const [quiet, playful] = [new FakePort(), new FakePort()];
+
+        soundAt(quiet, { motion: "dezent" }).forGlide();
+        soundAt(playful, { motion: "verspielt" }).forGlide();
+
+        expect(earliest(quiet)).toBe(0);
+        expect(earliest(playful)).toBe(MOTION_SETS.verspielt.trickGatherSeconds);
+    });
+
+    it("is silent while muted", () => {
+        const port = new FakePort();
+        const muted = createTableSound({
+            port,
+            settings: () => ({ ...SETTINGS, muted: true }),
+            soundSet: () => SOUND_SETS.leise,
+            motion: () => undefined,
+            voiceOn: () => false,
+            recording: () => undefined,
+            recordings: () => [],
+        });
+
+        muted.forGlide();
+
+        expect(port.played).toEqual([]);
+    });
+});
+
 describe("cues without a sound", () => {
     it.each([
         { name: "an auction that ended", cues: [{ kind: "auction-ended" } satisfies Cue] },
+        { name: "a trick taken", cues: [{ kind: "trick-taken", trick: TRICK } satisfies Cue] },
         { name: "a give-up refused", cues: [{ kind: "give-up-refused", seats: [OTHER_SEAT] } satisfies Cue] },
         { name: "no cue at all", cues: [] },
     ])("start no voice for $name", ({ cues }) => {

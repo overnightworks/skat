@@ -751,6 +751,10 @@ msgctxt "play.trick"
 msgid "Stich"
 msgstr ""
 
+msgctxt "play.lastTrick"
+msgid "Letzter Stich"
+msgstr ""
+
 msgctxt "play.sideYou"
 msgid "Du"
 msgstr ""
@@ -1233,6 +1237,18 @@ msgstr ""
 
 msgctxt "sound.setFunkeln"
 msgid "Funkeln"
+msgstr ""
+
+msgctxt "sound.lastTrick"
+msgid "Letzter Stich"
+msgstr ""
+
+msgctxt "sound.lastTrickSweep"
+msgid "wegfegen"
+msgstr ""
+
+msgctxt "sound.lastTrickStay"
+msgid "liegen lassen"
 msgstr ""
 
 msgctxt "sound.motionDezent"

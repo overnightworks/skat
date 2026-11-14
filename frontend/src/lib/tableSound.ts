@@ -32,6 +32,8 @@ export interface TableSound {
     /** Wakes the sound at every tap and key on the target; the returned function stops it. */
     arm(target: Pick<EventTarget, "addEventListener" | "removeEventListener">): () => void;
     forCues(cues: readonly Cue[], table: Table): void;
+    /** Sounds the swept trick at the moment it begins to glide, when it has gathered. */
+    forGlide(): void;
     /** Sounds the chosen set's played card once, as the player's own card, for the player to hear what the choice sounds like. */
     preview(): Promise<void>;
     /** Fetches the recordings while the voice is on, so a word is said the moment its cue comes. */
@@ -121,6 +123,14 @@ export function createTableSound({
                 if (url !== undefined) sound.speak(url, lands);
             }
         },
+        forGlide() {
+            const gathers = motion()?.trickGatherSeconds ?? 0;
+            sound.play(
+                soundSet()
+                    .voices["trick-swept"](1)
+                    .map((voice) => ({ ...voice, at: voice.at + gathers })),
+            );
+        },
         async preview() {
             await sound.resume();
             sound.play(soundSet().voices["card-played"](OWN_CARD_GAIN));
@@ -161,6 +171,11 @@ export function armSound(): () => void {
 /** Sounds the cues a table update brought. */
 export function soundForCues(cues: readonly Cue[], table: Table): void {
     pageSound().forCues(cues, table);
+}
+
+/** Sounds the trick that begins to glide to its taker's pile. */
+export function soundForGlide(): void {
+    pageSound().forGlide();
 }
 
 /** Lets the player hear the sound set they just chose. */

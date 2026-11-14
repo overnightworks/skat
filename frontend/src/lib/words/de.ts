@@ -178,6 +178,7 @@ export type Words = {
     readonly "play.sideUs": string;
     readonly "play.sideThem": string;
     readonly "play.trick": string;
+    readonly "play.lastTrick": string;
     readonly "play.sideYou": string;
     readonly "kontra.kontra": string;
     readonly "kontra.re": string;
@@ -299,6 +300,9 @@ export type Words = {
     readonly "sound.setLeise": string;
     readonly "sound.setStammtisch": string;
     readonly "sound.setFunkeln": string;
+    readonly "sound.lastTrick": string;
+    readonly "sound.lastTrickSweep": string;
+    readonly "sound.lastTrickStay": string;
     readonly "sound.motionDezent": string;
     readonly "sound.motionVerspielt": string;
     readonly "card.letterJack": string;
@@ -700,6 +704,7 @@ export const words: Words = {
     "play.sideUs": "Wir",
     "play.sideThem": "Gegner",
     "play.trick": "Stich",
+    "play.lastTrick": "Letzter Stich",
     "play.sideYou": "Du",
     "kontra.kontra": "Kontra",
     "kontra.re": "Re",
@@ -821,6 +826,9 @@ export const words: Words = {
     "sound.setLeise": "Leise",
     "sound.setStammtisch": "Stammtisch",
     "sound.setFunkeln": "Funkeln",
+    "sound.lastTrick": "Letzter Stich",
+    "sound.lastTrickSweep": "wegfegen",
+    "sound.lastTrickStay": "liegen lassen",
     "sound.motionDezent": "dezent",
     "sound.motionVerspielt": "verspielt",
     "card.letterJack": "B",

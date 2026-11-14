@@ -3,6 +3,7 @@
     import { MOTION_SETS } from "#lib/motionSets.ts";
     import { changeSetting, currentSettings, motionInForce } from "#lib/settings.svelte.ts";
     import { SOUND_SETS } from "#lib/soundSets.ts";
+    import { LAST_TRICK_MODES } from "#lib/stage.ts";
     import { prepareVoice, previewSound } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import AnchoredPanel from "./AnchoredPanel.svelte";
@@ -28,6 +29,8 @@
     $effect(() => {
         if (!open) previewed = false;
     });
+
+    const LAST_TRICK_NAMES = { sweep: "sound.lastTrickSweep", stay: "sound.lastTrickStay" } as const;
 
     const rows: SoundRow[] = $derived([
         {
@@ -96,6 +99,19 @@
                 changeSetting("voice", on);
                 void prepareVoice();
             },
+        },
+        {
+            kind: "choice",
+            label: words["sound.lastTrick"],
+            options: LAST_TRICK_MODES.map((mode) => ({
+                id: mode,
+                name: words[LAST_TRICK_NAMES[mode]],
+                pick: () => {
+                    changeSetting("lastTrick", mode);
+                },
+            })),
+            picked: settings.lastTrick,
+            greyed: false,
         },
     ]);
     const name = $derived(muted ? words["sound.muted"] : words["sound.panelName"]);
