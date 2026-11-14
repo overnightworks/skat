@@ -48,11 +48,19 @@ STAND_UP_COMMAND: Final = "stand-up"
 PLAY_CARD_COMMAND: Final = "play-card"
 GIVE_UP_COMMAND: Final = "give-up"
 SHORTEN_COMMAND: Final = "shorten"
+PLAY_OPEN_COMMAND: Final = "play-open"
 THROW_DOWN_COMMAND: Final = "throw-down"
 AGREE_TO_GIVE_UP_COMMAND: Final = "give-up-agree"
 DECLINE_GIVE_UP_COMMAND: Final = "give-up-decline"
 STEP_OF_PLAY_COMMANDS: Final = frozenset(
-    {PLAY_CARD_COMMAND, GIVE_UP_COMMAND, SHORTEN_COMMAND, AGREE_TO_GIVE_UP_COMMAND, THROW_DOWN_COMMAND}
+    {
+        PLAY_CARD_COMMAND,
+        GIVE_UP_COMMAND,
+        SHORTEN_COMMAND,
+        PLAY_OPEN_COMMAND,
+        AGREE_TO_GIVE_UP_COMMAND,
+        THROW_DOWN_COMMAND,
+    }
 )
 
 

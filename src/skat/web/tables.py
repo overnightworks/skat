@@ -264,6 +264,7 @@ class PlayingAnswer(BaseModel):
     give_up: GiveUpAnswer | None
     shortening: ShorteningAnswer | None
     shortening_refused_seat: int | None
+    open_play_seat: int | None
     kontra: KontraAnswer | None
 
 
@@ -537,6 +538,7 @@ def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
             agreed_seat=playing.shortening.agreed_seat,
         ),
         shortening_refused_seat=playing.shortening_refused_seat,
+        open_play_seat=playing.open_play_seat,
         kontra=kontra_answer_of(playing.kontra),
     )
 

@@ -9,6 +9,7 @@ from skat.table.playing import (
     DeclineGiveUpCommand,
     GiveUpCommand,
     PlayCardCommand,
+    PlayOpenCommand,
     ShortenCommand,
     ThrowDownCommand,
 )
@@ -17,6 +18,7 @@ from skat.web.mcp import (
     DECLINE_GIVE_UP_MARK,
     GIVE_UP_GAME_MARK,
     PLAY_CARD_MARK,
+    PLAY_OPEN_MARK,
     SHORTEN_GAME_MARK,
     THROW_DOWN_CARDS_MARK,
 )
@@ -44,6 +46,8 @@ TABLE_CARD_SUFFIX: Final = "/card"
 TABLE_GIVE_UP_SUFFIX: Final = "/give-up"
 # The declarer's shortening on a table: `TABLES_PATH/{table_id}` plus this.
 TABLE_SHORTEN_SUFFIX: Final = "/shorten"
+# An opponent's open play on a table: `TABLES_PATH/{table_id}` plus this.
+TABLE_PLAY_OPEN_SUFFIX: Final = "/play-open"
 # An opponent's yes to the declarer's give-up: `TABLES_PATH/{table_id}` plus this.
 TABLE_GIVE_UP_AGREE_SUFFIX: Final = "/give-up/agree"
 # An opponent's no to the declarer's give-up: `TABLES_PATH/{table_id}` plus this.
@@ -72,6 +76,12 @@ class ShortenRequest(CommandRequest):
     claim: AnnouncementToken = AnnouncementToken.NONE
 
 
+class PlayOpenRequest(CommandRequest):
+    """A client names only the version it saw: its seat comes from the session, so it cannot play open for another."""
+
+    version: Annotated[int, Field(strict=True)]
+
+
 class AgreeToGiveUpRequest(CommandRequest):
     """A client names only the version it saw: its seat comes from the session, so it cannot answer for another."""
 
@@ -95,6 +105,7 @@ def create_playing_router(tables: TableService, presence: Presence) -> APIRouter
     _add_play_card(router, tables, presence)
     _add_give_up(router, tables, presence)
     _add_shorten(router, tables, presence)
+    _add_play_open(router, tables, presence)
     _add_agree_to_give_up(router, tables, presence)
     _add_decline_give_up(router, tables, presence)
     _add_throw_down(router, tables, presence)
@@ -198,6 +209,39 @@ def _add_shorten(router: APIRouter, tables: TableService, presence: Presence) ->
         )
         return await command_answer(
             partial(tables.shorten, actor_of(request), command),
+            presence,
+            table_id,
+            response,
+        )
+
+
+def _add_play_open(router: APIRouter, tables: TableService, presence: Presence) -> None:
+    @router.post(
+        TABLES_PATH + "/{table_id}" + TABLE_PLAY_OPEN_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=PLAY_OPEN_MARK,
+    )
+    async def play_open(
+        table_id: str, body: PlayOpenRequest, request: Request, response: Response
+    ) -> Response | TableAnswer:
+        """Play open as an opponent: show that the declarer can take no further trick, whatever the two opponents play.
+
+        The engine checks the position from the hidden hands at once. Where the declarer could take no further trick
+        the game ends, the rest goes to the opponents and the list entry says it ended by an open play. Otherwise the
+        open play was wrong: nothing is shown yet, `hand.playing.open_play_seat` names the opponent and the game waits
+        for the declarer, who accepts the end with agree_to_give_up (scored as an opponent's give-up: won as it stands,
+        lost as it stands, or won as declared plus the level the bid forces) or demands play on with decline_give_up.
+        That the declarer is asked at all tells everyone that he could still take a trick. Use it as an opponent once a
+        declared game is played (`hand.declaring.declaration` is set in the answer of read_table or the state of your
+        table's view), on anyone's turn. The table id and the version come from that answer. The command id names this
+        step: the same id with the same version is a retry that changes nothing twice. A refusal (a stale version, the
+        declarer, another request waiting, not seated) comes back as a failed result with its reason, leaves the table
+        as it was and spends the command id: the next attempt takes a new command id.
+        """
+        command = PlayOpenCommand(command_id=body.command_id, table_id=table_id, version=body.version)
+        return await command_answer(
+            partial(tables.play_open, actor_of(request), command),
             presence,
             table_id,
             response,

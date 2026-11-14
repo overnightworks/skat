@@ -222,6 +222,7 @@ def _read_give_up(table: Row[Any]) -> GiveUpAsked | None:
         _position_of(table.give_up_declined_by),
         None if table.give_up_claim is None else ANNOUNCEMENT_OF_TEXT[table.give_up_claim],
         _position_of(table.give_up_agreed_by),
+        table.give_up_open,
     )
 
 
@@ -303,6 +304,7 @@ class _PostgresTableTransaction:
                 give_up_declined_by=None if asked is None else _text_of(asked.declined_by),
                 give_up_claim=None if asked is None or asked.claim is None else ANNOUNCEMENT_TEXT[asked.claim],
                 give_up_agreed_by=None if asked is None else _text_of(asked.agreed_by),
+                give_up_open=asked is not None and asked.open_play,
                 shortening_refused_by=_text_of(table.progress.shortening_refused_by),
             )
         )
@@ -398,6 +400,7 @@ class _PostgresTableTransaction:
                 give_up_declined_by=None,
                 give_up_claim=None,
                 give_up_agreed_by=None,
+                give_up_open=False,
                 shortening_refused_by=None,
                 ended_at=at,
                 end_reason=ending.reason.value,

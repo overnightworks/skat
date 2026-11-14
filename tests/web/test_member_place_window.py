@@ -112,10 +112,11 @@ class TestTheEndOfAHand:
         [
             pytest.param(GameEnding.GIVEN_UP, "give-up", "gives up the game", id="given-up"),
             pytest.param(GameEnding.SHORTENED, "shorten", "shortens the game", id="shortened"),
+            pytest.param(GameEnding.PLAYED_OPEN, "play-open", "plays open", id="played-open"),
             pytest.param(GameEnding.THROWN_DOWN, "throw-down", "throws the cards down", id="thrown-down"),
         ],
     )
-    def test_a_game_given_up_shortened_or_thrown_down_tells_who_ended_it_before_its_result(self, ending, kind, text):
+    def test_a_game_ended_early_tells_who_ended_it_before_its_result(self, ending, kind, text):
         window = window_of_table(ended(replace(an_entry(), ending=ending, ended_by_seat=1)))
 
         assert [(line.name, line.kind, line.text, line.own) for line in window.entries[:1]] == [

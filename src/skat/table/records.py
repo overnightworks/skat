@@ -249,13 +249,15 @@ class GiveUpAsked:
     no to the declarer's give-up.
 
     The declarer's shortening has a `claim`, the level he demands, and the opponent who said yes so far in `agreed_by`;
-    it needs both yeses and ends with the first no. A give-up has no claim.
+    it needs both yeses and ends with the first no. A give-up has no claim. An opponent's open play that the check found
+    wrong is asked of the declarer alone as `open_play`.
     """
 
     asker: Position
     declined_by: Position | None = None
     claim: Announcement | None = None
     agreed_by: Position | None = None
+    open_play: bool = False
 
 
 type PushingStep = Take | Put | Push | DeclareGrandHand

@@ -18,6 +18,7 @@ from skat.table.playing import (
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
     GiveUpCommand,
+    PlayOpenCommand,
     ShortenCommand,
     ThrowDownCommand,
 )
@@ -27,6 +28,10 @@ from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableT
 from tests.support.stored_game import card_id, count_rows, nobody_connected, seated_game
 
 pytestmark = pytest.mark.postgres
+
+
+# After nine tricks the declarer of the stored game can take no trick of the tenth.
+NINE_TRICKS_PLAYED = 27
 
 
 @pytest.fixture
@@ -292,6 +297,43 @@ def test_a_no_keeps_the_cards_open_across_a_restart_until_the_hand_ends(game, en
 
     assert result.refusal is None
     assert stored_shortening(engine) == (None, None, None, None)
+
+
+def stored_open_play(engine):
+    with engine.connect() as connection:
+        return tuple(connection.execute(text("SELECT give_up_asked_by, give_up_open FROM tables")).one())
+
+
+def test_a_wrong_open_play_waits_for_the_declarer_across_a_restart_and_a_card_clears_it(
+    game, engine, database_url, stored
+):
+    command = PlayOpenCommand(command_id="open", table_id=game.table_id, version=game.record.version)
+    asked = game.service.play_open(game.actors[Position.FOREHAND], command, nobody_connected())
+    assert asked.refusal is None
+    assert stored_open_play(engine) == ("forehand", True)
+
+    restarted_engine = create_store_engine(database_url)
+    try:
+        restarted = PostgresTableTransactions(restarted_engine)
+        assert stored(restarted, game.table_id).progress.give_up == GiveUpAsked(Position.FOREHAND, open_play=True)
+        throw = ThrowDownCommand(command_id="throw", table_id=game.table_id, version=game.record.version)
+        refused = TableService(restarted).throw_down(game.actors[Position.MIDDLEHAND], throw, nobody_connected())
+    finally:
+        restarted_engine.dispose()
+
+    assert refused.refusal == Refusal.REQUEST_PENDING
+    assert stored_open_play(engine) == ("forehand", True)
+
+
+def test_a_game_the_check_ends_joins_the_list_as_played_open_by_the_opponent(game):
+    game.play_legally(NINE_TRICKS_PLAYED)
+    command = PlayOpenCommand(command_id="open", table_id=game.table_id, version=game.record.version)
+
+    result = game.service.play_open(game.actors[Position.FOREHAND], command, nobody_connected())
+
+    assert result.refusal is None
+    (entry,) = game.record.game_list
+    assert (entry.ending, entry.ended_by_seat) == (GameEnding.PLAYED_OPEN, seat_of(game, Position.FOREHAND))
 
 
 def test_a_card_clears_the_stored_request(game, engine):
