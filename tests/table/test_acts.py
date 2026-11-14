@@ -5,13 +5,15 @@ import pytest
 from skat.engine.bidding import Bid, Hold, Pass, Play
 from skat.engine.cards import DECK
 from skat.engine.deal import Position
-from skat.engine.declaration import PutBack, TakeSkat
+from skat.engine.declaration import Announcement, Declaration, PutBack, TakeSkat
+from skat.engine.games import GameKind
 from skat.engine.kontra import Word, WordSaid
-from skat.engine.schieberamsch import DeclareGrandHand, Push, Put, Take
+from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
+from skat.engine.schieberamsch import DeclareGrandHand, GrandHandRule, Push, PushingRule, Put, Take
 from skat.engine.tricks import CardPlayed
 from skat.table.acts import ActKind, acts_of, next_seq_of
 from skat.table.game_list import GameEnding
-from skat.table.records import GiveUpAsked, HandProgress, Series
+from skat.table.records import GiveUpAsked, HandProgress, RamschOccasion, RamschSetting, Series, TableOptions
 from tests.support.played_game import (
     HERZ_HAND,
     a_ramsch_entry,
@@ -26,10 +28,18 @@ FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Positio
 # Seat 2 deals in `table_in`: seat 3 is forehand, seat 1 middlehand and seat 2 rearhand.
 FOREHAND_SEAT, MIDDLEHAND_SEAT, REARHAND_SEAT, DEALER_SEAT = 3, 1, 2, 2
 HAND_SPAN = 1000
+A_STAGE_WITH_GRAND_HAND = TableOptions(
+    ramsch=RamschSetting(
+        RamschOccasion.PASSED_IN,
+        RamschOptions(RamschScoring.POINTS, JungfrauRule.DOUBLES_LOSER, DurchmarschRule.WINS_120),
+        PushingRule.JACKS_STAY,
+        GrandHandRule.ALLOWED,
+    )
+)
 
 
-def a_hand(progress=None, series=Series(36, 1)):  # noqa: B008 - Series is frozen
-    return replace(table_in(progress or HandProgress()), series=series)
+def a_hand(progress=None, series=Series(36, 1), options=None):  # noqa: B008 - Series is frozen
+    return replace(table_in(progress or HandProgress(), options), series=series)
 
 
 def kinds(table):
@@ -70,12 +80,14 @@ class TestWhatHappenedInTheRunningHand:
             (ActKind.DECLARE, MIDDLEHAND_SEAT),
         ]
         assert declaring[1].detail is None
-        assert declaring[2].detail == declared
+        assert declaring[2].detail == Declaration(
+            GameKind.HERZ, hand=False, ouvert=False, announcement=Announcement.NONE
+        )
 
     def test_the_stage_before_a_ramsch_is_a_line_for_each_step_and_a_grand_hand_is_a_declaration(self):
         steps = (Pass(MIDDLEHAND), Pass(REARHAND), Pass(FOREHAND))
         pushing = (Take(FOREHAND), Put(FOREHAND, (DECK[0], DECK[1])), Push(MIDDLEHAND), DeclareGrandHand(REARHAND))
-        table = a_hand(HandProgress(auction=steps, pushing=pushing))
+        table = a_hand(HandProgress(auction=steps, pushing=pushing), options=A_STAGE_WITH_GRAND_HAND)
 
         stage = acts_of(table)[4:]
         assert [(each.kind, each.seat) for each in stage] == [

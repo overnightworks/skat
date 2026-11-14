@@ -21,7 +21,7 @@ def auction_of(table: TableRecord) -> Auction:
 
 
 # What a seat that declares a Grand Hand in a Ramsch's stage has declared: the table names the game for him.
-GRAND_HAND_INSTEAD: Final = Declare(GameKind.GRAND, hand=True, ouvert=False, announcement=Announcement.NONE)
+_GRAND_HAND_INSTEAD: Final = Declare(GameKind.GRAND, hand=True, ouvert=False, announcement=Announcement.NONE)
 
 
 def _declared_in_the_stage(table: TableRecord) -> tuple[Declared, Deal] | None:
@@ -51,7 +51,7 @@ def declaring_of(table: TableRecord) -> Declaring | None:
     if in_the_stage is None:
         return None
     declared, deal = in_the_stage
-    return declaring_after(Declaring.start(declared, deal), (GRAND_HAND_INSTEAD, *table.progress.declaring))
+    return declaring_after(Declaring.start(declared, deal), (_GRAND_HAND_INSTEAD, *table.progress.declaring))
 
 
 def _play_start(table: TableRecord) -> Playing | None:

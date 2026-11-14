@@ -18,7 +18,7 @@ from mcp.shared.subscriptions import ResourceUpdated, ToolsListChanged
 from mcp_types import TextContent, TextResourceContents
 
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.agent import SUBJECT, ToolAnswer, view_uri_of
+from tests.web.support.agent import SUBJECT, ToolAnswer, view_uri_of, window_uri_of
 
 EVENT_WITHIN_SECONDS = 10
 TOOLS_CHANGED = "tools-changed"
@@ -191,6 +191,11 @@ class SdkEvents:
         return self._portal.call(next_event)
 
     def woken_view(self, table_id):
-        """Waits for the pulse of the table's view and reads the view after it."""
-        assert self.next_uri() == view_uri_of(table_id)
+        """Waits for the pulse of the table's view, which a commit tells after the pulse of its window, and reads the
+        view after it.
+        """
+        uri = self.next_uri()
+        if uri == window_uri_of(table_id):
+            uri = self.next_uri()
+        assert uri == view_uri_of(table_id)
         return self._session.view(table_id)

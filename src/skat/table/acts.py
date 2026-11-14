@@ -18,10 +18,10 @@ from typing import TYPE_CHECKING, Final
 
 from skat.engine.bidding import LOWEST_BID, Bid, Hold, Pass, Play
 from skat.engine.deal import seats_from
-from skat.engine.declaration import Declare, PutBack, TakeSkat
+from skat.engine.declaration import Declaration, Declare, PutBack, TakeSkat
 from skat.engine.schieberamsch import DeclareGrandHand, Push, Put, Take
 from skat.table.game_list import GameEnding, ResultView, result_view_of
-from skat.table.hand_state import GRAND_HAND_INSTEAD, declaring_of
+from skat.table.hand_state import declaring_of
 from skat.table.records import SERIES_LENGTH_MAX
 from skat.table.rules import hand_runs
 
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from skat.engine.kontra import Word, WordSaid
     from skat.engine.tricks import CardPlayed
     from skat.table.game_list import RamschResultView
-    from skat.table.records import PushingStep, Series, TableRecord
+    from skat.table.records import Series, TableRecord
 
 HAND_SPAN: Final = 1000
 LAST_SLOT: Final = HAND_SPAN - 1
@@ -62,7 +62,7 @@ class ActKind(StrEnum):
     ABORTED = "aborted"
 
 
-type Detail = int | Card | Declare | Word | ResultView | RamschResultView | None
+type Detail = int | Card | Declaration | Word | ResultView | RamschResultView | None
 """What an act adds to its kind: the dealer's seat of a deal, the value of a bid or a hold, the declaration, the card
 played, the word said, the result of a game; nothing for the rest.
 """
@@ -106,8 +106,16 @@ def _auction_events(steps: tuple[AuctionStep, ...], seats: dict[Position, int]) 
             yield seat, ActKind.BID, LOWEST_BID
 
 
-def _pushing_events(steps: tuple[PushingStep, ...], seats: dict[Position, int]) -> Iterator[_Event]:
-    for step in steps:
+def _declaration_of(table: TableRecord) -> Declaration:
+    """The game the table's declarer declared, as the view shows it."""
+    declaring = declaring_of(table)
+    assert declaring is not None  # noqa: S101 - a stored declaration follows a seat that declares
+    assert declaring.declaration is not None  # noqa: S101 - and a declared game has its declaration
+    return declaring.declaration
+
+
+def _pushing_events(table: TableRecord, seats: dict[Position, int]) -> Iterator[_Event]:
+    for step in table.progress.pushing:
         seat = seats[step.position]
         if isinstance(step, Take):
             yield seat, ActKind.TAKE_SKAT, None
@@ -117,7 +125,7 @@ def _pushing_events(steps: tuple[PushingStep, ...], seats: dict[Position, int]) 
             yield seat, ActKind.PUSH, None
         else:
             assert isinstance(step, DeclareGrandHand)  # noqa: S101 - the engine's four pushing steps
-            yield seat, ActKind.DECLARE, GRAND_HAND_INSTEAD
+            yield seat, ActKind.DECLARE, _declaration_of(table)
 
 
 def _declaring_events(table: TableRecord, seats: dict[Position, int]) -> Iterator[_Event]:
@@ -134,7 +142,7 @@ def _declaring_events(table: TableRecord, seats: dict[Position, int]) -> Iterato
             yield seat, ActKind.PUT_BACK, None
         else:
             assert isinstance(step, Declare)  # noqa: S101 - the engine's three declaring steps
-            yield seat, ActKind.DECLARE, step
+            yield seat, ActKind.DECLARE, _declaration_of(table)
 
 
 def _play_events(
@@ -155,7 +163,7 @@ def _running_events(table: TableRecord, seats: dict[Position, int], dealer: int)
     progress = table.progress
     yield None, ActKind.DEAL, dealer
     yield from _auction_events(progress.auction, seats)
-    yield from _pushing_events(progress.pushing, seats)
+    yield from _pushing_events(table, seats)
     yield from _declaring_events(table, seats)
     yield from _play_events(progress.plays, progress.words, seats)
 
