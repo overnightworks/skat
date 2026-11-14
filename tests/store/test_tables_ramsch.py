@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 from sqlalchemy import text
 
@@ -69,15 +71,17 @@ def restarted(database_url):
     return engine, TableService(PostgresTableTransactions(engine))
 
 
-def test_a_table_reads_back_its_ramsch_options_after_a_restart(service, database_url):
-    table_id = seated_table_id(service, OPTIONS)
+@pytest.mark.parametrize("occasion", list(RamschOccasion))
+def test_a_table_reads_back_its_ramsch_options_after_a_restart(service, database_url, occasion):
+    setting = replace(SETTING, occasion=occasion)
+    table_id = seated_table_id(service, TableOptions(ramsch=setting))
     engine, again = restarted(database_url)
     try:
         view = again.view(person("Anna"), table_id, frozenset())
     finally:
         engine.dispose()
 
-    assert view.options.ramsch == SETTING
+    assert view.options.ramsch == setting
 
 
 def test_a_running_ramsch_resumes_after_a_restart_with_the_same_turn_and_cards(

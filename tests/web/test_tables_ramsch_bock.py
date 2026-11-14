@@ -4,6 +4,7 @@ import pytest
 
 from skat.engine.bock import BockRounds
 from skat.table.records import Series
+from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in_text, with_known_deal
@@ -42,16 +43,16 @@ A_ROUND_STARTS = {"games_left": 3, "factor": 2}
 NO_ROUND = {"games_left": 0, "factor": 1}
 
 
-def options_of(*triggers):
-    return {"ramsch": POINTS, "bock": {"triggers": list(triggers), "overlap": "append"}}
+def options_of(*triggers, occasion="passed-in"):
+    return {"ramsch": {**POINTS, "occasion": occasion}, "bock": {"triggers": list(triggers), "overlap": "append"}}
 
 
 def seat_scores_of(result):
     return [seat["score"] for seat in result["seats"]]
 
 
-def ramsch_table(skat, *triggers, deal=PLAIN_DEAL, pending=(), totals=None, series=None):
-    table = Table(skat, options_of(*triggers))
+def ramsch_table(skat, *triggers, occasion="passed-in", deal=PLAIN_DEAL, pending=(), totals=None, series=None):
+    table = Table(skat, options_of(*triggers, occasion=occasion))
     if deal is not None:
         table.with_deal(deal)
     if pending:
@@ -237,3 +238,127 @@ class TestARamschEndingTheSeriesOrNearIt:
         table = played_ramsch(ramsch_table(skat, "passed-in", series=Series(3, 2)))
 
         assert bock_of(table) == {"games_left": 1, "factor": 2}
+
+
+ROUND_OCCASIONS = [
+    pytest.param("bock-rounds", id="ramsch-rounds-only"),
+    pytest.param("passed-in-and-bock-rounds", id="both-together"),
+]
+
+
+def hand_of(table, position=MIDDLEHAND):
+    return read(table, position)["hand"]
+
+
+class TestOpeningATableWithRamschRounds:
+    @pytest.mark.parametrize("occasion", ["passed-in", "bock-rounds", "passed-in-and-bock-rounds"])
+    def test_the_answer_carries_the_occasion_and_a_retry_is_the_first_table(self, skat, occasion):
+        headers, _ = skat.member()
+        options = options_of("re", occasion=occasion)
+
+        first = skat.create(headers, options=options)
+        same = skat.create(headers, options=options)
+
+        assert first.status_code == 200
+        assert first.json()["options"]["ramsch"]["occasion"] == occasion
+        assert same.json()["id"] == first.json()["id"]
+
+
+class TestAHandDealtInARamschRound:
+    @pytest.mark.parametrize("occasion", ["bock-rounds", "passed-in-and-bock-rounds"])
+    def test_is_a_ramsch_with_no_auction_while_a_bock_game_is_pending(self, skat, occasion):
+        table = ramsch_table(skat, "re", occasion=occasion, pending=(2,))
+
+        answer = hand_of(table)
+
+        assert (answer["ramsch"], answer["auction"]["awaiting"], answer["auction"]["words"]) == (True, None, [])
+
+    @pytest.mark.parametrize("occasion", ["bock-rounds", "passed-in-and-bock-rounds"])
+    def test_takes_no_auction_step(self, skat, occasion):
+        table = ramsch_table(skat, "re", occasion=occasion, pending=(2,))
+        before = table.record
+
+        answer = table.act(TABLE_AUCTION_PASS_SUFFIX, table.at[MIDDLEHAND])
+
+        assert (answer.status_code, table.record) == (409, before)
+
+    @pytest.mark.parametrize("occasion", ["bock-rounds", "passed-in-and-bock-rounds"])
+    def test_plays_out_as_a_ramsch_that_uses_a_bock_game_up_and_scores_the_bock_factor(self, skat, occasion):
+        table = ramsch_table(skat, "re", occasion=occasion, pending=(3,))
+
+        table.played_out(PLAIN_HAND)
+
+        result = read(table)["result"]
+        assert (seat_scores_of(result), result["bock_factor"], bock_of(table)) == (
+            [0, -172, 0],
+            2,
+            {"games_left": 2, "factor": 2},
+        )
+
+    @pytest.mark.parametrize("occasion", ["bock-rounds", "passed-in-and-bock-rounds"])
+    def test_meets_no_passed_in_trigger_since_nobody_passed_so_the_rounds_do_not_chain(self, skat, occasion):
+        table = ramsch_table(skat, "passed-in", occasion=occasion, pending=(3,))
+
+        table.played_out(PLAIN_HAND)
+
+        assert bock_of(table) == {"games_left": 2, "factor": 2}
+
+    @pytest.mark.parametrize("occasion", ["bock-rounds", "passed-in-and-bock-rounds"])
+    def test_still_meets_the_total_trigger(self, skat, occasion):
+        table = ramsch_table(skat, "total-ending-in-00", occasion=occasion, pending=(3,), totals=(0, 272, 0))
+
+        table.played_out(PLAIN_HAND)
+
+        assert table.record.bock == BockRounds((2, 3))
+
+    @pytest.mark.parametrize("occasion", ["bock-rounds", "passed-in-and-bock-rounds"])
+    def test_the_series_last_game_lets_every_round_lapse(self, skat, occasion):
+        table = ramsch_table(skat, "re", occasion=occasion, pending=(3,), series=Series(3, 3))
+
+        table.played_out(PLAIN_HAND)
+
+        assert (read(table)["result"]["bock_factor"], table.record.bock) == (2, BockRounds(()))
+
+    @pytest.mark.parametrize("occasion", ["bock-rounds", "passed-in-and-bock-rounds"])
+    def test_follows_the_round_game_after_game_until_it_is_used_up_and_then_runs_an_auction(self, skat, occasion):
+        table = ramsch_table(skat, "re", occasion=occasion, pending=(2,))
+        table.played_out(PLAIN_HAND)
+        next_hand(table)
+        second = hand_of(table)["ramsch"]
+        table.played_out(PLAIN_HAND)
+        next_hand(table)
+
+        after_the_round = hand_of(table)
+
+        assert (second, after_the_round["ramsch"], after_the_round["auction"]["awaiting"]) == (True, False, "bid")
+
+
+class TestAHandOutsideARamschRound:
+    @pytest.mark.parametrize(
+        ("occasion", "pending"),
+        [
+            pytest.param("passed-in", (2,), id="third-pass-only-with-a-round-pending"),
+            pytest.param("bock-rounds", (), id="rounds-only-with-no-round-pending"),
+            pytest.param("passed-in-and-bock-rounds", (), id="both-with-no-round-pending"),
+        ],
+    )
+    def test_runs_an_auction(self, skat, occasion, pending):
+        table = ramsch_table(skat, "re", occasion=occasion, pending=pending)
+
+        answer = hand_of(table)
+
+        assert (answer["ramsch"], answer["auction"]["awaiting"]) == (False, "bid")
+
+    def test_the_third_pass_of_a_ramsch_rounds_only_table_passes_the_hand_in(self, skat):
+        table = ramsch_table(skat, "passed-in", occasion="bock-rounds")
+
+        three_pass(table)
+
+        assert (table.record.hand, bock_of(table)) == (None, A_ROUND_STARTS)
+
+    def test_the_third_pass_of_a_table_with_both_starts_a_ramsch(self, skat):
+        table = ramsch_table(skat, "passed-in", occasion="passed-in-and-bock-rounds")
+
+        three_pass(table)
+
+        assert hand_of(table)["ramsch"] is True

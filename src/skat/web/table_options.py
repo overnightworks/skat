@@ -1,6 +1,6 @@
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
@@ -51,13 +51,13 @@ class PushingOptionsRequest(BaseModel):
 
 class RamschOptionsRequest(BaseModel):
     """The opener names all four Ramsch choices or none: the program defaults none of them. The table plays a Ramsch
-    for a hand all three pass only. `pushing` is the one optional choice: left out, the Ramsch has no stage of takes
-    and pushes.
+    for a hand all three pass, in a Bock round's games with no auction, or both, as `occasion` says. `pushing` is the
+    one optional choice: left out, the Ramsch has no stage of takes and pushes.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    occasion: Literal[RamschOccasion.PASSED_IN]
+    occasion: RamschOccasion
     scoring: RamschScoring
     jungfrau: JungfrauRule
     durchmarsch: DurchmarschRule
@@ -73,6 +73,13 @@ class OptionsRequest(BaseModel):
     kontra: KontraOptionsRequest | None = None
     bock: BockOptionsRequest | None = None
     ramsch: RamschOptionsRequest | None = None
+
+    @model_validator(mode="after")
+    def _bock_rounds_need_bock(self) -> Self:
+        if self.ramsch is not None and self.ramsch.occasion.in_bock_rounds and self.bock is None:
+            message = "a Ramsch in Bock rounds needs the table's Bock options"
+            raise ValueError(message)
+        return self
 
 
 class KontraOptionsAnswer(BaseModel):
