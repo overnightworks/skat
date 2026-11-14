@@ -3,6 +3,6 @@ agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
 role = "builder"
 base = "d5e856c770c53e6ba3afd66c5a4f4505d5be387b"
 branch = "fix/one-audio-watcher-owner"
-scope = [".github/workflows/ci.yml", "frontend/scripts/browser-coverage-report.js", "frontend/src/lib/ui/CloseKey.svelte", "frontend/src/lib/ui/WeiterKey.svelte", "frontend/src/routes/(start)/RuleUnit.svelte", "tests/e2e/support/audio.py", "tests/e2e/support/ramsch.py", "tests/e2e/test_rule_set_choice.py", "tests/e2e/test_table_close.py", "tests/e2e/test_table_ramsch_push.py", "tests/e2e/test_table_series.py", "tests/e2e/test_table_sound_settings.py"]
+scope = [".github/workflows/ci.yml", "frontend/scripts/browser-coverage-report.js", "frontend/src/lib/ui/CloseKey.svelte", "frontend/src/lib/ui/WeiterKey.svelte", "frontend/src/routes/(start)/RuleUnit.svelte", "tests/e2e/support/audio.py", "tests/e2e/support/ramsch.py", "tests/e2e/test_agent_plays.py", "tests/e2e/test_calling_agents.py", "tests/e2e/test_rule_set_choice.py", "tests/e2e/test_table_close.py", "tests/e2e/test_table_durchmarsch.py", "tests/e2e/test_table_ramsch_push.py", "tests/e2e/test_table_series.py", "tests/e2e/test_table_sound_settings.py"]
 opened_commit = "ff1d3c159a06968e55a498cc1cce9947a4695796"
 whole_reason = "Main's CI gate as one change: the coverage merge, the honest gaps it exposed and the tests that close them are judged together."
