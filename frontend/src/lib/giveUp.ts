@@ -1,4 +1,4 @@
-import { keyWord } from "#lib/kontra.ts";
+import { declinableWord, keyWord } from "#lib/kontra.ts";
 import { handWaits, type SeatNotice } from "#lib/openChair.ts";
 import { gameInPlay } from "#lib/playView.ts";
 import { listFormat, words } from "#lib/words.ts";
@@ -37,11 +37,12 @@ export type GiveUpView = {
 };
 
 // The key „Aufgeben“ on the bar of every seated person while a declared game is played, a Grand Hand declared in a
-// Ramsch's stage included; it goes round on a phone while the strip carries „Kontra“.
+// Ramsch's stage included; it goes round on a phone while the strip carries „Kontra“ beside it, but keeps its word
+// when the pair „Kontra“ and „Kein Kontra“ stands in a bar of its own above.
 export function giveUpKey(table: Table): { round: boolean } | null {
     const seated = table.chairs.some((chair) => chair.is_mine);
     if (!seated || gameInPlay(table) === null || handWaits(table.hand)) return null;
-    return { round: keyWord(table) !== null };
+    return { round: keyWord(table) !== null && declinableWord(table) === null };
 }
 
 export function faceOf(chairs: readonly Chair[], seat: number): AskFace {

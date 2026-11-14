@@ -68,7 +68,7 @@ def read_no_words(connection: Connection, table_id: str) -> frozenset[NoWordSaid
 
 
 def write_no_words(connection: Connection, table_id: str, no_words: frozenset[NoWordSaid]) -> None:
-    """Store the answers of no word so that exactly `no_words` stay: a chair that changes hands takes its seat's."""
+    """Store the answers of no word so that exactly `no_words` stay."""
     stored = read_no_words(connection, table_id)
     for gone in stored - no_words:
         connection.execute(

@@ -43,6 +43,7 @@ import {
     TABLE_GIVE_UP_DECLINE_SUFFIX,
     TABLE_GIVE_UP_SUFFIX,
     TABLE_KONTRA_SUFFIX,
+    TABLE_NO_WORD_SUFFIX,
     TABLE_LIST_SUFFIX,
     TABLE_NEW_SERIES_SUFFIX,
     TABLE_PAGE_PREFIX,
@@ -108,8 +109,15 @@ export type Taken = { seat: number; tricks: number };
 // A give-up the table was asked and has not settled: who asked and which opponent already said no, the same for every viewer.
 export type GiveUp = { asking_seat: number; declined_seat: number | null };
 // The words said in the running hand and their product, with the word the viewer's own chair may say now (null for
-// a watcher and for a chair with none open).
-export type Kontra = { said: { seat: number; word: Word }[]; factor: number; my_word: Word | null };
+// a watcher and for a chair with none open). At a table whose words end with the first card, that card waits on the
+// seats it names for a word or a decline, and the seats that declined stand beside them; both are empty otherwise.
+export type Kontra = {
+    said: { seat: number; word: Word }[];
+    factor: number;
+    my_word: Word | null;
+    first_card_waits_on: number[];
+    first_card_declined: number[];
+};
 export type Playing = {
     turn_seat: number | null;
     current_trick: SeatedCard[];
@@ -429,6 +437,11 @@ export function answerAbort(id: string, commandId: string, answer: AbortAnswer):
 // since moved past is refused, and there is no retry.
 export function sayKontra(id: string, version: number, commandId: string, word: Word): Promise<Outcome> {
     return post(id, TABLE_KONTRA_SUFFIX, { command_id: commandId, version, word });
+}
+
+// The viewer's seat gives up the word it owes before the first card; the table stops asking it and the word is gone.
+export function sayNoWord(id: string, version: number, commandId: string): Promise<Outcome> {
+    return post(id, TABLE_NO_WORD_SUFFIX, { command_id: commandId, version });
 }
 
 // A table opened without a series has none and counts as the first series, as the server counts it.

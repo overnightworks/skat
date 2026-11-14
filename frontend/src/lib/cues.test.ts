@@ -446,7 +446,13 @@ describe("the bid a chair said between two versions of a table", () => {
 describe("the word of Kontra said between two versions of a table", () => {
     const SAID_KONTRA = { seat: FOREHAND, word: "kontra" } as const;
     const SAID_RE = { seat: MIDDLEHAND, word: "re" } as const;
-    const kontra = (said: Kontra["said"]): Kontra => ({ said, factor: 2 ** said.length, my_word: null });
+    const kontra = (said: Kontra["said"]): Kontra => ({
+        said,
+        factor: 2 ** said.length,
+        my_word: null,
+        first_card_waits_on: [],
+        first_card_declined: [],
+    });
     const wordTable = (version: number, said: Kontra["said"] | null): Table =>
         table(version, EVERY_HAND_DEALT, { declaring: null, kontra: said === null ? null : kontra(said) });
     const stampOfFelix = {
