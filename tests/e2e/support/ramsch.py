@@ -42,9 +42,11 @@ class RamschTable:
         member_of: Callable[[Page], SeededMember],
         page_errors: list[str],
         form_factor: dict[str, Any],
+        *,
+        console: bool = True,
     ) -> None:
         people = {
-            username: record_page_errors(open_person(username=username, **form_factor), page_errors)
+            username: record_page_errors(open_person(username=username, **form_factor), page_errors, console=console)
             for username in ("anna", "ben", "cleo", "dora")
         }
         sessions = [AddressedSession(server, member_of(person)) for person in people.values()]
