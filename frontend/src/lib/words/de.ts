@@ -189,6 +189,74 @@ export type Words = {
     readonly "kontra.commandFailed": string;
     readonly "bid.hold": string;
     readonly "bid.pass": string;
+    readonly "voice.pass": string;
+    readonly "voice.kontra": string;
+    readonly "voice.re": string;
+    readonly "voice.supra": string;
+    readonly "voice.hirsch": string;
+    readonly "voice.value18": string;
+    readonly "voice.value20": string;
+    readonly "voice.value22": string;
+    readonly "voice.value23": string;
+    readonly "voice.value24": string;
+    readonly "voice.value27": string;
+    readonly "voice.value30": string;
+    readonly "voice.value33": string;
+    readonly "voice.value35": string;
+    readonly "voice.value36": string;
+    readonly "voice.value40": string;
+    readonly "voice.value44": string;
+    readonly "voice.value45": string;
+    readonly "voice.value46": string;
+    readonly "voice.value48": string;
+    readonly "voice.value50": string;
+    readonly "voice.value54": string;
+    readonly "voice.value55": string;
+    readonly "voice.value59": string;
+    readonly "voice.value60": string;
+    readonly "voice.value63": string;
+    readonly "voice.value66": string;
+    readonly "voice.value70": string;
+    readonly "voice.value72": string;
+    readonly "voice.value77": string;
+    readonly "voice.value80": string;
+    readonly "voice.value81": string;
+    readonly "voice.value84": string;
+    readonly "voice.value88": string;
+    readonly "voice.value90": string;
+    readonly "voice.value96": string;
+    readonly "voice.value99": string;
+    readonly "voice.value100": string;
+    readonly "voice.value108": string;
+    readonly "voice.value110": string;
+    readonly "voice.value117": string;
+    readonly "voice.value120": string;
+    readonly "voice.value121": string;
+    readonly "voice.value126": string;
+    readonly "voice.value130": string;
+    readonly "voice.value132": string;
+    readonly "voice.value135": string;
+    readonly "voice.value140": string;
+    readonly "voice.value143": string;
+    readonly "voice.value144": string;
+    readonly "voice.value150": string;
+    readonly "voice.value153": string;
+    readonly "voice.value154": string;
+    readonly "voice.value156": string;
+    readonly "voice.value160": string;
+    readonly "voice.value162": string;
+    readonly "voice.value165": string;
+    readonly "voice.value168": string;
+    readonly "voice.value170": string;
+    readonly "voice.value176": string;
+    readonly "voice.value180": string;
+    readonly "voice.value187": string;
+    readonly "voice.value192": string;
+    readonly "voice.value198": string;
+    readonly "voice.value204": string;
+    readonly "voice.value216": string;
+    readonly "voice.value240": string;
+    readonly "voice.value264": string;
     readonly "game.forehand": string;
     readonly "game.middlehand": string;
     readonly "game.rearhand": string;
@@ -222,6 +290,7 @@ export type Words = {
     readonly "sound.tone": string;
     readonly "sound.volume": string;
     readonly "sound.sets": string;
+    readonly "sound.voice": string;
     readonly "sound.motion": string;
     readonly "sound.replayMotion": string;
     readonly "sound.reducedMotionNote": string;
@@ -642,6 +711,74 @@ export const words: Words = {
     "kontra.commandFailed": "Das hat nicht geklappt",
     "bid.hold": "Halten",
     "bid.pass": "Weg",
+    "voice.pass": "Weg",
+    "voice.kontra": "Kontra",
+    "voice.re": "Re",
+    "voice.supra": "Supra",
+    "voice.hirsch": "Hirsch",
+    "voice.value18": "achtzehn",
+    "voice.value20": "zwanzig",
+    "voice.value22": "zweiundzwanzig",
+    "voice.value23": "dreiundzwanzig",
+    "voice.value24": "vierundzwanzig",
+    "voice.value27": "siebenundzwanzig",
+    "voice.value30": "dreißig",
+    "voice.value33": "dreiunddreißig",
+    "voice.value35": "fünfunddreißig",
+    "voice.value36": "sechsunddreißig",
+    "voice.value40": "vierzig",
+    "voice.value44": "vierundvierzig",
+    "voice.value45": "fünfundvierzig",
+    "voice.value46": "sechsundvierzig",
+    "voice.value48": "achtundvierzig",
+    "voice.value50": "fünfzig",
+    "voice.value54": "vierundfünfzig",
+    "voice.value55": "fünfundfünfzig",
+    "voice.value59": "neunundfünfzig",
+    "voice.value60": "sechzig",
+    "voice.value63": "dreiundsechzig",
+    "voice.value66": "sechsundsechzig",
+    "voice.value70": "siebzig",
+    "voice.value72": "zweiundsiebzig",
+    "voice.value77": "siebenundsiebzig",
+    "voice.value80": "achtzig",
+    "voice.value81": "einundachtzig",
+    "voice.value84": "vierundachtzig",
+    "voice.value88": "achtundachtzig",
+    "voice.value90": "neunzig",
+    "voice.value96": "sechsundneunzig",
+    "voice.value99": "neunundneunzig",
+    "voice.value100": "hundert",
+    "voice.value108": "hundertacht",
+    "voice.value110": "hundertzehn",
+    "voice.value117": "hundertsiebzehn",
+    "voice.value120": "hundertzwanzig",
+    "voice.value121": "hunderteinundzwanzig",
+    "voice.value126": "hundertsechsundzwanzig",
+    "voice.value130": "hundertdreißig",
+    "voice.value132": "hundertzweiunddreißig",
+    "voice.value135": "hundertfünfunddreißig",
+    "voice.value140": "hundertvierzig",
+    "voice.value143": "hundertdreiundvierzig",
+    "voice.value144": "hundertvierundvierzig",
+    "voice.value150": "hundertfünfzig",
+    "voice.value153": "hundertdreiundfünfzig",
+    "voice.value154": "hundertvierundfünfzig",
+    "voice.value156": "hundertsechsundfünfzig",
+    "voice.value160": "hundertsechzig",
+    "voice.value162": "hundertzweiundsechzig",
+    "voice.value165": "hundertfünfundsechzig",
+    "voice.value168": "hundertachtundsechzig",
+    "voice.value170": "hundertsiebzig",
+    "voice.value176": "hundertsechsundsiebzig",
+    "voice.value180": "hundertachtzig",
+    "voice.value187": "hundertsiebenundachtzig",
+    "voice.value192": "hundertzweiundneunzig",
+    "voice.value198": "hundertachtundneunzig",
+    "voice.value204": "zweihundertvier",
+    "voice.value216": "zweihundertsechzehn",
+    "voice.value240": "zweihundertvierzig",
+    "voice.value264": "zweihundertvierundsechzig",
     "game.forehand": "Vorhand",
     "game.middlehand": "Mittelhand",
     "game.rearhand": "Hinterhand",
@@ -675,6 +812,7 @@ export const words: Words = {
     "sound.tone": "Ton",
     "sound.volume": "Lautstärke",
     "sound.sets": "Klänge",
+    "sound.voice": "Stimme",
     "sound.motion": "Bewegung",
     "sound.replayMotion": "Bewegung trotzdem abspielen",
     "sound.reducedMotionNote": "Dein Gerät sagt „Bewegung reduzieren“. Darum zeigt Skat jeden Zustand sofort.",

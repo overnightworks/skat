@@ -6,7 +6,15 @@ from playwright.sync_api import Page, expect
 
 from skat.web.calling import TABLE_AGENTS_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.audio import FELT_FACE, VOICES_OF_ONE_CARD, open_watcher, playing_table, tap, voices_started
+from tests.e2e.support.audio import (
+    FELT_FACE,
+    VOICES_OF_ONE_CARD,
+    open_at,
+    open_watcher,
+    playing_table,
+    tap,
+    voices_started,
+)
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.tables import open_new_table
@@ -31,6 +39,8 @@ SOUND_SETS = text(SOURCE_LANGUAGE, "sound.sets")
 MOTION = text(SOURCE_LANGUAGE, "sound.motion")
 REPLAY_MOTION = text(SOURCE_LANGUAGE, "sound.replayMotion")
 REDUCED_NOTE = text(SOURCE_LANGUAGE, "sound.reducedMotionNote")
+# The hand is a tilted fan whose cards cover each other, so a tap this far in from a card's left edge reaches it.
+CARD_EDGE_INSET = 14
 PLAYS_ONCE = text(SOURCE_LANGUAGE, "sound.playsOnce")
 LEISE = text(SOURCE_LANGUAGE, "sound.setLeise")
 STAMMTISCH = text(SOURCE_LANGUAGE, "sound.setStammtisch")
@@ -207,14 +217,24 @@ def test_a_reload_keeps_the_choice(
     assert page_errors == []
 
 
+def uncovered_card_point(page: Page) -> tuple[float, float]:
+    """A point on a card of the own hand, beside the open panel and outside of it."""
+    panel = panel_of(page).bounding_box()
+    assert panel is not None
+    for card in page.locator(".own-hand .play").all():
+        box = card.bounding_box()
+        assert box is not None
+        x, y = box["x"] + CARD_EDGE_INSET, box["y"] + box["height"] / 2
+        if not (panel["x"] <= x <= panel["x"] + panel["width"] and panel["y"] <= y <= panel["y"] + panel["height"]):
+            return x, y
+    raise AssertionError("the open panel covers every card")
+
+
 def test_the_tap_that_closes_the_panel_reaches_no_card(table: PlayingTable, page_errors: list[str]) -> None:
     forehand = table.pages[table.seat_at["forehand"]]
-    card = forehand.locator(".own-hand .play").first
-    box = card.bounding_box()
-    assert box is not None
-    middle = (box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-
     open_the_panel(forehand)
+    middle = uncovered_card_point(forehand)
+
     forehand.mouse.click(*middle)
 
     expect(panel_of(forehand)).to_be_hidden()
@@ -325,13 +345,6 @@ def test_the_panel_opens_at_once_whatever_the_device_asks_for_motion(
     moving = watcher.evaluate("document.getAnimations().filter(a => a.effect?.target?.closest?.('[popover]')).length")
     assert moving == 0
     assert page_errors == []
-
-
-def open_at(open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **context: Any) -> Page:
-    watcher = record_page_errors(open_person(**context), page_errors)
-    watcher.goto(table.watcher.url)
-    expect(watcher.locator(".chair")).to_have_count(3)
-    return watcher
 
 
 def row_of(page: Page, name: str) -> Any:
