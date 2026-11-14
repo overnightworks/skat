@@ -225,7 +225,7 @@ describe("openStream", () => {
         expect(FakeEventSource.opened).toHaveLength(2);
     });
 
-    it("asks the stream's own address why it failed, and lets go of that answer's stream at once", async () => {
+    it("asks the stream's own address with a HEAD request why it failed", async () => {
         openStream(STREAM_PATH, optionsWith());
 
         await failLatest();
@@ -233,7 +233,7 @@ describe("openStream", () => {
         expect(fetch).toHaveBeenCalledOnce();
         const [asked, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(asked).toBe(STREAM_PATH);
-        expect(init?.signal?.aborted).toBe(true);
+        expect(init?.method).toBe("HEAD");
     });
 
     it.each([

@@ -3,13 +3,14 @@ from datetime import datetime  # noqa: TC003 - pydantic reads the field type at 
 from typing import TYPE_CHECKING, Final, NamedTuple
 
 from fastapi import APIRouter, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from skat.table.awaiting import WaitingCase  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import OccupantKind  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.web.mcp import Exclusion, excluded
+from skat.web.routes import READ_METHODS
 from skat.web.streams import (
     SourceMessage,
     StreamEvent,
@@ -18,6 +19,7 @@ from skat.web.streams import (
     messages_with_end_log,
     session_admission,
     stream_messages,
+    stream_probe_response,
 )
 from skat.web.table_options import OptionsAnswer, options_answer_of
 from skat.web.tables import actor_of
@@ -331,14 +333,18 @@ def create_lobby_router(
 ) -> APIRouter:
     router = APIRouter()
 
-    @router.get(
+    @router.api_route(
         LOBBY_EVENTS_PATH,
+        methods=READ_METHODS,
         response_class=StreamingResponse,
         responses={429: {"description": "The account holds as many streams as it may."}},
         openapi_extra=excluded(Exclusion.LIVE_STREAM),
     )
-    async def watch_lobby(request: Request) -> StreamingResponse:
+    async def watch_lobby(request: Request) -> Response:
         account_id = actor_of(request).account_id
+        if request.method == "HEAD":
+            slots.ensure_free(account_id)
+            return stream_probe_response()
         sources = [
             LobbySource(tables, presence, wakes, account_id, paused_table_days),
             OpenTablesSource(tables, presence, wakes, account_id, paused_table_days),

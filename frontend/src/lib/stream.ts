@@ -1,8 +1,9 @@
 // The page's one reader of a server-sent stream. It owns every reconnect: each failed source is closed at once,
 // so the browser's own retry stays off, and the reader opens the next one itself. A stream that closes before it
 // has stayed open for a heartbeat backs off like a failed open, however many messages it delivered. The browser
-// hides why a stream failed, so the reader asks the stream's own address once after each failure: a refusal it
-// learns that way is named to the page, and the ones that cannot pass on their own end the stream.
+// hides why a stream failed, so the reader asks the stream's own address once after each failure with a HEAD
+// request, which takes no stream slot and registers no presence: a refusal it learns that way is named to the page,
+// and the ones that cannot pass on their own end the stream.
 
 import { retryDelayMilliseconds } from "#lib/backoff.ts";
 import { STREAM_HEARTBEAT_SECONDS } from "#lib/wire.ts";
@@ -33,18 +34,14 @@ export type StreamOptions = {
     onRefused: (refusal: StreamRefusal) => void;
 };
 
-// The stream's own answer to a plain request: its status is all that is read, and the stream it may have opened is
-// let go at once.
+// The stream's own answer to a HEAD request: its status is all that is read, and no stream opens for it.
 async function refusalOf(url: string): Promise<StreamRefusal | null> {
-    const probe = new AbortController();
     try {
-        const answer = await fetch(url, { signal: probe.signal });
+        const answer = await fetch(url, { method: "HEAD" });
         return REFUSALS.get(answer.status) ?? null;
     } catch {
         // The connection is down: the stream's own retry carries on.
         return null;
-    } finally {
-        probe.abort();
     }
 }
 

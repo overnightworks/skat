@@ -10,13 +10,14 @@ from typing import TYPE_CHECKING, Final, Protocol
 
 import structlog
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from webauth.config import installed_web_auth_config
 from webauth.dependencies import ConnectionRefusal, admit_session, session_id_from_request
 
 from skat.table.records import TableId
 from skat.web.mcp import Exclusion, excluded
+from skat.web.routes import READ_METHODS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH, actor_for, actor_of, answer_of
 
 if TYPE_CHECKING:
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 EVENT_STREAM: Final = "text/event-stream"
+STREAM_HEADERS: Final = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
 # A comment line is ignored by every event source; it keeps an idle stream's bytes moving past an edge's read timeout.
 HEARTBEAT_COMMENT: Final = ": \n\n"
 
@@ -312,12 +314,16 @@ class StreamSlots:
         self._per_account = per_account
         self._held: Counter[str] = Counter()
 
+    def ensure_free(self, account_id: str) -> None:
+        """Hold nothing and raise the 429 an account at its limit gets; a probe of a stream asks this and no more."""
+        if self._held[account_id] >= self._per_account:
+            raise HTTPException(status_code=429, detail="too many open streams")
+
     def take(self, account_id: str) -> Callable[[], None]:
         """Hold a slot for the account and return the call that gives it back, which does so once however often it is
         called; an account at its limit gets a 429 and holds nothing.
         """
-        if self._held[account_id] >= self._per_account:
-            raise HTTPException(status_code=429, detail="too many open streams")
+        self.ensure_free(account_id)
         self._held[account_id] += 1
         given_back = False
 
@@ -341,6 +347,13 @@ async def _giving_back_at_the_end(messages: AsyncIterator[str], release: Callabl
         release()
 
 
+def stream_probe_response() -> Response:
+    """The answer to a HEAD request of a stream that passed its refusals: the stream's headers, no body, and nothing
+    held or registered. The page reads a failed stream's refusal from it.
+    """
+    return Response(media_type=EVENT_STREAM, headers=STREAM_HEADERS)
+
+
 def event_stream_response(messages: AsyncIterator[str], release: Callable[[], None]) -> StreamingResponse:
     """The response of a stream that holds a slot: `release` runs when the messages end, fail or are closed, and when
     a response dropped before its first message is collected, which no `finally` of a generator that never started
@@ -348,9 +361,7 @@ def event_stream_response(messages: AsyncIterator[str], release: Callable[[], No
     """
     held = _giving_back_at_the_end(messages, release)
     weakref.finalize(held, release)
-    return StreamingResponse(
-        held, media_type=EVENT_STREAM, headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
-    )
+    return StreamingResponse(held, media_type=EVENT_STREAM, headers=STREAM_HEADERS)
 
 
 def session_admission(request: Request, sessions: SessionRecordStore) -> Callable[[], Awaitable[Actor | None]]:
@@ -412,8 +423,9 @@ def create_streams_router(
     """
     router = APIRouter()
 
-    @router.get(
+    @router.api_route(
         TABLES_PATH + "/{table_id}" + TABLE_EVENTS_SUFFIX,
+        methods=READ_METHODS,
         response_class=StreamingResponse,
         responses={
             404: {"description": "No table has this id."},
@@ -421,9 +433,12 @@ def create_streams_router(
         },
         openapi_extra=excluded(Exclusion.LIVE_STREAM),
     )
-    async def watch_table(table_id: str, request: Request) -> StreamingResponse:
+    async def watch_table(table_id: str, request: Request) -> Response:
         opened_as = actor_of(request)
-        release = slots.take(opened_as.account_id)
+        probing = request.method == "HEAD"
+        if probing:
+            slots.ensure_free(opened_as.account_id)
+        release = (lambda: None) if probing else slots.take(opened_as.account_id)
 
         async def read_view(actor: Actor, connected: frozenset[str]) -> TableView | None:
             return await run_in_threadpool(tables.view, actor, table_id, connected)
@@ -437,6 +452,8 @@ def create_streams_router(
             release()
             raise
 
+        if probing:
+            return stream_probe_response()
         admit = session_admission(request, sessions)
 
         async def items() -> AsyncIterator[SourceMessage | IdleHeartbeat]:
