@@ -6,11 +6,12 @@ from skat.engine.cards import DECK
 from skat.engine.deal import Deal, Position, positions_from
 from skat.engine.declaration import Announcement, Declaration, Declare
 from skat.engine.games import GameKind
-from skat.engine.tricks import CardPlayed, play_card
+from skat.engine.tricks import CardPlayed
 from skat.engine.value import Matadors
 from skat.table.game_cards import GameCards, SeatedCard
 from skat.table.game_list import GameEnding, ListEntry, RamschEntry
-from skat.table.hand_state import playing_of
+from skat.table.hand_state import game_of
+from skat.table.playing import card_played
 from skat.table.records import (
     Chair,
     EndProposal,
@@ -64,15 +65,19 @@ def table_in(progress: HandProgress, options: TableOptions | None = None) -> Tab
 
 
 def a_whole_game(table: TableRecord) -> tuple[CardPlayed, ...]:
-    """All thirty cards, each the first in deck order the engine accepts from the player on turn."""
-    state = playing_of(table)
+    """All thirty cards, each the first in deck order the engine accepts from the player on turn, of the declared
+    game or of the Ramsch the table plays.
+    """
+    state = game_of(table)
     plays = []
     while state.result is None:
         position = state.turn
         accepted = next(
-            each for each in DECK if each in state.hands[position] and play_card(state, position, each).refusal is None
+            each
+            for each in DECK
+            if each in state.hands[position] and card_played(state, position, each).refusal is None
         )
-        state = play_card(state, position, accepted).state
+        state = card_played(state, position, accepted).state
         plays.append(CardPlayed(position, accepted))
     return tuple(plays)
 

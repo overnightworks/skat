@@ -4,11 +4,9 @@ from skat.engine.bidding import Pass
 from skat.engine.cards import DECK
 from skat.engine.deal import Position, seats_from
 from skat.engine.declaration import PutBack, TakeSkat
-from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring, play_ramsch_card
+from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
 from skat.engine.schieberamsch import GrandHandRule, Push, PushingRule, Put, Take
-from skat.engine.tricks import CardPlayed
 from skat.table.game_cards import GameCards, SeatedCard
-from skat.table.hand_state import game_of
 from skat.table.playing import PlayCardCommand, ThrowDownCommand, decide_card, decide_throw_down
 from skat.table.records import Actor, HandProgress, RamschOccasion, RamschSetting, TableOptions
 from tests.support.played_game import HERZ_HAND, a_whole_game, declared_herz_hand, table_in
@@ -55,23 +53,8 @@ def all_pass():
     return (Pass(MIDDLEHAND), Pass(REARHAND), Pass(FOREHAND))
 
 
-def a_whole_ramsch(table):
-    state = game_of(table)
-    plays = []
-    while state.result is None:
-        position = state.turn
-        card = next(
-            each
-            for each in DECK
-            if each in state.hands[position] and play_ramsch_card(state, position, each).refusal is None
-        )
-        state = play_ramsch_card(state, position, card).state
-        plays.append(CardPlayed(position, card))
-    return tuple(plays)
-
-
 def a_ramsch_ended_by_its_last_card(table):
-    plays = a_whole_ramsch(table)
+    plays = a_whole_game(table)
     before = with_the_plays(table, plays[:-1])
     return a_card(before, plays[-1].card, plays[-1].position).table, plays
 

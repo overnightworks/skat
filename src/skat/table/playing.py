@@ -182,7 +182,7 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
         return Decision(table, Refusal.WRONG_PHASE)
     if game_waits_for_the_declarers_answer(state, table.progress.give_up):
         return Decision(table, Refusal.REQUEST_PENDING)
-    outcome = _card_played(state, position, command.card)
+    outcome = card_played(state, position, command.card)
     if outcome.refusal is not None:
         return Decision(table, outcome.refusal)
     plays = (*table.progress.plays, CardPlayed(position, command.card))
@@ -197,7 +197,7 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
     return Decision(_ended_declared(table, played, GameEnding.PLAYED_OUT, None))
 
 
-def _card_played(
+def card_played(
     state: Playing | RamschPlaying, position: Position, card: Card
 ) -> PlayOutcome[Playing] | PlayOutcome[RamschPlaying]:
     """The card in the game that runs: a Ramsch's cards and a declared game's are played alike by the engine."""
@@ -458,7 +458,7 @@ def _legal_cards(state: Playing | RamschPlaying, viewer_positions: frozenset[Pos
     if turn not in viewer_positions:
         return ()
     held = state.hands[turn]
-    return tuple(card for card in DECK if card in held and _card_played(state, turn, card).refusal is None)
+    return tuple(card for card in DECK if card in held and card_played(state, turn, card).refusal is None)
 
 
 def _taken_of(state: Playing | RamschPlaying, seats: dict[Position, int]) -> tuple[TakenTricks, ...]:
