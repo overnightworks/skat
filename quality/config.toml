@@ -39,10 +39,3 @@ job = "Lint and test"
 item = "overnightworks/skat#484"
 date = 2026-11-13
 reason = "written by design-catalogs from the language catalogs and proven byte for byte by make words-check, which make lint in Lint and test runs"
-
-[[size.generated]]
-path = "frontend/src/lib/words/de.ts"
-job = "Lint and test"
-item = "overnightworks/skat#532"
-date = 2026-11-14
-reason = "written by design-catalogs from the de catalog, which types every word in it and so cannot be split, and proven byte for byte by make words-check, which make lint in Lint and test runs"
