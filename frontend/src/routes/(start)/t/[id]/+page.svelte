@@ -155,7 +155,6 @@
     let seatedAgents = $state("");
     // The free chair whose tap asks the question before a sit, while a hand runs.
     let asking = $state<number | null>(null);
-    // The own bell shakes once, when the page sees the nudge arrive; a reload sees it already made and draws it at rest.
     let shaking = $state(false);
 
     function showSeatNote(note: SeatNotice): void {
@@ -642,19 +641,14 @@
                                     fresh={springsUp(bidSaid, chair.seat, marks.bubble)}
                                 />
                                 <RamschMarks marks={ramschMark} initial={chair.occupant_name.slice(0, 1)} />
-                                {#if chair.nudge !== null}
-                                    {@const version = current.version}
-                                    {#key `${String(version)}:${String(chair.nudge.nudges)}`}
-                                        <NudgeBell
-                                            {id}
-                                            {version}
-                                            seat={chair.seat}
-                                            name={chair.occupant_name}
-                                            nudge={chair.nudge}
-                                            shaking={chair.is_mine && shaking}
-                                        />
-                                    {/key}
-                                {/if}
+                                <NudgeBell
+                                    {id}
+                                    version={current.version}
+                                    seat={chair.seat}
+                                    name={chair.occupant_name}
+                                    nudge={chair.nudge}
+                                    shaking={chair.is_mine && shaking}
+                                />
                             {/if}
                             {#if onResult}
                                 <AnswerMarks mark={chair.ready ? "ready" : "unready"} />
