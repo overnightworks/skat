@@ -1,3 +1,4 @@
+import json
 from typing import TYPE_CHECKING
 
 import pytest
@@ -14,7 +15,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-LANDING_SECONDS = 0.28
+# The seconds from the cue to the card touching the felt, in each motion set.
+LANDING_SECONDS = {"verspielt": 0.28, "dezent": 0.18}
 
 
 @pytest.fixture
@@ -130,5 +132,38 @@ def test_a_moving_card_sounds_when_it_lands_and_a_still_card_at_once(
 
     starts = [voice["start"] for voice in voices_started(watcher)]
     assert len(starts) == VOICES_OF_ONE_CARD
-    assert all((start >= LANDING_SECONDS) == moving for start in starts)
+    assert all((start >= LANDING_SECONDS["verspielt"]) == moving for start in starts)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize(
+    ("device_motion", "stored", "lands_after"),
+    [
+        ("no-preference", {"motionSet": "dezent"}, "dezent"),
+        ("reduce", {"motionSet": "dezent", "replayMotion": True}, "dezent"),
+        ("reduce", {"replayMotion": True}, "verspielt"),
+    ],
+    ids=["dezent", "reduced-but-overridden-dezent", "reduced-but-overridden"],
+)
+def test_a_card_sounds_when_it_lands_in_the_motion_set_the_table_moves_in(
+    table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    device_motion: str,
+    stored: dict[str, object],
+    lands_after: str,
+) -> None:
+    watcher = open_watcher(open_person, page_errors, table, reduced_motion=device_motion)
+    watcher.evaluate("record => localStorage.setItem('skat.settings', record)", json.dumps(stored))
+    watcher.reload()
+    expect(watcher.locator(".chair")).to_have_count(3)
+    tap(watcher)
+
+    table.play_out(1)
+    expect(watcher.locator(FELT_FACE)).to_have_count(1)
+
+    starts = [voice["start"] for voice in voices_started(watcher)]
+    assert len(starts) == VOICES_OF_ONE_CARD
+    # The engine starts a voice a few hundredths of a second after the cue's time.
+    assert all(LANDING_SECONDS[lands_after] <= start < LANDING_SECONDS[lands_after] + 0.1 for start in starts)
     assert page_errors == []

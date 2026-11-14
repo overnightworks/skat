@@ -1,29 +1,33 @@
 import type { Cue } from "./cues.ts";
-import { loadSettings, soundSettings } from "./settings.svelte.ts";
+import { watchDeviceMotion } from "./deviceMotion.svelte.ts";
+import { MOTION_SETS, type MotionSet } from "./motionSets.ts";
+import { currentSettings, loadSettings, motionInForce, soundSettings } from "./settings.svelte.ts";
 import { createSound, type AudioPort, type SoundSettings, type Voice } from "./sound.ts";
-import { SOUND_SETS, type SoundMoment } from "./soundSets.ts";
+import { SOUND_SETS, type SoundMoment, type SoundSet } from "./soundSets.ts";
 import { createWebAudioPort } from "./webAudio.ts";
 import type { Table } from "../routes/(start)/tables.ts";
 
 /** A card another player lays sounds quieter than the player's own. */
 const FOREIGN_CARD_GAIN = 0.65;
+const OWN_CARD_GAIN = 1;
 /** Two cards of one update land on the felt together; heard together they sound as one. */
 const CARD_STAGGER_SECONDS = 0.12;
-/** The card touches the felt this long after the cue while it moves. */
-const LANDING_SECONDS = 0.28;
 const ARMING_EVENTS = ["pointerup", "keydown"] as const;
 
 export interface TableSoundParts {
     readonly port: AudioPort;
     readonly settings: () => SoundSettings;
-    /** Whether the device allows the cards to move. */
-    readonly motion: () => boolean;
+    readonly soundSet: () => SoundSet;
+    /** The set the cards move in, or nothing while they stand still. */
+    readonly motion: () => MotionSet | undefined;
 }
 
 export interface TableSound {
     /** Wakes the sound at every tap and key on the target; the returned function stops it. */
     arm(target: Pick<EventTarget, "addEventListener" | "removeEventListener">): () => void;
     forCues(cues: readonly Cue[], table: Table): void;
+    /** Sounds the chosen set's played card once, as the player's own card, for the player to hear what the choice sounds like. */
+    preview(): Promise<void>;
 }
 
 interface Moment {
@@ -35,12 +39,11 @@ interface Moment {
 function momentOf(cue: Cue, table: Table): Moment | undefined {
     if (cue.kind !== "card-played") return undefined;
     const own = table.chairs.some((chair) => chair.is_mine && chair.seat === cue.seat);
-    return { moment: "card-played", gain: own ? 1 : FOREIGN_CARD_GAIN };
+    return { moment: "card-played", gain: own ? OWN_CARD_GAIN : FOREIGN_CARD_GAIN };
 }
 
-export function createTableSound({ port, settings, motion }: TableSoundParts): TableSound {
+export function createTableSound({ port, settings, soundSet, motion }: TableSoundParts): TableSound {
     const sound = createSound(port, settings);
-    const set = SOUND_SETS.leise;
     return {
         arm(target) {
             const wake = (): void => {
@@ -53,7 +56,8 @@ export function createTableSound({ port, settings, motion }: TableSoundParts): T
             };
         },
         forCues(cues, table) {
-            const delay = motion() ? LANDING_SECONDS : 0;
+            const delay = motion()?.cardLandsSeconds ?? 0;
+            const set = soundSet();
             const voices = cues
                 .flatMap((cue) => momentOf(cue, table) ?? [])
                 .flatMap(({ moment, gain }, index): Voice[] =>
@@ -63,6 +67,10 @@ export function createTableSound({ port, settings, motion }: TableSoundParts): T
                     })),
                 );
             if (voices.length > 0) sound.play(voices);
+        },
+        async preview() {
+            await sound.resume();
+            sound.play(soundSet().voices["card-played"](OWN_CARD_GAIN));
         },
     };
 }
@@ -74,10 +82,15 @@ let shared: TableSound | undefined;
 function pageSound(): TableSound {
     if (shared === undefined) {
         loadSettings();
+        watchDeviceMotion();
         shared = createTableSound({
             port: createWebAudioPort(window),
             settings: soundSettings,
-            motion: () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+            soundSet: () => SOUND_SETS[currentSettings().soundSet],
+            motion: () => {
+                const id = motionInForce();
+                return id === undefined ? undefined : MOTION_SETS[id];
+            },
         });
     }
     return shared;
@@ -91,4 +104,9 @@ export function armSound(): () => void {
 /** Sounds the cues a table update brought. */
 export function soundForCues(cues: readonly Cue[], table: Table): void {
     pageSound().forCues(cues, table);
+}
+
+/** Lets the player hear the sound set they just chose. */
+export function previewSound(): Promise<void> {
+    return pageSound().preview();
 }
