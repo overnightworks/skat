@@ -238,16 +238,19 @@ describe("the sound of a chair", () => {
         expect(BELL_NOTES_OF(port)).toEqual([784, 1047]);
     });
 
-    it("sounds a chair at the same time whatever motion set the table moves in", () => {
-        const [still, quiet, playful] = [new FakePort(), new FakePort(), new FakePort()];
+    it.each(CHAIR_CUES.map((cue) => ({ cue, name: cue.kind })))(
+        "sounds $name at the same time whatever motion set the table moves in",
+        ({ cue }) => {
+            const [still, quiet, playful] = [new FakePort(), new FakePort(), new FakePort()];
 
-        soundAt(still).forCues([CHAIR_TAKEN], tableSeenFrom(OWN_SEAT));
-        soundAt(quiet, { motion: "dezent" }).forCues([CHAIR_TAKEN], tableSeenFrom(OWN_SEAT));
-        soundAt(playful, { motion: "verspielt" }).forCues([CHAIR_TAKEN], tableSeenFrom(OWN_SEAT));
+            soundAt(still).forCues([cue], tableSeenFrom(OWN_SEAT));
+            soundAt(quiet, { motion: "dezent" }).forCues([cue], tableSeenFrom(OWN_SEAT));
+            soundAt(playful, { motion: "verspielt" }).forCues([cue], tableSeenFrom(OWN_SEAT));
 
-        expect(earliest(quiet)).toBe(earliest(still));
-        expect(earliest(playful)).toBe(earliest(still));
-    });
+            expect(earliest(quiet)).toBe(earliest(still));
+            expect(earliest(playful)).toBe(earliest(still));
+        },
+    );
 
     it("says nothing with the voice on", () => {
         const port = new FakePort();
