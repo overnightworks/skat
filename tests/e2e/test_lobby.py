@@ -1,9 +1,10 @@
 import re
 from datetime import UTC, datetime
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Locator, Page, expect
+from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.engine.kontra import KontraDeadline, KontraReach, KontraSayer
 from skat.table.records import SERIES_LENGTH_DEFAULT, OccupantKind
@@ -40,6 +41,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 OPEN_TABLES = text(SOURCE_LANGUAGE, "lobby.openTables")
+TOO_MANY_STREAMS = text(SOURCE_LANGUAGE, "app.tooManyStreams")
 MY_TABLES = text(SOURCE_LANGUAGE, "lobby.myTables")
 NO_OPEN_TABLE = text(SOURCE_LANGUAGE, "lobby.noOpenTables")
 SEAT_FREE = text(SOURCE_LANGUAGE, "lobby.seatFree")
@@ -304,6 +306,27 @@ def test_the_open_section_says_so_when_no_other_table_is_open(
     expect(person.get_by_role("heading", name=OPEN_TABLES)).to_be_visible()
     expect(person.get_by_role("status").filter(has_text=NO_OPEN_TABLE)).to_be_visible()
     expect(person.get_by_role("heading", name=MY_TABLES)).to_have_count(0)
+
+
+def test_a_lobby_whose_account_holds_as_many_streams_as_it_may_says_so_instead_of_reconnecting(
+    open_person: Callable[..., Page], e2e_server: RunningServer, expected_request_failures: list[str]
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
+    person = open_person(username="Xaver", **DESKTOP)
+    first_stream_served: list[bool] = []
+
+    def refuse_all_but_the_first_stream(route: Route) -> None:
+        if first_stream_served:
+            route.fulfill(status=HTTPStatus.TOO_MANY_REQUESTS)
+            return
+        first_stream_served.append(True)
+        route.fulfill(status=200, headers={"content-type": EVENT_STREAM}, body=stream_of(open_tables=[]))
+
+    person.route(f"**{LOBBY_EVENTS_PATH}", refuse_all_but_the_first_stream)
+
+    person.goto(f"{e2e_server.base_url}/")
+
+    expect(person.get_by_role("status").filter(has_text=TOO_MANY_STREAMS)).to_be_visible()
 
 
 def test_an_open_entry_shows_its_rules_its_state_and_the_minutes_an_away_chair_is_held(

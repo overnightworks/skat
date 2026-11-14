@@ -1,6 +1,7 @@
 import json
 import time
 from datetime import UTC, datetime, timedelta
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
@@ -52,6 +53,7 @@ CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_
 UNPLAYED_HEADING = text(SOURCE_LANGUAGE, "closed.unplayedDays", count=UNPLAYED_DAYS)
 NOT_FOUND_HEADING = "Tisch nicht gefunden"
 NAMELESS_CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.closed")
+TOO_MANY_STREAMS = text(SOURCE_LANGUAGE, "table.tooManyStreams")
 UNKNOWN_ID = "0" * 32
 
 
@@ -278,6 +280,36 @@ def test_a_page_whose_table_is_forgotten_while_it_watches_learns_it_from_its_fai
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
     expect(person.get_by_text(text(SOURCE_LANGUAGE, "table.reconnecting"))).to_be_hidden()
     expect_the_panel_inside_the_viewport(person)
+
+
+def test_a_page_whose_account_holds_as_many_streams_as_it_may_says_so_and_keeps_the_table(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    expected_request_failures: list[str],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}/")
+    # The 429s the browser logs for the stream and its probe are the console errors, so only script errors are recorded.
+    person = record_page_errors(open_person(username="anna", **PHONE), page_errors, console=False)
+    held: list[Route] = []
+
+    def hold_the_stream(route: Route) -> None:
+        if route.request.resource_type == "eventsource":
+            held.append(route)
+        else:
+            route.continue_()
+
+    events = f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}"
+    person.route(events, hold_the_stream)
+    open_new_table(person, e2e_server)
+    expect(person.locator(".chair")).to_have_count(3)
+    person.route(events, lambda route: route.fulfill(status=HTTPStatus.TOO_MANY_REQUESTS))
+
+    for route in held:
+        route.abort()
+
+    expect(person.get_by_text(TOO_MANY_STREAMS)).to_be_visible()
+    expect(person.locator(".chair")).to_have_count(3)
 
 
 def played_longer_ago_than_the_days(server: RunningServer, table_id: str) -> None:
