@@ -1069,6 +1069,7 @@ const IDEAS=[
   ['0','Null-Plumps','Eine verlorene Null sackt freundlich in sich zusammen, ohne Spott.','nur hier','null'],
   ['🏳','Aufgeben','Wer aufgibt, fragt die andere Seite: die Tafel nennt den Fragenden mit seinem Gesicht, die Gegenseite antwortet mit zwei Tasten, ein Nein setzt ein Kreuz auf den Stuhl, und das Ergebnis trägt den Stempel „Aufgegeben“.','giveup-asked, giveup-waits, giveup-side, giveup-end'],
   ['🔢','Serie','Eine ruhige Marke zählt „Spiel 8 von 36“; am Ende zeigt die Rangliste Platz, Stand sowie gewonnene und verlorene Spiele, und „Neue Serie“ setzt alle Bierdeckel auf null.','series-play, series-end, series-fresh'],
+  ['🃏','Stiche eines Spiels','Ein Tipp auf eine Zeile der Liste öffnet das Spiel: Skat und Gedrücktes, die Augen gegen die 61, dann jeder Stich mit seinen drei Karten, dem Punkt dessen, der stach, und seinen Augen; ein Ramsch zeigt die Augen jedes Stuhls, ein früh beendetes Spiel, wie es endete. (#573)','game-tricks, game-ramsch, game-ended'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
   ['🤖','Agenten rufen','Die Pille „AI“ in Skats Leiste öffnet die Liste des Kits: „Rufen“ setzt Nova auf den freien Stuhl, „Bitten zu gehen“ schickt sie weg; wer kein Recht an einem Agenten hat, sieht weder Pille noch Zeile. (#315)','agents-strip, agents-list,agents-calling, agents-here, agents-refused, agents-empty, agents-framed, agents-leave'],
   ['🪑','Freier Platz im Spiel','Geht ein Agent mitten im Spiel, wird sein Stuhl frei, seine Karten warten daneben und niemand ist dran; wer sich setzt, übernimmt Karten und Zug, die anderen sehen „Lena spielt weiter“. (#314)','lobby-seat-open (start.html)'],
@@ -1442,8 +1443,10 @@ const gameRow=([n,k,suit,name,levels,value,won])=>{const p=P[k],gain=won?value+L
 const ramschRow=({n,k,score,pushes})=>{const p=P[k];
   return `<div class="grow"><span class="nr">${n}</span><span class="dot" style="${dotStyle(p)}">${p.i}</span>`
     +`<span class="txt"><b>Ramsch, ${p.n}</b>${pushes?`<small>${pushes}× geschoben</small>`:''}</span><span class="val"></span><span class="gain minus">${withMinus(score)}</span></div>`;};
+/* the list and a game opened from it share one place over the table */
+const listBox=(d)=>d?{left:640,top:62,width:560,height:620,'z-index':'50'}:{left:195,top:50,width:354,height:660,'z-index':'50'};
 const gameList=(d,rows=GAMES_PLAYED,count=GAMES_PLAYED.length+3)=>`<div class="scrim over"></div>`+seriesCount(d,count,{open:true})
-  +`<div class="result gamelist" role="dialog" aria-label="Spiele der Serie" style="${at(d?{left:640,top:62,width:560,height:620,'z-index':'50'}:{left:195,top:50,width:354,height:660,'z-index':'50'})}">
+  +`<div class="result gamelist" role="dialog" aria-label="Spiele der Serie" style="${at(listBox(d))}">
   <h3>Spiele</h3><div class="rows" tabindex="0">${[...rows].reverse().map(r=>Array.isArray(r)?gameRow(r):ramschRow(r)).join('')}</div></div>`;
 
 /* between two games a seated member proposes the end; the other two answer, and no standings show yet */
@@ -1870,6 +1873,77 @@ RAMSCH_SCENES.push(
 );
 agentScenes(RAMSCH_SCENES);
 
+/* ===== one game opened from the list: its tricks in the order played, who took each and its points, the skat ===== */
+/* each trick's taker and points are derived from its cards as the rules say (the jacks are trumps, then the trump suit, then the suit led; a Grand and a Ramsch have only the jacks), so every number on the sheet agrees; a repeated card, a full game whose points miss 120, or a row the tricks contradict fails loud */
+const CARD_POINTS={A:11,'10':10,K:4,D:3,B:2};
+const SUIT_RANKS=['7','8','9','D','K','10','A'],JACK_SUITS=['d','h','s','c'];
+/* the seats in playing order, clockwise from your chair */
+const PLAY_ORDER=['felix','anna','ben'];
+const cardOf=(code)=>[code.slice(0,-1),code.slice(-1)];
+const pointsOf=(codes)=>codes.reduce((sum,code)=>sum+(CARD_POINTS[cardOf(code)[0]]||0),0);
+const followOf=(code,trump)=>{const [rank,suit]=cardOf(code);return rank==='B'||suit===trump?'trump':suit;};
+const strengthOf=(code,trump)=>{const [rank,suit]=cardOf(code);return rank==='B'?20+JACK_SUITS.indexOf(suit):SUIT_RANKS.indexOf(rank)+(suit===trump?10:0);};
+const beats=(card,best,trump)=>followOf(card,trump)===followOf(best,trump)?strengthOf(card,trump)>strengthOf(best,trump):followOf(card,trump)==='trump';
+function playedOut(g){
+  const kept=[...g.tricks.flat(),...g.aside],eyes=Object.fromEntries(PLAY_ORDER.map(k=>[k,0]));
+  if(new Set(kept).size!==kept.length)throw new Error(`game ${g.n}: a card is played twice`);
+  let leader=g.lead;
+  const tricks=g.tricks.map(codes=>{
+    const seats=[0,1,2].map(i=>PLAY_ORDER[(PLAY_ORDER.indexOf(leader)+i)%3]);
+    const taker=seats[codes.reduce((best,code,i)=>beats(code,codes[best],g.trump)?i:best,0)],points=pointsOf(codes);
+    eyes[taker]+=points;leader=taker;return {codes,taker,points};});
+  /* the cards put away count for the declarer; a Ramsch's skat counts for whoever took the last trick */
+  eyes[g.declarer||leader]+=pointsOf(g.aside);
+  if(!g.ended&&(kept.length!==32||pointsOf(kept)!==120))throw new Error(`game ${g.n}: ${kept.length} cards, ${pointsOf(kept)} points`);
+  return {tricks,eyes,lastTaker:leader};}
+const minis=(codes)=>`<span class="minis">${codes.map(code=>card(...cardOf(code))).join('')}</span>`;
+const takerDot=(k)=>`<span class="dot" style="${dotStyle(P[k])}" title="${P[k].n}">${P[k].i}</span>`;
+const trickRow=(t,i,side)=>`<div class="trick ${side(t.taker)}"><span class="nr">${i+1}</span>${minis(t.codes)}${takerDot(t.taker)}<span class="pts">${t.points}</span></div>`;
+const backButton=`<span class="back" role="button" tabindex="0" aria-label="Zurück zur Liste">${I.chev}</span>`;
+const gameSheet=(d,o)=>`<div class="scrim over"></div>`+seriesCount(d,o.count,{open:true})
+  +`<div class="result gamelist sheet" role="dialog" aria-label="Spiel ${o.n}" style="${at(listBox(d))}">
+  <div class="sheet-head">${backButton}${o.row}</div>${o.top}
+  <div class="rows tricks" tabindex="0">${o.tricks}${o.end||''}</div></div>`;
+/* a declared game: the skat as dealt and the two put away, the declarer's points against the 61, his tricks in his colour */
+const declaredSheet=(d,g)=>{const row=GAMES_PLAYED.find(r=>r[0]===g.n),declarer=row[1],game={...g,declarer},{tricks,eyes}=playedOut(game);
+  const own=eyes[declarer],theirs=PLAY_ORDER.filter(k=>k!==declarer).reduce((sum,k)=>sum+eyes[k],0);
+  if(!g.ended&&(own>=61)!==row[6])throw new Error(`game ${g.n}: ${own} points, but the row says ${row[6]?'won':'lost'}`);
+  if(g.ended&&row[6])throw new Error(`game ${g.n}: given up, but the row says won`);
+  const viewerSide=declarer==='felix'?PLAY_ORDER.filter(k=>k!=='felix').map(k=>P[k].n).join(', '):'Wir';
+  return gameSheet(d,{n:g.n,count:GAMES_PLAYED.length+3,row:gameRow(row),
+    top:`<div class="skatline"><span class="pair"><small>Skat</small>${minis(g.skat)}</span><span class="pair"><small>Gedrückt</small>${minis(g.aside)}</span></div>`
+      +pointsNamed([own,theirs],[P[declarer].n,viewerSide]),
+    tricks:tricks.map((t,i)=>trickRow(t,i,(k)=>k===declarer?'decl':'opp')).join(''),
+    end:g.ended?`<div class="trick ended"><span class="nr">${I.flag}</span><b>Aufgegeben</b>${takerDot(g.ended.by)}</div>`:''});};
+/* a Ramsch: every seat counts its own points, the most lose them; the skat as it lay goes to the last trick */
+const ramschSheet=(d,g)=>{const row=LIST_WITH_RAMSCH.find(r=>r.n===g.n),{tricks,eyes,lastTaker}=playedOut(g),most=Math.max(...Object.values(eyes));
+  if(eyes[row.k]!==most||most*2**row.pushes!==-row.score)throw new Error(`game ${g.n}: ${P[row.k].n} has ${eyes[row.k]} points, the row says ${row.score}`);
+  return gameSheet(d,{n:g.n,count:11,row:ramschRow(row),
+    top:`<div class="skatline"><span class="pair"><small>Skat</small>${minis(g.aside)}${takerDot(lastTaker)}</span></div>`
+      +`<div class="seat-eyes">${PLAY_ORDER.map(k=>`<span class="${eyes[k]===most?'most':''}">${takerDot(k)}${eyes[k]}</span>`).join('')}</div>`,
+    tricks:tricks.map((t,i)=>trickRow(t,i,()=>'')).join('')});};
+/* game 18: you play Pik with the ♣ jack, take the ♥ ten and the ♠ seven from the skat and put away the ♣ queen and the ♦ eight */
+const SUIT_GAME={n:18,trump:'s',lead:'felix',skat:['10h','7s'],aside:['Dc','8d'],tricks:[
+  ['Bc','Ds','9s'],['As','Bd','Bh'],['Kd','7d','10d'],['Ac','8c','7s'],['10s','Bs','8h'],
+  ['10c','Kc','8s'],['Ks','7c','9c'],['Ah','9h','7h'],['10h','Kh','Dh'],['Ad','Dd','9d']]};
+/* game 12: Anna's Grand without the two black jacks; after three tricks she gives up */
+const EARLY_GAME={n:12,trump:'',lead:'felix',skat:['Dc','9h'],aside:['Dc','Ks'],ended:{by:'anna'},tricks:[
+  ['Bc','Bd','Bs'],['As','7s','10s'],['Ac','7c','10c']]};
+/* game 8: the Ramsch Ben loses with 86 points after two pushes */
+const RAMSCH_GAME={n:8,trump:'',lead:'felix',aside:['7d','8d'],tricks:[
+  ['Kh','10h','Ah'],['Ac','9c','10c'],['As','Ds','Ks'],['Kd','Kc','9d'],['Bc','Bd','10s'],
+  ['7s','9s','8s'],['Bs','10d','Bh'],['7c','Dc','8c'],['Ad','Dd','7h'],['Dh','9h','8h']]};
+const GAME_SCENES=[
+  ['game-tricks','Ein Spiel mit seinen Stichen',(d)=>seriesPlay(d,'')+declaredSheet(d,SUIT_GAME),
+    ['Ein Tipp auf eine Zeile der Liste öffnet das Spiel an derselben Stelle: oben die Zeile, darunter der Skat und die zwei gedrückten Karten und die Augen gegen die 61; dann die zehn Stiche mit Nummer, den drei Karten in der gespielten Reihenfolge, dem Punkt dessen, der stach, und seinen Augen. Stiche des Alleinspielers in seiner Farbe, die der Gegner in ihrer; der Pfeil führt zurück zur Liste, und nur die Stiche rollen.']],
+  ['game-ramsch','Ein Ramsch mit seinen Stichen',(d)=>seriesPlay(d,'')+ramschSheet(d,RAMSCH_GAME),
+    ['Ein Ramsch hat keinen Alleinspieler: oben stehen die Augen jedes Stuhls, die meisten hervorgehoben, und der Skat mit dem Punkt dessen, der den letzten Stich und damit den Skat bekam.']],
+  ['game-ended','Ein Spiel, früh zu Ende',(d)=>seriesPlay(d,'')+declaredSheet(d,EARLY_GAME),
+    ['Ein Spiel, das früh endete, zeigt die gespielten Stiche und darunter, wie es endete, mit dem Gesicht dessen, der es beendete; die Augen zählen nur, was gespielt wurde.']],
+];
+scenes(GAME_SCENES);
+ORDER.splice(ORDER.indexOf('series-list-1280')+1,0,...GAME_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+
 /* ===== S13.5cp: Bock rounds at the table: the games to come, a Bock game's plaque and the factor on a card ===== */
 /* the table's Bock state is derived from its pending rounds as the rules say: the games still to come are the rounds one after another (side by side with multiply), the factor is 2 while a round runs (2 to the number of rounds with multiply) */
 const GAMES_IN_ROUND=3;
@@ -2194,6 +2268,35 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .rank .sum{font-family:var(--font-mark);font-size:26px;font-weight:700;color:var(--cream);font-variant-numeric:tabular-nums}
 .p390 .rank{gap:10px;min-height:52px;padding:6px 14px 6px 8px}
 .p390 .rank .place{width:32px;height:32px}
+/* one game opened from the list: its row on top with the way back, the skat and the points, then its tricks */
+.sheet-head{display:flex;align-items:center;gap:6px}
+.sheet-head .grow{flex:1;min-width:0;background:none;padding-left:0}
+.back{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1);color:var(--on-stage);cursor:pointer}
+.back svg{width:20px;height:20px;rotate:90deg}
+.skatline{display:flex;justify-content:center;gap:22px;padding:2px 0}
+.skatline .pair{display:flex;align-items:center;gap:8px}
+.skatline small{font-size:12px;font-weight:600;color:var(--on-stage-soft)}
+.minis{display:flex;gap:3px}
+.minis .card{--w:32px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.45))}
+.sheet .points{padding:0 10px 0 4px}
+.seat-eyes{display:flex;justify-content:center;gap:10px}
+.seat-eyes span{display:flex;align-items:center;gap:6px;padding:4px 12px 4px 4px;border-radius:999px;background:rgba(255,255,255,.07);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--on-stage-soft)}
+.seat-eyes .most{color:var(--on-stage);box-shadow:inset 0 0 0 2px var(--leave)}
+.seat-eyes .dot,.trick .dot,.skatline .dot{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,var(--c1),var(--c2));color:#111;font-size:12px;font-weight:700}
+.sheet .tricks{gap:5px}
+.trick{flex:none;display:grid;grid-template-columns:22px auto 1fr 26px 30px;align-items:center;gap:8px;min-height:52px;padding:4px 10px 4px 4px;border-radius:14px;background:rgba(255,255,255,.07)}
+.trick .minis{grid-column:2}
+.trick .dot{grid-column:4}
+.trick .nr{text-align:center;font-size:12.5px;font-weight:600;color:var(--on-stage-soft);font-variant-numeric:tabular-nums}
+.trick .nr svg{width:16px;height:16px;color:var(--on-stage)}
+.trick .pts{text-align:right;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.trick.decl{background:rgba(237,182,86,.13);box-shadow:inset 3px 0 0 var(--busy-stage)}
+.trick.decl .pts{color:var(--busy-stage)}
+.trick.opp{background:rgba(122,167,240,.11);box-shadow:inset 3px 0 0 var(--accent-stage)}
+.trick.opp .pts{color:var(--accent-stage)}
+.trick.ended b{grid-column:2/4;font-size:14px;font-weight:600}
+.d1280 .minis .card{--w:40px}
+.d1280 .sheet .tricks{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(5,auto);grid-auto-flow:column;align-content:start;gap:6px 10px}
 /* the list of every game scrolls inside its panel, never the page */
 .result.gamelist{align-items:stretch;padding:16px 8px 12px 14px}
 .result.gamelist h3{text-align:center}
