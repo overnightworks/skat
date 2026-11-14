@@ -19,6 +19,7 @@ from agents.mcp_server import McpPersonFront, OfferedTools, PersonTool, route_to
 from agents.mcp_wire import MCP_ENDPOINT_PATH
 from agents.member import ACCEPT_INVITATION_TOOL
 from agents.tools import Principal, ToolEffect, ToolOutcome, agent_tool, not_an_agent_tool
+from logline import set_route
 from pydantic import BaseModel
 from starlette.requests import HTTPConnection
 from starlette.routing import Route
@@ -275,6 +276,7 @@ class _AgentHearingFront:
         self._agent_heard = agent_heard
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        set_route(scope, MCP_ENDPOINT_PATH)
         person = resource_person(HTTPConnection(scope))
         if person.agent is not None:
             self._agent_heard(person.id, person.agent)
