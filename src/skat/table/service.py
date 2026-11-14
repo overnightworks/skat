@@ -276,10 +276,7 @@ class TableService(LobbyReads):
         return None if replay is None else replayed_decision(replay, SEND_AWAY_COMMAND, send_away_payload(command))
 
     def take_auction_step(
-        self,
-        actor: Actor,
-        command: AuctionCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: AuctionCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -318,10 +315,7 @@ class TableService(LobbyReads):
         )
 
     def play_card(
-        self,
-        actor: Actor,
-        command: PlayCardCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: PlayCardCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -346,12 +340,7 @@ class TableService(LobbyReads):
             lambda table: decide_kontra(table, actor, command),
         )
 
-    def give_up(
-        self,
-        actor: Actor,
-        command: GiveUpCommand,
-        connected_accounts: frozenset[str],
-    ) -> CommandResult | None:
+    def give_up(self, actor: Actor, command: GiveUpCommand, connected_accounts: frozenset[str]) -> CommandResult | None:
         return self._run_command(
             actor,
             connected_accounts,
@@ -389,10 +378,7 @@ class TableService(LobbyReads):
         )
 
     def agree_to_give_up(
-        self,
-        actor: Actor,
-        command: AgreeToGiveUpCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: AgreeToGiveUpCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
@@ -418,10 +404,7 @@ class TableService(LobbyReads):
         )
 
     def throw_down(
-        self,
-        actor: Actor,
-        command: ThrowDownCommand,
-        connected_accounts: frozenset[str],
+        self, actor: Actor, command: ThrowDownCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
         return self._run_command(
             actor,
