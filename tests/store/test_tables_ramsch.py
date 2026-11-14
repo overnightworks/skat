@@ -148,3 +148,25 @@ def test_a_ramsch_round_game_stores_no_auction_step_and_its_end_uses_one_ramsch_
 
     assert (auction_steps, kind, factor) == (0, "ramsch", 1)
     assert table.record.bock == BockRounds((), 2)
+
+
+def test_a_server_restart_inside_a_ramsch_round_keeps_the_hand_a_ramsch_and_the_games_left(
+    service, transactions, stored, database_url
+):
+    table = RamschTable(service, transactions, stored, ROUND_OPTIONS, ramsch_games=3)
+    table.play(5)
+    engine, again = restarted(database_url)
+    try:
+        resumed = again.view(table.actors[Position.FOREHAND], table.table_id, frozenset())
+        after_restart = stored(PostgresTableTransactions(engine), table.table_id)
+    finally:
+        engine.dispose()
+    table.play(25)
+    engine, again = restarted(database_url)
+    try:
+        after_the_game = stored(PostgresTableTransactions(engine), table.table_id)
+    finally:
+        engine.dispose()
+
+    assert (resumed.hand.ramsch, resumed.hand.auction.awaiting, after_restart.bock) == (True, None, BockRounds((), 3))
+    assert after_the_game.bock == BockRounds((), 2)
