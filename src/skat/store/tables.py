@@ -53,15 +53,15 @@ from skat.table.records import (
 from skat.table.rules import CREATE_TABLE_COMMAND, series_number_of
 from skat.table.transactions import (
     DuplicateReceiptError,
-    HeldTable,
     LiveWait,
     OccupiedChair,
     PausedFacts,
     TableTransaction,
+    TableVersion,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Iterable
     from datetime import datetime
 
     from sqlalchemy import Row
@@ -441,9 +441,9 @@ class _PostgresTableTransaction:
             )
         )
 
-    def tables_of(self, account_id: str) -> tuple[HeldTable, ...]:
+    def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
         return tuple(
-            HeldTable(TableId(row.id), row.version)
+            TableVersion(TableId(row.id), row.version)
             for row in self._connection.execute(
                 select(tables.c.id, tables.c.version)
                 .join(chairs, chairs.c.table_id == tables.c.id)
@@ -460,6 +460,27 @@ class _PostgresTableTransaction:
                 .where(tables.c.end_reason.is_(None), tables.c.visibility == Visibility.OPEN.value)
                 .order_by(tables.c.id)
             ).scalars()
+        )
+
+    def versions_of(self, table_ids: Iterable[TableId]) -> tuple[TableVersion, ...]:
+        return tuple(
+            TableVersion(TableId(row.id), row.version)
+            for row in self._connection.execute(
+                select(tables.c.id, tables.c.version)
+                .where(tables.c.id.in_([table_id.value for table_id in table_ids]), tables.c.end_reason.is_(None))
+                .order_by(tables.c.id)
+            )
+        )
+
+    def chairs_taken_by(self, table_ids: Iterable[TableId], account_ids: frozenset[str]) -> frozenset[OccupiedChair]:
+        return frozenset(
+            OccupiedChair(TableId(row.table_id), row.account_id)
+            for row in self._connection.execute(
+                select(chairs.c.table_id, chairs.c.account_id).where(
+                    chairs.c.table_id.in_([table_id.value for table_id in table_ids]),
+                    chairs.c.account_id.in_(account_ids),
+                )
+            )
         )
 
     def locked_book_entry(self, table_id: TableId, agent_account: str) -> BookEntry | None:

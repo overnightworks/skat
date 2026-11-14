@@ -1,5 +1,6 @@
 import itertools
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -158,11 +159,13 @@ class DeclaringTable:
         return stored
 
     def list_the_game(self, entry: ListEntry) -> None:
-        """Ends the running hand with `entry` as its game, through the store; the open pages come to its result when
-        their streams read the table again, as they do after a lost wake.
+        """Ends the running hand with `entry` as its game, through the store and with the version a move of the table
+        raises; the open pages come to its result when their streams read the table again, as they do after a lost
+        wake.
         """
+        ended = after_a_game(self.stored(), entry)
         with PostgresTableTransactions(self.server.engine).begin() as transaction:
-            transaction.save_table(after_a_game(self.stored(), entry), played_at=None)
+            transaction.save_table(replace(ended, version=ended.version + 1), played_at=None)
 
     def result_as_sent(self, seat: int) -> dict[str, Any]:
         return json.loads(self.sessions[seat].get(self.api_path))["result"]

@@ -72,7 +72,7 @@ from skat.web.sign_in import (
     build_sign_in_configs,
     install_sign_in,
 )
-from skat.web.streams import StreamSource, create_streams_router
+from skat.web.streams import StreamSlots, StreamSource, create_streams_router
 from skat.web.tables import create_tables_router
 from skat.web.wakes import WakeList
 
@@ -255,6 +255,7 @@ def _include_stream_routers(
     tables: TableService,
     presence: Presence,
     wakes: WakeList,
+    slots: StreamSlots,
     sessions: SessionRecordStore,
     heartbeat_seconds: float,
 ) -> None:
@@ -262,9 +263,9 @@ def _include_stream_routers(
     def attention_of(table_id: str, account_id: str) -> StreamSource:
         return AttentionSource(tables, presence, wakes, account_id, settings.paused_table_days, table_id)
 
-    app.include_router(create_streams_router(tables, presence, sessions, heartbeat_seconds, attention_of))
+    app.include_router(create_streams_router(tables, presence, sessions, slots, heartbeat_seconds, attention_of))
     app.include_router(
-        create_lobby_router(tables, presence, wakes, sessions, heartbeat_seconds, settings.paused_table_days)
+        create_lobby_router(tables, presence, wakes, sessions, slots, heartbeat_seconds, settings.paused_table_days)
     )
     app.state.stop_streams = presence.stop
 
@@ -390,6 +391,7 @@ def create_app(
     # the pulses that ask a seat again with the chair holds' timers.
     scheduler = chair_scheduler if chair_scheduler is not None else LoopScheduler()
     wakes = WakeList()
+    slots = StreamSlots(settings.streams_per_account)
     presence = _presence(settings, tables, chair_clock, scheduler, wakes)
 
     app = _new_app(_serving(settings, tables, presence, scheduler, unplayed_sweep_seconds))
@@ -402,7 +404,7 @@ def create_app(
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)
     app.include_router(create_nudging_router(tables, presence, nudge_signal(changes, relying_party.issuer)))
-    _include_stream_routers(app, settings, tables, presence, wakes, sign_in_stores.sessions, heartbeat_seconds)
+    _include_stream_routers(app, settings, tables, presence, wakes, slots, sign_in_stores.sessions, heartbeat_seconds)
     _install_sign_in(app, sign_in_configs, relying_party, sign_in_stores, page_build)
     mcp = mount_mcp(
         app,
