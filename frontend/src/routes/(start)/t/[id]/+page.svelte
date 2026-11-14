@@ -13,7 +13,7 @@
     import { abortView } from "#lib/abort.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
     import { cuesBetween, springsUp, stampBetween, type BidWord } from "#lib/cues.ts";
-    import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
+    import { browserCallHost, greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { giveUpAsk, giveUpView, refusalNotice } from "#lib/giveUp.ts";
     import { firstCardWait, type Stamp } from "#lib/kontra.ts";
     import { legalLinks } from "#lib/legal.ts";
@@ -274,19 +274,7 @@
         if (!callMode) return;
         return greetCall(
             untrack(() => id),
-            {
-                parent: window.parent,
-                fetch: (path) => fetch(path),
-                post: (message, targetOrigin) => {
-                    window.parent.postMessage(message, targetOrigin);
-                },
-                listen: (handler) => {
-                    window.addEventListener("message", handler);
-                    return () => {
-                        window.removeEventListener("message", handler);
-                    };
-                },
-            },
+            browserCallHost(),
             () => {
                 greeted = true;
             },
