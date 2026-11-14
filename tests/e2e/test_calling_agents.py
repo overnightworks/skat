@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 from playwright.sync_api import expect
 
-from skat.web.calling import AGENT_ADDERS_GROUP
+from skat.web.calling import AGENT_ADDERS_GROUP, TABLE_AGENTS_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.kit_words import kit_text
@@ -296,7 +296,7 @@ def test_a_caller_who_left_the_calling_group_keeps_the_list_until_he_has_read_th
         page_errors,
         console=False,
     )
-    open_new_table(felix, e2e_server)
+    path = open_new_table(felix, e2e_server)
     account = member_of(felix).account.id
     agent = ListeningAgent(e2e_server, account, "Raffael", "agent-subject-raffael")
     try:
@@ -305,6 +305,14 @@ def test_a_caller_who_left_the_calling_group_keeps_the_list_until_he_has_read_th
 
         felix.get_by_role("button", name=call_label("Raffael")).click()
 
+        expect(felix.get_by_role("dialog", name=PILL).get_by_role("alert")).to_be_visible()
+        expect(pill(felix)).to_be_visible()
+        # A table change streams to the open list, which reads the agents again and is told the control is gone.
+        anna = record_page_errors(open_person(username="anna-arrives", **DESKTOP), page_errors)
+        with felix.expect_response(
+            lambda response: response.request.method == "GET" and response.url.endswith(TABLE_AGENTS_SUFFIX)
+        ):
+            watch(anna, e2e_server, path)
         expect(felix.get_by_role("dialog", name=PILL).get_by_role("alert")).to_be_visible()
         expect(pill(felix)).to_be_visible()
         felix.mouse.click(*BESIDE_THE_LIST)
