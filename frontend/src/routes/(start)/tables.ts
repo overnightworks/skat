@@ -46,7 +46,6 @@ import {
     TABLE_KONTRA_SUFFIX,
     TABLE_LIST_SUFFIX,
     TABLE_NEW_SERIES_SUFFIX,
-    TABLE_NUDGE_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_PUSHING_GRAND_HAND_SUFFIX,
     TABLE_PUSHING_PUSH_SUFFIX,
@@ -382,7 +381,7 @@ export async function saveRuleSet(name: string, options: OptionsRequest | undefi
     }
 }
 
-function post(id: string, suffix: string, body: object): Promise<Outcome> {
+export function post(id: string, suffix: string, body: object): Promise<Outcome> {
     return ask(`${TABLES_PATH}/${encodeURIComponent(id)}${suffix}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -479,12 +478,6 @@ export function answerAbort(id: string, commandId: string, answer: AbortAnswer):
 // since moved past is refused, and there is no retry.
 export function sayKontra(id: string, version: number, commandId: string, word: Word): Promise<Outcome> {
     return post(id, TABLE_KONTRA_SUFFIX, { command_id: commandId, version, word });
-}
-
-// The version, the seat and the nudges are the ones the page shows; the server alone decides whether the minute has
-// passed, and a refused nudge changes nothing, so the answer is not read: the stream shows the table as it is.
-export function nudgeSeat(id: string, version: number, seat: number, nudges: number): Promise<Outcome> {
-    return post(id, TABLE_NUDGE_SUFFIX, { version, seat, nudges });
 }
 
 // A table opened without a series has none and counts as the first series, as the server counts it.

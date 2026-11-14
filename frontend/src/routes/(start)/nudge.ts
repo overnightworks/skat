@@ -1,6 +1,7 @@
 import type { SeatNotice } from "#lib/openChair.ts";
+import { TABLE_NUDGE_SUFFIX } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
-import type { Table } from "./tables.ts";
+import { post, type Outcome, type Table } from "./tables.ts";
 
 // How often the chair was nudged at this version, whether the viewer may nudge it (the minute is the server's to judge)
 // and, in the nudged chair's own answer only, who nudged last.
@@ -18,4 +19,10 @@ export function nudgedNote(previous: Table, table: Table): SeatNotice | null {
         seat: null,
         occupied: false,
     };
+}
+
+// The version, the seat and the nudges are the ones the page shows; the server alone decides whether the minute has
+// passed, and a refused nudge changes nothing, so the answer is not read: the stream shows the table as it is.
+export function nudgeSeat(id: string, version: number, seat: number, nudges: number): Promise<Outcome> {
+    return post(id, TABLE_NUDGE_SUFFIX, { version, seat, nudges });
 }
