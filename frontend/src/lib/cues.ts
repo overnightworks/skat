@@ -12,6 +12,7 @@ import {
     type SeatedCard,
     type Table,
 } from "../routes/(start)/tables.ts";
+import { nudgedChairs } from "../routes/(start)/nudge.ts";
 
 // What a chair said in the auction that the table shows: a bid or a hold with its value, or a pass.
 export type BidWord = { action: Exclude<AuctionAction, "play">; value: number | null };
@@ -42,13 +43,19 @@ export type Cue =
     | { kind: "turn-came" }
     // A hand was dealt to a table that was waiting for one.
     | { kind: "dealt" }
+    // A chair the table waits for was nudged. Every page of the table computes the same `pick` from the nudge, which
+    // picks the line the chair grumbles.
+    | { kind: "nudged"; seat: number; pick: number }
     // The declared result the update brought: whether it is good news for the viewer, and whether a seat's gain counts up.
     | { kind: "result-appeared"; ordinal: number; won: boolean; counts: boolean };
 
 // The one owner of what just happened between two versions of a table. A table that is not newer than the one
 // before it yields nothing, and so does a change the two versions do not fully explain.
 export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
-    if (previous === undefined || next.version <= previous.version) return [];
+    if (previous === undefined || next.version < previous.version) return [];
+    const nudges = nudgedCuesBetween(previous, next);
+    // A nudge moves no version, so it is the one cue a table of the same version can bring.
+    if (next.version === previous.version) return nudges;
     const cues: Cue[] = chairCuesBetween(previous, next);
     if (auctionJustEnded(previous, next)) cues.push({ kind: "auction-ended" });
     const { laid, completed } = cardsLaidBetween(previous, next);
@@ -66,7 +73,15 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     if (dealtBetween(previous, next)) cues.push({ kind: "dealt" });
     const appeared = resultAppearedBetween(previous, next);
     if (appeared !== null) cues.push(appeared);
-    return cues;
+    return [...cues, ...nudges];
+}
+
+function nudgedCuesBetween(previous: Table, next: Table): Cue[] {
+    return nudgedChairs(previous, next).map(({ seat, nudge }) => ({
+        kind: "nudged",
+        seat,
+        pick: next.version + seat + nudge.nudges,
+    }));
 }
 
 export function isChairCue(cue: Cue): cue is ChairCue {
