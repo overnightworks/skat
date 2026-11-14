@@ -2007,7 +2007,7 @@ body {
 /* A bid this page saw said springs up beside its speaker in the motion set the table carries.
    "dezent": 140 ms, it fades in. */
 .room[data-motion="dezent"] .bubble.fresh {
-    animation: bubble-dezent 140ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+    animation: bubble-dezent 140ms cubic-bezier(0.2, 0.8, 0.25, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 @keyframes bubble-dezent {
@@ -2024,7 +2024,7 @@ body {
 
 /* "verspielt": 180 ms, it springs up with a little swing. */
 .room[data-motion="verspielt"] .bubble.fresh {
-    animation: bubble-verspielt 180ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+    animation: bubble-verspielt 180ms cubic-bezier(0.2, 0.8, 0.25, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 @keyframes bubble-verspielt {
@@ -6131,7 +6131,7 @@ body {
 /* A word lands in the motion set the table carries (none while the device asks for reduced motion and the player has not overridden it).
    "dezent": 450 ms, the stamp alone. */
 .room[data-motion="dezent"] .callout {
-    animation: stamp-dezent 450ms cubic-bezier(0.3, 0.7, 0.4, 1) both;
+    animation: stamp-dezent 450ms cubic-bezier(0.3, 0.7, 0.4, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 @keyframes stamp-dezent {
@@ -6152,7 +6152,7 @@ body {
 
 /* "verspielt": 700 ms, the stamp lands hard, a ring runs out from it and the felt jolts. */
 .room[data-motion="verspielt"] .callout {
-    animation: stamp-verspielt 700ms cubic-bezier(0.3, 0.7, 0.4, 1) both;
+    animation: stamp-verspielt 700ms cubic-bezier(0.3, 0.7, 0.4, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 @keyframes stamp-verspielt {
@@ -6182,7 +6182,7 @@ body {
 
 .room[data-motion="verspielt"] .callout-ring {
     display: block;
-    animation: callout-ring 700ms ease-out both;
+    animation: callout-ring 700ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 @keyframes callout-ring {
@@ -6203,7 +6203,7 @@ body {
 }
 
 .room[data-motion="verspielt"]:has(.callout) .felt {
-    animation: felt-jolt 700ms both;
+    animation: felt-jolt 700ms both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 @keyframes felt-jolt {
