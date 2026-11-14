@@ -131,6 +131,18 @@ describe("the first card waiting on a word", () => {
         expect(wait.marks.get(DECLARER)).toBe("declined");
     });
 
+    it("is none while the awaited seat has stood up and its chair is open", () => {
+        const awaited = waiting([AGENT]);
+        const open = {
+            ...awaited,
+            chairs: awaited.chairs.map((chair) => (chair.seat === AGENT ? { ...chair, occupant_name: null } : chair)),
+            hand: { ...(awaited.hand as Hand), waiting_seat: AGENT },
+        };
+
+        expect(firstCardWait(open)).toBeNull();
+        expect(declinableWord(open)).toBeNull();
+    });
+
     it("holds back the cards of the seat that leads", () => {
         const wait = firstCardWait(waiting([DECLARER])) as NonNullable<ReturnType<typeof firstCardWait>>;
 

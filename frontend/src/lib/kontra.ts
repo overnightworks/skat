@@ -1,4 +1,5 @@
 import type { MarkedPart } from "overnightworks-design";
+import { handWaits } from "#lib/openChair.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { Chair, Kontra, Table, Word } from "../routes/(start)/tables.ts";
 
@@ -56,8 +57,8 @@ export type FirstCardWait = {
 export function firstCardWait(table: Table): FirstCardWait | null {
     const playing = table.hand?.playing;
     const kontra = playing?.kontra;
-    if (!kontra || kontra.first_card_waits_on.length === 0) return null;
-    // A seat the first card waits on belongs to a chair with a sitter: no seat is awaited while a chair is open.
+    // While a chair is open the hand waits for a sitter, not for a word, though the open chair may be a seat awaited.
+    if (!kontra || kontra.first_card_waits_on.length === 0 || handWaits(table.hand)) return null;
     const chairs = kontra.first_card_waits_on.map((seat) => table.chairs.find((each) => each.seat === seat) as Chair);
     const names = chairs.map((chair) => (chair.is_mine ? words["kontra.you"] : (chair.occupant_name as string)));
     return {
