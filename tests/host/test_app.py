@@ -15,7 +15,7 @@ from webauth.config import WebAuthConfig, installed_web_auth_config
 from webauth.dependencies import session_id_from_request
 
 from skat.host.app import UNPLAYED_SWEEP_SECONDS, create_app
-from skat.table.records import Actor, CreateTable, EndReason, SitDown, TableId
+from skat.table.records import Actor, CloseTable, CreateTable, EndReason, SitDown, TableId
 from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
 from skat.web.paused import PAUSED_TABLES_PATH
@@ -368,6 +368,7 @@ class RecordedScheduler:
 
 
 UNPLAYED_DAYS = 7
+ENDED_DAYS = 3
 NOW = datetime(2026, 11, 12, 12, tzinfo=UTC)
 
 
@@ -414,7 +415,7 @@ class UnplayedTables:
         self.store = FakeTableStore() if store is None else store
         self.tables = service(self.store, now=lambda: self.clock[0])
         self.scheduler = RecordedScheduler()
-        self.settings = sign_in_settings(paused_table_days=UNPLAYED_DAYS).settings
+        self.settings = sign_in_settings(paused_table_days=UNPLAYED_DAYS, ended_table_days=ENDED_DAYS).settings
 
     def dealt(self, command_id):
         table = self.tables.create(OPENER, CreateTable(command_id=command_id))
@@ -648,3 +649,82 @@ class TestLoggedExceptions:
         rendered = capsys.readouterr().out
         assert "ValueError" in rendered
         assert sentinel not in rendered
+
+
+class TestEndedTables:
+    @pytest.fixture
+    def closed(self, unplayed):
+        """A table its opener closed at NOW, which has no game in the history."""
+        table_id = unplayed.dealt("command-open")
+        assert unplayed.tables.close(OPENER, CloseTable("command-close", table_id.value)).refusal is None
+        return table_id
+
+    @pytest.mark.parametrize(
+        ("seconds_past_the_days", "forgotten"),
+        [pytest.param(-1, False, id="a-second-before-the-days"), pytest.param(0, True, id="exactly-at-the-days")],
+    )
+    def test_a_table_ended_longer_ago_than_the_days_when_the_server_starts_is_gone_before_the_first_request(
+        self, unplayed, closed, seconds_past_the_days, forgotten
+    ):
+        unplayed.play_on(ENDED_DAYS, seconds_past_the_days)
+
+        with TestClient(unplayed.app()):
+            view = unplayed.tables.view(OPENER, closed.value, frozenset())
+
+        assert (view is None) is forgotten
+
+    def test_a_table_that_passes_its_days_while_the_server_runs_is_gone_with_the_next_hourly_run(
+        self, unplayed, closed
+    ):
+        with TestClient(unplayed.app()) as client:
+            ((_, tick),) = unplayed.scheduler.sweeps()
+            unplayed.play_on(ENDED_DAYS - 1)
+            client.portal.call(tick)
+            before_the_days = unplayed.tables.view(OPENER, closed.value, frozenset())
+            unplayed.play_on(ENDED_DAYS)
+            client.portal.call(tick)
+            after_the_days = unplayed.tables.view(OPENER, closed.value, frozenset())
+
+        assert before_the_days.ended.closed_by_name == OPENER.display_name
+        assert after_the_days is None
+
+    def test_a_store_failure_at_the_start_fails_the_start(self, sign_in_settings):
+        class Failing(TableService):
+            def forget_ended_tables(self, days):
+                raise ConnectionError
+
+        unplayed = UnplayedTables(sign_in_settings, Failing)
+
+        with pytest.raises(ConnectionError), TestClient(unplayed.app()):
+            pass
+
+    def test_a_store_failure_in_an_hourly_run_is_logged_by_its_type_and_the_next_run_tries_again(
+        self, sign_in_settings
+    ):
+        class FailingOnce(TableService):
+            failing = True
+
+            def forget_ended_tables(self, days):
+                if type(self).failing:
+                    type(self).failing = False
+                    raise ConnectionError("account-anna")
+                return super().forget_ended_tables(days)
+
+        FailingOnce.failing = False
+        unplayed = UnplayedTables(sign_in_settings, FailingOnce)
+        table_id = unplayed.dealt("command-open")
+        unplayed.tables.close(OPENER, CloseTable("command-close", table_id.value))
+        with TestClient(unplayed.app()) as client:
+            ((_, tick),) = unplayed.scheduler.sweeps()
+            unplayed.play_on(ENDED_DAYS)
+            FailingOnce.failing = True
+            with capture_logs() as logs:
+                client.portal.call(tick)
+            ((_, tick_again),) = unplayed.scheduler.sweeps()[1:]
+            kept = unplayed.tables.view(OPENER, table_id.value, frozenset())
+            client.portal.call(tick_again)
+            forgotten = unplayed.tables.view(OPENER, table_id.value, frozenset())
+
+        assert (kept is None, forgotten is None) == (False, True)
+        assert [entry["error"] for entry in logs] == ["ConnectionError"]
+        assert "account-anna" not in str(logs)

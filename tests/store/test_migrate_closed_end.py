@@ -58,8 +58,6 @@ class TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore:
     @pytest.mark.parametrize(
         "update",
         [
-            "UPDATE tables SET ended_at = now(), end_reason = 'closed', dealer = NULL, last_played_at = NULL"
-            " WHERE id = 'dealt'",
             "UPDATE tables SET ended_at = now(), end_reason = 'closed', closed_by_name = '', dealer = NULL,"
             " last_played_at = NULL WHERE id = 'dealt'",
             "UPDATE tables SET ended_at = now(), end_reason = 'empty', empty_seconds = 60, closed_by_name = 'Anna',"
@@ -69,7 +67,6 @@ class TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore:
             " WHERE id = 'dealt'",
         ],
         ids=[
-            "a closed end without a name",
             "a closed end with an empty name",
             "an empty end with a name",
             "a name on a live table",

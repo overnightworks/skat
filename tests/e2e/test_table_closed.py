@@ -8,7 +8,10 @@ import pytest
 from playwright.sync_api import Page, Request, Route, expect
 from sqlalchemy import select, update
 
+from skat.store.game_list import append_game_list
 from skat.store.schema import tables
+from skat.web.closing import TABLE_CLOSE_SUFFIX
+from skat.web.settings import DEFAULT_ENDED_TABLE_DAYS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
@@ -26,6 +29,7 @@ from tests.e2e.support.tables import (
     watch,
     watchers_of,
 )
+from tests.support.played_game import an_entry
 from tests.support.signed_in import new_account, seed_member
 
 if TYPE_CHECKING:
@@ -47,6 +51,7 @@ RECONNECT_WINDOW_MILLISECONDS = 6_000
 CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
 UNPLAYED_HEADING = text(SOURCE_LANGUAGE, "closed.unplayedDays", count=UNPLAYED_DAYS)
 NOT_FOUND_HEADING = "Tisch nicht gefunden"
+NAMELESS_CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.closed")
 UNKNOWN_ID = "0" * 32
 
 
@@ -291,3 +296,54 @@ def test_a_dealt_table_nobody_played_at_for_the_days_shows_its_end_to_every_open
         open_old_link()
         expect_the_unplayed_face(person)
         assert requests == []
+
+
+@pytest.fixture(scope="module")
+def retained_table(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[RunningServer, str, str]]:
+    """A Skat with the link of a closed table that has a game and ended longer ago than the days, as it stands after
+    the start's sweep, and the name its closer had.
+    """
+    with skat_on_new_database(tmp_path_factory) as server:
+        opener = RawSession(
+            server, seed_member(server.stores, server.config, account=new_account(server.stores, server.config))
+        )
+        table_id = json.loads(opener.post(TABLES_PATH, {"command_id": "retained-create-0001", "series_length": 36}))[
+            "id"
+        ]
+        opener.post(f"{TABLES_PATH}/{table_id}{TABLE_CLOSE_SUFFIX}", {"command_id": "retained-close-0001"})
+        with server.engine.begin() as connection:
+            append_game_list(connection, table_id, 1, (an_entry(),), datetime.now(UTC))
+            connection.execute(
+                update(tables)
+                .where(tables.c.id == table_id)
+                .values(ended_at=tables.c.ended_at - timedelta(days=DEFAULT_ENDED_TABLE_DAYS + 1))
+            )
+            closer = connection.execute(select(tables.c.closed_by_name).where(tables.c.id == table_id)).scalar_one()
+        assert closer
+
+        server.restart(while_stopping=lambda: None)
+
+        with server.engine.connect() as connection:
+            assert (
+                connection.execute(select(tables.c.closed_by_name).where(tables.c.id == table_id)).scalar_one() is None
+            )
+        yield server, f"{TABLE_PAGE_PREFIX}{table_id}", closer
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_old_link_of_a_closed_table_with_games_shows_it_closed_without_the_closers_name_once_the_days_are_up(
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    retained_table: tuple[RunningServer, str, str],
+    form_factor: dict[str, Any],
+) -> None:
+    server, path, closer = retained_table
+    person = record_page_errors(open_person(username="anna", server=server, **form_factor), page_errors)
+
+    person.goto(f"{server.base_url}{path}")
+
+    expect(person.get_by_role("heading", name=NAMELESS_CLOSED_HEADING, exact=True)).to_be_visible()
+    expect(person.get_by_text(closer)).to_have_count(0)
+    expect(person.locator(".closed .glyph.by")).to_have_count(0)
+    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
+    expect_the_panel_inside_the_viewport(person)

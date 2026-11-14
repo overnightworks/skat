@@ -11,8 +11,9 @@ from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT, OIDC_CLIENT_ID
 
 DEFAULT_EMPTY_TABLE_SECONDS: Final = 1800
 DEFAULT_PAUSED_TABLE_DAYS: Final = 90
+DEFAULT_ENDED_TABLE_DAYS: Final = 7
 DEFAULT_STREAMS_PER_ACCOUNT: Final = 12
-HIGHEST_PAUSED_TABLE_DAYS: Final = 36_500
+HIGHEST_TABLE_DAYS: Final = 36_500
 
 
 def _require_no_trailing_slash(issuer: str) -> str:
@@ -127,6 +128,9 @@ class ServerSettings(DatabaseSettings):
     empty_table_seconds: int = Field(default=DEFAULT_EMPTY_TABLE_SECONDS, gt=0)
     # How many days after its last deal or step of play a table on which a hand was dealt ends; whole days, at most a
     # hundred years so the end is always a date.
-    paused_table_days: int = Field(default=DEFAULT_PAUSED_TABLE_DAYS, gt=0, le=HIGHEST_PAUSED_TABLE_DAYS)
+    paused_table_days: int = Field(default=DEFAULT_PAUSED_TABLE_DAYS, gt=0, le=HIGHEST_TABLE_DAYS)
+    # How many days after its end an ended table's link names why it ended; then a table with no game in the history is
+    # deleted and the closer's name of the others is cleared. Whole days, at most a hundred years.
+    ended_table_days: int = Field(default=DEFAULT_ENDED_TABLE_DAYS, gt=0, le=HIGHEST_TABLE_DAYS)
     # How many lobby and table streams one account may hold open at once; one more is refused with a 429.
     streams_per_account: int = Field(default=DEFAULT_STREAMS_PER_ACCOUNT, gt=0)

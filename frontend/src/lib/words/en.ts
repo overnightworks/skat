@@ -262,6 +262,7 @@ const translated = {
         many: "Not played for " + numberFormat.format(count) + " days: table closed",
         other: "Not played for " + numberFormat.format(count) + " days: table closed",
     })[pluralRules.select(count)],
+    "closed.closed": "Table closed",
     "closed.closedBy": (gaps: { readonly name: string }) => gaps.name + " closed the table",
     "declare.commandFailed": "That did not work",
     "declare.takeSkat": "Pick up",
