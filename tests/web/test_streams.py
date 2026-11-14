@@ -271,6 +271,25 @@ class TestStreamSlots:
 
         slots.take("account-a")
 
+    def test_a_stream_whose_producer_fails_passes_the_error_on_and_gives_its_slot_back_at_once(self):
+        slots = StreamSlots(1)
+
+        async def messages():
+            yield "data: one\n\n"
+            message = "the producer failed"
+            raise RuntimeError(message)
+
+        async def scenario():
+            response = event_stream_response(messages(), slots.take("account-a"))
+            with pytest.raises(RuntimeError, match="the producer failed"):
+                _ = [message async for message in response.body_iterator]
+            return response
+
+        response = run_on_a_loop_of_its_own(scenario())
+
+        slots.take("account-a")
+        assert response is not None
+
     def test_a_response_dropped_before_its_first_message_gives_its_slot_back(self):
         slots = StreamSlots(1)
 
