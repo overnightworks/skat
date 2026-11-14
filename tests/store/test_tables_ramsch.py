@@ -1,6 +1,9 @@
+from dataclasses import replace
+
 import pytest
 from sqlalchemy import text
 
+from skat.engine.bock import BockOptions, BockOverlap, BockRounds, BockTrigger
 from skat.engine.cards import DECK
 from skat.engine.deal import Position, positions_from
 from skat.engine.ramsch import (
@@ -16,7 +19,7 @@ from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.hand_state import game_of
 from skat.table.playing import PlayCardCommand
-from skat.table.records import RamschOccasion, RamschSetting, TableOptions
+from skat.table.records import RamschOccasion, RamschSetting, TableId, TableOptions
 from skat.table.service import TableService
 from tests.support.stored_game import count_rows, nobody_connected, person, seated_table_id
 
@@ -30,15 +33,22 @@ OPTIONS = TableOptions(ramsch=SETTING)
 
 
 class RamschTable:
-    """A table with Ramsch where all three passed; the cards are played legally, the first in deck order."""
+    """A table with Ramsch where all three passed, or with `ramsch_games` Ramsch-round games pending where the hand is
+    dealt as a Ramsch with no auction; the cards are played legally, the first in deck order.
+    """
 
-    def __init__(self, service, transactions, stored):
+    def __init__(self, service, transactions, stored, options=OPTIONS, ramsch_games=0):
         self.service = service
         self.transactions = transactions
         self.stored = stored
-        self.table_id = seated_table_id(service, OPTIONS)
+        self.table_id = seated_table_id(service, options)
         by_seat = {1: person("Anna"), 2: person("Ben"), 3: person("Cleo")}
         self.actors = {position: by_seat[seat] for seat, position in positions_from(self.record.dealer).items()}
+        if ramsch_games:
+            with transactions.begin() as transaction:
+                held = replace(transaction.locked_table(TableId(self.table_id)), bock=BockRounds((), ramsch_games))
+                transaction.save_table(held, played_at=None)
+            return
         for position in (Position.MIDDLEHAND, Position.REARHAND, Position.FOREHAND):
             command = AuctionCommand(
                 f"pass-{position.value}", self.table_id, self.record.version, AuctionAction.PASS, None
@@ -69,15 +79,17 @@ def restarted(database_url):
     return engine, TableService(PostgresTableTransactions(engine))
 
 
-def test_a_table_reads_back_its_ramsch_options_after_a_restart(service, database_url):
-    table_id = seated_table_id(service, OPTIONS)
+@pytest.mark.parametrize("occasion", list(RamschOccasion))
+def test_a_table_reads_back_its_ramsch_options_after_a_restart(service, database_url, occasion):
+    setting = replace(SETTING, occasion=occasion)
+    table_id = seated_table_id(service, TableOptions(ramsch=setting))
     engine, again = restarted(database_url)
     try:
         view = again.view(person("Anna"), table_id, frozenset())
     finally:
         engine.dispose()
 
-    assert view.options.ramsch == SETTING
+    assert view.options.ramsch == setting
 
 
 def test_a_running_ramsch_resumes_after_a_restart_with_the_same_turn_and_cards(
@@ -115,3 +127,46 @@ def test_the_thirtieth_card_stores_a_ramsch_entry_and_forgets_the_hand_and_the_r
     assert (tuple(row), cards) == (("ramsch", None, 1, "played-out", None), 0)
     assert (view.hand, view.result.ordinal, len(view.result.seats)) == (None, 1, 3)
     assert view.result == before.result
+
+
+ROUND_OPTIONS = TableOptions(
+    bock=BockOptions(frozenset({BockTrigger.RE}), BockOverlap.APPEND),
+    ramsch=replace(SETTING, occasion=RamschOccasion.BOCK_ROUNDS),
+)
+
+
+def test_a_ramsch_round_game_stores_no_auction_step_and_its_end_uses_one_ramsch_round_game_up_and_no_bock_game(
+    service, transactions, stored, engine
+):
+    table = RamschTable(service, transactions, stored, ROUND_OPTIONS, ramsch_games=3)
+    table.play(3)
+    with engine.connect() as connection:
+        auction_steps = connection.execute(text("SELECT count(*) FROM auction_actions")).scalar_one()
+    table.play(27)
+    with engine.connect() as connection:
+        kind, factor = connection.execute(text("SELECT kind, bock_factor FROM game_list")).one()
+
+    assert (auction_steps, kind, factor) == (0, "ramsch", 1)
+    assert table.record.bock == BockRounds((), 2)
+
+
+def test_a_server_restart_inside_a_ramsch_round_keeps_the_hand_a_ramsch_and_the_games_left(
+    service, transactions, stored, database_url
+):
+    table = RamschTable(service, transactions, stored, ROUND_OPTIONS, ramsch_games=3)
+    table.play(5)
+    engine, again = restarted(database_url)
+    try:
+        resumed = again.view(table.actors[Position.FOREHAND], table.table_id, frozenset())
+        after_restart = stored(PostgresTableTransactions(engine), table.table_id)
+    finally:
+        engine.dispose()
+    table.play(25)
+    engine, again = restarted(database_url)
+    try:
+        after_the_game = stored(PostgresTableTransactions(engine), table.table_id)
+    finally:
+        engine.dispose()
+
+    assert (resumed.hand.ramsch, resumed.hand.auction.awaiting, after_restart.bock) == (True, None, BockRounds((), 3))
+    assert after_the_game.bock == BockRounds((), 2)

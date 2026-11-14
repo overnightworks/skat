@@ -10,6 +10,7 @@ import {
     KONTRA_REACH_TOKENS,
     KONTRA_SAYER_TOKENS,
     PUSHING_RULE_TOKENS,
+    RAMSCH_OCCASION_TOKENS,
     RAMSCH_SCORING_TOKENS,
 } from "#lib/wire.ts";
 import { listFormat, words } from "#lib/words.ts";
@@ -37,6 +38,12 @@ const KONTRA_REACH_WORDS: Record<Token<typeof KONTRA_REACH_TOKENS>, string> = {
 const KONTRA_DEADLINE_WORDS: Record<Token<typeof KONTRA_DEADLINE_TOKENS>, string> = {
     "own-card": words["rules.kontraDeadlineOwnCard"],
     "first-card": words["rules.kontraDeadlineFirstCard"],
+};
+// The Ramsch row is named by when the table plays it.
+const RAMSCH_NAME_WORDS: Record<Token<typeof RAMSCH_OCCASION_TOKENS>, string> = {
+    "passed-in": words["rules.nameRamsch"],
+    "bock-rounds": words["rules.nameRamschBockRounds"],
+    "passed-in-and-bock-rounds": words["rules.nameRamschPassedInAndBockRounds"],
 };
 const RAMSCH_SCORING_WORDS: Record<Token<typeof RAMSCH_SCORING_TOKENS>, string> = {
     points: words["rules.ramschScoringPoints"],
@@ -108,7 +115,7 @@ function rulesOf(options: Options): RuleRow[] {
             ? null
             : {
                   id: "ramsch",
-                  name: words["rules.nameRamsch"],
+                  name: RAMSCH_NAME_WORDS[ramsch.occasion],
                   settings: [
                       RAMSCH_SCORING_WORDS[ramsch.scoring],
                       JUNGFRAU_WORDS[ramsch.jungfrau],

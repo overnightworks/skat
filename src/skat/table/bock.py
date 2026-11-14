@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from skat.engine.bock import BockRounds, TotalChange, bock_triggered, games_left
+from skat.engine.bock import BockRounds, BockTrigger, TotalChange, bock_triggered, games_left
 from skat.engine.kontra import Doubling
 from skat.table.game_list import bock_factor_of, reach_of, total_of
-from skat.table.hand_state import doubling_of
+from skat.table.hand_state import doubling_of, is_ramsch_round
 from skat.table.rules import bock_rounds_after, series_games_left
 
 if TYPE_CHECKING:
@@ -41,13 +41,15 @@ def bock_after(
     """The pending Bock rounds once the table's running hand has ended; `entry` is the hand's list entry, None for a
     passed-in hand, which leaves none.
 
-    The hand, a Ramsch included, uses up a Bock game and meets the table's triggers; the series' last game lets every
-    round lapse.
+    The hand, a Ramsch included, uses up a Bock game, or a Ramsch-round game while no Bock game is pending, and meets
+    the table's triggers; the series' last game lets every round lapse. A game of a Ramsch
+    round was passed by nobody, so it does not meet `passed-in`.
     """
 
     def triggered_by(options: BockOptions) -> bool:
         totals = () if entry is None else _total_changes(table, entry)
-        return bock_triggered(options.triggers, ended, doubling_of(table) or Doubling.start(), totals)
+        triggers = options.triggers - {BockTrigger.PASSED_IN} if is_ramsch_round(table) else options.triggers
+        return bock_triggered(triggers, ended, doubling_of(table) or Doubling.start(), totals)
 
     return bock_rounds_after(table, triggered_by)
 

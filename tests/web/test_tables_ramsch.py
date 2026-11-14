@@ -363,6 +363,7 @@ class TestOpeningARamschTable:
         "ramsch",
         [
             pytest.param({**POINTS, "occasion": "ramsch-rounds"}, id="another-occasion"),
+            pytest.param({**POINTS, "occasion": "bock-rounds"}, id="a-bock-occasion-without-bock-options"),
             pytest.param({**POINTS, "scoring": "tens"}, id="an-unknown-scoring"),
             pytest.param({k: v for k, v in POINTS.items() if k != "jungfrau"}, id="a-missing-field"),
             pytest.param({**POINTS, "pushing": True}, id="an-extra-key"),

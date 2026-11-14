@@ -62,6 +62,15 @@ class Auction:
 
     @classmethod
     def start(cls) -> Auction:
+        return cls._opening(result=None)
+
+    @classmethod
+    def passed_in_from_the_deal(cls) -> Auction:
+        """An auction that ended passed in before a bid, for a hand dealt with no auction."""
+        return cls._opening(result=PassedIn())
+
+    @classmethod
+    def _opening(cls, result: Declared | PassedIn | None) -> Auction:
         return cls(
             bidder=Position.MIDDLEHAND,
             responder=Position.FOREHAND,
@@ -69,7 +78,7 @@ class Auction:
             standing=None,
             passed=frozenset(),
             second_pair=False,
-            result=None,
+            result=result,
         )
 
     @property

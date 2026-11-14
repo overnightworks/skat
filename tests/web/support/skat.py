@@ -224,10 +224,11 @@ class AgentTable(Table):
 
     The agent takes its chair through the tools: it opens the table at chair 1 and sits down at the others. The
     other two chairs are people's, and the watcher is a fourth member. `at[position]` of the agent is a cookie
-    session for its account, for the direct reads that compare the routes with the tools.
+    session for its account, for the direct reads that compare the routes with the tools. `options` are the table's
+    options as its opener names them.
     """
 
-    def __init__(self, skat, agent, position):
+    def __init__(self, skat, agent, position, options=None):
         self.skat = skat
         self._commands = itertools.count(1)
         agent_seat = next(seat for seat, held in positions_from(DEALER_SEAT).items() if held is position)
@@ -235,10 +236,11 @@ class AgentTable(Table):
         people = [skat.member() for _ in range(3)]
         others = iter(headers for headers, _ in people)
         by_seat = {seat: agent_headers if seat == agent_seat else next(others) for seat in (1, 2, 3)}
+        opened_with = {} if options is None else {"options": options}
         if agent_seat == 1:
-            self.table_id = agent.open_table().json()["id"]
+            self.table_id = agent.open_table(**opened_with).json()["id"]
         else:
-            self.table_id = skat.create(by_seat[1]).json()["id"]
+            self.table_id = skat.create(by_seat[1], **opened_with).json()["id"]
         for seat in (2, 3):
             if seat == agent_seat:
                 agent.sit_down(self.table_id, seat)

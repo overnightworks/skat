@@ -100,26 +100,46 @@ def bock_triggered(
 
 @dataclass(frozen=True)
 class BockRounds:
-    """The games each pending Bock round still has, the round that began first at the front."""
+    """The games each pending Bock round still has, the round that began first at the front, and the Ramsch-round games
+    still to come after the Bock games, three for each Bock round that ended.
+    """
 
     remaining: tuple[int, ...]
+    ramsch_games: int = 0
 
     @classmethod
     def start(cls) -> BockRounds:
         return cls(remaining=())
 
 
-def advance(rounds: BockRounds, overlap: BockOverlap, *, triggered: bool) -> BockRounds:
-    """After a hand, played or passed in: it uses up a game of the pending rounds, then a trigger acts by the option."""
+def in_ramsch_round(rounds: BockRounds, overlap: BockOverlap) -> bool:
+    """Whether the next game, or the running one, is a Ramsch-round game: no Bock game is pending and a Ramsch-round
+    game is.
+    """
+    return games_left(rounds, overlap) == 0 and rounds.ramsch_games > 0
+
+
+def advance(rounds: BockRounds, overlap: BockOverlap, *, triggered: bool, ramsch_follows: bool) -> BockRounds:
+    """After a hand, played or passed in: it uses up a game of the pending rounds, then a trigger acts by the option.
+
+    A Ramsch-round game uses up a Ramsch-round game and no Bock game. With `ramsch_follows` each Bock round the hand
+    ends adds a Ramsch round of three games.
+    """
     if overlap is BockOverlap.MULTIPLY:
         used = tuple(left - 1 for left in rounds.remaining)
     else:
         used = tuple(left - 1 if index == 0 else left for index, left in enumerate(rounds.remaining))
     left_over = tuple(left for left in used if left > 0)
+    ended_rounds = len(used) - len(left_over)
+    ramsch_games = rounds.ramsch_games
+    if in_ramsch_round(rounds, overlap):
+        ramsch_games -= 1
+    if ramsch_follows:
+        ramsch_games += ended_rounds * GAMES_IN_A_ROUND
     ignored = overlap is BockOverlap.IGNORE and bool(rounds.remaining)
     if triggered and not ignored:
         left_over = (*left_over, GAMES_IN_A_ROUND)
-    return BockRounds(remaining=left_over)
+    return BockRounds(remaining=left_over, ramsch_games=ramsch_games)
 
 
 def bock_factor(rounds: BockRounds, overlap: BockOverlap) -> int:
