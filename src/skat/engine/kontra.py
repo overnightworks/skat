@@ -219,16 +219,24 @@ def decline(
     return DoublingOutcome(replace(doubling, declined=doubling.declined | {position}))
 
 
-def awaits_words(doubling: Doubling, options: KontraOptions, bidders: frozenset[Position], declarer: Position) -> bool:
-    """Whether the first lead must still wait for a word or a decline."""
+def awaited_positions(
+    doubling: Doubling, options: KontraOptions, bidders: frozenset[Position], declarer: Position
+) -> frozenset[Position]:
+    """The positions the first lead must still wait for, a word or a decline: the answerer of the word standing, and
+    before any Kontra each opponent who may say it. Once a Kontra stands the other opponent is left with no word to
+    say, so the table declines for him by not waiting for him.
+    """
     if options.deadline is not KontraDeadline.FIRST_CARD:
-        return False
+        return frozenset()
     answerer = _answerer(doubling, options, declarer)
     if answerer is not None and answerer not in doubling.declined:
-        return True
-    return any(
-        options.sayer is KontraSayer.ANY_OPPONENT or position in bidders
+        return frozenset({answerer})
+    if doubling.kontra_by is not None:
+        return frozenset()
+    return frozenset(
+        position
         for position in _undecided_opponents(doubling, declarer)
+        if options.sayer is KontraSayer.ANY_OPPONENT or position in bidders
     )
 
 

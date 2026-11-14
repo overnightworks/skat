@@ -143,6 +143,18 @@ describe("the give-up key on the table bar", () => {
         expect(giveUpKey(tableWith(FIRST_OPPONENT, null, { kontraWord: "kontra" }))).toEqual({ round: true });
     });
 
+    it("keeps its word while the first card waits on the viewer for a Kontra word, whose pair has a bar of its own", () => {
+        const owing = tableWith(FIRST_OPPONENT, null, { kontraWord: "kontra", owedBy: FIRST_OPPONENT });
+
+        expect(giveUpKey(owing)).toEqual({ round: false });
+    });
+
+    it("goes round while the first card waits on another seat for its word", () => {
+        const owing = tableWith(FIRST_OPPONENT, null, { kontraWord: "kontra", owedBy: SECOND_OPPONENT });
+
+        expect(giveUpKey(owing)).toEqual({ round: true });
+    });
+
     it("is offered for a Grand Hand declared in the Ramsch stage", () => {
         expect(giveUpKey(tableWith(FIRST_OPPONENT, null, { grandHandInRamsch: true }))).toEqual({ round: false });
     });
