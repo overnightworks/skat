@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import time
 import weakref
 from collections import Counter
 from dataclasses import dataclass
@@ -7,6 +8,7 @@ from enum import StrEnum
 from functools import partial
 from typing import TYPE_CHECKING, Final, Protocol
 
+import structlog
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
@@ -27,6 +29,8 @@ if TYPE_CHECKING:
     from skat.table.service import TableService
     from skat.table.views import TableView
     from skat.web.presence import Presence, Subscription
+
+logger = structlog.get_logger()
 
 EVENT_STREAM: Final = "text/event-stream"
 # A comment line is ignored by every event source; it keeps an idle stream's bytes moving past an edge's read timeout.
@@ -250,6 +254,55 @@ async def stream_messages(
             source.close()
 
 
+class StreamKind(StrEnum):
+    TABLE = "table"
+    LOBBY = "lobby"
+
+
+class StreamEndReason(StrEnum):
+    ENDED_TABLE = "ended_table"
+    REFUSED = "refused"
+    ERROR = "error"
+    CLIENT_GONE = "client_gone"
+    SHUTDOWN = "shutdown"
+
+
+async def messages_with_end_log(
+    items: AsyncIterator[SourceMessage | IdleHeartbeat],
+    stopped: Callable[[], bool],
+    kind: StreamKind,
+    table_id: str | None = None,
+) -> AsyncIterator[str]:
+    """The text of a stream's items, and one log line when the stream ends: its kind, its table id, why it ended and
+    how long it lived, nothing of what it sent. A stream that ends on its own ended its table (a `last` message), was
+    stopped by the server, or lost its session's admission; one that raises is an error with the exception's type;
+    one closed from outside, which a dropped connection does, is a client gone.
+    """
+    started = time.monotonic()
+    reason = StreamEndReason.CLIENT_GONE
+    error_type: str | None = None
+    try:
+        async for item in items:
+            if isinstance(item, SourceMessage) and item.last:
+                reason = StreamEndReason.ENDED_TABLE
+            yield message_of(item)
+        if reason is StreamEndReason.CLIENT_GONE:
+            reason = StreamEndReason.SHUTDOWN if stopped() else StreamEndReason.REFUSED
+    except Exception as failure:
+        reason = StreamEndReason.ERROR
+        error_type = type(failure).__name__
+        raise
+    finally:
+        logger.info(
+            "stream_ended",
+            kind=kind.value,
+            table_id=table_id,
+            reason=reason.value,
+            error_type=error_type,
+            lifetime_seconds=round(time.monotonic() - started, 1),
+        )
+
+
 class StreamSlots:
     """How many streams each account holds open, whichever kind, against one limit; used on the event loop's thread
     only, so it takes no lock.
@@ -386,10 +439,10 @@ def create_streams_router(
 
         admit = session_admission(request, sessions)
 
-        async def messages() -> AsyncIterator[str]:
+        async def items() -> AsyncIterator[SourceMessage | IdleHeartbeat]:
             # An ended table has nobody to watch: its one message is its answer, and nothing registers.
             if first_view.ended is not None:
-                yield message_of(_table_message(first_view, {}))
+                yield _table_message(first_view, {})
                 return
             sources = [
                 _table_source(tables, presence, read_view, table_id, opened_as.account_id),
@@ -398,8 +451,9 @@ def create_streams_router(
             async for item in stream_messages(
                 sources, admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
             ):
-                yield message_of(item)
+                yield item
 
-        return event_stream_response(messages(), release)
+        messages = messages_with_end_log(items(), lambda: presence.stopped, StreamKind.TABLE, table_id)
+        return event_stream_response(messages, release)
 
     return router
