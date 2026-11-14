@@ -2480,6 +2480,46 @@ const STRAND_SCENES=[
     ['Die Tafel „Ton und Bewegung“ führt den Stil als erste Zeile: Klassik oder Strandbar, je mit einer kleinen Vorschau; die gewählte trägt Haken und Farbe. Der Stil gilt für dieses Gerät und nur für die Person, und er ändert den Tisch hinter der Tafel sofort.',SEA_CAPTION]],
 ];
 soundScenes(STRAND_SCENES,'strand');
+
+/* ===== S15.11: the tapped bell: a cowbell swings in over the chair the table waits for and rings, the chair shakes, the nudged one grumbles in a bubble ===== */
+/* Anna holds the turn and stays silent; Felix tapped the bell at her chair. Every page at the table sees the same moment; the tap's own green tick is gone */
+const COWBELL=`<svg viewBox="0 0 48 66" aria-hidden="true"><path d="M17 15V7a7 7 0 0 1 14 0v8" fill="none" style="stroke:#6b4a2a" stroke-width="4" stroke-linecap="round"/>
+  <path d="M13 15h22l8 38H5z" style="fill:var(--brass);stroke:#5a4416" stroke-width="1.6" stroke-linejoin="round"/><path d="M17 18h6l-3 32h-8z" style="fill:var(--brass-hi)" opacity=".55"/>
+  <ellipse cx="24" cy="53" rx="19" ry="4.6" style="fill:#2d2108"/><rect x="21" y="52" width="6" height="11" rx="3" style="fill:#7a5a22"/></svg>`;
+const COW_SIZE=(d)=>d?72:54;
+/* the cowbell hangs from its strap over the top edge of the chair, in the middle of it */
+const cowbell=(d,pos)=>{const w=COW_SIZE(d);
+  return `<div class="cowbell mo" role="img" aria-label="Angestupst" style="${at({left:pos.x+pos.w/2-w/2,top:pos.y-w*.46,'--cw':w,'--k':'.42s'})}">${COWBELL}<i class="ring l"></i><i class="ring r"></i></div>`;};
+/* the chair shakes: it stands a little aside and askew, with short strokes beside it */
+const shaken=(html)=>html.replace('class="seat','class="seat shaken').replace('class="chair " style=""','class="chair mo" style="--k:.5s"');
+const GRUMBLE='Jaja, ich komm ja schon!';
+const GRUMBLE_W=252;
+/* the grumble stands where a call stands: toward the middle of the table from a far chair, above the near one */
+const grumble=(d,who,x,y,tail,bottom)=>bubble(who,GRUMBLE,{x,y,tail,bottom}).replace('class="bubble','class="bubble word grumble');
+const rightEdge=(d,w)=>(d?1280:PB.cx*2)-w-10;
+const BELL_WATCH='Felix hat an Annas Stuhl geläutet: die Kuhglocke schwingt über dem Stuhl und läutet, der Stuhl rüttelt kurz, und Anna brummt in einer Blase „Jaja, ich komm ja schon!“; die kleine Glocke an der Ecke des Stuhls ist weg, und es gibt keinen grünen Haken. Die Blase wählt eine von drei Zeilen („Jaja, ich komm ja schon!“, „Hetz mich nicht!“, „Moment, ich denk noch!“); jeder am Tisch sieht und hört dieselbe. Das Läuten und die Stimme folgen Lautstärke, stumm, Klangsatz und Bewegungssatz; ohne Bewegung hängt die Glocke still und gerade.';
+const BELL_SCENES=[
+  ['bell-tapper','Glocke: Felix hat geläutet',[360,390,1280],(d)=>{const L=seatsOf(d);
+    return tableOf(d,{fans:8,count:true,glow:novaGlow(d)})+kreuz(d)
+      +shaken(seat('anna',{...L.anna,marks:['turn']}))+seat('nova',L.nova)+seat('felix',L.you)+chairCoasters(L,TOTALS_BEFORE)
+      +cowbell(d,L.anna)+(d?grumble(d,'anna',44,392,'50%'):grumble(d,'anna',14,228,'30%'))
+      +ownCards(d)+stripOf(d,{pill:agentPill(d)});},
+    [BELL_WATCH]],
+  ['bell-nudged','Glocke: Anna wird angestupst',[360,390,1280],(d)=>{const L=seatsOf(d);const w=GRUMBLE_W,cx=L.you.x+L.you.w/2,x=d?100:rightEdge(d,w);
+    return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)
+      +seat('nova',L.anna)+seat('felixSeen',L.nova)+shaken(seat('annaSelf',{...L.you,marks:['turn']}))
+      +chairCoasters(L,[TOTALS_BEFORE[1],TOTALS_BEFORE[2],TOTALS_BEFORE[0]])
+      +cowbell(d,L.you)+grumble(d,'annaSelf',x,L.you.y-(d?52:46),`${Math.round((cx-x)/w*100)}%`,true)
+      +notice('Felix stupst dich an','felix',mid(d),d?170:298)+ownCards(d,SPARE_HAND)+stripOf(d,{pill:agentPill(d)});},
+    ['Annas Seite: ihr eigener Stuhl schwingt die Kuhglocke und rüttelt, ihre Blase hängt über dem Stuhl, und die Zeile „Felix stupst dich an“ steht wie bisher auf dem Filz. Sie hört die Glocke und ihre eigene Zeile; der Tisch sieht nichts anderes als bei Felix.']],
+  ['bell-watcher','Glocke: ein Zuschauer',[360,390,1280],(d)=>{const L=seatsOf(d);
+    return tableOf(d,{fans:8,count:true,watchers:2,glow:novaGlow(d)})+kreuz(d)
+      +shaken(seat('anna',{...L.anna,marks:['turn']}))+seat('nova',L.nova)+seat('felixSeen',L.you)+chairCoasters(L,TOTALS_BEFORE)
+      +cowbell(d,L.anna)+(d?grumble(d,'anna',44,392,'50%'):grumble(d,'anna',14,228,'30%'))
+      +nearFan(d,8)+tableBar(d);},
+    ['Lena schaut zu und hat keinen Stuhl: dieselbe Glocke, dasselbe Rütteln und dieselbe Blase wie bei den Spielern, nur ohne ihre eigenen Karten.']],
+];
+agentScenes(BELL_SCENES);
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
@@ -2853,5 +2893,24 @@ const hangPanels=()=>panels.forEach(pop=>{
   pop.classList.toggle('more',body.scrollTop+body.clientHeight<body.scrollHeight-1);});
 if(panels.length){hangPanels();document.fonts.ready.then(hangPanels);}}
 </script>
+<style>
+/* ---------- S15.11: the cowbell over the awaited chair, the chair's shake, the grumble ---------- */
+.cowbell{position:absolute;z-index:12;width:var(--cw);rotate:-16deg;transform-origin:50% 14%;pointer-events:none;filter:drop-shadow(0 8px 8px rgba(0,0,0,.55))}
+.cowbell svg{display:block;width:100%;height:auto}
+.cowbell .ring{position:absolute;top:30%;width:12%;height:34%;border:2.5px solid var(--accent-stage);border-radius:50%}
+.cowbell .ring.l{left:-22%;border-right:0}
+.cowbell .ring.r{right:-22%;border-left:0}
+.seat.shaken .chair{translate:5px 0;rotate:1.6deg}
+.seat.shaken::before,.seat.shaken::after{content:"";position:absolute;z-index:6;top:36%;width:7px;height:26%;border:2.5px solid rgba(240,214,150,.75);border-radius:50%;pointer-events:none}
+.seat.shaken::before{left:-12px;border-right:0}
+.seat.shaken::after{right:-12px;border-left:0}
+.bubble.grumble{z-index:13;font-size:17px}
+@media (prefers-reduced-motion:no-preference){
+  .cowbell.mo{animation:cowbell-in 1.6s ease-in-out .1s both}
+  @keyframes cowbell-in{0%{translate:0 -60px;rotate:-30deg;opacity:0}14%{translate:0 0;rotate:-16deg;opacity:1}32%{rotate:15deg}50%{rotate:-11deg}68%{rotate:7deg}84%{rotate:-3deg;opacity:1}100%{rotate:0deg;opacity:0}}
+  .seat.shaken .chair.mo{animation:chair-shake .6s linear .5s both}
+  @keyframes chair-shake{0%,100%{translate:0 0;rotate:0deg}15%{translate:5px 0;rotate:1.6deg}35%{translate:-5px 0;rotate:-1.6deg}55%{translate:4px 0;rotate:1.2deg}75%{translate:-3px 0;rotate:-.8deg}}
+}
+</style>
 </body>
 </html>
