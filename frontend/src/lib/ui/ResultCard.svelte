@@ -1,7 +1,10 @@
 <script lang="ts">
     import type { Attachment } from "svelte/attachments";
 
+    import { MOTION_SETS } from "#lib/motionSets.ts";
     import type { ResultView } from "#lib/result.ts";
+    import { motionInForce } from "#lib/settings.svelte.ts";
+    import Confetti from "#lib/ui/Confetti.svelte";
     import PointsBar from "#lib/ui/PointsBar.svelte";
     import { words } from "#lib/words.ts";
 
@@ -9,6 +12,10 @@
 
     // A card that counts is one that appeared while the page watched; each won gain on it counts up to its value.
     let { view, counts = false }: { view: ResultView; counts?: boolean } = $props();
+
+    // A won result that appeared while the page watched throws the confetti of the motion set in force, if it has any.
+    const motion = $derived(motionInForce());
+    const pieces = $derived(counts && view.good && motion !== undefined ? MOTION_SETS[motion].confettiPieces : 0);
 
     // The stylesheet's count reads its target from the element, set as a property so no style attribute carries it.
     function countTo(gain: number): Attachment<HTMLElement> {
@@ -24,7 +31,7 @@
     </span>
 {/snippet}
 
-<div class="result" class:lost={!view.good} class:snug={view.snug} role="status">
+<div class="result" class:fresh={counts} class:lost={!view.good} class:snug={view.snug} role="status">
     <h3>
         <svg
             viewBox="0 0 24 24"
@@ -141,3 +148,6 @@
         {/each}
     </div>
 </div>
+{#if pieces > 0}
+    <Confetti count={pieces} />
+{/if}

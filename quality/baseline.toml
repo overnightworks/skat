@@ -102,9 +102,6 @@ played_out_table = [["tests/e2e/test_table_result_count.py", "deal_a_finished_ha
 [clones."tests/e2e/test_table_card_lands.py"]
 deal_a_playing_table = [["tests/e2e/test_table_coasters.py", "play_a_table"]]
 
-[clones."tests/e2e/test_table_card_sound.py"]
-table = [["tests/e2e/test_table_sound_settings.py", "table"]]
-
 [clones."tests/e2e/test_table_cards.py"]
 watch = [["tests/e2e/test_table_deal_marks.py", "watch"], ["tests/e2e/test_table_watch.py", "watch"]]
 

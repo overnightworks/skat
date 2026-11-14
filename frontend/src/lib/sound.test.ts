@@ -10,8 +10,11 @@ class FakePort implements AudioPort {
     loudness: number[] = [];
     played: { voice: Voice; afterSeconds: number }[] = [];
 
-    ready(): boolean {
-        return this.readyNow;
+    // A hidden window is ready only for a sound that was asked for there.
+    hiddenWindow = false;
+
+    ready(whenHidden: boolean): boolean {
+        return this.readyNow && (whenHidden || !this.hiddenWindow);
     }
 
     resume(): Promise<void> {
@@ -45,6 +48,17 @@ function soundOver(port: FakePort, settings: SoundSettings = DEFAULT_SOUND_SETTI
 }
 
 describe("play", () => {
+    it("starts nothing in a hidden window unless the sound was asked for there", () => {
+        const port = new FakePort();
+        port.hiddenWindow = true;
+
+        soundOver(port).play([CLICK]);
+        expect(port.played).toEqual([]);
+
+        soundOver(port).play([CLICK], { whenHidden: true });
+        expect(port.played.map(({ voice }) => voice)).toEqual([CLICK]);
+    });
+
     it("starts every voice of the list", () => {
         const port = new FakePort();
 

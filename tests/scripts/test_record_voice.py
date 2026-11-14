@@ -2,6 +2,7 @@
 
 import http.client
 import json
+import math
 from typing import TYPE_CHECKING
 
 import pytest
@@ -141,3 +142,46 @@ def test_a_run_without_its_settings_records_nothing(capsys: pytest.CaptureFixtur
         record_voice.main([], {})
 
     assert capsys.readouterr().out == ""
+
+
+def sine(amplitude: float, hertz: float, seconds: float = 0.5) -> list[float]:
+    rate = record_voice.SAMPLE_RATE
+    return [amplitude * math.sin(2 * math.pi * hertz * index / rate) for index in range(round(seconds * rate))]
+
+
+def test_a_tone_in_the_speaker_s_range_measures_its_mean_power() -> None:
+    amplitude = 0.1
+
+    measured = record_voice.loudness_decibels(sine(amplitude, 1000))
+
+    assert measured == pytest.approx(20 * math.log10(amplitude / math.sqrt(2)), abs=0.1)
+
+
+def test_a_tone_below_the_speaker_s_cutoff_measures_far_quieter() -> None:
+    assert record_voice.loudness_decibels(sine(0.1, 50)) < record_voice.loudness_decibels(sine(0.1, 1000)) - 20
+
+
+def test_a_word_is_measured_by_its_loudest_window_not_by_its_silence() -> None:
+    silence = [0.0] * record_voice.SAMPLE_RATE
+
+    assert record_voice.loudness_decibels([*silence, *sine(0.1, 1000), *silence]) == pytest.approx(
+        record_voice.loudness_decibels(sine(0.1, 1000)), abs=0.5
+    )
+
+
+def test_a_level_run_gives_each_recording_the_gain_that_brings_it_to_the_target(tmp_path: Path) -> None:
+    lines = lines_of("de")[:2]
+    for line in lines:
+        line.path_in(tmp_path).parent.mkdir(parents=True, exist_ok=True)
+        line.path_in(tmp_path).write_bytes(line.text.encode())
+    gains: list[bytes] = []
+
+    def level(recording: bytes) -> bytes:
+        gains.append(recording)
+        return b"levelled:" + recording
+
+    made = record_voice.level_recordings(lines, tmp_path, level_recording=level)
+
+    assert made == len(lines)
+    assert gains == [line.text.encode() for line in lines]
+    assert lines[0].path_in(tmp_path).read_bytes() == b"levelled:" + lines[0].text.encode()

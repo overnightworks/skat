@@ -1,18 +1,23 @@
 # ruff: noqa: T201 - this script's job is to report each recording it makes
 """Record the voice: one recording per voice catalog key and language, shipped under frontend/src/lib/voice.
 
-The fleet's speech service speaks each text in Qwen3-TTS's `ryan`; ffmpeg trims the silence around it, levels it and
-writes a compact MP3, the format every browser's Web Audio decodes. The table never calls the service at play time.
+The fleet's speech service speaks each text in Qwen3-TTS's `ryan`; ffmpeg trims the silence around it, this script
+brings it to the loudness in `level.json` (the loudness the sound sets are held to, measured as a phone's speaker plays
+it) and ffmpeg writes a compact MP3, the format every browser's Web Audio decodes. The table never calls the service
+at play time.
 Run a local speech service (its README says how) and give this script its address and the two tokens it asks for:
 
     SPEECH_URL=http://127.0.0.1:8080 SPEECH_WORKLOAD_TOKEN=... SPEECH_PERSON_TOKEN=... make voice
 
-A recording that exists is kept; `--again` records every key anew.
+A recording that exists is kept; `--again` records every key anew; `--level` brings the recordings that exist to the
+target again, which needs no speech service and re-encodes each file once.
 """
 
 import argparse
+import array
 import http.client
 import json
+import math
 import os
 import subprocess
 import sys
@@ -33,6 +38,7 @@ if TYPE_CHECKING:
 
 VOICE_KEY_PREFIX: Final = "voice."
 RECORDINGS_DIRECTORY: Final = REPOSITORY / "frontend" / "src" / "lib" / "voice"
+LEVEL_FILE: Final = RECORDINGS_DIRECTORY / "level.json"
 RECORDING_SUFFIX: Final = ".mp3"
 SPEECH_PATH: Final = "/v1/audio/speech"
 SPEECH_MODEL: Final = "qwen3-tts-1.7b"
@@ -42,12 +48,17 @@ SPEECH_TIMEOUT_SECONDS: Final = 60
 SERVICE_VARIABLE: Final = "SPEECH_URL"
 WORKLOAD_TOKEN_VARIABLE: Final = "SPEECH_WORKLOAD_TOKEN"  # noqa: S105 - the name of an environment variable and no secret
 PERSON_TOKEN_VARIABLE: Final = "SPEECH_PERSON_TOKEN"  # noqa: S105 - the name of an environment variable and no secret
-# Trims the silence on both ends (the second pair works on the reversed audio), then levels the recording.
-FILTER: Final = (
+# Trims the silence on both ends; the second pair works on the reversed audio.
+TRIM_FILTER: Final = (
     "silenceremove=start_periods=1:start_threshold=-50dB,areverse,"
-    "silenceremove=start_periods=1:start_threshold=-50dB,areverse,"
-    "loudnorm=I=-20:TP=-2:LRA=7"
+    "silenceremove=start_periods=1:start_threshold=-50dB,areverse"
 )
+# The loudness of a recording is measured as the sound sets' loudness test measures a set: the mean power of the loudest
+# 200 ms after a second-order Butterworth high-pass at the cutoff below which a phone's speaker plays nothing.
+SAMPLE_RATE: Final = 48_000
+LEVEL_WINDOW_SECONDS: Final = 0.2
+SPEAKER_CUTOFF_HERTZ: Final = 200
+SILENCE_POWER: Final = 1e-12
 MP3_BITS_PER_SECOND: Final = 48_000
 ENCODER_ARGUMENTS: Final = ("-ac", "1", "-ar", "44100", "-codec:a", "libmp3lame", "-b:a", f"{MP3_BITS_PER_SECOND}")
 # The model now and then runs on past its text for seconds; a spoken line is about 0.1 s a letter after the silence is
@@ -111,15 +122,61 @@ def speak(service: Service, line: SpokenLine) -> bytes:
         return response.read()
 
 
-def encode(wav: bytes) -> bytes:
-    """The WAV trimmed, levelled and written as a compact MP3."""
+def ffmpeg(audio: bytes, *arguments: str) -> bytes:
+    """What ffmpeg writes for the audio given on its input."""
     done = subprocess.run(  # noqa: S603 - fixed arguments and the audio goes through the pipe
-        ["ffmpeg", "-v", "error", "-i", "pipe:0", "-af", FILTER, *ENCODER_ARGUMENTS, "-f", "mp3", "pipe:1"],  # noqa: S607 - ffmpeg is looked up on the operator's path
-        input=wav,
+        ["ffmpeg", "-v", "error", "-i", "pipe:0", *arguments, "pipe:1"],  # noqa: S607 - ffmpeg is looked up on the operator's path
+        input=audio,
         capture_output=True,
         check=True,
     )
     return done.stdout
+
+
+def target_decibels() -> float:
+    """The loudness the voice is brought to, which the sound sets' loudness test holds the sets to."""
+    return float(json.loads(LEVEL_FILE.read_text())["decibels"])
+
+
+def loudness_decibels(samples: Sequence[float]) -> float:
+    """The mean power in decibels of the loudest 200 ms, as a phone's speaker plays it."""
+    omega = 2 * math.pi * SPEAKER_CUTOFF_HERTZ / SAMPLE_RATE
+    alpha = math.sin(omega) / math.sqrt(2)
+    scale = 1 + alpha
+    forward = (1 + math.cos(omega)) / 2 / scale
+    back_one = -2 * math.cos(omega) / scale
+    back_two = (1 - alpha) / scale
+    window = round(LEVEL_WINDOW_SECONDS * SAMPLE_RATE)
+    previous_in = older_in = previous_out = older_out = 0.0
+    powers: list[float] = []
+    for sample in samples:
+        out = forward * (sample - 2 * previous_in + older_in) - back_one * previous_out - back_two * older_out
+        older_in, previous_in, older_out, previous_out = previous_in, sample, previous_out, out
+        powers.append(out * out)
+    energy = loudest = 0.0
+    for index, power in enumerate(powers):
+        energy += power - (powers[index - window] if index >= window else 0.0)
+        loudest = max(loudest, energy / window)
+    return 10 * math.log10(max(loudest, SILENCE_POWER))
+
+
+def decoded(audio: bytes) -> list[float]:
+    """The samples of a recording at the rate the measure uses, as one channel."""
+    raw = ffmpeg(audio, "-f", "f32le", "-ac", "1", "-ar", str(SAMPLE_RATE))
+    samples = array.array("f")
+    samples.frombytes(raw)
+    return list(samples)
+
+
+def leveled(audio: bytes) -> bytes:
+    """The recording written as a compact MP3 at the gain that brings its loudness to the target."""
+    gain = target_decibels() - loudness_decibels(decoded(audio))
+    return ffmpeg(audio, "-af", f"volume={gain:.2f}dB", *ENCODER_ARGUMENTS, "-f", "mp3")
+
+
+def encode(wav: bytes) -> bytes:
+    """The WAV trimmed, levelled and written as a compact MP3."""
+    return leveled(ffmpeg(wav, "-af", TRIM_FILTER, "-f", "wav"))
 
 
 def seconds_of(recording: bytes) -> float:
@@ -165,6 +222,21 @@ def record(
     return made
 
 
+def level_recordings(
+    lines: Sequence[SpokenLine], directory: Path, *, level_recording: Callable[[bytes], bytes] = leveled
+) -> int:
+    """Brings each line's recording that exists to the target loudness and returns how many it changed."""
+    changed = 0
+    for line in lines:
+        path = line.path_in(directory)
+        if not path.exists():
+            continue
+        path.write_bytes(level_recording(path.read_bytes()))
+        changed += 1
+        print(f"{line.language} {line.key}: levelled")
+    return changed
+
+
 def service_from(environment: dict[str, str]) -> Service:
     missing = [
         name for name in (SERVICE_VARIABLE, WORKLOAD_TOKEN_VARIABLE, PERSON_TOKEN_VARIABLE) if not environment.get(name)
@@ -179,7 +251,11 @@ def service_from(environment: dict[str, str]) -> Service:
 def main(arguments: Sequence[str], environment: dict[str, str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--again", action="store_true", help="record every key anew, not only the missing ones")
+    parser.add_argument("--level", action="store_true", help="bring the recordings that exist to the target loudness")
     parsed = parser.parse_args(arguments)
+    if parsed.level:
+        print(f"{level_recordings(spoken_lines(), RECORDINGS_DIRECTORY)} recordings levelled")
+        return 0
     service = service_from(environment)
     made = record(
         spoken_lines(), RECORDINGS_DIRECTORY, again=parsed.again, speak_line=lambda line: speak(service, line)

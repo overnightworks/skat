@@ -6,7 +6,7 @@ from webauth.admission import AppRole
 from webauth.ports import AccountKind
 
 from skat.web.words import SOURCE_LANGUAGE
-from tests.e2e.support.audio import RECORDING_AUDIO_SCRIPT
+from tests.e2e.support.audio import RECORDING_AUDIO_SCRIPT, playing_table
 from tests.e2e.support.browser_coverage import BrowserCoverage
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.failure_record import FailureRecord
@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
     from playwright.sync_api import BrowserContext, Page, Request
+
+    from tests.e2e.support.hands import PlayingTable
 
 PAGE_NAVIGATED_AWAY = "net::ERR_ABORTED"
 
@@ -208,3 +210,14 @@ def deal_a_declaring_table(
         return DeclaringTable(open_person, e2e_server, member_of, page_errors, form_factor, console=console)
 
     return deal
+
+
+@pytest.fixture
+def table(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> PlayingTable:
+    """Three people at a table in the play of a Kreuz game, a watcher beside them."""
+    return playing_table(open_person, e2e_server, member_of, page_errors)

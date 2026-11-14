@@ -23,16 +23,37 @@ interface Graph {
 
 /** Above this level the limiter takes over; the sets play below it, so it acts on voices that land on top of each other. */
 export const LIMITER_THRESHOLD_DECIBELS = -1;
+/** Nothing leaves the graph above this level; sounds that start together can pass the limiter's attack by a little. */
+export const CEILING_DECIBELS = -0.5;
+const CEILING_STEPS = 4097;
 const LIMITER_KNEE_DECIBELS = 0;
 const LIMITER_RATIO = 20;
 const LIMITER_ATTACK_SECONDS = 0.001;
 const LIMITER_RELEASE_SECONDS = 0.1;
 const NOISE_SECONDS = 1.5;
-const TONE_ATTACK_SECONDS = 0.004;
-const NOISE_ATTACK_SECONDS = 0.003;
-const TAIL_SECONDS = 0.05;
-const ENVELOPE_FLOOR = 0.0001;
-const GAIN_FLOOR = 0.0002;
+/** The envelope of a voice: a quick rise, an exponential fall, a tail before the source stops. The sets' loudness test renders by them. */
+export const TONE_ATTACK_SECONDS = 0.004;
+export const NOISE_ATTACK_SECONDS = 0.003;
+export const TAIL_SECONDS = 0.05;
+export const ENVELOPE_FLOOR = 0.0001;
+export const GAIN_FLOOR = 0.0002;
+
+const decibelsToGain = (decibels: number): number => 10 ** (decibels / 20);
+
+/**
+ * What the ceiling does to a sample between -1 and 1: it leaves what lies under the limiter's threshold alone and bends
+ * what lies above it towards the ceiling, smoothly, so it never passes it. The shaper holds the curve's end for any
+ * sample beyond it.
+ */
+export function ceilingCurve(): Float32Array<ArrayBuffer> {
+    const knee = decibelsToGain(LIMITER_THRESHOLD_DECIBELS);
+    const ceiling = decibelsToGain(CEILING_DECIBELS);
+    return Float32Array.from({ length: CEILING_STEPS }, (_, index) => {
+        const input = (2 * index) / (CEILING_STEPS - 1) - 1;
+        const over = Math.abs(input) - knee;
+        return over <= 0 ? input : Math.sign(input) * (knee + (ceiling - knee) * Math.tanh(over / (ceiling - knee)));
+    });
+}
 
 /** Web Audio behind the port. The context is made inside the player's first gesture, since the browser keeps a context made earlier suspended. */
 export function createWebAudioPort(environment: AudioEnvironment): AudioPort {
@@ -64,13 +85,18 @@ export function createWebAudioPort(environment: AudioEnvironment): AudioPort {
         limiter.ratio.value = LIMITER_RATIO;
         limiter.attack.value = LIMITER_ATTACK_SECONDS;
         limiter.release.value = LIMITER_RELEASE_SECONDS;
+        const ceiling = context.createWaveShaper();
+        ceiling.curve = ceilingCurve();
+        // Oversampling would filter the shaped signal and let it overshoot the curve's end; sample by sample, nothing passes it.
+        ceiling.oversample = "none";
         master.connect(limiter);
-        limiter.connect(context.destination);
+        limiter.connect(ceiling);
+        ceiling.connect(context.destination);
         return { context, master, noise: noiseBuffer(context) };
     }
 
     return {
-        ready: () => graph?.context.state === "running" && !environment.document.hidden,
+        ready: (whenHidden) => graph?.context.state === "running" && (whenHidden || !environment.document.hidden),
         async resume() {
             try {
                 graph ??= build();

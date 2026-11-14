@@ -116,6 +116,22 @@
             picked: settings.lastTrick,
             greyed: false,
         },
+        {
+            kind: "switch",
+            label: words["sound.turnInBackground"],
+            on: settings.turnInBackground,
+            change: (on: boolean) => {
+                changeSetting("turnInBackground", on);
+            },
+        },
+        {
+            kind: "switch",
+            label: words["sound.vibration"],
+            on: settings.vibration,
+            change: (on: boolean) => {
+                changeSetting("vibration", on);
+            },
+        },
     ]);
     const name = $derived(muted ? words["sound.muted"] : words["sound.panelName"]);
     const word = $derived(muted ? words["sound.muted"] : words["sound.on"]);

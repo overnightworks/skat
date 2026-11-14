@@ -17,6 +17,10 @@ export interface Settings extends SoundSettings {
     readonly voice: boolean;
     /** Whether a finished trick is swept to its taker's pile or stays on the felt until the next lead. */
     readonly lastTrick: LastTrickMode;
+    /** Sounds „Du bist dran“ while the window is hidden. */
+    readonly turnInBackground: boolean;
+    /** Vibrates on „Du bist dran“, on a device that can. */
+    readonly vibration: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -26,6 +30,8 @@ const DEFAULT_SETTINGS: Settings = {
     replayMotion: false,
     voice: false,
     lastTrick: DEFAULT_LAST_TRICK_MODE,
+    turnInBackground: false,
+    vibration: false,
 };
 
 const VOLUME_STEPS = 100;
@@ -40,6 +46,8 @@ const CHECKS: { readonly [Field in keyof Settings]: (value: unknown) => value is
     replayMotion: (value): value is boolean => typeof value === "boolean",
     voice: (value): value is boolean => typeof value === "boolean",
     lastTrick: (value): value is LastTrickMode => LAST_TRICK_MODES.includes(value as LastTrickMode),
+    turnInBackground: (value): value is boolean => typeof value === "boolean",
+    vibration: (value): value is boolean => typeof value === "boolean",
 };
 
 const FIELDS = Object.keys(CHECKS) as (keyof Settings)[];

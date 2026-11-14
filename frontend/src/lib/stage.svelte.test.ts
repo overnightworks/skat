@@ -18,6 +18,11 @@ const TRICK: LastTrick = {
 const TAKEN: Cue = { kind: "trick-taken", trick: TRICK };
 const CARD_PLAYED: Cue = { kind: "card-played", seat: TAKER_SEAT, card: { suit: "kreuz", rank: "ace" } };
 const AUCTION_ENDED: Cue = { kind: "auction-ended" };
+const TURN: Cue = { kind: "turn-came" };
+const DEALT: Cue = { kind: "dealt" };
+// The leise set's turn is two voices; its sweep is one.
+const TURN_VOICES = 2;
+const SWEEP_VOICES = 1;
 const PLAYING = { turn_seat: TAKER_SEAT } as Playing;
 const TABLE_IN_PLAY = { hand: { playing: PLAYING } } as unknown as Table;
 const TABLE_BETWEEN_HANDS = { hand: null } as unknown as Table;
@@ -26,12 +31,16 @@ const GLIDE_MILLISECONDS = (MOTION_SETS.verspielt.trickGatherSeconds + MOTION_SE
 
 // The stage is module state, so each test reads a module of its own, on a page whose player stored `stored`.
 // `sweeps` counts the voices the page's sound started for sweeps since the first tap woke it; a page not yet tapped sounds nothing.
-async function stageOnAPage(stored: Record<string, unknown>, options: { hidden?: boolean; tapped?: boolean } = {}) {
+async function stageOnAPage(
+    stored: Record<string, unknown>,
+    options: { hidden?: boolean; tapped?: boolean; vibrate?: (pattern: readonly number[]) => void } = {},
+) {
     vi.resetModules();
     const { started, listeners } = stubBrowser({
         reducedMotion: true,
         stored: JSON.stringify(stored),
         hidden: options.hidden,
+        vibrate: options.vibrate,
     });
     const { loadSettings } = await import("#lib/settings.svelte.ts");
     loadSettings();
@@ -189,5 +198,104 @@ describe("the look at a pile's last trick", () => {
         stage.lookAtLastTrick(LOOKED_AT_SEAT);
         stage.receiveOnStage(undefined, []);
         expect(stage.lookingAt()).toBeNull();
+    });
+});
+
+describe("the viewer's turn on the page's stage", () => {
+    it("sounds once, at once, when no trick is on the move", async () => {
+        const { stage, sweeps } = await stageOnAPage(MOVING);
+
+        stage.receiveOnStage(TABLE_IN_PLAY, [TURN]);
+        vi.advanceTimersByTime(REST_MILLISECONDS + GLIDE_MILLISECONDS);
+
+        expect(sweeps()).toBe(TURN_VOICES);
+    });
+
+    it("sounds after the swept trick has settled, and not while it moves", async () => {
+        const { stage, sweeps } = await stageOnAPage(MOVING);
+
+        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN, TURN]);
+        vi.advanceTimersByTime(REST_MILLISECONDS);
+        expect(sweeps()).toBe(SWEEP_VOICES);
+
+        vi.advanceTimersByTime(GLIDE_MILLISECONDS);
+
+        expect(sweeps()).toBe(SWEEP_VOICES + TURN_VOICES);
+    });
+
+    it("sounds in a hidden window only when the player asked for it there", async () => {
+        const quiet = await stageOnAPage(MOVING, { hidden: true });
+        const asked = await stageOnAPage({ ...MOVING, turnInBackground: true }, { hidden: true });
+
+        quiet.stage.receiveOnStage(TABLE_IN_PLAY, [TURN]);
+        asked.stage.receiveOnStage(TABLE_IN_PLAY, [TURN]);
+
+        expect(quiet.sweeps()).toBe(0);
+        expect(asked.sweeps()).toBe(TURN_VOICES);
+    });
+
+    it("vibrates once when the player switched vibration on and the device can, and stays quiet otherwise", async () => {
+        const buzz = vi.fn();
+        const capable = await stageOnAPage({ ...MOVING, vibration: true }, { vibrate: buzz });
+        capable.stage.receiveOnStage(TABLE_IN_PLAY, [TURN]);
+        const incapable = await stageOnAPage({ ...MOVING, vibration: true });
+
+        expect(() => {
+            incapable.stage.receiveOnStage(TABLE_IN_PLAY, [TURN]);
+        }).not.toThrow();
+        expect(buzz).toHaveBeenCalledExactlyOnceWith([40]);
+    });
+
+    it("sounds nothing for the first table of a page", async () => {
+        const { stage, sweeps } = await stageOnAPage(MOVING);
+        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN, TURN]);
+
+        stage.receiveOnStage(undefined, []);
+        vi.advanceTimersByTime(REST_MILLISECONDS + GLIDE_MILLISECONDS);
+
+        expect(sweeps()).toBe(0);
+    });
+});
+
+describe("the deal on the page's stage", () => {
+    const DEAL_MILLISECONDS = 2000;
+
+    it("is on for a new deal and over after the cards have flown in", async () => {
+        const { stage } = await stageOnAPage(MOVING);
+        expect(stage.isDealing()).toBe(false);
+
+        stage.receiveOnStage(TABLE_BETWEEN_HANDS, [DEALT]);
+        expect(stage.isDealing()).toBe(true);
+
+        vi.advanceTimersByTime(DEAL_MILLISECONDS);
+        expect(stage.isDealing()).toBe(false);
+    });
+
+    it("starts over with a deal that follows another", async () => {
+        const { stage } = await stageOnAPage(MOVING);
+        stage.receiveOnStage(TABLE_BETWEEN_HANDS, [DEALT]);
+        vi.advanceTimersByTime(DEAL_MILLISECONDS - 1);
+
+        stage.receiveOnStage(TABLE_BETWEEN_HANDS, [DEALT]);
+        vi.advanceTimersByTime(DEAL_MILLISECONDS - 1);
+
+        expect(stage.isDealing()).toBe(true);
+    });
+
+    it("is not on for the first table of a page, as after a reload or a reconnect", async () => {
+        const { stage } = await stageOnAPage(MOVING);
+        stage.receiveOnStage(TABLE_BETWEEN_HANDS, [DEALT]);
+
+        stage.receiveOnStage(undefined, []);
+
+        expect(stage.isDealing()).toBe(false);
+    });
+
+    it("is not on for news that deals nothing", async () => {
+        const { stage } = await stageOnAPage(MOVING);
+
+        stage.receiveOnStage(TABLE_IN_PLAY, [AUCTION_ENDED]);
+
+        expect(stage.isDealing()).toBe(false);
     });
 });

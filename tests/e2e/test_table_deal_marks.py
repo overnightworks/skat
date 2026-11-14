@@ -331,3 +331,21 @@ def test_the_deal_animates_and_holds_still_for_reduced_motion(
 
     assert set(moving_person.evaluate(DEAL_ANIMATIONS)) == {"deal"}
     assert set(still_person.evaluate(DEAL_ANIMATIONS)) == {"none"}
+
+
+def test_a_reload_shows_the_dealt_cards_still(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]
+) -> None:
+    players = table_with_two_seated(open_person, e2e_server, page_errors, DESKTOP)
+    moving_person = record_page_errors(
+        open_person(username="frida", reduced_motion="no-preference", **DESKTOP), page_errors
+    )
+    watch(moving_person, e2e_server, players.path)
+    deal_the_hand(players)
+    wait_for_the_hand(moving_person)
+    assert set(moving_person.evaluate(DEAL_ANIMATIONS)) == {"deal"}
+
+    moving_person.reload()
+    wait_for_the_hand(moving_person)
+
+    assert set(moving_person.evaluate(DEAL_ANIMATIONS)) == {"none"}
