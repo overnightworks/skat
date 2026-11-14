@@ -8,6 +8,7 @@ from webauth.ports import AccountKind
 from skat.web.words import SOURCE_LANGUAGE
 from tests.e2e.support.audio import RECORDING_AUDIO_SCRIPT, playing_table
 from tests.e2e.support.browser_coverage import BrowserCoverage
+from tests.e2e.support.deal_pause import HeldDealPause
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.failure_record import FailureRecord
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
@@ -30,10 +31,25 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 
 @pytest.fixture(scope="session")
-def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
+def deal_pause_scheduler() -> HeldDealPause:
+    return HeldDealPause()
+
+
+@pytest.fixture(scope="session")
+def e2e_server(
+    tmp_path_factory: pytest.TempPathFactory, deal_pause_scheduler: HeldDealPause
+) -> Iterator[RunningServer]:
     """Skat on a free loopback port over a database of its own, its issuer a fake."""
-    with skat_on_new_database(tmp_path_factory) as server:
+    with skat_on_new_database(tmp_path_factory, chair_scheduler=deal_pause_scheduler) as server:
         yield server
+
+
+@pytest.fixture
+def held_deal_pause(deal_pause_scheduler: HeldDealPause) -> Iterator[HeldDealPause]:
+    """The pause before a table's next deal stays pending until the test releases it, or until the test ends."""
+    deal_pause_scheduler.hold()
+    yield deal_pause_scheduler
+    deal_pause_scheduler.release()
 
 
 @pytest.fixture(scope="session")

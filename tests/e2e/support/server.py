@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from _typeshed import SupportsLenAndGetItem
     from sqlalchemy import Engine
 
+    from skat.web.presence import Scheduler
     from tests.support.sign_in_settings import SignInSettings
 
 LOOPBACK_HOST = "127.0.0.1"
@@ -156,6 +157,7 @@ class RunningServer:
         heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
         unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
         chair_clock: Callable[[], float] = time.monotonic,
+        chair_scheduler: Scheduler | None = None,
     ) -> None:
         self.host = loopback.host
         self.base_url = f"https://{loopback.host}:{loopback.port}"
@@ -168,6 +170,7 @@ class RunningServer:
         self._heartbeat_seconds = heartbeat_seconds
         self._unplayed_sweep_seconds = unplayed_sweep_seconds
         self._chair_clock = chair_clock
+        self._chair_scheduler = chair_scheduler
         self._tls_files = write_self_signed_certificate(tls_directory)
 
     def start(self) -> None:
@@ -182,6 +185,7 @@ class RunningServer:
             heartbeat_seconds=self._heartbeat_seconds,
             unplayed_sweep_seconds=self._unplayed_sweep_seconds,
             chair_clock=self._chair_clock,
+            chair_scheduler=self._chair_scheduler,
         )
         self.config = installed_web_auth_config(app)
         key_file, certificate_file = self._tls_files
@@ -235,6 +239,7 @@ def running_skat(
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
+    chair_scheduler: Scheduler | None = None,
 ) -> Iterator[RunningServer]:
     """Serve Skat over https on `loopback`.
 
@@ -242,7 +247,8 @@ def running_skat(
     source the table service deals and draws the dealer from; `heartbeat_seconds` is the stream's idle tick;
     `unplayed_sweep_seconds` is how often the server looks for dealt tables nobody has played at for the days;
     `chair_clock` is the clock of the chair holds and of the waits at the table, which a test that lets a minute pass
-    moves itself.
+    moves itself; `chair_scheduler` runs their timers and the pause before a next deal, which a test that checks a
+    passed-in hand holds back, and is the event loop's timers when None.
     """
     server = RunningServer(
         loopback,
@@ -253,6 +259,7 @@ def running_skat(
         heartbeat_seconds=heartbeat_seconds,
         unplayed_sweep_seconds=unplayed_sweep_seconds,
         chair_clock=chair_clock,
+        chair_scheduler=chair_scheduler,
     )
     server.start()
     try:
@@ -267,6 +274,7 @@ def skat_on_new_database(
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
+    chair_scheduler: Scheduler | None = None,
     **settings_changes: float,
 ) -> AbstractContextManager[RunningServer]:
     """`skat_in_directory` over a directory of the session's temporary directories, for a fixture of a wider scope."""
@@ -276,6 +284,7 @@ def skat_on_new_database(
         heartbeat_seconds,
         unplayed_sweep_seconds,
         chair_clock,
+        chair_scheduler,
         **settings_changes,
     )
 
@@ -287,14 +296,15 @@ def skat_in_directory(
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
+    chair_scheduler: Scheduler | None = None,
     **settings_changes: float,
 ) -> Iterator[RunningServer]:
     """Skat on a free loopback port over a database of its own, its issuer a fake.
 
     `settings_changes` replace server settings, as a test that needs a short chair hold does; `random_source`
     replaces the source Skat deals from; `heartbeat_seconds` is the streams' idle tick, which a test that proves a
-    wake sets so long that no heartbeat can stand in for it; `unplayed_sweep_seconds` and `chair_clock` are as in
-    `running_skat`.
+    wake sets so long that no heartbeat can stand in for it; `unplayed_sweep_seconds`, `chair_clock` and
+    `chair_scheduler` are as in `running_skat`.
     """
     sign_in_directory = directory / "sign-in"
     tls_directory = directory / "tls"
@@ -314,6 +324,7 @@ def skat_in_directory(
                 heartbeat_seconds=heartbeat_seconds,
                 unplayed_sweep_seconds=unplayed_sweep_seconds,
                 chair_clock=chair_clock,
+                chair_scheduler=chair_scheduler,
             ) as server:
                 yield server
         finally:
