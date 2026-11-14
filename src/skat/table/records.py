@@ -249,13 +249,15 @@ class GiveUpAsked:
     no to the declarer's give-up.
 
     The declarer's shortening has a `claim`, the level he demands, and the opponent who said yes so far in `agreed_by`;
-    it needs both yeses and ends with the first no. A give-up has no claim.
+    it needs both yeses and ends with the first no. A give-up has no claim. An opponent's open play that the check found
+    wrong is asked of the declarer alone as `open_play`.
     """
 
     asker: Position
     declined_by: Position | None = None
     claim: Announcement | None = None
     agreed_by: Position | None = None
+    open_play: bool = False
 
 
 type PushingStep = Take | Put | Push | DeclareGrandHand
@@ -297,7 +299,9 @@ class HandProgress:
     A chair left in the hand names its leaver in `former_holders` until someone sits in it or the hand ends.
 
     `shortening_refused_by` is the opponent whose no to the declarer's shortening left his cards open for the rest of
-    the hand; a card keeps it and the end of the hand or a deal clears it.
+    the hand; a card keeps it and the end of the hand or a deal clears it. `played_open` is the opponents whose wrong
+    open play the declarer answered with a demand to play on: their cards stay open for the rest of the hand the same
+    way.
 
     `aborted` says the hand ended by a vote to abort it; such a hand keeps no step, and the next deal clears the end.
     """
@@ -307,6 +311,7 @@ class HandProgress:
     plays: tuple[CardPlayed, ...] = ()
     give_up: GiveUpAsked | None = None
     shortening_refused_by: Position | None = None
+    played_open: frozenset[Position] = frozenset()
     words: tuple[WordSaid, ...] = ()
     no_words: frozenset[NoWordSaid] = frozenset()
     pushing: tuple[PushingStep, ...] = ()

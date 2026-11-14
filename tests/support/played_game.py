@@ -155,10 +155,14 @@ def asked_to_shorten(agreed_by: Position | None = None) -> TableRecord:
     return replace(table, progress=replace(table.progress, give_up=asked))
 
 
-def asked_by_an_opponent(opponent: Position = Position.FOREHAND, options: TableOptions | None = None) -> TableRecord:
-    """The declared Herz Hand game where `opponent` gave up and the declarer has not answered."""
+def asked_by_an_opponent(
+    opponent: Position = Position.FOREHAND, options: TableOptions | None = None, *, open_play: bool = False
+) -> TableRecord:
+    """The declared Herz Hand game where `opponent` gave up, or played open wrongly, and the declarer has not
+    answered.
+    """
     table = table_in(declared_herz_hand(), options)
-    return replace(table, progress=replace(table.progress, give_up=GiveUpAsked(opponent)))
+    return replace(table, progress=replace(table.progress, give_up=GiveUpAsked(opponent, open_play=open_play)))
 
 
 def with_agents(record: TableRecord, *seats: int, owner_account: str | None = None) -> TableRecord:

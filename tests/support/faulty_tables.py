@@ -167,3 +167,34 @@ class _WaitingTransaction:
 
     def __getattr__(self, name):
         return getattr(self._inner, name)
+
+
+class HoldsTheRowLock:
+    """Holds each command after its decision is saved, with its row lock and open transaction, until `release` is set.
+
+    `held` is set once the command stands there, so a test reads other tables and waits behind this one's row.
+    """
+
+    def __init__(self, inner):
+        self._inner = inner
+        self.held = threading.Event()
+        self.release = threading.Event()
+
+    @contextmanager
+    def begin(self):
+        with self._inner.begin() as transaction:
+            yield _HoldingTransaction(transaction, self)
+
+
+class _HoldingTransaction:
+    def __init__(self, inner, holder):
+        self._inner = inner
+        self._holder = holder
+
+    def save_table(self, table, *, played_at):
+        self._inner.save_table(table, played_at=played_at)
+        self._holder.held.set()
+        assert self._holder.release.wait(WAIT_DEADLINE_SECONDS), "the held command was never released"
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)

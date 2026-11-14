@@ -136,6 +136,7 @@ _FIXED_TEXTS: Final = {
     ActKind.PUSH: "pushes the skat on unseen",
     ActKind.GIVE_UP: "gives up the game",
     ActKind.SHORTEN: "shortens the game",
+    ActKind.PLAY_OPEN: "plays open",
     ActKind.THROW_DOWN: "throws the cards down",
     ActKind.PASSED_IN: "ends the hand: all passed",
     ActKind.ABORTED: "ends the hand: the seats voted to abort it",

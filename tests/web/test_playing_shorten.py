@@ -19,6 +19,7 @@ from tests.web.support.giving_up import (
     HEAVY_DEAL,
     HEAVY_THREE_TRICKS,
     SEAT,
+    assert_the_request_ended_and_play_goes_on,
     everyones_streams,
     own_cards_of,
     playing_as,
@@ -240,13 +241,9 @@ class TestAnOpponentSaysNo:
 
         answer = says_no(herz_hand, position)
 
-        assert herz_hand.record.version == before.version + 1
-        assert herz_hand.record.hand is not None
-        assert herz_hand.record.game_list == ()
-        assert answer.json()["hand"]["playing"]["shortening"] is None
+        assert_the_request_ended_and_play_goes_on(herz_hand, before, answer, "shortening")
         assert shortenings_read(herz_hand) == [None] * 4
         assert refusals_read(herz_hand) == [SEAT[position]] * 4
-        assert playing_as(herz_hand, herz_hand.at[FOREHAND])["legal_cards"] != []
 
     @NO_AFTER_YES
     def test_the_declarers_cards_are_open_to_every_viewer_and_nothing_else_is(self, herz_hand, no, earlier_yes):

@@ -65,6 +65,7 @@ AUCTION_PASS_TOOL: Final = "auction_pass"  # noqa: S105 - the word for dropping 
 AUCTION_PLAY_TOOL: Final = "auction_play"
 GIVE_UP_GAME_TOOL: Final = "give_up_game"
 SHORTEN_GAME_TOOL: Final = "shorten_game"
+PLAY_OPEN_TOOL: Final = "play_open"
 THROW_DOWN_CARDS_TOOL: Final = "throw_down_cards"
 AGREE_TO_GIVE_UP_TOOL: Final = "agree_to_give_up"
 DECLINE_GIVE_UP_TOOL: Final = "decline_give_up"
@@ -118,6 +119,7 @@ AUCTION_PASS_MARK: Final = agent_tool(name=AUCTION_PASS_TOOL, effect=ToolEffect.
 AUCTION_PLAY_MARK: Final = agent_tool(name=AUCTION_PLAY_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 GIVE_UP_GAME_MARK: Final = agent_tool(name=GIVE_UP_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 SHORTEN_GAME_MARK: Final = agent_tool(name=SHORTEN_GAME_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+PLAY_OPEN_MARK: Final = agent_tool(name=PLAY_OPEN_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 THROW_DOWN_CARDS_MARK: Final = agent_tool(name=THROW_DOWN_CARDS_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 AGREE_TO_GIVE_UP_MARK: Final = agent_tool(name=AGREE_TO_GIVE_UP_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 DECLINE_GIVE_UP_MARK: Final = agent_tool(name=DECLINE_GIVE_UP_TOOL, effect=ToolEffect.SIDE_EFFECTING)
@@ -158,6 +160,7 @@ TABLE_COMMAND_TOOLS: Final = frozenset(
         AUCTION_PLAY_TOOL,
         GIVE_UP_GAME_TOOL,
         SHORTEN_GAME_TOOL,
+        PLAY_OPEN_TOOL,
         THROW_DOWN_CARDS_TOOL,
         AGREE_TO_GIVE_UP_TOOL,
         DECLINE_GIVE_UP_TOOL,
@@ -193,6 +196,7 @@ _PLAY_TOOLS: Final = frozenset(
         SAY_NO_WORD_TOOL,
         GIVE_UP_GAME_TOOL,
         SHORTEN_GAME_TOOL,
+        PLAY_OPEN_TOOL,
         AGREE_TO_GIVE_UP_TOOL,
         DECLINE_GIVE_UP_TOOL,
         THROW_DOWN_CARDS_TOOL,

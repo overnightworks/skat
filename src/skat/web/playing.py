@@ -9,6 +9,7 @@ from skat.table.playing import (
     DeclineGiveUpCommand,
     GiveUpCommand,
     PlayCardCommand,
+    PlayOpenCommand,
     ShortenCommand,
     ThrowDownCommand,
 )
@@ -17,6 +18,7 @@ from skat.web.mcp import (
     DECLINE_GIVE_UP_MARK,
     GIVE_UP_GAME_MARK,
     PLAY_CARD_MARK,
+    PLAY_OPEN_MARK,
     SHORTEN_GAME_MARK,
     THROW_DOWN_CARDS_MARK,
 )
@@ -35,7 +37,11 @@ from skat.web.tables import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from skat.table.records import Actor
     from skat.table.service import TableService
+    from skat.table.views import CommandResult
     from skat.web.presence import Presence
 
 # A card played on a table: `TABLES_PATH/{table_id}` plus this.
@@ -44,6 +50,8 @@ TABLE_CARD_SUFFIX: Final = "/card"
 TABLE_GIVE_UP_SUFFIX: Final = "/give-up"
 # The declarer's shortening on a table: `TABLES_PATH/{table_id}` plus this.
 TABLE_SHORTEN_SUFFIX: Final = "/shorten"
+# An opponent's open play on a table: `TABLES_PATH/{table_id}` plus this.
+TABLE_PLAY_OPEN_SUFFIX: Final = "/play-open"
 # An opponent's yes to the declarer's give-up: `TABLES_PATH/{table_id}` plus this.
 TABLE_GIVE_UP_AGREE_SUFFIX: Final = "/give-up/agree"
 # An opponent's no to the declarer's give-up: `TABLES_PATH/{table_id}` plus this.
@@ -72,6 +80,12 @@ class ShortenRequest(CommandRequest):
     claim: AnnouncementToken = AnnouncementToken.NONE
 
 
+class PlayOpenRequest(CommandRequest):
+    """A client names only the version it saw: its seat comes from the session, so it cannot play open for another."""
+
+    version: Annotated[int, Field(strict=True)]
+
+
 class AgreeToGiveUpRequest(CommandRequest):
     """A client names only the version it saw: its seat comes from the session, so it cannot answer for another."""
 
@@ -95,6 +109,7 @@ def create_playing_router(tables: TableService, presence: Presence) -> APIRouter
     _add_play_card(router, tables, presence)
     _add_give_up(router, tables, presence)
     _add_shorten(router, tables, presence)
+    _add_play_open(router, tables, presence)
     _add_agree_to_give_up(router, tables, presence)
     _add_decline_give_up(router, tables, presence)
     _add_throw_down(router, tables, presence)
@@ -204,6 +219,52 @@ def _add_shorten(router: APIRouter, tables: TableService, presence: Presence) ->
         )
 
 
+async def _actor_command_answer[Command](
+    run: Callable[[Actor, Command, frozenset[str]], CommandResult | None],
+    command: Command,
+    request: Request,
+    presence: Presence,
+    table_id: str,
+    response: Response,
+) -> Response | TableAnswer:
+    """`command_answer` for a command the request's session actor gives."""
+    return await command_answer(partial(run, actor_of(request), command), presence, table_id, response)
+
+
+def _add_play_open(router: APIRouter, tables: TableService, presence: Presence) -> None:
+    @router.post(
+        TABLES_PATH + "/{table_id}" + TABLE_PLAY_OPEN_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=PLAY_OPEN_MARK,
+    )
+    async def play_open(
+        table_id: str, body: PlayOpenRequest, request: Request, response: Response
+    ) -> Response | TableAnswer:
+        """Play open as an opponent: show that the declarer can take no further trick, whatever the two opponents play.
+
+        The engine checks the position from the hidden hands at once. Where the declarer could take no further trick
+        the game ends, the rest goes to the opponents and the list entry says it ended by an open play. Otherwise the
+        open play was wrong: nothing is shown yet, `hand.playing.open_play_seat` names the opponent and the game waits
+        for the declarer, who accepts the end with agree_to_give_up (scored as an opponent's give-up: won as it stands,
+        lost as it stands, or won as declared plus the level the bid forces) or demands play on with decline_give_up.
+        That the declarer is asked at all tells everyone that he could still take a trick. Use it as an opponent once a
+        declared game is played (`hand.declaring.declaration` is set in the answer of read_table or the state of your
+        table's view), on anyone's turn. The table id and the version come from that answer. The command id names this
+        step: the same id with the same version is a retry that changes nothing twice. A refusal (a stale version, the
+        declarer, another request waiting, not seated) comes back as a failed result with its reason, leaves the table
+        as it was and spends the command id: the next attempt takes a new command id.
+        """
+        return await _actor_command_answer(
+            tables.play_open,
+            PlayOpenCommand(command_id=body.command_id, table_id=table_id, version=body.version),
+            request,
+            presence,
+            table_id,
+            response,
+        )
+
+
 def _add_agree_to_give_up(router: APIRouter, tables: TableService, presence: Presence) -> None:
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_GIVE_UP_AGREE_SUFFIX,
@@ -219,14 +280,15 @@ def _add_agree_to_give_up(router: APIRouter, tables: TableService, presence: Pre
 
         When the declarer gave up it is lost for him as declared, or won as it stands if his tricks and the skat already
         win it; one opponent's yes is enough, also after saying no. When the opponents gave up it is won for him as
-        declared plus the level the bid forces, unless the game was already decided. This cannot be undone. Use it while
-        `hand.playing.give_up` or `hand.playing.shortening` is set in the answer of read_table or the state of your
-        table's view. The table id and the version come from that answer. The command id names this step: the same id
-        with the same version is a retry that changes nothing twice. The declarer's shortening needs the yes of both
-        opponents: the first is kept in `hand.playing.shortening`, a second yes of the same opponent is refused as
-        already answered. A refusal (a stale version, nothing asked, the asking side's own chair, not seated) comes back
-        as a failed result with its reason, leaves the table as it was and spends the command id: the next attempt takes
-        a new command id.
+        declared plus the level the bid forces, unless the game was already decided; the declarer's yes to an opponent's
+        wrong open play (`hand.playing.open_play_seat`) ends it the same way. This cannot be undone. Use it while
+        `hand.playing.give_up`, `hand.playing.shortening` or `hand.playing.open_play_seat` is set in the answer of
+        read_table or the state of your table's view. The table id and the version come from that answer. The command id
+        names this step: the same id with the same version is a retry that changes nothing twice. The declarer's
+        shortening needs the yes of both opponents: the first is kept in `hand.playing.shortening`, a second yes of the
+        same opponent is refused as already answered. A refusal (a stale version, nothing asked, the asking side's own
+        chair, not seated) comes back as a failed result with its reason, leaves the table as it was and spends the
+        command id: the next attempt takes a new command id.
         """
         command = AgreeToGiveUpCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(
@@ -253,8 +315,10 @@ def _add_decline_give_up(router: APIRouter, tables: TableService, presence: Pres
 
         Once both opponents said no to the declarer's give-up it ends, and a second no from the same chair changes
         nothing; the declarer's no ends the opponents' give-up at once. One opponent's no ends the declarer's shortening
-        at once and opens the declarer's remaining cards to every viewer. Use it while `hand.playing.give_up` or
-        `hand.playing.shortening` is set in the answer of read_table or the state of your table's view. The table id,
+        at once and opens the declarer's remaining cards to every viewer. The declarer's no to an opponent's wrong open
+        play demands play on and opens that opponent's remaining cards to every viewer (`hand.playing.open_hands`).
+        Use it while `hand.playing.give_up`, `hand.playing.shortening` or `hand.playing.open_play_seat` is set in the
+        answer of read_table or the state of your table's view. The table id,
         the version, the retry and the refusals are as for agree_to_give_up.
         """
         command = DeclineGiveUpCommand(command_id=body.command_id, table_id=table_id, version=body.version)
