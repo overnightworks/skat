@@ -92,6 +92,32 @@ def test_a_declared_game_given_up_in_its_first_trick_shows_its_count_its_cards_a
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_ramsch_sheet_draws_every_dot_round_and_its_tricks_inside_the_panel(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.pass_all()
+    table.play_out()
+    person = table.pages[1]
+
+    open_the_game(person)
+
+    expect(person.locator(f"{GAME_SHEET} .seat-eyes > span .dot")).to_have_count(3)
+    sizes = person.locator(f"{GAME_SHEET} .dot").evaluate_all(
+        "dots => dots.map(dot => { const box = dot.getBoundingClientRect(); return [box.width, box.height]; })"
+    )
+    assert all(abs(width - height) < 1 for width, height in sizes)
+    assert person.locator(f"{GAME_SHEET} .tricks").evaluate(
+        "tricks => tricks.getBoundingClientRect().right <= tricks.closest('.game-list').getBoundingClientRect().right"
+    )
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_game_the_server_kept_no_cards_of_says_so_and_still_counts(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,

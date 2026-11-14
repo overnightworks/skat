@@ -7069,7 +7069,7 @@ body {
     justify-content: center;
 }
 
-.room .game-list .seat-eyes span {
+.room .game-list .seat-eyes > span {
     display: flex;
     gap: 6px;
     align-items: center;
