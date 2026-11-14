@@ -103,6 +103,8 @@ export type SeatedCard = { seat: number; card: Card };
 export type Sides = { declarer: number; opponents: number };
 // The last trick's cards lie in playing order from the seat that led it.
 export type LastTrick = { cards: Card[]; leader_seat: number; taker_seat: number };
+// How many tricks a seat has taken, 0 included; the answer lists the three seats in seat order.
+export type Taken = { seat: number; tricks: number };
 // A give-up the table was asked and has not settled: who asked and which opponent already said no, the same for every viewer.
 export type GiveUp = { asking_seat: number; declined_seat: number | null };
 // The words said in the running hand and their product, with the word the viewer's own chair may say now (null for
@@ -112,6 +114,7 @@ export type Playing = {
     turn_seat: number | null;
     current_trick: SeatedCard[];
     last_trick: LastTrick | null;
+    taken: Taken[];
     // Only the seated player on turn receives the cards they may play.
     legal_cards: Card[];
     // Both sides' points from completed tricks; null unless the table shows them, and in a Null game and a Ramsch.

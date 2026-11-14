@@ -48,6 +48,7 @@
             <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
             <circle cx="12" cy="12" r="3" />
         </svg>
-        {words["table.watchingOnly"]}
+        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+        {`${words["table.watchingOnly"]}`}
     </span>
 {/if}

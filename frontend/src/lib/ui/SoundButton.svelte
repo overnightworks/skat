@@ -3,7 +3,7 @@
     import { MOTION_SETS } from "#lib/motionSets.ts";
     import { changeSetting, currentSettings, motionInForce } from "#lib/settings.svelte.ts";
     import { SOUND_SETS } from "#lib/soundSets.ts";
-    import { previewSound } from "#lib/tableSound.ts";
+    import { prepareVoice, previewSound } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import AnchoredPanel from "./AnchoredPanel.svelte";
     import SoundPanel, { type SoundRow } from "./SoundPanel.svelte";
@@ -88,6 +88,15 @@
                   } as const,
               ]
             : []),
+        {
+            kind: "switch",
+            label: words["sound.voice"],
+            on: settings.voice,
+            change: (on: boolean) => {
+                changeSetting("voice", on);
+                void prepareVoice();
+            },
+        },
     ]);
     const name = $derived(muted ? words["sound.muted"] : words["sound.panelName"]);
     const word = $derived(muted ? words["sound.muted"] : words["sound.on"]);

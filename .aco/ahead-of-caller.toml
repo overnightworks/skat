@@ -2,3 +2,8 @@
 path = "src/skat/engine/kontra.py"
 item = "overnightworks/skat#39"
 reason = "S13.3b2 wires the first-card deadline: `decline`, `awaits_words` and `words-due`."
+
+[[code]]
+path = "src/skat/table/playing.py"
+item = "overnightworks/skat#509"
+reason = "S15.4 draws the trick piles from `PlayingView.taken`, which the page does not read yet."

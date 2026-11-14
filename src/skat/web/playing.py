@@ -12,6 +12,7 @@ from skat.table.playing import (
     ShortenCommand,
     ThrowDownCommand,
 )
+from skat.web.declaration_tokens import AnnouncementToken
 from skat.web.mcp import (
     AGREE_TO_GIVE_UP_MARK,
     DECLINE_GIVE_UP_MARK,
@@ -25,7 +26,6 @@ from skat.web.tables import (
     ANNOUNCEMENTS_OF_TOKEN,
     COMMAND_RESPONSES,
     TABLES_PATH,
-    AnnouncementToken,
     CardChoice,
     CommandId,
     CommandRequest,

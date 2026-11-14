@@ -12,6 +12,7 @@ export interface AudioEnvironment {
     readonly AudioContext?: new () => AudioContext;
     readonly navigator: Pick<Navigator, "audioSession">;
     readonly document: { readonly hidden: boolean };
+    readonly fetch: (url: string) => Promise<Pick<Response, "arrayBuffer">>;
 }
 
 interface Graph {
@@ -32,6 +33,20 @@ const GAIN_FLOOR = 0.0002;
 /** Web Audio behind the port. The context is made inside the player's first gesture, since the browser keeps a context made earlier suspended. */
 export function createWebAudioPort(environment: AudioEnvironment): AudioPort {
     let graph: Graph | undefined;
+    const decoded = new Map<string, AudioBuffer>();
+    const loading = new Set<string>();
+
+    // A recording that fails to arrive or to decode stays unloaded and is fetched again by the next call.
+    async function load(context: AudioContext, url: string): Promise<void> {
+        try {
+            const response = await environment.fetch(url);
+            decoded.set(url, await context.decodeAudioData(await response.arrayBuffer()));
+        } catch {
+            // The voice is an extra; nothing on the page depends on it.
+        } finally {
+            loading.delete(url);
+        }
+    }
 
     function build(): Graph | undefined {
         if (environment.AudioContext === undefined) return undefined;
@@ -62,6 +77,22 @@ export function createWebAudioPort(environment: AudioEnvironment): AudioPort {
         setLoudness(gain) {
             const { context, master } = graph as Graph;
             master.gain.setValueAtTime(gain, context.currentTime);
+        },
+        async loadRecordings(urls) {
+            if (graph === undefined) return;
+            const { context } = graph;
+            const wanted = urls.filter((url) => !decoded.has(url) && !loading.has(url));
+            for (const url of wanted) loading.add(url);
+            await Promise.all(wanted.map((url) => load(context, url)));
+        },
+        playRecording(url, afterSeconds) {
+            const buffer = decoded.get(url);
+            if (buffer === undefined) return;
+            const { context, master } = graph as Graph;
+            const source = context.createBufferSource();
+            source.buffer = buffer;
+            source.connect(master);
+            source.start(context.currentTime + afterSeconds);
         },
         playVoice(voice, afterSeconds) {
             const current = graph as Graph;

@@ -2004,6 +2004,48 @@ body {
     font-size: 11px;
 }
 
+/* A bid this page saw said springs up beside its speaker in the motion set the table carries.
+   "dezent": 140 ms, it fades in. */
+.room[data-motion="dezent"] .bubble.fresh {
+    animation: bubble-dezent 140ms cubic-bezier(0.2, 0.8, 0.25, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes bubble-dezent {
+    from {
+        opacity: 0;
+        translate: 0 5px;
+    }
+
+    to {
+        opacity: 1;
+        translate: 0 0;
+    }
+}
+
+/* "verspielt": 180 ms, it springs up with a little swing. */
+.room[data-motion="verspielt"] .bubble.fresh {
+    animation: bubble-verspielt 180ms cubic-bezier(0.2, 0.8, 0.25, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes bubble-verspielt {
+    from {
+        opacity: 0;
+        scale: 0.5;
+        translate: 0 8px;
+    }
+
+    60% {
+        opacity: 1;
+        scale: 1.15;
+        translate: 0 0;
+    }
+
+    to {
+        scale: 1;
+        translate: 0 0;
+    }
+}
+
 /* A phone's far bubbles hang below their fans, beside the skat, and below a watcher's card counts. */
 .room .chair:nth-child(1) .bubble {
     right: 15%;
@@ -2397,7 +2439,8 @@ body {
     border-radius: calc(var(--card-width) * 0.075);
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
     transform-origin: 50% 100%;
-    transform: translateY(calc(var(--step) * var(--step) * var(--fan-drop) + var(--lift, 0px)))
+    transform: translate(var(--drag-x, 0px), var(--drag-y, 0px))
+        translateY(calc(var(--step) * var(--step) * var(--fan-drop) + var(--lift, 0px)))
         rotate(calc(var(--step) * var(--fan-turn)));
     --step: calc((var(--from-start) - var(--from-end)) / 2);
 }
@@ -2578,6 +2621,11 @@ body {
     cursor: pointer;
 }
 
+/* A pressed card is dragged by the pointer, so the browser must not scroll or zoom under the finger. */
+.room .own-hand .play {
+    touch-action: none;
+}
+
 .room .own-hand .pick:focus-visible,
 .room .own-hand .play:focus-visible {
     outline: 3px solid var(--accent-stage, #7aa7f0);
@@ -2638,6 +2686,39 @@ body {
 
 .room .own-hand .card.no {
     filter: brightness(0.5) saturate(0.55) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+}
+
+/* A dragged card follows the pointer at once and stands above its neighbours. */
+.room .own-hand .card.dragging {
+    z-index: 3;
+    transition: none;
+}
+
+/* The lifted card carries the arrow that tells: tap again or swipe up. */
+.room .own-hand .swipe {
+    position: absolute;
+    left: 50%;
+    top: calc(var(--card-width) * -0.36);
+    translate: -50% 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    background: var(--accent-stage, #7aa7f0);
+    color: var(--stage-ink, #0c0e11);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+.room .own-hand .swipe svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 /* While a game is played the trick takes a row of its own between the far chairs and the near one. */
@@ -3004,6 +3085,17 @@ body {
 @media (prefers-reduced-motion: no-preference) {
     .room .own-hand .card {
         transition: transform 0.15s ease-out;
+    }
+
+    /* The arrow nudges upward twice after the card has lifted. */
+    .room .own-hand .swipe {
+        animation: swipe-nudge 0.7s ease-in-out 0.7s 2;
+    }
+
+    @keyframes swipe-nudge {
+        50% {
+            translate: -50% -9px;
+        }
     }
 }
 
@@ -6086,26 +6178,98 @@ body {
     translate: -50% -50%;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .room .callout {
-        animation: slam 0.6s cubic-bezier(0.5, 0, 0.7, 1.4) both;
+/* A word lands in the motion set the table carries (none while the device asks for reduced motion and the player has not overridden it).
+   "dezent": 450 ms, the stamp alone. */
+.room[data-motion="dezent"] .callout {
+    animation: stamp-dezent 450ms cubic-bezier(0.3, 0.7, 0.4, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes stamp-dezent {
+    from {
+        opacity: 0;
+        scale: 1.6;
     }
 
-    .room .callout-ring {
-        display: block;
-        animation: callout-ring 0.7s ease-out 0.32s both;
+    40% {
+        opacity: 1;
+        scale: 1;
     }
+
+    to {
+        scale: 1;
+    }
+}
+
+/* "verspielt": 700 ms, the stamp lands hard, a ring runs out from it and the felt jolts. */
+.room[data-motion="verspielt"] .callout {
+    animation: stamp-verspielt 700ms cubic-bezier(0.3, 0.7, 0.4, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes stamp-verspielt {
+    from {
+        opacity: 0;
+        scale: 2.4;
+    }
+
+    43% {
+        opacity: 1;
+        scale: 0.9;
+    }
+
+    50% {
+        scale: 1;
+    }
+
+    61% {
+        scale: 1.07;
+    }
+
+    70%,
+    to {
+        scale: 1;
+    }
+}
+
+.room[data-motion="verspielt"] .callout-ring {
+    display: block;
+    animation: callout-ring 700ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 @keyframes callout-ring {
     from {
+        opacity: 0;
+        scale: 0.3;
+    }
+
+    43% {
         opacity: 1;
         scale: 0.3;
     }
 
     to {
         opacity: 0;
-        scale: 1.5;
+        scale: 1.9;
+    }
+}
+
+.room[data-motion="verspielt"]:has(.callout) .felt {
+    animation: felt-jolt 700ms both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes felt-jolt {
+    from,
+    40%,
+    70%,
+    to {
+        translate: 0 0;
+    }
+
+    45% {
+        translate: 0 3px;
+    }
+
+    55% {
+        translate: 0 -2px;
     }
 }
 

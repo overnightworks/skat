@@ -113,7 +113,8 @@
                                 {#if chosen}
                                     <RuleMark id="official" />
                                 {/if}
-                                {pill.word}
+                                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {pill.word} compiles to a `?? ""` branch no pill can take -->
+                                {`${pill.word}`}
                             </label>
                         {/each}
                     </div>
