@@ -2,11 +2,10 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from skat.store.migrate import migrate
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import TableId
 from skat.table.service import TableService
-from tests.support.migrations import run_in_transaction, upgrade_to
+from tests.support.migrations import migrated_from, run_in_transaction
 
 pytestmark = pytest.mark.postgres
 
@@ -14,20 +13,16 @@ pytestmark = pytest.mark.postgres
 class TestFromTablesStoredAtTheRevisionBefore:
     @pytest.fixture
     def migrated(self, unmigrated_engine):
-        upgrade_to(unmigrated_engine, "0039")
-        with unmigrated_engine.begin() as connection:
-            connection.execute(text("INSERT INTO tables (id, version) VALUES ('undealt', 1)"))
-            connection.execute(
-                text("INSERT INTO tables (id, version, dealer, last_played_at) VALUES ('dealt', 5, 2, now())")
-            )
-            connection.execute(
-                text(
-                    "INSERT INTO tables (id, version, ended_at, end_reason, empty_seconds)"
-                    " VALUES ('ended', 3, now(), 'empty', 60)"
-                )
-            )
-        migrate(unmigrated_engine)
-        return unmigrated_engine
+        return migrated_from(
+            unmigrated_engine,
+            "0039",
+            text("INSERT INTO tables (id, version) VALUES ('undealt', 1)"),
+            text("INSERT INTO tables (id, version, dealer, last_played_at) VALUES ('dealt', 5, 2, now())"),
+            text(
+                "INSERT INTO tables (id, version, ended_at, end_reason, empty_seconds)"
+                " VALUES ('ended', 3, now(), 'empty', 60)"
+            ),
+        )
 
     def test_every_table_is_open_and_keeps_its_other_columns(self, migrated):
         with migrated.connect() as connection:
