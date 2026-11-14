@@ -1,18 +1,20 @@
 """Skat's Postgres adapter of the sign-in ports: accounts, sessions and the serialised sign-in entry."""
 
 import hashlib
+import threading
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import SecretStr
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from webauth.ports import AccountEvent, AccountEventKind, AccountKind
 from webauth.store_contract import STORE_CHECKS, StoreAdapter
 
 from skat.store.accounts import PostgresAccounts
-from skat.store.migrate import create_store_engine
+from skat.store.migrate import SIGN_IN_LOCK_KEY, create_store_engine
 from skat.store.schema import accounts, sessions
 from skat.store.sign_in import PostgresSignInStores
 from skat.web.sign_in import LoggingAuditSink
@@ -22,6 +24,8 @@ pytestmark = pytest.mark.postgres
 NOW = datetime(2026, 11, 14, 12, tzinfo=UTC)
 LIFETIME = timedelta(days=30)
 SUBJECT = "subject-anna"
+POLL_SECONDS = 0.05
+WAIT_DEADLINE_SECONDS = 10
 
 
 class RecordingAudit:
@@ -82,6 +86,20 @@ def sign_in(stores, subject=SUBJECT, **session_options):
         return new_session(entry, subject, **session_options)
 
 
+def an_entry_waits_for_the_lock(engine):
+    with engine.connect() as connection:
+        waiting = connection.execute(
+            text(
+                "SELECT count(*) FROM pg_locks"
+                " WHERE locktype = 'advisory' AND NOT granted"
+                " AND database = (SELECT oid FROM pg_database WHERE datname = current_database())"
+                " AND (classid::bigint << 32) | objid::bigint = :key"
+            ),
+            {"key": SIGN_IN_LOCK_KEY},
+        ).scalar_one()
+    return waiting > 0
+
+
 def count(engine, table):
     with engine.connect() as connection:
         return connection.execute(select(func.count()).select_from(table)).scalar_one()
@@ -135,6 +153,50 @@ class TestASignInEntry:
         sign_in(stores)
 
         assert audit.events == [created_event()]
+
+    def test_of_a_subjects_first_sign_in_on_two_apps_at_once_stores_one_account_and_both_sessions(self, engine, audit):
+        first_has_read = threading.Event()
+        second_has_read = threading.Event()
+        failures = []
+
+        def first_sign_in(stores, has_read, creates_when):
+            try:
+                with stores.transaction() as entry:
+                    known = entry.accounts.get(SUBJECT)
+                    has_read.set()
+                    creates_when()
+                    if known is None:
+                        entry.accounts.create_for_subject(SUBJECT, "Anna", "user", AccountKind.PERSON)
+                    new_session(entry)
+            except Exception as failure:
+                failures.append(failure)
+
+        def once_the_second_has_read_or_waits_for_the_lock():
+            # Without the lock the second entry reads no account; with it the second entry waits outside.
+            deadline = time.monotonic() + WAIT_DEADLINE_SECONDS
+            while not second_has_read.wait(POLL_SECONDS) and not an_entry_waits_for_the_lock(engine):
+                assert time.monotonic() < deadline
+
+        first = threading.Thread(
+            target=first_sign_in,
+            args=(
+                PostgresSignInStores(engine, audit=audit),
+                first_has_read,
+                once_the_second_has_read_or_waits_for_the_lock,
+            ),
+        )
+        second = threading.Thread(
+            target=first_sign_in,
+            args=(PostgresSignInStores(engine, audit=audit), second_has_read, lambda: None),
+        )
+        first.start()
+        assert first_has_read.wait(WAIT_DEADLINE_SECONDS)
+        second.start()
+        threads = [first, second]
+        for thread in threads:
+            thread.join(WAIT_DEADLINE_SECONDS)
+
+        assert (failures, count(engine, accounts), count(engine, sessions)) == ([], 1, 2)
 
 
 class TestAnAccount:
