@@ -282,7 +282,6 @@ class TestRetries:
 SEATS = {MIDDLEHAND: 1, REARHAND: 2, FOREHAND: 3}
 CHAIRS_IN_SEAT_ORDER = (MIDDLEHAND, REARHAND, FOREHAND)
 ALL_POINTS = 120
-RAMSCH_POINTS = {"occasion": "passed-in", "scoring": "points", "jungfrau": "doubles-loser", "durchmarsch": "wins-120"}
 
 
 def message_body(raw):
@@ -568,7 +567,8 @@ class TestEveryViewersPlaying:
 
     @pytest.mark.parametrize("viewer", EVERY_VIEWER, ids=lambda viewer: viewer.name)
     def test_a_ramsch_counts_the_tricks_each_seat_took_with_zero_for_the_others(self, skat, viewer):
-        table = Table(skat, {"ramsch": RAMSCH_POINTS})
+        ramsch = {"occasion": "passed-in", "scoring": "points", "jungfrau": "doubles-loser", "durchmarsch": "wins-120"}
+        table = Table(skat, {"ramsch": ramsch})
         table.with_deal(PLAIN_DEAL)
         three_pass(table)
         table.played_out(PLAIN_HAND[:12])
