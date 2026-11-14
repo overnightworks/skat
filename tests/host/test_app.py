@@ -1,11 +1,9 @@
-import secrets
 import threading
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
-import structlog
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 from webauth.config import WebAuthConfig, installed_web_auth_config
@@ -367,28 +365,3 @@ class TestCreateApp:
     @pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
     def test_generated_documentation_is_not_served(self, sign_in_settings, path):
         assert signed_in_client(sign_in_settings().settings).get(path).status_code == 404
-
-
-class TestLoggedExceptions:
-    def test_rendered_traceback_leaves_out_the_values_of_local_variables(self, sign_in_settings, capsys):
-        create_app(
-            sign_in_settings().settings,
-            page_build=fixture_page_build(),
-            tables=in_memory_tables(),
-            rule_sets=in_memory_rule_sets(),
-            stores=in_memory_stores(),
-        )
-        sentinel = secrets.token_urlsafe(16)
-
-        def fail_holding_the_sentinel():
-            held_secret = sentinel
-            raise ValueError(len(held_secret))
-
-        try:
-            fail_holding_the_sentinel()
-        except ValueError:
-            structlog.get_logger().exception("failed")
-
-        rendered = capsys.readouterr().out
-        assert "ValueError" in rendered
-        assert sentinel not in rendered

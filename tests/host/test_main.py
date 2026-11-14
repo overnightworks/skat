@@ -1,7 +1,9 @@
+import json
 import logging
 import secrets
 
 import pytest
+import structlog
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy import inspect, text
@@ -11,7 +13,7 @@ from skat.host.main import create_database_engine, main, uvicorn_options
 from skat.store import migrate as migrate_module
 from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine, migrate
 from skat.store.rule_sets import PostgresRuleSets
-from skat.web.constants import UVICORN_LOG_LEVEL
+from skat.web.constants import LOGIN_PATH
 from skat.web.secret_files import StartRefusedError
 from skat.web.settings import DatabaseSettings
 from tests.e2e.support.server import SERVER_STOP_TIMEOUT_SECONDS
@@ -33,6 +35,28 @@ class ServerRecorder:
 def every_health_ask_probes_and_awaits_it(monkeypatch):
     monkeypatch.setattr(migrate_module, "READINESS_REUSE_SECONDS", 0)
     monkeypatch.setattr(migrate_module, "READINESS_PATIENCE_SECONDS", 60)
+
+
+@pytest.fixture(autouse=True)
+def logging_left_as_found():
+    """Gives back structlog's and the standard library's configuration that `main` replaces."""
+
+    def every_logger() -> list[logging.Logger]:
+        named = [logger for logger in logging.root.manager.loggerDict.values() if isinstance(logger, logging.Logger)]
+        return [logging.root, *named]
+
+    found = {
+        logger: (logger.level, list(logger.handlers), list(logger.filters), logger.propagate)
+        for logger in every_logger()
+    }
+    yield
+    structlog.reset_defaults()
+    for logger in every_logger():
+        level, handlers, filters, propagate = found.get(logger, (logging.NOTSET, [], [], True))
+        logger.setLevel(level)
+        logger.handlers[:] = handlers
+        logger.filters[:] = filters
+        logger.propagate = propagate
 
 
 @pytest.fixture
@@ -61,6 +85,17 @@ class TestMain:
         configured_environment(database_url, host="127.0.0.1", port=9090)
         main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
         assert [(run["host"], run["port"]) for run in server.runs] == [("127.0.0.1", 9090)]
+
+    def test_writes_each_request_of_the_served_app_as_one_json_line_of_the_skat_service(
+        self, server, configured_environment, database_url, capsys
+    ):
+        configured_environment(database_url)
+        main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
+
+        TestClient(server.runs[0]["app"]).get(LOGIN_PATH)
+
+        lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+        assert [(line["service"], line["status"]) for line in lines if line["event"] == "request"] == [("skat", 200)]
 
     def test_refuses_to_start_without_the_page_build_and_names_the_build_command(
         self, server, configured_environment, database_url, tmp_path
@@ -277,10 +312,8 @@ class TestRefusedDatabaseSettings:
 
 
 class TestUvicornOptions:
-    def test_writes_no_access_line_and_logs_only_warnings(self, sign_in_settings):
-        options = uvicorn_options(sign_in_settings().settings)
-        assert options["access_log"] is False
-        assert options["log_level"] == UVICORN_LOG_LEVEL
+    def test_leaves_uvicorn_logging_to_logline(self, sign_in_settings):
+        assert uvicorn_options(sign_in_settings().settings)["log_config"] is None
 
     def test_leaves_the_client_address_to_the_trusted_proxy_setting(self, sign_in_settings):
         assert uvicorn_options(sign_in_settings().settings)["proxy_headers"] is False

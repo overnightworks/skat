@@ -1,4 +1,5 @@
 import pytest
+import structlog.testing
 from agents.mcp_wire import MCP_ENDPOINT_PATH
 from agents.member import ACCEPT_INVITATION_TOOL
 
@@ -162,6 +163,17 @@ class TestTools:
 
         assert answer.status_code == 200
         assert answer.json()["resource"] == f"{TEST_PUBLIC_ORIGIN}{MCP_ENDPOINT_PATH}"
+
+
+class TestRequestLine:
+    def test_names_the_account_behind_the_agents_token(self, skat, agent):
+        agent.admitted()
+
+        with structlog.testing.capture_logs() as logs:
+            agent.request("tools/list")
+
+        (line,) = [log for log in logs if log["event"] == "request"]
+        assert (line["sub"], line["status"]) == (agent_account_id(skat), 200)
 
 
 class TestReadTable:
