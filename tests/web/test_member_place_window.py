@@ -8,9 +8,10 @@ from skat.engine.bidding import Bid, Hold, Pass
 from skat.engine.cards import DECK
 from skat.engine.deal import Position
 from skat.engine.declaration import PutBack, TakeSkat
+from skat.engine.games import GameKind
 from skat.engine.kontra import Word, WordSaid
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
-from skat.engine.schieberamsch import GrandHandRule, Push, PushingRule, Take
+from skat.engine.schieberamsch import GrandHandRule, Push, PushingRule, Put, Take
 from skat.engine.tricks import CardPlayed
 from skat.table.game_list import GameEnding
 from skat.table.member_view import member_acts_of
@@ -80,18 +81,24 @@ class TestEachActIsALineOfItsKind:
         assert all(line.act and not line.spoken for line in window.entries)
 
     def test_an_announced_ouvert_game_is_declared_with_its_level(self):
-        grand = replace(HERZ_HAND, kind=HERZ_HAND.kind.__class__.GRAND, ouvert=True)
+        grand = replace(HERZ_HAND, kind=GameKind.GRAND, ouvert=True)
         progress = replace(declared_herz_hand(), declaring=(grand,))
 
         assert told(window_of_table(table_in(progress)))[-1][2] == "declares grand hand ouvert schwarz"
 
-    def test_the_stage_before_a_ramsch_tells_a_take_and_a_push(self):
+    def test_the_stage_before_a_ramsch_tells_a_take_a_put_back_and_a_push(self):
         steps = (Pass(MIDDLEHAND), Pass(REARHAND), Pass(FOREHAND))
-        progress = HandProgress(auction=steps, pushing=(Take(FOREHAND), Push(FOREHAND)))
+        progress = HandProgress(
+            auction=steps, pushing=(Take(FOREHAND), Put(FOREHAND, (DECK[0], DECK[1])), Push(MIDDLEHAND))
+        )
 
         window = window_of_table(table_in(progress, A_RAMSCH_WITH_PUSHING))
 
-        assert [line.text for line in window.entries[-2:]] == ["takes the skat", "pushes the skat on unseen"]
+        assert [line.text for line in window.entries[-3:]] == [
+            "takes the skat",
+            "puts two cards back",
+            "pushes the skat on unseen",
+        ]
 
 
 class TestTheEndOfAHand:

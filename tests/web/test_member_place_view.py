@@ -517,7 +517,9 @@ class TestTheToolDescriptionsNameTheView:
 
 
 class TestARestartReadsTheSameView:
-    def test_the_view_after_a_restart_is_the_view_before_it(self, skat, issuer, hold, time, agent, middlehand_auction):
+    def test_the_view_and_window_after_a_restart_are_those_before_it(
+        self, skat, issuer, hold, time, agent, middlehand_auction
+    ):
         before = agent.view(middlehand_auction.table_id)
         window_before = agent.window(middlehand_auction.table_id)
 

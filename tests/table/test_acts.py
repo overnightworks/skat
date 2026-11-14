@@ -11,9 +11,11 @@ from skat.engine.kontra import Word, WordSaid
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
 from skat.engine.schieberamsch import DeclareGrandHand, GrandHandRule, Push, PushingRule, Put, Take
 from skat.engine.tricks import CardPlayed
-from skat.table.acts import ActKind, acts_of, next_seq_of
+from skat.table.acts import HAND_SPAN, LAST_SLOT, ActKind, next_seq_of
+from skat.table.acts import acts_of as acts_told_by
 from skat.table.game_list import GameEnding
 from skat.table.records import GiveUpAsked, HandProgress, RamschOccasion, RamschSetting, Series, TableOptions
+from skat.table.views import view_of
 from tests.support.played_game import (
     HERZ_HAND,
     a_ramsch_entry,
@@ -27,7 +29,6 @@ from tests.support.played_game import (
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 # Seat 2 deals in `table_in`: seat 3 is forehand, seat 1 middlehand and seat 2 rearhand.
 FOREHAND_SEAT, MIDDLEHAND_SEAT, REARHAND_SEAT, DEALER_SEAT = 3, 1, 2, 2
-HAND_SPAN = 1000
 A_STAGE_WITH_GRAND_HAND = TableOptions(
     ramsch=RamschSetting(
         RamschOccasion.PASSED_IN,
@@ -40,6 +41,10 @@ A_STAGE_WITH_GRAND_HAND = TableOptions(
 
 def a_hand(progress=None, series=Series(36, 1), options=None):  # noqa: B008 - Series is frozen
     return replace(table_in(progress or HandProgress(), options), series=series)
+
+
+def acts_of(table):
+    return acts_told_by(table, view_of(table, "a seat", frozenset()))
 
 
 def kinds(table):
@@ -131,10 +136,11 @@ class TestWhatHappenedInTheRunningHand:
 
 
 class TestNumbering:
-    def test_the_lines_of_a_hand_are_numbered_from_one_above_the_hand_number_in_order(self):
-        table = a_hand(declared_herz_hand(), Series(36, 5))
+    def test_the_lines_of_a_hand_are_numbered_one_after_the_other_in_order(self):
+        seqs = [each.seq for each in acts_of(a_hand(declared_herz_hand(), Series(36, 5)))]
 
-        assert [each.seq for each in acts_of(table)] == [5 * HAND_SPAN + slot for slot in range(1, 6)]
+        assert len(seqs) > 1
+        assert seqs == list(range(seqs[0], seqs[0] + len(seqs)))
 
     @pytest.mark.parametrize(
         ("earlier", "later"),
@@ -157,7 +163,8 @@ class TestNumbering:
     def test_before_the_first_deal_the_next_line_is_the_first_of_the_first_hand(self):
         table = replace(a_hand(series=Series(36, 0)), hand=None, dealer=None)
 
-        assert (acts_of(table), next_seq_of(table)) == ((), HAND_SPAN + 1)
+        (first_deal, *_) = acts_of(a_hand(series=Series(36, 1)))
+        assert (acts_of(table), next_seq_of(table)) == ((), first_deal.seq)
 
 
 class TestHandsThatEnd:
@@ -166,7 +173,7 @@ class TestHandsThatEnd:
         ended = replace(after_the_first_game(running), series=Series(36, 3))
 
         (result,) = acts_of(ended)
-        assert (result.kind, result.seat, result.seq) == (ActKind.RESULT, None, 3 * HAND_SPAN + 999)
+        assert (result.kind, result.seat, result.seq % HAND_SPAN) == (ActKind.RESULT, None, LAST_SLOT)
         assert max(each.seq for each in acts_of(running)) < result.seq
 
     @pytest.mark.parametrize(
@@ -192,7 +199,7 @@ class TestHandsThatEnd:
         passed_in = replace(a_hand(HandProgress(auction=steps)), hand=None)
 
         assert kinds(passed_in) == [ActKind.DEAL, ActKind.PASS, ActKind.PASS, ActKind.PASS, ActKind.PASSED_IN]
-        assert acts_of(passed_in)[-1].seq % HAND_SPAN == 999
+        assert acts_of(passed_in)[-1].seq % HAND_SPAN == LAST_SLOT
 
     def test_a_table_whose_hand_ended_with_no_result_holds_no_line(self):
         assert acts_of(replace(a_hand(), hand=None)) == ()
@@ -201,4 +208,4 @@ class TestHandsThatEnd:
         aborted = replace(a_hand(HandProgress(aborted=True)), hand=None)
 
         (line,) = acts_of(aborted)
-        assert (line.kind, line.seat, line.seq % HAND_SPAN) == (ActKind.ABORTED, None, 999)
+        assert (line.kind, line.seat, line.seq % HAND_SPAN) == (ActKind.ABORTED, None, LAST_SLOT)

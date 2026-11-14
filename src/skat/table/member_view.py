@@ -67,7 +67,7 @@ def member_acts_of(table: TableRecord, account_id: str) -> MemberActs | None:
     chair = seat_of(table, account_id)
     if chair is None:
         return None
-    acts = acts_of(table)
+    acts = acts_of(table, view_of(table, account_id, frozenset()))
     return MemberActs(chair.seat, acts[0].seq if acts else next_seq_of(table), acts)
 
 

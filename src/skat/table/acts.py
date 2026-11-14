@@ -20,7 +20,7 @@ from skat.engine.bidding import LOWEST_BID, Bid, Hold, Pass, Play
 from skat.engine.deal import seats_from
 from skat.engine.declaration import Declaration, Declare, PutBack, TakeSkat
 from skat.engine.schieberamsch import DeclareGrandHand, Push, Put, Take
-from skat.table.game_list import GameEnding, ResultView, result_view_of
+from skat.table.game_list import GameEnding, ResultView
 from skat.table.hand_state import declaring_of
 from skat.table.records import SERIES_LENGTH_MAX
 from skat.table.rules import hand_runs
@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from skat.engine.tricks import CardPlayed
     from skat.table.game_list import RamschResultView
     from skat.table.records import Series, TableRecord
+    from skat.table.views import TableView
 
 HAND_SPAN: Final = 1000
 LAST_SLOT: Final = HAND_SPAN - 1
@@ -86,7 +87,9 @@ def _hand_number(series: Series) -> int:
 
 
 def next_seq_of(table: TableRecord) -> int:
-    """The number the first act of the table's next hand gets; 1 for a table that keeps no series."""
+    """The number the first act of the table's next hand gets while that hand is a deal of the series now running; 1
+    for a table that keeps no series.
+    """
     return 1 if table.series is None else (_hand_number(table.series) + 1) * HAND_SPAN + 1
 
 
@@ -175,21 +178,19 @@ def _result_events(result: ResultView | RamschResultView) -> Iterator[_Event]:
     yield None, ActKind.RESULT, result
 
 
-def _ending_events(table: TableRecord) -> Iterator[_Event]:
-    """The acts that end the hand the table stands after: its pass-in, its abort or its result."""
-    if table.progress.auction:
+def _ending_events(view: TableView) -> Iterator[_Event]:
+    """The acts that end the hand the view stands after: its pass-in, its abort or its result."""
+    if view.passed_in is not None:
         yield None, ActKind.PASSED_IN, None
-    elif table.progress.aborted:
+    elif view.aborted is not None:
         yield None, ActKind.ABORTED, None
-    else:
-        result = result_view_of(table)
-        if result is not None:
-            yield from _result_events(result)
+    elif view.result is not None:
+        yield from _result_events(view.result)
 
 
-def acts_of(table: TableRecord) -> tuple[Act, ...]:
-    """The acts of the table's latest hand, numbered: the running hand's from its deal; after its end the acts that end
-    it, with a passed-in hand's steps. The next hand's deal clears them.
+def acts_of(table: TableRecord, view: TableView) -> tuple[Act, ...]:
+    """The acts of the table's latest hand, numbered, told by the view of one seat: the running hand's from its deal;
+    after its end the acts that end it, with a passed-in hand's steps. The next hand's deal clears them.
     """
     if table.series is None or table.dealer is None:
         return ()
@@ -198,8 +199,8 @@ def acts_of(table: TableRecord) -> tuple[Act, ...]:
     if hand_runs(table):
         slotted = enumerate(_running_events(table, seats, table.dealer), start=1)
         return tuple(Act(base + slot, *event) for slot, event in slotted)
-    steps = _running_events(table, seats, table.dealer) if table.progress.auction else iter(())
+    steps = _running_events(table, seats, table.dealer) if view.passed_in is not None else iter(())
     passed_in = tuple(Act(base + slot, *event) for slot, event in enumerate(steps, start=1))
-    ending = tuple(_ending_events(table))
+    ending = tuple(_ending_events(view))
     last_slots = range(LAST_SLOT - len(ending) + 1, LAST_SLOT + 1)
     return passed_in + tuple(Act(base + slot, *event) for slot, event in zip(last_slots, ending, strict=True))
