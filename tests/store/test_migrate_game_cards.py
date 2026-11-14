@@ -33,7 +33,7 @@ class TestFromAGameListedAtTheRevisionBefore:
     def migrated(self, unmigrated_engine):
         return migrated_from(
             unmigrated_engine,
-            "0044",
+            "0045",
             text("INSERT INTO tables (id, version, dealer, last_played_at) VALUES ('t', 3, 2, now())"),
             text(list_row(series_number=1)),
         )

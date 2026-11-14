@@ -29,7 +29,7 @@ from tests.e2e.support.hands import AddressedSession, leave_the_last_trick_on_th
 from tests.e2e.support.kontra import KONTRA_OPTIONS
 from tests.e2e.support.people import DESKTOP, McpAgent
 from tests.e2e.support.tables import open_new_table, open_table_with_options, sit_in, table_id_of, watch
-from tests.support.signed_in import seed_member
+from tests.support.signed_in import account_of, seed_member
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -129,7 +129,7 @@ def test_an_agents_card_lands_in_the_trick_a_person_sees(
 ) -> None:
     agent = McpAgent(e2e_server, "agent-subject-mozart-plays")
     agent.request("tools/list")
-    account = e2e_server.stores.accounts.get(agent.subject)
+    account = account_of(e2e_server.stores, agent.subject)
     assert account is not None
     anna = record_page_errors(open_person(username="anna", **DESKTOP), page_errors)
     path = open_new_table(anna, e2e_server)
@@ -178,7 +178,7 @@ def test_a_word_an_agent_says_stamps_the_felt_with_the_agents_mark(
 ) -> None:
     agent = McpAgent(e2e_server, "agent-subject-mozart-says-re")
     agent.request("tools/list")
-    account = e2e_server.stores.accounts.get(agent.subject)
+    account = account_of(e2e_server.stores, agent.subject)
     assert account is not None
     anna = record_page_errors(open_person(username="anna-hears-re", **DESKTOP), page_errors)
     opener = AddressedSession(e2e_server, member_of(anna))

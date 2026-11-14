@@ -5,8 +5,8 @@ cards put away and the tricks with the seat and place of each card. A game finis
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0045"
-down_revision = "0044"
+revision = "0046"
+down_revision = "0045"
 
 SUITS = ("diamonds", "hearts", "spades", "clubs")
 RANKS = ("seven", "eight", "nine", "ten", "jack", "queen", "king", "ace")

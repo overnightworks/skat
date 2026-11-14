@@ -40,7 +40,7 @@ from tests.e2e.support.call_frame import (
 )
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, PHONE, SMALL_PHONE, WIDTHS, playwright_cookie
-from tests.e2e.support.sessions import end_sessions_of
+from tests.e2e.support.sessions import end_sessions_of, holds_a_session
 from tests.e2e.support.tables import open_new_table
 from tests.support.sign_in_settings import TEST_ISSUER
 from tests.support.signed_in import seed_member
@@ -491,7 +491,7 @@ def test_a_framed_table_whose_issuer_session_ended_too_signs_in_again_in_the_win
     window.close()
 
     expect(framed.frame.get_by_text(UNFINISHED_NOTICE)).to_be_visible(timeout=WAIT_MILLISECONDS)
-    assert signing_server.stores.sessions.records_of("subject-hugo").sessions == ()
+    assert not holds_a_session(signing_server, "hugo")
     sign_in_at_issuer(framed.visitor, signing_server, username="hugo")
     start_sign_in(framed)
 

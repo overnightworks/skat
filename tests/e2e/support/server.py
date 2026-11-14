@@ -19,13 +19,14 @@ from skat.host.app import UNPLAYED_SWEEP_SECONDS, create_app
 from skat.host.main import streams_ending_server, uvicorn_options
 from skat.store.migrate import create_store_engine
 from skat.store.rule_sets import PostgresRuleSets
+from skat.store.sign_in import PostgresSignInStores
 from skat.store.tables import PostgresTableTransactions
 from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
 from skat.web.constants import STREAM_HEARTBEAT_SECONDS
 from skat.web.page_build import BUILD_DIRECTORY, PageBuild
+from skat.web.sign_in import LoggingAuditSink
 from tests.support.fake_issuer import FakeIssuer
-from tests.support.in_memory_stores import in_memory_stores
 from tests.support.postgres import created_database, migrated_template
 from tests.support.sign_in_settings import build_sign_in_settings
 
@@ -35,7 +36,6 @@ if TYPE_CHECKING:
 
     from _typeshed import SupportsLenAndGetItem
     from sqlalchemy import Engine
-    from webauth.single_process_stores import SingleProcessStores
 
     from skat.web.presence import Scheduler
     from tests.support.sign_in_settings import SignInSettings
@@ -102,7 +102,6 @@ class LoopbackSignIn:
     port: int
     listener: socket.socket
     sign_in: SignInSettings
-    stores: SingleProcessStores
     issuer: FakeIssuer
 
 
@@ -122,7 +121,7 @@ def loopback_sign_in(
             **overrides,
         },
     )
-    return LoopbackSignIn(host, port, listener, sign_in, in_memory_stores(), FakeIssuer(sign_in))
+    return LoopbackSignIn(host, port, listener, sign_in, FakeIssuer(sign_in))
 
 
 class AlwaysTheSameDeal(random.Random):
@@ -144,7 +143,8 @@ class AlwaysTheSameDeal(random.Random):
 class RunningServer:
     """Skat served over https on a loopback address, stopped and started the way `skat serve` does it.
 
-    `stores` and `config` belong to the process now running; `restart` replaces them with a new process's.
+    `stores` and `config` belong to the process now running; `restart` replaces them with a new process's. The stores
+    are Skat's own over the database, so a restart keeps every account and session.
     """
 
     def __init__(
@@ -163,7 +163,6 @@ class RunningServer:
         self.base_url = f"https://{loopback.host}:{loopback.port}"
         self.issuer = loopback.issuer
         self.engine = engine
-        self.stores = loopback.stores
         self._loopback = loopback
         self._listener: socket.socket | None = loopback.listener
         self._page_build_directory = page_build_directory
@@ -175,6 +174,7 @@ class RunningServer:
         self._tls_files = write_self_signed_certificate(tls_directory)
 
     def start(self) -> None:
+        self.stores = PostgresSignInStores(self.engine, audit=LoggingAuditSink())
         app = create_app(
             self._loopback.sign_in.settings,
             page_build=PageBuild.load(self._page_build_directory),
@@ -222,10 +222,10 @@ class RunningServer:
     def restart(self, *, while_stopping: Callable[[], None]) -> None:
         """Stops Skat, then starts a new process on the same database, address and issuer.
 
-        The new process starts with no session, as after an update. `while_stopping` runs as in `stop`.
+        The new process starts with the sessions the database holds, as after an update. `while_stopping` runs as in
+        `stop`.
         """
         self.stop(while_stopping=while_stopping)
-        self.stores = in_memory_stores()
         self.start()
 
 

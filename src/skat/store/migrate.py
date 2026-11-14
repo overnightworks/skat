@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 MIGRATIONS_DIRECTORY: Final = Path(__file__).parent / "migrations"
 # Serialises concurrent `skat migrate` runs; any constant shared by all of them does.
 MIGRATION_LOCK_KEY: Final = 7_184_203_551
+# Serialises the sign-in entries of this app's pods on its database; any constant distinct from the migration key does.
+SIGN_IN_LOCK_KEY: Final = 7_184_203_552
 POSTGRES_DRIVER: Final = "postgresql+psycopg"
 # Bounds how long a connection attempt waits for a database that is down or silent; libpq takes whole seconds
 # and reads anything below two as two.
@@ -69,9 +71,12 @@ class DatabaseHealth:
 
 
 def create_store_engine(database_url: str) -> Engine:
-    """An engine on psycopg 3, whichever Postgres scheme the URL names."""
+    """An engine on psycopg 3, whichever Postgres scheme the URL names. Statement parameters stay out of error text,
+    because a failed write of a session carries its tokens as parameters.
+    """
     return create_engine(
         make_url(database_url).set(drivername=POSTGRES_DRIVER),
+        hide_parameters=True,
         pool_pre_ping=True,
         connect_args={"connect_timeout": STORE_CONNECT_TIMEOUT_SECONDS},
     )
