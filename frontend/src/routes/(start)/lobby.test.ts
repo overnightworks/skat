@@ -1,6 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ACCOUNT_PATH, LOBBY_EVENTS_PATH } from "#lib/wire.ts";
-import { cardOf, daysLeftWords, minutesLeft, titleOf, watchLobby, type LobbyChair, type LobbyTable } from "./lobby.ts";
+import {
+    cardOf,
+    daysLeftWords,
+    minutesLeft,
+    openCardOf,
+    titleOf,
+    watchLobby,
+    type LobbyChair,
+    type LobbyTable,
+    type OpenChair,
+    type OpenTable,
+} from "./lobby.ts";
+import { OFFICIAL } from "./openingRules.ts";
 
 const NOW = Date.UTC(2026, 10, 12, 12);
 const HOUR = 3_600_000;
@@ -24,6 +36,7 @@ function chairOf(seat: number, overrides: Partial<LobbyChair> = {}): LobbyChair 
 function tableOf(overrides: Partial<LobbyTable> = {}): LobbyTable {
     return {
         id: "a".repeat(32),
+        private: false,
         title_name: "Ben",
         game_number: 9,
         game_count: 36,
@@ -34,6 +47,34 @@ function tableOf(overrides: Partial<LobbyTable> = {}): LobbyTable {
         series_over: false,
         ends_at: null,
         chairs: [chairOf(0), chairOf(1), chairOf(2, { is_mine: true })],
+        ...overrides,
+    };
+}
+
+function openChairOf(seat: number, overrides: Partial<OpenChair> = {}): OpenChair {
+    return {
+        seat,
+        occupant_name: ["Anna", "Ben", null][seat] ?? null,
+        occupant_kind: seat < 2 ? "person" : null,
+        is_away: false,
+        hold_seconds_left: null,
+        ...overrides,
+    };
+}
+
+function openTableOf(overrides: Partial<OpenTable> = {}): OpenTable {
+    return {
+        id: "c".repeat(32),
+        title_name: "Tom",
+        game_number: 0,
+        game_count: 36,
+        options: OFFICIAL,
+        watchers: 2,
+        free_chairs: 1,
+        dealt: false,
+        waiting_seat: null,
+        ends_at: null,
+        chairs: [openChairOf(0), openChairOf(1), openChairOf(2)],
         ...overrides,
     };
 }
@@ -107,6 +148,11 @@ describe("cardOf", () => {
         [{ game_number: null, game_count: null }, null],
     ])("reads the series of %o as %s", (series, progress) => {
         expect(cardOf(tableOf(series), NOW, 0).progress).toBe(progress);
+    });
+
+    it("marks a private table", () => {
+        expect(cardOf(tableOf({ private: true }), NOW, 0).private).toBe(true);
+        expect(cardOf(tableOf(), NOW, 0).private).toBe(false);
     });
 
     it("lists the chairs in the order the stream sends them, naming the own one Du", () => {
@@ -308,6 +354,59 @@ class FakeEventSource {
     }
 }
 
+describe("openCardOf", () => {
+    it("titles the entry with the opener's name and shows the series and the watchers", () => {
+        const card = openCardOf(openTableOf({ watchers: 3 }), 0);
+
+        expect(card).toMatchObject({ id: "c".repeat(32), title: "Toms Tisch", progress: "36 Spiele", watchers: 3 });
+        expect(card.private).toBe(false);
+    });
+
+    it("lists the seated names in chair order and makes every free chair a control named after the table", () => {
+        const card = openCardOf(openTableOf(), 0);
+
+        expect(card.seats.map((seat) => seat.name)).toEqual(["Anna", "Ben", "Frei"]);
+        expect(card.seats.map((seat) => seat.sitLabel)).toEqual([null, null, "Toms Tisch: hinsetzen"]);
+    });
+
+    it("offers no chair at a full table", () => {
+        const chairs = [
+            openChairOf(0),
+            openChairOf(1),
+            openChairOf(2, { occupant_name: "Cleo", occupant_kind: "person" }),
+        ];
+
+        const card = openCardOf(openTableOf({ free_chairs: 0, chairs }), 0);
+
+        expect(card.seats.map((seat) => seat.sitLabel)).toEqual([null, null, null]);
+    });
+
+    it("counts an away chair's hold down between two lists", () => {
+        const chairs = [openChairOf(0, { is_away: true, hold_seconds_left: 240 }), openChairOf(1), openChairOf(2)];
+
+        const seat = openCardOf(openTableOf({ chairs }), 60 * SECOND).seats[0];
+
+        expect(seat).toMatchObject({ away: true, hold: { note: "noch 3 Min" } });
+    });
+
+    it("names the official rules when none is on and each rule that is", () => {
+        const kontra = { sayer: "any-opponent", reach: "kontra-re", deadline: "own-card" } as const;
+
+        expect(openCardOf(openTableOf(), 0).rules.map((rule) => rule.word)).toEqual(["Offiziell"]);
+        expect(openCardOf(openTableOf({ options: { ...OFFICIAL, kontra } }), 0).rules.map((rule) => rule.word)).toEqual(
+            ["Kontra"],
+        );
+    });
+
+    it.each([
+        [{ waiting_seat: 2 }, [{ kind: "gameWaits", text: "Spiel wartet", accent: true }]],
+        [{ ends_at: "2026-12-01T00:00:00Z" }, [{ kind: "paused", text: "pausiert", accent: false }]],
+        [{}, []],
+    ])("draws the chips of %o", (state, chips) => {
+        expect(openCardOf(openTableOf(state), 0).chips).toEqual(chips);
+    });
+});
+
 describe("watchLobby", () => {
     beforeEach(() => {
         vi.useFakeTimers();
@@ -327,7 +426,7 @@ describe("watchLobby", () => {
 
     it("opens the lobby stream and hands over the tables of each mine event", () => {
         const onMine = vi.fn();
-        watchLobby(onMine, vi.fn());
+        watchLobby(onMine, vi.fn(), vi.fn());
         const table = tableOf();
 
         FakeEventSource.opened[0]?.send("mine", JSON.stringify({ tables: [table] }));
@@ -336,9 +435,19 @@ describe("watchLobby", () => {
         expect(onMine).toHaveBeenCalledWith([table]);
     });
 
+    it("hands over the tables of each open event", () => {
+        const onOpen = vi.fn();
+        watchLobby(vi.fn(), onOpen, vi.fn());
+        const table = openTableOf();
+
+        FakeEventSource.opened[0]?.send("open", JSON.stringify({ tables: [table] }));
+
+        expect(onOpen).toHaveBeenCalledWith([table]);
+    });
+
     it("reports the line as there once an event arrived", () => {
         const onConnection = vi.fn();
-        watchLobby(vi.fn(), onConnection);
+        watchLobby(vi.fn(), vi.fn(), onConnection);
 
         FakeEventSource.opened[0]?.send("mine", JSON.stringify({ tables: [] }));
 
@@ -348,7 +457,7 @@ describe("watchLobby", () => {
     it("reports the line as lost and opens a new stream by itself after a failure", async () => {
         const onConnection = vi.fn();
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200 }));
-        watchLobby(vi.fn(), onConnection);
+        watchLobby(vi.fn(), vi.fn(), onConnection);
 
         FakeEventSource.opened[0]?.onerror?.();
         await vi.advanceTimersByTimeAsync(40_000);
@@ -362,7 +471,7 @@ describe("watchLobby", () => {
         const reload = vi.fn();
         vi.stubGlobal("location", { reload });
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 401 }));
-        watchLobby(vi.fn(), vi.fn());
+        watchLobby(vi.fn(), vi.fn(), vi.fn());
 
         FakeEventSource.opened[0]?.onerror?.();
         await vi.advanceTimersByTimeAsync(0);

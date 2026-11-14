@@ -57,6 +57,7 @@ import {
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
+    type VISIBILITY_TOKENS,
     type WORD_TOKENS,
 } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
@@ -78,6 +79,7 @@ export type Announcement = (typeof ANNOUNCEMENT_TOKENS)[number];
 export type Level = (typeof LEVEL_TOKENS)[number];
 // The Kontra words in the order they are said.
 export type Word = (typeof WORD_TOKENS)[number];
+export type Visibility = (typeof VISIBILITY_TOKENS)[number];
 export type Stage = (typeof STAGE_TOKENS)[number];
 export type Card = { suit: Suit; rank: Rank };
 export type ChairHand = { position: Position; card_count: number };
@@ -337,13 +339,19 @@ async function ask(path: string, init?: RequestInit): Promise<Outcome> {
     }
 }
 
-// The command id is the retry key: asking again with the same one, the same length and the same options returns the
-// table the first ask opened. A table opened without options plays the official rules.
-export function createTable(commandId: string, seriesLength: number, options?: OptionsRequest): Promise<Outcome> {
+// The command id is the retry key: asking again with the same one, the same length, the same options and the same
+// visibility returns the table the first ask opened. A table opened without options plays the official rules, and one
+// opened without a visibility is open.
+export function createTable(
+    commandId: string,
+    seriesLength: number,
+    options?: OptionsRequest,
+    visibility?: Visibility,
+): Promise<Outcome> {
     return ask(TABLES_PATH, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command_id: commandId, series_length: seriesLength, options }),
+        body: JSON.stringify({ command_id: commandId, series_length: seriesLength, options, visibility }),
     });
 }
 

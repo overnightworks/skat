@@ -34,6 +34,7 @@ import {
     TABLE_CLOSE_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
+    VISIBILITY_TOKENS,
 } from "#lib/wire.ts";
 import {
     answerAbort,
@@ -362,6 +363,19 @@ describe("asking for a table", () => {
             command_id: "command-1",
             series_length: 30,
             options: { show_running_points: true },
+        });
+    });
+
+    it.each(VISIBILITY_TOKENS)("sends the %s visibility the person chose when creating a table", async (visibility) => {
+        answerWith(Response.json(table));
+
+        await createTable("command-1", 30, undefined, visibility);
+
+        const [, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(JSON.parse((init as { body: string }).body)).toEqual({
+            command_id: "command-1",
+            series_length: 30,
+            visibility,
         });
     });
 

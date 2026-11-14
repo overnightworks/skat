@@ -49,7 +49,8 @@ export function openStream(url: string, options: StreamOptions): () => void {
             opened.addEventListener(name, (event) => {
                 failedOpens = 0;
                 options.onConnection(true);
-                handle((event as MessageEvent<string>).data, end);
+                // The browser fires its own `open` event, with no data, when the connection is made.
+                if ("data" in event) handle((event as MessageEvent<string>).data, end);
             });
         }
         opened.onerror = () => {

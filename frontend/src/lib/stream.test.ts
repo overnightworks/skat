@@ -22,6 +22,10 @@ class FakeEventSource {
     send(type: string, data: string) {
         this.listeners.get(type)?.({ data } as MessageEvent<string>);
     }
+    // The connection's own event of that name, which the browser fires with no data.
+    connect(type: string) {
+        this.listeners.get(type)?.(new Event(type) as MessageEvent<string>);
+    }
     fail() {
         this.onerror?.();
     }
@@ -108,6 +112,21 @@ describe("openStream", () => {
         expect(FakeEventSource.opened.map((source) => source.url)).toEqual([STREAM_PATH]);
         expect(handled).toEqual(["message a", "mine b"]);
         expect(onConnection.mock.calls).toEqual([[true], [true]]);
+    });
+
+    it("marks the connection on the browser's own open event and hands a handler named open no data", () => {
+        const handled: string[] = [];
+        const onConnection = vi.fn();
+        openStream(
+            STREAM_PATH,
+            optionsWith({ events: { open: (data) => handled.push(`open ${data}`) }, onConnection }),
+        );
+
+        latest().connect("open");
+        latest().send("open", "[1]");
+
+        expect(onConnection).toHaveBeenCalledWith(true);
+        expect(handled).toEqual(["open [1]"]);
     });
 
     it("retries a failed open after a delay that doubles from one second and stops growing at thirty", async () => {

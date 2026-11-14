@@ -9,14 +9,17 @@
         SERIES_LENGTH_MIN,
         SERIES_LENGTH_STEP,
     } from "#lib/wire.ts";
+    import LockIcon from "#lib/ui/LockIcon.svelte";
     import RuleMark from "#lib/ui/RuleMark.svelte";
     import { words } from "#lib/words.ts";
     import { differs, isOn, OFFICIAL, requestOf, suggestedName } from "./openingRules.ts";
     import RuleUnit from "./RuleUnit.svelte";
-    import { createTable, readRuleSets, saveRuleSet, type Options, type RuleSet } from "./tables.ts";
+    import { createTable, readRuleSets, saveRuleSet, type Options, type RuleSet, type Visibility } from "./tables.ts";
 
     let choosing = $state(false);
     let length = $state(SERIES_LENGTH_DEFAULT);
+    let visibility = $state<Visibility>("open");
+    let infoShown = $state(false);
     // The person's own sets, read each time the sheet opens; the official rules are no set and always offered.
     let sets = $state<RuleSet[]>([]);
     let setsUnreadable = $state(false);
@@ -57,6 +60,8 @@
     async function choose(): Promise<void> {
         failed = false;
         setLength(SERIES_LENGTH_DEFAULT);
+        setVisibility("open");
+        infoShown = false;
         pick(null);
         sets = [];
         setsUnreadable = false;
@@ -66,6 +71,12 @@
         if (opened !== openings) return;
         sets = outcome.kind === "sets" ? outcome.sets : [];
         setsUnreadable = outcome.kind === "failed";
+    }
+
+    function setVisibility(next: Visibility): void {
+        if (next === visibility) return;
+        visibility = next;
+        changed();
     }
 
     function setLength(next: number): void {
@@ -136,7 +147,7 @@
 
     async function open(): Promise<void> {
         opening = true;
-        const outcome = await createTable(commandId, length, requestOf(sheet));
+        const outcome = await createTable(commandId, length, requestOf(sheet), visibility);
         opening = false;
         failed = outcome.kind !== "table";
         if (outcome.kind === "table") {
@@ -147,6 +158,22 @@
         }
     }
 </script>
+
+{#snippet tick()}
+    <span class="tick">
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+        >
+            <path d="M5 12.5l4.5 4.5L19 7.5" />
+        </svg>
+    </span>
+{/snippet}
 
 <div class="new-table">
     <button type="button" onclick={choose}>
@@ -176,6 +203,65 @@
         })}
     >
         <h3>{words["start.newTable"]}</h3>
+        <button
+            type="button"
+            class="info"
+            aria-label={words["start.visibilityInfoButton"]}
+            aria-expanded={infoShown}
+            onclick={() => {
+                infoShown = !infoShown;
+            }}
+        >
+            i
+        </button>
+        <div class="choice" role="radiogroup" aria-label={words["start.visibility"]}>
+            <label class="opt" class:on={visibility === "open"}>
+                <input
+                    type="radio"
+                    name="visibility"
+                    checked={visibility === "open"}
+                    disabled={opening || saving}
+                    onchange={() => {
+                        setVisibility("open");
+                    }}
+                />
+                {#if visibility === "open"}{@render tick()}{/if}
+                <span class="ic">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                    >
+                        <circle cx="9" cy="8" r="3.5" />
+                        <path
+                            d="M2.5 19.5c.7-3.4 3.3-5.2 6.5-5.2s5.8 1.8 6.5 5.2M15.8 4.7a3.5 3.5 0 0 1 0 6.6M18 14.6c2 .7 3.2 2.4 3.5 4.9"
+                        />
+                    </svg>
+                </span>
+                {words["start.visibilityOpen"]}
+            </label>
+            <label class="opt" class:on={visibility === "private"}>
+                <input
+                    type="radio"
+                    name="visibility"
+                    checked={visibility === "private"}
+                    disabled={opening || saving}
+                    onchange={() => {
+                        setVisibility("private");
+                    }}
+                />
+                {#if visibility === "private"}{@render tick()}{/if}
+                <span class="ic"><LockIcon /></span>
+                {words["start.visibilityPrivate"]}
+            </label>
+        </div>
+        {#if infoShown}
+            <p role="status">{words["start.visibilityInfo"]}</p>
+        {/if}
         <div class="stepper" role="group" aria-label={words["start.seriesLength"]}>
             <button
                 type="button"
