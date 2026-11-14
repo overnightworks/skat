@@ -102,12 +102,16 @@ export function standingsView(table: Table): StandingsView | null {
 export type GameRow = {
     number: number;
     name: string;
+    // The seat a Ramsch row names, whose colour its dot wears; a declared game's row has none, its sheet knows the declarer.
+    subjectSeat: number | null;
     initial: string;
     // The game and its levels; a Ramsch says how often its skat was pushed, and a Ramsch with no push has none.
     line: string | null;
     value: string;
     gain: string;
     lost: boolean;
+    // Null is not decided by card points, so its sheet draws no points bar.
+    nullGame: boolean;
 };
 
 const PLAIN_LEVELS = new Set(["spiel", "hand", "ouvert"]);
@@ -126,11 +130,13 @@ function declaredRow(entry: Extract<SeriesEntry, { kind: "declared" }>): GameRow
     return {
         number: entry.number,
         name,
+        subjectSeat: null,
         initial: name.slice(0, 1),
         line: [gameLabel(entry).name, ...levels].join(", "),
         value: String(entry.settled_value),
         gain: signed(entry.score),
         lost: entry.score < 0,
+        nullGame: entry.game === "null",
     };
 }
 
@@ -138,15 +144,18 @@ function declaredRow(entry: Extract<SeriesEntry, { kind: "declared" }>): GameRow
 function ramschRow(entry: Extract<SeriesEntry, { kind: "ramsch" }>): GameRow {
     const scores = entry.seats.map((seat) => seat.score);
     const score = entry.durchmarsch ? Math.max(...scores) : Math.min(...scores);
-    const subjects = entry.seats.filter((seat) => seat.score === score).map((seat) => nameOrNobody(seat.name));
+    const subjectSeats = entry.seats.flatMap((seat, index) => (seat.score === score ? [index + 1] : []));
+    const subjects = subjectSeats.map((seat) => nameOrNobody(entry.seats[seat - 1]?.name ?? null));
     return {
         number: entry.number,
         name: words["table.seriesRamschOf"]({ name: listFormat.format(subjects) }),
+        subjectSeat: subjectSeats[0] as number,
         initial: (subjects[0] as string).slice(0, 1),
         line: entry.pushes === 0 ? null : words["table.seriesPushed"]({ count: entry.pushes }),
         value: "",
         gain: signed(score),
         lost: score < 0,
+        nullGame: false,
     };
 }
 

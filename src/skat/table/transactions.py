@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
     from datetime import datetime
 
+    from skat.table.game_cards import GameCards
     from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord
 
 __all__ = [
@@ -29,6 +30,12 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
 
     def table(self, table_id: TableId) -> TableRecord | EndedTable | None: ...
 
+    def game_cards(self, table_id: TableId, number: int) -> GameCards | None:
+        """The cards of the `number`th game of the table's current series; None for a game stored without them, and
+        for a number no game has.
+        """
+        ...
+
     def locked_table(self, table_id: TableId) -> TableRecord | None:
         """A live table, its row locked exclusively for the transaction; only the commands that change it read this
         way. An ended table reads as none.
@@ -39,7 +46,8 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         """Write the table's version, chairs and dealer, a new hand's cards and steps, and new list entries.
 
         `played_at` is the time of the deal or step of play this save records and is written in the same statement
-        as the dealer; None leaves the stored time as it is, so a save that deals a hand with none is refused.
+        as the dealer; None leaves the stored time as it is, so a save that deals a hand with none is refused. A new
+        list entry is written with the cards it carries, in the same transaction.
 
         A passed-in hand's cards go and its steps stay until the next deal; a played-out hand, a record without a
         hand whose list grew, loses its cards and every step before its entry is appended. A stored hand stays as

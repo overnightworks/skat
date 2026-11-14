@@ -103,14 +103,22 @@ def ramsch_rules_of(options: RamschOptions, *, swept: bool) -> RamschRules:
     )
 
 
+def skat_takers(played: RamschPlayedOut, scoring: RamschScoring) -> frozenset[Position]:
+    """The players the skat's points count for: the last trick's taker, or under skat to loser each player with the
+    most trick points.
+    """
+    if scoring is RamschScoring.SKAT_TO_LOSER:
+        most = max(played.points_of(position) for position in _ALL_POSITIONS)
+        return frozenset(position for position in _ALL_POSITIONS if played.points_of(position) == most)
+    return frozenset({played.last_trick_taker})
+
+
 def _counted_points(played: RamschPlayedOut, scoring: RamschScoring) -> dict[Position, int]:
     skat_points = sum(card.points for card in played.skat)
-    counted = {position: played.points_of(position) for position in _ALL_POSITIONS}
-    if scoring is RamschScoring.SKAT_TO_LOSER:
-        most = max(counted.values())
-        return {position: points + skat_points if points == most else points for position, points in counted.items()}
-    counted[played.last_trick_taker] += skat_points
-    return counted
+    takers = skat_takers(played, scoring)
+    return {
+        position: played.points_of(position) + (skat_points if position in takers else 0) for position in _ALL_POSITIONS
+    }
 
 
 def reckon_ramsch(played: RamschPlayedOut, options: RamschOptions, *, multiplier: int) -> RamschReckoning:

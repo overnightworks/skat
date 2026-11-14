@@ -202,6 +202,7 @@ describe("gameRows", () => {
         expect(row).toMatchObject({
             number: 4,
             name: "player 2",
+            subjectSeat: null,
             initial: "p",
             line: `${words["game.handName"]({ game: words["game.grand"] })}, ${words["result.levelSchneider"]}`,
             value: "48",
@@ -222,6 +223,7 @@ describe("gameRows", () => {
         expect(row).toMatchObject({
             number: 7,
             name: words["table.seriesRamschOf"]({ name: "player 2" }),
+            subjectSeat: 2,
             line: words["table.seriesPushed"]({ count: 2 }),
             value: "",
             gain: "−40",
@@ -248,6 +250,20 @@ describe("gameRows", () => {
             gain: "+120",
             lost: false,
         });
+    });
+
+    it("names a Ramsch's subject by seat, though two seats carry the same name", () => {
+        const twins = {
+            ...RAMSCH_ENTRY,
+            seats: [
+                { name: null, score: 0 },
+                { name: null, score: 0 },
+                { name: null, score: -40 },
+            ],
+        };
+        const [row] = gameRows([twins]);
+
+        expect(row).toMatchObject({ subjectSeat: 3 });
     });
 
     it("names a declarer stored without a name as nobody in particular", () => {

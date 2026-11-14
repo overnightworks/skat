@@ -16,6 +16,7 @@ from skat.engine.ramsch import (
     play_ramsch_card,
     ramsch_after,
     reckon_ramsch,
+    skat_takers,
     start_ramsch,
 )
 from skat.engine.tricks import CardPlayed, CompletedTrick, PlayRefusal
@@ -498,3 +499,34 @@ def test_a_reckoning_cannot_be_changed_by_its_reader() -> None:
         reckoning.gains[FOREHAND] = 0  # type: ignore[index]
     with pytest.raises(TypeError):
         reckoning.counted_points[FOREHAND] = 0  # type: ignore[index]
+
+
+TAKERS = {
+    "the last trick's taker under points": (
+        played_out((47, 40, 23), (4, 4, 2), 10, MIDDLEHAND),
+        with_options(),
+        {MIDDLEHAND},
+    ),
+    "the last trick's taker under points divided by ten": (
+        played_out((47, 40, 23), (4, 4, 2), 10, REARHAND),
+        with_options(BY_TEN),
+        {REARHAND},
+    ),
+    "the seat with the most trick points under skat to loser, not the last trick's taker": (
+        played_out((47, 40, 23), (4, 4, 2), 10, REARHAND),
+        with_options(SKAT_TO_LOSER),
+        {FOREHAND},
+    ),
+    "each tied seat with the most trick points under skat to loser": (
+        played_out((45, 45, 20), (4, 4, 2), 10, REARHAND),
+        with_options(SKAT_TO_LOSER),
+        {FOREHAND, MIDDLEHAND},
+    ),
+}
+
+
+@pytest.mark.parametrize(("played", "options", "takers"), TAKERS.values(), ids=TAKERS.keys())
+def test_the_skat_counts_for_the_seats_the_scoring_names(
+    played: RamschPlayedOut, options: RamschOptions, takers: set[Position]
+) -> None:
+    assert skat_takers(played, options.scoring) == takers

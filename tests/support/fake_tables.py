@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
     from datetime import datetime
 
+    from skat.table.game_cards import GameCards
     from skat.table.member_place import BookEntry
 
 
@@ -75,6 +76,12 @@ class FakeTableStore:
 
     def table(self, table_id: TableId) -> TableRecord | EndedTable | None:
         return self.tables.get(table_id.value)
+
+    def game_cards(self, table_id: TableId, number: int) -> GameCards | None:
+        table = self.table(table_id)
+        if not isinstance(table, TableRecord) or not 1 <= number <= len(table.game_list):
+            return None
+        return table.game_list[number - 1].cards
 
     def locked_table(self, table_id: TableId) -> TableRecord | None:
         table = self.table(table_id)

@@ -22,6 +22,7 @@ STORE_TABLES = {
     "pushing_steps",
     "played_cards",
     "game_list",
+    "game_cards",
     "kontra_words",
     "kontra_no_words",
     "rule_sets",

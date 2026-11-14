@@ -117,6 +117,23 @@ export type Words = {
     readonly "table.seriesNameless": string;
     readonly "table.seriesRamschOf": (gaps: { readonly name: string }) => string;
     readonly "table.seriesPushed": (gaps: { readonly count: number }) => string;
+    readonly "table.sheetTitle": (gaps: { readonly number: string }) => string;
+    readonly "table.sheetBack": string;
+    readonly "table.sheetFailed": string;
+    readonly "table.sheetNoCards": string;
+    readonly "table.sheetSkat": string;
+    readonly "table.sheetSkatLaid": string;
+    readonly "table.sheetPutAway": string;
+    readonly "table.sheetSkatTaker": (gaps: { readonly name: string }) => string;
+    readonly "table.sheetPutBy": (gaps: { readonly name: string }) => string;
+    readonly "table.sheetCardPutAway": string;
+    readonly "table.sheetCardUnplayed": string;
+    readonly "table.sheetTrick": (gaps: { readonly number: string }) => string;
+    readonly "table.sheetShortened": string;
+    readonly "table.sheetThrownDown": string;
+    readonly "table.sheetPlayedOpen": string;
+    readonly "table.sheetDecided": string;
+    readonly "table.sheetDurchmarsch": string;
     readonly "table.newSeries": string;
     readonly "table.wantsToEndSeries": (gaps: { readonly name: string }) => string;
     readonly "table.endSeries": string;
@@ -629,6 +646,23 @@ export const words: Words = {
     "table.seriesNameless": "Jemand",
     "table.seriesRamschOf": (gaps: { readonly name: string }) => "Ramsch, " + gaps.name,
     "table.seriesPushed": (gaps: { readonly count: number }) => numberFormat.format(gaps.count) + "× geschoben",
+    "table.sheetTitle": (gaps: { readonly number: string }) => "Spiel " + gaps.number,
+    "table.sheetBack": "Zurück zur Liste",
+    "table.sheetFailed": "Das Spiel lässt sich nicht laden",
+    "table.sheetNoCards": "Für dieses Spiel sind keine Karten gespeichert.",
+    "table.sheetSkat": "Skat",
+    "table.sheetSkatLaid": "Skat am Ende",
+    "table.sheetPutAway": "Gedrückt",
+    "table.sheetSkatTaker": (gaps: { readonly name: string }) => "Der Skat ging an " + gaps.name,
+    "table.sheetPutBy": (gaps: { readonly name: string }) => "Gedrückt von " + gaps.name,
+    "table.sheetCardPutAway": "gedrückt",
+    "table.sheetCardUnplayed": "nicht gespielt",
+    "table.sheetTrick": (gaps: { readonly number: string }) => "Stich " + gaps.number,
+    "table.sheetShortened": "Abgekürzt",
+    "table.sheetThrownDown": "Hingelegt",
+    "table.sheetPlayedOpen": "Offen gelegt",
+    "table.sheetDecided": "Entschieden",
+    "table.sheetDurchmarsch": "Durchmarsch",
     "table.newSeries": "Neue Serie",
     "table.wantsToEndSeries": (gaps: { readonly name: string }) => gaps.name + " will die Serie beenden",
     "table.endSeries": "Serie beenden",

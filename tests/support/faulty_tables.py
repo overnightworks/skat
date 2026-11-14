@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from datetime import datetime
 
+    from skat.table.game_cards import GameCards
     from skat.table.member_place import BookEntry
     from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord
     from skat.table.transactions import LiveWait, OccupiedChair, PausedFacts, TableTransaction, TableTransactions
@@ -74,6 +75,9 @@ class _FaultyTransaction:
 
     def table(self, table_id: TableId) -> TableRecord | EndedTable | None:
         return self._inner.table(table_id)
+
+    def game_cards(self, table_id: TableId, number: int) -> GameCards | None:
+        return self._inner.game_cards(table_id, number)
 
     def locked_table(self, table_id: TableId) -> TableRecord | None:
         return self._inner.locked_table(table_id)

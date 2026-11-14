@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.ending import close_table, end_unplayed_table, forget_ended_tables, table_with_opener, unplayed_tables
-from skat.table.game_list import series_list_view_of
+from skat.table.game_reads import GameListReads
 from skat.table.hand_abort import (
     AGREE_TO_ABORT_COMMAND,
     REFUSE_TO_ABORT_COMMAND,
@@ -138,7 +138,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from contextlib import AbstractContextManager
 
-    from skat.table.game_list import RamschSeriesEntryView, SeriesEntryView
     from skat.table.member_place import CallFacts
     from skat.table.transactions import OccupiedChair, TableTransaction, TableTransactions
 
@@ -149,7 +148,7 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-class TableService(LobbyReads):
+class TableService(LobbyReads, GameListReads):
     """The table commands and views; every command is one transaction."""
 
     def __init__(
@@ -733,13 +732,6 @@ class TableService(LobbyReads):
         if hand_was_dealt(after) and not hand_was_dealt(before):
             transaction.set_empty_since(after.id, None)
 
-    def _table_read(self, table_id: str) -> TableRecord | EndedTable | None:
-        identifier = TableId.parse(table_id)
-        if identifier is None:
-            return None
-        with self._transactions.begin() as transaction:
-            return transaction.table(identifier)
-
     def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str]) -> TableView | None:
         table, opener = table_with_opener(self._transactions, table_id)
         if table is None:
@@ -790,10 +782,3 @@ class TableService(LobbyReads):
         if not isinstance(table, TableRecord):
             return None
         return agent_in_chair(table, seat)
-
-    def series_list(self, table_id: str) -> tuple[SeriesEntryView | RamschSeriesEntryView, ...] | None:
-        """The table's list of finished games, the same for every viewer; None for no table, empty once it ended."""
-        table = self._table_read(table_id)
-        if table is None:
-            return None
-        return () if isinstance(table, EndedTable) else series_list_view_of(table)
