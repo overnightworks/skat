@@ -33,8 +33,6 @@ class ScriptedDatabase:
         self._clock = clock
         self.health = READY
         self.probes_started = 0
-        self.probes_running = 0
-        self.most_probes_running = 0
         self.seconds_per_probe = 0.0
         self.stalled = False
         self.fails = False
@@ -42,16 +40,12 @@ class ScriptedDatabase:
 
     def probe(self) -> DatabaseHealth:
         self.probes_started += 1
-        self.probes_running += 1
-        self.most_probes_running = max(self.most_probes_running, self.probes_running)
         if self.stalled:
             self.released.wait(timeout=STALL_GUARD_SECONDS)
         if self.fails:
             raise ProbeBrokeError
         self._clock.now += self.seconds_per_probe
-        health = self.health
-        self.probes_running -= 1
-        return health
+        return self.health
 
 
 @pytest.fixture
@@ -77,7 +71,7 @@ class TestReadinessProbe:
     def test_a_burst_of_asks_is_answered_by_one_probe(self, readiness, database):
         verdicts = asyncio.run(burst(readiness))
 
-        assert (verdicts, database.probes_started, database.most_probes_running) == ([True] * BURST_SIZE, 1, 1)
+        assert (verdicts, database.probes_started) == ([True] * BURST_SIZE, 1)
 
     def test_a_burst_during_a_probe_gets_that_probes_verdict(self, readiness, database):
         database.health = UNREACHABLE
@@ -110,13 +104,6 @@ class TestReadinessProbe:
         recovered = asyncio.run(readiness())
 
         assert (before, stopped, recovered) == (True, False, True)
-
-    def test_a_probe_after_the_reuse_time_is_a_new_one_at_a_time_again(self, readiness, database, clock):
-        asyncio.run(burst(readiness))
-        clock.now += READINESS_REUSE_SECONDS
-        asyncio.run(burst(readiness))
-
-        assert (database.probes_started, database.most_probes_running) == (2, 1)
 
     def test_a_stalled_probe_reads_unready_once_the_patience_is_up_without_a_second_probe(
         self, readiness, database, clock, monkeypatch

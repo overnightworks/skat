@@ -198,7 +198,8 @@ class ReadinessProbe:
     that has not answered by then reads unready, so a stalled database turns the verdict within the sum of both,
     not after the health deadline. The reuse runs from the probe's start, because a ready verdict read the database
     after that start, so it outlives a stop by at most the reuse time. A verdict that differs from
-    the previous one is logged once with its cause.
+    the previous one is logged once with its cause; the first probe is compared with ready, which `require_head`
+    established before Skat served.
     """
 
     def __init__(self, probe: Callable[[], DatabaseHealth], *, clock: Callable[[], float] = time.monotonic) -> None:
