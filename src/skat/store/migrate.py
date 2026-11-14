@@ -75,17 +75,17 @@ def _head_revision() -> str | None:
     return ScriptDirectory.from_config(_alembic_config()).get_current_head()
 
 
-def _current_revision(connection: Connection) -> str | None:
-    return MigrationContext.configure(connection).get_current_revision()
+def _current_revisions(connection: Connection) -> tuple[str, ...]:
+    return MigrationContext.configure(connection).get_current_heads()
 
 
 def require_head(engine: Engine) -> None:
     head = _head_revision()
     with engine.connect() as connection:
-        current = _current_revision(connection)
-    if current != head:
+        current = _current_revisions(connection)
+    if current != (head,):
         raise DatabaseNotAtHeadError(
-            f"The database is at revision {current or 'none'} but Skat needs {head}; run skat migrate first"
+            f"The database is at revision {', '.join(current) or 'none'} but Skat needs {head}; run skat migrate first"
         )
 
 
@@ -101,6 +101,6 @@ def database_health(engine: Engine) -> DatabaseHealth:
                 text("SELECT set_config('statement_timeout', :milliseconds, true)"),
                 {"milliseconds": str(HEALTH_STATEMENT_TIMEOUT_MILLISECONDS)},
             )
-            return DatabaseHealth(serves_queries=True, at_head=_current_revision(connection) == _head_revision())
+            return DatabaseHealth(serves_queries=True, at_head=_current_revisions(connection) == (_head_revision(),))
     except SQLAlchemyError:
         return DatabaseHealth(serves_queries=False, at_head=False)

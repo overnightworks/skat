@@ -545,6 +545,14 @@ class TestRequireHead:
         with pytest.raises(DatabaseNotAtHeadError, match="older"):
             require_head(unmigrated_engine)
 
+    def test_refuses_a_database_that_holds_a_second_revision_besides_the_newest(self, unmigrated_engine):
+        migrate(unmigrated_engine)
+        with unmigrated_engine.begin() as connection:
+            connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('older')"))
+
+        with pytest.raises(DatabaseNotAtHeadError, match="older"):
+            require_head(unmigrated_engine)
+
 
 class TestDatabaseHealth:
     def test_a_database_at_head_serves_and_is_ready(self, unmigrated_engine):
@@ -565,6 +573,17 @@ class TestDatabaseHealth:
             connection.execute(text("UPDATE alembic_version SET version_num = 'older'"))
 
         assert database_health(unmigrated_engine).ready is False
+
+    def test_a_database_that_holds_a_second_revision_besides_the_newest_is_not_at_head_and_raises_nothing(
+        self, unmigrated_engine
+    ):
+        migrate(unmigrated_engine)
+        with unmigrated_engine.begin() as connection:
+            connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('older')"))
+
+        health = database_health(unmigrated_engine)
+
+        assert (health.serves_queries, health.at_head, health.ready) == (True, False, False)
 
     def test_the_answer_follows_the_database_as_it_is_migrated_between_two_asks(self, unmigrated_engine):
         before = database_health(unmigrated_engine)
