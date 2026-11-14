@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from skat.engine.cards import Card, Rank, Suit
+from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.declaration import Announcement, Declaration
 from skat.engine.games import GameKind
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
@@ -41,8 +41,14 @@ def cards_of(**changed):
     return GameCards(**fields)
 
 
+def a_whole_game():
+    """Ten tricks of thirty distinct cards, so that a game is played out whatever its cards are worth."""
+    seated = [SeatedCard(place % 3 + 1, card) for place, card in enumerate(DECK[:30])]
+    return tuple(tuple(seated[start : start + 3]) for start in range(0, 30, 3))
+
+
 def a_herz_game(**changed):
-    return replace(an_entry(), declaration=HERZ_GAME, declarer_points=70, **changed)
+    return replace(an_entry(), declaration=HERZ_GAME, **{"declarer_points": 70, **changed})
 
 
 def sheet_of(entry, cards, options=None):
@@ -73,13 +79,23 @@ class TestADeclaredGame:
         assert taken.taker_seat == taker_seat
 
     def test_names_the_declarer_and_the_points_each_side_counted_and_how_the_game_ended(self):
-        entry = a_herz_game(ending=GameEnding.GIVEN_UP, ended_by_seat=2)
+        entry = a_herz_game(ending=GameEnding.PLAYED_OUT, ended_by_seat=None)
 
-        count = sheet_of(entry, cards_of()).count
+        count = sheet_of(entry, cards_of(tricks=a_whole_game())).count
 
         assert count == DeclaredCount(
-            declarer_seat=1, declarer_points=70, opponents_points=50, ending=GameEnding.GIVEN_UP, ended_by_seat=2
+            declarer_seat=1, declarer_points=70, opponents_points=50, ending=GameEnding.PLAYED_OUT, ended_by_seat=None
         )
+
+    def test_a_game_that_ended_early_counts_only_the_points_played(self):
+        interrupted = (SeatedCard(3, KREUZ_SEVEN), SeatedCard(1, PIK_KING))
+        opponents_trick = (SeatedCard(2, PIK_NINE), SeatedCard(3, PIK_EIGHT), SeatedCard(1, KARO_ACE))
+        cards = cards_of(tricks=(cards_of().tricks[0], opponents_trick, interrupted))
+        entry = a_herz_game(ending=GameEnding.GIVEN_UP, ended_by_seat=1, declarer_points=0)
+
+        count = sheet_of(entry, cards).count
+
+        assert (count.declarer_points, count.opponents_points) == (21 + 4 + 2, 11)
 
     def test_a_dealt_card_is_marked_played_put_away_or_unplayed_by_what_became_of_it(self):
         hands = sheet_of(a_herz_game(), cards_of()).cards.hands

@@ -6,7 +6,7 @@ from skat.engine.deal import SEATS, Position
 from skat.engine.games import GameKind
 from skat.engine.play import trick_winner
 from skat.engine.ramsch import RamschPlayedOut, skat_takers
-from skat.engine.tricks import CompletedTrick
+from skat.engine.tricks import TRICKS_IN_A_GAME, CompletedTrick
 from skat.table.game_list import GameEnding, RamschEntry
 
 if TYPE_CHECKING:
@@ -131,16 +131,38 @@ def _hand_of(seat: int, cards: GameCards, played: set[tuple[int, Card]], put_awa
     return SheetHand(seat, tuple(SheetCard(card, state_of(card)) for card in cards.hands[seat - 1]))
 
 
-def _count_of(entry: GameEntry) -> DeclaredCount | RamschCount:
-    if isinstance(entry, RamschEntry):
-        return RamschCount(entry.seat_points, entry.durchmarsch_seat)
+def _points_played(declarer_seat: int, cards: SheetCards) -> tuple[int, int]:
+    """The card points of the declarer and of the opponents counted over the cards played: the tricks each took and the
+    cards the declarer put away.
+    """
+    taken = [(trick.taker_seat == declarer_seat, trick.points) for trick in cards.tricks if trick.points is not None]
+    put_away = sum(each.card.points for each in cards.put_away)
+    return (
+        put_away + sum(points for by_declarer, points in taken if by_declarer),
+        sum(points for by_declarer, points in taken if not by_declarer),
+    )
+
+
+def _declared_count_of(entry: ListEntry, cards: SheetCards | None) -> DeclaredCount:
+    """The points a declared game counted; a game that ended before its tenth trick was taken counts only what was
+    played, whatever the points the ending settled it by.
+    """
+    declarer_points, opponents_points = entry.declarer_points, entry.opponents_points
+    if cards is not None and sum(trick.points is not None for trick in cards.tricks) < TRICKS_IN_A_GAME:
+        declarer_points, opponents_points = _points_played(entry.declarer_seat, cards)
     return DeclaredCount(
         declarer_seat=entry.declarer_seat,
-        declarer_points=entry.declarer_points,
-        opponents_points=entry.opponents_points,
+        declarer_points=declarer_points,
+        opponents_points=opponents_points,
         ending=entry.ending,
         ended_by_seat=entry.ended_by_seat,
     )
+
+
+def _count_of(entry: GameEntry, cards: SheetCards | None) -> DeclaredCount | RamschCount:
+    if isinstance(entry, RamschEntry):
+        return RamschCount(entry.seat_points, entry.durchmarsch_seat)
+    return _declared_count_of(entry, cards)
 
 
 def _sheet_cards_of(table: TableRecord, entry: GameEntry, cards: GameCards) -> SheetCards:
@@ -180,9 +202,7 @@ def game_sheet_of(table: TableRecord, number: int, cards: GameCards | None) -> G
     for the game's kind, a Ramsch's as Grand.
     """
     entry = table.game_list[number - 1]
+    sheet_cards = None if cards is None else _sheet_cards_of(table, entry, cards)
     return GameSheetView(
-        number=number,
-        seat_names=entry.seat_names,
-        count=_count_of(entry),
-        cards=None if cards is None else _sheet_cards_of(table, entry, cards),
+        number=number, seat_names=entry.seat_names, count=_count_of(entry, sheet_cards), cards=sheet_cards
     )
