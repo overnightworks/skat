@@ -15,7 +15,7 @@ export function stubBrowser(options: { reducedMotion: boolean; stored?: string; 
         stop: vi.fn(),
     });
     class StubContext {
-        static made: StubContext[] = [];
+        static readonly made: StubContext[] = [];
         constructor() {
             StubContext.made.push(this);
         }
