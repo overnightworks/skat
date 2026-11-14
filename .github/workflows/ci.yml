@@ -235,11 +235,13 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       # The page build's hidden source maps map Chromium's coverage to frontend/src. The step fails on a shipped source
-      # with code and no record; the Coverage job judges the merged report.
+      # with code and no record; the Coverage job judges the merged report. The conversion keeps the data of every page
+      # the suite opened in memory, which outgrew Node's default heap of about 4 GB; the runner has 16 GB.
       - name: Convert the browser coverage to lcov
         working-directory: frontend
         env:
           SKAT_BROWSER_COVERAGE_DIR: ${{ runner.temp }}/browser-coverage-raw
+          NODE_OPTIONS: --max-old-space-size=8192
         run: |
           pnpm install --frozen-lockfile
           node scripts/browser-coverage-report.js "${SKAT_BROWSER_COVERAGE_DIR}" ../src/skat/web/build ../browser-coverage

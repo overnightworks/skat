@@ -34,22 +34,33 @@ def playing_table(
     return deal_playing_table(open_person, e2e_server, member_of, page_errors, PHONE, game="kreuz")
 
 
-def open_watcher(
-    open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **form_factor: object
-) -> Page:
-    """The table's watcher on a phone."""
-    return open_watcher_at(open_person, page_errors, table, **PHONE, **form_factor)
-
-
-def open_watcher_at(
-    open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **context: object
-) -> Page:
-    """The table's watcher in a browser context of the caller's choosing."""
+def open_at(open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **context: Any) -> Page:
+    """The table's watcher page, opened in the browser context the keywords describe."""
     watcher = record_page_errors(open_person(**context), page_errors)
     watcher.goto(table.watcher.url)
     expect(watcher.locator(".chair")).to_have_count(3)
     return watcher
 
 
+def open_watcher(
+    open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **form_factor: object
+) -> Page:
+    return open_at(open_person, page_errors, table, **PHONE, **form_factor)
+
+
 def tap(page: Page) -> None:
     page.keyboard.press("Shift")
+
+
+def recordings_started(page: Page) -> list[dict[str, Any]]:
+    """The recordings the page played on the stand-in in the order they started, with the path each came from."""
+    return page.evaluate("window.recordingsStarted")
+
+
+def wait_for_recordings_decoded(page: Page, count: int) -> None:
+    """Waits until the page has decoded `count` recordings, which is when its voice can say any word at once."""
+    page.wait_for_function("count => window.recordingsDecoded >= count", arg=count)
+
+
+def wait_for_recordings_started(page: Page, count: int) -> None:
+    page.wait_for_function("count => window.recordingsStarted.length >= count", arg=count)

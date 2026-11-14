@@ -15,15 +15,7 @@ export function keyWord(table: Table): Word | null {
     return table.hand?.playing?.kontra?.my_word ?? null;
 }
 
-// The word the update from `previous` to `next` brought, the last when it brought several.
-function wordSaidBetween(previous: Table | undefined, next: Table): SaidWord | null {
-    if (previous === undefined || next.version <= previous.version) return null;
-    const before = previous.hand?.playing?.kontra?.said ?? [];
-    const after = next.hand?.playing?.kontra?.said ?? [];
-    return after.length > before.length ? (after.at(-1) as SaidWord) : null;
-}
-
-function stampOf(table: Table, said: SaidWord): Stamp {
+export function stampOf(table: Table, said: SaidWord): Stamp {
     // A word is said by a seat of the table, which keeps its chair when its occupant leaves.
     const chair = table.chairs.find((each) => each.seat === said.seat) as Chair;
     const name = chair.occupant_name ?? "";
@@ -41,11 +33,4 @@ export function plaqueLine(kontra: Kontra | null): readonly MarkedPart<"factor">
     if (kontra === null || kontra.said.length === 0) return null;
     const last = kontra.said.at(-1) as SaidWord;
     return words["kontra.plaque"]({ word: wordLabel(last.word), factor: String(kontra.factor) });
-}
-
-// The stamp of the word an update brought, or null. A page that has no table before it, as after a reload or a dropped
-// connection, stamps nothing: the plaque already tells the word.
-export function stampBetween(previous: Table | undefined, next: Table): Stamp | null {
-    const said = wordSaidBetween(previous, next);
-    return said === null ? null : stampOf(next, said);
 }

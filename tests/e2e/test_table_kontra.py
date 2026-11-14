@@ -122,6 +122,35 @@ def expect_nothing_to_overflow(person: Page) -> None:
         assert box["x"] + box["width"] <= viewport["width"], box
 
 
+@pytest.mark.parametrize(
+    ("device_motion", "stored", "stamp_motion", "ring"),
+    [
+        ("no-preference", {"motionSet": "dezent"}, "stamp-dezent", "none"),
+        ("no-preference", {"motionSet": "verspielt"}, "stamp-verspielt", "block"),
+        ("reduce", {"motionSet": "dezent"}, "none", "none"),
+        ("reduce", {"replayMotion": True}, "stamp-verspielt", "block"),
+    ],
+    ids=["dezent", "verspielt", "reduced", "reduced-but-overridden"],
+)
+def test_the_stamp_lands_in_the_picked_set_and_only_the_playful_set_runs_a_ring_out_of_it(
+    deal_a_kontra_table: Callable[..., PlayingTable],
+    page_errors: list[str],
+    device_motion: str,
+    stored: dict[str, Any],
+    stamp_motion: str,
+    ring: str,
+) -> None:
+    table = deal_a_kontra_table({**PHONE, "reduced_motion": device_motion})
+    table.watcher.evaluate("record => localStorage.setItem('skat.settings', record)", json.dumps(stored))
+    reload_and_wait(table.watcher)
+
+    button_of(says_kontra(table), KONTRA).click()
+
+    expect(table.watcher.locator(STAMP)).to_have_css("animation-name", stamp_motion)
+    expect(table.watcher.locator(".callout-ring")).to_have_css("display", ring)
+    assert page_errors == []
+
+
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_an_opponent_who_bid_says_kontra_and_the_declarer_re_and_every_page_shows_each_word_and_the_factor(
     deal_a_kontra_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
