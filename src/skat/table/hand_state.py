@@ -1,4 +1,3 @@
-from dataclasses import replace
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.bidding import Auction, Declared, PassedIn, auction_after
@@ -129,7 +128,8 @@ def doubling_of(table: TableRecord) -> Doubling | None:
     doubling = doubling_after(start, table.progress.plays, table.progress.words, options, bidders)
     if options.deadline is not KontraDeadline.FIRST_CARD:
         return doubling
-    return replace(doubling, declined=frozenset(answered.position for answered in table.progress.no_words))
+    declined = frozenset(answered.position for answered in table.progress.no_words)
+    return Doubling(doubling.words, doubling.kontra_by, doubling.next_speaker_cards, declined)
 
 
 def positions_the_first_card_waits_on(table: TableRecord) -> frozenset[Position]:
