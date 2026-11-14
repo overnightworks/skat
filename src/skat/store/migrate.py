@@ -1,15 +1,18 @@
+import asyncio
+import os
+import socket
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 from typing import Final
 
+import psycopg
 from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import Connection, Engine, create_engine, text
 from sqlalchemy.engine import make_url
-from sqlalchemy.exc import SQLAlchemyError
 
 MIGRATIONS_DIRECTORY: Final = Path(__file__).parent / "migrations"
 # Serialises concurrent `skat migrate` runs; any constant shared by all of them does.
@@ -18,7 +21,10 @@ POSTGRES_DRIVER: Final = "postgresql+psycopg"
 # Bounds how long a connection attempt waits for a database that is down or silent; libpq takes whole seconds
 # and reads anything below two as two.
 STORE_CONNECT_TIMEOUT_SECONDS: Final = 5
-# Bounds how long the health check waits on a database that connected and then stops answering.
+# Bounds the whole health check, connecting and closing included, on a database that is down, silent or stops
+# answering after it connected; the client gives up, because a server that does not answer cannot time itself out.
+HEALTH_DEADLINE_SECONDS: Final = 5
+# Bounds the work the health check leaves on a database that is slow but answering.
 HEALTH_STATEMENT_TIMEOUT_MILLISECONDS: Final = 2_000
 
 
@@ -89,18 +95,53 @@ def require_head(engine: Engine) -> None:
         )
 
 
-def database_health(engine: Engine) -> DatabaseHealth:
-    """Whether the database serves a query and is at the newest migration; it raises on neither.
+def _hang_up(connection: psycopg.AsyncConnection) -> None:
+    """Ends the exchange on the connection's socket, so that a query waiting on it fails at once.
 
-    The database's revision is read on every ask, because a rollout moves it while Skat runs; the newest revision
-    is not, because it cannot change in the process.
+    Cancelling the waiting task instead would make psycopg ask the unresponsive server to cancel the query and wait
+    on it for seconds more.
+    """
+    with socket.socket(fileno=os.dup(connection.pgconn.socket)) as duplicate:
+        duplicate.shutdown(socket.SHUT_RDWR)
+
+
+async def _read_current_revisions(engine: Engine) -> tuple[str, ...]:
+    """The revisions the database holds, none while it is unmigrated, within the health deadline.
+
+    The connection is closed, not rolled back, because a rollback would wait on the server again; closing ends the
+    session and so its transaction.
+    """
+    _, parameters = engine.dialect.create_connect_args(engine.url)
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + HEALTH_DEADLINE_SECONDS
+    async with asyncio.timeout_at(deadline):
+        connection = await psycopg.AsyncConnection.connect(
+            **parameters,
+            connect_timeout=STORE_CONNECT_TIMEOUT_SECONDS,
+            options=f"-c statement_timeout={HEALTH_STATEMENT_TIMEOUT_MILLISECONDS}",
+        )
+    hang_up = loop.call_at(deadline, _hang_up, connection)
+    try:
+        cursor = await connection.execute("SELECT version_num FROM alembic_version")
+        return tuple(version for (version,) in await cursor.fetchall())
+    except psycopg.errors.UndefinedTable:
+        return ()
+    finally:
+        hang_up.cancel()
+        await connection.close()
+
+
+def database_health(engine: Engine) -> DatabaseHealth:
+    """Whether the database serves a query and is at the newest migration; it raises on neither and returns within
+    the health deadline.
+
+    The probe opens a connection of its own, so that neither the engine's pool (its pre-ping, a checkout waiting for
+    a free connection) nor a hung server can hold it past the deadline. The database's revision is read on every
+    ask, because a rollout moves it while Skat runs; the newest revision is not, because it cannot change in the
+    process.
     """
     try:
-        with engine.connect() as connection:
-            connection.execute(
-                text("SELECT set_config('statement_timeout', :milliseconds, true)"),
-                {"milliseconds": str(HEALTH_STATEMENT_TIMEOUT_MILLISECONDS)},
-            )
-            return DatabaseHealth(serves_queries=True, at_head=_current_revisions(connection) == (_head_revision(),))
-    except SQLAlchemyError:
+        current = asyncio.run(_read_current_revisions(engine))
+    except psycopg.Error, TimeoutError:
         return DatabaseHealth(serves_queries=False, at_head=False)
+    return DatabaseHealth(serves_queries=True, at_head=current == (_head_revision(),))

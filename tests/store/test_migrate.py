@@ -1,5 +1,6 @@
 import socket
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from alembic.autogenerate import compare_metadata
@@ -19,6 +20,8 @@ from skat.store.tables import metadata
 from tests.support.migrations import list_row, run_in_transaction, upgrade_to
 
 pytestmark = pytest.mark.postgres
+
+WELL_PAST_THE_DEADLINE_SECONDS = 30
 
 STORE_TABLES = {
     "tables",
@@ -614,6 +617,22 @@ class TestDatabaseHealth:
 
             engine.dispose()
         assert health.ready is False
+
+    def test_a_database_that_connected_and_then_stops_answering_is_given_up_on_at_the_deadline(
+        self, database_url, relay_in_front_of, monkeypatch
+    ):
+        monkeypatch.setattr(migrate_module, "HEALTH_DEADLINE_SECONDS", 1)
+        relay = relay_in_front_of(database_url)
+        engine = create_store_engine(relay.url)
+        relay.stall()
+        executor = ThreadPoolExecutor(max_workers=1)
+
+        try:
+            health = executor.submit(database_health, engine).result(timeout=WELL_PAST_THE_DEADLINE_SECONDS)
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
+        assert (health.serves_queries, health.ready) == (False, False)
 
     def test_a_database_that_stops_answering_after_it_connected_gives_up_instead_of_hanging(
         self, unmigrated_engine, monkeypatch
