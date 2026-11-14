@@ -15,7 +15,7 @@ from skat.web.tables import TABLES_PATH, CardAnswer, SeatedCardAnswer, card_answ
 if TYPE_CHECKING:
     from skat.table.game_cards import SeatedCard
     from skat.table.game_list import SeriesEntryView
-    from skat.table.game_sheet import GameSheetView, SheetCards
+    from skat.table.game_sheet import GameSheetView, SheetCard, SheetCards, SheetHand, SheetTrick
     from skat.table.service import TableService
 
 # The table's list of finished games: `TABLES_PATH/{table_id}` plus this.
@@ -139,26 +139,29 @@ def _seated_answer_of(played: SeatedCard) -> SeatedCardAnswer:
     return SeatedCardAnswer(seat=played.seat, card=card_answer_of(played.card))
 
 
+def _sheet_card_answer_of(held: SheetCard) -> SheetCardAnswer:
+    return SheetCardAnswer(card=card_answer_of(held.card), state=held.state)
+
+
+def _sheet_hand_answer_of(hand: SheetHand) -> SheetHandAnswer:
+    return SheetHandAnswer(seat=hand.seat, cards=[_sheet_card_answer_of(held) for held in hand.cards])
+
+
+def _sheet_trick_answer_of(trick: SheetTrick) -> SheetTrickAnswer:
+    return SheetTrickAnswer(
+        number=trick.number,
+        cards=[_seated_answer_of(played) for played in trick.cards],
+        taker_seat=trick.taker_seat,
+        points=trick.points,
+    )
+
+
 def _cards_answer_of(cards: SheetCards) -> SheetCardsAnswer:
     return SheetCardsAnswer(
-        hands=[
-            SheetHandAnswer(
-                seat=hand.seat,
-                cards=[SheetCardAnswer(card=card_answer_of(each.card), state=each.state) for each in hand.cards],
-            )
-            for hand in cards.hands
-        ],
+        hands=[_sheet_hand_answer_of(hand) for hand in cards.hands],
         skat=[card_answer_of(card) for card in cards.skat],
         put_away=[_seated_answer_of(put) for put in cards.put_away],
-        tricks=[
-            SheetTrickAnswer(
-                number=trick.number,
-                cards=[_seated_answer_of(played) for played in trick.cards],
-                taker_seat=trick.taker_seat,
-                points=trick.points,
-            )
-            for trick in cards.tricks
-        ],
+        tricks=[_sheet_trick_answer_of(trick) for trick in cards.tricks],
         skat_takers=list(cards.skat_takers),
     )
 
