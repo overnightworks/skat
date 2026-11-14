@@ -490,21 +490,35 @@ def playing_view_of(
         running_points=state.tally.points
         if show_running_points and isinstance(state, Playing) and state.counts_card_points
         else None,
-        give_up=None if asked is None or asked.claim is not None or asked.open_play else _give_up_view_of(asked, seats),
-        shortening=None if asked is None or asked.claim is None else _shortening_view_of(asked, asked.claim, seats),
+        give_up=_give_up_view_of(asked, seats),
+        shortening=_shortening_view_of(asked, seats),
         shortening_refused_seat=None if shortening_refused_by is None else seats[shortening_refused_by],
-        open_play_seat=None if asked is None or not asked.open_play else seats[asked.asker],
-        open_hands=tuple(
-            OpenHand(seats[position], tuple(card for card in DECK if card in state.hands[position]))
-            for position in sorted(played_open, key=seats.__getitem__)
-        ),
+        open_play_seat=_open_play_seat_of(asked, seats),
+        open_hands=_open_hands_of(state, played_open, seats),
         kontra=kontra,
     )
 
 
-def _give_up_view_of(asked: GiveUpAsked, seats: dict[Position, int]) -> GiveUpView:
+def _give_up_view_of(asked: GiveUpAsked | None, seats: dict[Position, int]) -> GiveUpView | None:
+    if asked is None or asked.claim is not None or asked.open_play:
+        return None
     return GiveUpView(seats[asked.asker], None if asked.declined_by is None else seats[asked.declined_by])
 
 
-def _shortening_view_of(asked: GiveUpAsked, claim: Announcement, seats: dict[Position, int]) -> ShorteningView:
-    return ShorteningView(seats[asked.asker], claim, None if asked.agreed_by is None else seats[asked.agreed_by])
+def _shortening_view_of(asked: GiveUpAsked | None, seats: dict[Position, int]) -> ShorteningView | None:
+    if asked is None or asked.claim is None:
+        return None
+    return ShorteningView(seats[asked.asker], asked.claim, None if asked.agreed_by is None else seats[asked.agreed_by])
+
+
+def _open_play_seat_of(asked: GiveUpAsked | None, seats: dict[Position, int]) -> int | None:
+    return None if asked is None or not asked.open_play else seats[asked.asker]
+
+
+def _open_hands_of(
+    state: Playing | RamschPlaying, played_open: frozenset[Position], seats: dict[Position, int]
+) -> tuple[OpenHand, ...]:
+    return tuple(
+        OpenHand(seats[position], tuple(card for card in DECK if card in state.hands[position]))
+        for position in sorted(played_open, key=seats.__getitem__)
+    )
