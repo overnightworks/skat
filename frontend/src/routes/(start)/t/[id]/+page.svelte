@@ -581,6 +581,7 @@
                         class:out={marks.passed}
                         class:win={winners.has(chair.seat)}
                         class:turn={onTurn}
+                        class:nudgeable={chair.nudge !== null}
                         data-seat={chair.seat}
                     >
                         {#if chair.occupant_name !== null}

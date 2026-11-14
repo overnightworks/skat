@@ -2226,6 +2226,11 @@ body {
         top: 18px;
     }
 
+    /* The chair the table waits for keeps its top-left corner for the bell, so its mark stands right of the bell's tap area. */
+    .room .chair.nudgeable .mark:is(.turn, .pass, .waits, .ready, .think) {
+        left: 34px;
+    }
+
     /* The declarer's mark stands under the chair's letter, clear of the turn mark above it and of the coaster at the chair's lower corner, and a wide chair has room for the word. */
     .room .mark:is(.declined, .unanswered) {
         top: 80px;

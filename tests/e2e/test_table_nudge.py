@@ -87,6 +87,21 @@ class SilentSeat:
     def chair(self, page: Page) -> Locator:
         return page.locator(f".chair[data-seat='{self.seat}']")
 
+    def marks_under_the_bell(self, page: Page) -> list[str]:
+        """The classes of every other mark on the awaited chair whose box meets the bell's."""
+        return self.chair(page).evaluate(
+            """(chair) => {
+                const bell = chair.querySelector('.mark.bell').getBoundingClientRect();
+                return [...chair.querySelectorAll('.mark:not(.bell)')]
+                    .filter((mark) => {
+                        const box = mark.getBoundingClientRect();
+                        return box.width > 0 && box.left < bell.right && box.right > bell.left
+                            && box.top < bell.bottom && box.bottom > bell.top;
+                    })
+                    .map((mark) => mark.className);
+            }"""
+        )
+
     def let_the_pages_wait(self, seconds: float) -> None:
         for page in self.table.everyone:
             page.clock.fast_forward(int(seconds * MILLISECONDS_PER_SECOND))
@@ -137,6 +152,7 @@ def test_the_bell_comes_after_a_minute_to_the_seated_but_the_awaited_and_a_tap_r
         assert chair["x"] - bell["x"] < bell["width"]
         assert chair["y"] - bell["y"] < bell["height"]
         assert bell["width"] <= TAP_AREA_PIXELS
+        assert waiting.marks_under_the_bell(page) == []
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     expect(waiting.awaited.locator(BELL)).to_have_count(0)
     expect(waiting.watcher.locator(BELL)).to_have_count(0)
