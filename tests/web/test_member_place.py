@@ -221,7 +221,7 @@ class TestAnInvitationIsAcceptedAtOnce:
         with agent.listening() as frames:
             agent.sit_down(table_id, 2)
             assert next(frames)["method"] == UPDATED
-            opened = agent.open_table().json()["id"]
+            opened = agent.offered_every_tool().open_table().json()["id"]
             assert next(frames)["method"] == UPDATED
 
         assert {(standing["state"], standing["place"]["id"]) for standing in standing_of(agent)} == {

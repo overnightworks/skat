@@ -81,8 +81,8 @@ def skat(hold, issuer):
 
 
 class TestTools:
-    def test_an_agent_is_offered_the_table_tools_and_only_the_four_reads_are_read_only(self, agent):
-        answer = agent.request("tools/list")
+    def test_the_front_declares_the_table_tools_and_only_the_four_reads_are_read_only(self, agent):
+        answer = agent.offered_every_tool().request("tools/list")
 
         tools = {tool["name"]: tool for tool in answer.json()["result"]["tools"]}
         assert (
@@ -121,7 +121,7 @@ class TestTools:
             assert "readOnlyHint" not in tools[name].get("annotations", {})
 
     def test_each_step_tool_has_a_description_of_its_own(self, agent):
-        answer = agent.request("tools/list")
+        answer = agent.offered_every_tool().request("tools/list")
 
         tools = {tool["name"]: tool for tool in answer.json()["result"]["tools"]}
         assert len({tools[name]["description"] for name in STEP_TOOLS}) == len(STEP_TOOLS)
@@ -135,7 +135,7 @@ class TestTools:
         ],
     )
     def test_a_tool_description_names_the_awaiting_value_its_step_fits(self, agent, tool, token):
-        answer = agent.request("tools/list")
+        answer = agent.offered_every_tool().request("tools/list")
 
         tools = {listed["name"]: listed for listed in answer.json()["result"]["tools"]}
         assert f'is "{token.value}"' in tools[tool]["description"]
@@ -620,7 +620,7 @@ class TestAuctionSteps:
         table = Table(skat)
         before = stored(skat)
 
-        answer = agent.take_step(AUCTION_PASS_TOOL, table, command_id="agent-step-refused")
+        answer = agent.offered_every_tool().take_step(AUCTION_PASS_TOOL, table, command_id="agent-step-refused")
 
         assert answer.is_error
         assert answer.json()["reason"] == Refusal.NOT_SEATED
@@ -632,7 +632,9 @@ class TestAuctionSteps:
         table_id = skat.create(headers).json()["id"]
         before = stored(skat)
 
-        answer = agent.call(AUCTION_PASS_TOOL, table_id=table_id, command_id="agent-step-0001", version=1)
+        answer = agent.offered_every_tool().call(
+            AUCTION_PASS_TOOL, table_id=table_id, command_id="agent-step-0001", version=1
+        )
 
         assert answer.is_error
         assert answer.json()["reason"] == Refusal.NO_HAND

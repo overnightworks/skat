@@ -116,7 +116,7 @@ def test_an_agents_card_lands_in_the_trick_a_person_sees(
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
 ) -> None:
-    agent = McpAgent(e2e_server, "agent-subject-mozart")
+    agent = McpAgent(e2e_server, "agent-subject-mozart-plays")
     agent.request("tools/list")
     account = e2e_server.stores.accounts.get(agent.subject)
     assert account is not None

@@ -337,7 +337,7 @@ class TestTheNextDeal:
         with persons_streams(result_table):
             answer = continues(agent, result_table)
             dealt = skat.store.tables[result_table.table_id]
-            retried = continues(agent, result_table)
+            retried = continues(agent.offered_every_tool(), result_table)
 
         assert not answer.is_error, answer.text
         assert dealt.hand is not None
@@ -358,8 +358,9 @@ class TestTheNextDeal:
             end_the_first_game(skat.store, hand_table.table_id)
         before = skat.store.tables[hand_table.table_id]
 
-        refused = continues(agent, hand_table, ordinal=ordinal)
-        again = continues(agent, hand_table, ordinal=FIRST_RESULT)
+        every_tool = agent.offered_every_tool()
+        refused = continues(every_tool, hand_table, ordinal=ordinal)
+        again = continues(every_tool, hand_table, ordinal=FIRST_RESULT)
 
         assert (refused.is_error, refused.json()["reason"]) == (True, reason)
         assert again.is_error
@@ -377,7 +378,7 @@ class TestTheNextDeal:
     def test_a_weiter_of_an_agent_without_a_chair_is_refused_as_not_seated(self, skat, issuer, result_table):
         stranger = Agent(skat, issuer, subject="another-agent")
 
-        refused = continues(stranger, result_table)
+        refused = continues(stranger.offered_every_tool(), result_table)
 
         assert (refused.is_error, refused.json()["reason"]) == (True, Refusal.NOT_SEATED)
 
@@ -634,7 +635,7 @@ class TestWhenTheTablesCannotBeRead:
         mark_ready(result_table, MIDDLEHAND, FOREHAND, REARHAND)
         with persons_streams(result_table):
             self.failing_once(skat.store)
-            agent.read(UNKNOWN_ID)
+            agent.request("tools/call", {"name": "no_such_tool", "arguments": {}})
             advance(skat, time, CHAIR_RELEASE_RETRY_SECONDS + NEXT_DEAL_PAUSE_SECONDS - 1)
             waiting = hand_of(result_table)
             advance(skat, time, 1)
