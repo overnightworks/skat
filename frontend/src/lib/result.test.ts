@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { awaitedNames, resultView, weiterBar, withMinus } from "#lib/result.ts";
-import { chairs, LOST_GAME, NOBODY, NULL_GAME, OTHER_LOSES, table, WON_GAME } from "#lib/result.fixtures.ts";
+import { chairs, LOST_GAME, NOBODY, NULL_GAME, table, WON_GAME } from "#lib/result.fixtures.ts";
 import { words } from "#lib/words.ts";
-import type { Table, Result } from "../routes/(start)/tables.ts";
+import type { Result } from "../routes/(start)/tables.ts";
 
 describe("the card's words and sides for each viewer", () => {
     it.each([

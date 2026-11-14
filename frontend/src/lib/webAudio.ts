@@ -45,7 +45,7 @@ const decibelsToGain = (decibels: number): number => 10 ** (decibels / 20);
  * what lies above it towards the ceiling, smoothly, so it never passes it. The shaper holds the curve's end for any
  * sample beyond it.
  */
-export function ceilingCurve(): Float32Array {
+export function ceilingCurve(): Float32Array<ArrayBuffer> {
     const knee = decibelsToGain(LIMITER_THRESHOLD_DECIBELS);
     const ceiling = decibelsToGain(CEILING_DECIBELS);
     return Float32Array.from({ length: CEILING_STEPS }, (_, index) => {

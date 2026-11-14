@@ -21,14 +21,7 @@
     import { bidLineOfGameDeclaredInTheStage, gameInPlay, sideNames, type PlayingHand } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import { seriesCountText, seriesEndAsk, seriesOver, standingsView } from "#lib/series.ts";
-    import {
-        declaredResult,
-        ramschResultView,
-        resultJustAppeared,
-        resultView,
-        weiterBar,
-        withMinus,
-    } from "#lib/result.ts";
+    import { declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, LegalLinks, Marked } from "overnightworks-design";
     import AbortKey from "#lib/ui/AbortKey.svelte";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
@@ -74,7 +67,7 @@
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { bockLine } from "#lib/tableRules.ts";
     import { motionInForce } from "#lib/settings.svelte.ts";
-    import { receiveOnStage, resetStage, sweepingTo, trickIsMoving } from "#lib/stage.svelte.ts";
+    import { isDealing, receiveOnStage, resetStage, sweepingTo, trickIsMoving } from "#lib/stage.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
@@ -169,9 +162,9 @@
         if (note !== null) showSeatNote(note);
         seatNote = noticeStanding(seatNote, table);
         if (!handWaits(table.hand)) asking = null;
-        if (table.hand?.dealer_seat !== previous?.hand?.dealer_seat) playedThisHand = [];
-        stamp = stampBetween(previous, table) ?? stamp;
         const cues = cuesBetween(previous, table);
+        if (previous === undefined || cues.some((cue) => cue.kind === "dealt")) playedThisHand = [];
+        stamp = stampBetween(previous, table) ?? stamp;
         soundForCues(cues, table);
         receiveOnStage(previous, cues);
         for (const cue of cues) {
@@ -181,13 +174,15 @@
                 showSeatNote(refusalNotice(table.chairs, cue.seats));
             } else if (cue.kind === "bid-said") {
                 bidSaid = cue;
+            } else if (cue.kind === "result-appeared") {
+                countedOrdinal = cue.ordinal;
             } else if (cue.kind === "auction-ended") {
                 justWon = true;
                 clearTimeout(wonTimer);
                 wonTimer = setTimeout(() => (justWon = false), WON_MOMENT_MILLISECONDS);
             }
         }
-        countedOrdinal = resultJustAppeared(previous, table) ?? (table.result === null ? null : countedOrdinal);
+        if (table.result === null) countedOrdinal = null;
         outcome = { kind: "table", table };
     }
 
@@ -347,7 +342,7 @@
     </span>
 {/snippet}
 
-<div class="room" class:framed={callMode} data-theme="dark" data-motion={motionInForce()}>
+<div class="room" class:framed={callMode} class:dealing={isDealing()} data-theme="dark" data-motion={motionInForce()}>
     <CardSprite />
     {#if !greeted}
         <TableBar

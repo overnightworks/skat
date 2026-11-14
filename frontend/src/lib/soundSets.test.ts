@@ -167,7 +167,7 @@ interface Measure {
 // Every moment of every set at the full volume, its loudness the mean over the draws and its peak the highest of them.
 const MEASURES: Measure[] = Object.values(SOUND_SETS).flatMap((set) =>
     [
-        ...MOMENTS.map((moment) => ({ moment: moment as string, voices: set.voices[moment](1) })),
+        ...MOMENTS.map((moment) => ({ moment, voices: set.voices[moment](1) })),
         ...Object.values(MOTION_SETS).map((motion) => ({
             moment: `count in ${motion.id}`,
             voices: set.counts(1, motion.countSeconds),
