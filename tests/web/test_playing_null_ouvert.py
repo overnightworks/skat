@@ -5,7 +5,7 @@ import pytest
 
 from skat.engine.deal import Deal
 from skat.table.records import Refusal
-from skat.web.declaring import GameToken
+from skat.web.declaration_tokens import GameToken
 from tests.support.payload_cards import cards_in_text, wire_cards
 from tests.web.support.playing import (
     FOREHAND,

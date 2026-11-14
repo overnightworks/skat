@@ -42,6 +42,7 @@ from skat.web.constants import (
     NO_ACCESS_PATH,
     VERSION_FILE_PATH,
 )
+from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.declaring import (
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
@@ -62,9 +63,7 @@ from skat.web.table_options import options_answer_of
 from skat.web.tables import (
     TABLE_PAGE_PREFIX,
     TABLES_PATH,
-    AnnouncementToken,
     AwaitingToken,
-    GameToken,
     PositionToken,
     RankToken,
     StageToken,
