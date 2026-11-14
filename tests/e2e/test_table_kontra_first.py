@@ -78,6 +78,7 @@ def test_the_seat_owing_a_word_declines_it_and_every_other_page_reads_the_wait_f
     expect_nothing_to_overflow(owing)
     for person in others:
         expect(person.locator(WAIT_LINE)).to_contain_text(forehand_name)
+        expect(person.locator(TURN_CHAIR)).to_have_attribute("data-seat", str(table.seat_at["forehand"]))
         expect(person.locator(".copy.no-word")).to_have_count(0)
         expect(person.locator(DIMMED_HAND)).to_have_count(0)
         expect(person.locator(DIMMED_FAN)).to_have_count(1)
