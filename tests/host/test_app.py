@@ -762,11 +762,26 @@ class TestEndedTables:
         assert "account-anna" not in str(logs)
 
 
-def failing_with(message):
-    def fail(_now):
-        raise ConnectionError(message)
+class SessionsThatCanFailToExpire:
+    """The sessions of a store whose expiry raises once `failure` is set."""
 
-    return fail
+    def __init__(self, sessions):
+        self._sessions = sessions
+        self.failure = None
+
+    def delete_expired(self, now):
+        if self.failure is not None:
+            raise self.failure
+        return self._sessions.delete_expired(now)
+
+    def __getattr__(self, name):
+        return getattr(self._sessions, name)
+
+
+class StoresWithSessionsThatCanFailToExpire:
+    def __init__(self, stores):
+        self.sessions = SessionsThatCanFailToExpire(stores.sessions)
+        self.transaction = stores.transaction
 
 
 class TestExpiredSessions:
@@ -803,14 +818,13 @@ class TestExpiredSessions:
 
         assert (before_the_expiry is not None, after_the_expiry) == (True, None)
 
-    def test_whose_deletion_fails_in_an_hourly_run_are_logged_by_type_and_the_run_still_ends_tables(
-        self, unplayed, app
-    ):
+    def test_whose_deletion_fails_in_an_hourly_run_are_logged_by_type_and_the_run_still_ends_tables(self, unplayed):
+        unplayed.stores = StoresWithSessionsThatCanFailToExpire(unplayed.stores)
         table_id = unplayed.dealt("command-open")
-        with TestClient(app) as client:
+        with TestClient(unplayed.app()) as client:
             ((_, tick),) = unplayed.scheduler.sweeps()
             unplayed.play_on(UNPLAYED_DAYS)
-            unplayed.stores.sessions.delete_expired = failing_with("account-anna")
+            unplayed.stores.sessions.failure = ConnectionError("account-anna")
             with capture_logs() as logs:
                 client.portal.call(tick)
 
