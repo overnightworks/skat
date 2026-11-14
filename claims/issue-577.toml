@@ -1,0 +1,8 @@
+claim_id = "f7949fbc3746456986daa75900e938b9"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "f1c0b56c762c3cdc1f8cf1498e0faaa0d15d7e85"
+branch = "claude/issue-577-skat-declares-its-render-pass-job-and-mo"
+scope = [".github/workflows/ci.yml", ".github/workflows/code-scanning.yml", ".github/workflows/release.yml", "quality/config.toml"]
+opened_commit = "fd9b00c7b30565b358832e7d5d781134f89280d4"
+whole_reason = "The pin bump and the render-pass declaration land together."
