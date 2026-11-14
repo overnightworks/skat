@@ -3,6 +3,6 @@ agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
 role = "builder"
 base = "e37bb53b27f527febd134bea04bdb28e39267380"
 branch = "claude/issue-586-the-table-s-sounds-play-at-one-clear-lev"
-scope = ["frontend/src/lib/sound.test.ts", "frontend/src/lib/sound.ts", "frontend/src/lib/soundSets.test.ts", "frontend/src/lib/soundSets.ts", "frontend/src/lib/ui/SoundPanel.svelte", "frontend/src/lib/webAudio.test.ts", "frontend/src/lib/webAudio.ts", "tests/e2e/test_table_sound_settings.py"]
+scope = ["frontend/src/lib/sound.test.ts", "frontend/src/lib/sound.ts", "frontend/src/lib/soundSets.test.ts", "frontend/src/lib/soundSets.ts", "frontend/src/lib/tableSound.test.ts", "frontend/src/lib/ui/SoundButton.svelte", "frontend/src/lib/ui/SoundPanel.svelte", "frontend/src/lib/webAudio.test.ts", "frontend/src/lib/webAudio.ts", "tests/e2e/test_table_sound_settings.py"]
 opened_commit = "4c952ad7e7cb1c5e26a8ab3840bf2833bed992ec"
 whole_reason = "The loudness target, the limiter and the slider's sample are one level: normalising without a safe limiter clips, and a sample without the target says nothing."
