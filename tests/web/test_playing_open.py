@@ -96,13 +96,16 @@ class TestAWrongOpenPlay:
         assert open_play_read(herz_hand) == waiting_for(FOREHAND)
         assert everyone(herz_hand, lambda each, headers: playing_as(each, headers)["give_up"]) == [None] * 4
 
-    def test_while_the_declarer_decides_no_card_throw_down_give_up_or_shortening_is_taken(self, herz_hand):
+    def test_while_the_declarer_decides_no_card_throw_down_give_up_shortening_or_open_play_is_taken(self, herz_hand):
         asked_to_play_open(herz_hand, FOREHAND)
 
         for suffix, position in (
             (TABLE_THROW_DOWN_SUFFIX, MIDDLEHAND),
             (TABLE_SHORTEN_SUFFIX, MIDDLEHAND),
             (TABLE_PLAY_OPEN_SUFFIX, REARHAND),
+            (TABLE_GIVE_UP_SUFFIX, MIDDLEHAND),
+            (TABLE_GIVE_UP_SUFFIX, FOREHAND),
+            (TABLE_GIVE_UP_SUFFIX, REARHAND),
         ):
             herz_hand.refused_act(suffix, herz_hand.at[position], Refusal.REQUEST_PENDING)
         herz_hand.refused(herz_hand.at[FOREHAND], HERZ_GAME[0], Refusal.REQUEST_PENDING)

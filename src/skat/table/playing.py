@@ -213,7 +213,8 @@ def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> 
 
     The declarer's give-up is decided last by the engine, which says whether the game ends at once. Where it asks for
     consent, the request is stored and the opponents are asked; a request already standing changes nothing. An
-    opponent's give-up is stored at any moment and the declarer is asked; the other opponent's changes nothing.
+    opponent's give-up is stored at any moment and the declarer is asked; the other opponent's changes nothing. While
+    an opponent's wrong open play waits for the declarer, every give-up is refused as pending.
     """
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
@@ -227,7 +228,7 @@ def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> 
         return Decision(table, Refusal.REQUEST_PENDING) if waits else _declarer_gives_up(table, state, asked)
     if asked is None:
         return _with_request(table, GiveUpAsked(position))
-    return Decision(table) if waits else Decision(table, Refusal.REQUEST_PENDING)
+    return Decision(table) if waits and not asked.open_play else Decision(table, Refusal.REQUEST_PENDING)
 
 
 def _declarer_gives_up(table: TableRecord, state: Playing, asked: GiveUpAsked | None) -> Decision:
