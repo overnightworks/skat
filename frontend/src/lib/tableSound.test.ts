@@ -487,6 +487,20 @@ describe("the page's sound", () => {
         expect(listeners.size).toBe(0);
     });
 
+    it("sounds the sweep of a trick only after the first tap and none before it", async () => {
+        const { started, listeners } = stubBrowser({ reducedMotion: true });
+        const { armSound, soundForGlide } = await import("./tableSound.ts");
+        armSound();
+
+        soundForGlide();
+        const before = started.length;
+        listeners.get("pointerup")?.();
+        soundForGlide();
+
+        expect(before).toBe(0);
+        expect(started.length).toBeGreaterThan(0);
+    });
+
     it.each([
         { reducedMotion: false, replayMotion: false, soundsAfterLanding: true },
         { reducedMotion: true, replayMotion: false, soundsAfterLanding: false },

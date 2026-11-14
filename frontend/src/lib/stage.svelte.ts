@@ -3,7 +3,7 @@ import { MOTION_SETS } from "./motionSets.ts";
 import { currentSettings, motionInForce } from "./settings.svelte.ts";
 import { advance, jump, receive, SETTLED, timingOf, type StageState, type Step } from "./stage.ts";
 import { soundForGlide } from "./tableSound.ts";
-import type { Table } from "../routes/(start)/tables.ts";
+import type { LastTrick, Table } from "../routes/(start)/tables.ts";
 
 // The one stage of the page's table: the pacing of the trick that is on the move, apart from the received table.
 let stage: StageState = $state(SETTLED);
@@ -29,7 +29,7 @@ export function currentStage(): StageState {
 
 /** The seat a finished trick glides to, while it glides. */
 export function sweepingTo(): number | null {
-    return stage.phase === "gliding" ? (stage.trick?.taker_seat ?? null) : null;
+    return stage.phase === "gliding" ? (stage.trick as LastTrick).taker_seat : null;
 }
 
 /** Whether the table waits for a trick to settle, so nobody is on turn yet. */

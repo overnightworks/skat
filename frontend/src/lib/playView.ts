@@ -12,6 +12,7 @@ import {
     type Playing,
     type SeatedCard,
     type Table,
+    type Taken,
 } from "../routes/(start)/tables.ts";
 
 // The felt's places in the order the chairs are drawn: the two far chairs, then the near one.
@@ -93,7 +94,7 @@ export type Pile = { tricks: number; rimmed: boolean; landing: boolean };
 export function pileOf(seat: number, playing: Playing, stage: StageState, mode: LastTrickMode): Pile {
     const finished = finishedTrickOnTheFelt(playing, stage, mode);
     const gliding = stage.phase === "gliding";
-    const taken = playing.taken.find((each) => each.seat === seat)?.tricks ?? 0;
+    const { tricks: taken } = playing.taken.find((each) => each.seat === seat) as Taken;
     return {
         tricks: taken - (finished?.taker_seat === seat && !gliding ? 1 : 0),
         rimmed: trickInPile(playing, stage, mode)?.taker_seat === seat,
