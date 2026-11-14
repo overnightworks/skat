@@ -2,9 +2,8 @@ from typing import TYPE_CHECKING, ClassVar
 
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.kontra import Word
-from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
-from tests.e2e.support.declaring import DeclaringTable, command_numbers
+from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, command_numbers, holds, passes
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.tables import open_table_with_options
 
@@ -41,24 +40,25 @@ class KontraTable(DeclaringTable):
 class ContestedTable(KontraTable):
     """The forehand holds at the first bid and drops out at the second; the rearhand passes at once."""
 
-    def _win_the_auction(self, seat_at: dict[str, int]) -> None:
-        self.step(seat_at["middlehand"], TABLE_AUCTION_BID_SUFFIX, value=VALID_BIDS[0])
-        self.step(seat_at["forehand"], TABLE_AUCTION_HOLD_SUFFIX)
-        self.step(seat_at["middlehand"], TABLE_AUCTION_BID_SUFFIX, value=VALID_BIDS[-1])
-        self.step(seat_at["forehand"], TABLE_AUCTION_PASS_SUFFIX)
-        self.step(seat_at["rearhand"], TABLE_AUCTION_PASS_SUFFIX)
+    auction: ClassVar[tuple[AuctionCall, ...]] = (
+        bids("middlehand", VALID_BIDS[0]),
+        holds("forehand"),
+        bids("middlehand", VALID_BIDS[-1]),
+        passes("forehand"),
+        passes("rearhand"),
+    )
 
 
 class LeadingTable(KontraTable):
     """The forehand outbids the middlehand, so the declarer leads and the middlehand may say Kontra."""
 
     declarer_position = "forehand"
-
-    def _win_the_auction(self, seat_at: dict[str, int]) -> None:
-        self.step(seat_at["middlehand"], TABLE_AUCTION_BID_SUFFIX, value=VALID_BIDS[0])
-        self.step(seat_at["forehand"], TABLE_AUCTION_HOLD_SUFFIX)
-        self.step(seat_at["middlehand"], TABLE_AUCTION_PASS_SUFFIX)
-        self.step(seat_at["rearhand"], TABLE_AUCTION_PASS_SUFFIX)
+    auction: ClassVar[tuple[AuctionCall, ...]] = (
+        bids("middlehand", VALID_BIDS[0]),
+        holds("forehand"),
+        passes("middlehand"),
+        passes("rearhand"),
+    )
 
 
 def expect_nothing_to_overflow(person: Page) -> None:

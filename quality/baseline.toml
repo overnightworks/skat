@@ -84,9 +84,6 @@ create_ready_router = [["src/skat/web/series_end.py", "create_series_end_router"
 [clones."tests/e2e/conftest.py"]
 deal_a_declaring_table = [["tests/e2e/test_table_give_up.py", "deal_a_game"]]
 
-[clones."tests/e2e/support/declaring.py"]
-"DeclaringTable._win_the_auction" = [["tests/e2e/test_table_kontra.py", "ContestedTable._win_the_auction"]]
-
 [clones."tests/e2e/support/tables.py"]
 watch = [["tests/e2e/test_table_cards.py", "watch"], ["tests/e2e/test_table_deal_marks.py", "watch"], ["tests/e2e/test_table_watch.py", "watch"]]
 
@@ -123,9 +120,6 @@ test_choosing_null_hides_the_levels_and_declares_null_hand_without_an_announceme
 
 [clones."tests/e2e/test_table_end.py"]
 signed_in = [["tests/e2e/test_table_hand.py", "signed_in"]]
-
-[clones."tests/e2e/test_table_kontra.py"]
-"LeadingTable._win_the_auction" = [["tests/e2e/test_table_result.py", "ModestBidTable._win_the_auction"]]
 
 [clones."tests/engine/test_bock.py"]
 trick_worth = [["tests/engine/test_score.py", "trick_worth"], ["tests/engine/test_value.py", "trick_worth"]]

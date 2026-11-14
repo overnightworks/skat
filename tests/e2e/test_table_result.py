@@ -1,15 +1,23 @@
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import CARDS_IN_A_GAME
-from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.declaring import DEFAULT_JOINERS, DEFAULT_OPENER, TAKE_SKAT, DeclaringTable, button_of
+from tests.e2e.support.declaring import (
+    DEFAULT_JOINERS,
+    DEFAULT_OPENER,
+    TAKE_SKAT,
+    AuctionCall,
+    DeclaringTable,
+    bids,
+    button_of,
+    passes,
+)
 from tests.e2e.support.hands import THEY, WE, PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.result_card import (
@@ -86,10 +94,11 @@ PILL_HEIGHTS = (
 class ModestBidTable(DeclaringTable):
     """The middlehand bids the lowest value, so the game declared lies above it and is never overbid."""
 
-    def _win_the_auction(self, seat_at: dict[str, int]) -> None:
-        self.step(seat_at["middlehand"], TABLE_AUCTION_BID_SUFFIX, value=VALID_BIDS[0])
-        self.step(seat_at["forehand"], TABLE_AUCTION_PASS_SUFFIX)
-        self.step(seat_at["rearhand"], TABLE_AUCTION_PASS_SUFFIX)
+    auction: ClassVar[tuple[AuctionCall, ...]] = (
+        bids("middlehand", VALID_BIDS[0]),
+        passes("forehand"),
+        passes("rearhand"),
+    )
 
 
 HANDS = [pytest.param(DeclaringTable, id="overbid"), pytest.param(ModestBidTable, id="modest")]
