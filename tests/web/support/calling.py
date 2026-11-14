@@ -39,6 +39,20 @@ def person(skat, issuer, *, groups=(AGENT_ADDERS_GROUP,), refresh_token=True) ->
     return Person(headers, account.id)
 
 
+def running_skat(hold, issuer, time, **wiring):
+    """A Skat with its client open, for a fixture to `yield from`; `wiring` is passed on to `Skat`."""
+    skat = Skat(
+        lambda: hold,
+        issuer_transports=issuer.transports,
+        chair_clock=time.clock,
+        chair_scheduler=time,
+        now=time.moment,
+        **wiring,
+    )
+    with skat.client:
+        yield skat
+
+
 def refresh_grants(issuer):
     return len(issuer.access_tokens_issued("refresh_token"))
 
@@ -106,16 +120,7 @@ class CallingTable:
 
     @pytest.fixture
     def skat(self, hold, issuer, time, changes):
-        skat = Skat(
-            lambda: hold,
-            issuer_transports=issuer.transports,
-            chair_clock=time.clock,
-            chair_scheduler=time,
-            now=time.moment,
-            resource_changes=changes.wired,
-        )
-        with skat.client:
-            yield skat
+        yield from running_skat(hold, issuer, time, resource_changes=changes.wired)
 
     @pytest.fixture
     def felix(self, skat, issuer):

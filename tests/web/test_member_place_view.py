@@ -43,6 +43,7 @@ from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import Agent, person_passes, person_posts, view_uri_of, window_uri_of
+from tests.web.support.calling import running_skat
 from tests.web.support.playing import HERZ_GAME, card_body
 from tests.web.support.presence import HOLD_SECONDS
 from tests.web.support.sdk_agent import SdkAgent
@@ -93,16 +94,7 @@ def view_signal_through(tap):
 
 @pytest.fixture
 def skat(hold, issuer, time, view_signal_through):
-    skat = Skat(
-        lambda: hold,
-        issuer_transports=issuer.transports,
-        chair_clock=time.clock,
-        chair_scheduler=time,
-        now=time.moment,
-        view_signal_through=view_signal_through,
-    )
-    with skat.client:
-        yield skat
+    yield from running_skat(hold, issuer, time, view_signal_through=view_signal_through)
 
 
 @pytest.fixture
