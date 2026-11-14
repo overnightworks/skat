@@ -252,9 +252,7 @@ def expect_the_buttons(table: PlayingTable, ready: set[int]) -> None:
     """The seated viewers' bars: „Weiter“ until they have tapped, then who is awaited; the watcher's has neither."""
     for seat, person in table.pages.items():
         bar = person.locator(".actions")
-        assert (
-            bar.locator("> :not([popover])").evaluate_all("keys => new Set(keys.map(key => key.offsetTop)).size") == 1
-        )
+        assert bar.evaluate("bar => new Set([...bar.children].map(child => child.offsetTop)).size") == 1
         expect(bar.get_by_role("button", name=STAND_UP)).to_be_visible()
         expect(bar.get_by_role("button", name=COPY_LINK)).to_be_visible()
         if seat in ready:
