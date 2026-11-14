@@ -1,7 +1,0 @@
-claim_id = "5fdf4e164ce5433e8d10a92272a69c7c"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "e37bb53b27f527febd134bea04bdb28e39267380"
-branch = "fix/stream-frame-race"
-scope = ["tests/web/test_playing_open.py", "tests/web/test_playing_opponents_give_up.py", "tests/web/test_playing_shorten.py"]
-opened_commit = "d6bb56e53bcba84c95ba6c7e60bf4570c7dd5d63"
