@@ -31,9 +31,9 @@
     // The caret points at the pile the trick came from: down at one below the dialog, up at one above it.
     function hangOnPile(seat: number): Attachment<HTMLElement> {
         return (dialog) => {
-            const stage = dialog.offsetParent;
-            const pile = document.querySelector(`.pile[data-seat="${String(seat)}"]`);
-            if (stage === null || pile === null) return;
+            // The dialog is positioned, so it has an offset parent, and only the taker's pile can be tapped to open it.
+            const stage = dialog.offsetParent as Element;
+            const pile = document.querySelector(`.pile[data-seat="${String(seat)}"]`) as Element;
             const room = stage.getBoundingClientRect();
             const at = pile.getBoundingClientRect();
             const reach = dialog.offsetWidth / 2 - CARET_MARGIN;
