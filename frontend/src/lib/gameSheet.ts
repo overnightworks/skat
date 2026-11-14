@@ -9,8 +9,8 @@ export type SheetSeat = { seat: number; name: string; initial: string };
 export type SheetHand = { seat: SheetSeat; cards: { card: Card; state: CardState }[] };
 export type SheetTrick = {
     number: number;
-    // From the lead on.
-    cards: Card[];
+    // From the lead on, each with the seat that played it.
+    cards: { card: Card; by: SheetSeat }[];
     taker: SheetSeat | null;
     // The card points of a trick that was taken; an interrupted trick has none.
     points: string | null;
@@ -111,7 +111,7 @@ function cardsView(
         }),
         tricks: cards.tricks.map((trick) => ({
             number: trick.number,
-            cards: trick.cards.map((each) => each.card),
+            cards: trick.cards.map((each) => ({ card: each.card, by: seatOf(each.seat) })),
             taker: trick.taker_seat === null ? null : seatOf(trick.taker_seat),
             points: trick.points === null ? null : String(trick.points),
             side:

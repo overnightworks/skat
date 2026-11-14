@@ -127,7 +127,14 @@
                         aria-label={words["table.sheetTrick"]({ number: String(trick.number) })}
                     >
                         <span class="nr">{trick.number}</span>
-                        {@render minis(trick.cards)}
+                        <span class="minis">
+                            {#each trick.cards as each (`${each.card.suit}-${each.card.rank}`)}
+                                <span class="laid">
+                                    <span class="mini"><CardFace card={each.card} /></span>
+                                    <span class="by" role="img" aria-label={each.by.name}>{each.by.initial}</span>
+                                </span>
+                            {/each}
+                        </span>
                         {#if trick.taker !== null}{@render dot(trick.taker)}{/if}
                         {#if trick.points !== null}<span class="pts">{trick.points}</span>{/if}
                     </li>

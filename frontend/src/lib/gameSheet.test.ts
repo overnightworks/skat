@@ -24,6 +24,10 @@ describe("gameSheetView of a declared game", () => {
         ]);
     });
 
+    it("keeps the seat that played each card of a trick, the lead first", () => {
+        expect(view.cards?.tricks[0]?.cards.map((each) => each.by.name)).toEqual(["Ben", "Cleo", "Anna"]);
+    });
+
     it("marks what became of each card of a hand and keeps the display order", () => {
         const hands = view.cards?.hands.map((hand) => hand.cards.map((each) => each.state));
 
