@@ -53,3 +53,12 @@ class TestFromATableAndARuleSetWithRamschAtRevisionForty:
                 migrated,
                 text(f"UPDATE {table} SET ramsch_occasion = 'ramsch-rounds'"),  # noqa: S608 - only the test's fixed literals reach this text
             )
+
+    def test_a_table_that_existed_has_no_ramsch_round_game_pending(self, migrated):
+        select = text("SELECT ramsch_round_games FROM tables")
+
+        assert only_row(migrated, select) == (0,)
+
+    def test_refuses_a_negative_count_of_ramsch_round_games(self, migrated):
+        with pytest.raises(IntegrityError):
+            run_in_transaction(migrated, text("UPDATE tables SET ramsch_round_games = -1"))

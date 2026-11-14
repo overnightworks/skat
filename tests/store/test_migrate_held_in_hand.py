@@ -40,6 +40,7 @@ LATER_COLUMNS = (
     "give_up_claim",
     "give_up_agreed_by",
     "shortening_refused_by",
+    "ramsch_round_games",
 )
 RUNNING_HAND_TABLES = ("tables", "chairs", "hand_cards", "auction_actions")
 

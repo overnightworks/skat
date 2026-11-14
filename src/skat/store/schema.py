@@ -235,6 +235,7 @@ tables = Table(
     Column("hand_aborted", Boolean, nullable=False, server_default=false()),
     *option_columns("tables"),
     Column("bock_rounds", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
+    Column("ramsch_round_games", SmallInteger, nullable=False, server_default="0"),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
     CheckConstraint("(ended_at IS NULL) = (end_reason IS NULL)", name="tables_end_time_comes_with_its_reason"),
     CheckConstraint(
@@ -317,6 +318,7 @@ tables = Table(
     CheckConstraint(
         "bock_triggers IS NOT NULL OR cardinality(bock_rounds) = 0", name="tables_bock_rounds_only_with_bock"
     ),
+    CheckConstraint("ramsch_round_games >= 0", name="tables_ramsch_round_games_are_not_negative"),
 )
 
 rule_sets = Table(

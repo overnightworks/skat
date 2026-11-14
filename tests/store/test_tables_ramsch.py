@@ -33,20 +33,20 @@ OPTIONS = TableOptions(ramsch=SETTING)
 
 
 class RamschTable:
-    """A table with Ramsch where all three passed, or with `pending` Bock games where the hand is dealt as a Ramsch
-    round with no auction; the cards are played legally, the first in deck order.
+    """A table with Ramsch where all three passed, or with `ramsch_games` Ramsch-round games pending where the hand is
+    dealt as a Ramsch with no auction; the cards are played legally, the first in deck order.
     """
 
-    def __init__(self, service, transactions, stored, options=OPTIONS, pending=()):
+    def __init__(self, service, transactions, stored, options=OPTIONS, ramsch_games=0):
         self.service = service
         self.transactions = transactions
         self.stored = stored
         self.table_id = seated_table_id(service, options)
         by_seat = {1: person("Anna"), 2: person("Ben"), 3: person("Cleo")}
         self.actors = {position: by_seat[seat] for seat, position in positions_from(self.record.dealer).items()}
-        if pending:
+        if ramsch_games:
             with transactions.begin() as transaction:
-                held = replace(transaction.locked_table(TableId(self.table_id)), bock=BockRounds(pending))
+                held = replace(transaction.locked_table(TableId(self.table_id)), bock=BockRounds((), ramsch_games))
                 transaction.save_table(held, played_at=None)
             return
         for position in (Position.MIDDLEHAND, Position.REARHAND, Position.FOREHAND):
@@ -129,12 +129,16 @@ def test_the_thirtieth_card_stores_a_ramsch_entry_and_forgets_the_hand_and_the_r
     assert view.result == before.result
 
 
-def test_a_ramsch_round_stores_no_auction_step_and_its_end_uses_a_bock_game_up(service, transactions, stored, engine):
-    options = TableOptions(
-        bock=BockOptions(frozenset({BockTrigger.RE}), BockOverlap.APPEND),
-        ramsch=replace(SETTING, occasion=RamschOccasion.BOCK_ROUNDS),
-    )
-    table = RamschTable(service, transactions, stored, options, pending=(3,))
+ROUND_OPTIONS = TableOptions(
+    bock=BockOptions(frozenset({BockTrigger.RE}), BockOverlap.APPEND),
+    ramsch=replace(SETTING, occasion=RamschOccasion.BOCK_ROUNDS),
+)
+
+
+def test_a_ramsch_round_game_stores_no_auction_step_and_its_end_uses_one_ramsch_round_game_up_and_no_bock_game(
+    service, transactions, stored, engine
+):
+    table = RamschTable(service, transactions, stored, ROUND_OPTIONS, ramsch_games=3)
     table.play(3)
     with engine.connect() as connection:
         auction_steps = connection.execute(text("SELECT count(*) FROM auction_actions")).scalar_one()
@@ -142,5 +146,5 @@ def test_a_ramsch_round_stores_no_auction_step_and_its_end_uses_a_bock_game_up(s
     with engine.connect() as connection:
         kind, factor = connection.execute(text("SELECT kind, bock_factor FROM game_list")).one()
 
-    assert (auction_steps, kind, factor) == (0, "ramsch", 2)
-    assert table.record.bock == BockRounds((2,))
+    assert (auction_steps, kind, factor) == (0, "ramsch", 1)
+    assert table.record.bock == BockRounds((), 2)

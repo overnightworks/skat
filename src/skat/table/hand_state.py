@@ -2,7 +2,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.bidding import Auction, Declared, PassedIn, auction_after
-from skat.engine.bock import games_left
+from skat.engine.bock import in_ramsch_round
 from skat.engine.declaration import Announcement, Declare, Declaring, declaring_after
 from skat.engine.games import GameKind
 from skat.engine.kontra import Doubling, bidders_of, doubling_after
@@ -17,17 +17,11 @@ if TYPE_CHECKING:
 
 
 def is_ramsch_round(table: TableRecord) -> bool:
-    """The running hand is dealt as a Ramsch with no auction: the table plays Ramsch in its Bock rounds and a Bock game
-    is pending, the running one included.
+    """The running hand is a Ramsch-round game, dealt as a Ramsch with no auction: no Bock game is pending and the
+    table's rounds left Ramsch-round games, the running one included.
     """
-    ramsch, bock = table.options.ramsch, table.options.bock
-    return (
-        table.hand is not None
-        and ramsch is not None
-        and ramsch.occasion.in_bock_rounds
-        and bock is not None
-        and games_left(table.bock, bock.overlap) > 0
-    )
+    bock = table.options.bock
+    return table.hand is not None and bock is not None and in_ramsch_round(table.bock, bock.overlap)
 
 
 def auction_of(table: TableRecord) -> Auction:

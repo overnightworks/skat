@@ -3,11 +3,11 @@ from dataclasses import replace
 import pytest
 
 from skat.engine.bock import BockOptions, BockOverlap, BockRounds, BockTrigger
-from skat.engine.ramsch import RamschPlayedOut
+from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschPlayedOut, RamschScoring
 from skat.engine.tricks import play_card
 from skat.table.bock import BockView, bock_after, bock_view_of
 from skat.table.hand_state import playing_of
-from skat.table.records import HandProgress, Series, TableOptions
+from skat.table.records import HandProgress, RamschOccasion, RamschSetting, Series, TableOptions
 from tests.support.played_game import a_ramsch_entry, an_entry, before_the_last_card, table_in
 
 PASSED_IN, TOTAL_ENDING_IN_00 = BockTrigger.PASSED_IN, BockTrigger.TOTAL_ENDING_IN_00
@@ -17,10 +17,26 @@ SEAT_ACCOUNTS = ("account-middlehand", "account-rearhand", "account-forehand")
 A_RAMSCH = RamschPlayedOut(tricks=(), skat=())
 
 
-def bock_table(triggers=(PASSED_IN,), *, rounds=(), series=None, game_list=(), overlap=BockOverlap.APPEND):
-    options = TableOptions(bock=BockOptions(frozenset(triggers), overlap))
+def bock_table(
+    triggers=(PASSED_IN,),
+    *,
+    rounds=(),
+    series=None,
+    game_list=(),
+    overlap=BockOverlap.APPEND,
+    occasion=None,
+    ramsch_games=0,
+):
+    ramsch = (
+        None
+        if occasion is None
+        else RamschSetting(
+            occasion, RamschOptions(RamschScoring.POINTS, JungfrauRule.OFF, DurchmarschRule.WINS_120_FLAT)
+        )
+    )
+    options = TableOptions(bock=BockOptions(frozenset(triggers), overlap), ramsch=ramsch)
     table = table_in(HandProgress(), options)
-    return replace(table, bock=BockRounds(rounds), series=series, game_list=game_list)
+    return replace(table, bock=BockRounds(rounds, ramsch_games), series=series, game_list=game_list)
 
 
 def entry(seat, *, won, score):
@@ -92,6 +108,68 @@ class TestARamschEnd:
         table = bock_table((TOTAL_ENDING_IN_00,), game_list=earlier)
 
         assert bock_after(table, A_RAMSCH, a_ramsch_entry(scores, SEAT_ACCOUNTS)) == BockRounds(rounds)
+
+
+ROUND_OCCASIONS = [RamschOccasion.BOCK_ROUNDS, RamschOccasion.PASSED_IN_AND_BOCK_ROUNDS]
+
+
+class TestARamschRoundGameEnd:
+    """No Bock game is pending and a Ramsch-round game is: the hand uses up a Ramsch-round game, never a Bock game."""
+
+    @pytest.mark.parametrize("occasion", ROUND_OCCASIONS)
+    @pytest.mark.parametrize(
+        ("triggers", "series", "expected"),
+        [
+            pytest.param((PASSED_IN,), None, BockRounds((), 1), id="nobody-passed-so-passed-in-does-not-fire"),
+            pytest.param((), None, BockRounds((), 1), id="uses-the-game-up-only"),
+            pytest.param((PASSED_IN,), Series(6, 6), BockRounds(()), id="the-last-game-lets-the-ramsch-games-lapse"),
+        ],
+    )
+    def test_it_uses_up_a_ramsch_round_game(self, occasion, triggers, series, expected):
+        table = bock_table(triggers, ramsch_games=2, series=series, occasion=occasion)
+
+        assert bock_after(table, A_RAMSCH, a_ramsch_entry(seat_accounts=SEAT_ACCOUNTS)) == expected
+
+    @pytest.mark.parametrize("occasion", ROUND_OCCASIONS)
+    def test_the_total_rule_starts_a_bock_round_before_the_ramsch_games_still_pending(self, occasion):
+        table = bock_table((TOTAL_ENDING_IN_00,), ramsch_games=2, occasion=occasion)
+
+        assert bock_after(table, A_RAMSCH, a_ramsch_entry((-100, 0, 0), SEAT_ACCOUNTS)) == BockRounds((3,), 1)
+
+    def test_a_three_pass_ramsch_outside_a_ramsch_round_meets_passed_in_as_at_a_table_with_the_third_pass_alone(self):
+        table = bock_table(occasion=RamschOccasion.PASSED_IN_AND_BOCK_ROUNDS)
+
+        assert bock_after(table, A_RAMSCH, a_ramsch_entry(seat_accounts=SEAT_ACCOUNTS)) == BockRounds((3,))
+
+
+class TestTheEndOfABockRound:
+    @pytest.mark.parametrize(
+        ("occasion", "rounds", "ramsch_games", "expected"),
+        [
+            pytest.param(RamschOccasion.BOCK_ROUNDS, (1,), 0, BockRounds((), 3), id="rounds-only-adds-three"),
+            pytest.param(
+                RamschOccasion.PASSED_IN_AND_BOCK_ROUNDS,
+                (1,),
+                2,
+                BockRounds((), 5),
+                id="both-adds-three-to-the-pending",
+            ),
+            pytest.param(
+                RamschOccasion.BOCK_ROUNDS, (2,), 0, BockRounds((1,), 0), id="a-game-before-the-end-adds-none"
+            ),
+            pytest.param(RamschOccasion.PASSED_IN, (1,), 0, BockRounds(()), id="the-third-pass-alone-adds-none"),
+            pytest.param(None, (1,), 0, BockRounds(()), id="a-table-without-ramsch-adds-none"),
+            pytest.param(
+                RamschOccasion.BOCK_ROUNDS, (1, 3), 0, BockRounds((3,), 3), id="append-ends-the-first-round-only"
+            ),
+        ],
+    )
+    def test_it_adds_three_ramsch_round_games_only_at_a_table_that_plays_them(
+        self, occasion, rounds, ramsch_games, expected
+    ):
+        table = bock_table((), rounds=rounds, ramsch_games=ramsch_games, occasion=occasion)
+
+        assert bock_after(table, A_RAMSCH, a_ramsch_entry(seat_accounts=SEAT_ACCOUNTS)) == expected
 
 
 class TestTheViewOfThePendingGames:

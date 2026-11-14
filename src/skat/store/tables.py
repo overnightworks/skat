@@ -201,7 +201,7 @@ def _table_record(
         game_list=read_game_list(connection, table_id),
         series=_series_of(table),
         options=options_of(table),
-        bock=BockRounds(tuple(table.bock_rounds)),
+        bock=BockRounds(tuple(table.bock_rounds), table.ramsch_round_games),
         visibility=Visibility(table.visibility),
     )
 
@@ -297,6 +297,7 @@ class _PostgresTableTransaction:
                 series_number=series_number_of(table),
                 **_series_end_columns(table.series),
                 bock_rounds=list(table.bock.remaining),
+                ramsch_round_games=table.bock.ramsch_games,
                 abort_yes_seats=sorted(table.progress.abort_yes),
                 hand_aborted=table.progress.aborted,
                 give_up_asked_by=None if asked is None else POSITION_TEXT[asked.asker],
