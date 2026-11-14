@@ -44,12 +44,14 @@ def opponents_cards(position):
     return wire_cards(CARDS_BY_SEAT[SEAT[position]])
 
 
+def open_cards_of(read):
+    """The open hands by seat in a table read."""
+    return {
+        each["seat"]: {(card["suit"], card["rank"]) for card in each["cards"]}
+        for each in read["hand"]["playing"]["open_hands"]
+    }
+
+
 def open_hands_read(table):
     """The open hands by seat, as the watcher and each chair read them."""
-    return [
-        {
-            each["seat"]: {(card["suit"], card["rank"]) for card in each["cards"]}
-            for each in playing_as(table, headers)["open_hands"]
-        }
-        for headers in (table.watcher, *table.at.values())
-    ]
+    return [open_cards_of(table.read_as(headers).json()) for headers in (table.watcher, *table.at.values())]

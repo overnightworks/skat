@@ -19,18 +19,20 @@ from tests.web.support.open_play import (
     asked_to_play_open,
     declarer_accepts,
     declarer_plays_on,
+    open_cards_of,
     open_hands_read,
     open_play_read,
     opponents_cards,
     plays_open,
     waiting_for,
 )
-from tests.web.support.playing import HERZ_GAME, Table, ending_of
+from tests.web.support.playing import HERZ_GAME, Table, ending_of, gains
 from tests.web.support.shortening import (
     everyone,
     herz_hand_with_63_points_against,
     herz_hand_won_by_tricks_and_skat,
     shortens,
+    undecided_herz_at_22,
 )
 from tests.web.support.skat import AgentTable, Skat
 
@@ -140,6 +142,20 @@ SCENES = [
         lambda table: table.declared_hand_game(),
         {"won": True, "game_value": 30, "schneider": False},
         id="undecided-is-won-by-its-declaration",
+    ),
+    pytest.param(
+        undecided_herz_at_22,
+        {
+            "won": True,
+            "bid": 22,
+            "game_value": 30,
+            "settled_value": 30,
+            "multiplier": 3,
+            "declarer_points": 120,
+            "opponents_points": 0,
+            "gains": gains(80, 0),
+        },
+        id="undecided-the-bid-forces-schneider",
     ),
     pytest.param(
         herz_hand_won_by_tricks_and_skat,
@@ -328,31 +344,46 @@ class TestThroughTheMcpTools:
         answer = agent.take_step(PLAY_OPEN_TOOL, table, command_id="agent-open-0002")
 
         assert not answer.is_error, answer.text
-        assert ending_of(agent.read(table.table_id).json()["result"]) == ("played-open", SEAT[FOREHAND])
+        result = agent.read(table.table_id).json()["result"]
+        assert (result["declarer_points"], result["opponents_points"]) == (70, 50)
+        assert ending_of(result) == ("played-open", SEAT[FOREHAND])
 
-    @pytest.mark.parametrize(
-        ("tool", "ending"),
-        [
-            pytest.param(AGREE_TO_GIVE_UP_TOOL, ("played-open", SEAT[FOREHAND]), id="accepts"),
-            pytest.param(DECLINE_GIVE_UP_TOOL, None, id="plays-on"),
-        ],
-    )
-    def test_an_agent_declarer_answers_the_opponents_open_play_with_the_give_up_answer_tools(
-        self, skat, agent, tool, ending
+    @pytest.mark.parametrize(("scene", "expected"), SCENES)
+    def test_an_agent_declarer_accepts_the_opponents_open_play_scored_by_the_three_branches(
+        self, skat, agent, scene, expected
     ):
+        table = AgentTable(skat, agent, MIDDLEHAND)
+        scene(table)
+        asked_to_play_open(table, FOREHAND)
+        skat.client.cookies.clear()
+
+        answer = agent.take_step(AGREE_TO_GIVE_UP_TOOL, table, command_id="agent-answer-0001")
+
+        assert not answer.is_error, answer.text
+        result = agent.read(table.table_id).json()["result"]
+        assert {key: result[key] for key in expected} == expected
+        assert ending_of(result) == ("played-open", SEAT[FOREHAND])
+
+    def test_an_agent_declarer_plays_on_and_the_opponents_cards_are_open_to_the_agent(self, skat, agent):
         table = AgentTable(skat, agent, MIDDLEHAND)
         table.declared_hand_game()
         asked_to_play_open(table, FOREHAND)
         skat.client.cookies.clear()
 
-        answer = agent.take_step(tool, table, command_id="agent-answer-0001")
+        answer = agent.take_step(DECLINE_GIVE_UP_TOOL, table, command_id="agent-answer-0002")
 
         assert not answer.is_error, answer.text
-        read = agent.read(table.table_id).json()
-        if ending is None:
-            assert [each["seat"] for each in read["hand"]["playing"]["open_hands"]] == [SEAT[FOREHAND]]
-        else:
-            assert ending_of(read["result"]) == ending
+        assert open_cards_of(agent.read(table.table_id).json()) == {SEAT[FOREHAND]: opponents_cards(FOREHAND)}
+
+    def test_an_agent_opponent_playing_open_on_a_stale_version_is_refused(self, skat, agent):
+        table = AgentTable(skat, agent, FOREHAND)
+        table.declared_hand_game()
+        skat.client.cookies.clear()
+
+        answer = agent.take_step(PLAY_OPEN_TOOL, table, command_id="agent-open-0004", version=0)
+
+        assert answer.is_error
+        assert answer.json()["reason"] == Refusal.STALE_VERSION
 
     def test_the_agent_declarer_cannot_play_open(self, skat, agent):
         table = AgentTable(skat, agent, MIDDLEHAND)
