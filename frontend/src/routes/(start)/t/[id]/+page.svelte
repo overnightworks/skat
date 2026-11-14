@@ -12,10 +12,10 @@
     } from "#lib/auctionMarks.ts";
     import { abortView } from "#lib/abort.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
-    import { cuesBetween } from "#lib/cues.ts";
+    import { cuesBetween, stampBetween } from "#lib/cues.ts";
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { giveUpAsk, giveUpView, refusalNotice } from "#lib/giveUp.ts";
-    import { plaqueLine, stampBetween, type Stamp } from "#lib/kontra.ts";
+    import { plaqueLine, type Stamp } from "#lib/kontra.ts";
     import { legalLinks } from "#lib/legal.ts";
     import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import {

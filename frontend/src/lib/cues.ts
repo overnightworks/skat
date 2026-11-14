@@ -1,4 +1,6 @@
+import { stampOf, type SaidWord, type Stamp } from "./kontra.ts";
 import {
+    type AuctionAction,
     type Card,
     type Chair,
     type ChairHand,
@@ -8,11 +10,16 @@ import {
     type Table,
 } from "../routes/(start)/tables.ts";
 
+// What a chair said in the auction that the table shows: a bid or a hold with its value, or a pass.
+export type BidWord = { action: Exclude<AuctionAction, "play">; value: number | null };
+
 export type Cue =
     | { kind: "card-played"; seat: number; card: Card }
     | { kind: "auction-ended" }
     // The seats of the opponents who both said no to the declarer's give-up.
-    | { kind: "give-up-refused"; seats: number[] };
+    | { kind: "give-up-refused"; seats: number[] }
+    | { kind: "bid-said"; seat: number; word: BidWord }
+    | { kind: "word-said"; said: SaidWord };
 
 // The one owner of what just happened between two versions of a table. A table that is not newer than the one
 // before it yields nothing, and so does a change the two versions do not fully explain.
@@ -23,7 +30,44 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     for (const { seat, card } of cardsLaidBetween(previous, next)) cues.push({ kind: "card-played", seat, card });
     const refusers = giveUpRefusedBetween(previous, next);
     if (refusers !== null) cues.push({ kind: "give-up-refused", seats: refusers });
+    const bid = bidSaidBetween(previous, next);
+    if (bid !== null) cues.push({ kind: "bid-said", ...bid });
+    const said = wordSaidBetween(previous, next);
+    if (said !== null) cues.push({ kind: "word-said", said });
     return cues;
+}
+
+// The stamp of the word an update brought, or null. A page that has no table before it, as after a reload or a dropped
+// connection, stamps nothing: the plaque already tells the word.
+export function stampBetween(previous: Table | undefined, next: Table): Stamp | null {
+    const said = wordSaidBetween(previous, next);
+    return said === null ? null : stampOf(next, said);
+}
+
+// The word the update from `previous` to `next` brought, the last when it brought several.
+function wordSaidBetween(previous: Table | undefined, next: Table): SaidWord | null {
+    if (previous === undefined || next.version <= previous.version) return null;
+    const before = previous.hand?.playing?.kontra?.said ?? [];
+    const after = next.hand?.playing?.kontra?.said ?? [];
+    return after.length > before.length ? (after.at(-1) as SaidWord) : null;
+}
+
+// The auction keeps each chair's latest word in seat order, so a chair whose word is new or changed said it in this
+// update; the last of them when several did. A play shows nothing at the table, so it is no cue.
+function bidSaidBetween(previous: Table, next: Table): { seat: number; word: BidWord } | null {
+    const before = previous.hand?.auction.words ?? [];
+    const latest = (next.hand?.auction.words ?? [])
+        .filter(
+            (word) =>
+                !sameJson(
+                    before.find((each) => each.seat === word.seat),
+                    word,
+                ),
+        )
+        .at(-1);
+    return latest === undefined || latest.action === "play"
+        ? null
+        : { seat: latest.seat, word: { action: latest.action, value: latest.value } };
 }
 
 // The second no clears the declarer's request that already carried the first no, while the game goes on with the same
