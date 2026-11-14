@@ -70,6 +70,13 @@ class PlayingTable:
         for person in self.everyone:
             expect(person.locator(TURN_CHAIR)).to_have_attribute("data-seat", str(self.seat_at["forehand"]))
 
+    def leave_the_last_trick_on_the_felt(self) -> None:
+        """Every page asks for „liegen lassen“, so a finished trick lies until the next lead, as a reload shows it."""
+        for person in self.everyone:
+            person.evaluate("localStorage.setItem('skat.settings', JSON.stringify({ lastTrick: 'stay' }))")
+            person.reload()
+            expect(person.locator(".chair")).to_have_count(3)
+
     @staticmethod
     def seat_of(person: Page) -> int:
         return int(person.locator(".chair.mine").get_attribute("data-seat") or "")

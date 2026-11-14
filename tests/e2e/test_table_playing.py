@@ -272,6 +272,7 @@ def test_a_trick_is_played_on_the_page_and_every_viewer_sees_it(
     deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_playing_table(form_factor)
+    table.leave_the_last_trick_on_the_felt()
     forehand_seat, middlehand_seat = table.seat_at["forehand"], table.seat_at["middlehand"]
     expect_the_plaque(table)
     expect_on_the_felt(table, [])
@@ -323,6 +324,7 @@ def test_the_laid_cards_and_their_tags_stay_clear_of_every_fan(
     deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_playing_table(form_factor, game="kreuz")
+    table.leave_the_last_trick_on_the_felt()
     for played in range(1, CARDS_IN_A_HAND):
         table.play_out(1)
         for person in table.everyone:
