@@ -6869,6 +6869,245 @@ body {
     text-transform: uppercase;
 }
 
+/* A row of the list is the key that opens its game. */
+.room button.grow {
+    width: 100%;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.room button.grow:focus-visible {
+    outline: 2px solid var(--accent-stage, #7aa7f0);
+    outline-offset: 2px;
+}
+
+/* One game opened from the list: its row and the way back above, the skat, the count and every seat's cards, then its
+   tricks, which are all that scrolls. */
+.room .game-list .sheet-head {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.room .game-list .sheet-head .grow {
+    flex: 1;
+    min-width: 0;
+    padding-left: 0;
+    background: none;
+}
+
+.room .game-list .back {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--on-stage);
+    background: rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+}
+
+.room .game-list .back svg {
+    width: 20px;
+    height: 20px;
+    rotate: 90deg;
+}
+
+.room .game-list .skatline {
+    display: flex;
+    gap: 22px;
+    justify-content: center;
+    padding: 2px 0;
+}
+
+.room .game-list .skatline .pair {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.room .game-list .skatline small {
+    color: var(--on-stage-soft);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.room .game-list .minis {
+    display: flex;
+    gap: 3px;
+}
+
+.room .game-list .mini {
+    display: block;
+    flex: none;
+    width: 32px;
+    aspect-ratio: 100 / 140;
+    border-radius: 3px;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+
+.room .game-list .sheet .dot {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    color: #111;
+    background: linear-gradient(150deg, #9fd0f2, #4b8fc4);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.room .game-list .seat-eyes {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.room .game-list .seat-eyes span {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 4px 12px 4px 4px;
+    border-radius: 999px;
+    color: var(--on-stage-soft);
+    background: rgba(255, 255, 255, 0.07);
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.room .game-list .seat-eyes .most {
+    color: var(--on-stage);
+    box-shadow: inset 0 0 0 2px var(--leave, #d63a40);
+}
+
+.room .game-list .held {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+    padding: 2px 0;
+}
+
+.room .game-list .held-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.room .game-list .held .minis {
+    gap: 2px;
+}
+
+.room .game-list .held .mini {
+    width: 24px;
+}
+
+.room .game-list .hc {
+    display: block;
+    border-radius: 4px;
+}
+
+.room .game-list .hc.put-away {
+    opacity: 0.4;
+}
+
+.room .game-list .hc.unplayed {
+    box-shadow: 0 0 0 2px var(--leave, #d63a40);
+    transform: translateY(-3px);
+}
+
+.room .game-list .tricks {
+    gap: 5px;
+}
+
+.room .game-list .trick {
+    display: grid;
+    flex: none;
+    grid-template-columns: 22px auto 1fr 26px 30px;
+    gap: 8px;
+    align-items: center;
+    min-height: 52px;
+    padding: 4px 10px 4px 4px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.room .game-list .trick .minis {
+    grid-column: 2;
+}
+
+.room .game-list .trick .dot {
+    grid-column: 4;
+}
+
+.room .game-list .trick .nr {
+    color: var(--on-stage-soft);
+    font-size: 12.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.room .game-list .trick .pts {
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.room .game-list .trick.declarer {
+    background: rgba(237, 182, 86, 0.13);
+    box-shadow: inset 3px 0 0 var(--busy-stage, #edb656);
+}
+
+.room .game-list .trick.declarer .pts {
+    color: var(--busy-stage, #edb656);
+}
+
+.room .game-list .trick.opponents {
+    background: rgba(122, 167, 240, 0.11);
+    box-shadow: inset 3px 0 0 var(--accent-stage, #7aa7f0);
+}
+
+.room .game-list .trick.opponents .pts {
+    color: var(--accent-stage, #7aa7f0);
+}
+
+.room .game-list .trick.ended b {
+    grid-column: 2 / 4;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+@media (min-width: 900px) {
+    .room .game-list .mini {
+        width: 40px;
+    }
+
+    .room .game-list .held .mini {
+        width: 30px;
+    }
+
+    .room .game-list .sheet .tricks {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: repeat(5, auto);
+        grid-auto-flow: column;
+        align-content: start;
+        gap: 6px 10px;
+    }
+}
+
 /* The standings: place, name, games won and lost as declarer and the final total, the winner on top. */
 .room .result.standing .ranks {
     display: flex;
