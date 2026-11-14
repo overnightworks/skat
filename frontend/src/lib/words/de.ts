@@ -19,7 +19,14 @@ export type Words = {
     readonly "start.openTable": string;
     readonly "start.cancelNewTable": string;
     readonly "start.newTableFailed": string;
+    readonly "start.visibility": string;
+    readonly "start.visibilityOpen": string;
+    readonly "start.visibilityPrivate": string;
+    readonly "start.visibilityInfoButton": string;
+    readonly "start.visibilityInfo": string;
     readonly "lobby.myTables": string;
+    readonly "lobby.openTables": string;
+    readonly "lobby.noOpenTables": string;
     readonly "lobby.openTable": (gaps: { readonly title: string }) => string;
     readonly "lobby.title": (gaps: { readonly name: string }) => string;
     readonly "lobby.titleSibilant": (gaps: { readonly name: string }) => string;
@@ -36,6 +43,11 @@ export type Words = {
     readonly "lobby.chipYourTurn": string;
     readonly "lobby.chipResultWaits": string;
     readonly "lobby.chipSeriesOver": string;
+    readonly "lobby.private": string;
+    readonly "lobby.sitAt": (gaps: { readonly title: string }) => string;
+    readonly "lobby.sitFailed": string;
+    readonly "lobby.chipGameWaits": string;
+    readonly "lobby.chipPaused": string;
     readonly "lobby.endsInDays": (count: number, gaps: { readonly days: string }) => string;
     readonly "lobby.endsToday": string;
     readonly "table.waitingForPlayers": string;
@@ -164,6 +176,7 @@ export type Words = {
     readonly "closed.emptySeconds": (count: number) => string;
     readonly "closed.emptyMinutes": (count: number, gaps: { readonly minutes: string }) => string;
     readonly "closed.unplayedDays": (count: number) => string;
+    readonly "closed.closed": string;
     readonly "closed.closedBy": (gaps: { readonly name: string }) => string;
     readonly "declare.commandFailed": string;
     readonly "declare.takeSkat": string;
@@ -457,7 +470,14 @@ export const words: Words = {
     "start.openTable": "Aufmachen",
     "start.cancelNewTable": "Abbrechen",
     "start.newTableFailed": "Der Tisch konnte nicht eröffnet werden.",
+    "start.visibility": "Wer den Tisch sieht",
+    "start.visibilityOpen": "Offen",
+    "start.visibilityPrivate": "Privat",
+    "start.visibilityInfoButton": "Info",
+    "start.visibilityInfo": "Offen: steht in der Lobby. Privat: nur mit dem Link.",
     "lobby.myTables": "Meine Tische",
+    "lobby.openTables": "Offene Tische",
+    "lobby.noOpenTables": "Sonst ist kein Tisch offen",
     "lobby.openTable": (gaps: { readonly title: string }) => gaps.title + " öffnen",
     "lobby.title": (gaps: { readonly name: string }) => gaps.name + "s Tisch",
     "lobby.titleSibilant": (gaps: { readonly name: string }) => gaps.name + "' Tisch",
@@ -509,6 +529,11 @@ export const words: Words = {
     "lobby.chipYourTurn": "Du bist dran",
     "lobby.chipResultWaits": "Ergebnis wartet",
     "lobby.chipSeriesOver": "Serie vorbei",
+    "lobby.private": "Privat",
+    "lobby.sitAt": (gaps: { readonly title: string }) => gaps.title + ": hinsetzen",
+    "lobby.sitFailed": "Das Hinsetzen hat nicht geklappt",
+    "lobby.chipGameWaits": "Spiel wartet",
+    "lobby.chipPaused": "pausiert",
     "lobby.endsInDays": (count: number, gaps: { readonly days: string }) => ({
         zero: "endet in " + gaps.days + " Tagen",
         one: "endet in " + gaps.days + " Tag",
@@ -693,6 +718,7 @@ export const words: Words = {
         many: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
         other: numberFormat.format(count) + " Tage nicht gespielt: Tisch geschlossen",
     })[pluralRules.select(count)],
+    "closed.closed": "Tisch geschlossen",
     "closed.closedBy": (gaps: { readonly name: string }) => gaps.name + " hat den Tisch geschlossen",
     "declare.commandFailed": "Das hat nicht geklappt",
     "declare.takeSkat": "Aufnehmen",

@@ -54,6 +54,8 @@ export function openStream(url: string, options: StreamOptions): () => void {
         let firstMessageAt: number | null = null;
         for (const [name, handle] of Object.entries(options.events)) {
             opened.addEventListener(name, (event) => {
+                // The browser fires its own `open` event, with no data, when the connection is made; it proves nothing.
+                if (!("data" in event)) return;
                 firstMessageAt ??= Date.now();
                 options.onConnection(true);
                 handle((event as MessageEvent<string>).data, end);

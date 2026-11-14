@@ -251,7 +251,7 @@ tables = Table(
     ),
     CheckConstraint("unplayed_days > 0", name="tables_unplayed_days_are_positive"),
     CheckConstraint(
-        f"(closed_by_name IS NOT NULL) = (end_reason IS NOT DISTINCT FROM '{EndReason.CLOSED.value}')",
+        f"closed_by_name IS NULL OR end_reason IS NOT DISTINCT FROM '{EndReason.CLOSED.value}'",
         name="tables_closed_by_name_only_for_a_closed_end",
     ),
     CheckConstraint("char_length(closed_by_name) >= 1", name="tables_closed_by_name_is_not_empty"),

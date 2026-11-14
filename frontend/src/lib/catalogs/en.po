@@ -63,9 +63,37 @@ msgctxt "start.newTableFailed"
 msgid "Der Tisch konnte nicht eröffnet werden."
 msgstr "The table could not be opened."
 
+msgctxt "start.visibility"
+msgid "Wer den Tisch sieht"
+msgstr "Who sees the table"
+
+msgctxt "start.visibilityOpen"
+msgid "Offen"
+msgstr "Open"
+
+msgctxt "start.visibilityPrivate"
+msgid "Privat"
+msgstr "Private"
+
+msgctxt "start.visibilityInfoButton"
+msgid "Info"
+msgstr "Info"
+
+msgctxt "start.visibilityInfo"
+msgid "Offen: steht in der Lobby. Privat: nur mit dem Link."
+msgstr "Open: listed in the lobby. Private: only with the link."
+
 msgctxt "lobby.myTables"
 msgid "Meine Tische"
 msgstr "My tables"
+
+msgctxt "lobby.openTables"
+msgid "Offene Tische"
+msgstr "Open tables"
+
+msgctxt "lobby.noOpenTables"
+msgid "Sonst ist kein Tisch offen"
+msgstr "No other table is open"
 
 msgctxt "lobby.openTable"
 msgid "{title} öffnen"
@@ -150,6 +178,26 @@ msgstr "Result waiting"
 msgctxt "lobby.chipSeriesOver"
 msgid "Serie vorbei"
 msgstr "Series over"
+
+msgctxt "lobby.private"
+msgid "Privat"
+msgstr "Private"
+
+msgctxt "lobby.sitAt"
+msgid "{title}: hinsetzen"
+msgstr "Sit down at {title}"
+
+msgctxt "lobby.sitFailed"
+msgid "Das Hinsetzen hat nicht geklappt"
+msgstr "Sitting down did not work"
+
+msgctxt "lobby.chipGameWaits"
+msgid "Spiel wartet"
+msgstr "Game waits"
+
+msgctxt "lobby.chipPaused"
+msgid "pausiert"
+msgstr "paused"
 
 msgctxt "lobby.endsInDays.one"
 msgid "endet in {days} Tag"
@@ -694,6 +742,10 @@ msgstr "Not played for {count} day: table closed"
 msgctxt "closed.unplayedDays.other"
 msgid "{count} Tage nicht gespielt: Tisch geschlossen"
 msgstr "Not played for {count} days: table closed"
+
+msgctxt "closed.closed"
+msgid "Tisch geschlossen"
+msgstr "Table closed"
 
 msgctxt "closed.closedBy"
 msgid "{name} hat den Tisch geschlossen"
