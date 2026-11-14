@@ -1,0 +1,8 @@
+claim_id = "8cbf603f6f604e10a10fb732285dfa31"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "b71e740aa53c0d6b5fd251da59b5fc84922f215f"
+branch = "claude/issue-537-a-table-may-require-every-kontra-word"
+scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "src/skat/table/hand_state.py", "src/skat/table/kontra.py", "src/skat/table/playing.py", "src/skat/table/records.py", "src/skat/web/kontra.py", "src/skat/web/table_options.py", "tests/table/test_kontra.py", "tests/table/test_playing.py", "tests/web/test_kontra.py", "tests/web/test_mcp_kontra.py"]
+opened_commit = "7ea731be41b65e72c3a837aa278096c331f6d365"
+whole_reason = "The deadline option, the table's gate on the first card and the no-word-to-decline wiring are one path: an option the table never checks is a silent no-op, and a gate with no reachable decline can deadlock a hand."
