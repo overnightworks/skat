@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cuesBetween, springsUp, stampBetween, type Cue } from "#lib/cues.ts";
+import { chairs as seatedChairs, LOST_GAME, ramschResult, table as tableWithResult } from "#lib/result.fixtures.ts";
 import { words } from "#lib/words.ts";
 import type {
     Auction,
@@ -531,5 +532,196 @@ describe("the bubble that springs up", () => {
         { name: "a chair without a bubble", said, seat: 1, bubble: null, springs: false },
     ] as const)("is $springs for $name", ({ said: bid, seat, bubble, springs }) => {
         expect(springsUp(bid, seat, bubble)).toBe(springs);
+    });
+});
+
+// The table of `table`, seen by the chair of `viewer`, whose hand is the stage the test names.
+function viewedBy(
+    viewer: number | null,
+    shown: Table,
+    version: number,
+    hand: Partial<NonNullable<Table["hand"]>>,
+): Table {
+    return {
+        ...shown,
+        version,
+        chairs: shown.chairs.map((chair) => ({ ...chair, is_mine: chair.seat === viewer })),
+        hand: { ...(shown.hand as NonNullable<Table["hand"]>), ...hand },
+    };
+}
+
+describe("the turn that came to the viewer", () => {
+    const base = table(1, EVERY_HAND_DEALT, { declaring: null });
+    const bidding = (version: number, turn: number | null, viewer: number | null = FOREHAND): Table =>
+        viewedBy(viewer, base, version, {
+            auction: { ...auction(), awaiting: "bid", turn_seat: turn },
+            declaring: null,
+            playing: null,
+        });
+    const trick = (version: number, turn: number, viewer: number | null = FOREHAND): Table =>
+        viewedBy(viewer, base, version, {
+            auction: auction(),
+            declaring: declaringAt("declared"),
+            playing: playing({ turn_seat: turn }),
+        });
+    const came: Cue = { kind: "turn-came" };
+
+    it("is the update that puts the viewer on turn after another chair", () => {
+        expect(cuesBetween(bidding(1, MIDDLEHAND), bidding(2, FOREHAND))).toContainEqual(came);
+    });
+
+    it("is the update that puts the viewer on turn in the play", () => {
+        expect(cuesBetween(trick(1, MIDDLEHAND), trick(2, FOREHAND))).toContainEqual(came);
+    });
+
+    it("is the update that gives the viewer the choice of the game", () => {
+        const choosing = viewedBy(FOREHAND, base, 2, {
+            auction: auction(),
+            declaring: { ...declaringAt("choosing"), declarer_seat: FOREHAND },
+        });
+
+        expect(cuesBetween(bidding(1, MIDDLEHAND), choosing)).toContainEqual(came);
+    });
+
+    it("is the update that puts the viewer on turn in the stage of a Ramsch", () => {
+        const pushing = viewedBy(FOREHAND, base, 2, {
+            auction: auction(),
+            declaring: null,
+            ramsch: true,
+            pushing: { turn_seat: FOREHAND, stage: "choosing", moves: [], factor: 1, put_back_cards: [] },
+        });
+
+        expect(cuesBetween(bidding(1, MIDDLEHAND), pushing)).toContainEqual(came);
+    });
+
+    it("comes again when the viewer's turn moves on to the next phase of the hand", () => {
+        expect(cuesBetween(bidding(1, FOREHAND), trick(2, FOREHAND))).toContainEqual(came);
+    });
+
+    it.each([
+        {
+            name: "an update that leaves the viewer on turn",
+            previous: bidding(1, FOREHAND),
+            next: bidding(2, FOREHAND),
+        },
+        { name: "the turn of another chair", previous: bidding(1, MIDDLEHAND), next: bidding(2, REARHAND) },
+        {
+            name: "an update that takes the turn from the viewer",
+            previous: bidding(1, FOREHAND),
+            next: bidding(2, MIDDLEHAND),
+        },
+        {
+            name: "a watcher, who has no chair",
+            previous: bidding(1, MIDDLEHAND, null),
+            next: bidding(2, FOREHAND, null),
+        },
+        { name: "the first answer of the page", previous: undefined, next: bidding(2, FOREHAND) },
+        { name: "an update that is not newer", previous: bidding(2, MIDDLEHAND), next: bidding(2, FOREHAND) },
+        {
+            name: "a hand that waits for a sitter",
+            previous: bidding(1, MIDDLEHAND),
+            next: viewedBy(FOREHAND, bidding(2, FOREHAND), 2, { waiting_seat: REARHAND }),
+        },
+        { name: "an auction that is over", previous: bidding(1, MIDDLEHAND), next: bidding(2, null) },
+        {
+            name: "a game that is declared and not yet played",
+            previous: bidding(1, MIDDLEHAND),
+            next: viewedBy(FOREHAND, base, 2, { auction: auction(), declaring: declaringAt("declared") }),
+        },
+        {
+            name: "a table with no hand",
+            previous: bidding(1, MIDDLEHAND),
+            next: { ...bidding(2, FOREHAND), hand: null },
+        },
+    ] satisfies { name: string; previous: Table | undefined; next: Table }[])("is not $name", ({ previous, next }) => {
+        expect(cuesBetween(previous, next).some((cue) => cue.kind === "turn-came")).toBe(false);
+    });
+});
+
+describe("the deal that a table update brought", () => {
+    const hand = table(1, EVERY_HAND_DEALT, { declaring: null });
+    const dealtBy = (version: number, dealer: number): Table => ({
+        ...hand,
+        version,
+        hand: { ...(hand.hand as NonNullable<Table["hand"]>), dealer_seat: dealer },
+    });
+    const result = tableWithResult(1, {});
+
+    it("is the update that brings a hand to a table that had none", () => {
+        expect(cuesBetween({ ...result, version: 1 }, { ...hand, version: 2 })).toContainEqual({ kind: "dealt" });
+    });
+
+    it("is the update that brings a hand with another dealer than the hand before", () => {
+        expect(cuesBetween(dealtBy(1, FOREHAND), dealtBy(2, MIDDLEHAND))).toContainEqual({ kind: "dealt" });
+    });
+
+    it.each([
+        {
+            name: "the first answer of the page, as after a reload or a dropped connection",
+            previous: undefined,
+            next: dealtBy(2, FOREHAND),
+        },
+        { name: "an update inside the same hand", previous: dealtBy(1, FOREHAND), next: dealtBy(2, FOREHAND) },
+        { name: "an update that is not newer", previous: dealtBy(2, FOREHAND), next: dealtBy(2, MIDDLEHAND) },
+        { name: "an update that ends the hand", previous: dealtBy(1, FOREHAND), next: { ...result, version: 2 } },
+    ] satisfies { name: string; previous: Table | undefined; next: Table }[])("is not $name", ({ previous, next }) => {
+        expect(cuesBetween(previous, next).some((cue) => cue.kind === "dealt")).toBe(false);
+    });
+});
+
+describe("the result that just appeared", () => {
+    const before = { ...tableWithResult(1, null), version: 8 };
+    const after = (changes: Parameters<typeof tableWithResult>[1] = {}, mine = 1): Table => ({
+        ...tableWithResult(mine, changes),
+        version: 9,
+    });
+    const appeared = (previous: Table | undefined, next: Table) =>
+        cuesBetween(previous, next).filter((cue) => cue.kind === "result-appeared");
+
+    it("is the ordinal of a result that the update brings to a table that had none", () => {
+        expect(appeared(before, after({ ordinal: 4 }))).toEqual([
+            { kind: "result-appeared", ordinal: 4, won: false, counts: true },
+        ]);
+    });
+
+    it("is the next ordinal when a result stands and the update brings another one", () => {
+        const standing = { ...after({ ordinal: 4 }), version: 8 };
+
+        expect(appeared(standing, after({ ordinal: 5 }))[0]).toMatchObject({ ordinal: 5 });
+    });
+
+    it("is won for a viewer on the winning side and lost for a viewer on the other", () => {
+        expect(appeared(before, after({}, 2))[0]).toMatchObject({ won: true });
+        expect(appeared(before, after(LOST_GAME, 2))[0]).toMatchObject({ won: false });
+    });
+
+    it("is the declarer's outcome for a watcher, who has no chair", () => {
+        const watcher = { ...after({}), chairs: seatedChairs(0) };
+
+        expect(appeared(before, watcher)[0]).toMatchObject({ won: true });
+    });
+
+    it("counts only when a seat gained something", () => {
+        const nothing = after({ gains: [1, 2, 3].map((seat) => ({ seat, gain: 0, won: false })) });
+
+        expect(appeared(before, nothing)[0]).toMatchObject({ counts: false });
+    });
+
+    it.each([
+        { name: "the first table of a page, a reload or a late join", previous: undefined, next: after() },
+        {
+            name: "the same result standing, as when a Weiter mark arrives",
+            previous: { ...after({ ordinal: 4 }), version: 8 },
+            next: after({ ordinal: 4 }),
+        },
+        { name: "an update that is not newer than the one before", previous: { ...before, version: 9 }, next: after() },
+        { name: "an update that brings no result", previous: before, next: after(null) },
+        {
+            name: "a Ramsch result",
+            previous: before,
+            next: { ...after(null), result: ramschResult([14, 86, 20], [0, -86, 0], {}) },
+        },
+    ] satisfies { name: string; previous: Table | undefined; next: Table }[])("is not $name", ({ previous, next }) => {
+        expect(appeared(previous, next)).toEqual([]);
     });
 });

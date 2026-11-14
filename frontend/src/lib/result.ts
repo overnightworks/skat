@@ -198,12 +198,10 @@ export function declaredResult(table: Table): Result | null {
     return table.result?.kind === "declared" ? table.result : null;
 }
 
-// The ordinal of the declared result that the update brings to a page that watches; a page that opens later or
-// reconnects sees the result as it stands, so it has none.
-export function resultJustAppeared(previous: Table | undefined, next: Table): number | null {
-    const result = declaredResult(next);
-    if (previous === undefined || next.version <= previous.version || result === null) return null;
-    return previous.result?.ordinal === result.ordinal ? null : result.ordinal;
+// Whether the result is good news for the viewer: a seated viewer's own gain won, a watcher's the declarer's win.
+export function resultIsGood(result: Result, chairs: readonly Chair[]): boolean {
+    const own = chairs.find((chair) => chair.is_mine);
+    return own === undefined ? result.won : (result.gains.find((one) => one.seat === own.seat) as SeatGain).won;
 }
 
 // A give-up is the ending that decided the game, so its stamp stands where an overbid game's would.
@@ -223,7 +221,7 @@ export function resultView(table: Table): ResultView {
     const isDeclarer = own?.seat === result.declarer_seat;
     const declarerName = nameOf(chairs, result.declarer_seat) ?? "";
     const sides = sideNames(chairs, result.declarer_seat);
-    const good = own === undefined ? result.won : (result.gains.find((one) => one.seat === own.seat) as SeatGain).won;
+    const good = resultIsGood(result, chairs);
     let word: string;
     if (own === undefined) {
         word = result.won

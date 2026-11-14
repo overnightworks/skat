@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { awaitedNames, resultJustAppeared, resultView, weiterBar, withMinus } from "#lib/result.ts";
+import { awaitedNames, resultView, weiterBar, withMinus } from "#lib/result.ts";
 import { chairs, LOST_GAME, NOBODY, NULL_GAME, OTHER_LOSES, table, WON_GAME } from "#lib/result.fixtures.ts";
 import { words } from "#lib/words.ts";
 import type { Table, Result } from "../routes/(start)/tables.ts";
@@ -563,40 +563,6 @@ describe("the bar's Weiter", () => {
         const everyoneReady = { 1: { ready: true }, 2: { ready: true }, 3: { ready: true } };
 
         expect(weiterBar(table(1, {}, everyoneReady))).toEqual({ kind: "tap", again: true });
-    });
-});
-
-describe("the result that just appeared", () => {
-    const before = { ...table(1, null), version: 8 };
-    const after = (changes: Partial<Result> | null = {}): Table => ({ ...table(1, changes), version: 9 });
-
-    it("is the ordinal of a result that the update brings to a table that had none", () => {
-        expect(resultJustAppeared(before, after({ ordinal: 4 }))).toBe(4);
-    });
-
-    it("is the next ordinal when a result stands and the update brings another one", () => {
-        const standing = { ...after({ ordinal: 4 }), version: 8 };
-
-        expect(resultJustAppeared(standing, after({ ordinal: 5 }))).toBe(5);
-    });
-
-    it("is nothing for the first table of a page, a reload or a late join", () => {
-        expect(resultJustAppeared(undefined, after())).toBeNull();
-    });
-
-    it("is nothing while the same result stands, as when a Weiter mark arrives", () => {
-        expect(resultJustAppeared({ ...after({ ordinal: 4 }), version: 8 }, after({ ordinal: 4 }))).toBeNull();
-    });
-
-    it("is nothing for an update that is not newer than the one before", () => {
-        expect(resultJustAppeared({ ...before, version: 9 }, after())).toBeNull();
-    });
-
-    it("is nothing when the update brings no result or a Ramsch result", () => {
-        const ramsch: Table = { ...after(null), result: OTHER_LOSES };
-
-        expect(resultJustAppeared(before, after(null))).toBeNull();
-        expect(resultJustAppeared(before, ramsch)).toBeNull();
     });
 });
 
