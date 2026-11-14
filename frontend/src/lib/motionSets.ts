@@ -10,6 +10,12 @@ export interface MotionSet {
     readonly bidSpringsSeconds: number;
     /** From the cue to the moment the Kontra stamp hits the felt. */
     readonly stampLandsSeconds: number;
+    /** How long a finished trick lies still on the felt before it is swept; the set's CSS keeps no time of it. */
+    readonly trickRestSeconds: number;
+    /** From the sweep's start to the moment the trick has come together in the middle; the set's CSS keeps the same time. */
+    readonly trickGatherSeconds: number;
+    /** From the gathered trick to the moment it lies on its taker's pile; the set's CSS keeps the same time. */
+    readonly trickGlideSeconds: number;
 }
 
 export const MOTION_SETS = {
@@ -19,6 +25,9 @@ export const MOTION_SETS = {
         cardLandsSeconds: 0.18,
         bidSpringsSeconds: 0.04,
         stampLandsSeconds: 0.18,
+        trickRestSeconds: 0.5,
+        trickGatherSeconds: 0,
+        trickGlideSeconds: 0.28,
     },
     verspielt: {
         id: "verspielt",
@@ -26,6 +35,9 @@ export const MOTION_SETS = {
         cardLandsSeconds: 0.28,
         bidSpringsSeconds: 0.04,
         stampLandsSeconds: 0.3,
+        trickRestSeconds: 0.8,
+        trickGatherSeconds: 0.25,
+        trickGlideSeconds: 0.75,
     },
 } as const satisfies Record<string, MotionSet>;
 
