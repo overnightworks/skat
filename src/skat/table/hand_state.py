@@ -1,4 +1,3 @@
-from dataclasses import replace
 from typing import TYPE_CHECKING, Final
 
 from skat.engine.bidding import Auction, Declared, PassedIn, auction_after
@@ -29,7 +28,7 @@ def auction_of(table: TableRecord) -> Auction:
     passed in from the deal.
     """
     if is_ramsch_round(table):
-        return replace(Auction.start(), result=PassedIn())
+        return Auction.passed_in_from_the_deal()
     return auction_after(table.progress.auction)
 
 
