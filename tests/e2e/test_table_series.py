@@ -30,12 +30,14 @@ SHEET_ROOM = 480
 COUNT = ".series-count"
 GAME_LIST = ".game-list"
 ROWS = f"{GAME_LIST} .grow"
-SHEET = f"{GAME_LIST} .sheet"
+SHEET = f"{GAME_LIST} .game-sheet"
 TRICKS = f"{SHEET} .tricks"
 TRICKS_IN_A_GAME = 10
 PLAYS_IN_A_TRICK = 3
 SEATS = 3
 PUT_AWAY_PER_SEAT = 2
+# The panel body pads its content by less than this on each side.
+FRAME_PADDING = 24
 SHEET_BACK = text(SOURCE_LANGUAGE, "table.sheetBack")
 STANDING = ".result.standing"
 ASK = ".plaque.ask"
@@ -87,11 +89,23 @@ def propose_the_end(person: Page) -> None:
 def expect_the_sheet_inside_the_panel(person: Page) -> None:
     panel = person.locator(GAME_LIST).bounding_box()
     assert panel is not None
-    for part in (".skatline .pair", ".held-row", ".trick"):
+    for part in (".skatline .pair", ".held-row", ".trick-row"):
         for box in (each.bounding_box() for each in person.locator(f"{SHEET} {part}").all()):
             assert box is not None
             assert box["x"] >= panel["x"]
             assert box["x"] + box["width"] <= panel["x"] + panel["width"]
+
+
+def expect_the_tricks_to_lay_their_cards_side_by_side_in_the_panels_one_frame(person: Page) -> None:
+    panel = person.locator(GAME_LIST).bounding_box()
+    sheet = person.locator(SHEET).bounding_box()
+    assert panel is not None
+    assert sheet is not None
+    assert sheet["x"] - panel["x"] <= FRAME_PADDING
+    assert panel["x"] + panel["width"] - (sheet["x"] + sheet["width"]) <= FRAME_PADDING
+    for trick in person.locator(f"{TRICKS} .trick-row").all():
+        lefts = [box["x"] for box in (card.bounding_box() for card in trick.locator(".mini").all()) if box]
+        assert len({round(left) for left in lefts}) == PLAYS_IN_A_TRICK, f"cards overlap at x={lefts}"
 
 
 def expect_the_keys_in_one_row(person: Page) -> None:
@@ -242,10 +256,11 @@ def test_a_game_of_the_list_opens_with_every_seat_and_every_trick_and_the_way_ba
     person.locator(ROWS).click()
 
     expect(person.locator(f"{SHEET} .held-row")).to_have_count(SEATS)
-    expect(person.locator(f"{TRICKS} .trick")).to_have_count(TRICKS_IN_A_GAME)
+    expect(person.locator(f"{TRICKS} .trick-row")).to_have_count(TRICKS_IN_A_GAME)
     # Every card of a trick names the seat that played it.
     expect(person.locator(f"{TRICKS} .by")).to_have_count(TRICKS_IN_A_GAME * PLAYS_IN_A_TRICK)
     expect_the_sheet_inside_the_panel(person)
+    expect_the_tricks_to_lay_their_cards_side_by_side_in_the_panels_one_frame(person)
 
     # A panel shorter than its game scrolls its tricks, and neither the page nor the panel moves.
     person.set_viewport_size({"width": form_factor["viewport"]["width"], "height": SHEET_ROOM})

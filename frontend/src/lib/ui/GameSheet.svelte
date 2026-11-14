@@ -39,7 +39,7 @@
     </span>
 {/snippet}
 
-<div class="panel-body sheet" role="group" aria-label={words["table.sheetTitle"]({ number: String(row.number) })}>
+<div class="panel-body game-sheet" role="group" aria-label={words["table.sheetTitle"]({ number: String(row.number) })}>
     <div class="sheet-head">
         <button type="button" class="back" aria-label={words["table.sheetBack"]} onclick={back}>
             <svg
@@ -123,13 +123,13 @@
             <ol class="rows tricks">
                 {#each cards.tricks as trick (trick.number)}
                     <li
-                        class="trick {trick.side}"
+                        class="trick-row {trick.side}"
                         aria-label={words["table.sheetTrick"]({ number: String(trick.number) })}
                     >
                         <span class="nr">{trick.number}</span>
                         <span class="minis">
                             {#each trick.cards as each (`${each.card.suit}-${each.card.rank}`)}
-                                <span class="laid">
+                                <span class="trick-card">
                                     <span class="mini"><CardFace card={each.card} /></span>
                                     <span class="by" role="img" aria-label={each.by.name}>{each.by.initial}</span>
                                 </span>
@@ -140,7 +140,7 @@
                     </li>
                 {/each}
                 {#if view.end !== null}
-                    <li class="trick ended">
+                    <li class="trick-row ended">
                         <span class="nr">⚑</span><b>{view.end.label}</b>
                         {#if view.end.by !== null}{@render dot(view.end.by)}{/if}
                     </li>
