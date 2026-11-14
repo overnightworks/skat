@@ -32,9 +32,11 @@ STORE_CONNECT_TIMEOUT_SECONDS: Final = 5
 HEALTH_DEADLINE_SECONDS: Final = 5
 # Bounds the work the health check leaves on a database that is slow but answering.
 HEALTH_STATEMENT_TIMEOUT_MILLISECONDS: Final = 2_000
-# How long a probe's verdict answers every ask; far below the period in which the edge probes, so readiness still
-# turns within it.
-READINESS_REUSE_SECONDS: Final = 1.0
+# How long, from the start of its probe, a verdict answers every ask, and how long, from its start, an unfinished
+# probe is awaited before its asks read unready. Readiness follows the database within their sum, one second, far
+# below the period in which the edge probes.
+READINESS_REUSE_SECONDS: Final = 0.5
+READINESS_PATIENCE_SECONDS: Final = 0.5
 
 log = structlog.get_logger()
 
@@ -192,7 +194,11 @@ class ReadinessProbe:
     """The readiness verdict, computed by at most one probe at a time and reused for `READINESS_REUSE_SECONDS`.
 
     A burst of asks costs one probe connection and one thread, never one per ask: an ask that arrives while a probe
-    runs awaits that probe's verdict. A verdict that differs from the previous one is logged once with its cause.
+    runs awaits that probe's verdict, but only until `READINESS_PATIENCE_SECONDS` after the probe started; a probe
+    that has not answered by then reads unready, so a stalled database turns the verdict within the sum of both,
+    not after the health deadline. The reuse runs from the probe's start, because a ready verdict read the database
+    after that start, so it outlives a stop by at most the reuse time. A verdict that differs from
+    the previous one is logged once with its cause.
     """
 
     def __init__(self, probe: Callable[[], DatabaseHealth], *, clock: Callable[[], float] = time.monotonic) -> None:
@@ -200,20 +206,25 @@ class ReadinessProbe:
         self._clock = clock
         self._verdict = ReadinessVerdict.READY
         self._reusable_until: float | None = None
+        self._started_at = 0.0
         self._running: asyncio.Task[bool] | None = None
 
     async def __call__(self) -> bool:
         if self._running is None:
             if self._reusable_until is not None and self._clock() < self._reusable_until:
                 return self._verdict is ReadinessVerdict.READY
-            self._running = asyncio.create_task(self._refresh())
-        # Shielded, so that one asker giving up does not cancel the probe the others await.
-        return await asyncio.shield(self._running)
+            self._started_at = self._clock()
+            self._running = asyncio.create_task(self._refresh(self._started_at))
+        running = self._running
+        patience = self._started_at + READINESS_PATIENCE_SECONDS - self._clock()
+        # `wait` leaves the probe running when its time is up or an asker is cancelled, for the others to await.
+        await asyncio.wait({running}, timeout=max(patience, 0))
+        return running.result() if running.done() else False
 
-    async def _refresh(self) -> bool:
+    async def _refresh(self, started_at: float) -> bool:
         try:
             health = await asyncio.to_thread(self._probe)
-            self._reusable_until = self._clock() + READINESS_REUSE_SECONDS
+            self._reusable_until = started_at + READINESS_REUSE_SECONDS
             if health.verdict is not self._verdict:
                 log.warning("database_readiness_changed", was=self._verdict.value, now=health.verdict.value)
                 self._verdict = health.verdict

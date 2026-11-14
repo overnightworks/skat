@@ -30,8 +30,9 @@ class ServerRecorder:
 
 
 @pytest.fixture(autouse=True)
-def every_health_ask_probes(monkeypatch):
+def every_health_ask_probes_and_awaits_it(monkeypatch):
     monkeypatch.setattr(migrate_module, "READINESS_REUSE_SECONDS", 0)
+    monkeypatch.setattr(migrate_module, "READINESS_PATIENCE_SECONDS", 60)
 
 
 @pytest.fixture
