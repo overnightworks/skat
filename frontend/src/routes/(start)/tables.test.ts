@@ -24,6 +24,8 @@ import {
     TABLE_READY_SUFFIX,
     TABLE_SERIES_END_AGREE_SUFFIX,
     TABLE_SERIES_END_REFUSE_SUFFIX,
+    TABLE_STYLE_SUFFIX,
+    TABLE_STYLE_TOKENS,
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
     TABLE_AUCTION_PASS_SUFFIX,
@@ -43,6 +45,7 @@ import {
     readSeriesList,
     readTable,
     seriesNumberOf,
+    chooseStyle,
     startNewSeries,
     sitDown,
     standUp,
@@ -556,6 +559,16 @@ describe("asking for a table", () => {
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_NEW_SERIES_SUFFIX}`);
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-7", series: 2 });
+    });
+
+    it.each(TABLE_STYLE_TOKENS)("sends the command id and the %s style the person chose", async (style) => {
+        answerWith(Response.json(table));
+
+        expect(await chooseStyle(TABLE_ID, "command-9", style)).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_STYLE_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-9", style });
     });
 
     it.each([

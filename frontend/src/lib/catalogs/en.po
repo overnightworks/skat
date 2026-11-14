@@ -1845,3 +1845,22 @@ msgctxt "rules.bockOverlapIgnore"
 msgid "neue Runden zählen nicht"
 msgstr "new rounds do not count"
 
+msgctxt "table.style"
+msgid "Stil"
+msgstr "Style"
+
+msgctxt "table.styleName"
+msgid "Stil des Tisches"
+msgstr "Table style"
+
+msgctxt "table.styleKlassik"
+msgid "Klassik"
+msgstr "Classic"
+
+msgctxt "table.styleStrandbar"
+msgid "Strandbar"
+msgstr "Beach bar"
+
+msgctxt "table.styleNote"
+msgid "Gilt für alle am Tisch, auch für die Zuschauer."
+msgstr "Applies to everyone at the table, watchers included."

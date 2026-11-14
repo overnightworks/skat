@@ -453,6 +453,11 @@ type Key = Literal[
     'rules.bockOverlapAppend',
     'rules.bockOverlapMultiply',
     'rules.bockOverlapIgnore',
+    'table.style',
+    'table.styleName',
+    'table.styleKlassik',
+    'table.styleStrandbar',
+    'table.styleNote',
 ]
 type Language = Literal[
     'de',
@@ -962,6 +967,11 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'rules.bockOverlapAppend': 'neue Runden hängen sich an',
         'rules.bockOverlapMultiply': 'neue Runden multiplizieren sich',
         'rules.bockOverlapIgnore': 'neue Runden zählen nicht',
+        'table.style': 'Stil',
+        'table.styleName': 'Stil des Tisches',
+        'table.styleKlassik': 'Klassik',
+        'table.styleStrandbar': 'Strandbar',
+        'table.styleNote': 'Gilt für alle am Tisch, auch für die Zuschauer.',
     },
     'en': {
         'app.name': 'Skat',
@@ -1452,6 +1462,11 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'rules.bockOverlapAppend': 'new rounds are appended',
         'rules.bockOverlapMultiply': 'new rounds multiply',
         'rules.bockOverlapIgnore': 'new rounds do not count',
+        'table.style': 'Style',
+        'table.styleName': 'Table style',
+        'table.styleKlassik': 'Classic',
+        'table.styleStrandbar': 'Beach bar',
+        'table.styleNote': 'Applies to everyone at the table, watchers included.',
     },
 }
 

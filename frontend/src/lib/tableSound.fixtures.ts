@@ -52,6 +52,10 @@ export class FakePort implements AudioPort {
     playRecording(url: string, afterSeconds: number): void {
         this.spoken.push({ url, afterSeconds });
     }
+
+    setSea(): void {
+        // The sea is the engine's, not this module's.
+    }
 }
 
 export function cardPlayedBy(seat: number): Cue {
@@ -84,6 +88,7 @@ export function tableSeenFrom(ownSeat: number): Table {
         series: null,
         aborted: null,
         options: null,
+        style: null,
         bock: null,
         ended: null,
     };

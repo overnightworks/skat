@@ -33,9 +33,10 @@
     import CopyLinkKey from "#lib/ui/CopyLinkKey.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
-    import CardBack from "#lib/ui/CardBack.svelte";
     import CloseKey from "#lib/ui/CloseKey.svelte";
+    import DealerMark from "#lib/ui/DealerMark.svelte";
     import CardCountTag from "#lib/ui/CardCountTag.svelte";
+    import CardDeck from "#lib/ui/CardDeck.svelte";
     import CardSprite from "#lib/ui/CardSprite.svelte";
     import DeclareControls from "#lib/ui/DeclareControls.svelte";
     import BidControls from "#lib/ui/BidControls.svelte";
@@ -61,6 +62,9 @@
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import StandKey from "#lib/ui/StandKey.svelte";
+    import StrandDecor from "#lib/ui/StrandDecor.svelte";
+    import StyleKey from "#lib/ui/StyleKey.svelte";
+    import StyleScene from "#lib/ui/StyleScene.svelte";
     import TrickPile from "#lib/ui/TrickPile.svelte";
     import TrickStage from "#lib/ui/TrickStage.svelte";
     import TableBar from "#lib/ui/TableBar.svelte";
@@ -77,6 +81,7 @@
         trickIsMoving,
     } from "#lib/stage.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
+    import { tableStyle } from "#lib/tableStyle.svelte.ts";
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
     import {
@@ -348,7 +353,15 @@
     </span>
 {/snippet}
 
-<div class="room" class:framed={callMode} class:dealing={isDealing()} data-theme="dark" data-motion={motionInForce()}>
+<div
+    class="room"
+    class:framed={callMode}
+    class:dealing={isDealing()}
+    data-theme="dark"
+    data-motion={motionInForce()}
+    data-style={tableStyle()}
+>
+    <StyleScene style={outcome?.kind === "table" ? outcome.table.style : null} />
     <CardSprite />
     {#if !greeted}
         <TableBar
@@ -520,7 +533,7 @@
                     {/if}
                 </div>
             {/if}
-            <div class="felt" aria-hidden="true"></div>
+            <div class="felt" aria-hidden="true"><StrandDecor /></div>
             {#if standing !== null}
                 <Standings view={standing} />
             {:else if view !== null}
@@ -538,13 +551,7 @@
                 </div>
             {:else if passedIn !== null}
                 <div class="skat-spot">
-                    <div class="deck">
-                        {#each [0, 1, 2, 3] as layer (layer)}
-                            <div class="deck-card">
-                                <CardBack />
-                            </div>
-                        {/each}
-                    </div>
+                    <CardDeck />
                 </div>
             {/if}
             <ul class="chairs">
@@ -582,23 +589,7 @@
                             </span>
                             {#if chair.hand !== null || passedIn !== null || onResult}
                                 {#if chair.seat === dealerSeat}
-                                    <span class="mark dealer" title={words["table.dealer"]}>
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            aria-hidden="true"
-                                        >
-                                            <path
-                                                d="M3 7h3c4.5 0 6.5 10 11 10h3.5M3 17h3c1.7 0 3-1.4 4.1-3.4M13.9 10.4C15 8.4 16.3 7 18 7h2.5M18 4l3 3-3 3M18 14l3 3-3 3"
-                                            />
-                                        </svg>
-                                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                                        {`${words["table.dealer"]}`}
-                                    </span>
+                                    <DealerMark />
                                 {/if}
                                 {#if chair.hand !== null}
                                     <span class="mark pos">{positionWord(chair.hand.position)}</span>
@@ -740,6 +731,9 @@
                         watchers={streamedWatchers}
                         kitWords={data.kitWords}
                     />
+                    {#if seated}
+                        <StyleKey {id} bind:note />
+                    {/if}
                     {#if callMode}
                         <SoundButton place="strip" />
                     {:else}

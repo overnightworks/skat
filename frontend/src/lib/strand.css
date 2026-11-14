@@ -1,0 +1,325 @@
+/* The table's style: the key that picks it, the panel's two tiles and the Strandbar look. Every Strandbar rule hangs on
+   the room's style attribute, so Klassik's rules in start.css stay as they are. */
+
+/* The key: the palette with its word at 900 px and wider, the palette alone round on a phone. */
+.room .copy.style-key.on {
+    color: var(--stage-ink, #0c0e11);
+    background: var(--on-stage);
+}
+
+@media (max-width: 899px) {
+    .room .copy.style-key {
+        box-sizing: border-box;
+        justify-content: center;
+        width: 52px;
+        padding: 0;
+    }
+
+    .room .copy.style-key .word {
+        display: none;
+    }
+}
+
+.room .style-body {
+    padding: 12px 16px 14px;
+}
+
+.room .style-tiles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.room .style-tile {
+    display: block;
+    cursor: pointer;
+}
+
+.room .style-tile input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.room .style-face {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 6px 8px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.22);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.room .style-tile input:checked + .style-face {
+    color: var(--stage-ink, #0c0e11);
+    background: var(--accent-stage, #7aa7f0);
+}
+
+.room .style-tile input:focus-visible + .style-face {
+    outline: 2px solid var(--on-stage);
+    outline-offset: 2px;
+}
+
+.room .style-preview {
+    display: block;
+    width: 100%;
+    aspect-ratio: 120 / 76;
+    border-radius: 9px;
+}
+
+.room .style-klassik .style-preview {
+    background:
+        radial-gradient(ellipse 41% 33% at 50% 52%, #1d7a55 97%, transparent 100%),
+        radial-gradient(ellipse 45% 38% at 50% 52%, #7a4c2a 97%, transparent 100%), #1b130d;
+}
+
+.room .style-strandbar .style-preview {
+    background:
+        radial-gradient(circle 24% at 50% 66%, #d7b27c 96%, transparent 100%),
+        radial-gradient(circle 28% at 50% 66%, #e8cf9f 96%, transparent 100%),
+        linear-gradient(180deg, #2a2760 0 32%, #2f6285 32% 47%, #cba57a 47%);
+}
+
+.room .style-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 20px;
+}
+
+.room .style-name svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* ---------- Strandbar ---------- */
+
+.room[data-style="strandbar"] {
+    --sand: #f3e2bd;
+    --straw: #e4c27d;
+    --straw-deep: #b98f48;
+    --rattan: #e9cf9b;
+    --cream: #fbf6ea;
+    --ink: #2b1b10;
+    --glass-dark: rgba(28, 17, 22, 0.72);
+
+    isolation: isolate;
+}
+
+/* The beach stands behind the whole page, the frame that fits the viewport. */
+.room .strand-scene {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.room .strand-scene .beach {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.room .strand-scene .beach-desktop {
+    display: none;
+}
+
+@media (min-width: 900px) {
+    .room .strand-scene .beach-phone {
+        display: none;
+    }
+
+    .room .strand-scene .beach-desktop {
+        display: block;
+    }
+}
+
+/* The waves roll in and out only while the motion set allows motion: the device's reduced motion leaves the attribute
+   off, and „dezent“ keeps them still. */
+@keyframes surf-roll {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(-60px);
+    }
+}
+
+.room[data-motion="verspielt"] .surf-foam,
+.room[data-motion="verspielt"] .surf-line {
+    animation: surf-roll 7s ease-in-out infinite alternate;
+}
+
+.room[data-motion="verspielt"] .surf-line {
+    animation-duration: 9s;
+}
+
+/* The table: a round top of pale boards inside a woven rattan rim. */
+.room[data-style="strandbar"] .felt {
+    position: relative;
+    background:
+        radial-gradient(60% 50% at 50% 40%, rgba(255, 236, 190, 0.55), transparent 72%),
+        repeating-linear-gradient(0deg, rgba(100, 62, 26, 0.2) 0 1.5px, transparent 1.5px 34px),
+        repeating-linear-gradient(0deg, rgba(255, 250, 235, 0.1) 0 3px, transparent 3px 11px),
+        linear-gradient(180deg, #d9b57c, #c39a5e 60%, #b08550);
+    box-shadow:
+        inset 0 10px 22px rgba(90, 52, 20, 0.35),
+        inset 0 -6px 16px rgba(90, 52, 20, 0.28),
+        inset 0 0 0 1.5px rgba(90, 52, 20, 0.4),
+        0 0 0 1.5px rgba(86, 52, 22, 0.8),
+        0 34px 46px -22px rgba(25, 12, 30, 0.75);
+}
+
+.room[data-style="strandbar"] .felt::before {
+    content: "";
+    position: absolute;
+    inset: -18px;
+    border-radius: 50%;
+    background:
+        repeating-linear-gradient(45deg, rgba(255, 246, 222, 0.5) 0 2px, transparent 2px 7px),
+        repeating-linear-gradient(-45deg, rgba(96, 58, 22, 0.42) 0 2px, transparent 2px 7px),
+        linear-gradient(180deg, #f0d9a6, #cba768 55%, #a8814a);
+    mask: radial-gradient(closest-side, transparent calc(100% - 17px), #000 calc(100% - 16px));
+    pointer-events: none;
+}
+
+/* The shell and the cocktail stand on the rim's edge, away from every card and key. */
+.room .felt .decor {
+    position: absolute;
+    z-index: 3;
+    pointer-events: none;
+    filter: drop-shadow(0 6px 5px rgba(25, 12, 30, 0.5));
+}
+
+.room .felt .decor svg {
+    display: block;
+    height: 100%;
+    width: auto;
+}
+
+.room .felt .decor.cocktail {
+    right: 4%;
+    bottom: 12%;
+    height: 62px;
+    transform: translate(50%, 20%);
+}
+
+.room .felt .decor.shell {
+    left: 5%;
+    bottom: 22%;
+    height: 34px;
+    transform: translate(-50%, 40%) rotate(-14deg);
+}
+
+@media (min-width: 900px) {
+    .room .felt .decor.cocktail {
+        height: 84px;
+    }
+
+    .room .felt .decor.shell {
+        height: 44px;
+    }
+}
+
+/* The stool: a woven frame around the picture, a cushion and splayed legs with a footrest. */
+.room[data-style="strandbar"] .tile {
+    border-radius: 28px 28px 20px 20px;
+    background:
+        repeating-linear-gradient(45deg, rgba(255, 246, 222, 0.45) 0 1.4px, transparent 1.4px 5px),
+        repeating-linear-gradient(-45deg, rgba(80, 48, 20, 0.4) 0 1.4px, transparent 1.4px 5px),
+        linear-gradient(180deg, #ecd3a0, #a97f48);
+    box-shadow:
+        0 14px 22px -12px rgba(25, 12, 30, 0.85),
+        inset 0 0 0 1px rgba(255, 246, 222, 0.45),
+        inset 0 -5px 10px rgba(80, 48, 20, 0.3);
+}
+
+.room[data-style="strandbar"] .chair.mine .tile {
+    box-shadow:
+        0 14px 22px -12px rgba(25, 12, 30, 0.85),
+        inset 0 0 0 3px var(--brass);
+}
+
+.room[data-style="strandbar"] .tile.agent {
+    background-color: #0c1220;
+}
+
+.room[data-style="strandbar"] .chair::before {
+    content: "";
+    position: absolute;
+    z-index: -2;
+    left: 16%;
+    right: 16%;
+    top: calc(100% + 6px);
+    height: clamp(30px, 24%, 48px);
+    pointer-events: none;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M12 0L4 38M88 0L96 38' stroke='%237a5430' stroke-width='6'/%3E%3Cpath d='M12 0L4 38M88 0L96 38' stroke='%23e4c590' stroke-width='2.4' stroke-opacity='.8'/%3E%3Cellipse cx='50' cy='24' rx='41' ry='5' stroke='%237a5430' stroke-width='4'/%3E%3Cellipse cx='50' cy='24' rx='41' ry='5' stroke='%23e4c590' stroke-width='1.6' stroke-opacity='.8'/%3E%3C/g%3E%3C/svg%3E")
+        0 0 / 100% 100% no-repeat;
+}
+
+.room[data-style="strandbar"] .plate {
+    border-radius: 999px;
+    color: #3a2410;
+    background:
+        radial-gradient(circle at 7px 50%, #8a6a3a 0 1.4px, transparent 2px),
+        radial-gradient(circle at calc(100% - 7px) 50%, #8a6a3a 0 1.4px, transparent 2px),
+        linear-gradient(180deg, #fbeccb, #ecd29b 60%, #d7b574);
+    box-shadow:
+        0 4px 8px -3px rgba(25, 12, 30, 0.75),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        inset 0 0 0 1px rgba(122, 84, 48, 0.45);
+}
+
+.room[data-style="strandbar"] .plate :is(small, .away-note) {
+    color: rgba(58, 36, 16, 0.82);
+}
+
+/* The straw mat at each seat carries the score. */
+.room[data-style="strandbar"] .coaster {
+    isolation: isolate;
+    color: var(--ink);
+    text-shadow: none;
+    background:
+        radial-gradient(circle, transparent 70%, rgba(110, 76, 30, 0.55) 71% 74%, transparent 75%),
+        repeating-radial-gradient(circle, rgba(110, 76, 30, 0.22) 0 1.5px, transparent 1.5px 4.5px),
+        repeating-conic-gradient(rgba(255, 244, 210, 0.35) 0 8deg, transparent 8deg 16deg),
+        radial-gradient(circle at 40% 30%, #f2d894, #dcb468);
+    box-shadow:
+        0 3px 0 #a9823f,
+        0 8px 12px -4px rgba(25, 12, 30, 0.7);
+}
+
+.room[data-style="strandbar"] .coaster::after {
+    content: "";
+    position: absolute;
+    inset: 20%;
+    z-index: -1;
+    border-radius: 50%;
+    background: #f7edd2;
+    box-shadow: inset 0 0 0 1px rgba(110, 76, 30, 0.35);
+}
+
+/* Text on the lighter top stays readable: dark glass behind light text. */
+.room[data-style="strandbar"] :is(.plaque, .result, .copy, .sheet) {
+    background-color: rgba(28, 17, 22, 0.74);
+}
+
+.room[data-style="strandbar"] .result {
+    box-shadow:
+        inset 0 0 0 1.5px rgba(243, 207, 122, 0.4),
+        0 24px 50px -16px rgba(25, 12, 30, 0.9);
+}
+
+.room[data-style="strandbar"] .copy.style-key.on {
+    background-color: var(--on-stage);
+}
+
+.room[data-style="strandbar"] .card {
+    filter: drop-shadow(0 1px 1px rgba(30, 15, 10, 0.5)) drop-shadow(0 6px 8px rgba(30, 15, 10, 0.4));
+}

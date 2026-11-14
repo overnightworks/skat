@@ -33,6 +33,7 @@ const tableAt = (version: number, ownNudge: Nudge | null): Table => ({
     series: null,
     aborted: null,
     options: null,
+    style: null,
     bock: null,
     ended: null,
 });

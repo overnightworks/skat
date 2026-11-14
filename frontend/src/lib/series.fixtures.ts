@@ -36,6 +36,7 @@ export function tableBetweenGames(mine: number, series: Series | null, ready: nu
         series,
         aborted: null,
         options: null,
+        style: null,
         bock: null,
         ended: null,
         opened_by_me: false,
