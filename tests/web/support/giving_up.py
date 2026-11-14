@@ -42,6 +42,15 @@ def playing_as(table, headers):
     return answer.json()["hand"]["playing"]
 
 
+def assert_the_request_ended_and_play_goes_on(table, before, answer, request):
+    """A standing request (the key `request` of the playing view) ended in one version and the hand plays on."""
+    assert table.record.version == before.version + 1
+    assert table.record.hand is not None
+    assert table.record.game_list == ()
+    assert answer.json()["hand"]["playing"][request] is None
+    assert playing_as(table, table.at[Position.FOREHAND])["legal_cards"] != []
+
+
 @contextmanager
 def everyones_streams(table):
     """One open stream per viewer, the watcher first: each as (position or None for the watcher, decoded messages)."""

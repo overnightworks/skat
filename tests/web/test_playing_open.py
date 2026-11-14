@@ -13,7 +13,13 @@ from skat.web.playing import (
     TABLE_THROW_DOWN_SUFFIX,
 )
 from tests.support.payload_cards import cards_in, wire_cards
-from tests.web.support.giving_up import SEAT, everyones_streams, own_cards_of, playing_as
+from tests.web.support.giving_up import (
+    SEAT,
+    assert_the_request_ended_and_play_goes_on,
+    everyones_streams,
+    own_cards_of,
+    playing_as,
+)
 from tests.web.support.open_play import (
     NINE_TRICKS,
     asked_to_play_open,
@@ -214,13 +220,9 @@ class TestTheDeclarerPlaysOn:
 
         answer = declarer_plays_on(herz_hand)
 
-        assert herz_hand.record.version == before.version + 1
-        assert herz_hand.record.hand is not None
-        assert herz_hand.record.game_list == ()
-        assert answer.json()["hand"]["playing"]["open_play_seat"] is None
+        assert_the_request_ended_and_play_goes_on(herz_hand, before, answer, "open_play_seat")
         assert open_play_read(herz_hand) == [None] * 4
         assert open_hands_read(herz_hand) == [{SEAT[position]: opponents_cards(position)}] * 4
-        assert playing_as(herz_hand, herz_hand.at[FOREHAND])["legal_cards"] != []
 
     def test_nothing_is_shown_while_the_declarer_decides_and_nothing_else_after_his_no(self, herz_hand):
         with everyones_streams(herz_hand) as streams:
@@ -375,22 +377,19 @@ class TestThroughTheMcpTools:
         assert not answer.is_error, answer.text
         assert open_cards_of(agent.read(table.table_id).json()) == {SEAT[FOREHAND]: opponents_cards(FOREHAND)}
 
-    def test_an_agent_opponent_playing_open_on_a_stale_version_is_refused(self, skat, agent):
-        table = AgentTable(skat, agent, FOREHAND)
+    @pytest.mark.parametrize(
+        ("position", "step", "reason"),
+        [
+            pytest.param(MIDDLEHAND, {}, PlayRefusal.NOT_AN_OPPONENT, id="the-declarer"),
+            pytest.param(FOREHAND, {"version": 0}, Refusal.STALE_VERSION, id="a-stale-version"),
+        ],
+    )
+    def test_an_agent_playing_open_where_the_engine_refuses_gets_the_reason(self, skat, agent, position, step, reason):
+        table = AgentTable(skat, agent, position)
         table.declared_hand_game()
         skat.client.cookies.clear()
 
-        answer = agent.take_step(PLAY_OPEN_TOOL, table, command_id="agent-open-0004", version=0)
+        answer = agent.take_step(PLAY_OPEN_TOOL, table, command_id="agent-open-0003", **step)
 
         assert answer.is_error
-        assert answer.json()["reason"] == Refusal.STALE_VERSION
-
-    def test_the_agent_declarer_cannot_play_open(self, skat, agent):
-        table = AgentTable(skat, agent, MIDDLEHAND)
-        table.declared_hand_game()
-        skat.client.cookies.clear()
-
-        answer = agent.take_step(PLAY_OPEN_TOOL, table, command_id="agent-open-0003")
-
-        assert answer.is_error
-        assert answer.json()["reason"] == PlayRefusal.NOT_AN_OPPONENT
+        assert answer.json()["reason"] == reason
