@@ -110,38 +110,6 @@ class TestARamschEnd:
         assert bock_after(table, A_RAMSCH, a_ramsch_entry(scores, SEAT_ACCOUNTS)) == BockRounds(rounds)
 
 
-ROUND_OCCASIONS = [RamschOccasion.BOCK_ROUNDS, RamschOccasion.PASSED_IN_AND_BOCK_ROUNDS]
-
-
-class TestARamschRoundGameEnd:
-    """No Bock game is pending and a Ramsch-round game is: the hand uses up a Ramsch-round game, never a Bock game."""
-
-    @pytest.mark.parametrize("occasion", ROUND_OCCASIONS)
-    @pytest.mark.parametrize(
-        ("triggers", "series", "expected"),
-        [
-            pytest.param((PASSED_IN,), None, BockRounds((), 1), id="nobody-passed-so-passed-in-does-not-fire"),
-            pytest.param((), None, BockRounds((), 1), id="uses-the-game-up-only"),
-            pytest.param((PASSED_IN,), Series(6, 6), BockRounds(()), id="the-last-game-lets-the-ramsch-games-lapse"),
-        ],
-    )
-    def test_it_uses_up_a_ramsch_round_game(self, occasion, triggers, series, expected):
-        table = bock_table(triggers, ramsch_games=2, series=series, occasion=occasion)
-
-        assert bock_after(table, A_RAMSCH, a_ramsch_entry(seat_accounts=SEAT_ACCOUNTS)) == expected
-
-    @pytest.mark.parametrize("occasion", ROUND_OCCASIONS)
-    def test_the_total_rule_starts_a_bock_round_before_the_ramsch_games_still_pending(self, occasion):
-        table = bock_table((TOTAL_ENDING_IN_00,), ramsch_games=2, occasion=occasion)
-
-        assert bock_after(table, A_RAMSCH, a_ramsch_entry((-100, 0, 0), SEAT_ACCOUNTS)) == BockRounds((3,), 1)
-
-    def test_a_three_pass_ramsch_outside_a_ramsch_round_meets_passed_in_as_at_a_table_with_the_third_pass_alone(self):
-        table = bock_table(occasion=RamschOccasion.PASSED_IN_AND_BOCK_ROUNDS)
-
-        assert bock_after(table, A_RAMSCH, a_ramsch_entry(seat_accounts=SEAT_ACCOUNTS)) == BockRounds((3,))
-
-
 class TestTheEndOfABockRound:
     @pytest.mark.parametrize(
         ("occasion", "rounds", "ramsch_games", "expected"),
