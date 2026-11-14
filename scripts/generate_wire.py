@@ -22,8 +22,8 @@ from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschScoring  # n
 from skat.engine.schieberamsch import GrandHandRule, PushingRule  # noqa: E402
 from skat.engine.tricks import ALL_POINTS  # noqa: E402
 from skat.engine.value import Level  # noqa: E402
-from skat.table.auction import AuctionAction  # noqa: E402
 from skat.table.asking import ASK_AGAIN_AFTER  # noqa: E402
+from skat.table.auction import AuctionAction  # noqa: E402
 from skat.table.awaiting import WaitingCase  # noqa: E402
 from skat.table.game_list import GameEnding  # noqa: E402
 from skat.table.records import (  # noqa: E402
