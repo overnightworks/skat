@@ -98,14 +98,14 @@ class TestAGameEndedEarly:
 
 
 class TestARamsch:
-    def test_keeps_the_hands_the_skat_as_it_lay_and_the_tricks(self):
+    def test_keeps_the_hands_the_skat_as_dealt_and_the_tricks(self):
         table = table_in(HandProgress(auction=all_pass()), ramsch_options())
 
         ended, plays = a_ramsch_ended_by_its_last_card(table)
 
         assert ended.game_list[-1].cards == GameCards(hands=DEALT, skat=SKAT, put_away=(), tricks=in_threes(plays))
 
-    def test_a_schieberamsch_keeps_what_each_seat_put_away_and_the_hands_it_played_from(self):
+    def test_a_schieberamsch_keeps_what_each_seat_put_away_and_the_hands_and_the_skat_as_dealt(self):
         taken = (DECK[0], DECK[1])
         steps = (Take(FOREHAND), Put(FOREHAND, taken), Push(MIDDLEHAND), Push(REARHAND))
         table = table_in(HandProgress(auction=all_pass(), pushing=steps), ramsch_options(PushingRule.JACKS_STAY))
@@ -114,6 +114,6 @@ class TestARamsch:
 
         cards = ended.game_list[-1].cards
         assert cards.put_away == tuple(SeatedCard(SEATS[FOREHAND], card) for card in taken)
-        assert cards.skat == taken
-        assert cards.hands == (*DEALT[:2], (*DECK[2:10], *SKAT))
+        assert cards.skat == SKAT
+        assert cards.hands == DEALT
         assert cards.tricks == in_threes(plays)

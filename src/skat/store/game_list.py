@@ -171,7 +171,7 @@ game_list = Table(
 
 
 class Pile(StrEnum):
-    """Where a stored card lay: in a seat's hand as the game started, in the skat as it lay, put away by a seat or in a
+    """Where a stored card lay: in a seat's hand as dealt, in the skat as dealt, put away by a seat or in a
     trick.
     """
 

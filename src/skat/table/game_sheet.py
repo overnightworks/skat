@@ -23,7 +23,7 @@ _SEAT_OF_POSITION: Final = {position: seat for seat, position in _POSITION_OF_SE
 
 
 class CardState(StrEnum):
-    """What became of a card a seat held when the game started."""
+    """What became of a card a seat was dealt."""
 
     PLAYED = "played"
     PUT_AWAY = "put-away"
@@ -38,7 +38,7 @@ class SheetCard:
 
 @dataclass(frozen=True)
 class SheetHand:
-    """One seat's cards as the game started, each with what became of it."""
+    """One seat's cards as dealt, each with what became of it."""
 
     seat: int
     cards: tuple[SheetCard, ...]
@@ -58,7 +58,7 @@ class SheetTrick:
 
 @dataclass(frozen=True)
 class SheetCards:
-    """Every card of a game: the hands, the skat as it lay, what each seat put away and the tricks; `skat_takers` are
+    """Every card of a game: the hands and the skat as dealt, what each seat put away and the tricks; `skat_takers` are
     the seats a Ramsch's skat counted for, none for a declared game.
     """
 

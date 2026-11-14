@@ -117,7 +117,7 @@ class TestADeclaredGame:
 
         assert hands[1].cards == (SheetCard(KREUZ_ACE, CardState.PLAYED), SheetCard(PIK_NINE, CardState.UNPLAYED))
 
-    def test_shows_the_skat_as_it_lay_and_what_each_seat_put_away(self):
+    def test_shows_the_skat_as_dealt_and_what_each_seat_put_away(self):
         cards = sheet_of(a_herz_game(), cards_of()).cards
 
         assert (cards.skat, cards.put_away) == (cards_of().skat, cards_of().put_away)

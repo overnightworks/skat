@@ -1,4 +1,4 @@
-"""A finished game keeps its cards, one row per card and pile: the hands as the game started, the skat as it lay, the
+"""A finished game keeps its cards, one row per card and pile: the hands as dealt, the skat as dealt, the
 cards put away and the tricks with the seat and place of each card. A game finished before has no rows.
 """
 

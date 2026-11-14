@@ -6,7 +6,6 @@ from skat.engine.deal import SEATS, positions_from, seats_from
 from skat.engine.declaration import TakeSkat
 from skat.engine.schieberamsch import Put
 from skat.engine.tricks import PlayedOut
-from skat.table.hand_state import played_deal_of
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -28,8 +27,8 @@ class SeatedCard:
 
 @dataclass(frozen=True)
 class GameCards:
-    """Every card of one finished game, by seat: the ten each seat played from, in deck order, the skat as it lay when
-    play began, the cards put away (a declarer's two, or each Schieberamsch seat's), in seat then deck order, and the
+    """Every card of one finished game, by seat: the ten each seat was dealt, in deck order, the skat as dealt, the
+    cards put away (a declarer's two, or each Schieberamsch seat's), in seat then deck order, and the
     tricks in the order played, each with its cards from the lead on. A trick an early end interrupted has fewer than
     three cards.
     """
@@ -73,10 +72,11 @@ def _put_away_of(
 
 
 def game_cards_of(table: TableRecord, played: PlayedOut | RamschPlayedOut) -> GameCards:
-    """The cards of the hand that ends with `played`, read before the table forgets its steps: the engine's completed
-    tricks, and the cards of a trick the end interrupted, which the table's steps hold beyond them.
+    """The cards of the hand that ends with `played`, read before the table forgets its steps: the hands and the skat
+    as dealt, whatever a Schieberamsch's takes and puts did to them, the engine's completed tricks, and the cards of a
+    trick the end interrupted, which the table's steps hold beyond them.
     """
-    deal = played_deal_of(table)
+    deal = table.hand
     # A game is played only on a deal, and the store writes the dealer with the hand.
     if deal is None or table.dealer is None:  # pragma: no cover
         message = f"table {table.id.value} ended a game without a deal or a dealer"
