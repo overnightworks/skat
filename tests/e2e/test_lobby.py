@@ -208,7 +208,7 @@ def test_an_open_table_is_listed_to_another_member_and_one_tap_on_frei_seats_him
     assert box["height"] >= TAP_TARGET_PIXELS
     assert box["x"] + box["width"] <= form_factor["viewport"]["width"]
 
-    sit_buttons_of(card).first.click()
+    plates_of(card).filter(has_text=SEAT_FREE).first.click()
 
     expect(guest).to_have_url(TABLE_URL)
     expect(plate_of(owner, 2)).to_contain_text(guest_name)

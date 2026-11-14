@@ -15,6 +15,7 @@
         type ChipKind,
         type LobbyTable,
         type OpenTable,
+        type SeatCard,
     } from "./lobby.ts";
     import { sitDown } from "./tables.ts";
 
@@ -127,6 +128,17 @@
     </svg>
 {/snippet}
 
+{#snippet plateOf(seat: SeatCard)}
+    <span class="lobby-plate">
+        <b
+            >{seat.name}{#if seat.agent}<AiMark />{/if}</b
+        >
+        {#if seat.hold !== null}
+            <small title={seat.hold.title}>{seat.hold.note}</small>
+        {/if}
+    </span>
+{/snippet}
+
 {#snippet seatsOf(card: Card)}
     <div class="lobby-row">
         <div class="lobby-table"><div class="lobby-felt"></div></div>
@@ -156,6 +168,7 @@
                                 </svg>
                             </span>
                         </span>
+                        {@render plateOf(seat)}
                     </button>
                 {:else}
                     <div class="lobby-chair">
@@ -188,14 +201,9 @@
                         </svg>
                     </span>
                 {/if}
-                <span class="lobby-plate">
-                    <b
-                        >{seat.name}{#if seat.agent}<AiMark />{/if}</b
-                    >
-                    {#if seat.hold !== null}
-                        <small title={seat.hold.title}>{seat.hold.note}</small>
-                    {/if}
-                </span>
+                {#if seat.sitLabel === null}
+                    {@render plateOf(seat)}
+                {/if}
                 {#if seat.total !== null}
                     <span class="lobby-coaster">{seat.total}</span>
                 {/if}
