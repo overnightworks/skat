@@ -1,25 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { cuesBetween, isChairCue, springsUp, stampBetween, type Cue } from "#lib/cues.ts";
 import { chairs as seatedChairs, LOST_GAME, ramschResult, table as tableWithResult } from "#lib/result.fixtures.ts";
+import {
+    auction,
+    chairsWithCards,
+    declaringAt,
+    EVERY_HAND_DEALT,
+    FOREHAND,
+    MIDDLEHAND,
+    playing,
+    REARHAND,
+    table,
+} from "#lib/cues.fixtures.ts";
 import { words } from "#lib/words.ts";
 import type {
-    Auction,
     AuctionWord,
     Card,
     Chair,
-    Declaring,
     GiveUp,
     Kontra,
     LastTrick,
-    Playing,
-    Position,
     SeatedCard,
     Table,
 } from "../routes/(start)/tables.ts";
 
-const FOREHAND = 1;
-const MIDDLEHAND = 2;
-const REARHAND = 3;
 const KREUZ_KING: Card = { suit: "kreuz", rank: "king" };
 const KREUZ_ACE: Card = { suit: "kreuz", rank: "ace" };
 const HERZ_NINE: Card = { suit: "herz", rank: "nine" };
@@ -27,112 +31,6 @@ const PIK_TEN: Card = { suit: "pik", rank: "ten" };
 const KARO_SEVEN: Card = { suit: "karo", rank: "seven" };
 const KARO_EIGHT: Card = { suit: "karo", rank: "eight" };
 const KARO_JACK: Card = { suit: "karo", rank: "jack" };
-
-const EVERY_HAND_DEALT: [number, number, number] = [10, 10, 10];
-
-function auction(spoken: AuctionWord[] = []): Auction {
-    return {
-        turn_seat: null,
-        facing_seat: null,
-        awaiting: null,
-        standing: null,
-        values: [],
-        words: spoken,
-        declared: null,
-    };
-}
-
-function declaringAt(stage: Declaring["stage"]): Declaring {
-    return { declarer_seat: MIDDLEHAND, stage, declaration: null, open_cards: [] };
-}
-
-const POSITIONS: Record<number, Position> = { 1: "forehand", 2: "middlehand", 3: "rearhand" };
-
-function chairsWithCards(cards: [number, number, number]): Chair[] {
-    return [FOREHAND, MIDDLEHAND, REARHAND].map((seat, index) => ({
-        seat,
-        occupant_name: `player ${String(seat)}`,
-        occupant_kind: "person",
-        is_mine: false,
-        is_away: false,
-        ready: false,
-        total: null,
-        hand: { position: POSITIONS[seat] as Position, card_count: cards[index] as number },
-        former_holder_name: null,
-        is_mine_to_return: false,
-        nudge: null,
-    }));
-}
-
-function playing(changes: Partial<Playing>): Playing {
-    return {
-        turn_seat: FOREHAND,
-        current_trick: [],
-        last_trick: null,
-        taken: [
-            { seat: 1, tricks: 0 },
-            { seat: 2, tricks: 0 },
-            { seat: 3, tricks: 0 },
-        ],
-        legal_cards: [],
-        running_points: null,
-        give_up: null,
-        kontra: null,
-        ...changes,
-    };
-}
-
-// A table of one hand: `current` and `last` are the playing state, `cards` the cards each chair still holds.
-function table(
-    version: number,
-    cards: [number, number, number],
-    changes: {
-        declaring?: Declaring | null;
-        current?: SeatedCard[];
-        last?: Playing["last_trick"];
-        giveUp?: GiveUp | null;
-        spoken?: AuctionWord[];
-        kontra?: Kontra | null;
-    } = {},
-): Table {
-    const hasPlaying = changes.current !== undefined || changes.last !== undefined || changes.kontra !== undefined;
-    return {
-        id: "a".repeat(32),
-        version,
-        chairs: chairsWithCards(cards),
-        watchers: 0,
-        opened_by_me: false,
-        hand: {
-            dealer_seat: REARHAND,
-            own_cards: [],
-            skat_count: 2,
-            waiting_seat: null,
-            abort: null,
-            abortable: false,
-            ramsch: false,
-            pushing: null,
-            pushes: 0,
-            push_factor: 1,
-            auction: auction(changes.spoken),
-            declaring: changes.declaring === undefined ? declaringAt("picked") : changes.declaring,
-            playing: hasPlaying
-                ? playing({
-                      current_trick: changes.current ?? [],
-                      last_trick: changes.last ?? null,
-                      give_up: changes.giveUp ?? null,
-                      kontra: changes.kontra ?? null,
-                  })
-                : null,
-        },
-        result: null,
-        passed_in: null,
-        series: null,
-        aborted: null,
-        options: null,
-        bock: null,
-        ended: null,
-    };
-}
 
 const FIRST_TRICK_LAST = {
     cards: [KREUZ_KING, HERZ_NINE, KREUZ_ACE],
