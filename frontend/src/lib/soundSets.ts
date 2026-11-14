@@ -1,7 +1,7 @@
 import type { NoiseVoice, ToneVoice, Voice } from "./sound.ts";
 import type { Key } from "./words.ts";
 
-export type SoundMoment = "card-played";
+export type SoundMoment = "card-played" | "bid-said" | "word-said";
 
 export interface SoundSet {
     readonly id: string;
@@ -47,10 +47,92 @@ function cardGlint(gain: number): readonly [ToneVoice, NoiseVoice, ToneVoice] {
     ];
 }
 
+/** The two knocks of a Kontra or a Re are this far apart. */
+const KNOCK_GAP_SECONDS = 0.12;
+
+function knock(at: number, gain: number): readonly [ToneVoice, NoiseVoice, ToneVoice] {
+    return [
+        { kind: "tone", wave: "sine", at, seconds: 0.07, frequency: 190, endFrequency: 118, gain },
+        { kind: "noise", at, seconds: 0.025, frequency: 1300, quality: 3, gain: gain * 0.6 },
+        { kind: "tone", wave: "triangle", at, seconds: 0.03, frequency: 456, endFrequency: 266, gain: gain * 0.15 },
+    ];
+}
+
+// A light tap of the tongue.
+function bidTip(gain: number): readonly [ToneVoice, NoiseVoice] {
+    return [
+        { kind: "tone", wave: "sine", at: 0, seconds: 0.03, frequency: 900, gain: 0.18 * gain },
+        { kind: "noise", at: 0, seconds: 0.02, frequency: 3000, quality: 1, gain: 0.2 * gain },
+    ];
+}
+
+// A bubble that blubs upward.
+function bidBlub(gain: number): readonly [ToneVoice] {
+    return [{ kind: "tone", wave: "sine", at: 0, seconds: 0.09, frequency: 380, endFrequency: 760, gain: 0.3 * gain }];
+}
+
+// Two short notes, the second higher.
+function bidPair(gain: number): readonly [ToneVoice, ToneVoice] {
+    return [
+        { kind: "tone", wave: "triangle", at: 0, seconds: 0.05, frequency: 660, gain: 0.22 * gain },
+        { kind: "tone", wave: "triangle", at: 0.06, seconds: 0.07, frequency: 880, gain: 0.22 * gain },
+    ];
+}
+
+function knocksPlain(gain: number): readonly Voice[] {
+    return [...knock(0, 0.55 * gain), ...knock(KNOCK_GAP_SECONDS, 0.55 * gain)];
+}
+
+// The second knock lands with a deep blow.
+function knocksDeep(gain: number): readonly Voice[] {
+    return [
+        ...knock(0, 0.6 * gain),
+        ...knock(KNOCK_GAP_SECONDS, 0.6 * gain),
+        {
+            kind: "tone",
+            wave: "sine",
+            at: KNOCK_GAP_SECONDS,
+            seconds: 0.3,
+            frequency: 70,
+            endFrequency: 42,
+            gain: 0.55 * gain,
+        },
+    ];
+}
+
+// The second knock runs out in a wave.
+function knocksWave(gain: number): readonly Voice[] {
+    return [
+        ...knock(0, 0.5 * gain),
+        ...knock(KNOCK_GAP_SECONDS, 0.5 * gain),
+        {
+            kind: "noise",
+            at: KNOCK_GAP_SECONDS,
+            seconds: 0.38,
+            frequency: 400,
+            endFrequency: 3200,
+            quality: 1.4,
+            gain: 0.22 * gain,
+        },
+    ];
+}
+
 export const SOUND_SETS = {
-    leise: { id: "leise", name: "sound.setLeise", voices: { "card-played": cardSnap } },
-    stammtisch: { id: "stammtisch", name: "sound.setStammtisch", voices: { "card-played": cardClap } },
-    funkeln: { id: "funkeln", name: "sound.setFunkeln", voices: { "card-played": cardGlint } },
+    leise: {
+        id: "leise",
+        name: "sound.setLeise",
+        voices: { "card-played": cardSnap, "bid-said": bidTip, "word-said": knocksPlain },
+    },
+    stammtisch: {
+        id: "stammtisch",
+        name: "sound.setStammtisch",
+        voices: { "card-played": cardClap, "bid-said": bidBlub, "word-said": knocksDeep },
+    },
+    funkeln: {
+        id: "funkeln",
+        name: "sound.setFunkeln",
+        voices: { "card-played": cardGlint, "bid-said": bidPair, "word-said": knocksWave },
+    },
 } as const satisfies Record<string, SoundSet>;
 
 export type SoundSetId = keyof typeof SOUND_SETS;

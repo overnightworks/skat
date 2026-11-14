@@ -4,6 +4,7 @@ import { MOTION_SETS, type MotionSet } from "./motionSets.ts";
 import { currentSettings, loadSettings, motionInForce, soundSettings } from "./settings.svelte.ts";
 import { createSound, type AudioPort, type SoundSettings, type Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundMoment, type SoundSet } from "./soundSets.ts";
+import { everyRecording, recordingOf, voiceKeyOf, type VoiceKey } from "./voice.ts";
 import { createWebAudioPort } from "./webAudio.ts";
 import type { Table } from "../routes/(start)/tables.ts";
 
@@ -11,7 +12,7 @@ import type { Table } from "../routes/(start)/tables.ts";
 const FOREIGN_CARD_GAIN = 0.65;
 const OWN_CARD_GAIN = 1;
 /** Two cards of one update land on the felt together; heard together they sound as one. */
-const CARD_STAGGER_SECONDS = 0.12;
+const MOMENT_STAGGER_SECONDS = 0.12;
 const ARMING_EVENTS = ["pointerup", "keydown"] as const;
 
 export interface TableSoundParts {
@@ -20,6 +21,11 @@ export interface TableSoundParts {
     readonly soundSet: () => SoundSet;
     /** The set the cards move in, or nothing while they stand still. */
     readonly motion: () => MotionSet | undefined;
+    /** Whether the player wants the bids and the words said. */
+    readonly voiceOn: () => boolean;
+    readonly recording: (key: VoiceKey) => string | undefined;
+    /** Every recording of the page's language, which the voice fetches before it is needed. */
+    readonly recordings: () => readonly string[];
 }
 
 export interface TableSound {
@@ -28,6 +34,8 @@ export interface TableSound {
     forCues(cues: readonly Cue[], table: Table): void;
     /** Sounds the chosen set's played card once, as the player's own card, for the player to hear what the choice sounds like. */
     preview(): Promise<void>;
+    /** Fetches the recordings while the voice is on, so a word is said the moment its cue comes. */
+    prepareVoice(): Promise<void>;
 }
 
 interface Moment {
@@ -35,19 +43,56 @@ interface Moment {
     readonly gain: number;
 }
 
-// A cue without a sound maps to nothing: the table already shows what it tells.
+// A cue without a sound maps to nothing: the table already shows what it tells. A pass has no bubble to tap.
 function momentOf(cue: Cue, table: Table): Moment | undefined {
-    if (cue.kind !== "card-played") return undefined;
-    const own = table.chairs.some((chair) => chair.is_mine && chair.seat === cue.seat);
-    return { moment: "card-played", gain: own ? OWN_CARD_GAIN : FOREIGN_CARD_GAIN };
+    switch (cue.kind) {
+        case "card-played": {
+            const own = table.chairs.some((chair) => chair.is_mine && chair.seat === cue.seat);
+            return { moment: "card-played", gain: own ? OWN_CARD_GAIN : FOREIGN_CARD_GAIN };
+        }
+        case "bid-said":
+            return cue.word.action === "pass" ? undefined : { moment: "bid-said", gain: 1 };
+        case "word-said":
+            return { moment: "word-said", gain: 1 };
+        default:
+            return undefined;
+    }
 }
 
-export function createTableSound({ port, settings, soundSet, motion }: TableSoundParts): TableSound {
+// From the cue to the moment the table shows it: a card touches the felt, a bubble has sprung, the stamp hits.
+function landsAfter(cue: Cue, motion: MotionSet | undefined): number {
+    if (motion === undefined) return 0;
+    switch (cue.kind) {
+        case "card-played":
+            return motion.cardLandsSeconds;
+        case "bid-said":
+            return motion.bidSpringsSeconds;
+        case "word-said":
+            return motion.stampLandsSeconds;
+        default:
+            return 0;
+    }
+}
+
+export function createTableSound({
+    port,
+    settings,
+    soundSet,
+    motion,
+    voiceOn,
+    recording,
+    recordings,
+}: TableSoundParts): TableSound {
     const sound = createSound(port, settings);
+
+    async function prepareVoice(): Promise<void> {
+        if (voiceOn()) await sound.prepare(recordings());
+    }
+
     return {
         arm(target) {
             const wake = (): void => {
-                void sound.resume();
+                void sound.resume().then(prepareVoice);
             };
             const options = { capture: true, passive: true };
             for (const event of ARMING_EVENTS) target.addEventListener(event, wake, options);
@@ -56,22 +101,31 @@ export function createTableSound({ port, settings, soundSet, motion }: TableSoun
             };
         },
         forCues(cues, table) {
-            const delay = motion()?.cardLandsSeconds ?? 0;
             const set = soundSet();
             const voices = cues
-                .flatMap((cue) => momentOf(cue, table) ?? [])
-                .flatMap(({ moment, gain }, index): Voice[] =>
+                .flatMap((cue) => {
+                    const moment = momentOf(cue, table);
+                    return moment === undefined ? [] : [{ ...moment, lands: landsAfter(cue, motion()) }];
+                })
+                .flatMap(({ moment, gain, lands }, index): Voice[] =>
                     set.voices[moment](gain).map((voice) => ({
                         ...voice,
-                        at: voice.at + delay + index * CARD_STAGGER_SECONDS,
+                        at: voice.at + lands + index * MOMENT_STAGGER_SECONDS,
                     })),
                 );
             if (voices.length > 0) sound.play(voices);
+            if (!voiceOn()) return;
+            for (const cue of cues) {
+                const key = voiceKeyOf(cue);
+                const url = key === undefined ? undefined : recording(key);
+                if (url !== undefined) sound.speak(url, landsAfter(cue, motion()));
+            }
         },
         async preview() {
             await sound.resume();
             sound.play(soundSet().voices["card-played"](OWN_CARD_GAIN));
         },
+        prepareVoice,
     };
 }
 
@@ -91,6 +145,9 @@ function pageSound(): TableSound {
                 const id = motionInForce();
                 return id === undefined ? undefined : MOTION_SETS[id];
             },
+            voiceOn: () => currentSettings().voice,
+            recording: recordingOf,
+            recordings: everyRecording,
         });
     }
     return shared;
@@ -109,4 +166,9 @@ export function soundForCues(cues: readonly Cue[], table: Table): void {
 /** Lets the player hear the sound set they just chose. */
 export function previewSound(): Promise<void> {
     return pageSound().preview();
+}
+
+/** Fetches the recordings of the voice once the player has switched it on. */
+export function prepareVoice(): Promise<void> {
+    return pageSound().prepareVoice();
 }

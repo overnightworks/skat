@@ -1,10 +1,11 @@
 <script lang="ts">
     import type { Bubble } from "#lib/auctionMarks.ts";
 
-    const { bubble, initial }: { bubble: Bubble; initial: string } = $props();
+    // A bubble springs up when this page saw its bid said; the table already showing it stands still.
+    const { bubble, initial, fresh }: { bubble: Bubble; initial: string; fresh: boolean } = $props();
 </script>
 
-<span class="bubble" class:quiet={bubble.kind === "hold"}>
+<span class="bubble" class:quiet={bubble.kind === "hold"} class:fresh>
     <span class="dot" aria-hidden="true">{initial}</span>
     {#if bubble.kind === "hold"}
         <svg

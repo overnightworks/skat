@@ -12,7 +12,7 @@
     } from "#lib/auctionMarks.ts";
     import { abortView } from "#lib/abort.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
-    import { cuesBetween, stampBetween } from "#lib/cues.ts";
+    import { cuesBetween, stampBetween, type BidWord } from "#lib/cues.ts";
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { giveUpAsk, giveUpView, refusalNotice } from "#lib/giveUp.ts";
     import { plaqueLine, type Stamp } from "#lib/kontra.ts";
@@ -138,6 +138,8 @@
     let playedThisHand = $state<Card[]>([]);
     // The latest word said at this table in the running hand, which the stamp shows for a moment.
     let stamp = $state<Stamp | null>(null);
+    // The latest bid this page saw said; only its bubble springs up, and a bubble that was already there when the page opened does not.
+    let bidSaid = $state<{ seat: number; word: BidWord } | null>(null);
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
     // The version of the latest streamed table, which the control that calls agents follows.
     let streamedVersion = $state<number | null>(null);
@@ -174,7 +176,9 @@
                 playedThisHand = [...playedThisHand, cue.card];
             } else if (cue.kind === "give-up-refused") {
                 showSeatNote(refusalNotice(table.chairs, cue.seats));
-            } else {
+            } else if (cue.kind === "bid-said") {
+                bidSaid = cue;
+            } else if (cue.kind === "auction-ended") {
                 justWon = true;
                 clearTimeout(wonTimer);
                 wonTimer = setTimeout(() => (justWon = false), WON_MOMENT_MILLISECONDS);
@@ -196,6 +200,7 @@
         asking = null;
         playedThisHand = [];
         stamp = null;
+        bidSaid = null;
         let current = true;
         let stopWatching = (): void => {};
         void readTable(id).then((answer) => {
@@ -639,7 +644,16 @@
                                     </span>
                                 {/if}
                                 {#if marks.bubble}
-                                    <SpeechBubble bubble={marks.bubble} initial={chair.occupant_name.slice(0, 1)} />
+                                    {@const bubble = marks.bubble}
+                                    {#key `${bubble.kind}${String(bubble.value)}`}
+                                        <SpeechBubble
+                                            {bubble}
+                                            initial={chair.occupant_name.slice(0, 1)}
+                                            fresh={bidSaid?.seat === chair.seat &&
+                                                bidSaid.word.action === bubble.kind &&
+                                                bidSaid.word.value === bubble.value}
+                                        />
+                                    {/key}
                                 {/if}
                                 <RamschMarks marks={ramschMark} initial={chair.occupant_name.slice(0, 1)} />
                             {/if}

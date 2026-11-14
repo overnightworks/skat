@@ -35,6 +35,18 @@ class FakePort implements AudioPort {
     playVoice(voice: Voice, afterSeconds: number): void {
         this.played.push({ voice, afterSeconds });
     }
+
+    loaded: string[] = [];
+    spoken: { url: string; afterSeconds: number }[] = [];
+
+    loadRecordings(urls: readonly string[]): Promise<void> {
+        this.loaded.push(...urls);
+        return Promise.resolve();
+    }
+
+    playRecording(url: string, afterSeconds: number): void {
+        this.spoken.push({ url, afterSeconds });
+    }
 }
 
 function cardPlayedBy(seat: number): Cue {
@@ -71,12 +83,20 @@ function tableSeenFrom(ownSeat: number): Table {
     };
 }
 
-function soundAt(port: FakePort, options: { motion?: MotionSetId; soundSet?: SoundSetId } = {}): TableSound {
+const RECORDING_OF = (key: string): string => `/voice/${key}.mp3`;
+
+function soundAt(
+    port: FakePort,
+    options: { motion?: MotionSetId; soundSet?: SoundSetId; voice?: boolean } = {},
+): TableSound {
     return createTableSound({
         port,
         settings: () => SETTINGS,
         soundSet: () => SOUND_SETS[options.soundSet ?? "leise"],
         motion: () => (options.motion === undefined ? undefined : MOTION_SETS[options.motion]),
+        voiceOn: () => options.voice ?? false,
+        recording: (key) => (key === "voice.supra" ? undefined : RECORDING_OF(key)),
+        recordings: () => [RECORDING_OF("voice.kontra"), RECORDING_OF("voice.re")],
     });
 }
 
@@ -156,6 +176,142 @@ describe("cues without a sound", () => {
         soundAt(port).forCues(cues, tableSeenFrom(OWN_SEAT));
 
         expect(port.played).toEqual([]);
+    });
+});
+
+const BID_EIGHTEEN: Cue = { kind: "bid-said", seat: OTHER_SEAT, word: { action: "bid", value: 18 } };
+const PASS: Cue = { kind: "bid-said", seat: OTHER_SEAT, word: { action: "pass", value: null } };
+const KONTRA_SAID: Cue = { kind: "word-said", said: { seat: OTHER_SEAT, word: "kontra" } };
+
+describe("the sound of a bid", () => {
+    it.each(Object.keys(SOUND_SETS) as SoundSetId[])("taps in the set %s", (soundSet) => {
+        const port = new FakePort();
+
+        soundAt(port, { soundSet }).forCues([BID_EIGHTEEN], tableSeenFrom(OWN_SEAT));
+
+        expect(port.played.length).toBeGreaterThan(0);
+    });
+
+    it("sounds differently in each sound set", () => {
+        const heard = (soundSet: SoundSetId): string => {
+            const port = new FakePort();
+            soundAt(port, { soundSet }).forCues([BID_EIGHTEEN], tableSeenFrom(OWN_SEAT));
+            return JSON.stringify(port.played);
+        };
+
+        const sets = Object.keys(SOUND_SETS) as SoundSetId[];
+
+        expect(new Set(sets.map(heard)).size).toBe(sets.length);
+    });
+
+    it("taps nothing for a pass, which has no bubble", () => {
+        const port = new FakePort();
+
+        soundAt(port).forCues([PASS], tableSeenFrom(OWN_SEAT));
+
+        expect(port.played).toEqual([]);
+    });
+
+    it("taps when the bubble has sprung in the set the table moves in", () => {
+        const [still, quiet] = [new FakePort(), new FakePort()];
+
+        soundAt(still).forCues([BID_EIGHTEEN], tableSeenFrom(OWN_SEAT));
+        soundAt(quiet, { motion: "dezent" }).forCues([BID_EIGHTEEN], tableSeenFrom(OWN_SEAT));
+
+        expect(earliest(quiet)).toBeGreaterThan(earliest(still));
+    });
+});
+
+describe("the sound of a word of Kontra", () => {
+    it.each(Object.keys(SOUND_SETS) as SoundSetId[])("knocks twice in the set %s", (soundSet) => {
+        const port = new FakePort();
+
+        soundAt(port, { soundSet }).forCues([KONTRA_SAID], tableSeenFrom(OWN_SEAT));
+
+        const knocks = port.played.filter(({ voice }) => voice.kind === "tone" && voice.frequency === 190);
+        expect(knocks).toHaveLength(2);
+    });
+
+    it("knocks when the stamp has landed in the set the table moves in", () => {
+        const [still, quiet, playful] = [new FakePort(), new FakePort(), new FakePort()];
+
+        soundAt(still).forCues([KONTRA_SAID], tableSeenFrom(OWN_SEAT));
+        soundAt(quiet, { motion: "dezent" }).forCues([KONTRA_SAID], tableSeenFrom(OWN_SEAT));
+        soundAt(playful, { motion: "verspielt" }).forCues([KONTRA_SAID], tableSeenFrom(OWN_SEAT));
+
+        expect(earliest(quiet)).toBeGreaterThan(earliest(still));
+        expect(earliest(playful)).toBeGreaterThan(earliest(quiet));
+    });
+});
+
+describe("the voice", () => {
+    const SUPRA_SAID: Cue = { kind: "word-said", said: { seat: OTHER_SEAT, word: "supra" } };
+
+    it.each([
+        { name: "a bid", cue: BID_EIGHTEEN, key: "voice.value18" },
+        { name: "a pass", cue: PASS, key: "voice.pass" },
+        { name: "a word of Kontra", cue: KONTRA_SAID, key: "voice.kontra" },
+    ])("says $name from the recording bound to its key", ({ cue, key }) => {
+        const port = new FakePort();
+
+        soundAt(port, { voice: true }).forCues([cue], tableSeenFrom(OWN_SEAT));
+
+        expect(port.spoken.map(({ url }) => url)).toEqual([RECORDING_OF(key)]);
+    });
+
+    it("says nothing while the voice is off, and the taps sound all the same", () => {
+        const port = new FakePort();
+
+        soundAt(port, { voice: false }).forCues([BID_EIGHTEEN, KONTRA_SAID], tableSeenFrom(OWN_SEAT));
+
+        expect(port.spoken).toEqual([]);
+        expect(port.played.length).toBeGreaterThan(0);
+    });
+
+    it.each([
+        { name: "a card", cues: [cardPlayedBy(OTHER_SEAT)] },
+        { name: "a word without a recording", cues: [SUPRA_SAID] },
+    ])("says nothing for $name", ({ cues }) => {
+        const port = new FakePort();
+
+        soundAt(port, { voice: true }).forCues(cues, tableSeenFrom(OWN_SEAT));
+
+        expect(port.spoken).toEqual([]);
+    });
+
+    it("says a word when the stamp has landed in the set the table moves in", () => {
+        const [still, playful] = [new FakePort(), new FakePort()];
+
+        soundAt(still, { voice: true }).forCues([KONTRA_SAID], tableSeenFrom(OWN_SEAT));
+        soundAt(playful, { voice: true, motion: "verspielt" }).forCues([KONTRA_SAID], tableSeenFrom(OWN_SEAT));
+
+        expect((playful.spoken[0]?.afterSeconds ?? 0) - (still.spoken[0]?.afterSeconds ?? 0)).toBeCloseTo(
+            MOTION_SETS.verspielt.stampLandsSeconds,
+        );
+    });
+
+    it("fetches the recordings at a tap while it is on and not while it is off", async () => {
+        const [on, off] = [new FakePort(), new FakePort()];
+
+        await soundAt(on, { voice: true }).prepareVoice();
+        await soundAt(off, { voice: false }).prepareVoice();
+
+        expect(on.loaded).toEqual([RECORDING_OF("voice.kontra"), RECORDING_OF("voice.re")]);
+        expect(off.loaded).toEqual([]);
+    });
+
+    it("fetches the recordings after the device is woken by a tap", async () => {
+        const port = new FakePort();
+        const handlers: (() => void)[] = [];
+        soundAt(port, { voice: true }).arm({
+            addEventListener: (_type: string, handler: () => void) => handlers.push(handler),
+            removeEventListener: () => undefined,
+        });
+
+        handlers[0]?.();
+        await vi.waitFor(() => {
+            expect(port.loaded).toHaveLength(2);
+        });
     });
 });
 

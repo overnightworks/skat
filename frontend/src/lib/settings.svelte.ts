@@ -12,6 +12,8 @@ export interface Settings extends SoundSettings {
     readonly motionSet: MotionSetId;
     /** Moves the table although the device asks for reduced motion. */
     readonly replayMotion: boolean;
+    /** Says the bids and the words of Kontra from recordings. */
+    readonly voice: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -19,6 +21,7 @@ const DEFAULT_SETTINGS: Settings = {
     soundSet: DEFAULT_SOUND_SET,
     motionSet: DEFAULT_MOTION_SET,
     replayMotion: false,
+    voice: false,
 };
 
 const VOLUME_STEPS = 100;
@@ -31,6 +34,7 @@ const CHECKS: { readonly [Field in keyof Settings]: (value: unknown) => value is
     soundSet: (value): value is SoundSetId => typeof value === "string" && Object.hasOwn(SOUND_SETS, value),
     motionSet: (value): value is MotionSetId => typeof value === "string" && Object.hasOwn(MOTION_SETS, value),
     replayMotion: (value): value is boolean => typeof value === "boolean",
+    voice: (value): value is boolean => typeof value === "boolean",
 };
 
 const FIELDS = Object.keys(CHECKS) as (keyof Settings)[];
