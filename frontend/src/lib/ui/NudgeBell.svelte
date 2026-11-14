@@ -1,6 +1,7 @@
 <script lang="ts">
     import { ASK_AGAIN_AFTER } from "#lib/wire.ts";
     import { words } from "#lib/words.ts";
+    import Cowbell from "./Cowbell.svelte";
     import type { Nudge } from "../../routes/(start)/nudge.ts";
     import { nudgeSeat } from "../../routes/(start)/nudge.ts";
 
@@ -8,16 +9,17 @@
 
     // The bell is offered ASK_AGAIN_AFTER after it first saw a chair at a version with a number of nudges, and its minute
     // starts anew whenever either changes; a page that saw it late offers it late, and the server decides whether its
-    // minute has passed. A chair nobody has to nudge has no nudge and no bell. The own bell shakes once, when the page
-    // sees the nudge arrive; a reload sees it already made and draws it at rest.
+    // minute has passed. A chair nobody has to nudge has no nudge and no bell. The nudge's answer is the cowbell over the
+    // chair and the line it grumbles, for as long as `grumble` holds a line; a nudge made earlier leaves nothing.
     const {
         id,
         version,
         seat,
         name,
         nudge,
-        shaking,
-    }: { id: string; version: number; seat: number; name: string; nudge: Nudge | null; shaking: boolean } = $props();
+        grumble,
+    }: { id: string; version: number; seat: number; name: string; nudge: Nudge | null; grumble: string | null } =
+        $props();
 
     const sight = $derived(`${String(version)}:${String(nudge?.nudges)}`);
     let offeredFor = $state("");
@@ -61,21 +63,13 @@
         >
             {@render bell()}
         </button>
-    {:else if nudge.nudges > 0}
-        <span class="mark bell belled" class:shaken={shaking} role="img" aria-label={words["table.nudged"]}>
-            {@render bell()}
-            <i aria-hidden="true">
-                <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.8"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                >
-                    <path d="M5 12.5l4.5 4.5L19 7.5" />
-                </svg>
-            </i>
-        </span>
     {/if}
+{/if}
+
+{#if grumble !== null}
+    <Cowbell />
+    <span class="bubble word grumble">
+        <span class="dot" aria-hidden="true">{name.slice(0, 1)}</span>
+        <span class="said">{grumble}</span>
+    </span>
 {/if}

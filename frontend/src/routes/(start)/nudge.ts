@@ -12,7 +12,8 @@ export type Nudge = { nudges: number; may_nudge: boolean; by_name: string | null
 export function nudgedChairs(previous: Table, table: Table): (Chair & { nudge: Nudge })[] {
     return table.chairs.flatMap((chair) => {
         if (chair.nudge === null) return [];
-        const seen = previous.version === table.version ? previous.chairs.find((each) => each.seat === chair.seat) : undefined;
+        const seen =
+            previous.version === table.version ? previous.chairs.find((each) => each.seat === chair.seat) : undefined;
         return chair.nudge.nudges > (seen?.nudge?.nudges ?? 0) ? [{ ...chair, nudge: chair.nudge }] : [];
     });
 }

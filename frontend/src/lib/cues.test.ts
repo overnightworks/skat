@@ -787,8 +787,16 @@ describe("the nudge a chair had between two versions of a table", () => {
 
     it.each([
         { name: "nobody nudged", previous: running, next: running },
-        { name: "the nudge was already shown", previous: nudged(running, MIDDLEHAND, 1), next: nudged(running, MIDDLEHAND, 1) },
-        { name: "the nudges are fewer than shown", previous: nudged(running, MIDDLEHAND, 2), next: nudged(running, MIDDLEHAND, 1) },
+        {
+            name: "the nudge was already shown",
+            previous: nudged(running, MIDDLEHAND, 1),
+            next: nudged(running, MIDDLEHAND, 1),
+        },
+        {
+            name: "the nudges are fewer than shown",
+            previous: nudged(running, MIDDLEHAND, 2),
+            next: nudged(running, MIDDLEHAND, 1),
+        },
         {
             name: "the table moved on without a nudge",
             previous: nudged(running, MIDDLEHAND, 1),
