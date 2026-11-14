@@ -34,13 +34,18 @@ def playing_table(
     return deal_playing_table(open_person, e2e_server, member_of, page_errors, PHONE, game="kreuz")
 
 
-def open_watcher(
-    open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **form_factor: object
-) -> Page:
-    watcher = record_page_errors(open_person(**PHONE, **form_factor), page_errors)
+def open_at(open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **context: Any) -> Page:
+    """The table's watcher page, opened in the browser context the keywords describe."""
+    watcher = record_page_errors(open_person(**context), page_errors)
     watcher.goto(table.watcher.url)
     expect(watcher.locator(".chair")).to_have_count(3)
     return watcher
+
+
+def open_watcher(
+    open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **form_factor: object
+) -> Page:
+    return open_at(open_person, page_errors, table, **PHONE, **form_factor)
 
 
 def tap(page: Page) -> None:

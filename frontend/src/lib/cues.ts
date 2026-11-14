@@ -1,3 +1,4 @@
+import type { Bubble } from "./auctionMarks.ts";
 import { stampOf, type SaidWord, type Stamp } from "./kontra.ts";
 import {
     type AuctionAction,
@@ -42,6 +43,11 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
 export function stampBetween(previous: Table | undefined, next: Table): Stamp | null {
     const said = wordSaidBetween(previous, next);
     return said === null ? null : stampOf(next, said);
+}
+
+// Whether the bubble a chair shows is the bid this page saw said, which is the one that springs up.
+export function springsUp(said: { seat: number; word: BidWord } | null, seat: number, bubble: Bubble | null): boolean {
+    return said?.seat === seat && said.word.action === bubble?.kind && said.word.value === bubble.value;
 }
 
 // The word the update from `previous` to `next` brought, the last when it brought several.

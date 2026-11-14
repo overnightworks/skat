@@ -40,8 +40,8 @@ SPEECH_VOICE: Final = "ryan"
 SPEECH_FORMAT: Final = "wav"
 SPEECH_TIMEOUT_SECONDS: Final = 60
 SERVICE_VARIABLE: Final = "SPEECH_URL"
-WORKLOAD_TOKEN_VARIABLE: Final = "SPEECH_WORKLOAD_TOKEN"  # noqa: S105 - the name of the variable, not a secret
-PERSON_TOKEN_VARIABLE: Final = "SPEECH_PERSON_TOKEN"  # noqa: S105 - the name of the variable, not a secret
+WORKLOAD_TOKEN_VARIABLE: Final = "SPEECH_WORKLOAD_TOKEN"  # noqa: S105 - the name of an environment variable and no secret
+PERSON_TOKEN_VARIABLE: Final = "SPEECH_PERSON_TOKEN"  # noqa: S105 - the name of an environment variable and no secret
 # Trims the silence on both ends (the second pair works on the reversed audio), then levels the recording.
 FILTER: Final = (
     "silenceremove=start_periods=1:start_threshold=-50dB,areverse,"
@@ -108,14 +108,14 @@ def speech_request(service: Service, line: SpokenLine) -> urllib.request.Request
 
 def speak(service: Service, line: SpokenLine) -> bytes:
     """The service's recording of one line, as WAV."""
-    with urllib.request.urlopen(speech_request(service, line), timeout=SPEECH_TIMEOUT_SECONDS) as response:  # noqa: S310
+    with urllib.request.urlopen(speech_request(service, line), timeout=SPEECH_TIMEOUT_SECONDS) as response:  # noqa: S310 - the service address is the operator's own setting
         return response.read()
 
 
 def encode(wav: bytes) -> bytes:
     """The WAV trimmed, levelled and written as a compact MP3."""
-    done = subprocess.run(  # noqa: S603 - fixed arguments, the audio goes through the pipe
-        ["ffmpeg", "-v", "error", "-i", "pipe:0", "-af", FILTER, *ENCODER_ARGUMENTS, "-f", "mp3", "pipe:1"],  # noqa: S607
+    done = subprocess.run(  # noqa: S603 - fixed arguments and the audio goes through the pipe
+        ["ffmpeg", "-v", "error", "-i", "pipe:0", "-af", FILTER, *ENCODER_ARGUMENTS, "-f", "mp3", "pipe:1"],  # noqa: S607 - ffmpeg is looked up on the operator's path
         input=wav,
         capture_output=True,
         check=True,

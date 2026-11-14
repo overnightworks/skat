@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cuesBetween, stampBetween, type Cue } from "#lib/cues.ts";
+import { cuesBetween, springsUp, stampBetween, type Cue } from "#lib/cues.ts";
 import { words } from "#lib/words.ts";
 import type {
     Auction,
@@ -505,5 +505,20 @@ describe("the word of Kontra said between two versions of a table", () => {
         { name: "the same words again", previous: wordTable(5, [SAID_KONTRA]), next: wordTable(6, [SAID_KONTRA]) },
     ])("stamps nothing for $name", ({ previous, next }) => {
         expect(stampBetween(previous, next)).toBeNull();
+    });
+});
+
+describe("the bubble that springs up", () => {
+    const said = { seat: 1, word: { action: "bid", value: 20 } } as const;
+
+    it.each([
+        { name: "the bid just said by its chair", said, seat: 1, bubble: { kind: "bid", value: 20 }, springs: true },
+        { name: "no bid said", said: null, seat: 1, bubble: { kind: "bid", value: 20 }, springs: false },
+        { name: "another chair's bid", said, seat: 2, bubble: { kind: "bid", value: 20 }, springs: false },
+        { name: "an earlier bid of the chair", said, seat: 1, bubble: { kind: "bid", value: 18 }, springs: false },
+        { name: "a hold at the value", said, seat: 1, bubble: { kind: "hold", value: 20 }, springs: false },
+        { name: "a chair without a bubble", said, seat: 1, bubble: null, springs: false },
+    ] as const)("is $springs for $name", ({ said: bid, seat, bubble, springs }) => {
+        expect(springsUp(bid, seat, bubble)).toBe(springs);
     });
 });

@@ -6,7 +6,15 @@ from playwright.sync_api import Page, expect
 
 from skat.web.calling import TABLE_AGENTS_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.audio import FELT_FACE, VOICES_OF_ONE_CARD, open_watcher, playing_table, tap, voices_started
+from tests.e2e.support.audio import (
+    FELT_FACE,
+    VOICES_OF_ONE_CARD,
+    open_at,
+    open_watcher,
+    playing_table,
+    tap,
+    voices_started,
+)
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.tables import open_new_table
@@ -325,13 +333,6 @@ def test_the_panel_opens_at_once_whatever_the_device_asks_for_motion(
     moving = watcher.evaluate("document.getAnimations().filter(a => a.effect?.target?.closest?.('[popover]')).length")
     assert moving == 0
     assert page_errors == []
-
-
-def open_at(open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **context: Any) -> Page:
-    watcher = record_page_errors(open_person(**context), page_errors)
-    watcher.goto(table.watcher.url)
-    expect(watcher.locator(".chair")).to_have_count(3)
-    return watcher
 
 
 def row_of(page: Page, name: str) -> Any:
