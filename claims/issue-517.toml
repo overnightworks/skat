@@ -3,6 +3,6 @@ agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
 role = "builder"
 base = "6d0171227e708139aedda0af41f467dd29873860"
 branch = "claude/issue-517-an-agent-reads-a-skat-table-s-window-of"
-scope = ["docs/ARCHITECTURE.md", "pyproject.toml", "src/skat/store/migrations/versions", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table", "src/skat/web/mcp.py", "src/skat/web/member_place.py", "tests/e2e/test_agent_plays.py", "tests/e2e/test_calling_agents.py", "tests/store/test_tables.py", "tests/table", "tests/web/test_mcp.py", "tests/web/test_member_place.py", "uv.lock"]
+scope = ["docs/ARCHITECTURE.md", "pyproject.toml", "src/skat/store/migrations/versions", "src/skat/store/schema.py", "src/skat/store/tables.py", "src/skat/table", "src/skat/web/mcp.py", "src/skat/web/member_place.py", "tests/e2e/support/listening_agent.py", "tests/e2e/test_agent_plays.py", "tests/e2e/test_calling_agents.py", "tests/store/test_tables.py", "tests/table", "tests/web/support/agent.py", "tests/web/support/sdk_agent.py", "tests/web/support/two_agents.py", "tests/web/test_mcp.py", "tests/web/test_mcp_moment.py", "tests/web/test_member_place.py", "tests/web/test_member_place_view.py", "tests/web/test_member_place_window.py", "uv.lock"]
 opened_commit = "835aeffda789ddf842c2f345ee2e5a7fb423a726"
 whole_reason = "The window's lines, their numbering and the place listing that serves them are one public contract, proven in one live game."
