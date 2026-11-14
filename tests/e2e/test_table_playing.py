@@ -8,10 +8,12 @@ from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
+from tests.e2e.support.style import STYLES, expect_the_furniture_clear, give_the_table_its_style
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from skat.table.records import TableStyle
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
@@ -59,11 +61,14 @@ def deal_a_playing_table(
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
+    table_style: TableStyle,
 ) -> Callable[..., PlayingTable]:
     def deal(form_factor: dict[str, Any], *, console: bool = True, game: str = "kreuz") -> PlayingTable:
-        return deal_playing_table(
+        table = deal_playing_table(
             open_person, e2e_server, member_of, page_errors, form_factor, console=console, game=game
         )
+        give_the_table_its_style(table.pages[table.seat_at["forehand"]], table.everyone, table_style)
+        return table
 
     return deal
 
@@ -319,9 +324,13 @@ CLEAR_OF_EVERY_FAN = """() => {
 }"""
 
 
+@pytest.mark.parametrize("table_style", STYLES)
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_laid_cards_and_their_tags_stay_clear_of_every_fan(
-    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
+    deal_a_playing_table: Callable[..., PlayingTable],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    table_style: TableStyle,
 ) -> None:
     table = deal_a_playing_table(form_factor, game="kreuz")
     table.leave_the_last_trick_on_the_felt()
@@ -330,6 +339,7 @@ def test_the_laid_cards_and_their_tags_stay_clear_of_every_fan(
         for person in table.everyone:
             expect(person.locator(FELT_CARD)).to_have_count(played % CARDS_IN_A_TRICK or CARDS_IN_A_TRICK)
             person.wait_for_function(CLEAR_OF_EVERY_FAN)
+        expect_the_furniture_clear(table.everyone, table_style)
     assert page_errors == []
 
 

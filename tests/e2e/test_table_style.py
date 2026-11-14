@@ -3,28 +3,26 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Page, expect
 
+from skat.table.records import TableStyle
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.audio import tap
+from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.style import ROOM, STYLE_KEY, choose_style
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from tests.e2e.support.hands import PlayingTable
+    from tests.e2e.support.server import RunningServer
+    from tests.support.signed_in import SeededMember
 
 pytestmark = pytest.mark.e2e
 
-STYLE_KEY = text(SOURCE_LANGUAGE, "table.styleName")
-STRANDBAR = text(SOURCE_LANGUAGE, "table.styleStrandbar")
-KLASSIK = text(SOURCE_LANGUAGE, "table.styleKlassik")
 SOUND_PANEL = text(SOURCE_LANGUAGE, "sound.panelName")
 TONE = text(SOURCE_LANGUAGE, "sound.tone")
-ROOM = ".room"
 BEACH = ".beach"
-
-
-def choose_style(person: Page, name: str) -> None:
-    person.get_by_role("button", name=STYLE_KEY).click()
-    person.locator(".style-tile", has_text=name).click()
-    person.keyboard.press("Escape")
+STYLE_TILES = ".style-tile"
 
 
 def sea_levels(page: Page) -> list[float]:
@@ -42,7 +40,7 @@ def test_a_seated_person_changes_the_style_for_every_page_at_the_table_and_it_st
 ) -> None:
     chooser = table.pages[table.seat_at["forehand"]]
 
-    choose_style(chooser, STRANDBAR)
+    choose_style(chooser, TableStyle.STRANDBAR)
 
     for person in table.everyone:
         expect(person.locator(ROOM)).to_have_attribute("data-style", "strandbar")
@@ -50,7 +48,7 @@ def test_a_seated_person_changes_the_style_for_every_page_at_the_table_and_it_st
     table.watcher.reload()
     expect(table.watcher.locator(ROOM)).to_have_attribute("data-style", "strandbar")
 
-    choose_style(table.pages[table.seat_at["rearhand"]], KLASSIK)
+    choose_style(table.pages[table.seat_at["rearhand"]], TableStyle.KLASSIK)
 
     for person in table.everyone:
         expect(person.locator(ROOM)).to_have_attribute("data-style", "klassik")
@@ -62,13 +60,9 @@ def test_a_watcher_has_no_key_for_the_style(table: PlayingTable) -> None:
     expect(table.pages[table.seat_at["forehand"]].get_by_role("button", name=STYLE_KEY)).to_be_visible()
 
 
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_sea_runs_under_the_tables_style_after_a_tap_and_follows_the_mute(
-    table: PlayingTable, form_factor: dict[str, Any]
-) -> None:
+def test_the_sea_runs_under_the_tables_style_after_a_tap_and_follows_the_mute(table: PlayingTable) -> None:
     watcher = table.watcher
-    watcher.set_viewport_size(form_factor["viewport"])
-    choose_style(table.pages[table.seat_at["forehand"]], STRANDBAR)
+    choose_style(table.pages[table.seat_at["forehand"]], TableStyle.STRANDBAR)
     expect(watcher.locator(ROOM)).to_have_attribute("data-style", "strandbar")
     assert watcher.evaluate("window.seaStarts") == 0
 
@@ -80,6 +74,34 @@ def test_the_sea_runs_under_the_tables_style_after_a_tap_and_follows_the_mute(
     watcher.get_by_role("switch", name=TONE).set_checked(False)
     watcher.wait_for_function("window.seaLevels.at(-1) === 0")
 
-    choose_style(table.pages[table.seat_at["forehand"]], KLASSIK)
+    choose_style(table.pages[table.seat_at["forehand"]], TableStyle.KLASSIK)
     expect(watcher.locator(ROOM)).to_have_attribute("data-style", "klassik")
     assert sea_levels(watcher)[-1] == 0
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_style_panel_opens_inside_the_page_and_changes_the_table_at_every_width(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, game="kreuz")
+    chooser = table.pages[table.seat_at["forehand"]]
+
+    chooser.get_by_role("button", name=STYLE_KEY).click()
+
+    expect(chooser.locator(STYLE_TILES)).to_have_count(len(TableStyle))
+    window = chooser.evaluate("({ width: window.innerWidth, height: window.innerHeight })")
+    for tile in chooser.locator(STYLE_TILES).all():
+        box = tile.bounding_box()
+        assert box is not None
+        assert box["x"] >= 0
+        assert box["x"] + box["width"] <= window["width"]
+        assert box["y"] >= 0
+        assert box["y"] + box["height"] <= window["height"]
+    chooser.locator(f"{STYLE_TILES}.style-strandbar").click()
+    for person in table.everyone:
+        expect(person.locator(ROOM)).to_have_attribute("data-style", "strandbar")
+    assert page_errors == []

@@ -8,6 +8,7 @@ import pytest
 from playwright.sync_api import Page, Route, expect
 
 from skat.table.auction import AuctionAction
+from skat.table.records import TableStyle
 from skat.web.auction import (
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
@@ -18,6 +19,7 @@ from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
+from tests.e2e.support.style import STYLES, expect_the_furniture_clear, give_the_table_its_style
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
 
 if TYPE_CHECKING:
@@ -123,6 +125,7 @@ def dealt_table(
     form_factor: dict[str, Any],
     *,
     console: bool = True,
+    style: TableStyle = TableStyle.KLASSIK,
 ) -> Table:
     def person(username: str) -> Page:
         return record_page_errors(open_person(username=username, **form_factor), page_errors, console=console)
@@ -139,6 +142,7 @@ def dealt_table(
         expect(looker.locator(SKAT_CARD)).to_have_count(2)
     table_id = table_id_of(path)
     by_position = {position_of(player, server, table_id): player for player in (anna, ben, cleo)}
+    give_the_table_its_style(anna, (anna, ben, cleo, dora), style)
     return Table(server, table_id, by_position["forehand"], by_position["middlehand"], by_position["rearhand"], dora)
 
 
@@ -193,14 +197,20 @@ def assert_the_opening_ladder(person: Page) -> None:
     assert_page_fits(person)
 
 
+@pytest.mark.parametrize("table_style", STYLES)
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_middlehand_opens_and_only_the_one_whose_turn_it_is_gets_controls(
-    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    table_style: TableStyle,
 ) -> None:
-    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor, style=table_style)
     middlehand = table.middlehand
 
     assert_the_opening_ladder(middlehand)
+    expect_the_furniture_clear((table.forehand, middlehand, table.rearhand, table.watcher), table_style)
     expect(middlehand.locator(TURN_CHAIR)).to_have_count(1)
     for other in (table.forehand, table.rearhand, table.watcher):
         expect(other.locator(PLAQUE)).to_have_text(BIDDING)

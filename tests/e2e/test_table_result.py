@@ -33,11 +33,13 @@ from tests.e2e.support.result_card import (
     signed,
     waiting_for,
 )
+from tests.e2e.support.style import STYLES, expect_the_furniture_clear, give_the_table_its_style
 from tests.e2e.support.tables import SIT_DOWN
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from skat.table.records import TableStyle
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
@@ -110,6 +112,7 @@ def deal_a_finished_hand(
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
+    table_style: TableStyle,
 ) -> Callable[..., PlayingTable]:
     def deal(
         form_factor: dict[str, Any],
@@ -131,6 +134,7 @@ def deal_a_finished_hand(
             joiners=joiners,
             opener_name=opener_name,
         )
+        give_the_table_its_style(table.pages[table.seat_at["forehand"]], table.everyone, table_style)
         table.play_out(CARDS_IN_A_GAME)
         return table
 
@@ -248,7 +252,9 @@ def expect_the_buttons(table: PlayingTable, ready: set[int]) -> None:
     """The seated viewers' bars: „Weiter“ until they have tapped, then who is awaited; the watcher's has neither."""
     for seat, person in table.pages.items():
         bar = person.locator(".actions")
-        assert bar.evaluate("bar => new Set([...bar.children].map(child => child.offsetTop)).size") == 1
+        assert (
+            bar.locator("> :not([popover])").evaluate_all("keys => new Set(keys.map(key => key.offsetTop)).size") == 1
+        )
         expect(bar.get_by_role("button", name=STAND_UP)).to_be_visible()
         expect(bar.get_by_role("button", name=COPY_LINK)).to_be_visible()
         if seat in ready:
@@ -266,6 +272,7 @@ def reload_everyone(table: PlayingTable) -> None:
         expect(person.locator(".chair")).to_have_count(3)
 
 
+@pytest.mark.parametrize("table_style", STYLES)
 @pytest.mark.parametrize("declaring", HANDS)
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
@@ -273,12 +280,14 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     page_errors: list[str],
     form_factor: dict[str, Any],
     declaring: type[DeclaringTable],
+    table_style: TableStyle,
 ) -> None:
     table = deal_a_finished_hand(form_factor, declaring=declaring)
     first, second = (seat for seat in table.names if seat != table.declarer_seat)
     expect_the_card(table)
     expect_the_seat_tiles_inside_the_card(table.everyone)
     expect_the_page_around_the_card(table.everyone)
+    expect_the_furniture_clear(table.everyone, table_style)
     expect_the_marks(table, set())
     expect_the_buttons(table, set())
 

@@ -189,10 +189,10 @@
     pointer-events: none;
 }
 
-/* The shell and the cocktail stand on the rim's edge, away from every card and key. */
+/* The shell and the cocktail stand on the rim's edge, away from every card and key, and under the result card. */
 .room .felt .decor {
     position: absolute;
-    z-index: 3;
+    z-index: 1;
     pointer-events: none;
     filter: drop-shadow(0 6px 5px rgba(25, 12, 30, 0.5));
 }
