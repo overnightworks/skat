@@ -59,6 +59,7 @@ from skat.web.constants import (  # noqa: E402
     SIGNED_IN_AGAIN_QUERY_NAME,
     VERSION_FILE_PATH,
 )
+from skat.web.declaration_tokens import AnnouncementToken, GameToken  # noqa: E402
 from skat.web.declaring import (  # noqa: E402
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
@@ -89,9 +90,7 @@ from skat.web.tables import (  # noqa: E402
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
-    AnnouncementToken,
     AwaitingToken,
-    GameToken,
     PositionToken,
     RankToken,
     StageToken,
