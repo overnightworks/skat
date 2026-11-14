@@ -40,6 +40,7 @@ import {
     giveUp,
     markReady,
     playCard,
+    readGameSheet,
     readSeriesList,
     readTable,
     seriesNumberOf,
@@ -586,6 +587,23 @@ describe("asking for a table", () => {
         answerWith(response);
 
         expect(await readSeriesList(TABLE_ID)).toBeNull();
+    });
+
+    it("reads the sheet of the numbered game of the series", async () => {
+        answerWith(Response.json({ number: 3, cards: null }));
+
+        expect(await readGameSheet(TABLE_ID, 3)).toEqual({ number: 3, cards: null });
+        expect(vi.mocked(fetch).mock.calls[0]?.[0]).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_LIST_SUFFIX}/3`);
+    });
+
+    it.each([
+        ["a refusal", Response.json({ reason: "no-such-game" }, { status: 404 })],
+        ["an answer that is no sheet", new Response("<html>", { status: 200 })],
+        ["no answer", new Error("offline")],
+    ])("reads no sheet from %s", async (_name, response) => {
+        answerWith(response);
+
+        expect(await readGameSheet(TABLE_ID, 3)).toBeNull();
     });
 
     it("reports a taken chair with who holds it", async () => {
