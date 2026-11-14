@@ -25,8 +25,6 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from sqlalchemy import Engine
 
-    from skat.web.sign_in import SignInPorts
-
 
 class UvicornOptions(TypedDict):
     host: str
@@ -103,13 +101,12 @@ def main(
     settings = ServerSettings()  # pyright: ignore[reportCallIssue]
     engine = create_database_engine(settings)
     require_head(engine)
-    stores: SignInPorts = PostgresSignInStores(engine, audit=LoggingAuditSink())
     app = create_app(
         settings,
         page_build=PageBuild.load(build_directory),
         tables=TableService(PostgresTableTransactions(engine)),
         rule_sets=RuleSetService(PostgresRuleSets(engine)),
-        stores=stores,
+        stores=PostgresSignInStores(engine, audit=LoggingAuditSink()),
         database_ready=ReadinessProbe(lambda: database_health(engine)),
     )
     run_server(app, **uvicorn_options(settings))

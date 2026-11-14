@@ -62,5 +62,13 @@ class PostgresSignInStores:
     """
 
     def __init__(self, engine: Engine, *, audit: AuditSink) -> None:
-        self.sessions = PostgresSessionRecords(engine.begin)
-        self.transaction = PostgresSignInTransaction(engine, audit)
+        self._sessions = PostgresSessionRecords(engine.begin)
+        self._transaction = PostgresSignInTransaction(engine, audit)
+
+    @property
+    def sessions(self) -> PostgresSessionRecords:
+        return self._sessions
+
+    @property
+    def transaction(self) -> PostgresSignInTransaction:
+        return self._transaction
