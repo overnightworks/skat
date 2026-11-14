@@ -323,8 +323,8 @@ class PlayingInTheWindow(TableService):
         super().__init__(store)
         self.window = None
 
-    def tables_held_by(self, account_id):
-        held = super().tables_held_by(account_id)
+    def held_tables(self, account_id):
+        held = super().held_tables(account_id)
         window, self.window = self.window, None
         if window is not None:
             window()

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime  # noqa: TC003 - pydantic reads the field type at runtime
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, NamedTuple
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
@@ -23,14 +23,16 @@ from skat.web.tables import actor_of
 from skat.web.wakes import AccountTopic, OpenTablesTopic, TableTopic
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Iterable
+    from collections.abc import AsyncIterator, Callable
 
     from webauth.ports import SessionRecordStore
 
     from skat.table.lobby import LobbyEntryView, OpenEntryView
     from skat.table.records import Actor
     from skat.table.service import TableService
+    from skat.table.transactions import OccupiedChair, TableVersion
     from skat.web.presence import Presence
+    from skat.web.streams import StreamSlots
     from skat.web.wakes import Registration, Topic, WakeList
 
 LOBBY_EVENTS_PATH: Final = "/api/lobby/events"
@@ -148,38 +150,95 @@ def _open_answer_of(entry: OpenEntryView) -> OpenTableAnswer:
     )
 
 
-class _TopicHoldingSource:
+class _TableStanding(NamedTuple):
+    """What a read stands on at one table: its version, who is connected there and which of its sitters are agents
+    whose lease runs, who count as present without a stream.
+    """
+
+    table_id: str
+    version: int
+    connected: frozenset[str]
+    leased: frozenset[str]
+
+
+class _TopicHoldingSource(ABC):
     """A source of tables woken by one account's topic and the topics of the tables it lists.
 
     Every read swaps the registration for one that holds the topics it names, on the event loop's thread and with no
     await between registering the new and dropping the old, so no topic is ever unheld. The tables' records are read
     after the swap, so a commit before it is in the read and a commit after it wakes the stream. The `standing`
     topics are held from `open` on, before the first read.
+
+    A read stands on the list it was made from and, at each table, its version, who is connected and which sitters have
+    a running lease. A heartbeat asks again for the list and the versions, one or two cheap reads of the index, and
+    for the leased sitters, a read of the chairs only while some lease runs; the source has moved only when that or
+    who is connected differs from what the last read stood on. A lease of an account that sits at none of the tables
+    moves nothing.
     """
 
-    def __init__(self, wakes: WakeList, account_id: str, standing: tuple[Topic, ...] = ()) -> None:
+    def __init__(
+        self,
+        tables: TableService,
+        presence: Presence,
+        wakes: WakeList,
+        account_id: str,
+        standing: tuple[Topic, ...] = (),
+    ) -> None:
+        self._tables = tables
+        self._presence = presence
         self._wakes = wakes
         self._account_id = account_id
         self._standing = standing
         self._wake: Callable[[], None] | None = None
         self._registration: Registration | None = None
+        self._read_stood_on: tuple[_TableStanding, ...] | None = None
 
     async def open(self, wake: Callable[[], None]) -> None:  # NOSONAR(S7503) StreamSource.open is async
         self._wake = wake
         self._registration = self._wakes.register([AccountTopic(self._account_id), *self._standing], wake)
 
+    async def moved(self, actor: Actor, /) -> bool:
+        listed = await self._listed(actor)
+        return self._standing_at(listed, await self._leased_seats(listed)) != self._read_stood_on
+
     def close(self) -> None:
         assert self._registration is not None  # noqa: S101 - narrows the type; the loop closes only an opened source
         self._wakes.unregister(self._registration)
 
-    def _hold_topics(self, topics: Iterable[Topic]) -> None:
+    @abstractmethod
+    async def _listed(self, actor: Actor) -> tuple[TableVersion, ...]: ...  # pragma: no cover - abstract
+
+    async def _leased_seats(self, listed: tuple[TableVersion, ...]) -> frozenset[OccupiedChair]:
+        return await run_in_threadpool(self._tables.leased_seats, [table.table_id for table in listed])
+
+    def _standing_at(
+        self, listed: tuple[TableVersion, ...], seats: frozenset[OccupiedChair]
+    ) -> tuple[_TableStanding, ...]:
+        return tuple(
+            _TableStanding(
+                table.table_id.value,
+                table.version,
+                self._presence.connected(table.table_id.value),
+                frozenset(seat.account_id for seat in seats if seat.table_id == table.table_id),
+            )
+            for table in listed
+        )
+
+    async def _stand_on(self, listed: tuple[TableVersion, ...]) -> dict[str, frozenset[str]]:
+        """Hold the topics of the listed tables, remember what this read stands on and return who is connected at
+        each of them.
+        """
+        seats = await self._leased_seats(listed)
         assert self._wake is not None  # noqa: S101 - narrows the type; the loop reads only an opened source
         assert self._registration is not None  # noqa: S101 - narrows the type; the loop reads only an opened source
+        topics = [TableTopic(table.table_id.value) for table in listed]
         previous, self._registration = (
             self._registration,
             self._wakes.register([AccountTopic(self._account_id), *self._standing, *topics], self._wake),
         )
         self._wakes.unregister(previous)
+        self._read_stood_on = self._standing_at(listed, seats)
+        return {table.table_id: table.connected for table in self._read_stood_on}
 
 
 class AccountTablesSource(_TopicHoldingSource, ABC):
@@ -199,20 +258,21 @@ class AccountTablesSource(_TopicHoldingSource, ABC):
         days: int,
         apart_from: str | None = None,
     ) -> None:
-        super().__init__(wakes, account_id)
-        self._tables = tables
-        self._presence = presence
+        super().__init__(tables, presence, wakes, account_id)
         self._days = days
         self._apart_from = apart_from
 
     async def read(self, actor: Actor) -> SourceMessage:
-        listed = await run_in_threadpool(self._tables.tables_held_by, actor.account_id)
-        held = tuple(table_id for table_id in listed if table_id.value != self._apart_from)
-        self._hold_topics(TableTopic(table_id.value) for table_id in held)
-        connected = {table_id.value: self._presence.connected(table_id.value) for table_id in held}
+        listed = await self._listed(actor)
+        connected = await self._stand_on(listed)
         holds = self._presence.hold_seconds_left(connected)
+        held = tuple(table.table_id for table in listed)
         entries = await run_in_threadpool(self._tables.my_tables, actor.account_id, held, connected, holds, self._days)
         return self._message_of(entries)
+
+    async def _listed(self, actor: Actor) -> tuple[TableVersion, ...]:
+        held = await run_in_threadpool(self._tables.held_tables, actor.account_id)
+        return tuple(table for table in held if table.table_id.value != self._apart_from)
 
     @abstractmethod
     def _message_of(self, entries: tuple[LobbyEntryView, ...]) -> SourceMessage: ...  # pragma: no cover - abstract
@@ -227,21 +287,21 @@ class OpenTablesSource(_TopicHoldingSource):
     """
 
     def __init__(self, tables: TableService, presence: Presence, wakes: WakeList, account_id: str, days: int) -> None:
-        super().__init__(wakes, account_id, (OpenTablesTopic(),))
-        self._tables = tables
-        self._presence = presence
+        super().__init__(tables, presence, wakes, account_id, (OpenTablesTopic(),))
         self._days = days
 
     async def read(self, actor: Actor) -> SourceMessage:
-        listed = await run_in_threadpool(self._tables.open_table_ids)
-        self._hold_topics(TableTopic(table_id.value) for table_id in listed)
-        connected = {table_id.value: self._presence.connected(table_id.value) for table_id in listed}
+        listed = await self._listed(actor)
+        connected = await self._stand_on(listed)
         holds = self._presence.hold_seconds_left(connected)
-        entries = await run_in_threadpool(
-            self._tables.open_tables, actor.account_id, listed, connected, holds, self._days
-        )
+        ids = tuple(table.table_id for table in listed)
+        entries = await run_in_threadpool(self._tables.open_tables, actor.account_id, ids, connected, holds, self._days)
         answer = OpenAnswer(tables=[_open_answer_of(entry) for entry in entries])
         return SourceMessage(answer.model_dump_json(), event=StreamEvent.OPEN)
+
+    async def _listed(self, actor: Actor) -> tuple[TableVersion, ...]:  # noqa: ARG002 - the open list is the same for every account
+        ids = await run_in_threadpool(self._tables.open_table_ids)
+        return await run_in_threadpool(self._tables.table_versions, ids)
 
 
 class LobbySource(AccountTablesSource):
@@ -264,12 +324,18 @@ def create_lobby_router(
     presence: Presence,
     wakes: WakeList,
     sessions: SessionRecordStore,
+    slots: StreamSlots,
     heartbeat_seconds: float,
     paused_table_days: int,
 ) -> APIRouter:
     router = APIRouter()
 
-    @router.get(LOBBY_EVENTS_PATH, response_class=StreamingResponse, openapi_extra=excluded(Exclusion.LIVE_STREAM))
+    @router.get(
+        LOBBY_EVENTS_PATH,
+        response_class=StreamingResponse,
+        responses={429: {"description": "The account holds as many streams as it may."}},
+        openapi_extra=excluded(Exclusion.LIVE_STREAM),
+    )
     async def watch_lobby(request: Request) -> StreamingResponse:
         account_id = actor_of(request).account_id
         sources = [
@@ -284,6 +350,6 @@ def create_lobby_router(
             ):
                 yield message_of(item)
 
-        return event_stream_response(messages())
+        return event_stream_response(messages(), slots.take(account_id))
 
     return router

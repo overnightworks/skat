@@ -9,6 +9,7 @@ from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT, OIDC_CLIENT_ID
 from skat.web.settings import (
     DEFAULT_EMPTY_TABLE_SECONDS,
     DEFAULT_PAUSED_TABLE_DAYS,
+    DEFAULT_STREAMS_PER_ACCOUNT,
     HIGHEST_PAUSED_TABLE_DAYS,
     ServerSettings,
 )
@@ -33,6 +34,7 @@ class TestServerSettings:
         assert settings.call_origin is None
         assert settings.empty_table_seconds == DEFAULT_EMPTY_TABLE_SECONDS
         assert settings.paused_table_days == DEFAULT_PAUSED_TABLE_DAYS
+        assert settings.streams_per_account == DEFAULT_STREAMS_PER_ACCOUNT
 
     def test_each_setting_is_read_from_its_skat_environment_variable(self, sign_in_settings):
         sign_in = sign_in_settings()
@@ -46,6 +48,7 @@ class TestServerSettings:
             "SKAT_CHAIR_HOLD_SECONDS": "90.5",
             "SKAT_EMPTY_TABLE_SECONDS": "42",
             "SKAT_PAUSED_TABLE_DAYS": "30",
+            "SKAT_STREAMS_PER_ACCOUNT": "3",
         }
         with patch.dict(os.environ, env):
             settings = ServerSettings()
@@ -57,6 +60,7 @@ class TestServerSettings:
             assert settings.chair_hold_seconds == 90.5
             assert settings.empty_table_seconds == 42
             assert settings.paused_table_days == 30
+            assert settings.streams_per_account == 3
             assert settings.oidc_issuer == sign_in.settings.oidc_issuer
             assert settings.public_origin == sign_in.settings.public_origin
             assert settings.oidc_client_secret_file == sign_in.settings.oidc_client_secret_file
@@ -215,6 +219,12 @@ def test_paused_table_days_that_are_not_a_whole_number_of_days_up_to_the_limit_a
 ):
     with pytest.raises(ValidationError, match="paused_table_days"):
         sign_in_settings(paused_table_days=value)
+
+
+@pytest.mark.parametrize("value", [0, -1, "abc", "2.5"])
+def test_streams_per_account_that_are_not_a_positive_whole_number_are_refused_by_name(sign_in_settings, value):
+    with pytest.raises(ValidationError, match="streams_per_account"):
+        sign_in_settings(streams_per_account=value)
 
 
 def test_the_highest_paused_table_days_are_accepted(sign_in_settings):

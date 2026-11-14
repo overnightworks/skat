@@ -40,9 +40,9 @@ class Scene:
     """A service over an in-memory store, one wake list and the presence built on it, as the app wires them."""
 
     def __init__(self, service=None):
-        self.service = service or in_memory_tables()
         self.wakes = WakeList()
         self.presence = idle_presence(self.wakes)
+        self.service = (service or in_memory_tables()).with_leases(self.presence.live_leases)
         self.opened = 0
 
     def open_table(self, person, visibility=Visibility.OPEN):
