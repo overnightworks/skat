@@ -2,8 +2,9 @@ import json
 import logging
 import secrets
 
+import logline
+import logline.testing
 import pytest
-import structlog
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy import inspect, text
@@ -38,25 +39,10 @@ def every_health_ask_probes_and_awaits_it(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def logging_left_as_found():
-    """Gives back structlog's and the standard library's configuration that `main` replaces."""
-
-    def every_logger() -> list[logging.Logger]:
-        named = [logger for logger in logging.root.manager.loggerDict.values() if isinstance(logger, logging.Logger)]
-        return [logging.root, *named]
-
-    found = {
-        logger: (logger.level, list(logger.handlers), list(logger.filters), logger.propagate)
-        for logger in every_logger()
-    }
-    yield
-    structlog.reset_defaults()
-    for logger in every_logger():
-        level, handlers, filters, propagate = found.get(logger, (logging.NOTSET, [], [], True))
-        logger.setLevel(level)
-        logger.handlers[:] = handlers
-        logger.filters[:] = filters
-        logger.propagate = propagate
+def logging_restored_after_main():
+    """Gives back the logging state that `main` configures."""
+    with logline.testing.configured("skat"):
+        yield
 
 
 @pytest.fixture
@@ -95,7 +81,8 @@ class TestMain:
         TestClient(server.runs[0]["app"]).get(LOGIN_PATH)
 
         lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
-        assert [(line["service"], line["status"]) for line in lines if line["event"] == "request"] == [("skat", 200)]
+        request_lines = [line for line in lines if line["event"] == logline.REQUEST_EVENT]
+        assert [(line["service"], line["status"]) for line in request_lines] == [("skat", 200)]
 
     def test_refuses_to_start_without_the_page_build_and_names_the_build_command(
         self, server, configured_environment, database_url, tmp_path
