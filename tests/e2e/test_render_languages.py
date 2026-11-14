@@ -52,8 +52,8 @@ FINDINGS_OF_A_RENDER = """(keys) => {
     const overflowing = [...document.body.querySelectorAll("*")]
         .filter((element) => [...element.childNodes].some((node) => node.nodeType === 3 && node.textContent.trim()))
         .filter((element) => !["auto", "scroll"].includes(getComputedStyle(element).overflowX))
-        // An ellipsis is a name the box shortens on purpose, as the lobby does for the tables other people left open.
-        .filter((element) => getComputedStyle(element).textOverflow !== "ellipsis")
+        // The lobby shortens the member and table names of the tables other people left open on purpose.
+        .filter((element) => !element.matches(".lobby-card h3, .lobby-plate b"))
         // A one pixel box is a label only a screen reader reads.
         .filter((element) => element.clientWidth > 1 && element.scrollWidth > element.clientWidth)
         .map((element) => `${element.tagName.toLowerCase()}.${element.className} ${element.textContent.trim()}`);
