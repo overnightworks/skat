@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Final, Literal
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Path, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
@@ -54,13 +54,25 @@ TABLE_STAND_SUFFIX: Final = "/stand"
 # The browser's `crypto.randomUUID()` writes 36 characters of this alphabet.
 COMMAND_ID_PATTERN: Final = r"^[A-Za-z0-9_-]{8,64}$"
 
+# The inputs every move of a table shares. A tool's schema carries these descriptions with it, so they are the one
+# place the command id, the table id and the version are explained, and they stay short.
+TableIdInPath = Annotated[str, Path(description="From read_table, or the link /t/{id}.")]
+CommandId = Annotated[
+    str,
+    Field(
+        pattern=COMMAND_ID_PATTERN,
+        description="Names this step: resend it to retry, take a new one after a refusal.",
+    ),
+]
+TableVersion = Annotated[int, Field(strict=True, description="From read_table or your table's view.")]
+
 
 class CommandRequest(BaseModel):
     """A client names only its retry key: the account and chair come from the session."""
 
     model_config = ConfigDict(extra="forbid")
 
-    command_id: Annotated[str, Field(pattern=COMMAND_ID_PATTERN)]
+    command_id: CommandId
 
 
 class RefusalAnswer(BaseModel):
@@ -759,7 +771,7 @@ def create_tables_router(
         responses={404: {"description": "No table has this id."}},
         openapi_extra=READ_TABLE_MARK,
     )
-    async def read_table(table_id: str, request: Request, response: Response) -> TableAnswer:
+    async def read_table(table_id: TableIdInPath, request: Request, response: Response) -> TableAnswer:
         """Read one Skat table by its id: what the caller's own chair may see.
 
         The answer holds the table's version, its chairs, and the caller's own cards and the cards it may play when
