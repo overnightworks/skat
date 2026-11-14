@@ -34,7 +34,7 @@ def awaits_you(view: TableView) -> bool:
 
 def awaited_seats(view: TableView) -> frozenset[int]:
     """The seats with a sitter that the table waits for, the same for every viewer: a Kontra word is held only by
-    its own seat's view, and play never waits for it, so it names no seat here.
+    its own seat's view, so the seat that a first card waiting for a word blocks is not named here.
     """
     return frozenset(
         chair.seat

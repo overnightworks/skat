@@ -472,7 +472,7 @@ class TestTheFirstCardWaitingInTheViewer:
 
         assert view.first_card_waits is False
 
-    def test_the_seat_that_answered_sees_its_answer_and_the_seat_with_a_word_still_open_sees_that_word(self):
+    def test_a_seat_that_declined_is_offered_no_word_and_a_seat_still_undecided_keeps_its_kontra(self):
         table = after_answers(first_card_table(), FOREHAND)
 
         mine = {
