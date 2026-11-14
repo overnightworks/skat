@@ -309,21 +309,7 @@ def stored_cards(engine, table_id, number=1):
 
 
 class TestTheCardsOfTheGame:
-    def test_the_thirtieth_card_stores_every_card_of_the_game_with_its_entry(self, game, last, engine):
-        position, card, version = last
-        plays = (*game.record.progress.plays, CardPlayed(position, card))
-        seats = {each: SEATED.index(actor) + 1 for each, actor in game.actors.items()}
-        game.play(position, card, LAST_CARD, version)
-
-        cards = stored_cards(engine, game.table_id)
-
-        assert [(each.seat, each.card) for trick in cards.tricks for each in trick] == [
-            (seats[play.position], play.card) for play in plays
-        ]
-        assert [len(hand) for hand in cards.hands] == [10, 10, 10]
-        assert (len(cards.skat), cards.put_away) == (2, ())
-
-    def test_a_restart_reads_the_cards_the_game_produced(self, game, last, database_url):
+    def test_the_thirtieth_card_stores_every_card_of_the_game_for_a_restart_to_read(self, game, last, database_url):
         position, card, version = last
         plays = (*game.record.progress.plays, CardPlayed(position, card))
         seats = {each: SEATED.index(actor) + 1 for each, actor in game.actors.items()}
@@ -331,14 +317,15 @@ class TestTheCardsOfTheGame:
 
         restarted_engine = create_store_engine(database_url)
         try:
-            restarted = stored_cards(restarted_engine, game.table_id)
+            cards = stored_cards(restarted_engine, game.table_id)
         finally:
             restarted_engine.dispose()
 
-        assert [(each.seat, each.card) for trick in restarted.tricks for each in trick] == [
+        assert [(each.seat, each.card) for trick in cards.tricks for each in trick] == [
             (seats[play.position], play.card) for play in plays
         ]
-        assert [len(hand) for hand in restarted.hands] == [10, 10, 10]
+        assert [len(hand) for hand in cards.hands] == [10, 10, 10]
+        assert (len(cards.skat), cards.put_away) == (2, ())
 
     def test_the_cards_are_written_in_the_transaction_of_the_entry(self, game, last, engine):
         position, card, version = last
