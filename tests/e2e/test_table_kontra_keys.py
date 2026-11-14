@@ -1,7 +1,7 @@
 import re
 from itertools import combinations
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -9,17 +9,22 @@ from playwright.sync_api import Page, expect
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of
 from tests.e2e.support.hands import deal_playing_table
-from tests.e2e.support.kontra import ContestedTable, FirstCardTable
+from tests.e2e.support.kontra import KONTRA_OPTIONS, ContestedTable, FirstCardTable
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE
+from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
 pytestmark = pytest.mark.e2e
 
+# The deal that draws the opener's seat as dealer, so the opener is the rearhand and neither the forehand nor the
+# middlehand, who say Kontra and Re in the main test, carry the opener's close key.
+DEAL_WHERE_THE_OPENER_DEALS = 1
+OPENER_SEAT = 1
 KONTRA = text(SOURCE_LANGUAGE, "kontra.kontra")
 RE = text(SOURCE_LANGUAGE, "kontra.re")
 TABLE_SCENES = Path(__file__).parents[2] / "docs" / "mockups" / "table.html"
@@ -52,6 +57,19 @@ TABLES = [
     pytest.param(ContestedTable, "kontra-offer", "kontra-re", id="own-card"),
     pytest.param(FirstCardTable, "kontra-first-wait", "kontra-first-re", id="first-card"),
 ]
+
+
+@pytest.fixture(scope="module")
+def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
+    """This module's Skat, which deals the opener's seat as dealer."""
+    with skat_on_new_database(tmp_path_factory, random_source=AlwaysTheSameDeal(DEAL_WHERE_THE_OPENER_DEALS)) as server:
+        yield server
+
+
+class AnyOpponentTable(ContestedTable):
+    """The rearhand, who did not bid, may say Kontra as well."""
+
+    kontra_options: ClassVar[dict[str, str]] = KONTRA_OPTIONS
 
 
 def decline_of(word: str) -> str:
@@ -90,10 +108,6 @@ def expect_the_keys_to_match_the_scene(person: Page, frame: str, word: str, *, d
     viewport = person.viewport_size
     assert viewport is not None
     on_a_phone = viewport["width"] < DESKTOP["viewport"]["width"]
-    # The opener's close key is the sixth key of a phone's strip, which the scenes do not draw: the word loses its mark.
-    if on_a_phone and not declines and person.locator(".actions > .copy.close").count() == 1:
-        assert not drawn["word"]["mark"]
-        return
     scene = the_scene_draws(person, frame, word, declines=declines)
     for name, key in scene.items():
         assert drawn[name]["word"] == key["word"]
@@ -144,6 +158,7 @@ def test_the_kontra_and_re_keys_have_the_scenes_size_mark_and_word_and_every_key
 ) -> None:
     table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, declaring=table_kind)
     asks_both = table_kind is FirstCardTable
+    assert OPENER_SEAT not in (table.seat_at["forehand"], table.declarer_seat)
     sayer = table.pages[table.seat_at["forehand"]]
     declarer = table.pages[table.declarer_seat]
     expect(button_of(sayer, KONTRA)).to_be_visible()
@@ -157,4 +172,24 @@ def test_the_kontra_and_re_keys_have_the_scenes_size_mark_and_word_and_every_key
     expect_the_keys_to_match_the_scene(declarer, re_frame, RE, declines=asks_both)
     for person in table.everyone:
         expect_the_rows_to_fit(person)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", [pytest.param(NARROW_PHONE, id="360"), pytest.param(PHONE, id="390")])
+def test_the_opener_on_a_phone_sees_the_kontra_key_without_its_mark_beside_the_close_key(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, declaring=AnyOpponentTable)
+    assert table.seat_at["rearhand"] == OPENER_SEAT
+    opener = table.pages[OPENER_SEAT]
+    expect(button_of(opener, KONTRA)).to_be_visible()
+
+    # The close key is the sixth key of a phone's strip, which the scenes do not draw: the word loses its mark.
+    expect(opener.locator(".actions > .copy.close")).to_have_count(1)
+    assert not the_page_draws(opener, KONTRA, declines=False)["word"]["mark"]
+    expect_the_rows_to_fit(opener)
     assert page_errors == []
