@@ -1,4 +1,6 @@
-"""A table is a member place at /mcp: an agent reads its standing, is invited to a table and accepts the invitation."""
+"""A table is a member place at /mcp: an agent reads its standing, is invited to a table and accepts the invitation;
+seated, it reads the acts of the hand in its window.
+"""
 
 import json
 from dataclasses import replace
@@ -15,14 +17,18 @@ from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.calls import call_facts
 from tests.support.played_game import after_the_first_game
 from tests.web.support.agent import UPDATED, Agent
+from tests.web.support.playing import HERZ_GAME
 from tests.web.support.presence import HOLD_SECONDS
+from tests.web.support.series import deal_the_next_game
 from tests.web.support.skat import FakeTime, Skat, stored, streams_of
+from tests.web.support.two_agents import FOREHAND_SEAT, REARHAND_SEAT, TwoAgentsTable
 
 OTHER_AGENT_SUBJECT = "other-agent-subject"
 INVITATION_SECONDS = 600
 STALE = {"refused": "stale_invitation"}
 SPONSOR_AWAY = {"refused": "sponsor_away"}
 BUSY = {"refused": "busy"}
+CARDS_OF_A_GAME = 30
 
 
 @pytest.fixture
@@ -418,3 +424,60 @@ class TestAFailingStore:
 
 def test_every_refusal_the_table_gives_is_one_the_library_knows():
     assert {refusal.value for refusal in MemberRefusal} <= {refusal.value for refusal in AcceptInvitationRefusal}
+
+
+@pytest.fixture
+def mozart(skat, issuer):
+    return Agent(skat, issuer, "mozart-subject", agent_name="Mozart")
+
+
+@pytest.fixture
+def bach(skat, issuer):
+    return Agent(skat, issuer, "bach-subject", agent_name="Bach")
+
+
+@pytest.fixture
+def two_agents_table(skat, mozart, bach):
+    table = TwoAgentsTable(skat, forehand=mozart, rearhand=bach)
+    table.declared_hand_game()
+    return table
+
+
+def numbered_without_a_gap(window):
+    seqs = [line["seq"] for line in window["entries"]]
+    return seqs == list(range(window["starts_at"], window["starts_at"] + len(seqs)))
+
+
+class TestAHandOfTwoAgentsAndAPerson:
+    def test_each_agents_window_tells_every_act_of_the_game_in_play_and_marks_only_its_own(
+        self, two_agents_table, mozart, bach
+    ):
+        for played in HERZ_GAME[: CARDS_OF_A_GAME - 1]:
+            two_agents_table.played_by_whoever_holds_it(played)
+
+        windows = {agent: agent.window(two_agents_table.table_id) for agent in (mozart, bach)}
+
+        for agent, window in windows.items():
+            assert numbered_without_a_gap(window)
+            assert [line["kind"] for line in window["entries"]] == ["deal", "bid", "pass", "pass", "declare"] + [
+                "play"
+            ] * (CARDS_OF_A_GAME - 1)
+            assert {line["name"] for line in window["entries"] if line["own"]} == {
+                f"Seat {FOREHAND_SEAT if agent is mozart else REARHAND_SEAT}"
+            }
+
+    def test_the_window_holds_only_the_result_once_the_hand_ended_and_the_next_hand_numbers_above_it(
+        self, skat, two_agents_table, mozart
+    ):
+        before = mozart.window(two_agents_table.table_id)
+        for played in HERZ_GAME:
+            two_agents_table.played_by_whoever_holds_it(played)
+
+        ended = mozart.window(two_agents_table.table_id)
+        deal_the_next_game(skat, two_agents_table, 1, 1)
+        next_hand = mozart.window(two_agents_table.table_id)
+
+        assert [line["kind"] for line in ended["entries"]] == ["result"]
+        assert ended["entries"][0]["seq"] > max(line["seq"] for line in before["entries"])
+        assert [line["kind"] for line in next_hand["entries"]] == ["deal"]
+        assert next_hand["starts_at"] > ended["entries"][0]["seq"]
