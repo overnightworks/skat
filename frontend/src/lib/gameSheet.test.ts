@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gameSheetView } from "#lib/gameSheet.ts";
+import { gameSheetView, hasEleventhRow } from "#lib/gameSheet.ts";
 import { GIVEN_UP_SHEET, OLD_SHEET, RAMSCH_SHEET } from "#lib/series.fixtures.ts";
 import { words } from "#lib/words.ts";
 
@@ -112,5 +112,32 @@ describe("gameSheetView of a Ramsch", () => {
         expect(gameSheetView(sweep as typeof RAMSCH_SHEET).end).toMatchObject({
             label: words["table.sheetDurchmarsch"],
         });
+    });
+});
+
+describe("hasEleventhRow", () => {
+    const trick = RAMSCH_SHEET.cards?.tricks[0] as NonNullable<typeof RAMSCH_SHEET.cards>["tricks"][number];
+    const sweep = { kind: "ramsch", seat_points: [120, 0, 0], durchmarsch_seat: 1 };
+    const withTricks = (count: number, ended: boolean) =>
+        gameSheetView({
+            ...RAMSCH_SHEET,
+            count: ended ? sweep : RAMSCH_SHEET.count,
+            cards: {
+                ...(RAMSCH_SHEET.cards as NonNullable<typeof RAMSCH_SHEET.cards>),
+                tricks: Array.from({ length: count }, (_, index) => ({ ...trick, number: index + 1 })),
+            },
+        } as typeof RAMSCH_SHEET);
+
+    it.each([
+        [10, false, false],
+        [3, true, false],
+        [10, true, true],
+        [9, true, false],
+    ])("tells %i tricks and an end line (%s) to have an eleventh row (%s)", (count, ended, eleventh) => {
+        expect(hasEleventhRow(withTricks(count, ended))).toBe(eleventh);
+    });
+
+    it("tells a game with no stored cards to have none", () => {
+        expect(hasEleventhRow(gameSheetView(OLD_SHEET))).toBe(false);
     });
 });

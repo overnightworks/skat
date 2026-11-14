@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { gameSheetView, type GameSheetView, type SheetSeat } from "#lib/gameSheet.ts";
+    import { gameSheetView, hasEleventhRow, type GameSheetView, type SheetSeat } from "#lib/gameSheet.ts";
     import type { GameRow } from "#lib/series.ts";
     import CardFace from "#lib/ui/CardFace.svelte";
     import PointsBar from "#lib/ui/PointsBar.svelte";
@@ -120,7 +120,7 @@
                     </div>
                 {/each}
             </div>
-            <ol class="rows tricks">
+            <ol class="rows tricks" class:long={hasEleventhRow(view)}>
                 {#each cards.tricks as trick (trick.number)}
                     <li
                         class={["trick-row", trick.side]}

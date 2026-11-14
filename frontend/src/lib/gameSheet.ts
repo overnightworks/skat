@@ -86,6 +86,12 @@ export function gameSheetView(sheet: GameSheet): GameSheetView {
     };
 }
 
+// Whether the sheet has an eleventh row, the end line after ten tricks: a wide sheet lays its tricks in two columns of
+// five rows as the scenes draw them and gives such a sheet a sixth row, so that the end line opens no third column.
+export function hasEleventhRow(view: GameSheetView): boolean {
+    return (view.cards?.tricks.length ?? 0) + (view.end === null ? 0 : 1) > TRICKS_IN_A_GAME;
+}
+
 function sideOf(takerSeat: number | null, declarerSeat: number | null): SheetTrick["side"] {
     if (takerSeat === null || declarerSeat === null) {
         return "none";

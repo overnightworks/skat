@@ -7217,6 +7217,10 @@ body {
         align-content: start;
         gap: 6px 10px;
     }
+
+    .room .game-list .game-sheet .tricks.long {
+        grid-template-rows: repeat(6, auto);
+    }
 }
 
 /* The standings: place, name, games won and lost as declarer and the final total, the winner on top. */
