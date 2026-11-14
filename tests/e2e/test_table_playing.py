@@ -7,7 +7,7 @@ from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
-from tests.e2e.support.people import DESKTOP, WIDTHS
+from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -125,6 +125,10 @@ class Pointer:
             self._touch_event("touchEnd")
         else:
             self.person.mouse.up()
+
+    def cancel(self) -> None:
+        assert self.touch
+        self._touch_event("touchCancel")
 
 
 def strip_of(card: Locator) -> tuple[float, float]:
@@ -435,6 +439,49 @@ def test_a_card_moved_upward_past_the_threshold_plays_and_a_short_move_puts_it_b
     expect(middlehand.locator(LIFTED_CARD)).to_have_count(0)
     expect(middlehand.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
     assert middle_posts == []
+    assert page_errors == []
+
+
+def test_a_move_the_system_cancels_puts_the_card_back_without_playing_it(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_playing_table(PHONE)
+    forehand_seat = table.seat_at["forehand"]
+    forehand = table.pages[forehand_seat]
+    lead = table.a_lead_the_middlehand_must_follow()
+    posts = card_posts(forehand)
+    held = card_in_hand(forehand, lead)
+    resting = top_of(held)
+    pointer = Pointer(forehand, touch=True)
+    pointer.press(*strip_of(held))
+    pointer.move_by(0, -height_of(held) * LONG_RISE)
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(1)
+    pointer.cancel()
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(0)
+    expect(forehand.locator(LIFTED_CARD)).to_have_count(0)
+    assert top_of(held) == resting
+    assert posts == []
+    assert page_errors == []
+
+
+def test_a_mouse_pressed_outside_the_hand_and_let_go_over_a_card_neither_plays_nor_lifts_it(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_playing_table(DESKTOP)
+    forehand_seat = table.seat_at["forehand"]
+    forehand = table.pages[forehand_seat]
+    lead = table.a_lead_the_middlehand_must_follow()
+    posts = card_posts(forehand)
+    over = card_in_hand(forehand, lead)
+    resting = top_of(over)
+    pointer = Pointer(forehand, touch=False)
+    pointer.press(0, 0)
+    pointer.move_by(*strip_of(over))
+    pointer.release()
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(0)
+    expect(forehand.locator(LIFTED_CARD)).to_have_count(0)
+    assert top_of(over) == resting
+    assert posts == []
     assert page_errors == []
 
 
