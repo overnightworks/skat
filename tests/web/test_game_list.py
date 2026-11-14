@@ -15,6 +15,11 @@ def read_list(skat, headers, table_id):
     return skat.client.get(f"{TABLES_PATH}/{table_id}{TABLE_LIST_SUFFIX}", headers=headers)
 
 
+def read_sheet(skat, headers, table_id, number):
+    skat.client.cookies.clear()
+    return skat.client.get(f"{TABLES_PATH}/{table_id}{TABLE_LIST_SUFFIX}/{number}", headers=headers)
+
+
 def entries_of(answer):
     assert answer.status_code == 200, answer.text
     return answer.json()["entries"]
@@ -111,3 +116,69 @@ def test_the_list_of_an_ended_table_is_empty(server, time, hold):
     assert server.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()["ended"] is not None
 
     assert entries_of(read_list(server, headers, table_id)) == []
+
+
+class TestOpeningAGame:
+    def test_a_watcher_reads_every_card_of_a_game_played_in_the_series(self, skat):
+        table, _ = play_a_series(skat)
+
+        answer = read_sheet(skat, table.watcher, table.table_id, 1)
+
+        assert answer.status_code == 200, answer.text
+        sheet = answer.json()
+        assert (sheet["number"], sheet["count"]["kind"]) == (1, "declared")
+        cards = sheet["cards"]
+        assert [len(hand["cards"]) for hand in cards["hands"]] == [10, 10, 10]
+        assert len(cards["skat"]) == 2
+        assert [trick["number"] for trick in cards["tricks"]] == list(range(1, 11))
+        assert all(len(trick["cards"]) == 3 and trick["taker_seat"] in (1, 2, 3) for trick in cards["tricks"])
+        assert sum(trick["points"] for trick in cards["tricks"]) <= 120
+
+    def test_the_count_names_the_declarer_and_the_points_the_list_shows(self, skat):
+        table, _ = play_a_series(skat)
+        listed = entries_of(read_list(skat, table.watcher, table.table_id))[0]
+
+        count = read_sheet(skat, table.watcher, table.table_id, 1).json()["count"]
+
+        assert count["declarer_points"] == listed["declarer_points"]
+        assert count["declarer_points"] + count["opponents_points"] == 120
+        assert (count["ending"], count["ended_by_seat"]) == ("played-out", None)
+
+    def test_a_game_finished_before_games_kept_their_cards_answers_that_it_has_none(self, skat):
+        table, _ = play_a_series(skat)
+        record = table.record
+        bare = tuple(replace(each, cards=None) for each in record.game_list)
+        skat.store.tables[table.table_id] = replace(record, game_list=bare)
+
+        sheet = read_sheet(skat, table.watcher, table.table_id, 2).json()
+
+        assert (sheet["number"], sheet["cards"]) == (2, None)
+
+    @pytest.mark.parametrize("number", [0, 4, -1])
+    def test_a_number_the_list_does_not_hold_is_not_found(self, skat, number):
+        table, _ = play_a_series(skat)
+
+        assert read_sheet(skat, table.watcher, table.table_id, number).status_code == 404
+
+    @pytest.mark.parametrize("table_id", [pytest.param(UNKNOWN_ID, id="unknown"), pytest.param("no-id", id="no-id")])
+    def test_a_table_that_does_not_exist_is_not_found(self, skat, table_id):
+        headers, _ = skat.member()
+
+        assert read_sheet(skat, headers, table_id, 1).status_code == 404
+
+    def test_signed_out_gets_no_game(self, skat):
+        table, _ = play_a_series(skat)
+
+        answer = skat.client.get(f"{TABLES_PATH}/{table.table_id}{TABLE_LIST_SUFFIX}/1", headers=FETCH)
+
+        assert answer.status_code == 401
+        assert "tricks" not in answer.text
+
+
+def test_the_game_of_an_ended_table_is_not_found(server, time, hold):
+    headers, _ = server.member()
+    table_id = server.create(headers).json()["id"]
+    server.client.portal.call(time.advance, hold.settings.empty_table_seconds)
+    assert server.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()["ended"] is not None
+
+    assert read_sheet(server, headers, table_id, 1).status_code == 404

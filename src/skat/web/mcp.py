@@ -102,6 +102,7 @@ class Exclusion(StrEnum):
     CALL_ORIGIN = "the framed page's call origin; an agent sits in no frame"
     FINAL_DELETION = "a final deletion is not yet a tool"
     PERSON_ACT = "calling an agent is a person's act, no agent's tool"
+    GAME_SHEET = "the page's sheet of one finished game; an agent reads the list of the games"
 
 
 def excluded(reason: Exclusion) -> dict[str, object]:
