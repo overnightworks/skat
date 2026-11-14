@@ -27,11 +27,26 @@ RUNNING_POINTS_SWITCH = text(SOURCE_LANGUAGE, "start.rulePoints")
 SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
 # The browser asks again a few seconds after a failed stream.
 RECONNECT_MILLISECONDS = 15_000
+SHEET_OPENS_MILLISECONDS = 3_000
 TABLE_URL = re.compile(rf"{re.escape(TABLE_PAGE_PREFIX)}{TABLE_ID_PATTERN}$")
 
 
+def tap_new_table(person: Page) -> None:
+    """Taps the new-table button, and once more if the sheet did not open.
+
+    The button moves from the middle of the page to its foot when the lobby's first answer shows the open tables; a tap
+    that Playwright dispatches while it moves misses, and the page has no other sign that the lobby has answered.
+    """
+    new_table = person.get_by_role("button", name=NEW_TABLE_BUTTON)
+    new_table.click()
+    try:
+        expect(person.get_by_role("button", name=OPEN_TABLE)).to_be_visible(timeout=SHEET_OPENS_MILLISECONDS)
+    except AssertionError:
+        new_table.click()
+
+
 def click_new_table(person: Page, *, running_points: bool = False) -> str:
-    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    tap_new_table(person)
     if running_points:
         person.get_by_role("switch", name=RUNNING_POINTS_SWITCH).click()
     person.get_by_role("button", name=OPEN_TABLE).click()
