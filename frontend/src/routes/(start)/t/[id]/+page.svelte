@@ -68,12 +68,18 @@
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { bockLine } from "#lib/tableRules.ts";
     import { motionInForce } from "#lib/settings.svelte.ts";
-    import { isDealing, receiveOnStage, resetStage, sweepingTo, trickIsMoving } from "#lib/stage.svelte.ts";
+    import {
+        chairMoving,
+        isDealing,
+        receiveOnStage,
+        resetStage,
+        sweepingTo,
+        trickIsMoving,
+    } from "#lib/stage.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
     import {
-        agentSitsNote,
         answerAbort,
         answerGiveUp,
         answerSeriesEnd,
@@ -158,12 +164,11 @@
         seatedAgents = seatedAgentsKey(previous, table);
         const nudged = previous === undefined ? null : nudgedNote(previous, table);
         shaking = nudged !== null;
-        const note =
-            previous === undefined ? null : (seatNotice(previous, table) ?? agentSitsNote(previous, table) ?? nudged);
+        const cues = cuesBetween(previous, table);
+        const note = seatNotice(cues, table) ?? nudged;
         if (note !== null) showSeatNote(note);
         seatNote = noticeStanding(seatNote, table);
         if (!handWaits(table.hand)) asking = null;
-        const cues = cuesBetween(previous, table);
         if (previous === undefined || cues.some((cue) => cue.kind === "dealt")) playedThisHand = [];
         stamp = stampBetween(previous, table) ?? stamp;
         soundForCues(cues, table);
@@ -563,6 +568,7 @@
                         class:turn={onTurn}
                         class:nudgeable={chair.nudge !== null}
                         data-seat={chair.seat}
+                        data-moving={chairMoving(chair.seat)}
                     >
                         {#if chair.occupant_name !== null}
                             <span class="tile" class:agent={chair.occupant_kind === "agent"}>

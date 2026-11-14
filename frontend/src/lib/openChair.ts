@@ -1,4 +1,5 @@
 import { words } from "#lib/words.ts";
+import type { Cue, OpenedCue, TakenCue } from "./cues.ts";
 import type { Chair, Hand, Table } from "../routes/(start)/tables.ts";
 
 // The sentence the others read once about the faces it names, each an initial; a null initial draws the agent's mark. A
@@ -28,18 +29,13 @@ function chairAt(chairs: readonly Chair[], seat: number): Chair | undefined {
     return chairs.find((chair) => chair.seat === seat);
 }
 
-// A chair of the running hand that is open now and was held a moment before by an agent or by another person; the one
-// who stood up reads no notice about herself; an agent's leave goes to the seated others only, a person's stand-up to
-// every viewer.
-function chairLeft(previous: Table, table: Table): SeatNotice | null {
-    if (!handWaits(table.hand)) return null;
-    const left = previous.chairs.find(
-        (was) => !was.is_mine && was.occupant_name !== null && chairAt(table.chairs, was.seat)?.occupant_name === null,
-    );
-    if (left === undefined) return null;
-    const name = left.occupant_name as string;
-    const { seat } = left;
-    if (left.occupant_kind !== "agent") {
+// The chair of the running hand that opened under an agent or another person, whose leave the others read: an agent's
+// to the seated others only, a person's stand-up to every viewer; the one who stood up reads no notice about herself.
+function openedChairNotice(cues: readonly Cue[], table: Table): SeatNotice | null {
+    const opened = cues.find((cue): cue is OpenedCue => cue.kind === "chair-opened" && !cue.mine);
+    if (opened === undefined) return null;
+    const { seat, name } = opened;
+    if (!opened.agent) {
         return { text: words["table.standUpNotice"]({ name }), initials: [name.slice(0, 1)], seat, occupied: false };
     }
     return table.chairs.some((chair) => chair.is_mine)
@@ -47,28 +43,33 @@ function chairLeft(previous: Table, table: Table): SeatNotice | null {
         : null;
 }
 
-// A chair that was open in the running hand and is taken now, by a person or an agent; the one who sat reads no notice
-// about herself.
-function openChairTaken(previous: Table, table: Table): SeatNotice | null {
-    if (!handWaits(previous.hand)) return null;
-    const taker = table.chairs.find(
-        (chair) => chair.occupant_name !== null && chairAt(previous.chairs, chair.seat)?.occupant_name === null,
-    );
-    if (taker === undefined || taker.is_mine) return null;
-    const name = taker.occupant_name as string;
-    return {
-        text: words["table.playsOn"]({ name }),
-        initials: [taker.occupant_kind === "agent" ? null : name.slice(0, 1)],
-        seat: taker.seat,
-        occupied: true,
-    };
+// The chairs taken in the update: one that was open in the running hand is told as its sitter playing on, never to the
+// sitter herself; one that was free between hands is told only for an agent who sat.
+function takenChairNotice(cues: readonly Cue[]): SeatNotice | null {
+    const taken = cues.filter((cue): cue is TakenCue => cue.kind === "chair-taken");
+    const first = taken[0];
+    if (first === undefined) return null;
+    if (first.inHand) {
+        const { name } = first;
+        return first.mine
+            ? null
+            : {
+                  text: words["table.playsOn"]({ name }),
+                  initials: [first.agent ? null : name.slice(0, 1)],
+                  seat: first.seat,
+                  occupied: true,
+              };
+    }
+    const agent = taken.find((cue) => cue.agent);
+    return agent === undefined
+        ? null
+        : { text: words["table.agentSits"]({ name: agent.name }), initials: [null], seat: agent.seat, occupied: true };
 }
 
-// What the others read once when a streamed table shows a chair of the running hand open that an agent or a person held
-// a moment before, or an open chair of the running hand taken; null when neither happened. A chair that opens or is
-// taken between hands is the agent notice's.
-export function seatNotice(previous: Table, table: Table): SeatNotice | null {
-    return chairLeft(previous, table) ?? openChairTaken(previous, table);
+// What the others read once when a streamed table brought a chair of the running hand that opened, or was taken, or an
+// agent who sat on a free chair; null when none happened.
+export function seatNotice(cues: readonly Cue[], table: Table): SeatNotice | null {
+    return openedChairNotice(cues, table) ?? takenChairNotice(cues);
 }
 
 // The notice a viewer still reads on a streamed table: it goes as soon as its chair changes hands again.

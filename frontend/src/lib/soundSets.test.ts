@@ -21,6 +21,9 @@ const MOMENTS: SoundMoment[] = [
     "dealt",
     "result-won",
     "result-lost",
+    "chair-taken",
+    "chair-stood",
+    "chair-opened",
 ];
 const LONGEST_SOUND_SECONDS = 0.6;
 const LONGEST_SWEEP_SECONDS = 0.4;

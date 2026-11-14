@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { Cue } from "#lib/cues.ts";
 import { MOTION_SETS } from "#lib/motionSets.ts";
-import { advance, jump, receive, SETTLED, timingOf, type Received, type StageState, type Timing } from "#lib/stage.ts";
+import {
+    advance,
+    chairMoveMilliseconds,
+    jump,
+    receive,
+    SETTLED,
+    timingOf,
+    type Received,
+    type StageState,
+    type Timing,
+} from "#lib/stage.ts";
 import type { LastTrick, Playing } from "../routes/(start)/tables.ts";
 
 const NOW = 10_000;
@@ -46,6 +56,44 @@ describe("the budget of a table", () => {
         { name: "no motion set is in force", motion: undefined, hidden: false },
     ])("is zero when $name", ({ motion, hidden }) => {
         expect(timingOf(motion, hidden)).toBeNull();
+    });
+});
+
+const SITTER = { seat: 2, name: "Nova", agent: true, mine: false };
+const TAKEN_CHAIR: Cue = { kind: "chair-taken", inHand: false, ...SITTER };
+const STOOD_CHAIR: Cue = { kind: "chair-stood", ...SITTER };
+const OPENED_CHAIR: Cue = { kind: "chair-opened", ...SITTER };
+
+describe("the time chairs move", () => {
+    it.each(Object.values(MOTION_SETS).map((set) => ({ set, name: set.id })))(
+        "is the set's time for a chair that is taken in the set $name",
+        ({ set }) => {
+            expect(chairMoveMilliseconds([TAKEN_CHAIR], set, false)).toBe(set.chairSitsSeconds * 1000);
+        },
+    );
+
+    it.each(
+        Object.values(MOTION_SETS).flatMap((set) =>
+            [STOOD_CHAIR, OPENED_CHAIR].map((cue) => ({ set, cue, name: `${cue.kind} in ${set.id}` })),
+        ),
+    )("is the set's time for a chair that empties: $name", ({ set, cue }) => {
+        expect(chairMoveMilliseconds([cue], set, false)).toBe(set.chairEmptiesSeconds * 1000);
+    });
+
+    it("is the longest of the chairs that move in one update", () => {
+        const set = MOTION_SETS.verspielt;
+
+        expect(chairMoveMilliseconds([OPENED_CHAIR, TAKEN_CHAIR], set, false)).toBe(
+            Math.max(set.chairSitsSeconds, set.chairEmptiesSeconds) * 1000,
+        );
+    });
+
+    it.each([
+        { name: "the window is hidden", motion: MOTION_SETS.verspielt, hidden: true, cues: [TAKEN_CHAIR] },
+        { name: "no motion set is in force", motion: undefined, hidden: false, cues: [TAKEN_CHAIR] },
+        { name: "no chair changed hands", motion: MOTION_SETS.verspielt, hidden: false, cues: [TAKEN] },
+    ])("is zero when $name", ({ motion, hidden, cues }) => {
+        expect(chairMoveMilliseconds(cues, motion, hidden)).toBe(0);
     });
 });
 

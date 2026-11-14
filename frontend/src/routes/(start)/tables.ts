@@ -1,6 +1,6 @@
 import { isFramedInCallMode } from "#lib/callFrame.ts";
 import { openStream } from "#lib/stream.ts";
-import { handWaits, type SeatNotice } from "#lib/openChair.ts";
+import { handWaits } from "#lib/openChair.ts";
 import {
     type AUCTION_ACTION_TOKENS,
     AUTH_START_PATH,
@@ -601,17 +601,6 @@ export function watchTable(
 
 export function tablePath(id: string): string {
     return `${TABLE_PAGE_PREFIX}${id}`;
-}
-
-// The sentence that names an agent who sat down between two streamed views: a chair that was free and now holds an agent.
-// A chair that was open in the running hand is not this note's: the sitter there is told as one who plays on.
-export function agentSitsNote(previous: Table, table: Table): SeatNotice | null {
-    if (handWaits(previous.hand)) return null;
-    const freed = new Set(previous.chairs.filter((chair) => chair.occupant_name === null).map((chair) => chair.seat));
-    const sat = table.chairs.find((chair) => chair.occupant_kind === "agent" && freed.has(chair.seat));
-    if (sat === undefined) return null;
-    const name = sat.occupant_name as string;
-    return { text: words["table.agentSits"]({ name }), initials: [null], seat: sat.seat, occupied: true };
 }
 
 // What the agents' control re-reads on: the agents by seat and name, and the version when the wake skipped versions,
