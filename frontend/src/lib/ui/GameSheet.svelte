@@ -107,7 +107,7 @@
                         <span class="minis">
                             {#each hand.cards as each (`${each.card.suit}-${each.card.rank}`)}
                                 <span
-                                    class="hc {each.state}"
+                                    class={["hc", each.state]}
                                     title={each.state === "played"
                                         ? undefined
                                         : each.state === "put-away"
@@ -123,7 +123,7 @@
             <ol class="rows tricks">
                 {#each cards.tricks as trick (trick.number)}
                     <li
-                        class="trick-row {trick.side}"
+                        class={["trick-row", trick.side]}
                         aria-label={words["table.sheetTrick"]({ number: String(trick.number) })}
                     >
                         <span class="nr">{trick.number}</span>

@@ -1,0 +1,128 @@
+import json
+from typing import TYPE_CHECKING, Any
+
+import pytest
+from playwright.sync_api import Page, Route, expect
+
+from skat.web.game_list import TABLE_LIST_SUFFIX
+from skat.web.playing import TABLE_GIVE_UP_SUFFIX
+from skat.web.tables import TABLES_PATH
+from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.declaring import DeclaringTable
+from tests.e2e.support.hands import PlayingTable
+from tests.e2e.support.people import PHONE, WIDTHS
+from tests.e2e.support.ramsch import RamschTable
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from tests.e2e.support.server import RunningServer
+    from tests.support.signed_in import SeededMember
+
+pytestmark = pytest.mark.e2e
+
+GAME_SHEET = ".game-list .game-sheet"
+SHEET_ROUTE = f"**{TABLES_PATH}/*{TABLE_LIST_SUFFIX}/*"
+PUT_AWAY_FROM_THE_HAND = 2
+DEALT_CARDS = 30
+SERVER_ERROR = 500
+
+
+def open_the_game(person: Page) -> None:
+    person.locator(".series-count").click()
+    person.locator(".game-list .grow").click()
+
+
+def without_cards(route: Route) -> None:
+    sheet = route.fetch().json()
+    sheet["cards"] = None
+    route.fulfill(json=sheet)
+
+
+def broken(route: Route) -> None:
+    route.fulfill(status=SERVER_ERROR, content_type="application/json", body=json.dumps({}))
+
+
+def a_declared_game_with_two_hand_cards_put_away(
+    open_person: Callable[..., Page],
+    server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> PlayingTable:
+    """The declarer picks the skat up and puts away two cards of the hand he was dealt, then the forehand leads."""
+    declaring = DeclaringTable(open_person, server, member_of, page_errors, form_factor)
+    declaring.declare_through_the_api(action="take")
+    view = json.loads(declaring.sessions[declaring.declarer_seat].get(declaring.api_path))
+    skat = declaring.skat()
+    dealt = sorted((card["suit"], card["rank"]) for card in view["hand"]["own_cards"])
+    own = [card for card in dealt if card not in skat][:PUT_AWAY_FROM_THE_HAND]
+    declaring.declare_through_the_api(action="put_back", cards=[{"suit": suit, "rank": rank} for suit, rank in own])
+    declaring.declare_through_the_api(action="declare", game="kreuz", hand=False, ouvert=False, announcement="none")
+    return PlayingTable(declaring, None)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_declared_game_given_up_in_its_first_trick_shows_its_count_its_cards_and_the_trick_it_left(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = a_declared_game_with_two_hand_cards_put_away(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.play_out(1)
+    table.declaring.step(table.declarer_seat, TABLE_GIVE_UP_SUFFIX)
+    person = table.pages[table.declarer_seat]
+
+    open_the_game(person)
+
+    expect(person.locator(f"{GAME_SHEET} .points")).to_be_visible()
+    expect(person.locator(f"{GAME_SHEET} .hc.put-away")).to_have_count(PUT_AWAY_FROM_THE_HAND)
+    expect(person.locator(f"{GAME_SHEET} .hc.unplayed")).to_have_count(DEALT_CARDS - PUT_AWAY_FROM_THE_HAND - 1)
+    trick = person.locator(f"{GAME_SHEET} .tricks .trick-row:not(.ended)")
+    expect(trick).to_have_count(1)
+    expect(trick.locator(".trick-card")).to_have_count(1)
+    expect(trick.locator(".pts")).to_have_count(0)
+    expect(person.locator(f"{GAME_SHEET} .trick-row.ended")).to_contain_text(text(SOURCE_LANGUAGE, "result.givenUp"))
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_game_the_server_kept_no_cards_of_says_so_and_still_counts(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.pass_all()
+    table.play_out()
+    person = table.pages[1]
+    person.route(SHEET_ROUTE, without_cards)
+
+    open_the_game(person)
+
+    expect(person.locator(f"{GAME_SHEET} .empty")).to_have_text(text(SOURCE_LANGUAGE, "table.sheetNoCards"))
+    expect(person.locator(f"{GAME_SHEET} .seat-eyes > span")).to_have_count(3)
+    assert page_errors == []
+
+
+def test_a_game_the_server_cannot_read_says_so(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    # The browser logs the failed read as a console error; that failure is the point of this test.
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, PHONE, console=False)
+    table.pass_all()
+    table.play_out()
+    person = table.pages[1]
+    person.route(SHEET_ROUTE, broken)
+
+    open_the_game(person)
+
+    expect(person.locator(f"{GAME_SHEET} [role=alert]")).to_have_text(text(SOURCE_LANGUAGE, "table.sheetFailed"))
+    assert page_errors == []
