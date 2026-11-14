@@ -393,21 +393,47 @@ async def _read_leased(tables: TableService, table_id: str) -> frozenset[str]:
     return frozenset(seat.account_id for seat in seats)
 
 
-def _table_source(
+async def _read_table_view(
+    tables: TableService, table_id: str, actor: Actor, connected: frozenset[str]
+) -> TableView | None:
+    return await run_in_threadpool(tables.view, actor, table_id, connected)
+
+
+def _table_sources(
     tables: TableService,
     presence: Presence,
-    read_view: Callable[[Actor, frozenset[str]], Awaitable[TableView | None]],
+    attention_of: Callable[[str, str], StreamSource],
     table_id: str,
     account_id: str,
-) -> TableSource:
-    return TableSource(
-        presence,
-        read_view,
-        partial(_read_version, tables, table_id),
-        partial(_read_leased, tables, table_id),
-        table_id,
-        account_id,
-    )
+) -> list[StreamSource]:
+    return [
+        TableSource(
+            presence,
+            partial(_read_table_view, tables, table_id),
+            partial(_read_version, tables, table_id),
+            partial(_read_leased, tables, table_id),
+            table_id,
+            account_id,
+        ),
+        attention_of(table_id, account_id),
+    ]
+
+
+async def _table_items(
+    first_view: TableView,
+    open_sources: Callable[[], list[StreamSource]],
+    admit: Callable[[], Awaitable[Actor | None]],
+    presence: Presence,
+    heartbeat_seconds: float,
+) -> AsyncIterator[SourceMessage | IdleHeartbeat]:
+    # An ended table has nobody to watch: its one message is its answer, and nothing registers.
+    if first_view.ended is not None:
+        yield _table_message(first_view, {})
+        return
+    async for item in stream_messages(
+        open_sources(), admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
+    ):
+        yield item
 
 
 def create_streams_router(
@@ -440,8 +466,7 @@ def create_streams_router(
             slots.ensure_free(opened_as.account_id)
         release = (lambda: None) if probing else slots.take(opened_as.account_id)
 
-        async def read_view(actor: Actor, connected: frozenset[str]) -> TableView | None:
-            return await run_in_threadpool(tables.view, actor, table_id, connected)
+        read_view = partial(_read_table_view, tables, table_id)
 
         # Nothing is registered or held open for an id that is no table, and a refusal gives the slot back.
         try:
@@ -456,21 +481,13 @@ def create_streams_router(
             return stream_probe_response()
         admit = session_admission(request, sessions)
 
-        async def items() -> AsyncIterator[SourceMessage | IdleHeartbeat]:
-            # An ended table has nobody to watch: its one message is its answer, and nothing registers.
-            if first_view.ended is not None:
-                yield _table_message(first_view, {})
-                return
-            sources = [
-                _table_source(tables, presence, read_view, table_id, opened_as.account_id),
-                attention_of(table_id, opened_as.account_id),
-            ]
-            async for item in stream_messages(
-                sources, admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
-            ):
-                yield item
-
-        messages = messages_with_end_log(items(), lambda: presence.stopped, StreamKind.TABLE, table_id)
+        sources = partial(_table_sources, tables, presence, attention_of, table_id, opened_as.account_id)
+        messages = messages_with_end_log(
+            _table_items(first_view, sources, admit, presence, heartbeat_seconds),
+            lambda: presence.stopped,
+            StreamKind.TABLE,
+            table_id,
+        )
         return event_stream_response(messages, release)
 
     return router
