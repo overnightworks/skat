@@ -35,7 +35,7 @@ from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, Agent, person_posts, view_uri_of
 from tests.web.support.changes import RecordedChanges
 from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import FakeTime, Skat, stored
+from tests.web.support.skat import FakeTime, Skat, skat_on_the_clock, stored
 
 MIDDLEHAND = Position.MIDDLEHAND
 OTHER_AGENT_SUBJECT = "other-agent-subject"
@@ -149,15 +149,7 @@ def changes():
 
 @pytest.fixture
 def skat(hold, issuer, time, changes):
-    skat = Skat(
-        lambda: hold,
-        issuer_transports=issuer.transports,
-        chair_clock=time.clock,
-        chair_scheduler=time,
-        now=time.moment,
-        resource_changes=changes.wired,
-    )
-    with skat.client:
+    with skat_on_the_clock(hold, issuer, time, resource_changes=changes.wired) as skat:
         yield skat
 
 

@@ -23,7 +23,7 @@ from tests.web.support.presence import (
     end_the_first_game,
     occupied_seats,
 )
-from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, FakeTime, Skat, streams_of
+from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, FakeTime, Skat, skat_on_the_clock, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 SEAT_OF = seats_from(DEALER_SEAT)
@@ -38,10 +38,7 @@ PERSON_AT_THE_AGENTS_PATH = {"groups": [MCP_GROUP], "agent_owner": None, "agent_
 
 @pytest.fixture
 def skat(hold, issuer, time):
-    skat = Skat(
-        lambda: hold, issuer_transports=issuer.transports, chair_clock=time.clock, chair_scheduler=time, now=time.moment
-    )
-    with skat.client:
+    with skat_on_the_clock(hold, issuer, time) as skat:
         yield skat
 
 

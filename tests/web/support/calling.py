@@ -19,7 +19,7 @@ from tests.support.signed_in import new_account
 from tests.web.support.agent import Agent
 from tests.web.support.changes import RecordedChanges
 from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import FETCH, Skat, streams_of
+from tests.web.support.skat import FETCH, skat_on_the_clock, streams_of
 
 
 @dataclass(frozen=True)
@@ -106,15 +106,7 @@ class CallingTable:
 
     @pytest.fixture
     def skat(self, hold, issuer, time, changes):
-        skat = Skat(
-            lambda: hold,
-            issuer_transports=issuer.transports,
-            chair_clock=time.clock,
-            chair_scheduler=time,
-            now=time.moment,
-            resource_changes=changes.wired,
-        )
-        with skat.client:
+        with skat_on_the_clock(hold, issuer, time, resource_changes=changes.wired) as skat:
             yield skat
 
     @pytest.fixture

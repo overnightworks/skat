@@ -46,7 +46,7 @@ from tests.web.support.agent import Agent, person_passes, person_posts, view_uri
 from tests.web.support.playing import HERZ_GAME, card_body
 from tests.web.support.presence import HOLD_SECONDS
 from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import UNKNOWN_ID, AgentTable, Skat
+from tests.web.support.skat import UNKNOWN_ID, AgentTable, Skat, skat_on_the_clock
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 UNKNOWN = "Unknown resource"
@@ -93,15 +93,7 @@ def view_signal_through(tap):
 
 @pytest.fixture
 def skat(hold, issuer, time, view_signal_through):
-    skat = Skat(
-        lambda: hold,
-        issuer_transports=issuer.transports,
-        chair_clock=time.clock,
-        chair_scheduler=time,
-        now=time.moment,
-        view_signal_through=view_signal_through,
-    )
-    with skat.client:
+    with skat_on_the_clock(hold, issuer, time, view_signal_through=view_signal_through) as skat:
         yield skat
 
 

@@ -230,9 +230,6 @@ holding = [["tests/web/test_presence_empty_table.py", "noting"]]
 "Agent.take_step" = [["tests/web/test_mcp.py", "TestAnsweringAGiveUp.answer"], ["tests/web/test_mcp.py", "TestGiveUpGame.give_up"], ["tests/web/test_mcp.py", "TestThrowDownCards.throw_down"], ["tests/web/test_mcp_kontra.py", "TestSayNoWord.say_no_word"]]
 person_steps = [["tests/web/support/playing.py", "Table._post"]]
 
-[clones."tests/web/support/calling.py"]
-"CallingTable.skat" = [["tests/web/test_member_place.py", "skat"], ["tests/web/test_member_place_asking.py", "skat"], ["tests/web/test_member_place_view.py", "skat"], ["tests/web/test_nudging_agent.py", "skat"], ["tests/web/test_presence_agent_lease.py", "skat"], ["tests/web/test_tables_open_chair.py", "skat"]]
-
 [clones."tests/web/support/presence.py"]
 post_pass = [["tests/web/test_declaring.py", "post_declaring"]]
 
@@ -271,18 +268,6 @@ play = [["tests/web/test_tables_bock.py", "played_with_words"]]
 [clones."tests/web/test_mcp_ramsch.py"]
 "AgentRamschTable.__init__" = [["tests/web/test_mcp_ramsch_pushing.py", "AgentPushingTable.__init__"]]
 
-[clones."tests/web/test_member_place.py"]
-skat = [["tests/web/test_member_place_asking.py", "skat"], ["tests/web/test_member_place_view.py", "skat"], ["tests/web/test_nudging_agent.py", "skat"], ["tests/web/test_presence_agent_lease.py", "skat"], ["tests/web/test_tables_open_chair.py", "skat"]]
-
-[clones."tests/web/test_member_place_asking.py"]
-skat = [["tests/web/test_member_place_view.py", "skat"], ["tests/web/test_nudging_agent.py", "skat"], ["tests/web/test_presence_agent_lease.py", "skat"], ["tests/web/test_tables_open_chair.py", "skat"]]
-
-[clones."tests/web/test_member_place_view.py"]
-skat = [["tests/web/test_nudging_agent.py", "skat"], ["tests/web/test_presence_agent_lease.py", "skat"], ["tests/web/test_tables_open_chair.py", "skat"]]
-
-[clones."tests/web/test_nudging_agent.py"]
-skat = [["tests/web/test_presence_agent_lease.py", "skat"], ["tests/web/test_tables_open_chair.py", "skat"]]
-
 [clones."tests/web/test_playing_early_end.py"]
 "TestAfterTheEnd.test_an_expiry_reaching_the_table_right_after_the_end_committed_frees_nothing" = [["tests/web/test_playing_give_up_consent.py", "TestAfterTheYes.test_an_expiry_reaching_the_table_right_after_the_yes_committed_frees_nothing"]]
 "TestRetries.test_a_refused_retry_returns_the_same_refusal" = [["tests/web/test_playing_give_up_consent.py", "TestRetries.test_a_refused_retry_returns_the_same_refusal"]]
@@ -290,9 +275,6 @@ skat = [["tests/web/test_presence_agent_lease.py", "skat"], ["tests/web/test_tab
 [clones."tests/web/test_playing_give_up_consent.py"]
 kontra_table = [["tests/web/test_playing_opponents_give_up.py", "kontra_table"]]
 say = [["tests/web/test_tables_bock.py", "say"]]
-
-[clones."tests/web/test_presence_agent_lease.py"]
-skat = [["tests/web/test_tables_open_chair.py", "skat"]]
 
 [clones."tests/web/test_presence_empty_table.py"]
 "TestWhenTheServerStops.test_stopping_cancels_every_pending_wait" = [["tests/web/test_presence_next_deal.py", "TestNextDealPause.test_the_server_stopping_during_the_pause_cancels_the_deal_and_a_later_request_starts_none"]]
