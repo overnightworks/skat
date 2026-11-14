@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 MIGRATIONS_DIRECTORY: Final = Path(__file__).parent / "migrations"
 # Serialises concurrent `skat migrate` runs; any constant shared by all of them does.
 MIGRATION_LOCK_KEY: Final = 7_184_203_551
-# Serialises the sign-in entries of all apps on one database; any constant distinct from the migration key does.
+# Serialises the sign-in entries of this app's pods on its database; any constant distinct from the migration key does.
 SIGN_IN_LOCK_KEY: Final = 7_184_203_552
 POSTGRES_DRIVER: Final = "postgresql+psycopg"
 # Bounds how long a connection attempt waits for a database that is down or silent; libpq takes whole seconds

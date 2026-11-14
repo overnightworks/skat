@@ -32,8 +32,8 @@ class _DeferredAudit:
 
 
 class PostgresSignInTransaction:
-    """One sign-in entry: a database transaction under a Postgres advisory lock that every entry of every app on the
-    database takes first, so entries run one at a time across pods.
+    """One sign-in entry: a database transaction under a Postgres advisory lock that every sign-in entry of this
+    app's pods takes first on its database, so entries run one at a time across pods.
 
     The entry's events reach the sink as its last step, still inside the transaction: a sink that fails rolls the
     entry back with it, and an entry that raises reports no event.
