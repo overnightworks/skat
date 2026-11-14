@@ -17,9 +17,8 @@ export function keyWord(table: Table): Word | null {
 
 // The word the viewer's chair may give up before the first card: the one it owes while that card waits on it.
 export function declinableWord(table: Table): Word | null {
-    const mine = table.chairs.find((chair) => chair.is_mine)?.seat;
-    const waitsOn = table.hand?.playing?.kontra?.first_card_waits_on ?? [];
-    return mine !== undefined && waitsOn.includes(mine) ? keyWord(table) : null;
+    const wait = firstCardWait(table);
+    return table.chairs.some((chair) => chair.is_mine && wait?.owes(chair.seat)) ? keyWord(table) : null;
 }
 
 export function stampOf(table: Table, said: SaidWord): Stamp {
@@ -57,15 +56,15 @@ export type FirstCardWait = {
 export function firstCardWait(table: Table): FirstCardWait | null {
     const playing = table.hand?.playing;
     const kontra = playing?.kontra;
-    if (!playing || !kontra || kontra.first_card_waits_on.length === 0) return null;
-    // The seats of a running hand belong to the table's chairs.
+    if (!kontra || kontra.first_card_waits_on.length === 0) return null;
+    // A seat the first card waits on belongs to a chair with a sitter: no seat is awaited while a chair is open.
     const chairs = kontra.first_card_waits_on.map((seat) => table.chairs.find((each) => each.seat === seat) as Chair);
-    const names = chairs.map((chair) => (chair.is_mine ? words["kontra.you"] : (chair.occupant_name ?? "")));
+    const names = chairs.map((chair) => (chair.is_mine ? words["kontra.you"] : (chair.occupant_name as string)));
     return {
         owes: (seat) => kontra.first_card_waits_on.includes(seat),
         marks: new Map(kontra.first_card_declined.map((seat) => [seat, "declined"])),
-        held: (seat) => seat !== undefined && seat === playing.turn_seat,
-        initials: chairs.map((chair) => (chair.occupant_name ?? "").slice(0, 1)),
+        held: (seat) => seat !== undefined && seat === playing?.turn_seat,
+        initials: chairs.map((chair) => (chair.occupant_name as string).slice(0, 1)),
         text: words["kontra.firstCardWaits"]({ names: listFormat.format(names) }),
     };
 }
