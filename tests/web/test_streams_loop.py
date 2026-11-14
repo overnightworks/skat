@@ -156,6 +156,10 @@ async def connected_a_watcher(service, presence, table_id):
     await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
 
 
+async def started_an_agent_lease(service, presence, table_id):
+    presence.renew_lease(VISITOR.account_id)
+
+
 async def closed_the_table(service, presence, table_id):
     service.close(OPENER, CloseTable("command-close", table_id))
 
@@ -171,10 +175,11 @@ class TestTheTableSourceMoves:
             pytest.param(did_nothing, False, id="nothing"),
             pytest.param(sat_down, True, id="a-commit"),
             pytest.param(connected_a_watcher, True, id="a-watcher"),
+            pytest.param(started_an_agent_lease, True, id="an-agent-lease"),
             pytest.param(closed_the_table, True, id="the-end"),
         ],
     )
-    def test_a_table_source_has_moved_since_its_read_when_the_version_or_who_is_connected_changed(
+    def test_a_table_source_has_moved_since_its_read_when_the_version_or_who_is_present_changed(
         self, service, table_id, happens, moved
     ):
         async def scenario():

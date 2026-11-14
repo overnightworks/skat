@@ -486,6 +486,10 @@ async def ben_opens_a_table(scene, table_id):
     scene.service.create(BEN, CreateTable(command_id="open-ben"))
 
 
+async def an_agent_lease_starts(scene, table_id):
+    scene.presence.renew_lease(BEN.account_id)
+
+
 async def anna_closes_the_table(scene, table_id):
     scene.service.close(ANNA, CloseTable("close-anna", table_id))
 
@@ -501,16 +505,18 @@ class TestWhatMovesASource:
             pytest.param(mine_of_anna, nothing_happens, False, id="mine-nothing"),
             pytest.param(mine_of_anna, ben_sits, True, id="mine-a-commit-at-a-held-table"),
             pytest.param(mine_of_anna, ben_watches, True, id="mine-a-watcher-at-a-held-table"),
+            pytest.param(mine_of_anna, an_agent_lease_starts, True, id="mine-an-agent-lease"),
             pytest.param(mine_of_anna, anna_closes_the_table, True, id="mine-a-held-table-ends"),
             pytest.param(mine_of_anna, ben_opens_a_table, False, id="mine-a-table-of-a-stranger"),
             pytest.param(open_list_of_cleo, nothing_happens, False, id="open-nothing"),
             pytest.param(open_list_of_cleo, ben_sits, True, id="open-a-commit-at-a-listed-table"),
             pytest.param(open_list_of_cleo, ben_watches, True, id="open-a-watcher-at-a-listed-table"),
             pytest.param(open_list_of_cleo, ben_opens_a_table, True, id="open-a-table-opened"),
+            pytest.param(open_list_of_cleo, an_agent_lease_starts, True, id="open-an-agent-lease"),
             pytest.param(open_list_of_cleo, anna_closes_the_table, True, id="open-a-listed-table-ends"),
         ],
     )
-    def test_a_source_has_moved_when_the_versions_of_its_tables_or_who_is_connected_there_changed(
+    def test_a_source_has_moved_when_the_versions_of_its_tables_or_who_is_present_there_changed(
         self, source_of, happens, moved
     ):
         scene = Scene()

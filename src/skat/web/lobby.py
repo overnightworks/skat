@@ -158,6 +158,15 @@ class _TableStanding(NamedTuple):
     connected: frozenset[str]
 
 
+class _Standing(NamedTuple):
+    """What a read stands on: the standing at each listed table and the agents whose lease runs, who count as present
+    at the tables they sit at without a stream.
+    """
+
+    tables: tuple[_TableStanding, ...]
+    leases: frozenset[str]
+
+
 class _TopicHoldingSource(ABC):
     """A source of tables woken by one account's topic and the topics of the tables it lists.
 
@@ -166,9 +175,9 @@ class _TopicHoldingSource(ABC):
     after the swap, so a commit before it is in the read and a commit after it wakes the stream. The `standing`
     topics are held from `open` on, before the first read.
 
-    A read stands on the list it was made from, each table's version and who is connected there. A heartbeat asks
-    for the list and the versions again, one cheap read of the index, and the source has moved only when that
-    differs from what the last read stood on.
+    A read stands on the list it was made from, each table's version, who is connected there and which agents' leases
+    run. A heartbeat asks for the list and the versions again, one or two cheap reads of the index, and the source has
+    moved only when that, who is connected or the leases differ from what the last read stood on.
     """
 
     def __init__(self, presence: Presence, wakes: WakeList, account_id: str, standing: tuple[Topic, ...] = ()) -> None:
@@ -178,7 +187,7 @@ class _TopicHoldingSource(ABC):
         self._standing = standing
         self._wake: Callable[[], None] | None = None
         self._registration: Registration | None = None
-        self._read_stood_on: tuple[_TableStanding, ...] | None = None
+        self._read_stood_on: _Standing | None = None
 
     async def open(self, wake: Callable[[], None]) -> None:  # NOSONAR(S7503) StreamSource.open is async
         self._wake = wake
@@ -194,11 +203,12 @@ class _TopicHoldingSource(ABC):
     @abstractmethod
     async def _listed(self, actor: Actor) -> tuple[TableVersion, ...]: ...  # pragma: no cover - abstract
 
-    def _standing_at(self, listed: Iterable[TableVersion]) -> tuple[_TableStanding, ...]:
-        return tuple(
+    def _standing_at(self, listed: Iterable[TableVersion]) -> _Standing:
+        tables = tuple(
             _TableStanding(table.table_id.value, table.version, self._presence.connected(table.table_id.value))
             for table in listed
         )
+        return _Standing(tables, self._presence.live_leases())
 
     def _stand_on(self, listed: tuple[TableVersion, ...]) -> dict[str, frozenset[str]]:
         """Hold the topics of the listed tables, remember what this read stands on and return who is connected at
@@ -213,7 +223,7 @@ class _TopicHoldingSource(ABC):
         )
         self._wakes.unregister(previous)
         self._read_stood_on = self._standing_at(listed)
-        return {table.table_id: table.connected for table in self._read_stood_on}
+        return {table.table_id: table.connected for table in self._read_stood_on.tables}
 
 
 class AccountTablesSource(_TopicHoldingSource, ABC):

@@ -107,7 +107,7 @@ class TableSource:
         self._account_id = account_id
         self._subscription: Subscription | None = None
         self._first_read = True
-        self._read_standing: tuple[int, frozenset[str]] | None = None
+        self._read_standing: tuple[int, frozenset[str], frozenset[str]] | None = None
 
     async def open(self, wake: Callable[[], None]) -> None:
         self._subscription = await self._presence.subscribe(self._table_id, self._account_id, wake)
@@ -115,12 +115,13 @@ class TableSource:
     async def read(self, actor: Actor) -> SourceMessage:
         with self._presence.waits.reading(self._table_id):
             connected = self._presence.connected(self._table_id)
+            leases = self._presence.live_leases()
             view = await self._read_view(actor, connected)
             if view is None:
                 message = f"table {self._table_id} vanished while a stream watched it"
                 raise RuntimeError(message)
             nudges = self._presence.waits.nudges_of(view)
-        self._read_standing = (view.version, connected)
+        self._read_standing = (view.version, connected, leases)
         if self._first_read and view.ended is None:
             await self._ask_for_next_deal(view)
         self._first_read = False
@@ -128,7 +129,8 @@ class TableSource:
 
     async def moved(self, actor: Actor) -> bool:  # noqa: ARG002 - the port passes the actor; a table's version needs none
         version = await self._read_version()
-        return version is None or (version, self._presence.connected(self._table_id)) != self._read_standing
+        standing = (version, self._presence.connected(self._table_id), self._presence.live_leases())
+        return version is None or standing != self._read_standing
 
     def close(self) -> None:
         assert self._subscription is not None  # noqa: S101 - narrows the type; the loop closes only an opened source
