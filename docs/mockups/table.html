@@ -2082,8 +2082,8 @@ const firstWordStrip=(d,word)=>{const keys=kontraKey(word)+declineKey(word);
   return d?stripOf(d,{lead:keys+GIVE_UP+STAND_WORD,pill:agentPill(d)}):`<div class="sbar above">${keys}</div>`+stripOf(d,{lead:standLead(d),pill:agentPill(d)});};
 /* every other seat and a watcher read the wait from the line and the seat's glow, never from a card; dots hop while it lasts */
 const firstWaitLine=(who,name)=>`<div class="game">${faceDot(who)}Erste Karte wartet auf ${name}${waitDots()}</div>`;
-/* ten dimmed cards: on a phone they pack tighter than the shared strip, to stay inside a 360 frame, and rise clear of the pair's strip */
-const firstHand=(d)=>d?{strip:tenStrip(d)}:{strip:{base:30,no:30,ok:30,touch:30},bottom:150};
+/* ten dimmed cards: on a phone they are smaller and pack tighter than the shared strip, to stay inside a 360 frame, and rise clear of the pair's strip above Skat's own */
+const firstHand=(d)=>d?{strip:tenStrip(d)}:{strip:{base:30,no:30,ok:30,touch:30},w:54,bottom:184};
 /* Felix leads, so his cards stay dimmed until the wait ends; o.word: the Kontra already said, which the plaque carries */
 const firstWaitTable=(d,o)=>{const L=seatsOf(d);
   return tableOf(d,{fans:0,count:true,glow:turnGlow(d)})+sideFans(d,10,10)+kreuz(d,(o.word?kontraLine(o.word):'')+firstWaitLine('felix','dich'))
