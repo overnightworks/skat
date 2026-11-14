@@ -737,16 +737,25 @@ class TestThroughTheMcpTools:
         assert answer.json()["reason"] == PlayRefusal.CLAIM_OUT_OF_REACH
         assert shortenings_read(table) == [None] * 4
 
-    @pytest.mark.parametrize("tool", [AGREE_TO_GIVE_UP_TOOL, DECLINE_GIVE_UP_TOOL])
-    def test_an_agent_opponent_answers_the_shortening_with_the_give_up_answer_tools(self, agent, opponent_asked, tool):
+    @pytest.mark.parametrize(
+        ("tool", "view"),
+        [
+            pytest.param(AGREE_TO_GIVE_UP_TOOL, {"shortening": asked(NONE, SEAT[FOREHAND])}, id="yes"),
+            pytest.param(
+                DECLINE_GIVE_UP_TOOL,
+                {"shortening": None, "shortening_refused_seat": SEAT[FOREHAND]},
+                id="no",
+            ),
+        ],
+    )
+    def test_an_agent_opponent_answers_the_shortening_with_the_give_up_answer_tools(
+        self, agent, opponent_asked, tool, view
+    ):
         answer = agent.take_step(tool, opponent_asked, command_id="agent-answer-0001")
 
         assert not answer.is_error, answer.text
         playing = agent.read(opponent_asked.table_id).json()["hand"]["playing"]
-        if tool == AGREE_TO_GIVE_UP_TOOL:
-            assert playing["shortening"] == asked(NONE, SEAT[FOREHAND])
-        else:
-            assert (playing["shortening"], playing["shortening_refused_seat"]) == (None, SEAT[FOREHAND])
+        assert {key: playing[key] for key in view} == view
 
     def test_the_agent_opponents_no_opens_the_declarers_cards_to_the_agent_and_every_viewer(
         self, agent, opponent_asked
