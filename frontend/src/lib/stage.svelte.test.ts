@@ -31,12 +31,16 @@ const GLIDE_MILLISECONDS = (MOTION_SETS.verspielt.trickGatherSeconds + MOTION_SE
 
 // The stage is module state, so each test reads a module of its own, on a page whose player stored `stored`.
 // `sweeps` counts the voices the page's sound started for sweeps since the first tap woke it; a page not yet tapped sounds nothing.
-async function stageOnAPage(stored: Record<string, unknown>, options: { hidden?: boolean; tapped?: boolean } = {}) {
+async function stageOnAPage(
+    stored: Record<string, unknown>,
+    options: { hidden?: boolean; tapped?: boolean; vibrate?: (pattern: readonly number[]) => void } = {},
+) {
     vi.resetModules();
     const { started, listeners } = stubBrowser({
         reducedMotion: true,
         stored: JSON.stringify(stored),
         hidden: options.hidden,
+        vibrate: options.vibrate,
     });
     const { loadSettings } = await import("#lib/settings.svelte.ts");
     loadSettings();
@@ -232,8 +236,7 @@ describe("the viewer's turn on the page's stage", () => {
 
     it("vibrates once when the player switched vibration on and the device can, and stays quiet otherwise", async () => {
         const buzz = vi.fn();
-        const capable = await stageOnAPage({ ...MOVING, vibration: true });
-        vi.stubGlobal("window", { ...window, navigator: { vibrate: buzz } });
+        const capable = await stageOnAPage({ ...MOVING, vibration: true }, { vibrate: buzz });
         capable.stage.receiveOnStage(TABLE_IN_PLAY, [TURN]);
         const incapable = await stageOnAPage({ ...MOVING, vibration: true });
 
