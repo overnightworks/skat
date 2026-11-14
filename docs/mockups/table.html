@@ -1892,11 +1892,25 @@ function playedOut(g){
   const tricks=g.tricks.map(codes=>{
     const seats=[0,1,2].map(i=>PLAY_ORDER[(PLAY_ORDER.indexOf(leader)+i)%3]);
     const taker=seats[codes.reduce((best,code,i)=>beats(code,codes[best],g.trump)?i:best,0)],points=pointsOf(codes);
-    eyes[taker]+=points;leader=taker;return {codes,taker,points};});
+    eyes[taker]+=points;leader=taker;return {codes,taker,points,seats};});
   /* the cards put away count for the declarer; a Ramsch's skat counts for whoever took the last trick */
   eyes[g.declarer||leader]+=pointsOf(g.aside);
   if(!g.ended&&(kept.length!==32||pointsOf(kept)!==120))throw new Error(`game ${g.n}: ${kept.length} cards, ${pointsOf(kept)} points`);
   return {tricks,eyes,lastTaker:leader};}
+/* what each seat held when the game started: the cards it played, a declarer's ten before the pick-up (the two skat cards he kept are no part of it, the two he put away from it are) and, for a game that ended early, the cards that were never played; a card put away stands lowered, a card never played stands ringed */
+const ALL_CODES=JACK_SUITS.map(s=>'B'+s).concat(['d','h','s','c'].flatMap(s=>['A','10','K','D','9','8','7'].map(r=>r+s)));
+const handOrder=(a,b)=>ALL_CODES.indexOf(a.code)-ALL_CODES.indexOf(b.code);
+function handsOf(g,tricks,declarer){
+  const played=Object.fromEntries(PLAY_ORDER.map(k=>[k,[]]));
+  tricks.forEach(t=>t.codes.forEach((code,i)=>played[t.seats[i]].push({code,state:'played'})));
+  const used=new Set([...tricks.flatMap(t=>t.codes),...g.skat||[],...g.aside]);
+  const spare=ALL_CODES.filter(code=>!used.has(code));
+  return PLAY_ORDER.map(k=>{
+    const mine=k===declarer?[...played[k].filter(h=>!(g.skat||[]).includes(h.code)),...g.aside.filter(code=>!(g.skat||[]).includes(code)).map(code=>({code,state:'away'}))]:[...played[k]];
+    while(mine.length<10&&g.ended)mine.push({code:spare.shift(),state:'left'});
+    if(mine.length!==10)throw new Error(`game ${g.n}: ${k} holds ${mine.length} cards`);
+    return [k,mine.sort(handOrder)];});}
+const handRows=(hands)=>`<div class="held">${hands.map(([k,cards])=>`<div class="held-row">${takerDot(k)}<span class="minis">${cards.map(h=>`<span class="hc ${h.state}">${card(...cardOf(h.code))}</span>`).join('')}</span></div>`).join('')}</div>`;
 const minis=(codes)=>`<span class="minis">${codes.map(code=>card(...cardOf(code))).join('')}</span>`;
 const takerDot=(k)=>`<span class="dot" style="${dotStyle(P[k])}" title="${P[k].n}">${P[k].i}</span>`;
 const trickRow=(t,i,side)=>`<div class="trick ${side(t.taker)}"><span class="nr">${i+1}</span>${minis(t.codes)}${takerDot(t.taker)}<span class="pts">${t.points}</span></div>`;
@@ -1913,15 +1927,15 @@ const declaredSheet=(d,g)=>{const row=GAMES_PLAYED.find(r=>r[0]===g.n),declarer=
   const viewerSide=declarer==='felix'?PLAY_ORDER.filter(k=>k!=='felix').map(k=>P[k].n).join(', '):'Wir';
   return gameSheet(d,{n:g.n,count:GAMES_PLAYED.length+3,row:gameRow(row),
     top:`<div class="skatline"><span class="pair"><small>Skat</small>${minis(g.skat)}</span><span class="pair"><small>Gedrückt</small>${minis(g.aside)}</span></div>`
-      +pointsNamed([own,theirs],[P[declarer].n,viewerSide]),
+      +pointsNamed([own,theirs],[P[declarer].n,viewerSide])+handRows(handsOf(game,tricks,declarer)),
     tricks:tricks.map((t,i)=>trickRow(t,i,(k)=>k===declarer?'decl':'opp')).join(''),
     end:g.ended?`<div class="trick ended"><span class="nr">${I.flag}</span><b>Aufgegeben</b>${takerDot(g.ended.by)}</div>`:''});};
 /* a Ramsch: every seat counts its own points, the most lose them; the skat as it lay goes to the last trick */
 const ramschSheet=(d,g)=>{const row=LIST_WITH_RAMSCH.find(r=>r.n===g.n),{tricks,eyes,lastTaker}=playedOut(g),most=Math.max(...Object.values(eyes));
   if(eyes[row.k]!==most||most*2**row.pushes!==-row.score)throw new Error(`game ${g.n}: ${P[row.k].n} has ${eyes[row.k]} points, the row says ${row.score}`);
   return gameSheet(d,{n:g.n,count:11,row:ramschRow(row),
-    top:`<div class="skatline"><span class="pair"><small>Skat</small>${minis(g.aside)}${takerDot(lastTaker)}</span></div>`
-      +`<div class="seat-eyes">${PLAY_ORDER.map(k=>`<span class="${eyes[k]===most?'most':''}">${takerDot(k)}${eyes[k]}</span>`).join('')}</div>`,
+    top:`<div class="skatline"><span class="pair"><small>Skat</small>${minis(g.aside)}${takerDot(lastTaker)}</span>${(g.puts||[]).map(p=>`<span class="pair"><small>Gedrückt</small>${takerDot(p.by)}${minis(p.cards)}</span>`).join('')}</div>`
+      +`<div class="seat-eyes">${PLAY_ORDER.map(k=>`<span class="${eyes[k]===most?'most':''}">${takerDot(k)}${eyes[k]}</span>`).join('')}</div>`+handRows(handsOf(g,tricks,null)),
     tricks:tricks.map((t,i)=>trickRow(t,i,()=>'')).join('')});};
 /* game 18: you play Pik with the ♣ jack, take the ♥ ten and the ♠ seven from the skat and put away the ♣ queen and the ♦ eight */
 const SUIT_GAME={n:18,trump:'s',lead:'felix',skat:['10h','7s'],aside:['Dc','8d'],tricks:[
@@ -1930,8 +1944,8 @@ const SUIT_GAME={n:18,trump:'s',lead:'felix',skat:['10h','7s'],aside:['Dc','8d']
 /* game 12: Anna's Grand without the two black jacks; after three tricks she gives up */
 const EARLY_GAME={n:12,trump:'',lead:'felix',skat:['Dc','9h'],aside:['Dc','Ks'],ended:{by:'anna'},tricks:[
   ['Bc','Bd','Bs'],['As','7s','10s'],['Ac','7c','10c']]};
-/* game 8: the Ramsch Ben loses with 86 points after two pushes */
-const RAMSCH_GAME={n:8,trump:'',lead:'felix',aside:['7d','8d'],tricks:[
+/* game 8: Felix takes the skat and puts the ♦ seven and eight back, Anna and Ben push it on unseen, and Ben loses with 86 points */
+const RAMSCH_GAME={n:8,trump:'',lead:'felix',aside:['7d','8d'],puts:[{by:'felix',cards:['7d','8d']}],tricks:[
   ['Kh','10h','Ah'],['Ac','9c','10c'],['As','Ds','Ks'],['Kd','Kc','9d'],['Bc','Bd','10s'],
   ['7s','9s','8s'],['Bs','10d','Bh'],['7c','Dc','8c'],['Ad','Dd','7h'],['Dh','9h','8h']]};
 const GAME_SCENES=[
@@ -2403,6 +2417,14 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .minis{display:flex;gap:3px}
 .minis .card{--w:32px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.45))}
 .sheet .points{padding:0 10px 0 4px}
+.held{display:flex;flex-direction:column;gap:4px;align-items:center;padding:2px 0}
+.held-row{display:flex;align-items:center;gap:8px}
+.held .dot{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,var(--c1),var(--c2));color:#111;font-size:12px;font-weight:700}
+.held .minis{gap:2px}
+.held .minis .card{--w:24px}
+.held .hc{display:block;border-radius:4px}
+.held .hc.away{opacity:.4}
+.held .hc.left{box-shadow:0 0 0 2px var(--leave);transform:translateY(-3px)}
 .seat-eyes{display:flex;justify-content:center;gap:10px}
 .seat-eyes span{display:flex;align-items:center;gap:6px;padding:4px 12px 4px 4px;border-radius:999px;background:rgba(255,255,255,.07);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--on-stage-soft)}
 .seat-eyes .most{color:var(--on-stage);box-shadow:inset 0 0 0 2px var(--leave)}
@@ -2420,6 +2442,7 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .trick.opp .pts{color:var(--accent-stage)}
 .trick.ended b{grid-column:2/4;font-size:14px;font-weight:600}
 .d1280 .minis .card{--w:40px}
+.d1280 .held .minis .card{--w:30px}
 .d1280 .sheet .tricks{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(5,auto);grid-auto-flow:column;align-content:start;gap:6px 10px}
 /* the list of every game scrolls inside its panel, never the page */
 .result.gamelist{align-items:stretch;padding:16px 8px 12px 14px}
