@@ -41,8 +41,9 @@ def bock_after(
     """The pending Bock rounds once the table's running hand has ended; `entry` is the hand's list entry, None for a
     passed-in hand, which leaves none.
 
-    The hand, a Ramsch included, uses up a Bock game and meets the table's triggers; the series' last game lets every
-    round lapse. A game of a Ramsch round was passed by nobody, so it does not meet `passed-in`.
+    The hand, a Ramsch included, uses up a Bock game, or a Ramsch-round game while no Bock game is pending, and meets
+    the table's triggers; the series' last game lets every round lapse. A game of a Ramsch
+    round was passed by nobody, so it does not meet `passed-in`.
     """
 
     def triggered_by(options: BockOptions) -> bool:
