@@ -86,8 +86,8 @@ export type Card = {
     id: string;
     title: string;
     private: boolean;
-    // What a screen reader says for the card's link.
-    openLabel: string;
+    // What a screen reader says for the card's link; an open card is no link.
+    openLabel: string | null;
     progress: string | null;
     // How many accounts without a chair look on, and the rules the table plays: an open table shows both.
     watchers: number | null;
@@ -254,7 +254,7 @@ export function openCardOf(table: OpenTable, heldMilliseconds: number): Card {
         id: table.id,
         title,
         private: false,
-        openLabel: words["lobby.openTable"]({ title }),
+        openLabel: null,
         progress: progressOf(table),
         watchers: table.watchers,
         rules: tableRules(table.options, null).chips,

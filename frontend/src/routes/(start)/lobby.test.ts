@@ -358,7 +358,13 @@ describe("openCardOf", () => {
     it("titles the entry with the opener's name and shows the series and the watchers", () => {
         const card = openCardOf(openTableOf({ watchers: 3 }), 0);
 
-        expect(card).toMatchObject({ id: "c".repeat(32), title: "Toms Tisch", progress: "36 Spiele", watchers: 3 });
+        expect(card).toMatchObject({
+            id: "c".repeat(32),
+            title: "Toms Tisch",
+            progress: "36 Spiele",
+            watchers: 3,
+            openLabel: null,
+        });
         expect(card.private).toBe(false);
     });
 

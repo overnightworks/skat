@@ -114,7 +114,7 @@ describe("openStream", () => {
         expect(onConnection.mock.calls).toEqual([[true], [true]]);
     });
 
-    it("marks the connection on the browser's own open event and hands a handler named open no data", () => {
+    it("ignores the browser's own open event, so a handler named open gets no data and the connection is not marked", () => {
         const handled: string[] = [];
         const onConnection = vi.fn();
         openStream(
@@ -123,6 +123,10 @@ describe("openStream", () => {
         );
 
         latest().connect("open");
+
+        expect(onConnection).not.toHaveBeenCalled();
+        expect(handled).toEqual([]);
+
         latest().send("open", "[1]");
 
         expect(onConnection).toHaveBeenCalledWith(true);
