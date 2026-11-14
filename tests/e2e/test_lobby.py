@@ -169,6 +169,9 @@ def test_the_new_table_sheet_offers_open_checked_by_default_and_private_with_a_l
     expect(person.get_by_text(VISIBILITY_INFO)).to_be_visible()
     pick_visibility(person, VISIBILITY_PRIVATE)
     expect(choice.get_by_role("radio", name=VISIBILITY_OPEN)).not_to_be_checked()
+    pick_visibility(person, VISIBILITY_OPEN)
+    expect(choice.get_by_role("radio", name=VISIBILITY_PRIVATE)).not_to_be_checked()
+    expect(choice.get_by_role("radio", name=VISIBILITY_OPEN)).to_be_checked()
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 

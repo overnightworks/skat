@@ -241,7 +241,8 @@
                         />
                     </svg>
                 </span>
-                {words["start.visibilityOpen"]}
+                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                {`${words["start.visibilityOpen"]}`}
             </label>
             <label class="opt" class:on={visibility === "private"}>
                 <input
@@ -255,7 +256,8 @@
                 />
                 {#if visibility === "private"}{@render tick()}{/if}
                 <span class="ic"><LockIcon /></span>
-                {words["start.visibilityPrivate"]}
+                <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+                {`${words["start.visibilityPrivate"]}`}
             </label>
         </div>
         {#if infoShown}
