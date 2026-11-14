@@ -21,6 +21,7 @@ from skat.table.records import (
     TableId,
     TableOptions,
     TableRecord,
+    Visibility,
 )
 
 HERZ_HAND = Declare(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.NONE)
@@ -57,6 +58,7 @@ def table_in(progress: HandProgress, options: TableOptions | None = None) -> Tab
         series=None,
         options=options or TableOptions(),
         bock=BockRounds.start(),
+        visibility=Visibility.OPEN,
     )
 
 

@@ -221,6 +221,19 @@ class TestChairHold:
         run(time.advance(1))
         assert set(releases.calls) == {(TABLE, "anna"), (OTHER_TABLE, "ben")}
 
+    def test_the_seconds_a_hold_has_left_count_down_for_the_asked_tables_only(self, holding, time, releases):
+        holding.hold_chairs([(TABLE, "anna"), (OTHER_TABLE, "ben")])
+
+        run(time.advance(HOLD_SECONDS - 10))
+
+        assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": 10}}
+
+    def test_a_member_who_is_connected_again_has_no_hold_left_to_count(self, holding):
+        holding.hold_chairs([(TABLE, "anna")])
+        connect(holding, TABLE, "anna", lambda: None)
+
+        assert holding.hold_seconds_left([TABLE]) == {}
+
     def test_a_member_connecting_after_the_start_keeps_the_chair(self, holding, time, releases):
         holding.hold_chairs([(TABLE, "anna")])
         connect(holding, TABLE, "anna", lambda: None)

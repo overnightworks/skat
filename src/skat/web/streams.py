@@ -41,6 +41,7 @@ class StreamEvent(StrEnum):
     """The names a stream gives its events; a client listens by name."""
 
     MINE = "mine"
+    OPEN = "open"
     ATTENTION = "attention"
 
 

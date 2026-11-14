@@ -104,6 +104,12 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         """
         ...
 
+    def open_table_ids(self) -> tuple[TableId, ...]:
+        """The live tables listed to every member, in id order; no row is locked, so the list is a candidate list as
+        `tables_of` is.
+        """
+        ...
+
 
 class TableTransactions(Protocol):  # pragma: no cover - a port's method bodies are signatures; the adapters run
     def begin(self) -> AbstractContextManager[TableTransaction]:

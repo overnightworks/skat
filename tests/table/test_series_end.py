@@ -17,6 +17,7 @@ from skat.table.records import (
     TableId,
     TableOptions,
     TableRecord,
+    Visibility,
     parsed_refusal,
 )
 from skat.table.series_end import SeriesEndCommand, decide_agree_to_end, decide_refuse_to_end, series_end_payload
@@ -49,6 +50,7 @@ def between_games(
         series=series or Series(12, 2, end_proposal=proposal),
         options=TableOptions(),
         bock=BockRounds.start(),
+        visibility=Visibility.OPEN,
     )
 
 
