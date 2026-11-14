@@ -36,7 +36,7 @@ from tests.web.support.agent import SUBJECT, Agent, person_posts, view_uri_of
 from tests.web.support.calling import running_skat
 from tests.web.support.changes import RecordedChanges
 from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import FakeTime, Skat, skat_on_the_clock, stored
+from tests.web.support.skat import FakeTime, Skat, stored
 
 MIDDLEHAND = Position.MIDDLEHAND
 OTHER_AGENT_SUBJECT = "other-agent-subject"

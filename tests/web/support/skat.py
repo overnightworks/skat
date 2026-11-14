@@ -162,21 +162,6 @@ class Skat:
         )
 
 
-@contextmanager
-def skat_on_the_clock(hold, issuer, time, **options):
-    """A server whose chairs and tables run on `time`, signed in through `issuer`; `options` reach `Skat`."""
-    skat = Skat(
-        lambda: hold,
-        issuer_transports=issuer.transports,
-        chair_clock=time.clock,
-        chair_scheduler=time,
-        now=time.moment,
-        **options,
-    )
-    with skat.client:
-        yield skat
-
-
 def unnamed_lines(lines):
     """The lines of an event stream without its named events, so the table views and the heartbeats remain."""
     named = False

@@ -19,7 +19,7 @@ from tests.support.signed_in import new_account
 from tests.web.support.agent import Agent
 from tests.web.support.changes import RecordedChanges
 from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import FETCH, skat_on_the_clock, streams_of
+from tests.web.support.skat import FETCH, Skat, streams_of
 
 
 @dataclass(frozen=True)

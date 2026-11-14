@@ -47,7 +47,7 @@ from tests.web.support.calling import running_skat
 from tests.web.support.playing import HERZ_GAME, card_body
 from tests.web.support.presence import HOLD_SECONDS
 from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import UNKNOWN_ID, AgentTable, Skat, skat_on_the_clock
+from tests.web.support.skat import UNKNOWN_ID, AgentTable, Skat
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 UNKNOWN = "Unknown resource"
