@@ -31,6 +31,8 @@ WAIT_LINE = ".plaque .game.gives"
 DIMMED_HAND = ".controls.held"
 DIMMED_FAN = ".fan.dim"
 DIMMED_OPEN_CARD = ".open .card"
+GIVE_UP_KEY = ".copy.give-up"
+ROUND_KEY = re.compile(r"\bround\b")
 TURN_CHAIR = ".chair.turn"
 
 
@@ -76,6 +78,7 @@ def test_the_seat_owing_a_word_declines_it_and_every_other_page_reads_the_wait_f
     expect(owing.locator(DIMMED_HAND)).to_have_count(1)
     expect(owing.locator(f"{DIMMED_HAND} .own-hand .card").first).to_have_css("filter", re.compile("brightness"))
     expect_nothing_to_overflow(owing)
+    expect(owing.locator(GIVE_UP_KEY)).not_to_have_class(ROUND_KEY)
     for person in others:
         expect(person.locator(WAIT_LINE)).to_contain_text(forehand_name)
         expect(person.locator(TURN_CHAIR)).to_have_attribute("data-seat", str(table.seat_at["forehand"]))
@@ -110,6 +113,7 @@ def test_after_a_kontra_the_wait_moves_to_the_declarer_who_answers_with_re_or_de
     expect(button_of(declarer, RE)).to_be_visible()
     expect(button_of(declarer, decline_of(RE))).to_be_visible()
     expect_nothing_to_overflow(declarer)
+    expect(declarer.locator(GIVE_UP_KEY)).not_to_have_class(ROUND_KEY)
     expect(declarer.locator(WAIT_LINE)).to_contain_text(YOU)
     for person in (owing_page(table, "forehand"), owing_page(table, "rearhand"), table.watcher):
         expect(person.locator(WAIT_LINE)).to_contain_text(declarer_name)

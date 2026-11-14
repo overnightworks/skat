@@ -25,7 +25,13 @@ function chairs(mine: number): Chair[] {
 export function tableWith(
     mine: number,
     request: GiveUp | null,
-    changes: { waiting?: number; ramsch?: boolean; kontraWord?: Word; grandHandInRamsch?: boolean } = {},
+    changes: {
+        waiting?: number;
+        ramsch?: boolean;
+        kontraWord?: Word;
+        grandHandInRamsch?: boolean;
+        owedBy?: number;
+    } = {},
 ): Table {
     return {
         id: "a".repeat(32),
@@ -86,7 +92,7 @@ export function tableWith(
                           said: [],
                           factor: 1,
                           my_word: changes.kontraWord,
-                          first_card_waits_on: [],
+                          first_card_waits_on: changes.owedBy === undefined ? [] : [changes.owedBy],
                           first_card_declined: [],
                       }
                     : null,
