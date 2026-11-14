@@ -1,8 +1,0 @@
-claim_id = "c57e2e959aac45cd9b274689ef493612"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "03c35065d502371c8361791a20d4867a2da55c4d"
-branch = "claude/issue-597-skat-pins-design-v0-33-1"
-scope = [".github/workflows/ci.yml", "frontend/package.json", "frontend/pnpm-lock.yaml", "frontend/src/lib/words", "pyproject.toml", "src/skat/web/words.py", "uv.lock"]
-opened_commit = "01cd59201606da6b04e38993ffdb74e5ac832885"
-whole_reason = "One pin in two package files and the generated catalogs that follow from it."
