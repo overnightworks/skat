@@ -1,0 +1,7 @@
+claim_id = "6dd7cbf6eba048c3855bfa0f76c9c3c2"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "d5e856c770c53e6ba3afd66c5a4f4505d5be387b"
+branch = "claude/issue-573-the-picture-draws-a-past-game-s-tricks-w"
+scope = ["docs/mockups/table.html"]
+opened_commit = "b5203f5f43c46c43cf8a79af96cace711771a7c0"
