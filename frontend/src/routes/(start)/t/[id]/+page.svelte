@@ -731,7 +731,7 @@
                         watchers={streamedWatchers}
                         kitWords={data.kitWords}
                     />
-                    {#if seated}
+                    {#if seated && !onResult}
                         <StyleKey {id} bind:note />
                     {/if}
                     {#if callMode}

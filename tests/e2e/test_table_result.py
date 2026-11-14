@@ -33,7 +33,7 @@ from tests.e2e.support.result_card import (
     signed,
     waiting_for,
 )
-from tests.e2e.support.style import STYLES, expect_the_furniture_clear, give_the_table_its_style
+from tests.e2e.support.style import STYLE_KEY, STYLES, expect_the_furniture_clear, give_the_table_its_style
 from tests.e2e.support.tables import SIT_DOWN
 
 if TYPE_CHECKING:
@@ -288,6 +288,8 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     expect_the_seat_tiles_inside_the_card(table.everyone)
     expect_the_page_around_the_card(table.everyone)
     expect_the_furniture_clear(table.everyone, table_style)
+    for person in table.everyone:
+        expect(person.get_by_role("button", name=STYLE_KEY)).to_have_count(0)
     expect_the_marks(table, set())
     expect_the_buttons(table, set())
 
