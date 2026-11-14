@@ -47,6 +47,9 @@ STAMMTISCH = text(SOURCE_LANGUAGE, "sound.setStammtisch")
 FUNKELN = text(SOURCE_LANGUAGE, "sound.setFunkeln")
 DEZENT = text(SOURCE_LANGUAGE, "sound.motionDezent")
 VERSPIELT = text(SOURCE_LANGUAGE, "sound.motionVerspielt")
+LAST_TRICK = text(SOURCE_LANGUAGE, "sound.lastTrick")
+SWEEP = text(SOURCE_LANGUAGE, "sound.lastTrickSweep")
+STAY = text(SOURCE_LANGUAGE, "sound.lastTrickStay")
 # The voices of a card in the sets "Stammtisch" and "Funkeln", in the order they start.
 STAMMTISCH_KINDS = ["noise", "noise", "tone"]
 FUNKELN_KINDS = ["tone", "noise", "tone"]
@@ -422,6 +425,26 @@ def test_the_override_shows_only_where_the_device_asks_for_reduced_motion(
     expect(panel_of(watcher).get_by_role("switch", name=REPLAY_MOTION)).to_have_count(int(asks_to_reduce))
     expect(panel_of(watcher).get_by_text(REDUCED_NOTE)).to_have_count(int(asks_to_reduce))
     expect(row_of(watcher, MOTION)).to_have_attribute("aria-disabled", str(asks_to_reduce).lower())
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_picked_last_trick_choice_is_stored_and_holds_after_a_reload(
+    table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    watcher = open_at(open_person, page_errors, table, reduced_motion="no-preference", **form_factor)
+    open_the_panel(watcher)
+    expect(picked_in(watcher, LAST_TRICK)).to_have_accessible_name(SWEEP)
+
+    pick(watcher, LAST_TRICK, STAY)
+
+    expect(picked_in(watcher, LAST_TRICK)).to_have_accessible_name(STAY)
+    assert json.loads(stored_record(watcher) or "") == {"lastTrick": "stay"}
+    watcher.reload()
+    expect(watcher.locator(".chair")).to_have_count(3)
+    open_the_panel(watcher)
+
+    expect(picked_in(watcher, LAST_TRICK)).to_have_accessible_name(STAY)
     assert page_errors == []
 
 
