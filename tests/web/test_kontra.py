@@ -3,15 +3,14 @@ from functools import partial
 import pytest
 
 from skat.engine.deal import Position
-from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
-from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX, GameToken
+from skat.web.declaring import GameToken
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import HERZ_GAME, Table, cards
+from tests.web.support.playing import HERZ_GAME, Table, cards, contested_auction
 from tests.web.support.presence import view_of_version
 from tests.web.support.series import tap_weiter
 from tests.web.support.skat import streams_of
@@ -391,28 +390,6 @@ class TestAnsweringNoWord:
 
     def test_a_watcher_cannot_answer_no_word(self, herz_hand):
         herz_hand.refused_act(TABLE_NO_WORD_SUFFIX, herz_hand.watcher, "not-seated")
-
-
-def contested_auction(table):
-    """Middlehand bids 18, forehand holds, middlehand bids 20, both opponents pass; middlehand declares Herz Hand."""
-
-    def step(position, suffix, **body):
-        answer = table.act(suffix, table.at[position], body=body)
-        assert answer.status_code == 200, answer.text
-
-    step(MIDDLEHAND, TABLE_AUCTION_BID_SUFFIX, value=18)
-    step(FOREHAND, TABLE_AUCTION_HOLD_SUFFIX)
-    step(MIDDLEHAND, TABLE_AUCTION_BID_SUFFIX, value=20)
-    step(FOREHAND, TABLE_AUCTION_PASS_SUFFIX)
-    step(REARHAND, TABLE_AUCTION_PASS_SUFFIX)
-    step(
-        MIDDLEHAND,
-        TABLE_DECLARING_DECLARE_SUFFIX,
-        game="herz",
-        hand=True,
-        ouvert=False,
-        announcement="none",
-    )
 
 
 class TestTheOtherRefusals:
