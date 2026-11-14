@@ -209,3 +209,31 @@ class TestReadinessLogging:
             asyncio.run(stall_then_recover())
 
         assert [(entry["was"], entry["now"]) for entry in logs] == [("ready", "slow"), ("slow", "ready")]
+
+    @pytest.mark.parametrize(
+        ("health", "cause"),
+        [(UNREACHABLE, "unreachable"), (NOT_AT_HEAD, "not_at_head")],
+        ids=["unreachable", "not-at-head"],
+    )
+    def test_a_stalled_probe_after_an_unready_verdict_logs_nothing_more_and_answers_unready(
+        self, readiness, database, clock, monkeypatch, health, cause
+    ):
+        monkeypatch.setattr(migrate_module, "READINESS_PATIENCE_SECONDS", 0.05)
+        database.health = health
+
+        async def stall_after_the_unready_verdict() -> list[bool]:
+            answers = [await readiness()]
+            database.stalled = True
+            clock.now += READINESS_REUSE_SECONDS
+            answers += await asyncio.wait_for(burst(readiness), timeout=STALL_GUARD_SECONDS)
+            database.released.set()
+            await asyncio.gather(*(task for task in asyncio.all_tasks() if task is not asyncio.current_task()))
+            return answers
+
+        with capture_logs() as logs:
+            answers = asyncio.run(stall_after_the_unready_verdict())
+
+        assert (answers, [(entry["was"], entry["now"]) for entry in logs]) == (
+            [False] * (BURST_SIZE + 1),
+            [("ready", cause)],
+        )
