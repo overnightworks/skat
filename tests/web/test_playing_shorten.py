@@ -104,7 +104,10 @@ class TestTheDeclarerShortens:
     def test_the_request_discloses_no_card_to_anyone_and_play_goes_on_for_the_player_on_turn(self, herz_hand):
         with everyones_streams(herz_hand) as streams:
             shortens(herz_hand)
-            frames = [(position, next(stream)) for position, stream in streams]
+            frames = [
+                (position, next(frame for frame in stream if frame["hand"]["playing"]["shortening"] is not None))
+                for position, stream in streams
+            ]
 
         assert [cards_in(frame) == own_cards_of(position) for position, frame in frames] == [True] * 4
         assert open_cards_read(herz_hand) == [set()] * 4
@@ -203,7 +206,7 @@ class TestBothOpponentsSayYes:
         says_yes(herz_hand, FOREHAND)
         with everyones_streams(herz_hand) as streams:
             says_yes(herz_hand, REARHAND)
-            frames = [next(stream) for _, stream in streams]
+            frames = [next(frame for frame in stream if frame["result"] is not None) for _, stream in streams]
 
         assert [cards_in(frame) for frame in frames] == [set()] * 4
         assert {str(frame["result"]) for frame in frames} == {str(frames[0]["result"])}
@@ -326,7 +329,13 @@ class TestAnOpponentSaysNo:
             says_yes(herz_hand, opponent)
         with everyones_streams(herz_hand) as streams:
             says_no(herz_hand, no)
-            frames = [(position, next(stream)) for position, stream in streams]
+            frames = [
+                (
+                    position,
+                    next(frame for frame in stream if frame["hand"]["playing"]["shortening_refused_seat"] is not None),
+                )
+                for position, stream in streams
+            ]
 
         for position, frame in frames:
             assert cards_in(frame) == own_cards_of(position) | declarers_cards()
