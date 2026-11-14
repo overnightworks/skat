@@ -4,6 +4,7 @@ import weakref
 from collections import Counter
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import partial
 from typing import TYPE_CHECKING, Final, Protocol
 
 from fastapi import APIRouter, HTTPException, Request
@@ -318,6 +319,33 @@ def session_admission(request: Request, sessions: SessionRecordStore) -> Callabl
     return admit
 
 
+async def _read_version(tables: TableService, table_id: str) -> int | None:
+    versions = await run_in_threadpool(tables.table_versions, (TableId(table_id),))
+    return versions[0].version if versions else None
+
+
+async def _read_leased(tables: TableService, table_id: str) -> frozenset[str]:
+    seats = await run_in_threadpool(tables.leased_seats, (TableId(table_id),))
+    return frozenset(seat.account_id for seat in seats)
+
+
+def _table_source(
+    tables: TableService,
+    presence: Presence,
+    read_view: Callable[[Actor, frozenset[str]], Awaitable[TableView | None]],
+    table_id: str,
+    account_id: str,
+) -> TableSource:
+    return TableSource(
+        presence,
+        read_view,
+        partial(_read_version, tables, table_id),
+        partial(_read_leased, tables, table_id),
+        table_id,
+        account_id,
+    )
+
+
 def create_streams_router(
     tables: TableService,
     presence: Presence,
@@ -347,14 +375,6 @@ def create_streams_router(
         async def read_view(actor: Actor, connected: frozenset[str]) -> TableView | None:
             return await run_in_threadpool(tables.view, actor, table_id, connected)
 
-        async def read_version() -> int | None:
-            versions = await run_in_threadpool(tables.table_versions, (TableId(table_id),))
-            return versions[0].version if versions else None
-
-        async def read_leased() -> frozenset[str]:
-            seats = await run_in_threadpool(tables.leased_seats, (TableId(table_id),))
-            return frozenset(seat.account_id for seat in seats)
-
         # Nothing is registered or held open for an id that is no table, and a refusal gives the slot back.
         try:
             first_view = await read_view(opened_as, frozenset())
@@ -372,7 +392,7 @@ def create_streams_router(
                 yield message_of(_table_message(first_view, {}))
                 return
             sources = [
-                TableSource(presence, read_view, read_version, read_leased, table_id, opened_as.account_id),
+                _table_source(tables, presence, read_view, table_id, opened_as.account_id),
                 attention_of(table_id, opened_as.account_id),
             ]
             async for item in stream_messages(
