@@ -1,8 +1,0 @@
-claim_id = "dc943e1d722646a5a9c346038c5dae93"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "d5e856c770c53e6ba3afd66c5a4f4505d5be387b"
-branch = "claude/issue-564-s11-15b-a-seated-player-taps-the-bell-at"
-scope = ["docs/mockups/table.html", "frontend/src/lib/abort.test.ts", "frontend/src/lib/auctionMarks.test.ts", "frontend/src/lib/catalogs/de.po", "frontend/src/lib/catalogs/en.po", "frontend/src/lib/cues.test.ts", "frontend/src/lib/giveUp.fixtures.ts", "frontend/src/lib/kontra.test.ts", "frontend/src/lib/openChair.test.ts", "frontend/src/lib/playView.test.ts", "frontend/src/lib/pushView.fixtures.ts", "frontend/src/lib/ramschView.test.ts", "frontend/src/lib/result.fixtures.ts", "frontend/src/lib/series.fixtures.ts", "frontend/src/lib/start.css", "frontend/src/lib/tableSound.test.ts", "frontend/src/lib/ui/NudgeBell.svelte", "frontend/src/lib/ui/NudgeBell.svelte.test.ts", "frontend/src/lib/ui/PassMark.svelte", "frontend/src/lib/wire.ts", "frontend/src/lib/words", "frontend/src/routes/(start)/nudge.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.ts", "frontend/src/routes/(start)/tablesAgents.test.ts", "frontend/src/routes/(start)/tablesDeclaring.test.ts", "frontend/src/routes/(start)/tablesLabels.test.ts", "frontend/src/routes/(start)/tablesNudge.test.ts", "frontend/vite.config.ts", "scripts/generate_wire.py", "src/skat/web/words.py", "tests/e2e/test_table_nudge.py"]
-opened_commit = "35f021ae32dcf88739be89021d634cbbd0f6a58d"
-whole_reason = "The bell, its timing, its notice and the wire constants it reads are one page capability proven in one drive."
