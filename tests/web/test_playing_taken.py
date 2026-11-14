@@ -1,7 +1,8 @@
 import pytest
 
-from skat.engine.deal import Position
-from tests.web.support.playing import HERZ_GAME, PLAIN_DEAL, PLAIN_HAND, Table, three_pass
+from skat.engine.deal import Deal, Position
+from skat.web.declaration_tokens import GameToken
+from tests.web.support.playing import HERZ_GAME, PLAIN_DEAL, PLAIN_HAND, Table, cards, game_of, three_pass
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 EVERY_VIEWER = [
@@ -42,6 +43,36 @@ class TestTheTricksEachSeatTook:
     def test_a_suit_game_counts_the_tricks_taken_so_far(self, table, viewer, cards_played, tricks):
         table.declared_hand_game()
         table.played_out(HERZ_GAME[:cards_played])
+
+        assert taken_as_read(table, viewer) == counts(*tricks)
+
+    @pytest.mark.parametrize("viewer", EVERY_VIEWER)
+    @pytest.mark.parametrize(
+        ("cards_played", "tricks"),
+        [
+            pytest.param(0, (0, 0, 0), id="none-before-the-first-card"),
+            pytest.param(6, (1, 0, 1), id="two-seats-after-the-second-trick"),
+            pytest.param(29, (5, 0, 4), id="with-the-last-card-due"),
+        ],
+    )
+    def test_a_grand_counts_the_tricks_taken_so_far_with_zero_for_a_seat_that_took_none(
+        self, table, viewer, cards_played, tricks
+    ):
+        table.with_deal(
+            Deal(
+                forehand=cards("CJ CT HK D8 S9 CK ST S8 SK DT"),
+                middlehand=cards("HA H9 DA CQ HJ S7 DK D7 SQ SJ"),
+                rearhand=cards("DQ C7 HQ DJ HT C9 D9 H7 H8 C8"),
+                skat=cards("CA SA"),
+            )
+        )
+        table.declared_hand_game(GameToken.GRAND)
+        table.played_out(
+            game_of(
+                "S8 SQ DQ / SJ DJ CJ / S9 S7 H7 / HK HA H8 / HJ C7 SK",
+                "DA D9 DT / DK HQ D8 / CQ C9 CK / CT H9 C8 / ST D7 HT",
+            )[:cards_played]
+        )
 
         assert taken_as_read(table, viewer) == counts(*tricks)
 
