@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TABLE_ID } from "#lib/table.fixtures.ts";
-import { TABLE_KONTRA_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
-import { sayKontra } from "./tables.ts";
+import { TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
+import { sayKontra, sayNoWord } from "./tables.ts";
 
 describe("saying a word at the table", () => {
     const table = {
@@ -34,5 +34,13 @@ describe("saying a word at the table", () => {
             version: 7,
             word: "re",
         });
+    });
+
+    it("sends the version shown and a command id, and no word, to give a word up", async () => {
+        expect(await sayNoWord(TABLE_ID, 7, "command-8")).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_NO_WORD_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-8", version: 7 });
     });
 });

@@ -851,6 +851,18 @@ msgctxt "kontra.commandFailed"
 msgid "Das hat nicht geklappt"
 msgstr "That did not work"
 
+msgctxt "kontra.decline"
+msgid "Kein {word}"
+msgstr "No {word}"
+
+msgctxt "kontra.firstCardWaits"
+msgid "Erste Karte wartet auf {names}"
+msgstr "The first card waits for {names}"
+
+msgctxt "kontra.you"
+msgid "dich"
+msgstr "you"
+
 msgctxt "bid.hold"
 msgid "Halten"
 msgstr "Hold"

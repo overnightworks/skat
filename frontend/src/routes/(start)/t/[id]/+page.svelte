@@ -15,7 +15,7 @@
     import { cuesBetween, springsUp, stampBetween, type BidWord } from "#lib/cues.ts";
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { giveUpAsk, giveUpView, refusalNotice } from "#lib/giveUp.ts";
-    import { plaqueLine, type Stamp } from "#lib/kontra.ts";
+    import { firstCardWait, type Stamp } from "#lib/kontra.ts";
     import { legalLinks } from "#lib/legal.ts";
     import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import {
@@ -58,6 +58,7 @@
     import LockedChairTile from "#lib/ui/LockedChairTile.svelte";
     import GiveUpKey from "#lib/ui/GiveUpKey.svelte";
     import KontraKey from "#lib/ui/KontraKey.svelte";
+    import KontraLines from "#lib/ui/KontraLines.svelte";
     import NudgeBell from "#lib/ui/NudgeBell.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PassMark from "#lib/ui/PassMark.svelte";
@@ -383,7 +384,8 @@
             {@const trick = inPlay?.playing ?? ramschTrick(outcome.table)}
             {@const waits = handWaits(outcome.table.hand)}
             {@const locked = lockedChairs(outcome.table)}
-            {@const turnSeat = waits ? undefined : inPlay?.playing.turn_seat}
+            {@const wait = firstCardWait(outcome.table)}
+            {@const turnSeat = waits || wait ? undefined : inPlay?.playing.turn_seat}
             {@const declared = declaredResult(outcome.table)}
             {@const view = declared === null ? null : resultView(outcome.table)}
             {@const ramschView = ramschResultView(outcome.table)}
@@ -440,7 +442,6 @@
             {:else if inPlay !== null}
                 {@const label = gameLabel(inPlay.declaration)}
                 {@const running = inPlay.playing.running_points}
-                {@const said = plaqueLine(inPlay.playing.kontra)}
                 {@const stageBid = bidLineOfGameDeclaredInTheStage(outcome.table)}
                 {#if giveUp !== null}
                     {@const table = outcome.table}
@@ -461,7 +462,7 @@
                         class="plaque"
                         class:wide={label.announcement !== null}
                         class:counting={running !== null}
-                        class:deciding={waits}
+                        class:deciding={waits || wait !== null}
                     >
                         <span class="game">
                             {#if isSuitGame(inPlay.declaration.game)}
@@ -477,9 +478,7 @@
                         {#if stageBid !== null}
                             <span class="game pushes">{stageBid}</span>
                         {/if}
-                        {#if said !== null}
-                            <span class="game pushes"><Marked parts={said} marked={{ factor }} /></span>
-                        {/if}
+                        <KontraLines kontra={inPlay.playing.kontra} {wait} />
                         {#if waits}
                             {@render waitingLine()}
                         {/if}
@@ -564,7 +563,7 @@
                               ? decidingMarks(declaring, chair.seat, justWon, waits)
                               : chairMarks(auction, chair.seat, ownChair?.seat, waits)}
                     {@const ramschMark = ramschMarks(ramschTable, chair.seat)}
-                    {@const onTurn = marks.turn || chair.seat === turnSeat || ramschMark.turn}
+                    {@const onTurn = marks.turn || chair.seat === turnSeat || ramschMark.turn || wait?.owes(chair.seat)}
                     {@const openCards = chair.seat === declaring?.declarer_seat ? declaring.open_cards : []}
                     <li
                         class="chair"
@@ -621,6 +620,7 @@
                                     </span>
                                 {/if}
                                 <AnswerMarks mark={(giveUp?.marks ?? abort.marks).get(chair.seat)} />
+                                <AnswerMarks mark={wait?.marks.get(chair.seat)} />
                                 {#if onTurn}
                                     <span class="mark turn" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -689,7 +689,7 @@
                                 <div class="fan-spot">
                                     <BackFan
                                         count={chair.hand.card_count}
-                                        dim={chair.is_away || giveUp?.cardsHeld === true}
+                                        dim={chair.is_away || giveUp?.cardsHeld === true || wait?.held(chair.seat)}
                                     />
                                 </div>
                             {/if}
@@ -713,7 +713,7 @@
                     }}
                 />
             {/if}
-            <div class="controls" class:held={giveUp?.cardsHeld === true}>
+            <div class="controls" class:held={giveUp?.cardsHeld === true || wait?.held(ownChair?.seat)}>
                 {#if ownCards.length > 0}
                     <OwnHand cards={ownCards} {picking} {playing} />
                 {/if}

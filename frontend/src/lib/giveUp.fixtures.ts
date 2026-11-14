@@ -81,7 +81,15 @@ export function tableWith(
                 legal_cards: [],
                 running_points: null,
                 give_up: request,
-                kontra: changes.kontraWord ? { said: [], factor: 1, my_word: changes.kontraWord } : null,
+                kontra: changes.kontraWord
+                    ? {
+                          said: [],
+                          factor: 1,
+                          my_word: changes.kontraWord,
+                          first_card_waits_on: [],
+                          first_card_declined: [],
+                      }
+                    : null,
             },
         },
     };

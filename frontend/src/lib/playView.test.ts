@@ -243,6 +243,12 @@ describe("the cards the viewer may play", () => {
     it("are none with no hand on the table", () => {
         expect(cardsToPlay({ ...table(1, {}), hand: null })).toBeNull();
     });
+
+    it("are none while the first card waits for a Kontra word", () => {
+        const kontra = { said: [], factor: 1, my_word: null, first_card_waits_on: [2], first_card_declined: [] };
+
+        expect(cardsToPlay(table(1, { turn_seat: 1, legal_cards: legal, kontra }))).toBeNull();
+    });
 });
 
 describe("how a card of the own hand looks", () => {

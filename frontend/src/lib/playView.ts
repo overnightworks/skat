@@ -1,3 +1,4 @@
+import { firstCardWait } from "#lib/kontra.ts";
 import { POSITION_TOKENS } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
 import {
@@ -105,11 +106,11 @@ export function bidLineOfGameDeclaredInTheStage(table: Table): string | null {
     return words["table.bidValue"]({ value: String(auction.declared.value) });
 }
 
-// The cards the viewer may play now, or null when it is not the viewer's turn to play.
+// The cards the viewer may play now, or null when it is not the viewer's turn to play or the first card waits for a word.
 export function cardsToPlay(table: Table): readonly Card[] | null {
     const playing = table.hand?.playing;
     const mineSeat = table.chairs.find((chair) => chair.is_mine)?.seat;
-    if (mineSeat === undefined || playing?.turn_seat !== mineSeat) return null;
+    if (mineSeat === undefined || playing?.turn_seat !== mineSeat || firstCardWait(table) !== null) return null;
     return playing.legal_cards;
 }
 

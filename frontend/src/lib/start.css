@@ -6616,6 +6616,24 @@ body {
     }
 }
 
+/* While the first card waits on the viewer's word, the key that says it and the key that gives it up stand side by side; on a phone the pair takes a row above the rest of the strip. */
+.room .kontra-keys {
+    display: flex;
+    gap: 10px;
+}
+
+@media (max-width: 899px) {
+    .room .actions:has(.kontra-keys) {
+        flex-wrap: wrap;
+    }
+
+    .room .kontra-keys {
+        flex: 1 0 100%;
+        justify-content: center;
+        gap: 8px;
+    }
+}
+
 /* A phone's strip keeps one row while a hand runs, as the scenes draw it: the Kontra key shows its word, the abort key its flag alone (its word stays for assistive technology) until a first tap arms it. */
 @media (max-width: 899px) {
     .room .copy.kontra svg {
