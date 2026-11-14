@@ -20,6 +20,20 @@ date = 2026-11-10
 reason = "the agent runtime library is renamed to agents, so the contract forbids the new module name in place of agent_runtime_client"
 
 [[size.generated]]
+path = "frontend/src/lib/words/de.ts"
+job = "Lint and test"
+item = "overnightworks/skat#500"
+date = 2026-11-13
+reason = "written by design-catalogs from catalogs/de.po, proven byte for byte by make words-check, which make lint in Lint and test runs"
+
+[[size.generated]]
+path = "frontend/src/lib/wire.ts"
+job = "Lint and test"
+item = "overnightworks/skat#500"
+date = 2026-11-13
+reason = "written by scripts/generate_wire.py from the Python path constants, proven by make wire-check, which make lint in Lint and test runs"
+
+[[size.generated]]
 path = "src/skat/web/words.py"
 job = "Lint and test"
 item = "overnightworks/skat#484"

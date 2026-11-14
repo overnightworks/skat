@@ -1,7 +1,12 @@
 <script lang="ts">
-    import { setMuted, soundSettings } from "#lib/settings.svelte.ts";
+    import { deviceReducesMotion } from "#lib/deviceMotion.svelte.ts";
+    import { MOTION_SETS } from "#lib/motionSets.ts";
+    import { changeSetting, currentSettings, motionInForce } from "#lib/settings.svelte.ts";
+    import { SOUND_SETS } from "#lib/soundSets.ts";
+    import { previewSound } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import AnchoredPanel from "./AnchoredPanel.svelte";
+    import SoundPanel, { type SoundRow } from "./SoundPanel.svelte";
 
     /** `bar` stands in the table's top row and opens its panel downwards; `strip` stands in the bottom strip and opens it upwards. */
     const { place }: { place: "bar" | "strip" } = $props();
@@ -15,7 +20,75 @@
     let open = $state(false);
     let viewportWidth = $state(0);
 
-    const muted = $derived(soundSettings().muted);
+    const settings = $derived(currentSettings());
+    const muted = $derived(settings.muted);
+    const reduced = $derived(deviceReducesMotion());
+    // The pick that just sounded is named until the panel closes.
+    let previewed = $state(false);
+    $effect(() => {
+        if (!open) previewed = false;
+    });
+
+    const rows: SoundRow[] = $derived([
+        {
+            kind: "switch",
+            label: words["sound.tone"],
+            on: !muted,
+            change: (on) => {
+                changeSetting("muted", !on);
+            },
+        },
+        {
+            kind: "volume",
+            label: words["sound.volume"],
+            value: settings.volume,
+            change: (value: number) => {
+                changeSetting("volume", value);
+            },
+        },
+        {
+            kind: "choice",
+            label: words["sound.sets"],
+            options: Object.values(SOUND_SETS).map((set) => ({
+                id: set.id,
+                name: words[set.name],
+                pick: () => {
+                    changeSetting("soundSet", set.id);
+                    previewed = true;
+                    void previewSound();
+                },
+            })),
+            picked: settings.soundSet,
+            greyed: false,
+            played: previewed && !muted ? words["sound.playsOnce"] : undefined,
+        },
+        {
+            kind: "choice",
+            label: words["sound.motion"],
+            options: Object.values(MOTION_SETS).map((set) => ({
+                id: set.id,
+                name: words[set.name],
+                pick: () => {
+                    changeSetting("motionSet", set.id);
+                },
+            })),
+            picked: settings.motionSet,
+            greyed: motionInForce() === undefined,
+            note: reduced ? words["sound.reducedMotionNote"] : undefined,
+        },
+        ...(reduced
+            ? [
+                  {
+                      kind: "switch",
+                      label: words["sound.replayMotion"],
+                      on: settings.replayMotion,
+                      change: (on: boolean) => {
+                          changeSetting("replayMotion", on);
+                      },
+                  } as const,
+              ]
+            : []),
+    ]);
     const name = $derived(muted ? words["sound.muted"] : words["sound.panelName"]);
     const word = $derived(muted ? words["sound.muted"] : words["sound.on"]);
 </script>
@@ -78,32 +151,5 @@
     width={viewportWidth >= DESKTOP_FROM ? DESKTOP_PANEL_WIDTH : PHONE_PANEL_WIDTH}
     title={words["sound.panelName"]}
 >
-    <div class="sound-head">
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-        >
-            <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" />
-            <path d="M15.5 9.2a4 4 0 0 1 0 5.6" />
-            <path d="M18.3 6.6a7.8 7.8 0 0 1 0 10.8" />
-        </svg>
-        {words["sound.panelName"]}
-    </div>
-    <label class="sound-row">
-        <span class="sound-row-name">{words["sound.tone"]}</span>
-        <input
-            type="checkbox"
-            role="switch"
-            class="sound-switch"
-            checked={!muted}
-            onchange={(event) => {
-                setMuted(!event.currentTarget.checked);
-            }}
-        />
-    </label>
+    <SoundPanel title={words["sound.panelName"]} {rows} />
 </AnchoredPanel>

@@ -2908,12 +2908,16 @@ body {
     left: 28%;
     top: 48%;
     --lie: -9deg;
+    --from-x: -150%;
+    --from-y: -90%;
 }
 
 .room .laid.right {
     left: 72%;
     top: 48%;
     --lie: 8deg;
+    --from-x: 150%;
+    --from-y: -90%;
 }
 
 .room .laid.near,
@@ -2921,6 +2925,8 @@ body {
     left: 50%;
     top: 56%;
     --lie: 0deg;
+    --from-x: 0;
+    --from-y: 180%;
 }
 
 /* Where the viewer's card will lie once it is their turn: the dashed slot of the scene push-grand-done. */
@@ -2946,55 +2952,63 @@ body {
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
 }
 
-/* A card this page saw laid lands from its player's side: the approved "verspielt" motion, 340 ms, which fades in,
-   settles once and ends at rest. Only the card moves; its name tag stands still from the first frame. */
-@media (prefers-reduced-motion: no-preference) {
-    .room .laid.left {
-        --from-x: -150%;
-        --from-y: -90%;
+/* A card this page saw laid lands from its player's side in the motion set the table carries: it fades in, settles and ends at rest.
+   The table carries no set while the device asks for reduced motion and the player has not overridden it. Only the card moves; its name tag stands still from the first frame. */
+/* "verspielt": 340 ms, with a small bounce. */
+.room[data-motion="verspielt"] .laid.fresh .face {
+    animation: land-verspielt 340ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+@keyframes land-verspielt {
+    from {
+        translate: var(--from-x) var(--from-y);
+        rotate: -24deg;
+        scale: 0.55;
+        opacity: 0;
     }
 
-    .room .laid.right {
-        --from-x: 150%;
-        --from-y: -90%;
+    50% {
+        opacity: 1;
     }
 
-    .room .laid.near {
-        --from-x: 0;
-        --from-y: 180%;
+    78% {
+        translate: 0 2px;
+        rotate: 0deg;
+        scale: 1.07;
     }
 
-    .room .laid.fresh .face {
-        animation: land 340ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+    90% {
+        scale: 0.98;
     }
 
-    @keyframes land {
-        from {
-            translate: var(--from-x) var(--from-y);
-            rotate: -24deg;
-            scale: 0.55;
-            opacity: 0;
-        }
+    to {
+        translate: 0 0;
+        rotate: 0deg;
+        scale: 1;
+    }
+}
 
-        50% {
-            opacity: 1;
-        }
+/* "dezent": 220 ms, straight in and without a bounce. */
+.room[data-motion="dezent"] .laid.fresh .face {
+    animation: land-dezent 220ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
 
-        78% {
-            translate: 0 2px;
-            rotate: 0deg;
-            scale: 1.07;
-        }
+@keyframes land-dezent {
+    from {
+        translate: var(--from-x) var(--from-y);
+        rotate: -4deg;
+        scale: 0.8;
+        opacity: 0;
+    }
 
-        90% {
-            scale: 0.98;
-        }
+    60% {
+        opacity: 1;
+    }
 
-        to {
-            translate: 0 0;
-            rotate: 0deg;
-            scale: 1;
-        }
+    to {
+        translate: 0 0;
+        rotate: 0deg;
+        scale: 1;
     }
 }
 
@@ -5201,9 +5215,269 @@ body {
     display: block;
 }
 
+.room .sound-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    border-radius: 0 0 12px 12px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(240, 214, 150, 0.45) transparent;
+}
+
+.room .sound-row + .sound-row {
+    border-top: 1px solid var(--glass);
+}
+
+/* Where the rows run past the panel's room, this strip says there is more below. */
+.room .sound-more {
+    flex: none;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    border-top: 1px solid var(--glass);
+    border-radius: 0 0 12px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--on-stage-soft);
+}
+
+.room .sound-more.shown {
+    display: flex;
+}
+
+.room .sound-more svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* The volume: the name and the number above a slider whose knob is a 28 px circle; the filled part ends under the knob's middle. */
+.room .sound-volume {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+        "name value"
+        "slider slider";
+    row-gap: 2px;
+    padding: 8px 16px 6px;
+    cursor: default;
+}
+
+.room .sound-volume .sound-row-name {
+    grid-area: name;
+}
+
+.room .sound-value {
+    grid-area: value;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--on-stage-soft);
+}
+
+.room .sound-slider {
+    grid-area: slider;
+    appearance: none;
+    width: 100%;
+    height: 44px;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+    --filled: linear-gradient(
+        to right,
+        var(--accent-stage, #7aa7f0) calc(14px + (100% - 28px) * var(--volume) / 100),
+        var(--glass) 0
+    );
+}
+
+.room .sound-slider::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--filled);
+}
+
+.room .sound-slider::-moz-range-track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--filled);
+}
+
+.room .sound-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    margin-top: -11px;
+    border: 0;
+    border-radius: 50%;
+    background: #f4ecd9;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.room .sound-slider::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 50%;
+    background: #f4ecd9;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.room .sound-slider:focus-visible {
+    outline: 2px solid var(--accent-stage, #7aa7f0);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+/* A pick among names: the label above a pill with one segment per name, the picked one filled and carrying a check. */
+.room .sound-stack {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    align-content: center;
+    padding: 10px 16px 12px;
+    cursor: default;
+}
+
+.room .sound-stack .sound-row-name {
+    flex: 1 0 auto;
+}
+
+.room .sound-segments {
+    flex: 1 0 100%;
+    display: flex;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.22);
+}
+
+.room .sound-option {
+    position: relative;
+    flex: 1 1 auto;
+    cursor: pointer;
+}
+
+/* The radio is the focus and the arrow keys; the face draws it. */
+.room .sound-option input {
+    appearance: none;
+    position: absolute;
+    inset: -3px 0;
+    margin: 0;
+    cursor: inherit;
+}
+
+.room .sound-option-face {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 40px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.room .sound-option-face svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+}
+
+.room .sound-option input:checked + .sound-option-face {
+    background: var(--accent-stage, #7aa7f0);
+    color: var(--stage-ink, #0c0e11);
+}
+
+.room .sound-option input:focus-visible + .sound-option-face {
+    outline: 2px solid var(--on-stage);
+    outline-offset: 1px;
+}
+
+.room .sound-played {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--accent-stage, #7aa7f0);
+}
+
+.room .sound-played svg {
+    width: 14px;
+    height: 14px;
+}
+
+.room .sound-note {
+    flex: 1 0 100%;
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--on-stage-soft);
+}
+
+.room .sound-stack.greyed .sound-segments {
+    opacity: 0.45;
+}
+
+.room .sound-stack.greyed .sound-option {
+    cursor: default;
+}
+
+.room .sound-stack.greyed .sound-option input:checked + .sound-option-face {
+    background: rgba(255, 255, 255, 0.22);
+    color: var(--on-stage);
+}
+
 @media (min-width: 900px) {
     .room .sound-row {
         min-height: 48px;
+    }
+
+    .room .sound-stack {
+        flex-wrap: nowrap;
+        align-items: center;
+        padding: 6px 16px;
+    }
+
+    .room .sound-stack .sound-row-name {
+        flex: none;
+    }
+
+    .room .sound-segments {
+        flex: 1 1 auto;
+    }
+
+    .room .sound-option-face {
+        height: 34px;
+    }
+
+    .room .sound-played {
+        order: 3;
+    }
+
+    .room .sound-note {
+        order: 9;
+    }
+
+    .room .sound-stack:has(.sound-note) {
+        flex-wrap: wrap;
+    }
+
+    .room .sound-volume {
+        grid-template-columns: 96px 1fr 28px;
+        grid-template-areas: "name slider value";
+        column-gap: 12px;
+        padding: 0 16px;
+    }
+
+    .room .sound-slider {
+        height: 40px;
+    }
+
+    .room .sound-slider::-webkit-slider-runnable-track {
+        margin-top: 0;
     }
 }
 
