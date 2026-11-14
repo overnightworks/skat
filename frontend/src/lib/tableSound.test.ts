@@ -203,6 +203,27 @@ describe("the sound of a swept trick", () => {
     });
 });
 
+describe("the sea under the table", () => {
+    it("runs while the table wants it and goes quiet when it no longer does", () => {
+        const port = new FakePort();
+        const sound = soundAt(port);
+
+        sound.sea(true);
+        const running = port.sea.at(-1) as number;
+        sound.sea(false);
+
+        expect([running > 0, port.sea.at(-1)]).toEqual([true, 0]);
+    });
+
+    it("is silent while muted", () => {
+        const port = new FakePort();
+
+        soundAt(port, { muted: true }).sea(true);
+
+        expect(port.sea.at(-1)).toBe(0);
+    });
+});
+
 describe("cues without a sound", () => {
     it.each([
         { name: "an auction that ended", cues: [{ kind: "auction-ended" } satisfies Cue] },
@@ -554,6 +575,30 @@ describe("the page's sound", () => {
         soundForCues([cardPlayedBy(OTHER_SEAT)], tableSeenFrom(OWN_SEAT));
 
         expect(started).toEqual([]);
+    });
+
+    it("starts the sea of the page once the first tap woke the sound and the table wants it", async () => {
+        const { started, listeners } = stubBrowser({ reducedMotion: true });
+        const { armSound, runSea } = await import("./tableSound.ts");
+        armSound();
+        listeners.get("pointerup")?.();
+        const woken = started.length;
+
+        runSea(true);
+
+        expect(started.length).toBeGreaterThan(woken);
+    });
+
+    it("starts no sea on a muted device", async () => {
+        const { started, listeners } = stubBrowser({ reducedMotion: true, stored: JSON.stringify({ muted: true }) });
+        const { armSound, runSea } = await import("./tableSound.ts");
+        armSound();
+        listeners.get("pointerup")?.();
+        const woken = started.length;
+
+        runSea(true);
+
+        expect(started).toHaveLength(woken);
     });
 
     it("sounds a card when the device holds nothing", async () => {

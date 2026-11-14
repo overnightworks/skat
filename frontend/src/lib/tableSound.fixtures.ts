@@ -53,8 +53,11 @@ export class FakePort implements AudioPort {
         this.spoken.push({ url, afterSeconds });
     }
 
-    setSea(): void {
-        // The sea is the engine's, not this module's.
+    // The levels the sea was set to.
+    sea: number[] = [];
+
+    setSea(level: number): void {
+        this.sea.push(level);
     }
 }
 

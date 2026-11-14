@@ -6,7 +6,7 @@
     import AnchoredPanel from "./AnchoredPanel.svelte";
 
     // A seated person's key: it opens the panel that gives the whole table its style. The stream brings the change to
-    // every page, this one included, so the panel shows what the table has and nothing it only asked for.
+    // every page, this one included; until it does, the panel shows the choice, and a refusal gives the table's style back.
     let { id, note = $bindable() }: { id: string; note: string } = $props();
 
     // The widths of the blessed pictures: a phone's panel and a desktop's, from the width the stylesheet shows the word at.
@@ -22,12 +22,15 @@
     let button: HTMLButtonElement | undefined = $state();
     let open = $state(false);
     let viewportWidth = $state(0);
-    const picked = $derived(tableStyle());
+    let shown = $derived(tableStyle());
 
     async function choose(style: TableStyle): Promise<void> {
         note = "";
-        if (style === picked) return;
-        if ((await chooseStyle(id, crypto.randomUUID(), style)).kind !== "table") note = words["table.commandFailed"];
+        shown = style;
+        if (style === tableStyle()) return;
+        if ((await chooseStyle(id, crypto.randomUUID(), style)).kind === "table") return;
+        shown = tableStyle();
+        note = words["table.commandFailed"];
     }
 </script>
 
@@ -86,7 +89,7 @@
                     <input
                         type="radio"
                         name="table-style"
-                        checked={style === picked}
+                        checked={style === shown}
                         onchange={() => {
                             void choose(style);
                         }}
@@ -94,7 +97,7 @@
                     <span class="style-face">
                         <span class="style-preview" aria-hidden="true"></span>
                         <span class="style-name">
-                            {#if style === picked}
+                            {#if style === shown}
                                 <svg
                                     viewBox="0 0 24 24"
                                     fill="none"

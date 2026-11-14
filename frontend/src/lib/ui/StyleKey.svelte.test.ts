@@ -1,16 +1,12 @@
 // @vitest-environment jsdom
 import { flushSync, mount, unmount } from "svelte";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TABLE_ID } from "#lib/table.fixtures.ts";
-import { runSea } from "#lib/tableSound.ts";
 import { showTableStyle } from "#lib/tableStyle.svelte.ts";
 import StyleKey from "#lib/ui/StyleKey.svelte";
 import StyleScene from "#lib/ui/StyleScene.svelte";
 import { TABLE_STYLE_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
-
-// The page's sound engine reads the browser's media queries at its first use; the sea's own tests are the engine's.
-vi.mock("#lib/tableSound.ts", () => ({ runSea: vi.fn() }));
 
 describe("the style key", () => {
     let mounted: ReturnType<typeof mount> | undefined;
@@ -23,8 +19,23 @@ describe("the style key", () => {
         vi.unstubAllGlobals();
     });
 
+    // The note the key hands its parent, as a bound prop does.
+    let note = "";
+
     function show(): void {
-        mounted = mount(StyleKey, { target: document.body, props: { id: TABLE_ID, note: "" } });
+        note = "";
+        mounted = mount(StyleKey, {
+            target: document.body,
+            props: {
+                id: TABLE_ID,
+                get note() {
+                    return note;
+                },
+                set note(value: string) {
+                    note = value;
+                },
+            },
+        });
         flushSync();
     }
 
@@ -44,17 +55,40 @@ describe("the style key", () => {
         ]);
     });
 
-    it("sends the other style to the table's style path and keeps the mark until the stream brings it", () => {
+    it("sends the other style to the table's style path and keeps the mark until the stream brings it", async () => {
         const fetcher = vi.fn().mockResolvedValue(Response.json({}));
         vi.stubGlobal("fetch", fetcher);
         show();
 
         tile(words["table.styleStrandbar"]).click();
+        await vi.waitFor(() => {
+            expect(fetcher).toHaveBeenCalled();
+        });
+        await Promise.resolve();
+        flushSync();
 
         const [path, init] = fetcher.mock.calls[0] as [string, RequestInit];
         expect([path, (JSON.parse(init.body as string) as { style: string }).style]).toEqual([
             `${TABLES_PATH}/${TABLE_ID}${TABLE_STYLE_SUFFIX}`,
             "strandbar",
+        ]);
+        expect(tile(words["table.styleStrandbar"]).checked).toBe(true);
+    });
+
+    it("gives the table's style back and says so when the request is refused", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({}, { status: 403 })));
+        showTableStyle("klassik");
+        show();
+
+        tile(words["table.styleStrandbar"]).click();
+        await vi.waitFor(() => {
+            expect(note).toBe(words["table.commandFailed"]);
+        });
+        flushSync();
+
+        expect([tile(words["table.styleKlassik"]).checked, tile(words["table.styleStrandbar"]).checked]).toEqual([
+            true,
+            false,
         ]);
     });
 
@@ -79,11 +113,17 @@ describe("the style key", () => {
 describe("the scene behind the table", () => {
     let mounted: ReturnType<typeof mount> | undefined;
 
+    // The scene's sea starts the page's sound, which reads the device's media queries at its first use; jsdom has none.
+    beforeEach(() => {
+        vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn() }));
+    });
+
     afterEach(async () => {
         if (mounted !== undefined) await unmount(mounted);
         mounted = undefined;
         document.body.replaceChildren();
         showTableStyle(null);
+        vi.unstubAllGlobals();
     });
 
     it.each([
@@ -95,37 +135,5 @@ describe("the scene behind the table", () => {
         flushSync();
 
         expect(document.querySelectorAll(".beach")).toHaveLength(beaches);
-    });
-});
-
-describe("the sea under the table", () => {
-    let mounted: ReturnType<typeof mount> | undefined;
-
-    afterEach(async () => {
-        if (mounted !== undefined) await unmount(mounted);
-        mounted = undefined;
-        document.body.replaceChildren();
-        showTableStyle(null);
-        vi.mocked(runSea).mockClear();
-    });
-
-    it.each([
-        { style: "strandbar" as const, wanted: true },
-        { style: "klassik" as const, wanted: false },
-    ])("is wanted by the table only in the style Strandbar: $style", ({ style, wanted }) => {
-        mounted = mount(StyleScene, { target: document.body, props: { style } });
-        flushSync();
-
-        expect(vi.mocked(runSea).mock.calls.at(-1)).toEqual([wanted]);
-    });
-
-    it("is let go when the table's page goes", async () => {
-        mounted = mount(StyleScene, { target: document.body, props: { style: "strandbar" } });
-        flushSync();
-
-        await unmount(mounted);
-        mounted = undefined;
-
-        expect(vi.mocked(runSea).mock.calls.at(-1)).toEqual([false]);
     });
 });

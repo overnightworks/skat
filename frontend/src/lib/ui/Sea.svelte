@@ -1,24 +1,23 @@
 <script lang="ts">
-    import { currentSettings } from "#lib/settings.svelte.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
     import { runSea } from "#lib/tableSound.ts";
 
-    // The sea belongs to the Strandbar style and has no picture: this part only keeps the sound engine told. It reads
-    // the device's volume and mute, so a change of either re-tunes the sea, and a hidden window fades it out.
-    let hidden = $state(false);
+    // The sea belongs to the Strandbar style and has no picture: this part only tells the sound engine whether the
+    // table wants it. The engine alone decides whether it sounds, by the device's volume, its mute and a hidden window.
+    const wanted = $derived(tableStyle() === "strandbar");
 
     $effect(() => {
-        // Reading the volume here makes a change of it, or of the mute, run the sea's tuning again.
-        const { muted, volume } = currentSettings();
-        runSea(tableStyle() === "strandbar" && !hidden && !muted && volume > 0);
-        return () => {
-            runSea(false);
-        };
+        // The engine reads the device's settings inside this effect, so a change of the volume or the mute runs it again.
+        runSea(wanted);
+    });
+
+    $effect(() => () => {
+        runSea(false);
     });
 </script>
 
 <svelte:document
     onvisibilitychange={() => {
-        hidden = document.hidden;
+        runSea(wanted);
     }}
 />
