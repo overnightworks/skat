@@ -43,6 +43,12 @@ def without_cards(route: Route) -> None:
     route.fulfill(json=sheet)
 
 
+def with_the_skat_laid(route: Route) -> None:
+    sheet = route.fetch().json()
+    sheet["cards"]["laid_skat"] = sheet["cards"]["skat"]
+    route.fulfill(json=sheet)
+
+
 def as_the_list_names_it(fields: dict[str, object]) -> Callable[[Route], None]:
     def named(route: Route) -> None:
         answer = route.fetch().json()
@@ -176,6 +182,28 @@ def test_a_ramsch_sheet_draws_every_dot_round_and_its_tricks_inside_the_panel(
     assert person.locator(f"{GAME_SHEET} .tricks").evaluate(
         "tricks => tricks.getBoundingClientRect().right <= tricks.closest('.game-list').getBoundingClientRect().right"
     )
+    assert page_errors == []
+
+
+def test_a_ramsch_sheet_with_a_laid_skat_puts_the_taker_dot_beside_the_laid_skat_only(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, PHONE)
+    table.pass_all()
+    table.play_out()
+    person = table.pages[1]
+    person.route(SHEET_ROUTE, with_the_skat_laid)
+
+    open_the_game(person)
+
+    pairs = person.locator(f"{GAME_SHEET} .skatline .pair")
+    laid = pairs.filter(has_text=text(SOURCE_LANGUAGE, "table.sheetSkatLaid"))
+    expect(laid).to_have_count(1)
+    expect(laid.locator(".dot")).not_to_have_count(0)
+    expect(pairs.locator(".dot")).to_have_count(laid.locator(".dot").count())
     assert page_errors == []
 
 
