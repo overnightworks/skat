@@ -28,6 +28,7 @@ from skat.table.records import (
     StandUp,
     TableId,
     TableRecord,
+    TableStyle,
     Visibility,
 )
 
@@ -88,6 +89,7 @@ def decide_create(
         options=options,
         bock=BockRounds.start(),
         visibility=visibility,
+        style=TableStyle.KLASSIK,
     )
 
 

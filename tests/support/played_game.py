@@ -23,6 +23,7 @@ from skat.table.records import (
     TableId,
     TableOptions,
     TableRecord,
+    TableStyle,
     Visibility,
 )
 
@@ -61,6 +62,7 @@ def table_in(progress: HandProgress, options: TableOptions | None = None) -> Tab
         options=options or TableOptions(),
         bock=BockRounds.start(),
         visibility=Visibility.OPEN,
+        style=TableStyle.KLASSIK,
     )
 
 

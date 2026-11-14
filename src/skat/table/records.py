@@ -414,7 +414,7 @@ class TableRecord:
     options: TableOptions
     bock: BockRounds
     visibility: Visibility
-    style: TableStyle = TableStyle.KLASSIK
+    style: TableStyle
 
 
 class EndReason(StrEnum):
