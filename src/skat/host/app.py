@@ -95,7 +95,7 @@ UNPLAYED_SWEEP_SECONDS: Final = 3600
 log = structlog.get_logger()
 
 
-async def _always_ready() -> bool:
+async def _always_ready() -> bool:  # NOSONAR(S7503) the database_ready port is awaited
     return True
 
 
