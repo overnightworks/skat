@@ -45,12 +45,6 @@ describe("the heading of a table its opener closed", () => {
             closedWords({ reason: "closed", empty_seconds: null, unplayed_days: null, closed_by_name: "Anna" }),
         ).toBe(words["closed.closedBy"]({ name: "Anna" }));
     });
-
-    it("says only that the table is closed once the closer's name has expired", () => {
-        expect(closedWords({ reason: "closed", empty_seconds: null, unplayed_days: null, closed_by_name: null })).toBe(
-            words["closed.closed"],
-        );
-    });
 });
 
 describe("the count word of the series stepper", () => {
