@@ -79,8 +79,8 @@
 
 .room .style-strandbar .style-preview {
     background:
-        radial-gradient(circle 24% at 50% 66%, #d7b27c 96%, transparent 100%),
-        radial-gradient(circle 28% at 50% 66%, #e8cf9f 96%, transparent 100%),
+        radial-gradient(ellipse 22% 34% at 50% 66%, #d7b27c 96%, transparent 100%),
+        radial-gradient(ellipse 25% 39% at 50% 66%, #e8cf9f 96%, transparent 100%),
         linear-gradient(180deg, #2a2760 0 32%, #2f6285 32% 47%, #cba57a 47%);
 }
 
@@ -223,6 +223,8 @@
     }
 
     .room .felt .decor.shell {
+        left: 68%;
+        bottom: 2%;
         height: 44px;
     }
 }
@@ -250,7 +252,7 @@
     background-color: #0c1220;
 }
 
-.room[data-style="strandbar"] .chair::before {
+.room[data-style="strandbar"] .chair::after {
     content: "";
     position: absolute;
     z-index: -2;
