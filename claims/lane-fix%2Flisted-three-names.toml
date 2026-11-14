@@ -1,7 +1,0 @@
-claim_id = "242ec3823f32436ea91d33b65ed77101"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "32b042a0727a00ddb1d843685a7c376968e40bde"
-branch = "fix/listed-three-names"
-scope = ["tests/e2e/support/result_card.py"]
-opened_commit = "88b8804cabce92ea853cc5e3017453117a0c20d4"
