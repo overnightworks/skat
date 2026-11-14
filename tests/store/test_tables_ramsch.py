@@ -3,6 +3,7 @@ from dataclasses import replace
 import pytest
 from sqlalchemy import text
 
+from skat.engine.bock import BockOptions, BockOverlap, BockRounds, BockTrigger
 from skat.engine.cards import DECK
 from skat.engine.deal import Position, positions_from
 from skat.engine.ramsch import (
@@ -18,7 +19,7 @@ from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.hand_state import game_of
 from skat.table.playing import PlayCardCommand
-from skat.table.records import RamschOccasion, RamschSetting, TableOptions
+from skat.table.records import RamschOccasion, RamschSetting, TableId, TableOptions
 from skat.table.service import TableService
 from tests.support.stored_game import count_rows, nobody_connected, person, seated_table_id
 
@@ -32,15 +33,22 @@ OPTIONS = TableOptions(ramsch=SETTING)
 
 
 class RamschTable:
-    """A table with Ramsch where all three passed; the cards are played legally, the first in deck order."""
+    """A table with Ramsch where all three passed, or with `pending` Bock games where the hand is dealt as a Ramsch
+    round with no auction; the cards are played legally, the first in deck order.
+    """
 
-    def __init__(self, service, transactions, stored):
+    def __init__(self, service, transactions, stored, options=OPTIONS, pending=()):
         self.service = service
         self.transactions = transactions
         self.stored = stored
-        self.table_id = seated_table_id(service, OPTIONS)
+        self.table_id = seated_table_id(service, options)
         by_seat = {1: person("Anna"), 2: person("Ben"), 3: person("Cleo")}
         self.actors = {position: by_seat[seat] for seat, position in positions_from(self.record.dealer).items()}
+        if pending:
+            with transactions.begin() as transaction:
+                held = replace(transaction.locked_table(TableId(self.table_id)), bock=BockRounds(pending))
+                transaction.save_table(held, played_at=None)
+            return
         for position in (Position.MIDDLEHAND, Position.REARHAND, Position.FOREHAND):
             command = AuctionCommand(
                 f"pass-{position.value}", self.table_id, self.record.version, AuctionAction.PASS, None
@@ -119,3 +127,20 @@ def test_the_thirtieth_card_stores_a_ramsch_entry_and_forgets_the_hand_and_the_r
     assert (tuple(row), cards) == (("ramsch", None, 1, "played-out", None), 0)
     assert (view.hand, view.result.ordinal, len(view.result.seats)) == (None, 1, 3)
     assert view.result == before.result
+
+
+def test_a_ramsch_round_stores_no_auction_step_and_its_end_uses_a_bock_game_up(service, transactions, stored, engine):
+    options = TableOptions(
+        bock=BockOptions(frozenset({BockTrigger.RE}), BockOverlap.APPEND),
+        ramsch=replace(SETTING, occasion=RamschOccasion.BOCK_ROUNDS),
+    )
+    table = RamschTable(service, transactions, stored, options, pending=(3,))
+    table.play(3)
+    with engine.connect() as connection:
+        auction_steps = connection.execute(text("SELECT count(*) FROM auction_actions")).scalar_one()
+    table.play(27)
+    with engine.connect() as connection:
+        kind, factor = connection.execute(text("SELECT kind, bock_factor FROM game_list")).one()
+
+    assert (auction_steps, kind, factor) == (0, "ramsch", 2)
+    assert table.record.bock == BockRounds((2,))
