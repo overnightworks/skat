@@ -3,8 +3,9 @@ import type { Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundMoment } from "./soundSets.ts";
 import { LIMITER_THRESHOLD_DECIBELS } from "./webAudio.ts";
 
-const MOMENTS: SoundMoment[] = ["card-played", "bid-said", "word-said"];
+const MOMENTS: SoundMoment[] = ["card-played", "bid-said", "word-said", "trick-swept"];
 const LONGEST_SOUND_SECONDS = 0.6;
+const LONGEST_SWEEP_SECONDS = 0.4;
 /** The most a moment may stray from the target and still sound as loud as the others. */
 const TOLERANCE_DECIBELS = 1.5;
 /** The most the loudest peak may stay below the limiter before the sets are called too quiet. */
@@ -161,6 +162,11 @@ describe.each(Object.values(SOUND_SETS))("the set $id", (set) => {
 
         expect(voices.length).toBeGreaterThan(0);
         for (const voice of voices) expect(voice.at + voice.seconds).toBeLessThan(LONGEST_SOUND_SECONDS);
+    });
+
+    it("sounds the swept trick in under 400 ms", () => {
+        for (const voice of set.voices["trick-swept"](1))
+            expect(voice.at + voice.seconds).toBeLessThan(LONGEST_SWEEP_SECONDS);
     });
 
     it.each(MOMENTS)("sounds %s louder at a higher gain", (moment) => {

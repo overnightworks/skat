@@ -18,13 +18,7 @@
     import { plaqueLine, type Stamp } from "#lib/kontra.ts";
     import { legalLinks } from "#lib/legal.ts";
     import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
-    import {
-        bidLineOfGameDeclaredInTheStage,
-        gameInPlay,
-        sideNames,
-        trickOnTheFelt,
-        type PlayingHand,
-    } from "#lib/playView.ts";
+    import { bidLineOfGameDeclaredInTheStage, gameInPlay, sideNames, type PlayingHand } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import { seriesCountText, seriesEndAsk, seriesOver, standingsView } from "#lib/series.ts";
     import {
@@ -43,7 +37,6 @@
     import AskPlaque from "#lib/ui/AskPlaque.svelte";
     import AwayMark from "#lib/ui/AwayMark.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
-    import CalloutStamp from "#lib/ui/CalloutStamp.svelte";
     import CopyLinkKey from "#lib/ui/CopyLinkKey.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
@@ -63,7 +56,6 @@
     import PassMark from "#lib/ui/PassMark.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PushControls from "#lib/ui/PushControls.svelte";
-    import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
     import PointsBar from "#lib/ui/PointsBar.svelte";
     import RamschMarks from "#lib/ui/RamschMarks.svelte";
     import RamschPlaque from "#lib/ui/RamschPlaque.svelte";
@@ -75,11 +67,14 @@
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import StandKey from "#lib/ui/StandKey.svelte";
+    import TrickPile from "#lib/ui/TrickPile.svelte";
+    import TrickStage from "#lib/ui/TrickStage.svelte";
     import TableBar from "#lib/ui/TableBar.svelte";
     import WeiterKey from "#lib/ui/WeiterKey.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { bockLine } from "#lib/tableRules.ts";
     import { motionInForce } from "#lib/settings.svelte.ts";
+    import { receiveOnStage, resetStage, sweepingTo, trickIsMoving } from "#lib/stage.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
@@ -178,6 +173,7 @@
         stamp = stampBetween(previous, table) ?? stamp;
         const cues = cuesBetween(previous, table);
         soundForCues(cues, table);
+        receiveOnStage(previous, cues);
         for (const cue of cues) {
             if (cue.kind === "card-played") {
                 playedThisHand = [...playedThisHand, cue.card];
@@ -209,6 +205,7 @@
         playedThisHand = [];
         stamp = null;
         bidSaid = null;
+        resetStage();
         let current = true;
         let stopWatching = (): void => {};
         void readTable(id).then((answer) => {
@@ -243,6 +240,7 @@
             clearTimeout(wonTimer);
             clearTimeout(seatNoteTimer);
             stopWatching();
+            resetStage();
         };
     });
 
@@ -383,7 +381,7 @@
             {@const trick = inPlay?.playing ?? ramschTrick(outcome.table)}
             {@const waits = handWaits(outcome.table.hand)}
             {@const locked = lockedChairs(outcome.table)}
-            {@const turnSeat = waits ? undefined : inPlay?.playing.turn_seat}
+            {@const turnSeat = waits || trickIsMoving() ? undefined : inPlay?.playing.turn_seat}
             {@const declared = declaredResult(outcome.table)}
             {@const view = declared === null ? null : resultView(outcome.table)}
             {@const ramschView = ramschResultView(outcome.table)}
@@ -531,12 +529,7 @@
             {:else if ramschView !== null}
                 <RamschResultCard view={ramschView} />
             {/if}
-            {@const nearCardLaid =
-                trick !== null && trickOnTheFelt(outcome.table.chairs, trick).some(({ slot }) => slot === "near")}
-            <CalloutStamp {stamp} aboveNearCard={nearCardLaid} />
-            {#if trick !== null}
-                <PlayedTrick chairs={outcome.table.chairs} playing={trick} {playedThisHand} {turnSeat} />
-            {/if}
+            <TrickStage chairs={outcome.table.chairs} playing={trick} {playedThisHand} {turnSeat} {stamp} />
             {@const dealerSeat = passedIn?.dealerSeat ?? outcome.table.hand?.dealer_seat}
             {@const auction = outcome.table.hand?.auction}
             {@const declaring = outcome.table.hand?.declaring}
@@ -572,6 +565,7 @@
                         class:away={chair.is_away}
                         class:out={marks.passed}
                         class:win={winners.has(chair.seat)}
+                        class:got={chair.seat === sweepingTo()}
                         class:turn={onTurn}
                         class:nudgeable={chair.nudge !== null}
                         data-seat={chair.seat}
@@ -667,6 +661,7 @@
                                 }}
                             />
                         {/if}
+                        <TrickPile seat={chair.seat} playing={trick} />
                         <span class="plate"
                             >{chair.is_mine
                                 ? words["table.sideYou"]

@@ -52,6 +52,7 @@ TONE = text(SOURCE_LANGUAGE, "sound.tone")
 SPEAKER = ".actions .sound-button"
 AGENTS_PILL = text(SOURCE_LANGUAGE, "agents.pill")
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
+CARDS_IN_A_TRICK = 3
 
 
 @pytest.fixture(scope="module")
@@ -304,3 +305,32 @@ def test_the_result_bar_in_a_call_holds_weiter_stand_up_the_agents_pill_and_the_
         assert last is not None
         assert last["x"] + last["width"] <= viewport["width"]
     assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_framed_table_lays_the_winners_pile_beside_its_chair_and_a_tap_on_it_shows_the_last_trick(
+    open_person: Callable[..., Page],
+    member_of: Callable[[Page], SeededMember],
+    browser_coverage: BrowserCoverage,
+    framing_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = deal_playing_table(
+        open_person,
+        framing_server,
+        member_of,
+        page_errors,
+        {**form_factor, "server": framing_server, "groups": (AGENT_ADDERS_GROUP,)},
+        console=False,
+    )
+    table.play_out(CARDS_IN_A_TRICK)
+    seated = table.pages[table.declarer_seat]
+    path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
+
+    with in_the_call_frame(seated, browser_coverage, table_url(framing_server, path), filling_the_screen=True) as call:
+        pile = call.locator(".pile.last")
+        expect(pile).to_be_visible()
+        pile.click()
+
+        expect(call.locator(".lastshow .lt-card")).to_have_count(CARDS_IN_A_TRICK)

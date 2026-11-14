@@ -25,7 +25,7 @@ from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE
 from skat.web.words import text as word_text
 from tests.e2e.support.browser import record_page_errors
-from tests.e2e.support.hands import AddressedSession
+from tests.e2e.support.hands import AddressedSession, leave_the_last_trick_on_the_felt
 from tests.e2e.support.kontra import KONTRA_OPTIONS
 from tests.e2e.support.people import DESKTOP, McpAgent
 from tests.e2e.support.tables import open_new_table, open_table_with_options, sit_in, table_id_of, watch
@@ -153,6 +153,7 @@ def test_an_agents_card_lands_in_the_trick_a_person_sees(
     chairs = json.loads(sessions[1].get(api_path))["chairs"]
     seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
     play_until_the_agents_turn(sessions, api_path, seat_at, agent)
+    leave_the_last_trick_on_the_felt([anna, ben])
 
     failed, text = agent.call(READ_TABLE_TOOL, table_id=table_id_of(path))
     view = json.loads(text)

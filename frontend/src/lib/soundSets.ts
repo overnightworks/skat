@@ -1,7 +1,7 @@
 import type { NoiseVoice, ToneVoice, Voice } from "./sound.ts";
 import type { Key } from "./words.ts";
 
-export type SoundMoment = "card-played" | "bid-said" | "word-said";
+export type SoundMoment = "card-played" | "bid-said" | "word-said" | "trick-swept";
 
 export interface SoundSet {
     readonly id: string;
@@ -117,6 +117,65 @@ function knocksWave(gain: number): readonly Voice[] {
     ];
 }
 
+/** The swept trick sounds this long, whatever the time its glide takes. */
+const SWEEP_SECONDS = 0.3;
+
+// A soft wipe over the felt.
+function sweepSoft(gain: number): readonly [NoiseVoice] {
+    return [
+        {
+            kind: "noise",
+            at: 0,
+            seconds: SWEEP_SECONDS,
+            frequency: 900,
+            endFrequency: 2600,
+            quality: 0.8,
+            gain: 0.3 * gain,
+        },
+    ];
+}
+
+// A wipe that lands with a low thud at its end.
+function sweepThud(gain: number): readonly [NoiseVoice, ToneVoice] {
+    return [
+        {
+            kind: "noise",
+            at: 0,
+            seconds: SWEEP_SECONDS,
+            frequency: 700,
+            endFrequency: 2400,
+            quality: 0.7,
+            gain: 0.45 * gain,
+        },
+        {
+            kind: "tone",
+            wave: "sine",
+            at: SWEEP_SECONDS * 0.85,
+            seconds: 0.12,
+            frequency: 130,
+            endFrequency: 70,
+            gain: 0.3 * gain,
+        },
+    ];
+}
+
+// A bright wipe with two glints at its end.
+function sweepGlint(gain: number): readonly [NoiseVoice, ToneVoice, ToneVoice] {
+    return [
+        {
+            kind: "noise",
+            at: 0,
+            seconds: SWEEP_SECONDS,
+            frequency: 600,
+            endFrequency: 4200,
+            quality: 2,
+            gain: 0.35 * gain,
+        },
+        { kind: "tone", wave: "sine", at: SWEEP_SECONDS * 0.7, seconds: 0.1, frequency: 1318, gain: 0.12 * gain },
+        { kind: "tone", wave: "sine", at: SWEEP_SECONDS * 0.85, seconds: 0.12, frequency: 1760, gain: 0.12 * gain },
+    ];
+}
+
 type VoicesOf = (gain: number) => readonly Voice[];
 
 // Each moment is brought to one loudness at the full volume, so no set and no moment sounds markedly quieter than another;
@@ -133,6 +192,7 @@ export const SOUND_SETS = {
             "card-played": levelled(cardSnap, 2.54),
             "bid-said": levelled(bidTip, 2.68),
             "word-said": levelled(knocksPlain, 0.66),
+            "trick-swept": levelled(sweepSoft, 2.63),
         },
     },
     stammtisch: {
@@ -142,6 +202,7 @@ export const SOUND_SETS = {
             "card-played": levelled(cardClap, 1.26),
             "bid-said": levelled(bidBlub, 1.09),
             "word-said": levelled(knocksDeep, 0.62),
+            "trick-swept": levelled(sweepThud, 1.9),
         },
     },
     funkeln: {
@@ -151,6 +212,7 @@ export const SOUND_SETS = {
             "card-played": levelled(cardGlint, 1.26),
             "bid-said": levelled(bidPair, 1.45),
             "word-said": levelled(knocksWave, 0.72),
+            "trick-swept": levelled(sweepGlint, 1.56),
         },
     },
 } as const satisfies Record<string, SoundSet>;
