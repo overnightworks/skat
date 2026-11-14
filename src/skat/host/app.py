@@ -77,7 +77,7 @@ from skat.web.tables import create_tables_router
 from skat.web.wakes import WakeList
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Callable, Sequence
+    from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
     from contextlib import AbstractAsyncContextManager, AbstractContextManager
 
     from webauth.config import WebAuthConfig
@@ -93,6 +93,10 @@ if TYPE_CHECKING:
 UNPLAYED_SWEEP_SECONDS: Final = 3600
 
 log = structlog.get_logger()
+
+
+async def _always_ready() -> bool:
+    return True
 
 
 def _configure_logging() -> None:
@@ -375,7 +379,7 @@ def create_app(
     chair_scheduler: Scheduler | None = None,
     unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
     resource_changes: Callable[[ListeningChanged], ResourceChanges] = ResourceChanges,
-    database_ready: Callable[[], bool] = lambda: True,
+    database_ready: Callable[[], Awaitable[bool]] = _always_ready,
 ) -> FastAPI:
     sign_in_configs = build_sign_in_configs(settings)
 

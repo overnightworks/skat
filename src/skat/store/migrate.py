@@ -1,12 +1,15 @@
 import asyncio
 import os
 import socket
+import time
 from dataclasses import dataclass
+from enum import StrEnum
 from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 import psycopg
+import structlog
 from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
@@ -15,7 +18,7 @@ from sqlalchemy import Connection, Engine, create_engine, text
 from sqlalchemy.engine import make_url
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
 MIGRATIONS_DIRECTORY: Final = Path(__file__).parent / "migrations"
 # Serialises concurrent `skat migrate` runs; any constant shared by all of them does.
@@ -29,10 +32,21 @@ STORE_CONNECT_TIMEOUT_SECONDS: Final = 5
 HEALTH_DEADLINE_SECONDS: Final = 5
 # Bounds the work the health check leaves on a database that is slow but answering.
 HEALTH_STATEMENT_TIMEOUT_MILLISECONDS: Final = 2_000
+# How long a probe's verdict answers every ask; far below the period in which the edge probes, so readiness still
+# turns within it.
+READINESS_REUSE_SECONDS: Final = 1.0
+
+log = structlog.get_logger()
 
 
 class DatabaseNotAtHeadError(Exception):
     """The database is not at the newest migration; the message says which revision it holds."""
+
+
+class ReadinessVerdict(StrEnum):
+    READY = "ready"
+    UNREACHABLE = "unreachable"
+    NOT_AT_HEAD = "not_at_head"
 
 
 @dataclass(frozen=True)
@@ -43,6 +57,12 @@ class DatabaseHealth:
     @property
     def ready(self) -> bool:
         return self.serves_queries and self.at_head
+
+    @property
+    def verdict(self) -> ReadinessVerdict:
+        if not self.serves_queries:
+            return ReadinessVerdict.UNREACHABLE
+        return ReadinessVerdict.READY if self.at_head else ReadinessVerdict.NOT_AT_HEAD
 
 
 def create_store_engine(database_url: str) -> Engine:
@@ -166,3 +186,37 @@ def database_health(engine: Engine) -> DatabaseHealth:
     except psycopg.Error, TimeoutError:
         return DatabaseHealth(serves_queries=False, at_head=False)
     return DatabaseHealth(serves_queries=True, at_head=_at_head(current))
+
+
+class ReadinessProbe:
+    """The readiness verdict, computed by at most one probe at a time and reused for `READINESS_REUSE_SECONDS`.
+
+    A burst of asks costs one probe connection and one thread, never one per ask: an ask that arrives while a probe
+    runs awaits that probe's verdict. A verdict that differs from the previous one is logged once with its cause.
+    """
+
+    def __init__(self, probe: Callable[[], DatabaseHealth], *, clock: Callable[[], float] = time.monotonic) -> None:
+        self._probe = probe
+        self._clock = clock
+        self._verdict = ReadinessVerdict.READY
+        self._reusable_until: float | None = None
+        self._running: asyncio.Task[bool] | None = None
+
+    async def __call__(self) -> bool:
+        if self._running is None:
+            if self._reusable_until is not None and self._clock() < self._reusable_until:
+                return self._verdict is ReadinessVerdict.READY
+            self._running = asyncio.create_task(self._refresh())
+        # Shielded, so that one asker giving up does not cancel the probe the others await.
+        return await asyncio.shield(self._running)
+
+    async def _refresh(self) -> bool:
+        try:
+            health = await asyncio.to_thread(self._probe)
+            self._reusable_until = self._clock() + READINESS_REUSE_SECONDS
+            if health.verdict is not self._verdict:
+                log.warning("database_readiness_changed", was=self._verdict.value, now=health.verdict.value)
+                self._verdict = health.verdict
+            return health.ready
+        finally:
+            self._running = None
