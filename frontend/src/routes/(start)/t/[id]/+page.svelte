@@ -60,6 +60,7 @@
     import KontraKey from "#lib/ui/KontraKey.svelte";
     import NudgeBell from "#lib/ui/NudgeBell.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
+    import PassMark from "#lib/ui/PassMark.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PushControls from "#lib/ui/PushControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
@@ -93,7 +94,6 @@
         gameLabel,
         isSuitGame,
         markReady,
-        nudgedNote,
         positionWord,
         readTable,
         seatedAgentsKey,
@@ -113,6 +113,7 @@
         type Picking,
         type Table,
     } from "../../tables.ts";
+    import { nudgedNote } from "../../nudge.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
@@ -328,19 +329,6 @@
     const takeStep = (table: Table, action: AuctionAction, value?: number): Promise<void> =>
         send(table, takeAuctionStep(id, crypto.randomUUID(), table.version, action, value));
 </script>
-
-{#snippet cross()}
-    <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.8"
-        stroke-linecap="round"
-        aria-hidden="true"
-    >
-        <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
-{/snippet}
 
 <svelte:head>
     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
@@ -636,11 +624,7 @@
                                         </svg>
                                     </span>
                                 {:else if marks.passed}
-                                    <span class="mark pass">
-                                        {@render cross()}
-                                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                                        {`${words["table.pass"]}`}
-                                    </span>
+                                    <PassMark />
                                 {:else if marks.waits}
                                     <span class="mark waits" title={words["table.waitsForYou"]}>
                                         <span class="dot" aria-hidden="true">{ownInitial}</span>

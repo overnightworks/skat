@@ -5,7 +5,7 @@ import NudgeBell from "#lib/ui/NudgeBell.svelte";
 import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { ASK_AGAIN_AFTER, TABLE_NUDGE_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
-import type { Nudge } from "../../routes/(start)/tables.ts";
+import type { Nudge } from "../../routes/(start)/nudge.ts";
 
 const MILLISECONDS_PER_SECOND = 1000;
 const VERSION = 7;

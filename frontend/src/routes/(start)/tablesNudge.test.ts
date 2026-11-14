@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { words } from "#lib/words.ts";
 import { TABLE_NUDGE_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
-import { nudgedNote, nudgeSeat, type Chair, type Nudge, type Table } from "./tables.ts";
+import { nudgedNote, type Nudge } from "./nudge.ts";
+import { nudgeSeat, type Chair, type Table } from "./tables.ts";
 
 const OWN_SEAT = 1;
 const AWAITED_SEAT = 2;

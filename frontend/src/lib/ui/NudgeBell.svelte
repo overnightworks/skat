@@ -2,7 +2,8 @@
     import { onMount } from "svelte";
     import { ASK_AGAIN_AFTER } from "#lib/wire.ts";
     import { words } from "#lib/words.ts";
-    import { nudgeSeat, type Nudge } from "../../routes/(start)/tables.ts";
+    import type { Nudge } from "../../routes/(start)/nudge.ts";
+    import { nudgeSeat } from "../../routes/(start)/tables.ts";
 
     const MILLISECONDS_PER_SECOND = 1000;
 
