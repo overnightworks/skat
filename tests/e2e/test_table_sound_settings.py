@@ -327,13 +327,6 @@ def test_the_panel_opens_at_once_whatever_the_device_asks_for_motion(
     assert page_errors == []
 
 
-def open_at(open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **context: Any) -> Page:
-    watcher = record_page_errors(open_person(**context), page_errors)
-    watcher.goto(table.watcher.url)
-    expect(watcher.locator(".chair")).to_have_count(3)
-    return watcher
-
-
 def row_of(page: Page, name: str) -> Any:
     return panel_of(page).get_by_role("radiogroup", name=name)
 
@@ -380,7 +373,7 @@ def test_the_panel_shows_the_volume_and_both_sets_at_their_defaults(
     form_factor: dict[str, Any],
     device_motion: str,
 ) -> None:
-    watcher = open_at(open_person, page_errors, table, reduced_motion=device_motion, **form_factor)
+    watcher = open_watcher(open_person, page_errors, table, form_factor, reduced_motion=device_motion)
 
     open_the_panel(watcher)
 
@@ -402,7 +395,7 @@ def test_the_override_shows_only_where_the_device_asks_for_reduced_motion(
     device_motion: str,
     asks_to_reduce: bool,
 ) -> None:
-    watcher = open_at(open_person, page_errors, table, reduced_motion=device_motion, **PHONE)
+    watcher = open_watcher(open_person, page_errors, table, reduced_motion=device_motion)
 
     open_the_panel(watcher)
 
@@ -416,7 +409,7 @@ def test_the_override_shows_only_where_the_device_asks_for_reduced_motion(
 def test_a_picked_volume_and_picked_sets_hold_after_a_reload(
     table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
-    watcher = open_at(open_person, page_errors, table, reduced_motion="no-preference", **form_factor)
+    watcher = open_watcher(open_person, page_errors, table, form_factor, reduced_motion="no-preference")
     open_the_panel(watcher)
 
     volume_of(watcher).focus()
@@ -439,7 +432,7 @@ def test_a_picked_volume_and_picked_sets_hold_after_a_reload(
 def test_picking_a_sound_set_sounds_its_card_once_and_says_so_only_while_the_sound_is_on(
     table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str], sound_on: bool
 ) -> None:
-    watcher = open_at(open_person, page_errors, table, **PHONE)
+    watcher = open_watcher(open_person, page_errors, table)
     if not sound_on:
         switch_the_sound(watcher, on=False)
     open_the_panel(watcher)
@@ -458,7 +451,7 @@ def test_picking_a_sound_set_sounds_its_card_once_and_says_so_only_while_the_sou
 def test_a_played_card_sounds_in_the_picked_set(
     table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str], soundset: str, kinds: list[str]
 ) -> None:
-    watcher = open_at(open_person, page_errors, table, **PHONE)
+    watcher = open_watcher(open_person, page_errors, table)
     open_the_panel(watcher)
     pick(watcher, SOUND_SETS, soundset)
     watcher.keyboard.press("Escape")
@@ -518,7 +511,7 @@ def test_a_bad_stored_field_shows_its_default_and_leaves_the_other_fields_as_sto
 def test_the_override_moves_a_card_in_the_chosen_set_and_the_device_setting_still_stills_it_without(
     table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str]
 ) -> None:
-    watcher = open_at(open_person, page_errors, table, reduced_motion="reduce", **PHONE)
+    watcher = open_watcher(open_person, page_errors, table, reduced_motion="reduce")
     open_the_panel(watcher)
     expect(row_of(watcher, MOTION).get_by_role("radio", name=DEZENT)).to_be_disabled()
 
@@ -536,7 +529,9 @@ def test_the_override_moves_a_card_in_the_chosen_set_and_the_device_setting_stil
 def test_a_panel_without_room_scrolls_and_says_there_is_more_until_its_end(
     table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str]
 ) -> None:
-    watcher = open_at(open_person, page_errors, table, viewport={"width": 390, "height": 420}, is_mobile=True)
+    watcher = open_watcher(
+        open_person, page_errors, table, {"viewport": {"width": 390, "height": 420}, "is_mobile": True}
+    )
     open_the_panel(watcher)
     more = panel_of(watcher).locator(".sound-more")
     expect(more).to_be_visible()

@@ -8,7 +8,7 @@ from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -35,9 +35,13 @@ def playing_table(
 
 
 def open_watcher(
-    open_person: Callable[..., Page], page_errors: list[str], table: PlayingTable, **form_factor: object
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    table: PlayingTable,
+    form_factor: Mapping[str, Any] = PHONE,
+    **context: object,
 ) -> Page:
-    watcher = record_page_errors(open_person(**PHONE, **form_factor), page_errors)
+    watcher = record_page_errors(open_person(**form_factor, **context), page_errors)
     watcher.goto(table.watcher.url)
     expect(watcher.locator(".chair")).to_have_count(3)
     return watcher
