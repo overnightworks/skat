@@ -37,7 +37,11 @@ from skat.web.tables import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from skat.table.records import Actor
     from skat.table.service import TableService
+    from skat.table.views import CommandResult
     from skat.web.presence import Presence
 
 # A card played on a table: `TABLES_PATH/{table_id}` plus this.
@@ -215,6 +219,18 @@ def _add_shorten(router: APIRouter, tables: TableService, presence: Presence) ->
         )
 
 
+async def _actor_command_answer[Command](
+    run: Callable[[Actor, Command, frozenset[str]], CommandResult | None],
+    command: Command,
+    request: Request,
+    presence: Presence,
+    table_id: str,
+    response: Response,
+) -> Response | TableAnswer:
+    """`command_answer` for a command the request's session actor gives."""
+    return await command_answer(partial(run, actor_of(request), command), presence, table_id, response)
+
+
 def _add_play_open(router: APIRouter, tables: TableService, presence: Presence) -> None:
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_PLAY_OPEN_SUFFIX,
@@ -239,9 +255,10 @@ def _add_play_open(router: APIRouter, tables: TableService, presence: Presence) 
         declarer, another request waiting, not seated) comes back as a failed result with its reason, leaves the table
         as it was and spends the command id: the next attempt takes a new command id.
         """
-        command = PlayOpenCommand(command_id=body.command_id, table_id=table_id, version=body.version)
-        return await command_answer(
-            partial(tables.play_open, actor_of(request), command),
+        return await _actor_command_answer(
+            tables.play_open,
+            PlayOpenCommand(command_id=body.command_id, table_id=table_id, version=body.version),
+            request,
             presence,
             table_id,
             response,
