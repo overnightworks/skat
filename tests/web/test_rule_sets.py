@@ -143,6 +143,10 @@ class TestSaveAndRead:
             pytest.param({"name": "Abend", "options": {"turbo": True}}, id="unknown-option"),
             pytest.param({"name": "Abend", "options": {"show_running_points": "yes"}}, id="option-of-the-wrong-type"),
             pytest.param({"name": "Abend", "options": {}, "owner": "account-ben"}, id="extra-key"),
+            pytest.param(
+                {"name": "Abend", "options": {"kontra": {**FELIX["kontra"], "deadline": "first-card"}}},
+                id="first-card-kontra-deadline",
+            ),
         ],
     )
     def test_a_request_that_is_no_set_is_refused_and_stores_nothing(self, skat, body):
