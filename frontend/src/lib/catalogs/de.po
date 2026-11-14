@@ -399,6 +399,18 @@ msgctxt "table.thinks"
 msgid "denkt"
 msgstr ""
 
+msgctxt "table.nudge"
+msgid "anstupsen"
+msgstr ""
+
+msgctxt "table.nudged"
+msgid "Angestupst"
+msgstr ""
+
+msgctxt "table.nudgesYou"
+msgid "stupst dich an"
+msgstr ""
+
 msgctxt "table.dealer"
 msgid "Geber"
 msgstr ""

@@ -96,6 +96,9 @@ export type Words = {
     readonly "table.pushFactor": (gaps: { readonly factor: string }) => string;
     readonly "table.push": string;
     readonly "table.thinks": string;
+    readonly "table.nudge": string;
+    readonly "table.nudged": string;
+    readonly "table.nudgesYou": string;
     readonly "table.dealer": string;
     readonly "table.cardCount": string;
     readonly "table.open": string;
@@ -588,6 +591,9 @@ export const words: Words = {
     "table.pushFactor": (gaps: { readonly factor: string }) => "×" + gaps.factor,
     "table.push": "Schieben",
     "table.thinks": "denkt",
+    "table.nudge": "anstupsen",
+    "table.nudged": "Angestupst",
+    "table.nudgesYou": "stupst dich an",
     "table.dealer": "Geber",
     "table.cardCount": "Karten",
     "table.open": "Offen",

@@ -61,6 +61,7 @@ import {
     type WORD_TOKENS,
 } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
+import type { Nudge } from "./nudge.ts";
 
 const SIGNED_OUT_STATUS = 401;
 export const NOT_FOUND_STATUS = 404;
@@ -172,6 +173,8 @@ export type Chair = {
     // True only on the chair of the running hand that the viewer stood up from, open or taken since: the one chair they
     // may sit in again.
     is_mine_to_return: boolean;
+    // What the viewer is shown of the nudges of a chair the table waits for; null on every other chair.
+    nudge: Nudge | null;
 };
 export type RamschSeat = { seat: number; points: number; score: number };
 // The finished Ramsch as the server counted it: what each seat's counted eyes were and what it added, the sweeper of a
@@ -386,7 +389,7 @@ export async function saveRuleSet(name: string, options: OptionsRequest | undefi
     }
 }
 
-function post(id: string, suffix: string, body: object): Promise<Outcome> {
+export function post(id: string, suffix: string, body: object): Promise<Outcome> {
     return ask(`${TABLES_PATH}/${encodeURIComponent(id)}${suffix}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

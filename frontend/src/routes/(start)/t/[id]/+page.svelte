@@ -58,7 +58,9 @@
     import LockedChairTile from "#lib/ui/LockedChairTile.svelte";
     import GiveUpKey from "#lib/ui/GiveUpKey.svelte";
     import KontraKey from "#lib/ui/KontraKey.svelte";
+    import NudgeBell from "#lib/ui/NudgeBell.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
+    import PassMark from "#lib/ui/PassMark.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PushControls from "#lib/ui/PushControls.svelte";
     import PlayedTrick from "#lib/ui/PlayedTrick.svelte";
@@ -111,6 +113,7 @@
         type Picking,
         type Table,
     } from "../../tables.ts";
+    import { nudgedNote } from "../../nudge.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
@@ -152,6 +155,7 @@
     let seatedAgents = $state("");
     // The free chair whose tap asks the question before a sit, while a hand runs.
     let asking = $state<number | null>(null);
+    let shaking = $state(false);
 
     function showSeatNote(note: SeatNotice): void {
         seatNote = note;
@@ -163,7 +167,10 @@
         streamedVersion = table.version;
         streamedWatchers = table.watchers;
         seatedAgents = seatedAgentsKey(previous, table);
-        const note = previous === undefined ? null : (seatNotice(previous, table) ?? agentSitsNote(previous, table));
+        const nudged = previous === undefined ? null : nudgedNote(previous, table);
+        shaking = nudged !== null;
+        const note =
+            previous === undefined ? null : (seatNotice(previous, table) ?? agentSitsNote(previous, table) ?? nudged);
         if (note !== null) showSeatNote(note);
         seatNote = noticeStanding(seatNote, table);
         if (!handWaits(table.hand)) asking = null;
@@ -198,6 +205,7 @@
         streamedVersion = null;
         seatNote = null;
         asking = null;
+        shaking = false;
         playedThisHand = [];
         stamp = null;
         bidSaid = null;
@@ -325,19 +333,6 @@
     const takeStep = (table: Table, action: AuctionAction, value?: number): Promise<void> =>
         send(table, takeAuctionStep(id, crypto.randomUUID(), table.version, action, value));
 </script>
-
-{#snippet cross()}
-    <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.8"
-        stroke-linecap="round"
-        aria-hidden="true"
-    >
-        <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
-{/snippet}
 
 <svelte:head>
     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
@@ -578,6 +573,7 @@
                         class:out={marks.passed}
                         class:win={winners.has(chair.seat)}
                         class:turn={onTurn}
+                        class:nudgeable={chair.nudge !== null}
                         data-seat={chair.seat}
                     >
                         {#if chair.occupant_name !== null}
@@ -632,11 +628,7 @@
                                         </svg>
                                     </span>
                                 {:else if marks.passed}
-                                    <span class="mark pass">
-                                        {@render cross()}
-                                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                                        {`${words["table.pass"]}`}
-                                    </span>
+                                    <PassMark />
                                 {:else if marks.waits}
                                     <span class="mark waits" title={words["table.waitsForYou"]}>
                                         <span class="dot" aria-hidden="true">{ownInitial}</span>
@@ -649,6 +641,14 @@
                                     fresh={springsUp(bidSaid, chair.seat, marks.bubble)}
                                 />
                                 <RamschMarks marks={ramschMark} initial={chair.occupant_name.slice(0, 1)} />
+                                <NudgeBell
+                                    {id}
+                                    version={current.version}
+                                    seat={chair.seat}
+                                    name={chair.occupant_name}
+                                    nudge={chair.nudge}
+                                    shaking={chair.is_mine && shaking}
+                                />
                             {/if}
                             {#if onResult}
                                 <AnswerMarks mark={chair.ready ? "ready" : "unready"} />

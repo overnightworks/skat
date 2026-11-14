@@ -478,6 +478,7 @@ describe("the agent that sat down", () => {
         hand: null,
         former_holder_name: null,
         is_mine_to_return: false,
+        nudge: null,
     });
     const tableOf = (...chairs: Chair[]): Table => ({
         id: TABLE_ID,
