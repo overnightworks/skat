@@ -1,0 +1,8 @@
+claim_id = "348c938663f14718a6dfc952ba6fd894"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "b71e740aa53c0d6b5fd251da59b5fc84922f215f"
+branch = "claude/issue-540-an-opponent-plays-open-scored-by-a-wrong"
+scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "src/skat/table/playing.py", "src/skat/table/records.py", "src/skat/table/service.py", "src/skat/table/views.py", "src/skat/web/mcp.py", "src/skat/web/playing.py", "tests/store/test_playing.py", "tests/table/test_playing.py", "tests/web/test_mcp.py", "tests/web/test_tables.py"]
+opened_commit = "9e9372333fc31189bb4246ecb695e38504185b5a"
+whole_reason = "The open-play command, E10d's check it runs under the row lock and the timing measurement are one path: a command with no timed check could serve a 5-second wait to every reader of the table, and the measurement proves only the wired route, not the engine alone."
