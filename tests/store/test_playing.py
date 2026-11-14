@@ -304,7 +304,7 @@ def stored_open_play(engine):
         return tuple(connection.execute(text("SELECT give_up_asked_by, give_up_open FROM tables")).one())
 
 
-def test_a_wrong_open_play_waits_for_the_declarer_across_a_restart_and_a_card_clears_it(
+def test_a_wrong_open_play_waits_for_the_declarer_across_a_restart_and_refuses_a_throw_down(
     game, engine, database_url, stored
 ):
     command = PlayOpenCommand(command_id="open", table_id=game.table_id, version=game.record.version)
