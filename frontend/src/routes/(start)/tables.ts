@@ -228,11 +228,11 @@ export type Result = {
 export type PassedIn = { next_dealer_seat: number | null };
 export type EndReason = (typeof END_REASON_TOKENS)[number];
 // Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, the days nobody played,
-// or the name its opener had when closing it.
+// or the name its opener had when closing it, which is null once the days of the link's reason have passed.
 export type Ended =
     | { reason: Extract<EndReason, "empty">; empty_seconds: number; unplayed_days: null; closed_by_name: null }
     | { reason: Extract<EndReason, "unplayed">; empty_seconds: null; unplayed_days: number; closed_by_name: null }
-    | { reason: Extract<EndReason, "closed">; empty_seconds: null; unplayed_days: null; closed_by_name: string };
+    | { reason: Extract<EndReason, "closed">; empty_seconds: null; unplayed_days: null; closed_by_name: string | null };
 // The rules a table was opened with, answered to every viewer; a rule that is off is null.
 export type Options = {
     show_running_points: boolean;

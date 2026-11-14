@@ -695,6 +695,10 @@ msgctxt "closed.unplayedDays.other"
 msgid "{count} Tage nicht gespielt: Tisch geschlossen"
 msgstr "Not played for {count} days: table closed"
 
+msgctxt "closed.closed"
+msgid "Tisch geschlossen"
+msgstr "Table closed"
+
 msgctxt "closed.closedBy"
 msgid "{name} hat den Tisch geschlossen"
 msgstr "{name} closed the table"

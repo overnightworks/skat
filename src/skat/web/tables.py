@@ -644,7 +644,7 @@ def create_tables_router(
         is true only for the caller that opened the table. `ended` is null while the table lives; once it ended it
         says why: `reason` is `empty` (nobody was there while no hand was dealt; `empty_seconds` is the wait),
         `unplayed` (no hand was dealt or played at for `unplayed_days` days) or `closed` (its opener closed it, and
-        `closed_by_name` is the opener's name).
+        `closed_by_name` is the opener's name, null once `SKAT_ENDED_TABLE_DAYS` days have passed).
         A game can also end shortened or played-open, each with the seat that did it.
         A 404 means no table has this id.
         """

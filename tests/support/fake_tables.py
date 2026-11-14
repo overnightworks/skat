@@ -1,6 +1,6 @@
 import copy
-from dataclasses import replace
 from contextlib import contextmanager
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord, Visibility
