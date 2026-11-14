@@ -1,6 +1,7 @@
 import argparse
 from typing import TYPE_CHECKING, TypedDict, Unpack
 
+import logline
 import uvicorn
 from sqlalchemy.engine import make_url
 
@@ -11,7 +12,7 @@ from skat.store.sign_in import PostgresSignInStores
 from skat.store.tables import PostgresTableTransactions
 from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
-from skat.web.constants import GRACEFUL_SHUTDOWN_SECONDS, UVICORN_LOG_LEVEL
+from skat.web.constants import GRACEFUL_SHUTDOWN_SECONDS
 from skat.web.page_build import BUILD_DIRECTORY, PageBuild
 from skat.web.secret_files import read_secret_file
 from skat.web.settings import DatabaseSettings, ServerSettings
@@ -29,9 +30,8 @@ if TYPE_CHECKING:
 class UvicornOptions(TypedDict):
     host: str
     port: int
-    access_log: bool
     proxy_headers: bool
-    log_level: str
+    log_config: None
     timeout_graceful_shutdown: int
 
 
@@ -39,9 +39,8 @@ def uvicorn_options(settings: ServerSettings) -> UvicornOptions:
     return UvicornOptions(
         host=settings.host,
         port=settings.port,
-        access_log=False,
         proxy_headers=False,
-        log_level=UVICORN_LOG_LEVEL,
+        log_config=None,
         timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_SECONDS,
     )
 
@@ -93,6 +92,7 @@ def main(
     build_directory: Path = BUILD_DIRECTORY,
 ) -> None:
     command = command_line_parser().parse_args(arguments).command
+    logline.configure("skat")
     # The required settings come from the environment, which the type checker cannot see.
     if command == "migrate":
         database = DatabaseSettings()  # pyright: ignore[reportCallIssue]

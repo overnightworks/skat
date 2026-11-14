@@ -10,6 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from logline import RequestLineMiddleware
 from starlette.concurrency import run_in_threadpool
 from webauth.config import install_web_auth_config, installed_web_auth_config
 from webauth.middleware import install_web_auth_middleware
@@ -59,6 +60,7 @@ from skat.web.presence import (
 )
 from skat.web.pushing import create_pushing_router
 from skat.web.ready import create_ready_router
+from skat.web.request_line import ClientAddressNoting, SignedInPersonNoting
 from skat.web.routes import create_router
 from skat.web.rule_sets import create_rule_sets_router
 from skat.web.seating import create_seating_router
@@ -100,17 +102,6 @@ async def _always_ready() -> bool:  # NOSONAR(S7503) the database_ready port is 
     return True
 
 
-def _configure_logging() -> None:
-    structlog.configure(
-        processors=[
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.add_log_level,
-            # The default exception formatter switches to rich tracebacks with locals as soon as rich is installed.
-            structlog.dev.ConsoleRenderer(exception_formatter=structlog.dev.plain_traceback),
-        ],
-    )
-
-
 def _content_security_policy(page_build: PageBuild, call_origin: str | None) -> str:
     added_sources: dict[CspDirective, Sequence[str]] = {
         CspDirective.STYLE_SRC: ("'unsafe-hashes'", f"'{page_build.announcer_style_hash}'")
@@ -123,6 +114,8 @@ def _content_security_policy(page_build: PageBuild, call_origin: str | None) -> 
 def _install_web_auth(
     app: FastAPI, sessions: SessionRecordStore, page_build: PageBuild, call_origin: str | None, mcp: McpAccess
 ) -> None:
+    # Added before the library stack, this runs inside the session gate and sees the person it admitted.
+    app.add_middleware(SignedInPersonNoting)
     install_web_auth_middleware(
         app,
         sign_in_paths=SIGN_IN_PATHS,
@@ -136,6 +129,9 @@ def _install_web_auth(
         bearer_gate=mcp.bearer_gate,
         session_gate=session_gate(sessions, mcp.public_rule),
     )
+    # Added after the library stack, these sit outside it and see every request, a refused one included.
+    app.add_middleware(ClientAddressNoting)
+    app.add_middleware(RequestLineMiddleware)
 
 
 def _install_sign_in(
@@ -408,8 +404,6 @@ def create_app(
     database_ready: Callable[[], Awaitable[bool]] = _always_ready,
 ) -> FastAPI:
     sign_in_configs = build_sign_in_configs(settings)
-
-    _configure_logging()
 
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
