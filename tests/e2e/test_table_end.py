@@ -11,6 +11,7 @@ from sqlalchemy import select, update
 from skat.store.schema import tables
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.web.closing import TABLE_CLOSE_SUFFIX
+from skat.web.settings import DEFAULT_ENDED_TABLE_DAYS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.e2e.support.raw_http import RawSession, self_signed_tolerant_context
 from tests.e2e.support.server import skat_on_new_database
@@ -29,8 +30,7 @@ ENDS_WITHIN_SECONDS = EMPTY_TABLE_SECONDS + 20
 # Long enough that a restart happens inside it.
 RESTARTED_WAIT_SECONDS = 10
 POLL_SECONDS = 0.2
-# Past the default of SKAT_ENDED_TABLE_DAYS.
-DAYS_SINCE_THE_END = 8
+DAYS_SINCE_THE_END = DEFAULT_ENDED_TABLE_DAYS + 1
 
 
 @pytest.fixture(scope="module")
