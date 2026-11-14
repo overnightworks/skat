@@ -1,0 +1,8 @@
+claim_id = "1656ce44165e428aa8d5be315bdfa529"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "eb976af182b41b2d92fc3e3c0961369198c06e04"
+branch = "claude/issue-602-eingepasst-e2e-clock"
+scope = ["tests/e2e", "tests/support"]
+opened_commit = "09756685025e1788708aa41526b4782533f23a17"
+whole_reason = "One e2e test and the e2e harness's clock seam it needs."
