@@ -325,6 +325,49 @@ def test_a_wrong_open_play_waits_for_the_declarer_across_a_restart_and_a_card_cl
     assert stored_open_play(engine) == ("forehand", True)
 
 
+def test_the_declarers_yes_after_a_restart_writes_the_game_as_played_open_by_the_asking_opponent(
+    game, engine, database_url, stored
+):
+    command = PlayOpenCommand(command_id="open", table_id=game.table_id, version=game.record.version)
+    game.service.play_open(game.actors[Position.FOREHAND], command, nobody_connected())
+
+    restarted_engine = create_store_engine(database_url)
+    try:
+        restarted = PostgresTableTransactions(restarted_engine)
+        yes = AgreeToGiveUpCommand(command_id="yes", table_id=game.table_id, version=game.record.version)
+        result = TableService(restarted).agree_to_give_up(game.actors[Position.MIDDLEHAND], yes, nobody_connected())
+    finally:
+        restarted_engine.dispose()
+
+    assert result.refusal is None
+    (entry,) = game.record.game_list
+    assert (entry.ending, entry.ended_by_seat) == (GameEnding.PLAYED_OPEN, seat_of(game, Position.FOREHAND))
+    assert stored_open_play(engine) == (None, False)
+
+
+def test_the_declarers_no_keeps_the_opponents_cards_open_across_a_restart_until_the_hand_ends(
+    game, engine, database_url, stored
+):
+    command = PlayOpenCommand(command_id="open", table_id=game.table_id, version=game.record.version)
+    game.service.play_open(game.actors[Position.REARHAND], command, nobody_connected())
+    no = DeclineGiveUpCommand(command_id="no", table_id=game.table_id, version=game.record.version)
+    game.service.decline_give_up(game.actors[Position.MIDDLEHAND], no, nobody_connected())
+    game.play_legally(1)
+
+    restarted_engine = create_store_engine(database_url)
+    try:
+        restarted = PostgresTableTransactions(restarted_engine)
+        assert stored(restarted, game.table_id).progress.played_open == {Position.REARHAND}
+        throw = ThrowDownCommand(command_id="throw", table_id=game.table_id, version=game.record.version)
+        result = TableService(restarted).throw_down(game.actors[Position.MIDDLEHAND], throw, nobody_connected())
+    finally:
+        restarted_engine.dispose()
+
+    assert result.refusal is None
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT played_open FROM tables")).scalar_one() == []
+
+
 def test_a_game_the_check_ends_joins_the_list_as_played_open_by_the_opponent(game):
     game.play_legally(NINE_TRICKS_PLAYED)
     command = PlayOpenCommand(command_id="open", table_id=game.table_id, version=game.record.version)

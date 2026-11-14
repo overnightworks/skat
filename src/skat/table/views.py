@@ -244,6 +244,7 @@ def _hand_views(table: TableRecord, viewer_account_id: str) -> tuple[HandView | 
             show_running_points=table.options.show_running_points,
             asked=table.progress.give_up,
             shortening_refused_by=table.progress.shortening_refused_by,
+            played_open=table.progress.played_open,
             kontra=kontra_view_of(table, playing, table.dealer, acting_positions)
             if isinstance(playing, Playing)
             else None,

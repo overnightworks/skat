@@ -120,6 +120,15 @@ class TestTheWaitingCase:
             pytest.param(
                 asked_by_an_opponent(), FOREHAND, None, id="nothing-for-the-seat-on-turn-while-the-declarer-is-asked"
             ),
+            pytest.param(
+                asked_by_an_opponent(open_play=True),
+                MIDDLEHAND,
+                WaitingCase.GIVE_UP,
+                id="the-declarer-on-an-opponents-wrong-open-play",
+            ),
+            pytest.param(
+                asked_by_an_opponent(open_play=True), FOREHAND, None, id="nothing-for-the-opponent-who-played-open"
+            ),
             pytest.param(kontra_hand(), REARHAND, WaitingCase.KONTRA, id="an-unanswered-kontra-word"),
             pytest.param(kontra_hand(), FOREHAND, WaitingCase.TURN, id="the-turn-before-the-kontra-word"),
             pytest.param(
@@ -350,6 +359,9 @@ class TestTheAwaitedSeats:
             ),
             pytest.param(asked_by_the_declarer(None), {2, 3}, id="a-declarers-give-up-both-opponents"),
             pytest.param(asked_by_an_opponent(), {1}, id="an-opponents-give-up-the-declarer-alone"),
+            pytest.param(
+                asked_by_an_opponent(open_play=True), {1}, id="an-opponents-wrong-open-play-the-declarer-alone"
+            ),
             pytest.param(between_games(SEAT_OF[REARHAND]), {1, 3}, id="a-result-the-seats-not-ready"),
             pytest.param(
                 between_games(series=Series(12, 12)), set(SEAT_OF.values()), id="a-series-end-the-seats-not-ready"

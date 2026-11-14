@@ -1,5 +1,6 @@
-"""An opponent's wrong open play waits for the declarer's answer as a standing request, and a game's list entry may say
-it ended by an open play. Only the ending check widens.
+"""An opponent's wrong open play waits for the declarer's answer as a standing request, the opponents whose cards stay
+open after it are kept for the rest of the hand, and a game's list entry may say it ended by an open play. Only the
+ending check widens.
 """
 
 import sqlalchemy as sa
@@ -8,11 +9,19 @@ from alembic import op
 revision = "0042"
 down_revision = "0041"
 
+_POSITIONS = ("forehand", "middlehand", "rearhand")
 ENDING_CHECK = "game_list_ending_is_an_ending"
 
 
 def upgrade() -> None:
     op.add_column("tables", sa.Column("give_up_open", sa.Boolean(), nullable=False, server_default=sa.false()))
+    op.add_column("tables", sa.Column("played_open", sa.ARRAY(sa.Text()), nullable=False, server_default="{}"))
+    op.create_check_constraint(
+        "tables_played_open_are_positions",
+        "tables",
+        f"played_open <@ ARRAY[{', '.join(f"'{each}'" for each in _POSITIONS)}]::text[]"
+        " AND array_position(played_open, NULL) IS NULL",
+    )
     op.create_check_constraint(
         "tables_an_open_play_is_asked_of_the_declarer_alone",
         "tables",

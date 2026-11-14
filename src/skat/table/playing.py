@@ -131,10 +131,20 @@ class ShorteningView:
 
 
 @dataclass(frozen=True)
+class OpenHand:
+    """An opponent's remaining cards in deck order, open to every viewer because the declarer demanded play on after
+    his wrong open play.
+    """
+
+    seat: int
+    cards: tuple[Card, ...]
+
+
+@dataclass(frozen=True)
 class PlayingView:
     """The game in play as one viewer may see it; the turn is the seat that plays next. `shortening_refused_seat` is
-    the opponent whose no to the declarer's shortening left his cards open, and `open_play_seat` the opponent whose
-    open play waits for the declarer's answer.
+    the opponent whose no to the declarer's shortening left his cards open, `open_play_seat` the opponent whose open
+    play waits for the declarer's answer, and `open_hands` the opponents' cards that stay open after it.
     """
 
     turn_seat: int
@@ -146,6 +156,7 @@ class PlayingView:
     shortening: ShorteningView | None
     shortening_refused_seat: int | None
     open_play_seat: int | None
+    open_hands: tuple[OpenHand, ...]
     kontra: KontraView | None
 
 
@@ -234,6 +245,11 @@ def _with_request(table: TableRecord, asked: GiveUpAsked | None) -> Decision:
 
 def _with_the_cards_open(table: TableRecord, refused_by: Position) -> Decision:
     progress = replace(table.progress, give_up=None, shortening_refused_by=refused_by)
+    return Decision(replace(table, version=table.version + 1, progress=progress))
+
+
+def _with_the_open_hand(table: TableRecord, opponent: Position) -> Decision:
+    progress = replace(table.progress, give_up=None, played_open=table.progress.played_open | {opponent})
     return Decision(replace(table, version=table.version + 1, progress=progress))
 
 
@@ -327,7 +343,8 @@ def _answerer(
 
 
 def decide_agree_to_give_up(table: TableRecord, actor: Actor, command: AgreeToGiveUpCommand) -> Decision:
-    """The other side says yes: the game ends as the engine settles the give-up, by the seat that asked. The declarer's
+    """The other side says yes: the game ends as the engine settles the give-up, by the seat that asked; the declarer's
+    yes to an opponent's wrong open play settles it the same way and writes it as played open. The declarer's
     shortening needs both opponents' yes: the first is kept, the same opponent's again is refused as already
     answered, and the other's ends the game as the engine settles the shortening.
     """
@@ -336,7 +353,8 @@ def decide_agree_to_give_up(table: TableRecord, actor: Actor, command: AgreeToGi
         return Decision(table, answering)
     state, asked, position = answering
     if game_waits_for_the_declarers_answer(state, asked):
-        return _end_of(table, opponent_gives_up(state), GameEnding.GIVEN_UP, asked.asker)
+        ending = GameEnding.PLAYED_OPEN if asked.open_play else GameEnding.GIVEN_UP
+        return _end_of(table, opponent_gives_up(state), ending, asked.asker)
     if asked.claim is not None:
         return _agree_to_shortening(table, state, asked, position, asked.claim)
     return _end_of(table, give_up(state, consented=True), GameEnding.GIVEN_UP, asked.asker)
@@ -353,17 +371,18 @@ def _agree_to_shortening(
 
 
 def decide_decline_give_up(table: TableRecord, actor: Actor, command: DeclineGiveUpCommand) -> Decision:
-    """The other side says no. The declarer's no to an opponent's give-up demands play on: the request ends. An
-    opponent's no to the declarer's give-up keeps the request for the other opponent, whose no ends it; a second no of
-    the same opponent changes nothing. An opponent's no to the declarer's shortening ends it at once, and the game
-    goes on scored by its play alone, with the declarer's cards open for the rest of the hand.
+    """The other side says no. The declarer's no to an opponent's give-up demands play on: the request ends; to an
+    opponent's wrong open play it ends the request too and leaves that opponent's cards open for the rest of the
+    hand. An opponent's no to the declarer's give-up keeps the request for the other opponent, whose no ends it; a
+    second no of the same opponent changes nothing. An opponent's no to the declarer's shortening ends it at once, and
+    the game goes on scored by its play alone, with the declarer's cards open for the rest of the hand.
     """
     answering = _answerer(table, actor, command.version)
     if not isinstance(answering, tuple):
         return Decision(table, answering)
     state, asked, position = answering
     if game_waits_for_the_declarers_answer(state, asked):
-        return _with_request(table, None)
+        return _with_the_open_hand(table, asked.asker) if asked.open_play else _with_request(table, None)
     if asked.claim is not None:
         return _with_the_cards_open(table, position)
     if asked.declined_by is position:
@@ -444,6 +463,7 @@ def playing_view_of(
     show_running_points: bool,
     asked: GiveUpAsked | None,
     shortening_refused_by: Position | None,
+    played_open: frozenset[Position],
     kontra: KontraView | None,
 ) -> PlayingView | None:
     """The game in play for one viewer; None until a game is played.
@@ -453,8 +473,9 @@ def playing_view_of(
     game for the declarer's answer to an opponent's give-up, which the caller says by passing no viewer position.
     A table that shows the running points gives everyone the card points of the completed tricks, which leave out
     the skat; a Null game and a Ramsch have none. The words said are the caller's `kontra` view.
-    A give-up or a shortening waiting for the other side's answer, and the opponent whose no to a shortening left the
-    declarer's cards open, are the same for every viewer.
+    A give-up, a shortening or a wrong open play waiting for the other side's answer, the opponent whose no to a
+    shortening left the declarer's cards open, and the opponents whose open play the declarer would not accept, are the
+    same for every viewer.
     """
     if state is None:
         return None
@@ -472,6 +493,10 @@ def playing_view_of(
         shortening=None if asked is None or asked.claim is None else _shortening_view_of(asked, asked.claim, seats),
         shortening_refused_seat=None if shortening_refused_by is None else seats[shortening_refused_by],
         open_play_seat=None if asked is None or not asked.open_play else seats[asked.asker],
+        open_hands=tuple(
+            OpenHand(seats[position], tuple(card for card in DECK if card in state.hands[position]))
+            for position in sorted(played_open, key=seats.__getitem__)
+        ),
         kontra=kontra,
     )
 

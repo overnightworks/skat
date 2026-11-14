@@ -186,6 +186,7 @@ def _table_record(
             plays=read_plays(connection, table_id),
             give_up=_read_give_up(table),
             shortening_refused_by=_position_of(table.shortening_refused_by),
+            played_open=frozenset(POSITION_OF_TEXT[each] for each in table.played_open),
             words=read_words(connection, table_id),
             no_words=read_no_words(connection, table_id),
             pushing=read_pushing_steps(connection, table_id),
@@ -306,6 +307,7 @@ class _PostgresTableTransaction:
                 give_up_agreed_by=None if asked is None else _text_of(asked.agreed_by),
                 give_up_open=asked is not None and asked.open_play,
                 shortening_refused_by=_text_of(table.progress.shortening_refused_by),
+                played_open=sorted(POSITION_TEXT[each] for each in table.progress.played_open),
             )
         )
 
@@ -402,6 +404,7 @@ class _PostgresTableTransaction:
                 give_up_agreed_by=None,
                 give_up_open=False,
                 shortening_refused_by=None,
+                played_open=[],
                 ended_at=at,
                 end_reason=ending.reason.value,
                 empty_seconds=ending.empty_seconds,

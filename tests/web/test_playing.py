@@ -388,6 +388,7 @@ class Moment:
             "shortening": None,
             "shortening_refused_seat": None,
             "open_play_seat": None,
+            "open_hands": [],
             "kontra": None,
         }
 

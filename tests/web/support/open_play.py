@@ -1,5 +1,6 @@
 from skat.engine.deal import Position
 from skat.web.playing import TABLE_GIVE_UP_AGREE_SUFFIX, TABLE_GIVE_UP_DECLINE_SUFFIX, TABLE_PLAY_OPEN_SUFFIX
+from tests.support.payload_cards import CARDS_BY_SEAT, wire_cards
 from tests.web.support.giving_up import SEAT, playing_as
 from tests.web.support.playing import HERZ_GAME
 
@@ -37,3 +38,18 @@ def open_play_read(table):
 
 def waiting_for(position):
     return [SEAT[position]] * 4
+
+
+def opponents_cards(position):
+    return wire_cards(CARDS_BY_SEAT[SEAT[position]])
+
+
+def open_hands_read(table):
+    """The open hands by seat, as the watcher and each chair read them."""
+    return [
+        {
+            each["seat"]: {(card["suit"], card["rank"]) for card in each["cards"]}
+            for each in playing_as(table, headers)["open_hands"]
+        }
+        for headers in (table.watcher, *table.at.values())
+    ]
