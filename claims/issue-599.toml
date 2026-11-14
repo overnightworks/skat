@@ -1,8 +1,0 @@
-claim_id = "e4ae25f3810f442c8d3f3af166d2693a"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "03c35065d502371c8361791a20d4867a2da55c4d"
-branch = "claude/issue-599-the-kontra-and-re-keys-look-as-the-bless"
-scope = ["frontend/src/lib/start.css", "frontend/src/lib/ui", "tests/e2e"]
-opened_commit = "a25afba5f13fa0863d113b4c25acc2eb354fa684"
-whole_reason = "One key style in the stylesheet and its components, proven by one e2e driver."
