@@ -1,7 +1,12 @@
 import { vi } from "vitest";
 
-/** Stands in for the browser a page's sound reads: an audio context that counts its starts, the tap listeners and the stored settings. */
-export function stubBrowser(options: { reducedMotion: boolean; stored?: string; hidden?: boolean }) {
+/** Stands in for the browser a page's sound reads: an audio context that counts its starts, the tap listeners and the stored settings; a device that can vibrate passes its `vibrate`. */
+export function stubBrowser(options: {
+    reducedMotion: boolean;
+    stored?: string;
+    hidden?: boolean;
+    vibrate?: (pattern: readonly number[]) => void;
+}) {
     const started: number[] = [];
     const gains: { setValueAtTime: ReturnType<typeof vi.fn> }[] = [];
     const node = () => ({
@@ -33,6 +38,7 @@ export function stubBrowser(options: { reducedMotion: boolean; stored?: string; 
             return gain;
         };
         createDynamicsCompressor = node;
+        createWaveShaper = node;
         createBufferSource = node;
         createOscillator = node;
         createBiquadFilter = node;
@@ -49,7 +55,7 @@ export function stubBrowser(options: { reducedMotion: boolean; stored?: string; 
     vi.stubGlobal("window", {
         fetch: vi.fn(() => Promise.resolve({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(1)) })),
         AudioContext: StubContext,
-        navigator: {},
+        navigator: options.vibrate ? { vibrate: options.vibrate } : {},
         document: page,
         matchMedia: () => ({ matches: options.reducedMotion, addEventListener: vi.fn() }),
         localStorage: { getItem: () => options.stored ?? null },

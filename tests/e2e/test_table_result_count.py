@@ -1,3 +1,4 @@
+import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -5,7 +6,7 @@ from playwright.sync_api import Locator, Page, expect
 
 from skat.engine.tricks import CARDS_IN_A_GAME
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
-from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.result_card import CARD, MINUS
 
 if TYPE_CHECKING:
@@ -30,6 +31,15 @@ COUNTER_AT = """
         count.currentTime = milliseconds;
         return Number(getComputedStyle(dl).getPropertyValue("--n"));
     }
+"""
+CARD_HAS_RISEN = f"""
+    () => Promise.all(
+        document
+            .querySelector("{CARD}")
+            .getAnimations()
+            .filter((one) => one.animationName === "rise")
+            .map((one) => one.finished)
+    )
 """
 START_OF_THE_COUNT = """
     async (dl) => {
@@ -122,6 +132,8 @@ def test_a_card_update_while_the_count_runs_neither_restarts_it_nor_moves_the_co
     cell = gain_cell(table.watcher, won_seat)
     expect(cell).to_have_class("dl count")
     started = cell.evaluate(START_OF_THE_COUNT)
+    # The card scales up as it rises, so its coaster is measured once the card has risen.
+    table.watcher.evaluate(CARD_HAS_RISEN)
     width = (cell.bounding_box() or {})["width"]
 
     table.ready_through_the_api(won_seat)
@@ -169,4 +181,36 @@ def test_with_reduced_motion_every_number_stands_at_once(
     )
 
     expect_every_gain_to_stand(table)
+    assert page_errors == []
+
+
+CONFETTI = ".confetti i"
+CONFETTI_PIECES = {"verspielt": 16, "dezent": 0}
+SETTINGS_KEY = "skat.settings"
+
+
+@pytest.mark.parametrize("motion_set", CONFETTI_PIECES)
+def test_a_won_result_throws_the_confetti_of_the_motion_set_and_a_lost_one_none(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    motion_set: str,
+) -> None:
+    table = deal_playing_table(
+        open_person, e2e_server, member_of, page_errors, {**PHONE, "reduced_motion": "no-preference"}
+    )
+    for person in table.everyone:
+        person.evaluate(
+            "([key, value]) => localStorage.setItem(key, value)", [SETTINGS_KEY, json.dumps({"motionSet": motion_set})]
+        )
+        person.reload()
+        expect(person.locator(".chair")).to_have_count(3)
+
+    table.play_out(CARDS_IN_A_GAME)
+
+    for person in table.everyone:
+        expect(person.locator(CARD)).to_be_visible()
+        lost = person.locator(f"{CARD}.lost").count() == 1
+        expect(person.locator(CONFETTI)).to_have_count(0 if lost else CONFETTI_PIECES[motion_set])
     assert page_errors == []

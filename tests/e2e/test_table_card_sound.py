@@ -4,29 +4,17 @@ from typing import TYPE_CHECKING
 import pytest
 from playwright.sync_api import Page, expect
 
-from tests.e2e.support.audio import FELT_FACE, VOICES_OF_ONE_CARD, open_watcher, playing_table, tap, voices_started
+from tests.e2e.support.audio import FELT_FACE, VOICES_OF_ONE_CARD, open_watcher, tap, voices_started
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from tests.e2e.support.hands import PlayingTable
-    from tests.e2e.support.server import RunningServer
-    from tests.support.signed_in import SeededMember
 
 pytestmark = pytest.mark.e2e
 
 # The seconds from the cue to the card touching the felt, in each motion set.
 LANDING_SECONDS = {"verspielt": 0.28, "dezent": 0.18}
-
-
-@pytest.fixture
-def table(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-) -> PlayingTable:
-    return playing_table(open_person, e2e_server, member_of, page_errors)
 
 
 def hide_the_tab(page: Page, *, hidden: bool) -> None:

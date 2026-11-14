@@ -338,6 +338,8 @@ export type Words = {
     readonly "sound.lastTrick": string;
     readonly "sound.lastTrickSweep": string;
     readonly "sound.lastTrickStay": string;
+    readonly "sound.turnInBackground": string;
+    readonly "sound.vibration": string;
     readonly "sound.motionDezent": string;
     readonly "sound.motionVerspielt": string;
     readonly "card.letterJack": string;
@@ -899,6 +901,8 @@ export const words: Words = {
     "sound.lastTrick": "Letzter Stich",
     "sound.lastTrickSweep": "wegfegen",
     "sound.lastTrickStay": "liegen lassen",
+    "sound.turnInBackground": "Du bist dran im Hintergrund",
+    "sound.vibration": "Vibration",
     "sound.motionDezent": "dezent",
     "sound.motionVerspielt": "verspielt",
     "card.letterJack": "B",
