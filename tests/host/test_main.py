@@ -37,21 +37,26 @@ def every_health_ask_probes_and_awaits_it(monkeypatch):
     monkeypatch.setattr(migrate_module, "READINESS_PATIENCE_SECONDS", 60)
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def logging_left_as_found():
     """Gives back structlog's and the standard library's configuration that `main` replaces."""
-    names = ["", "logline.request", "httpx", "httpx2", "httpcore", "uvicorn", "uvicorn.error", "uvicorn.access"]
-    found = [(logging.getLogger(name), logging.getLogger(name).level) for name in names]
-    handlers = {logger: list(logger.handlers) for logger, _ in found}
-    filters = {logger: list(logger.filters) for logger, _ in found}
-    propagation = {logger: logger.propagate for logger, _ in found}
+
+    def every_logger() -> list[logging.Logger]:
+        named = [logger for logger in logging.root.manager.loggerDict.values() if isinstance(logger, logging.Logger)]
+        return [logging.root, *named]
+
+    found = {
+        logger: (logger.level, list(logger.handlers), list(logger.filters), logger.propagate)
+        for logger in every_logger()
+    }
     yield
     structlog.reset_defaults()
-    for logger, level in found:
-        logger.handlers[:] = handlers[logger]
-        logger.filters[:] = filters[logger]
-        logger.propagate = propagation[logger]
+    for logger in every_logger():
+        level, handlers, filters, propagate = found.get(logger, (logging.NOTSET, [], [], True))
         logger.setLevel(level)
+        logger.handlers[:] = handlers
+        logger.filters[:] = filters
+        logger.propagate = propagate
 
 
 @pytest.fixture
@@ -82,7 +87,7 @@ class TestMain:
         assert [(run["host"], run["port"]) for run in server.runs] == [("127.0.0.1", 9090)]
 
     def test_writes_each_request_of_the_served_app_as_one_json_line_of_the_skat_service(
-        self, server, configured_environment, database_url, logging_left_as_found, capsys
+        self, server, configured_environment, database_url, capsys
     ):
         configured_environment(database_url)
         main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
