@@ -45,6 +45,9 @@
             change: (value: number) => {
                 changeSetting("volume", value);
             },
+            release: () => {
+                void previewSound();
+            },
         },
         {
             kind: "choice",

@@ -18,6 +18,8 @@
               readonly label: string;
               readonly value: number;
               readonly change: (value: number) => void;
+              /** The slider is let go: the player hears a sample at the new volume. */
+              readonly release: () => void;
           }
         | {
               readonly kind: "choice";
@@ -117,6 +119,7 @@
                         oninput={(event) => {
                             row.change(event.currentTarget.valueAsNumber);
                         }}
+                        onchange={row.release}
                     />
                 </label>
             {:else}
