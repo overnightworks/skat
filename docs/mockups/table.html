@@ -1913,7 +1913,8 @@ function handsOf(g,tricks,declarer){
 const handRows=(hands)=>`<div class="held">${hands.map(([k,cards])=>`<div class="held-row">${takerDot(k)}<span class="minis">${cards.map(h=>`<span class="hc ${h.state}">${card(...cardOf(h.code))}</span>`).join('')}</span></div>`).join('')}</div>`;
 const minis=(codes)=>`<span class="minis">${codes.map(code=>card(...cardOf(code))).join('')}</span>`;
 const takerDot=(k)=>`<span class="dot" style="${dotStyle(P[k])}" title="${P[k].n}">${P[k].i}</span>`;
-const trickRow=(t,i,side)=>`<div class="trick ${side(t.taker)}"><span class="nr">${i+1}</span>${minis(t.codes)}${takerDot(t.taker)}<span class="pts">${t.points}</span></div>`;
+const laidMinis=(t)=>`<span class="minis">${t.codes.map((code,i)=>`<span class="laid">${card(...cardOf(code))}<span class="by" title="${P[t.seats[i]].n}">${P[t.seats[i]].i}</span></span>`).join('')}</span>`;
+const trickRow=(t,i,side)=>`<div class="trick ${side(t.taker)}"><span class="nr">${i+1}</span>${laidMinis(t)}${takerDot(t.taker)}<span class="pts">${t.points}</span></div>`;
 const backButton=`<span class="back" role="button" tabindex="0" aria-label="Zurück zur Liste">${I.chev}</span>`;
 const gameSheet=(d,o)=>`<div class="scrim over"></div>`+seriesCount(d,o.count,{open:true})
   +`<div class="result gamelist sheet" role="dialog" aria-label="Spiel ${o.n}" style="${at(listBox(d))}">
@@ -1950,7 +1951,7 @@ const RAMSCH_GAME={n:8,trump:'',lead:'felix',aside:['7d','8d'],puts:[{by:'felix'
   ['7s','9s','8s'],['Bs','10d','Bh'],['7c','Dc','8c'],['Ad','Dd','7h'],['Dh','9h','8h']]};
 const GAME_SCENES=[
   ['game-tricks','Ein Spiel mit seinen Stichen',(d)=>seriesPlay(d,'')+declaredSheet(d,SUIT_GAME),
-    ['Ein Tipp auf eine Zeile der Liste öffnet das Spiel an derselben Stelle: oben die Zeile, darunter der Skat und die zwei gedrückten Karten und die Augen gegen die 61; dann die zehn Stiche mit Nummer, den drei Karten in der gespielten Reihenfolge, dem Punkt dessen, der stach, und seinen Augen. Stiche des Alleinspielers in seiner Farbe, die der Gegner in ihrer; der Pfeil führt zurück zur Liste, und nur die Stiche rollen.']],
+    ['Ein Tipp auf eine Zeile der Liste öffnet das Spiel an derselben Stelle: oben die Zeile, darunter der Skat und die zwei gedrückten Karten und die Augen gegen die 61; dann die zehn Stiche mit Nummer, den drei Karten in der gespielten Reihenfolge, unter jeder der Anfangsbuchstabe dessen, der sie legte, dem Punkt dessen, der stach, und seinen Augen. Stiche des Alleinspielers in seiner Farbe, die der Gegner in ihrer; der Pfeil führt zurück zur Liste, und nur die Stiche rollen.']],
   ['game-ramsch','Ein Ramsch mit seinen Stichen',(d)=>seriesPlay(d,'')+ramschSheet(d,RAMSCH_GAME),
     ['Ein Ramsch hat keinen Alleinspieler: oben stehen die Augen jedes Stuhls, die meisten hervorgehoben, und der Skat mit dem Punkt dessen, der den letzten Stich und damit den Skat bekam.']],
   ['game-ended','Ein Spiel, früh zu Ende',(d)=>seriesPlay(d,'')+declaredSheet(d,EARLY_GAME),
@@ -2432,6 +2433,8 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .sheet .tricks{gap:5px}
 .trick{flex:none;display:grid;grid-template-columns:22px auto 1fr 26px 30px;align-items:center;gap:8px;min-height:52px;padding:4px 10px 4px 4px;border-radius:14px;background:rgba(255,255,255,.07)}
 .trick .minis{grid-column:2}
+.trick .laid{display:grid;gap:2px;justify-items:center}
+.trick .by{color:var(--on-stage-soft);font-size:11px;font-weight:700;line-height:1;text-transform:uppercase}
 .trick .dot{grid-column:4}
 .trick .nr{text-align:center;font-size:12.5px;font-weight:600;color:var(--on-stage-soft);font-variant-numeric:tabular-nums}
 .trick .nr svg{width:16px;height:16px;color:var(--on-stage)}
@@ -2443,7 +2446,7 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .trick.ended b{grid-column:2/4;font-size:14px;font-weight:600}
 .d1280 .minis .card{--w:40px}
 .d1280 .held .minis .card{--w:30px}
-.d1280 .sheet .tricks{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(5,auto);grid-auto-flow:column;align-content:start;gap:6px 10px}
+.d1280 .sheet .tricks{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(5,max-content);grid-auto-flow:column;align-content:start;gap:6px 10px}
 /* the list of every game scrolls inside its panel, never the page */
 .result.gamelist{align-items:stretch;padding:16px 8px 12px 14px}
 .result.gamelist h3{text-align:center}
