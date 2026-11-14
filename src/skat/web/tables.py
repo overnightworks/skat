@@ -227,6 +227,11 @@ class LastTrickAnswer(BaseModel):
     taker_seat: int
 
 
+class TakenAnswer(BaseModel):
+    seat: int
+    tricks: int
+
+
 class SidesAnswer(BaseModel):
     declarer: int
     opponents: int
@@ -264,6 +269,7 @@ class PlayingAnswer(BaseModel):
     turn_seat: int
     current_trick: list[SeatedCardAnswer]
     last_trick: LastTrickAnswer | None
+    taken: list[TakenAnswer]
     legal_cards: list[CardAnswer]
     running_points: SidesAnswer | None
     give_up: GiveUpAnswer | None
@@ -529,6 +535,7 @@ def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
             leader_seat=last.leader_seat,
             taker_seat=last.taker_seat,
         ),
+        taken=[TakenAnswer(seat=each.seat, tricks=each.tricks) for each in playing.taken],
         legal_cards=[card_answer_of(card) for card in playing.legal_cards],
         running_points=None
         if playing.running_points is None

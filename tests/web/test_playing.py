@@ -14,7 +14,19 @@ from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import KNOWN_DEAL, SKAT_CARDS, cards_in_text, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import HERZ_GAME, Table, card, card_body, cards, game_of, reason_of, takers
+from tests.web.support.playing import (
+    HERZ_GAME,
+    PLAIN_DEAL,
+    PLAIN_HAND,
+    Table,
+    card,
+    card_body,
+    cards,
+    game_of,
+    reason_of,
+    takers,
+    three_pass,
+)
 from tests.web.support.skat import UNKNOWN_ID, unnamed_lines
 
 if TYPE_CHECKING:
@@ -270,6 +282,7 @@ class TestRetries:
 SEATS = {MIDDLEHAND: 1, REARHAND: 2, FOREHAND: 3}
 CHAIRS_IN_SEAT_ORDER = (MIDDLEHAND, REARHAND, FOREHAND)
 ALL_POINTS = 120
+RAMSCH_POINTS = {"occasion": "passed-in", "scoring": "points", "jungfrau": "doubles-loser", "durchmarsch": "wins-120"}
 
 
 def message_body(raw):
@@ -364,6 +377,7 @@ class Moment:
     turn: Position
     current: tuple[dict[str, object], ...] = ()
     last: tuple[tuple[dict[str, object], ...], Position] | None = None
+    taken: tuple[int, int, int] = (0, 0, 0)
     legal: tuple[Card, ...] = ()
     deal: Deal = KNOWN_DEAL
     ouvert: bool = False
@@ -382,6 +396,7 @@ class Moment:
             "turn_seat": SEATS[self.turn],
             "current_trick": list(self.current),
             "last_trick": last,
+            "taken": [{"seat": seat, "tricks": tricks} for seat, tricks in enumerate(self.taken, start=1)],
             "legal_cards": [card_body(each) for each in legal],
             "running_points": None,
             "give_up": None,
@@ -427,6 +442,7 @@ MOMENTS = {
         HERZ_GAME[:3],
         MIDDLEHAND,
         last=(FIRST_TRICK, MIDDLEHAND),
+        taken=(1, 0, 0),
         legal=cards("ST SJ SQ SK SA H7 H8 H9 HT"),
     ),
     "second-trick": Moment(
@@ -434,6 +450,7 @@ MOMENTS = {
         HERZ_GAME[:6],
         FOREHAND,
         last=(SECOND_TRICK, FOREHAND),
+        taken=(1, 0, 1),
         legal=cards("C7 C8 C9 CT CQ CK CA S8"),
     ),
     "seventh-card": Moment(
@@ -442,6 +459,7 @@ MOMENTS = {
         MIDDLEHAND,
         current=(played_body(FOREHAND, "S8"),),
         last=(SECOND_TRICK, FOREHAND),
+        taken=(1, 0, 1),
         legal=cards("ST SQ SK SA"),
     ),
     "rearhand-leads": Moment(
@@ -450,6 +468,7 @@ MOMENTS = {
         MIDDLEHAND,
         current=(played_body(REARHAND, "HK"), played_body(FOREHAND, "CK")),
         last=(EIGHTH_TRICK, REARHAND),
+        taken=(6, 1, 1),
         legal=cards("H9 HT"),
     ),
     "last-card-due": Moment(
@@ -458,6 +477,7 @@ MOMENTS = {
         MIDDLEHAND,
         current=(played_body(REARHAND, "HA"), played_body(FOREHAND, "CA")),
         last=(NINTH_TRICK, REARHAND),
+        taken=(6, 2, 1),
         legal=cards("HT"),
     ),
     "ouvert-two-cards": Moment(
@@ -545,6 +565,17 @@ class TestEveryViewersPlaying:
 
         assert [body["hand"] for body in reloads] == [streamed["hand"], streamed["hand"]]
         assert [body["chairs"] for body in reloads] == [streamed["chairs"], streamed["chairs"]]
+
+    @pytest.mark.parametrize("viewer", EVERY_VIEWER, ids=lambda viewer: viewer.name)
+    def test_a_ramsch_counts_the_tricks_each_seat_took_with_zero_for_the_others(self, skat, viewer):
+        table = Table(skat, {"ramsch": RAMSCH_POINTS})
+        table.with_deal(PLAIN_DEAL)
+        three_pass(table)
+        table.played_out(PLAIN_HAND[:12])
+
+        playing = message_body(read(table, viewer.headers_at(table)))["hand"]["playing"]
+
+        assert playing["taken"] == [{"seat": 1, "tricks": 0}, {"seat": 2, "tricks": 4}, {"seat": 3, "tricks": 0}]
 
     def test_after_thirty_cards_the_result_counts_the_skat_for_the_declarer(self, table):
         herz_hand_game(table)

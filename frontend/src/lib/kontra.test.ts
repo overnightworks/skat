@@ -58,6 +58,11 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
             turn_seat: OPPONENT,
             current_trick: [],
             last_trick: null,
+            taken: [
+                { seat: 1, tricks: 0 },
+                { seat: 2, tricks: 0 },
+                { seat: 3, tricks: 0 },
+            ],
             legal_cards: [],
             running_points: null,
             give_up: null,
