@@ -1,4 +1,4 @@
-import type { Cue } from "./cues.ts";
+import { isChairCue, type Cue } from "./cues.ts";
 import type { MotionSet } from "./motionSets.ts";
 import type { LastTrick, Playing } from "../routes/(start)/tables.ts";
 
@@ -42,6 +42,15 @@ export function timingOf(motion: MotionSet | undefined, hidden: boolean): Timing
               restMilliseconds: motion.trickRestSeconds * MILLISECONDS,
               glideMilliseconds: (motion.trickGatherSeconds + motion.trickGlideSeconds) * MILLISECONDS,
           };
+}
+
+/** How long the chairs that changed hands in `cues` move in the set: the longest of them, zero with no set in force or a hidden window. */
+export function chairMoveMilliseconds(cues: readonly Cue[], motion: MotionSet | undefined, hidden: boolean): number {
+    if (motion === undefined || hidden) return 0;
+    const seconds = cues
+        .filter(isChairCue)
+        .map((cue) => (cue.kind === "chair-taken" ? motion.chairSitsSeconds : motion.chairEmptiesSeconds));
+    return Math.max(0, ...seconds) * MILLISECONDS;
 }
 
 /** The moment the sweep begins, which the swept trick sounds at. */

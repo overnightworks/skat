@@ -16,6 +16,10 @@ export interface MotionSet {
     readonly trickGatherSeconds: number;
     /** From the gathered trick to the moment it lies on its taker's pile; the set's CSS keeps the same time. */
     readonly trickGlideSeconds: number;
+    /** How long a chair that is taken fills and its gold ring glows; the set's CSS keeps the same time. */
+    readonly chairSitsSeconds: number;
+    /** How long a chair that stands up or opens fades; the set's CSS keeps the same time. */
+    readonly chairEmptiesSeconds: number;
 }
 
 export const MOTION_SETS = {
@@ -28,6 +32,8 @@ export const MOTION_SETS = {
         trickRestSeconds: 0.5,
         trickGatherSeconds: 0,
         trickGlideSeconds: 0.28,
+        chairSitsSeconds: 0.9,
+        chairEmptiesSeconds: 0.3,
     },
     verspielt: {
         id: "verspielt",
@@ -38,6 +44,8 @@ export const MOTION_SETS = {
         trickRestSeconds: 0.8,
         trickGatherSeconds: 0.25,
         trickGlideSeconds: 0.75,
+        chairSitsSeconds: 1.4,
+        chairEmptiesSeconds: 0.4,
     },
 } as const satisfies Record<string, MotionSet>;
 

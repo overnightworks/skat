@@ -74,7 +74,7 @@
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { bockLine } from "#lib/tableRules.ts";
     import { motionInForce } from "#lib/settings.svelte.ts";
-    import { receiveOnStage, resetStage, sweepingTo, trickIsMoving } from "#lib/stage.svelte.ts";
+    import { chairMoving, receiveOnStage, resetStage, sweepingTo, trickIsMoving } from "#lib/stage.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { words } from "#lib/words.ts";
     import TableClosed from "./TableClosed.svelte";
@@ -567,6 +567,7 @@
                         class:turn={onTurn}
                         class:nudgeable={chair.nudge !== null}
                         data-seat={chair.seat}
+                        data-moving={chairMoving(chair.seat)}
                     >
                         {#if chair.occupant_name !== null}
                             <span class="tile" class:agent={chair.occupant_kind === "agent"}>

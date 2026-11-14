@@ -1,7 +1,16 @@
-import type { Cue } from "./cues.ts";
+import { isChairCue, type ChairCue, type Cue } from "./cues.ts";
 import { MOTION_SETS } from "./motionSets.ts";
 import { currentSettings, motionInForce } from "./settings.svelte.ts";
-import { advance, jump, receive, SETTLED, timingOf, type StageState, type Step } from "./stage.ts";
+import {
+    advance,
+    chairMoveMilliseconds,
+    jump,
+    receive,
+    SETTLED,
+    timingOf,
+    type StageState,
+    type Step,
+} from "./stage.ts";
 import { soundForGlide } from "./tableSound.ts";
 import type { LastTrick, Table } from "../routes/(start)/tables.ts";
 
@@ -10,6 +19,9 @@ let stage: StageState = $state(SETTLED);
 // The seat whose pile's last trick the player looks at again, or none.
 let looking: number | null = $state(null);
 let timer: ReturnType<typeof setTimeout> | undefined;
+// The chairs that changed hands in the latest update, while their motion lasts.
+let moving: readonly ChairCue[] = $state([]);
+let movingTimer: ReturnType<typeof setTimeout> | undefined;
 
 function apply(step: Step): void {
     clearTimeout(timer);
@@ -37,11 +49,22 @@ export function trickIsMoving(): boolean {
     return stage.phase !== "settled";
 }
 
+/** What happened to the chair of a seat while its motion lasts, or none. */
+export function chairMoving(seat: number): ChairCue["kind"] | null {
+    return moving.find((cue) => cue.seat === seat)?.kind ?? null;
+}
+
+function stopChairs(): void {
+    clearTimeout(movingTimer);
+    moving = [];
+}
+
 /** The first table of a page, a reconnect and a table left behind show at once, as the received table says. */
 export function resetStage(): void {
     clearTimeout(timer);
     stage = SETTLED;
     looking = null;
+    stopChairs();
 }
 
 /** The update `cues` brought to the table that followed `previous`. */
@@ -52,11 +75,18 @@ export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[]
     }
     if (cues.some((cue) => cue.kind === "card-played")) looking = null;
     const motion = motionInForce();
+    const motionSet = motion === undefined ? undefined : MOTION_SETS[motion];
+    stopChairs();
+    const chairMilliseconds = chairMoveMilliseconds(cues, motionSet, document.hidden);
+    if (chairMilliseconds > 0) {
+        moving = cues.filter(isChairCue);
+        movingTimer = setTimeout(stopChairs, chairMilliseconds);
+    }
     apply(
         receive(stage, {
             cues,
             before: previous.hand?.playing ?? null,
-            timing: timingOf(motion === undefined ? undefined : MOTION_SETS[motion], document.hidden),
+            timing: timingOf(motionSet, document.hidden),
             mode: currentSettings().lastTrick,
             now: Date.now(),
         }),
@@ -65,6 +95,7 @@ export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[]
 
 /** A hidden window shows the received table at once. */
 export function jumpStage(): void {
+    stopChairs();
     apply(jump(stage));
 }
 
