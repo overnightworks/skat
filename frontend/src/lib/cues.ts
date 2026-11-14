@@ -62,15 +62,13 @@ function wordSaidBetween(previous: Table | undefined, next: Table): SaidWord | n
 // update; the last of them when several did. A play shows nothing at the table, so it is no cue.
 function bidSaidBetween(previous: Table, next: Table): { seat: number; word: BidWord } | null {
     const before = previous.hand?.auction.words ?? [];
-    const latest = (next.hand?.auction.words ?? [])
-        .filter(
-            (word) =>
-                !sameJson(
-                    before.find((each) => each.seat === word.seat),
-                    word,
-                ),
-        )
-        .at(-1);
+    const latest = (next.hand?.auction.words ?? []).findLast(
+        (word) =>
+            !sameJson(
+                before.find((each) => each.seat === word.seat),
+                word,
+            ),
+    );
     return latest === undefined || latest.action === "play"
         ? null
         : { seat: latest.seat, word: { action: latest.action, value: latest.value } };
