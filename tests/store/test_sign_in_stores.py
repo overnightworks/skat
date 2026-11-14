@@ -1,27 +1,27 @@
 """Skat's Postgres adapter of the sign-in ports: accounts, sessions and the serialised sign-in entry."""
 
 import hashlib
-import threading
-import time
+import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import SecretStr
-from sqlalchemy import func, select, text
-from sqlalchemy.exc import NoResultFound
+from sqlalchemy import func, select
 from webauth.ports import AccountEvent, AccountEventKind, AccountKind
+from webauth.store_contract import STORE_CHECKS, StoreAdapter
 
-from skat.store.migrate import SIGN_IN_LOCK_KEY
+from skat.store.accounts import PostgresAccounts
+from skat.store.migrate import create_store_engine
 from skat.store.schema import accounts, sessions
 from skat.store.sign_in import PostgresSignInStores
+from skat.web.sign_in import LoggingAuditSink
 
 pytestmark = pytest.mark.postgres
 
 NOW = datetime(2026, 11, 14, 12, tzinfo=UTC)
 LIFETIME = timedelta(days=30)
 SUBJECT = "subject-anna"
-POLL_SECONDS = 0.05
-WAIT_DEADLINE_SECONDS = 10
 
 
 class RecordingAudit:
@@ -45,6 +45,18 @@ def stores(engine, audit):
     return PostgresSignInStores(engine, audit=audit)
 
 
+@dataclass(frozen=True)
+class TransactionOnTheSameDatabase:
+    """Builds a sign-in transaction in a process that shares nothing with the test, as the contract's second
+    process needs it.
+    """
+
+    database_url: str
+
+    def __call__(self):
+        return PostgresSignInStores(create_store_engine(self.database_url), audit=LoggingAuditSink()).transaction
+
+
 def created_event(subject=SUBJECT):
     return AccountEvent(kind=AccountEventKind.USER_CREATED, actor_id=None, subject_id=subject, role="user")
 
@@ -52,6 +64,7 @@ def created_event(subject=SUBJECT):
 def new_session(entry, subject=SUBJECT, *, created_at=NOW, lifetime=LIFETIME, refresh_token="refresh-token"):
     return entry.sessions.create(
         subject,
+        session_id=f"session-{uuid.uuid4().hex}",
         now=created_at,
         expires_at=created_at + lifetime,
         refresh_token=SecretStr(refresh_token),
@@ -69,23 +82,23 @@ def sign_in(stores, subject=SUBJECT, **session_options):
         return new_session(entry, subject, **session_options)
 
 
-def an_entry_waits_for_the_lock(engine):
-    with engine.connect() as connection:
-        waiting = connection.execute(
-            text(
-                "SELECT count(*) FROM pg_locks"
-                " WHERE locktype = 'advisory' AND NOT granted"
-                " AND database = (SELECT oid FROM pg_database WHERE datname = current_database())"
-                " AND (classid::bigint << 32) | objid::bigint = :key"
-            ),
-            {"key": SIGN_IN_LOCK_KEY},
-        ).scalar_one()
-    return waiting > 0
-
-
 def count(engine, table):
     with engine.connect() as connection:
         return connection.execute(select(func.count()).select_from(table)).scalar_one()
+
+
+class TestTheStoreContract:
+    @pytest.mark.parametrize("check", STORE_CHECKS, ids=lambda check: check.name)
+    def test_keeps_the_duty_of_the_ports(self, check, engine, stores, database_url):
+        with engine.execution_options(isolation_level="AUTOCOMMIT").connect() as committing:
+            adapter = StoreAdapter(
+                accounts=PostgresAccounts(committing),
+                sessions=stores.sessions,
+                transaction=stores.transaction,
+                transaction_in_another_process=TransactionOnTheSameDatabase(database_url),
+            )
+
+            check.run(adapter)
 
 
 class TestASignInEntry:
@@ -123,60 +136,8 @@ class TestASignInEntry:
 
         assert audit.events == [created_event()]
 
-    def test_of_a_subjects_first_sign_in_on_two_apps_at_once_stores_one_account_and_both_sessions(self, engine, audit):
-        first_has_read = threading.Event()
-        second_has_read = threading.Event()
-        failures = []
-
-        def first_sign_in(stores, has_read, creates_when):
-            try:
-                with stores.transaction() as entry:
-                    known = entry.accounts.get(SUBJECT)
-                    has_read.set()
-                    creates_when()
-                    if known is None:
-                        entry.accounts.create_for_subject(SUBJECT, "Anna", "user", AccountKind.PERSON)
-                    new_session(entry)
-            except Exception as failure:
-                failures.append(failure)
-
-        def once_the_second_has_read_or_waits_for_the_lock():
-            # Without the lock the second entry reads no account; with it the second entry waits outside.
-            deadline = time.monotonic() + WAIT_DEADLINE_SECONDS
-            while not second_has_read.wait(POLL_SECONDS) and not an_entry_waits_for_the_lock(engine):
-                assert time.monotonic() < deadline
-
-        first = threading.Thread(
-            target=first_sign_in,
-            args=(
-                PostgresSignInStores(engine, audit=audit),
-                first_has_read,
-                once_the_second_has_read_or_waits_for_the_lock,
-            ),
-        )
-        second = threading.Thread(
-            target=first_sign_in,
-            args=(PostgresSignInStores(engine, audit=audit), second_has_read, lambda: None),
-        )
-        first.start()
-        assert first_has_read.wait(WAIT_DEADLINE_SECONDS)
-        second.start()
-        threads = [first, second]
-        for thread in threads:
-            thread.join(WAIT_DEADLINE_SECONDS)
-
-        assert (failures, count(engine, accounts), count(engine, sessions)) == ([], 1, 2)
-
 
 class TestAnAccount:
-    def test_is_found_by_its_exact_subject_only(self, stores):
-        sign_in(stores)
-
-        with stores.transaction() as entry:
-            found = [entry.accounts.get(subject) for subject in (SUBJECT, SUBJECT.upper(), f"{SUBJECT} ")]
-
-        assert [account and account.id for account in found] == [SUBJECT, None, None]
-
     def test_changes_its_role_and_its_kind_and_keeps_the_rest(self, stores):
         sign_in(stores)
 
@@ -190,14 +151,6 @@ class TestAnAccount:
             "admin",
             AccountKind.AGENT,
         )
-
-    def test_that_is_not_there_cannot_be_changed(self, stores):
-        def change_a_stranger():
-            with stores.transaction() as entry:
-                entry.accounts.set_role("subject-nobody", "admin")
-
-        with pytest.raises(NoResultFound):
-            change_a_stranger()
 
 
 class TestTheStoredSession:
@@ -228,7 +181,13 @@ class TestTheStoredSession:
         with stores.transaction() as entry:
             entry.accounts.create_for_subject(SUBJECT, "Anna", "user", AccountKind.PERSON)
             session = entry.sessions.create(
-                SUBJECT, now=NOW, expires_at=NOW + LIFETIME, refresh_token=None, id_token=None, account_language=None
+                SUBJECT,
+                session_id="session-without-tokens",
+                now=NOW,
+                expires_at=NOW + LIFETIME,
+                refresh_token=None,
+                id_token=None,
+                account_language=None,
             )
 
         loaded = stores.sessions.load(session.id)
@@ -246,9 +205,6 @@ class TestTheStoredSession:
         session = sign_in(stores, created_at=NOW - 2 * LIFETIME)
 
         assert stores.sessions.load(session.id) is not None
-
-    def test_gets_a_new_id_for_each_session(self, stores):
-        assert sign_in(stores).id != sign_in(stores).id
 
     def test_is_renewed_in_place_by_a_touch_that_leaves_its_tokens(self, stores):
         session = sign_in(stores)
@@ -272,6 +228,13 @@ class TestTheStoredSession:
 
         assert (seen_renewed, second.sessions.load(session.id)) == (NOW + 2 * LIFETIME, None)
 
+    def test_has_its_refresh_token_replaced_in_place(self, stores):
+        session = sign_in(stores)
+
+        replaced = stores.sessions.replace_refresh_token(session.id, refresh_token=SecretStr("rotated"))
+
+        assert (replaced, stores.sessions.load(session.id).refresh_token) == (True, SecretStr("rotated"))
+
     def test_that_ends_with_its_delete_leaves_the_account_and_a_delete_of_an_unknown_id_does_nothing(
         self, engine, stores
     ):
@@ -281,60 +244,6 @@ class TestTheStoredSession:
         stores.sessions.delete(session.id)
 
         assert (count(engine, sessions), count(engine, accounts)) == (0, 1)
-
-    def test_of_a_subject_all_end_together_and_only_that_subjects(self, engine, stores):
-        sign_in(stores)
-        sign_in(stores)
-        other = sign_in(stores, "subject-ben")
-
-        ended = stores.sessions.delete_for_user(SUBJECT)
-
-        assert (ended, stores.sessions.load(other.id) is not None, count(engine, sessions)) == (2, True, 1)
-
-
-class TestARenewalOfADeletedSession:
-    def test_by_a_touch_is_refused_and_writes_nothing(self, engine, stores):
-        session = sign_in(stores)
-        stores.sessions.delete(session.id)
-
-        renewed = stores.sessions.touch(session.id, expires_at=NOW + 2 * LIFETIME)
-
-        assert (renewed, count(engine, sessions)) == (False, 0)
-
-    def test_by_a_refresh_token_replacement_is_refused_and_writes_nothing(self, engine, stores):
-        session = sign_in(stores)
-        replaced_live = stores.sessions.replace_refresh_token(session.id, refresh_token=SecretStr("rotated"))
-        stored_live = stores.sessions.load(session.id).refresh_token
-        stores.sessions.delete(session.id)
-
-        replaced_deleted = stores.sessions.replace_refresh_token(session.id, refresh_token=SecretStr("again"))
-
-        assert (replaced_live, stored_live, replaced_deleted, count(engine, sessions)) == (
-            True,
-            SecretStr("rotated"),
-            False,
-            0,
-        )
-
-
-class TestOverflowPruning:
-    def test_ends_the_oldest_sessions_by_creation_beyond_the_kept_count_of_one_subject(self, stores):
-        created = [sign_in(stores, created_at=NOW + timedelta(minutes=minute)) for minute in (3, 1, 4, 2)]
-        other = sign_in(stores, "subject-ben", created_at=NOW)
-
-        with stores.transaction() as entry:
-            entry.sessions.prune_overflow(SUBJECT, 2)
-
-        survivors = [stores.sessions.load(session.id) is not None for session in [*created, other]]
-        assert survivors == [True, False, True, False, True]
-
-    def test_with_nothing_kept_ends_every_session_of_the_subject(self, stores):
-        created = [sign_in(stores) for _ in range(3)]
-
-        with stores.transaction() as entry:
-            entry.sessions.prune_overflow(SUBJECT, 0)
-
-        assert [stores.sessions.load(session.id) for session in created] == [None] * 3
 
 
 class TestTheExpirySweep:

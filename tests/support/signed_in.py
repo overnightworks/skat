@@ -90,6 +90,7 @@ def seed_member(
     with stores.transaction() as entry:
         session = entry.sessions.create(
             account.id,
+            session_id=secrets.token_urlsafe(),
             now=now,
             expires_at=now + lifetime,
             refresh_token=None if refresh_token is None else SecretStr(refresh_token),

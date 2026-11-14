@@ -1,7 +1,6 @@
 import hashlib
-import secrets
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any
 
 from pydantic import SecretStr
 from sqlalchemy import delete, insert, select, update
@@ -18,8 +17,6 @@ if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
 
 __all__ = ["PostgresSessionRecords", "StoredSession"]
-
-SESSION_ID_BYTES: Final = 32
 
 
 @dataclass(frozen=True)
@@ -66,7 +63,8 @@ class PostgresSessionRecords:
     """The sessions, each call run in the transaction `connect` opens: one the call commits for the session gate,
     the sign-in entry's own for a call inside an entry.
 
-    A session is stored under the hash of its id and handed back with the raw id. The refresh and ID tokens are
+    A session is stored under the hash of the id webauth mints for it and handed back with the raw id; an id the
+    table holds already, an expired session's included, is refused by the primary key. The refresh and ID tokens are
     stored as they are.
     """
 
@@ -77,13 +75,13 @@ class PostgresSessionRecords:
         self,
         user_id: str,
         *,
+        session_id: str,
         now: datetime,
         expires_at: datetime,
         refresh_token: SecretStr | None,
         id_token: SecretStr | None,
         account_language: str | None,
     ) -> StoredSession:
-        session_id = secrets.token_urlsafe(SESSION_ID_BYTES)
         with self._connect() as connection:
             connection.execute(
                 insert(sessions).values(
