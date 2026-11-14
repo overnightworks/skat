@@ -38,8 +38,8 @@ VOICE = text(SOURCE_LANGUAGE, "sound.voice")
 RECORDED_KEY = re.compile(r"/(voice\.\w+)\.[\w-]+\.mp3$")
 # The recordings of the page's language, which the page decodes once its voice is on.
 RECORDING_COUNT = sum(key.startswith("voice.") for key in WORDS[SOURCE_LANGUAGE])
-# The voices one bid or one word of Kontra start in each sound set, at the table's first tap.
-BID_TAP_VOICES = {"leise": 2, "stammtisch": 1, "funkeln": 2}
+SOUND_SETS = ("leise", "stammtisch", "funkeln")
+# The voices one word of Kontra starts in each sound set, at the table's first tap.
 KONTRA_KNOCK_VOICES = {"leise": 6, "stammtisch": 7, "funkeln": 7}
 OPENING_BID, RAISED_BID = VALID_BIDS[0], VALID_BIDS[-1]
 
@@ -158,7 +158,7 @@ def test_a_reload_says_nothing(
     assert page_errors == []
 
 
-@pytest.mark.parametrize("sound_set", BID_TAP_VOICES)
+@pytest.mark.parametrize("sound_set", SOUND_SETS)
 def test_a_word_of_kontra_knocks_in_every_sound_set_and_is_said_with_the_voice_on(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
