@@ -761,10 +761,15 @@ class TestThroughTheMcpTools:
         playing = agent.read(opponent_asked.table_id).json()["hand"]["playing"]
         assert {key: playing[key] for key in view} == view
 
+    @pytest.mark.parametrize(
+        "earlier_yes",
+        [pytest.param((), id="first-answer"), pytest.param((REARHAND,), id="after-the-persons-yes")],
+    )
     def test_the_agent_opponents_no_opens_the_declarers_cards_to_the_agent_and_every_viewer(
-        self, agent, opponent_asked
+        self, agent, opponent_asked, earlier_yes
     ):
-        says_yes(opponent_asked, REARHAND)
+        for opponent in earlier_yes:
+            says_yes(opponent_asked, opponent)
         opponent_asked.skat.client.cookies.clear()
 
         answer = agent.take_step(DECLINE_GIVE_UP_TOOL, opponent_asked, command_id="agent-answer-0002")
@@ -834,18 +839,26 @@ class TestThroughTheMcpTools:
         assert answer.is_error
         assert answer.json()["reason"] == Refusal.NO_REQUEST
 
+    @pytest.mark.parametrize(
+        ("agent_says_yes_first", "agreed"),
+        [pytest.param(False, None, id="unanswered"), pytest.param(True, SEAT[FOREHAND], id="one-yes")],
+    )
     def test_the_request_and_the_yes_are_read_through_the_tools_after_a_restart(
-        self, hold, issuer, skat, agent, opponent_asked
+        self, hold, issuer, skat, agent, opponent_asked, agent_says_yes_first, agreed
     ):
-        agree = agent.take_step(AGREE_TO_GIVE_UP_TOOL, opponent_asked, command_id="agent-answer-0009")
-        assert not agree.is_error, agree.text
+        if agent_says_yes_first:
+            agree = agent.take_step(AGREE_TO_GIVE_UP_TOOL, opponent_asked, command_id="agent-answer-0009")
+            assert not agree.is_error, agree.text
         after = restarted(skat, hold, issuer_transports=issuer.transports)
         opponent_asked.skat = after
 
         with after.client:
             returned = Agent(after, issuer)
             playing = returned.read(opponent_asked.table_id).json()["hand"]["playing"]
-            assert playing["shortening"] == asked(NONE, SEAT[FOREHAND])
+            assert playing["shortening"] == asked(NONE, agreed)
+            if not agent_says_yes_first:
+                agree = returned.take_step(AGREE_TO_GIVE_UP_TOOL, opponent_asked, command_id="agent-answer-0010")
+                assert not agree.is_error, agree.text
             says_yes(opponent_asked, REARHAND)
             result = returned.read(opponent_asked.table_id).json()["result"]
 
