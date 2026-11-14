@@ -3,6 +3,6 @@ agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
 role = "builder"
 base = "b92ee92e6f23af19707e6722915850cbe91bb2b9"
 branch = "claude/issue-561-readiness-costs-one-probe-under-a-burst"
-scope = ["docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/host/main.py", "src/skat/store/migrate.py", "tests/web/test_ready.py"]
+scope = ["docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/host/main.py", "src/skat/store/migrate.py", "src/skat/web/routes.py", "tests/host/test_main.py", "tests/store/test_migrate_readiness.py", "tests/web/test_ready.py", "tests/web/test_routes.py", "tests/web/test_sign_in_rate_limit.py"]
 opened_commit = "4ec1ad65af99d02f95dcf313b93754e02eb94072"
 whole_reason = "One readiness probe and its two callers; the probe, its wiring and its test change together."
