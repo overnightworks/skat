@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Cue } from "#lib/cues.ts";
 import { MOTION_SETS } from "#lib/motionSets.ts";
+import { stubBrowser } from "../testing/stubBrowser.ts";
 import type { LastTrick, Playing, Table } from "../routes/(start)/tables.ts";
 
-vi.mock("./tableSound.ts", () => ({ soundForGlide: vi.fn() }));
-
-const KEY = "skat.settings";
 const TAKER_SEAT = 3;
 const LOOKED_AT_SEAT = 2;
 const TRICK: LastTrick = {
@@ -27,17 +25,28 @@ const REST_MILLISECONDS = MOTION_SETS.verspielt.trickRestSeconds * 1000;
 const GLIDE_MILLISECONDS = (MOTION_SETS.verspielt.trickGatherSeconds + MOTION_SETS.verspielt.trickGlideSeconds) * 1000;
 
 // The stage is module state, so each test reads a module of its own, on a page whose player stored `stored`.
-async function stageOnAPage(stored: Record<string, unknown>, options: { hidden?: boolean } = {}) {
+// `sweeps` counts the voices the page's sound started for sweeps since the first tap woke it; a page not yet tapped sounds nothing.
+async function stageOnAPage(stored: Record<string, unknown>, options: { hidden?: boolean; tapped?: boolean } = {}) {
     vi.resetModules();
-    vi.stubGlobal("window", {
-        localStorage: { getItem: (key: string) => (key === KEY ? JSON.stringify(stored) : null) },
+    const { started, listeners } = stubBrowser({
+        reducedMotion: true,
+        stored: JSON.stringify(stored),
+        hidden: options.hidden,
     });
-    vi.stubGlobal("document", { hidden: options.hidden === true });
     const { loadSettings } = await import("#lib/settings.svelte.ts");
     loadSettings();
-    const { soundForGlide } = await import("./tableSound.ts");
+    const { armSound } = await import("#lib/tableSound.ts");
+    armSound();
+    if (options.tapped !== false) {
+        listeners.get("pointerup")?.();
+        // Waking the device plays one silent sample, which the stand-in counts as a start.
+        await vi.waitFor(() => {
+            expect(started.length).toBeGreaterThan(0);
+        });
+    }
+    const awake = started.length;
     const stage = await import("#lib/stage.svelte.ts");
-    return { stage, sweeps: vi.mocked(soundForGlide) };
+    return { stage, sweeps: () => started.length - awake, voicesStarted: () => started.length };
 }
 
 // A device that asks for reduced motion moves the table only when the player overrides it.
@@ -62,18 +71,29 @@ describe("a finished trick on the page's stage", () => {
         expect(stage.currentStage().trick).toEqual(TRICK);
         expect(stage.currentStage().before).toBe(PLAYING);
         expect(stage.sweepingTo()).toBeNull();
-        expect(sweeps).not.toHaveBeenCalled();
+        expect(sweeps()).toBe(0);
 
         vi.advanceTimersByTime(REST_MILLISECONDS);
 
         expect(stage.sweepingTo()).toBe(TAKER_SEAT);
-        expect(sweeps).toHaveBeenCalledTimes(1);
+        const swept = sweeps();
+        expect(swept).toBeGreaterThan(0);
 
         vi.advanceTimersByTime(GLIDE_MILLISECONDS);
 
         expect(stage.trickIsMoving()).toBe(false);
         expect(stage.sweepingTo()).toBeNull();
-        expect(sweeps).toHaveBeenCalledTimes(1);
+        expect(sweeps()).toBe(swept);
+    });
+
+    it("sounds no sweep before the first tap has woken the page's sound", async () => {
+        const { stage, voicesStarted } = await stageOnAPage(MOVING, { tapped: false });
+
+        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN]);
+        vi.advanceTimersByTime(REST_MILLISECONDS + GLIDE_MILLISECONDS);
+
+        expect(stage.trickIsMoving()).toBe(false);
+        expect(voicesStarted()).toBe(0);
     });
 
     it("shows at once and still sounds the sweep when the device asks for reduced motion", async () => {
@@ -82,16 +102,16 @@ describe("a finished trick on the page's stage", () => {
         stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN]);
 
         expect(stage.trickIsMoving()).toBe(false);
-        expect(sweeps).toHaveBeenCalledTimes(1);
+        expect(sweeps()).toBeGreaterThan(0);
     });
 
-    it("shows at once and still sounds the sweep while the window is hidden", async () => {
+    it("shows at once and sounds no sweep while the window is hidden", async () => {
         const { stage, sweeps } = await stageOnAPage(MOVING, { hidden: true });
 
         stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN]);
 
         expect(stage.trickIsMoving()).toBe(false);
-        expect(sweeps).toHaveBeenCalledTimes(1);
+        expect(sweeps()).toBe(0);
     });
 
     it("keeps no playing before it when the table before was between hands", async () => {
@@ -108,7 +128,7 @@ describe("a finished trick on the page's stage", () => {
         stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN]);
 
         expect(stage.trickIsMoving()).toBe(false);
-        expect(sweeps).not.toHaveBeenCalled();
+        expect(sweeps()).toBe(0);
     });
 
     it("settles at once when the window jumps, sounds the sweep it had not yet heard and ends the wait", async () => {
@@ -119,7 +139,7 @@ describe("a finished trick on the page's stage", () => {
         vi.advanceTimersByTime(REST_MILLISECONDS + GLIDE_MILLISECONDS);
 
         expect(stage.trickIsMoving()).toBe(false);
-        expect(sweeps).toHaveBeenCalledTimes(1);
+        expect(sweeps()).toBeGreaterThan(0);
     });
 
     it("settles at once with the first table of a page and ends the wait", async () => {
@@ -130,7 +150,7 @@ describe("a finished trick on the page's stage", () => {
         vi.advanceTimersByTime(REST_MILLISECONDS + GLIDE_MILLISECONDS);
 
         expect(stage.trickIsMoving()).toBe(false);
-        expect(sweeps).not.toHaveBeenCalled();
+        expect(sweeps()).toBe(0);
     });
 
     it("settles at once when the page resets, so a table left behind sounds nothing", async () => {
@@ -141,7 +161,7 @@ describe("a finished trick on the page's stage", () => {
         vi.advanceTimersByTime(REST_MILLISECONDS + GLIDE_MILLISECONDS);
 
         expect(stage.trickIsMoving()).toBe(false);
-        expect(sweeps).not.toHaveBeenCalled();
+        expect(sweeps()).toBe(0);
     });
 });
 
