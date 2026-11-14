@@ -1,0 +1,8 @@
+claim_id = "6c08306818734978b0ee0036bca5756e"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "540682229ff504d740edb00791a91286d5cf3cd7"
+branch = "claude/issue-533-the-lobby-s-idle-heartbeat-re-reads-chea"
+scope = ["README.md", "src/skat/web/lobby.py", "src/skat/web/settings.py", "src/skat/web/streams.py", "tests/web/test_lobby_stream.py", "tests/web/test_streams.py", "tests/web/test_streams_end.py", "tests/web/test_streams_loop.py"]
+opened_commit = "348487d6b1326f59d7749983eedc98dce53364d7"
+whole_reason = "The heartbeat's cheap re-read and the per-account cap share the one loop in streams.py and the one route in lobby.py; a cap with no cheap re-read still costs 1 + 11K SELECTs per idle beat below it."
