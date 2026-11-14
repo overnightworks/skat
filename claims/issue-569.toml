@@ -3,6 +3,6 @@ agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
 role = "builder"
 base = "d5e856c770c53e6ba3afd66c5a4f4505d5be387b"
 branch = "claude/issue-569-a-viewer-reads-how-many-tricks-every-sea"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/cues.test.ts", "frontend/src/lib/giveUp.fixtures.ts", "frontend/src/lib/kontra.test.ts", "frontend/src/lib/playView.test.ts", "frontend/src/lib/ramschView.test.ts", "frontend/src/routes/(start)/tables.ts", "src/skat/table/playing.py", "src/skat/web/tables.py", "tests/table/test_views_open_chair.py", "tests/web/test_mcp.py", "tests/web/test_playing.py"]
+scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/cues.test.ts", "frontend/src/lib/giveUp.fixtures.ts", "frontend/src/lib/kontra.test.ts", "frontend/src/lib/playView.test.ts", "frontend/src/lib/ramschView.test.ts", "frontend/src/routes/(start)/tables.ts", "src/skat/table/playing.py", "src/skat/web/result_answer.py", "src/skat/web/tables.py", "tests/table/test_views_open_chair.py", "tests/web/test_mcp.py", "tests/web/test_playing.py", "tests/web/test_playing_taken.py"]
 opened_commit = "32b52d172be788807524bec44610c367c05ddaaa"
 whole_reason = "One additive read field: its server count, its wire answer, its TypeScript type and the fixtures that type checks change together."
