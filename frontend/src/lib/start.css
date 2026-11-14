@@ -1856,6 +1856,121 @@ body {
     height: 15px;
 }
 
+/* The bell at the top-left corner of the chair the table waits for: a button inside a 44 px tap area while it may be
+   tapped, a mark with a tick once nudged; the dealer's badge sits at the same corner, so the bell steps below it. */
+.room .mark.bell {
+    position: absolute;
+    z-index: 2;
+    top: -8px;
+    left: -8px;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--on-stage);
+    background: rgba(12, 14, 17, 0.86);
+    backdrop-filter: blur(12px);
+    box-shadow:
+        inset 0 0 0 1.5px rgba(255, 255, 255, 0.5),
+        0 4px 10px -4px rgba(0, 0, 0, 0.7);
+}
+
+.room .mark.dealer ~ .mark.bell {
+    top: 18px;
+}
+
+.room .mark.bell svg {
+    width: 17px;
+    height: 17px;
+}
+
+.room button.mark.bell {
+    cursor: pointer;
+    box-shadow:
+        0 0 0 2px var(--accent-stage, #7aa7f0),
+        0 4px 10px -4px rgba(0, 0, 0, 0.7);
+}
+
+.room button.mark.bell::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+}
+
+.room .mark.bell i {
+    position: absolute;
+    right: -5px;
+    bottom: -5px;
+    display: grid;
+    place-items: center;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    color: #0d1013;
+    background: var(--ok-stage);
+    box-shadow: 0 0 0 2px var(--stage-ink, #0c0e11);
+}
+
+.room .mark.bell i svg {
+    width: 9px;
+    height: 9px;
+}
+
+/* The nudged person's own bell, ringing once: two arcs beside it, and the bell swinging where motion is welcome. */
+.room .mark.bell.shaken::before,
+.room .mark.bell.shaken::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    width: 6px;
+    height: 16px;
+    border: 2px solid var(--accent-stage, #7aa7f0);
+    border-radius: 50%;
+}
+
+.room .mark.bell.shaken::before {
+    left: -10px;
+    border-right: 0;
+}
+
+.room .mark.bell.shaken::after {
+    right: -10px;
+    border-left: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .room .mark.bell.shaken > svg {
+        animation: bell-shake 0.8s ease-in-out 0.5s both;
+        transform-origin: 50% 22%;
+    }
+}
+
+@keyframes bell-shake {
+    0%,
+    100% {
+        rotate: 0deg;
+    }
+
+    20% {
+        rotate: -16deg;
+    }
+
+    40% {
+        rotate: 14deg;
+    }
+
+    60% {
+        rotate: -9deg;
+    }
+
+    80% {
+        rotate: 5deg;
+    }
+}
+
 .room .mark.waits .dot,
 .room .bubble .dot {
     display: grid;

@@ -58,6 +58,7 @@
     import LockedChairTile from "#lib/ui/LockedChairTile.svelte";
     import GiveUpKey from "#lib/ui/GiveUpKey.svelte";
     import KontraKey from "#lib/ui/KontraKey.svelte";
+    import NudgeBell from "#lib/ui/NudgeBell.svelte";
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
     import PushControls from "#lib/ui/PushControls.svelte";
@@ -92,6 +93,7 @@
         gameLabel,
         isSuitGame,
         markReady,
+        nudgedNote,
         positionWord,
         readTable,
         seatedAgentsKey,
@@ -150,6 +152,8 @@
     let seatedAgents = $state("");
     // The free chair whose tap asks the question before a sit, while a hand runs.
     let asking = $state<number | null>(null);
+    // The own bell shakes once, when the page sees the nudge arrive; a reload sees it already made and draws it at rest.
+    let shaking = $state(false);
 
     function showSeatNote(note: SeatNotice): void {
         seatNote = note;
@@ -161,7 +165,10 @@
         streamedVersion = table.version;
         streamedWatchers = table.watchers;
         seatedAgents = seatedAgentsKey(previous, table);
-        const note = previous === undefined ? null : (seatNotice(previous, table) ?? agentSitsNote(previous, table));
+        const nudged = previous === undefined ? null : nudgedNote(previous, table);
+        shaking = nudged !== null;
+        const note =
+            previous === undefined ? null : (seatNotice(previous, table) ?? agentSitsNote(previous, table) ?? nudged);
         if (note !== null) showSeatNote(note);
         seatNote = noticeStanding(seatNote, table);
         if (!handWaits(table.hand)) asking = null;
@@ -194,6 +201,7 @@
         streamedVersion = null;
         seatNote = null;
         asking = null;
+        shaking = false;
         playedThisHand = [];
         stamp = null;
         let current = true;
@@ -642,6 +650,19 @@
                                     <SpeechBubble bubble={marks.bubble} initial={chair.occupant_name.slice(0, 1)} />
                                 {/if}
                                 <RamschMarks marks={ramschMark} initial={chair.occupant_name.slice(0, 1)} />
+                                {#if chair.nudge !== null}
+                                    {@const version = current.version}
+                                    {#key `${String(version)}:${String(chair.nudge.nudges)}`}
+                                        <NudgeBell
+                                            {id}
+                                            {version}
+                                            seat={chair.seat}
+                                            name={chair.occupant_name}
+                                            nudge={chair.nudge}
+                                            shaking={chair.is_mine && shaking}
+                                        />
+                                    {/key}
+                                {/if}
                             {/if}
                             {#if onResult}
                                 <AnswerMarks mark={chair.ready ? "ready" : "unready"} />

@@ -28,6 +28,7 @@ describe("the table's seats and link", () => {
         hand: null,
         former_holder_name: null,
         is_mine_to_return: isMineToReturn,
+        nudge: null,
     });
 
     afterEach(() => {

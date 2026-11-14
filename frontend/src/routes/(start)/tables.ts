@@ -46,6 +46,7 @@ import {
     TABLE_KONTRA_SUFFIX,
     TABLE_LIST_SUFFIX,
     TABLE_NEW_SERIES_SUFFIX,
+    TABLE_NUDGE_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_PUSHING_GRAND_HAND_SUFFIX,
     TABLE_PUSHING_PUSH_SUFFIX,
@@ -151,6 +152,9 @@ export type Hand = {
     // A chair of the hand is open, so the seated players may vote to abort it.
     abortable: boolean;
 };
+// How often the chair was nudged at this version, whether the viewer may nudge it (the minute is the server's to judge)
+// and, in the nudged chair's own answer only, who nudged last.
+export type Nudge = { nudges: number; may_nudge: boolean; by_name: string | null };
 export type Chair = {
     seat: number;
     occupant_name: string | null;
@@ -167,6 +171,8 @@ export type Chair = {
     // True only on the chair of the running hand that the viewer stood up from, open or taken since: the one chair they
     // may sit in again.
     is_mine_to_return: boolean;
+    // What the viewer is shown of the nudges of a chair the table waits for; null on every other chair.
+    nudge: Nudge | null;
 };
 export type RamschSeat = { seat: number; points: number; score: number };
 // The finished Ramsch as the server counted it: what each seat's counted eyes were and what it added, the sweeper of a
@@ -474,6 +480,12 @@ export function sayKontra(id: string, version: number, commandId: string, word: 
     return post(id, TABLE_KONTRA_SUFFIX, { command_id: commandId, version, word });
 }
 
+// The version, the seat and the nudges are the ones the page shows; the server alone decides whether the minute has
+// passed, and a refused nudge changes nothing, so the answer is not read: the stream shows the table as it is.
+export function nudgeSeat(id: string, version: number, seat: number, nudges: number): Promise<Outcome> {
+    return post(id, TABLE_NUDGE_SUFFIX, { version, seat, nudges });
+}
+
 // A table opened without a series has none and counts as the first series, as the server counts it.
 export function seriesNumberOf(table: Pick<Table, "series">): number {
     return table.series?.number ?? 1;
@@ -653,6 +665,20 @@ export function seatedAgentsKey(previous: Table | undefined, table: Table): stri
         .map((chair) => [chair.seat, chair.occupant_name]);
     const skipped = previous !== undefined && table.version > previous.version + 1;
     return JSON.stringify([agents, skipped ? table.version : null]);
+}
+
+// The sentence the nudged person reads once, when a nudge of the viewer's own chair arrives that the page had not seen.
+export function nudgedNote(previous: Table, table: Table): SeatNotice | null {
+    const nudge = table.chairs.find((chair) => chair.is_mine)?.nudge;
+    if (nudge?.by_name == null) return null;
+    const seen = previous.version === table.version ? previous.chairs.find((chair) => chair.is_mine)?.nudge : null;
+    if (seen?.nudges === nudge.nudges) return null;
+    return {
+        text: `${nudge.by_name} ${words["table.nudgesYou"]}`,
+        initials: [nudge.by_name.slice(0, 1)],
+        seat: null,
+        occupied: false,
+    };
 }
 
 // The seats in drawing order: the viewer's own chair comes last, which is the one at the bottom. A viewer who stood up
