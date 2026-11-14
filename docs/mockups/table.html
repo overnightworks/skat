@@ -1078,7 +1078,7 @@ const IDEAS=[
   ['🏠','Zurück zur Lobby','Ein runder Knopf mit einem Haus links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
   ['➜','Schieberamsch','Nach drei Pässen wird Ramsch: wer dran ist, nimmt den Skat und legt zwei Karten zurück oder schiebt ihn ungesehen weiter; die Tafel nennt, wie oft geschoben wurde, und die Ergebniskarte zeigt, wie der Verlust entsteht, bis zu Jungfrau und Durchmarsch.','push-mine, push-discard, push-wait, push-taken, push-pushed, push-agent, push-flat, push-watch, push-open, ramsch-play, ramsch-lost, ramsch-other, ramsch-jungfrau, ramsch-durchmarsch, ramsch-list, rules-ramsch'],
   ['✋','Grand Hand statt Ramsch','An einem Tisch, der es erlaubt, sagt wer beim Schieberamsch dran ist „Grand Hand“ an, statt zu nehmen oder zu schieben: ein Tipp macht die Taste scharf, der zweite sagt an, dann spielt er einen Grand Hand zum niedrigsten Reizwert, ohne Ansage. (#327)','push-grand, push-grand-arm, push-grand-done, push-grand-off'],
-  ['⚡','Kontra und Re','Wer reizte, sagt vor seiner ersten Karte „Kontra“ (der Alleinspieler danach „Re“, dann „Supra“ und „Hirsch“) mit einer Taste in der Leiste, die auf niemanden wartet; das Wort landet als Stempel mit dem Gesicht des Rufers, die Tafel trägt es mit seinem Faktor, und die Ergebniskarte zeigt, wie es den Wert verdoppelt.','kontra-offer, kontra-none, kontra-said, kontra-re, kontra-supra, kontra-hirsch, kontra-agent, kontra-watch, kontra-end, kontra-lost-end'],
+  ['⚡','Kontra und Re','Wer reizte, sagt vor seiner ersten Karte „Kontra“ (der Alleinspieler danach „Re“, dann „Supra“ und „Hirsch“) mit einer Taste in der Leiste, die an einem Tisch „bis zur eigenen Karte“ auf niemanden wartet; das Wort landet als Stempel mit dem Gesicht des Rufers, die Tafel trägt es mit seinem Faktor, und die Ergebniskarte zeigt, wie es den Wert verdoppelt. Gilt an einem Tisch „vor der ersten Karte“, hält der Tisch die erste Karte: wer noch ein Wort schuldet, hat neben seiner Taste „Kein Kontra“ (nach einem Kontra „Kein Re“), alle anderen und Zuschauer sehen am leuchtenden Stuhl und in einer Zeile, auf wen die erste Karte wartet, und die Karten dessen, der ausspielt, sind gedimmt.','kontra-offer, kontra-none, kontra-said, kontra-re, kontra-supra, kontra-hirsch, kontra-agent, kontra-watch, kontra-end, kontra-lost-end, kontra-first-wait, kontra-first-watch, kontra-first-re'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
 document.querySelector('.page-head').insertAdjacentHTML('beforeend',ideaList);
@@ -2032,12 +2032,14 @@ const grandKeys=(d,o={})=>{const key=grandKey('Grand Hand',o.armed);
   return d?row(mid(d),stageRow(d),stageKeys()+key).replace('class="btns"','class="btns push-row"')
     :row(mid(d),GRAND_STACK_Y(),`<div class="line">${stageKeys()}</div><div class="line">${key}</div>`).replace('class="btns"','class="btns push-row grand-stack"');};
 const grandTable=(d,o={})=>pushTable(d,{glow:felixGlow(d),skat:false,marks:{you:['turn']},extra:grandSkat(d)})+grandKeys(d,o)+restingHand(d)+tableBar(d);
+/* ten cards share the row: every card shows the same strip */
+const tenStrip=(d)=>d?{base:58,no:58,ok:58,touch:78}:{base:32,no:32,ok:32,touch:56};
 /* Felix declared: he leads, the plaque names the game at the lowest bid and announces nothing, every chair sees the same plaque */
 const grandPlay=(d)=>{const L=seatsOf(d);
   return tableOf(d,{fans:0,count:true,glow:felixGlow(d)})+sideFans(d,10,10)
     +plaque(mid(d),plaqueY(d),`${gameLine('','Grand Hand')}<div class="game pushes">Reizwert 18</div>`)+yourCard(d)
     +seat('anna',L.anna)+seat('nova',L.nova)+seat('felix',{...L.you,marks:['decl','turn']})+chairCoasters(L,TOTALS_BEFORE)
-    +ownHand(d,BID_HAND.map(([r,s])=>[r,s,'ok']),{strip:d?{base:58,no:58,ok:58,touch:78}:{base:32,no:32,ok:32,touch:56}})+giveUpBar(d,GIVE_UP);};
+    +ownHand(d,BID_HAND.map(([r,s])=>[r,s,'ok']),{strip:tenStrip(d)})+giveUpBar(d,GIVE_UP);};
 const GRAND_SCENES=[
   ['push-grand','Ramsch: Grand Hand',[360,390,1280],(d)=>grandTable(d),
     ['An einem Tisch, der es erlaubt: Felix ist dran und sieht „Skat nehmen“ und „Schieben“ wie sonst, dazu „Grand Hand“ in Glas, wie „Hand“ beim Skat. Der erste Tipp macht die Taste scharf, siehe das nächste Bild; erst der zweite sagt es an. Am Handy steht die dritte Taste in einer zweiten Reihe unter den zwei anderen, der Skat rückt dafür nach oben; am Rechner stehen alle drei in einer Reihe.']],
@@ -2111,6 +2113,35 @@ const KONTRA_SCENES=[
     ['Felix verlor sein Kreuz nach Kontra: 3 × Kreuz 12 = 36, „Kontra ×2“, das Verlieren verdoppelt noch einmal, −144 im Grau der verlorenen Karten, Liste −50 = −194; Anna und Nova je +40.']],
 ];
 agentScenes(KONTRA_SCENES);
+
+/* ===== the first card waits for a word, at a table whose Kontra deadline is „vor der ersten Karte“ ===== */
+/* the seat that owes the word has its key and, beside it, the key that declines it; on a phone the pair takes a strip above Skat's own */
+const declineKey=(word)=>barKey('glass',I.cross,`Kein ${word}`);
+const firstWordStrip=(d,word)=>{const keys=kontraKey(word)+declineKey(word);
+  return d?stripOf(d,{lead:keys+GIVE_UP+STAND_WORD,pill:agentPill(d)}):`<div class="sbar above">${keys}</div>`+stripOf(d,{lead:standLead(d),pill:agentPill(d)});};
+/* every other seat and a watcher read the wait from the line and the seat's glow, never from a card; dots hop while it lasts */
+const firstWaitLine=(who,name)=>`<div class="game">${faceDot(who)}Erste Karte wartet auf ${name}${waitDots()}</div>`;
+/* ten dimmed cards: on a phone they are smaller and pack tighter than the shared strip, to stay inside a 360 frame, and rise clear of the pair's strip above Skat's own */
+const firstHand=(d)=>d?{strip:tenStrip(d)}:{strip:{base:30,no:30,ok:30,touch:30},w:54,bottom:184};
+/* Felix leads, so his cards stay dimmed until the wait ends; o.word: the Kontra already said, which the plaque carries */
+const firstWaitTable=(d,o)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:0,count:true,glow:turnGlow(d)})+sideFans(d,10,10)+kreuz(d,(o.word?kontraLine(o.word):'')+firstWaitLine('felix','dich'))
+    +(o.stamp?kontraStamp(d,...o.stamp):'')
+    +seat('anna',{...L.anna,marks:o.cast==='declarer'?[]:['decl']})+seat('nova',{...L.nova,marks:o.nova||[]})+seat('felix',{...L.you,marks:o.cast==='declarer'?['decl','turn']:['turn']})
+    +chairCoasters(L,TOTALS_BEFORE)+ownHand(d,BID_HAND.map(([r,s])=>[r,s,'no']),firstHand(d));};
+/* Lena watches: Nova owes the word, Felix declined his, and Anna, who leads, has her cards dimmed */
+const firstWaitWatch=(d)=>{const L=seatsOf(d);
+  return room(d,{left:0,call:false,glow:novaGlow(d)})+watching(3,d)+sideFans(d,10,10,{dim:true})+nearFan(d,10)+kreuz(d,firstWaitLine('nova','Nova'))
+    +seat('anna',{...L.anna,marks:['decl']})+seat('nova',{...L.nova,marks:['turn']})+seat('felixSeen',{...L.you,marks:['declined']})+chairCoasters(L,TOTALS_BEFORE)+tableBar(d);};
+const KONTRA_FIRST_SCENES=[
+  ['kontra-first-wait','Kontra: die erste Karte wartet',[360,390,1280],(d)=>firstWaitTable(d,{nova:['declined']})+firstWordStrip(d,'Kontra'),
+    ['Felix ist Gegner und spielt aus; der Tisch hält die erste Karte, bis jeder Gegner sein Wort gesagt oder abgelehnt hat. Nova sagte nein (das Kreuz auf ihrem Stuhl), Felix ist dran: sein Stuhl leuchtet, die Zeile sagt „Erste Karte wartet auf dich“, seine Karten sind gedimmt. In der Leiste stehen „Kontra“ und daneben „Kein Kontra“; auf dem Handy bilden die beiden eine Leiste über Skats Leiste.']],
+  ['kontra-first-watch','Kontra: Zuschauen beim Warten',[360,390,1280],firstWaitWatch,
+    ['Lena schaut zu: Novas Stuhl leuchtet und die Zeile „Erste Karte wartet auf Nova“, kein Stich liegt auf dem Filz. Felix sagte nein, sein Kreuz steht am Stuhl; Annas Karten, die zuerst spielt, sind gedimmt. Keine Taste, nur die Leiste des Zuschauers.']],
+  ['kontra-first-re','Re: die erste Karte wartet',[360,390,1280],(d)=>firstWaitTable(d,{cast:'declarer',word:'Kontra',stamp:['Kontra','anna']})+firstWordStrip(d,'Re'),
+    ['Felix spielt Kreuz allein und spielt aus; Anna sagte Kontra, die Tafel trägt „Kontra ×2“. Vor seiner ersten Karte steht „Re“ in seiner Leiste und daneben „Kein Re“; sein Stuhl leuchtet, seine Karten sind gedimmt, bis er eines von beiden tippt.']],
+];
+agentScenes(KONTRA_FIRST_SCENES);
 
 /* ===== S3.7p: the way home from a table: the number at the lobby button when another table needs me ===== */
 const HOME_SCENES=[
