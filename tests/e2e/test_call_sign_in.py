@@ -611,6 +611,10 @@ def test_a_framed_table_whose_stream_ends_without_a_refusal_dims_and_comes_back_
     streams: list[str] = []
 
     def end_the_first_stream(route: Route) -> None:
+        # The reader also asks the stream's address with a plain request after a failure; only its streams count.
+        if route.request.resource_type != "eventsource":
+            route.continue_()
+            return
         streams.append(route.request.url)
         if len(streams) == 1:
             route.fulfill(content_type="text/event-stream", body="")
