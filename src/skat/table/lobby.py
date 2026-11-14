@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
     from skat.table.member_view import MemberView
     from skat.table.records import Actor, Chair, TableId, TableOptions
-    from skat.table.transactions import PausedFacts, TableTransactions
+    from skat.table.transactions import PausedFacts, TableTransactions, TableVersion
     from skat.table.views import PausedEntryView
 
 __all__ = [
@@ -134,15 +134,28 @@ class LobbyReads:
     _transactions: TableTransactions
     _live_leases: Callable[[], frozenset[str]]
 
+    def held_tables(self, account_id: str) -> tuple[TableVersion, ...]:
+        """The tables the account holds a chair at, each once with its version, in id order; an unlocked read, so a
+        candidate list.
+        """
+        with self._transactions.begin() as transaction:
+            return transaction.tables_of(account_id)
+
     def tables_held_by(self, account_id: str) -> tuple[TableId, ...]:
         """The tables the account holds a chair at, each once, in id order; an unlocked read, so a candidate list."""
-        with self._transactions.begin() as transaction:
-            return tuple(held.table_id for held in transaction.tables_of(account_id))
+        return tuple(held.table_id for held in self.held_tables(account_id))
 
     def open_table_ids(self) -> tuple[TableId, ...]:
         """The live open tables, in id order; an unlocked read, so a candidate list."""
         with self._transactions.begin() as transaction:
             return transaction.open_table_ids()
+
+    def table_versions(self, table_ids: Iterable[TableId]) -> tuple[TableVersion, ...]:
+        """The version of each live table among `table_ids`, in id order; an unlocked read, which is how a caller asks
+        cheaply whether a table it read before has changed.
+        """
+        with self._transactions.begin() as transaction:
+            return transaction.versions_of(table_ids)
 
     def my_tables(
         self,

@@ -1,7 +1,7 @@
 import pytest
 
-from skat.table.records import CreateTable
-from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamEvent, stream_messages
+from skat.table.records import CloseTable, CreateTable, SitDown
+from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamEvent, TableSource, stream_messages
 from tests.support.fake_tables import in_memory_tables
 from tests.support.idle_presence import idle_presence
 from tests.web.support.skat import UNKNOWN_ID
@@ -17,6 +17,7 @@ from tests.web.support.streams import (
     reader,
     run_on_a_loop_of_its_own,
     stream_of,
+    version_reader,
 )
 
 
@@ -45,34 +46,6 @@ class TestStreamLoop:
 
         assert run_on_a_loop_of_its_own(scenario()) == IDLE_HEARTBEAT
 
-    def test_a_change_of_the_view_that_no_wake_announced_arrives_with_the_heartbeat_at_the_same_version(
-        self, service, table_id
-    ):
-        async def scenario():
-            reads = []
-            read_view = reader(service, table_id)
-
-            async def read_with_a_watcher_after_the_first_read(actor, connected):
-                reads.append(connected)
-                return await read_view(actor, connected | {"ghost"} if len(reads) > 1 else connected)
-
-            stream = stream_of(
-                idle_presence(),
-                service,
-                OPENER,
-                table_id,
-                heartbeat_seconds=SHORT_HEARTBEAT_SECONDS,
-                read_view=read_with_a_watcher_after_the_first_read,
-            )
-            first = await next_view(stream)
-            second = await next_view(stream)
-            await stream.aclose()
-            return first, second
-
-        first, second = run_on_a_loop_of_its_own(scenario())
-
-        assert [(view.watchers, view.version) for view in (first, second)] == [(0, 1), (1, 1)]
-
     def test_a_wake_of_another_table_reads_nothing_again(self, service, table_id):
         async def scenario():
             presence = idle_presence()
@@ -99,7 +72,7 @@ class TestStreamLoop:
 
         item, reads = run_on_a_loop_of_its_own(scenario())
 
-        assert (item, reads) == (IDLE_HEARTBEAT, 2)
+        assert (item, reads) == (IDLE_HEARTBEAT, 1)
 
     def test_wakes_that_send_nothing_do_not_starve_the_heartbeat(self, service, table_id):
         async def scenario():
@@ -175,6 +148,50 @@ class TestStreamLoop:
         assert presence.connected(table_id) == frozenset()
 
 
+async def sat_down(service, presence, table_id):
+    service.sit(VISITOR, SitDown("command-sit", table_id, 2), frozenset())
+
+
+async def connected_a_watcher(service, presence, table_id):
+    await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+
+
+async def closed_the_table(service, presence, table_id):
+    service.close(OPENER, CloseTable("command-close", table_id))
+
+
+async def did_nothing(service, presence, table_id):
+    pass
+
+
+class TestTheTableSourceMoves:
+    @pytest.mark.parametrize(
+        ("happens", "moved"),
+        [
+            pytest.param(did_nothing, False, id="nothing"),
+            pytest.param(sat_down, True, id="a-commit"),
+            pytest.param(connected_a_watcher, True, id="a-watcher"),
+            pytest.param(closed_the_table, True, id="the-end"),
+        ],
+    )
+    def test_a_table_source_has_moved_since_its_read_when_the_version_or_who_is_connected_changed(
+        self, service, table_id, happens, moved
+    ):
+        async def scenario():
+            presence = idle_presence()
+            source = TableSource(
+                presence, reader(service, table_id), version_reader(service, table_id), table_id, OPENER.account_id
+            )
+            await source.open(lambda: None)
+            await source.read(OPENER)
+            await happens(service, presence, table_id)
+            answer = await source.moved(OPENER)
+            source.close()
+            return answer
+
+        assert run_on_a_loop_of_its_own(scenario()) is moved
+
+
 class WholeNumberSource:
     """A source whose state is one number, read as the named event; `wake` is what the loop gave it to call."""
 
@@ -183,6 +200,8 @@ class WholeNumberSource:
         self.number = number
         self.fails_to_open = fails_to_open
         self.reads = 0
+        self.checks = 0
+        self.read_number = None
         self.is_open = False
         self.wake = None
 
@@ -195,7 +214,12 @@ class WholeNumberSource:
 
     async def read(self, actor):
         self.reads += 1
+        self.read_number = self.number
         return SourceMessage(str(self.number), event=self.event)
+
+    async def moved(self, actor):
+        self.checks += 1
+        return self.number != self.read_number
 
     def close(self):
         self.is_open = False
@@ -237,7 +261,7 @@ class TestSeveralSources:
 
         assert (message.event, message.data, reads_of_the_kept) == (StreamEvent.ATTENTION, "2", 1)
 
-    def test_a_heartbeat_reads_every_source_again_and_sends_what_changed_without_a_wake(self):
+    def test_a_heartbeat_reads_again_only_the_sources_that_moved_and_sends_what_changed_without_a_wake(self):
         async def scenario():
             quiet = WholeNumberSource(StreamEvent.MINE)
             lost_a_wake = WholeNumberSource(StreamEvent.ATTENTION)
@@ -246,11 +270,39 @@ class TestSeveralSources:
             lost_a_wake.number = 5
             message = await next_item(stream)
             await stream.aclose()
-            return message
+            return message, quiet
 
-        message = run_on_a_loop_of_its_own(scenario())
+        message, quiet = run_on_a_loop_of_its_own(scenario())
 
-        assert (message.event, message.data) == (StreamEvent.ATTENTION, "5")
+        assert (message.event, message.data, quiet.reads, quiet.checks > 0) == (StreamEvent.ATTENTION, "5", 1, True)
+
+    def test_a_heartbeat_that_finds_nothing_moved_sends_only_the_comment_line_however_often_it_passes(self):
+        async def scenario():
+            source = WholeNumberSource(StreamEvent.MINE)
+            stream = stream_of_numbers(source, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
+            await next_numbers(stream, 1)
+            beats = [await next_item(stream) for _ in range(3)]
+            await stream.aclose()
+            return beats, source
+
+        beats, source = run_on_a_loop_of_its_own(scenario())
+
+        assert (beats, source.reads) == ([IDLE_HEARTBEAT] * 3, 1)
+
+    def test_a_woken_source_is_read_without_asking_whether_it_moved(self):
+        async def scenario():
+            source = WholeNumberSource(StreamEvent.MINE)
+            stream = stream_of_numbers(source)
+            await next_numbers(stream, 1)
+            source.number = 3
+            source.wake()
+            message = await next_item(stream)
+            await stream.aclose()
+            return message, source
+
+        message, source = run_on_a_loop_of_its_own(scenario())
+
+        assert (message.data, source.checks) == ("3", 0)
 
     def test_a_last_message_ends_the_stream_before_the_sources_after_it_are_read(self):
         class Ends(WholeNumberSource):

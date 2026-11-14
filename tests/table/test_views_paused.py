@@ -18,7 +18,7 @@ from skat.table.records import (
     TableId,
 )
 from skat.table.service import TableService
-from skat.table.transactions import HeldTable
+from skat.table.transactions import TableVersion
 from skat.table.views import paused_entry_of
 from tests.support.fake_tables import FakeTableStore
 from tests.support.played_game import a_whole_game, after_the_first_game, declared_herz_hand, table_in
@@ -237,7 +237,7 @@ class TestTheServiceReadsOnlyTheCallersDealtLiveTables:
         class ChairChangesAfterTheScan(FakeTableStore):
             def tables_of(self, account_id):
                 held = super().tables_of(account_id)
-                return (*held, HeldTable(table_id, 1)) if account_id == STRANGER else held
+                return (*held, TableVersion(table_id, 1)) if account_id == STRANGER else held
 
         racing = ChairChangesAfterTheScan()
         keep(racing, table_in(AUCTION_RUNS))

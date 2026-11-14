@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Protocol
 from skat.table.member_place import MemberBook
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from contextlib import AbstractContextManager
     from datetime import datetime
 
@@ -97,7 +98,7 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]: ...
 
-    def tables_of(self, account_id: str) -> tuple[HeldTable, ...]:
+    def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
         """The live tables the account holds a chair at, each with its version, in id order; no row is locked, so the
         list is a candidate list: a table may end or a chair move before the caller uses it, and a caller that shows
         more than the table ids reads each table again under its lock.
@@ -108,6 +109,10 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         """The live tables listed to every member, in id order; no row is locked, so the list is a candidate list as
         `tables_of` is.
         """
+        ...
+
+    def versions_of(self, table_ids: Iterable[TableId]) -> tuple[TableVersion, ...]:
+        """The version of each live table among `table_ids`, in id order; no row is locked."""
         ...
 
 
@@ -141,6 +146,8 @@ class OccupiedChair:
 
 
 @dataclass(frozen=True)
-class HeldTable:
+class TableVersion:
+    """A live table with the version it had at the read."""
+
     table_id: TableId
     version: int
