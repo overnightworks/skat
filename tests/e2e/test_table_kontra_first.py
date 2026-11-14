@@ -1,5 +1,5 @@
 import re
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -7,12 +7,7 @@ from playwright.sync_api import Page, expect
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of
 from tests.e2e.support.hands import deal_playing_table
-from tests.e2e.support.kontra import (
-    BIDDERS_ONLY_OPTIONS,
-    ContestedTable,
-    LeadingTable,
-    expect_nothing_to_overflow,
-)
+from tests.e2e.support.kontra import FirstCardTable, LeadingFirstCardTable, expect_nothing_to_overflow
 from tests.e2e.support.people import WIDTHS
 
 if TYPE_CHECKING:
@@ -38,21 +33,6 @@ TURN_CHAIR = ".chair.turn"
 
 def decline_of(word: str) -> str:
     return text(SOURCE_LANGUAGE, "kontra.decline", word=word)
-
-
-FIRST_CARD_OPTIONS = {**BIDDERS_ONLY_OPTIONS, "deadline": "first-card"}
-
-
-class FirstCardTable(ContestedTable):
-    """The forehand bid and leads; the first card waits for its word."""
-
-    kontra_options: ClassVar[dict[str, str]] = FIRST_CARD_OPTIONS
-
-
-class LeadingFirstCardTable(LeadingTable):
-    """The declarer leads; the first card waits for the middlehand's word."""
-
-    kontra_options: ClassVar[dict[str, str]] = FIRST_CARD_OPTIONS
 
 
 def owing_page(table: PlayingTable, position: str) -> Page:

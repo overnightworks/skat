@@ -5056,9 +5056,9 @@ body {
     }
 }
 
-/* During a hand the opener's strip holds the give-up or Kontra, the stand-up, the agents' pill, the link and the close key: on a phone Kontra keeps its word alone, and on the narrowest the gaps and the words' padding give way too, so the row stays inside the screen. */
+/* During a hand the opener's strip holds the give-up or Kontra, the stand-up, the agents' pill, the link and the close key: on a phone Kontra keeps its word alone, and on the narrowest the gaps and the give-up's padding give way too, so the row stays inside the screen. */
 @media (max-width: 899px) {
-    .room .actions:has(.copy.close) .copy.kontra svg {
+    .room .actions:has(.copy.close) > .copy.kontra svg {
         display: none;
     }
 }
@@ -5068,7 +5068,7 @@ body {
         gap: 4px;
     }
 
-    .room .actions:has(.give-up):has(.copy.close) .copy:is(.give-up, .kontra):not(.round) {
+    .room .actions:has(.give-up):has(.copy.close) .copy.give-up:not(.round) {
         padding-inline: 10px;
     }
 }
@@ -6684,9 +6684,26 @@ body {
     }
 }
 
+/* The key that says the word and the key that declines it draw as the scenes draw them, at every width: the bolt and the cross at 24px, 15px type, and at 360 px the word alone. */
+.room .actions .copy:is(.kontra, .no-word) {
+    gap: 8px;
+    padding: 0 18px 0 14px;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.room .copy:is(.kontra, .no-word) svg {
+    width: 24px;
+    height: 24px;
+}
+
 @media (max-width: 379px) {
-    .room .copy.kontra {
+    .room .actions .copy.kontra {
         padding: 0 14px;
+    }
+
+    .room .copy.kontra svg {
+        display: none;
     }
 }
 
@@ -6697,6 +6714,12 @@ body {
 }
 
 @media (max-width: 899px) {
+    /* The pair's row costs the phone a row of height: the ten cards shrink and pack closer, as the scenes draw them, so the rows stay on the screen. */
+    .room .controls:has(.kontra-keys) .own-hand {
+        --card-width: 54px;
+        --strip: 30px;
+    }
+
     .room .actions:has(.kontra-keys) {
         flex-wrap: wrap;
     }
@@ -6704,16 +6727,16 @@ body {
     .room .kontra-keys {
         flex: 1 0 100%;
         justify-content: center;
-        gap: 8px;
+    }
+
+    /* The line that reserves room for a refusal shows only when it has words, while the pair stands: a phone has no height to spare. */
+    .room .controls:has(.kontra-keys) .note:empty {
+        display: none;
     }
 }
 
-/* A phone's strip keeps one row while a hand runs, as the scenes draw it: the Kontra key shows its word, the abort key its flag alone (its word stays for assistive technology) until a first tap arms it. */
+/* A phone's strip keeps one row while a hand runs, as the scenes draw it: the abort key shows its flag alone (its word stays for assistive technology) until a first tap arms it. */
 @media (max-width: 899px) {
-    .room .copy.kontra svg {
-        display: none;
-    }
-
     .room .actions:not(.on-result) {
         width: calc(100% + 20px);
     }
