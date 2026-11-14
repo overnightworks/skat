@@ -413,7 +413,7 @@ def _cards_of(rows: Iterable[Row[tuple[object, ...]]]) -> GameCards:
                 skat.append(card)
             case Pile.PUT_AWAY:
                 put_away.append(SeatedCard(row.seat, card))
-            case Pile.TRICK:
+            case _:  # the trick pile, the last of the four
                 tricks.setdefault(row.trick, []).append(SeatedCard(row.seat, card))
     first, second, third = (in_deck_order(hands[seat]) for seat in SEATS)
     return GameCards(
