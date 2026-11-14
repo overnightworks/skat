@@ -678,3 +678,111 @@ def test_two_expiries_that_meet_end_the_table_once(rivals):
 
     assert (first, second) == ([True], [False])
     assert rivals.stored() == EndedTable(rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
+
+
+ENDED_TABLE_DAYS = 7
+ENDED_AT = datetime(2026, 11, 3, 12, 0, tzinfo=UTC)
+FORGOTTEN_AT = ENDED_AT + timedelta(days=ENDED_TABLE_DAYS)
+
+
+def forgetting_service(transactions, now=FORGOTTEN_AT):
+    return TableService(transactions, now=lambda: now)
+
+
+def ended_at(transactions, table_id, ending=None):
+    with transactions.begin() as transaction:
+        assert transaction.locked_table(table_id) is not None
+        transaction.end_table(table_id, ENDED_AT, ending or Ending.empty(DEFAULT_EMPTY_TABLE_SECONDS))
+
+
+def test_forgetting_deletes_an_ended_table_with_no_game_with_its_receipts_once_the_days_are_up(
+    service, transactions, stored, engine
+):
+    table_id = undealt_table(service, "one")
+    ended_at(transactions, table_id)
+    assert rows_of(engine, table_id.value)["receipts"]
+
+    forgetting_service(transactions).forget_ended_tables(ENDED_TABLE_DAYS)
+
+    assert {name for name, rows in rows_of(engine, table_id.value).items() if rows} == set()
+    assert stored(transactions, table_id.value) is None
+
+
+def test_forgetting_keeps_an_ended_table_with_no_game_until_the_days_are_up(service, transactions, engine):
+    table_id = undealt_table(service, "one")
+    ended_at(transactions, table_id)
+    before = rows_of(engine, table_id.value)
+
+    forgetting_service(transactions, FORGOTTEN_AT - timedelta(seconds=1)).forget_ended_tables(ENDED_TABLE_DAYS)
+
+    assert rows_of(engine, table_id.value) == before
+
+
+def test_forgetting_keeps_a_live_table_and_an_ended_table_within_its_days_and_deletes_a_due_one(
+    service, transactions, engine
+):
+    live = undealt_table(service, "live")
+    recent = undealt_table(service, "recent")
+    due = undealt_table(service, "due")
+    ended_at(transactions, recent)
+    ended_at(transactions, due)
+    with engine.begin() as connection:
+        connection.execute(
+            update(tables).where(tables.c.id == recent.value).values(ended_at=FORGOTTEN_AT - timedelta(seconds=1))
+        )
+    live_before = rows_of(engine, live.value)
+    recent_before = rows_of(engine, recent.value)
+
+    forgetting_service(transactions).forget_ended_tables(ENDED_TABLE_DAYS)
+
+    assert rows_of(engine, live.value) == live_before
+    assert rows_of(engine, recent.value) == recent_before
+    assert not any(rows_of(engine, due.value).values())
+
+
+def test_forgetting_keeps_an_ended_table_with_games_and_clears_only_its_closers_name(
+    service, transactions, stored, engine
+):
+    table_id = listed_game(service, transactions, stored, "one")
+    service.close(OPENER, CloseTable("close-one", table_id.value))
+    with engine.begin() as connection:
+        connection.execute(update(tables).where(tables.c.id == table_id.value).values(ended_at=ENDED_AT))
+    before = rows_of(engine, table_id.value)
+    version = stored(transactions, table_id.value).version
+
+    forgetting_service(transactions).forget_ended_tables(ENDED_TABLE_DAYS)
+
+    after = rows_of(engine, table_id.value)
+    assert {name for name, rows in after.items() if rows} == {"tables", "receipts", "game_list"}
+    assert after["game_list"] == before["game_list"]
+    assert after["receipts"] == before["receipts"]
+    assert stored(transactions, table_id.value) == EndedTable(table_id, version, Ending(EndReason.CLOSED))
+
+
+def test_forgetting_keeps_the_closers_name_of_a_table_with_games_until_the_days_are_up(
+    service, transactions, stored, engine
+):
+    table_id = listed_game(service, transactions, stored, "one")
+    service.close(OPENER, CloseTable("close-one", table_id.value))
+    with engine.begin() as connection:
+        connection.execute(update(tables).where(tables.c.id == table_id.value).values(ended_at=ENDED_AT))
+    before = stored(transactions, table_id.value)
+
+    forgetting_service(transactions, FORGOTTEN_AT - timedelta(seconds=1)).forget_ended_tables(ENDED_TABLE_DAYS)
+
+    assert stored(transactions, table_id.value) == before
+
+
+def test_a_second_forgetting_changes_nothing(service, transactions, stored, engine):
+    gameless = undealt_table(service, "gameless")
+    ended_at(transactions, gameless)
+    with_games = listed_game(service, transactions, stored, "games")
+    service.close(OPENER, CloseTable("close-games", with_games.value))
+    with engine.begin() as connection:
+        connection.execute(update(tables).where(tables.c.id == with_games.value).values(ended_at=ENDED_AT))
+    forgetting_service(transactions).forget_ended_tables(ENDED_TABLE_DAYS)
+    after_first = (rows_of(engine, gameless.value), rows_of(engine, with_games.value))
+
+    forgetting_service(transactions).forget_ended_tables(ENDED_TABLE_DAYS)
+
+    assert (rows_of(engine, gameless.value), rows_of(engine, with_games.value)) == after_first

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
-from skat.table.ending import close_table, end_unplayed_table, table_with_opener, unplayed_tables
+from skat.table.ending import close_table, end_unplayed_table, forget_ended_tables, table_with_opener, unplayed_tables
 from skat.table.game_list import series_list_view_of
 from skat.table.hand_abort import (
     AGREE_TO_ABORT_COMMAND,
@@ -547,6 +547,12 @@ class TableService(LobbyReads):
             return False
         self._tell_seats(members)
         return True
+
+    def forget_ended_tables(self, days: int) -> None:
+        """Delete every ended table with no game in the history `days` days after its end, and clear the closer's name
+        of every other.
+        """
+        forget_ended_tables(self._transactions, days, self._now())
 
     def close(self, actor: Actor, command: CloseTable) -> CommandResult | None:
         """Close the table for everyone if the actor opened it, the ended table as the answer, else the refusal

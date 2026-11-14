@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Final, Literal
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, exists, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from skat.engine.bidding import PassedIn
@@ -10,7 +10,7 @@ from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
 from skat.store.auction import append_steps, auction_actions, delete_steps, read_steps
 from skat.store.declaring import append_declaring_steps, declaring_steps, read_declaring_steps
-from skat.store.game_list import append_game_list, read_game_list
+from skat.store.game_list import append_game_list, game_list, read_game_list
 from skat.store.kontra import append_words, kontra_no_words, kontra_words, read_no_words, read_words, write_no_words
 from skat.store.member_book import accounts_at, forget_table, locked_entries_of, locked_entry, save_entry
 from skat.store.playing import append_plays, played_cards, read_plays
@@ -439,6 +439,20 @@ class _PostgresTableTransaction:
                 .where(tables.c.end_reason.is_(None), tables.c.last_played_at <= cutoff)
                 .order_by(tables.c.id)
             ).scalars()
+        )
+
+    def forget_ended_before(self, cutoff: datetime) -> None:
+        gameless = (
+            select(tables.c.id)
+            .where(tables.c.ended_at <= cutoff, ~exists().where(game_list.c.table_id == tables.c.id))
+            .scalar_subquery()
+        )
+        self._connection.execute(delete(receipts).where(receipts.c.table_id.in_(gameless)))
+        self._connection.execute(delete(tables).where(tables.c.id.in_(gameless)))
+        self._connection.execute(
+            update(tables)
+            .where(tables.c.ended_at <= cutoff, tables.c.closed_by_name.is_not(None))
+            .values(closed_by_name=None)
         )
 
     def empty_since(self, table_id: TableId) -> datetime | None:

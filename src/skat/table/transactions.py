@@ -74,6 +74,13 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         """
         ...
 
+    def forget_ended_before(self, cutoff: datetime) -> None:
+        """Forget what the tables that ended at or before `cutoff` keep: one with no game in the history is deleted
+        with every receipt of it, so its id names no table, and the closer's name of the others is cleared. Nothing
+        else changes, not even a version.
+        """
+        ...
+
     def empty_since(self, table_id: TableId) -> datetime | None:
         """Since when nobody has been at the table, or None while it is unset."""
         ...
