@@ -19,7 +19,7 @@ export type SheetTrick = {
 };
 export type SheetEnd = { label: string; by: SheetSeat | null };
 export type SheetCount =
-    | { kind: "declared"; sides: SideNames; points: Sides }
+    | { kind: "declared"; declarer: SheetSeat; sides: SideNames; points: Sides }
     | { kind: "ramsch"; seats: { seat: SheetSeat; points: number; most: boolean }[] };
 export type SheetCards = {
     skat: Card[];
@@ -82,6 +82,7 @@ export function gameSheetView(sheet: GameSheet): GameSheetView {
         seats,
         count: {
             kind: "declared",
+            declarer: seatOf(count.declarer_seat),
             sides: { declarer: seatOf(count.declarer_seat).name, opponents: listFormat.format(opponents) },
             points: { declarer: count.declarer_points, opponents: count.opponents_points },
         },

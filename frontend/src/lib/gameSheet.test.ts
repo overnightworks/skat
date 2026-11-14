@@ -14,6 +14,10 @@ describe("gameSheetView of a declared game", () => {
         });
     });
 
+    it("names the declarer's seat by its number", () => {
+        expect(view.count).toMatchObject({ kind: "declared", declarer: { seat: 2, name: "Ben" } });
+    });
+
     it("draws the tricks in the order sent, the declarer's apart from the opponents' and an interrupted one with no taker", () => {
         expect(
             view.cards?.tricks.map((trick) => [trick.number, trick.taker?.name ?? null, trick.points, trick.side]),

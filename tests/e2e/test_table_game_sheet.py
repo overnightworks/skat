@@ -92,6 +92,9 @@ def test_a_declared_game_given_up_in_its_first_trick_shows_its_count_its_cards_a
     open_the_game(person)
 
     expect(person.locator(f"{GAME_SHEET} .points")).to_be_visible()
+    expect(person.locator(f"{GAME_SHEET} .sheet-head .dot")).to_have_class(
+        re.compile(rf"\bseat-{table.declarer_seat}\b")
+    )
     assert person.locator(f"{GAME_SHEET} .points .side").evaluate_all(
         "sides => sides.every(side => side.scrollWidth <= side.clientWidth)"
     )
@@ -167,7 +170,9 @@ def test_a_ramsch_sheet_draws_every_dot_round_and_its_tricks_inside_the_panel(
     assert all(abs(width - height) < 1 for width, height in sizes)
     seat_dots = person.locator(f"{GAME_SHEET} .seat-eyes .dot")
     assert len(set(seat_dots.evaluate_all("dots => dots.map(dot => getComputedStyle(dot).backgroundImage)"))) == SEATS
-    expect(person.locator(f"{GAME_SHEET} .sheet-head .dot")).to_have_class(re.compile(r"\bseat-[123]\b"))
+    loser = person.locator(f"{GAME_SHEET} .seat-eyes > .most .dot").first
+    loser_seat = loser.evaluate("dot => [...dot.classList].find(name => name.startsWith('seat-'))")
+    expect(person.locator(f"{GAME_SHEET} .sheet-head .dot")).to_have_class(re.compile(rf"\b{loser_seat}\b"))
     assert person.locator(f"{GAME_SHEET} .tricks").evaluate(
         "tricks => tricks.getBoundingClientRect().right <= tricks.closest('.game-list').getBoundingClientRect().right"
     )

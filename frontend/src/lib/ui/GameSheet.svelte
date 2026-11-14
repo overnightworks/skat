@@ -13,8 +13,9 @@
 
     let view = $state<GameSheetView | null>(null);
     let failed = $state(false);
-    // The head's dot wears the colour of the seat its row names, as the dots below do; it is plain until the sheet is read.
-    const headSeat = $derived(view?.seats.find((seat) => seat.name === row.subject));
+    // The head's dot wears the colour of the seat its row names, as the dots below do: a Ramsch row carries that seat, a
+    // declared game's sheet names the declarer, so that dot is plain until the sheet is read.
+    const headSeat = $derived(row.subjectSeat ?? (view?.count.kind === "declared" ? view.count.declarer.seat : null));
 
     $effect(() => {
         let current = true;
@@ -56,7 +57,7 @@
         </button>
         <span class="grow">
             <span class="nr">{row.number}</span>
-            <span class={["dot", headSeat !== undefined && `seat-${String(headSeat.seat)}`]} aria-hidden="true"
+            <span class={["dot", headSeat !== null && `seat-${String(headSeat)}`]} aria-hidden="true"
                 >{row.initial}</span
             >
             <span class="txt">
