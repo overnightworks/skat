@@ -1,3 +1,4 @@
+import logline
 import pytest
 import structlog.testing
 from fastapi.testclient import TestClient
@@ -43,7 +44,7 @@ def browser(app):
 
 
 def request_lines_of(logs):
-    return [log for log in logs if log["event"] == "request"]
+    return [log for log in logs if log["event"] == logline.REQUEST_EVENT]
 
 
 class TestRequestLine:
