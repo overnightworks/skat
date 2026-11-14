@@ -1,0 +1,8 @@
+claim_id = "65f91e7396334275b7d59054f3aeeeef"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "76b0739c5db5bd426b35541fbb5e662d63f76d3e"
+branch = "claude/issue-610-skat-pins-logline-v0-1-1-and-uses-its-te"
+scope = ["pyproject.toml", "src/skat/host", "src/skat/web", "tests", "uv.lock"]
+opened_commit = "acd95bd9225d01c0f8bbbc605794e29bc6308ed4"
+whole_reason = "A dependency bump with the test helpers it replaces across the test tree."
