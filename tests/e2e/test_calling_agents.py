@@ -234,10 +234,14 @@ def test_two_agents_of_one_owner_are_called_one_after_the_other_and_both_sit(
             expect(pill(caller)).to_be_visible()
             pill(caller).click()
             caller.get_by_role("button", name=call_label(name)).click()
-            agent.accept(agent.invitation_within(caller, INVITATION_WITHIN_SECONDS))
+            seated = agent.accept(agent.invitation_within(caller, INVITATION_WITHIN_SECONDS))
             expect(caller.locator(f".chair:has-text('{name}')")).to_have_count(1)
             pill(caller).click()
         expect(caller.locator(".chair .plate:has(.ai-mark)")).to_have_count(2)
+        for agent in (mozart, leonardo):
+            window = agent.window(seated["place"]["id"])
+            assert len(agent.listed()) == 3
+            assert [line["kind"] for line in window["entries"]] == ["deal"]
     finally:
         mozart.close()
         leonardo.close()
