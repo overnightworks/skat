@@ -232,6 +232,11 @@ class SidesAnswer(BaseModel):
     opponents: int
 
 
+class OpenHandAnswer(BaseModel):
+    seat: int
+    cards: list[CardAnswer]
+
+
 class GiveUpAnswer(BaseModel):
     asking_seat: int
     declined_seat: int | None
@@ -264,6 +269,8 @@ class PlayingAnswer(BaseModel):
     give_up: GiveUpAnswer | None
     shortening: ShorteningAnswer | None
     shortening_refused_seat: int | None
+    open_play_seat: int | None
+    open_hands: list[OpenHandAnswer]
     kontra: KontraAnswer | None
 
 
@@ -537,6 +544,11 @@ def playing_answer_of(playing: PlayingView | None) -> PlayingAnswer | None:
             agreed_seat=playing.shortening.agreed_seat,
         ),
         shortening_refused_seat=playing.shortening_refused_seat,
+        open_play_seat=playing.open_play_seat,
+        open_hands=[
+            OpenHandAnswer(seat=each.seat, cards=[card_answer_of(card) for card in each.cards])
+            for each in playing.open_hands
+        ],
         kontra=kontra_answer_of(playing.kontra),
     )
 
@@ -767,6 +779,7 @@ def create_tables_router(
         says why: `reason` is `empty` (nobody was there while no hand was dealt; `empty_seconds` is the wait),
         `unplayed` (no hand was dealt or played at for `unplayed_days` days) or `closed` (its opener closed it, and
         `closed_by_name` is the opener's name).
+        A game can also end shortened or played-open, each with the seat that did it.
         A 404 means no table has this id.
         """
         response.headers["Cache-Control"] = "no-store"

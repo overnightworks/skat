@@ -9,12 +9,12 @@ pytestmark = pytest.mark.postgres
 RAMSCH_OPTIONS = "ramsch_scoring = 'points', ramsch_jungfrau = 'off', ramsch_durchmarsch = 'off'"
 
 
-class TestFromATableAndARuleSetWithRamschAtRevisionFortyOne:
+class TestFromATableAndARuleSetWithRamschAtRevisionFortyTwo:
     @pytest.fixture
     def migrated(self, unmigrated_engine):
         return migrated_from(
             unmigrated_engine,
-            "0041",
+            "0042",
             text(
                 "INSERT INTO tables (id, version, ramsch_occasion, ramsch_scoring, ramsch_jungfrau,"
                 " ramsch_durchmarsch) VALUES ('t', 3, 'passed-in', 'points', 'off', 'off')"

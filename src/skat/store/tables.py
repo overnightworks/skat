@@ -63,7 +63,7 @@ from skat.table.transactions import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
+    from collections.abc import Generator, Iterable, Sequence
     from datetime import datetime
 
     from sqlalchemy import Row
@@ -145,6 +145,23 @@ def _chair_of(seat: Row[*tuple[Any, ...]]) -> Chair:
     return Chair(seat.seat, occupant, ready=seat.ready)
 
 
+def _read_seats(connection: Connection, table_id: str) -> Sequence[Row[*tuple[Any, ...]]]:
+    return connection.execute(
+        select(
+            chairs.c.seat,
+            chairs.c.account_id,
+            chairs.c.display_name,
+            chairs.c.occupant_kind,
+            chairs.c.owner_account,
+            chairs.c.ready,
+            chairs.c.held_in_hand,
+            chairs.c.former_holder_name,
+        )
+        .where(chairs.c.table_id == table_id)
+        .order_by(chairs.c.seat)
+    ).all()
+
+
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
 ) -> TableRecord | EndedTable | None:
@@ -160,20 +177,7 @@ def _table_record(
             table.version,
             Ending(EndReason(table.end_reason), table.empty_seconds, table.unplayed_days, table.closed_by_name),
         )
-    seats = connection.execute(
-        select(
-            chairs.c.seat,
-            chairs.c.account_id,
-            chairs.c.display_name,
-            chairs.c.occupant_kind,
-            chairs.c.owner_account,
-            chairs.c.ready,
-            chairs.c.held_in_hand,
-            chairs.c.former_holder_name,
-        )
-        .where(chairs.c.table_id == table_id)
-        .order_by(chairs.c.seat)
-    ).all()
+    seats = _read_seats(connection, table_id)
     return TableRecord(
         id=TableId(table_id),
         version=table.version,
@@ -186,6 +190,7 @@ def _table_record(
             plays=read_plays(connection, table_id),
             give_up=_read_give_up(table),
             shortening_refused_by=_position_of(table.shortening_refused_by),
+            played_open=frozenset(POSITION_OF_TEXT[each] for each in table.played_open),
             words=read_words(connection, table_id),
             no_words=read_no_words(connection, table_id),
             pushing=read_pushing_steps(connection, table_id),
@@ -222,6 +227,7 @@ def _read_give_up(table: Row[Any]) -> GiveUpAsked | None:
         _position_of(table.give_up_declined_by),
         None if table.give_up_claim is None else ANNOUNCEMENT_OF_TEXT[table.give_up_claim],
         _position_of(table.give_up_agreed_by),
+        table.give_up_open,
     )
 
 
@@ -304,7 +310,9 @@ class _PostgresTableTransaction:
                 give_up_declined_by=None if asked is None else _text_of(asked.declined_by),
                 give_up_claim=None if asked is None or asked.claim is None else ANNOUNCEMENT_TEXT[asked.claim],
                 give_up_agreed_by=None if asked is None else _text_of(asked.agreed_by),
+                give_up_open=asked is not None and asked.open_play,
                 shortening_refused_by=_text_of(table.progress.shortening_refused_by),
+                played_open=sorted(POSITION_TEXT[each] for each in table.progress.played_open),
             )
         )
 
@@ -399,7 +407,9 @@ class _PostgresTableTransaction:
                 give_up_declined_by=None,
                 give_up_claim=None,
                 give_up_agreed_by=None,
+                give_up_open=False,
                 shortening_refused_by=None,
+                played_open=[],
                 ended_at=at,
                 end_reason=ending.reason.value,
                 empty_seconds=ending.empty_seconds,

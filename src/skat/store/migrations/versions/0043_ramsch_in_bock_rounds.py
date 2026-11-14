@@ -6,8 +6,8 @@ none for the tables that exist.
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0042"
-down_revision = "0041"
+revision = "0043"
+down_revision = "0042"
 
 OCCASIONS = ("passed-in", "bock-rounds", "passed-in-and-bock-rounds")
 

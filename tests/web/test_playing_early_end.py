@@ -10,6 +10,7 @@ from skat.web.playing import (
     TABLE_GIVE_UP_AGREE_SUFFIX,
     TABLE_GIVE_UP_DECLINE_SUFFIX,
     TABLE_GIVE_UP_SUFFIX,
+    TABLE_PLAY_OPEN_SUFFIX,
     TABLE_THROW_DOWN_SUFFIX,
 )
 from skat.web.ready import TABLE_READY_SUFFIX
@@ -39,11 +40,12 @@ def route(request):
         TABLE_THROW_DOWN_SUFFIX,
         TABLE_GIVE_UP_AGREE_SUFFIX,
         TABLE_GIVE_UP_DECLINE_SUFFIX,
+        TABLE_PLAY_OPEN_SUFFIX,
     ],
-    ids=["give-up", "throw-down", "give-up-agree", "give-up-decline"],
+    ids=["give-up", "throw-down", "give-up-agree", "give-up-decline", "play-open"],
 )
 def refusing_route(request):
-    """Every route that ends or answers a game; the refusals that come before any request check hold for all four."""
+    """Every route that ends or answers a game; the refusals that come before any request check hold for all five."""
     return request.param
 
 

@@ -231,6 +231,8 @@ tables = Table(
     Column("give_up_claim", Text),
     Column("give_up_agreed_by", Text),
     Column("shortening_refused_by", Text),
+    Column("give_up_open", Boolean, nullable=False, server_default=false()),
+    Column("played_open", ARRAY(Text), nullable=False, server_default=text("'{}'")),
     Column("abort_yes_seats", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
     Column("hand_aborted", Boolean, nullable=False, server_default=false()),
     *option_columns("tables"),
@@ -303,6 +305,16 @@ tables = Table(
     ),
     CheckConstraint(
         "give_up_claim IS NULL OR give_up_declined_by IS NULL", name="tables_a_shortening_ends_with_its_first_no"
+    ),
+    CheckConstraint(
+        "NOT give_up_open OR (give_up_asked_by IS NOT NULL AND give_up_claim IS NULL AND give_up_declined_by IS NULL"
+        " AND give_up_agreed_by IS NULL)",
+        name="tables_an_open_play_is_asked_of_the_declarer_alone",
+    ),
+    CheckConstraint(
+        f"played_open <@ ARRAY[{', '.join(f"'{each}'" for each in POSITION_TEXT.values())}]::text[]"
+        " AND array_position(played_open, NULL) IS NULL",
+        name="tables_played_open_are_positions",
     ),
     CheckConstraint(
         "abort_yes_seats <@ ARRAY[1, 2, 3]::smallint[] AND array_position(abort_yes_seats, NULL) IS NULL",
