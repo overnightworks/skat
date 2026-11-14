@@ -1,3 +1,4 @@
+import logline
 import pytest
 import structlog.testing
 from agents.mcp_wire import MCP_ENDPOINT_PATH
@@ -172,8 +173,17 @@ class TestRequestLine:
         with structlog.testing.capture_logs() as logs:
             agent.request("tools/list")
 
-        (line,) = [log for log in logs if log["event"] == "request"]
+        (line,) = [log for log in logs if log["event"] == logline.REQUEST_EVENT]
         assert (line["sub"], line["status"]) == (agent_account_id(skat), 200)
+
+    def test_names_the_endpoint_pattern_as_the_route(self, agent):
+        agent.admitted()
+
+        with structlog.testing.capture_logs() as logs:
+            agent.request("tools/list")
+
+        (line,) = [log for log in logs if log["event"] == logline.REQUEST_EVENT]
+        assert line["route"] == MCP_ENDPOINT_PATH
 
 
 class TestReadTable:

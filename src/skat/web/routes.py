@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from logline import set_route
 
 from skat.web.constants import (
     APP_ASSET_PATH,
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
     import os
     from collections.abc import Awaitable, Callable
 
-    from starlette.types import Scope
+    from starlette.types import Receive, Scope, Send
     from webauth.config import WebAuthConfig
     from webauth.ports import SessionRecordStore
 
@@ -39,6 +40,10 @@ class _PageBuildFiles(StaticFiles):
     def __init__(self, directory: Path) -> None:
         super().__init__(directory=directory)
         self._directory = directory.resolve()
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        set_route(scope, APP_ASSET_PATH)
+        await super().__call__(scope, receive, send)
 
     def file_response(
         self, full_path: str | os.PathLike[str], stat_result: os.stat_result, scope: Scope, status_code: int = 200
