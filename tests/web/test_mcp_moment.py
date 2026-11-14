@@ -26,9 +26,9 @@ from skat.web.mcp import (
 )
 from skat.web.member_place import ACCEPT_INVITATION_DECLARATION
 from tests.web.support.agent import Agent, person_passes, person_steps
+from tests.web.support.calling import running_skat
 from tests.web.support.playing import MIDDLEHAND, REARHAND
 from tests.web.support.sdk_agent import TOOLS_CHANGED, SdkAgent
-from tests.web.support.skat import skat_on_the_clock
 
 READS = {READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, READ_PAUSED_TABLES_TOOL, READ_RULE_SETS_TOOL}
 SEATED = READS | {STAND_UP_TOOL, NUDGE_SEAT_TOOL, ACCEPT_INVITATION_DECLARATION.name}
@@ -37,8 +37,7 @@ NOT_OFFERED = "the tool is not offered now"
 
 @pytest.fixture
 def skat(hold, issuer, time):
-    with skat_on_the_clock(hold, issuer, time) as skat:
-        yield skat
+    yield from running_skat(hold, issuer, time)
 
 
 @pytest.fixture

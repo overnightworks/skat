@@ -14,9 +14,9 @@ from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import Agent, view_uri_of
+from tests.web.support.calling import running_skat
 from tests.web.support.changes import RecordedChanges
 from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import skat_on_the_clock
 
 REARHAND = Position.REARHAND
 AWAITED_AGENT_SUBJECT = "awaited-agent"
@@ -30,8 +30,7 @@ def changes():
 
 @pytest.fixture
 def skat(hold, issuer, time, changes):
-    with skat_on_the_clock(hold, issuer, time, resource_changes=changes.wired) as skat:
-        yield skat
+    yield from running_skat(hold, issuer, time, resource_changes=changes.wired)
 
 
 @pytest.fixture

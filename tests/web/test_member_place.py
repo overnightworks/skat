@@ -15,8 +15,9 @@ from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.calls import call_facts
 from tests.support.played_game import after_the_first_game
 from tests.web.support.agent import UPDATED, Agent
+from tests.web.support.calling import running_skat
 from tests.web.support.presence import HOLD_SECONDS
-from tests.web.support.skat import FakeTime, skat_on_the_clock, stored, streams_of
+from tests.web.support.skat import FakeTime, stored, streams_of
 
 OTHER_AGENT_SUBJECT = "other-agent-subject"
 INVITATION_SECONDS = 600
@@ -32,8 +33,7 @@ def time():
 
 @pytest.fixture
 def skat(hold, issuer, time):
-    with skat_on_the_clock(hold, issuer, time) as skat:
-        yield skat
+    yield from running_skat(hold, issuer, time)
 
 
 @pytest.fixture
