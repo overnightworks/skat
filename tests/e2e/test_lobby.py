@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -6,8 +7,17 @@ from playwright.sync_api import Locator, Page, expect
 
 from skat.engine.kontra import KontraDeadline, KontraReach, KontraSayer
 from skat.table.records import SERIES_LENGTH_DEFAULT, OccupantKind
-from skat.web.lobby import LOBBY_EVENTS_PATH, OpenAnswer, OpenChairAnswer, OpenTableAnswer
+from skat.web.lobby import (
+    LOBBY_EVENTS_PATH,
+    LobbyChairAnswer,
+    LobbyTableAnswer,
+    MineAnswer,
+    OpenAnswer,
+    OpenChairAnswer,
+    OpenTableAnswer,
+)
 from skat.web.table_options import KontraOptionsAnswer, OptionsAnswer
+from skat.web.tables import TABLE_SIT_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
 from tests.e2e.support.people import DESKTOP, WIDTHS
@@ -24,6 +34,7 @@ from tests.e2e.support.tables import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from skat.web.words import Language
     from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
@@ -47,6 +58,7 @@ OPEN_TABLE = text(SOURCE_LANGUAGE, "start.openTable")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 CLOSE_KEY = text(SOURCE_LANGUAGE, "table.close")
 CLOSE_CONFIRM = text(SOURCE_LANGUAGE, "table.closeConfirm")
+ENGLISH: Language = "en"
 EVENT_STREAM = "text/event-stream"
 # A tap target is at least this many CSS pixels on each side.
 TAP_TARGET_PIXELS = 44
@@ -57,13 +69,15 @@ def name_at(base: str, form_factor: dict[str, Any]) -> str:
     return f"{base}{form_factor['viewport']['width']}"
 
 
-def title_of(owner: str) -> str:
-    return text(SOURCE_LANGUAGE, "lobby.titleSibilant" if owner.endswith("s") else "lobby.title", name=owner)
+def title_of(owner: str, language: Language = SOURCE_LANGUAGE) -> str:
+    return text(language, "lobby.titleSibilant" if owner.endswith("s") else "lobby.title", name=owner)
 
 
-def open_card(person: Page, owner: str) -> Locator:
+def open_card(person: Page, owner: str, language: Language = SOURCE_LANGUAGE) -> Locator:
     """The entry of the open table `owner` opened, which is no link."""
-    return person.locator("article.lobby-card").filter(has=person.get_by_role("heading", name=title_of(owner)))
+    return person.locator("article.lobby-card").filter(
+        has=person.get_by_role("heading", name=title_of(owner, language))
+    )
 
 
 def sit_buttons_of(card: Locator) -> Locator:
@@ -317,3 +331,121 @@ def test_an_open_entry_shows_its_rules_its_state_and_the_minutes_an_away_chair_i
     expect(held.locator(".lobby-seat.away")).to_have_count(1)
     paused = open_card(person, "Jonas")
     expect(paused).to_contain_text(PAUSED)
+
+
+def private_table_answer(owner: str) -> LobbyTableAnswer:
+    chairs = [
+        LobbyChairAnswer(
+            seat=seat,
+            occupant_name=owner if seat == 0 else None,
+            occupant_kind=OccupantKind.PERSON if seat == 0 else None,
+            is_mine=seat == 0,
+            ready=False,
+            total=None,
+            is_away=False,
+            is_turn=False,
+            hold_seconds_left=None,
+        )
+        for seat in range(3)
+    ]
+    return LobbyTableAnswer(
+        id=f"{ord(owner[0]):x}".ljust(32, "d"),
+        private=True,
+        title_name=owner,
+        game_number=0,
+        game_count=SERIES_LENGTH_DEFAULT,
+        dealt=False,
+        awaits_you=False,
+        waits_on=None,
+        result_waits=False,
+        series_over=False,
+        ends_at=None,
+        chairs=chairs,
+    )
+
+
+def expect_no_german(person: Page, *keys: str) -> None:
+    """The page shows none of these catalog keys' German wording, matched as whole words."""
+    for key in keys:
+        german = text(SOURCE_LANGUAGE, key)
+        expect(person.locator("body")).not_to_contain_text(re.compile(rf"\b{re.escape(german)}\b"))
+
+
+def test_the_visibility_sheet_reads_in_english_and_leaks_no_german(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]
+) -> None:
+    person = record_page_errors(open_person(username="Quirin", locale=ENGLISH, **DESKTOP), page_errors)
+    person.goto(f"{e2e_server.base_url}/")
+
+    person.get_by_role("button", name=text(ENGLISH, "start.newTable")).click()
+
+    choice = person.get_by_role("radiogroup", name=text(ENGLISH, "start.visibility"))
+    expect(choice.get_by_role("radio", name=text(ENGLISH, "start.visibilityOpen"))).to_be_checked()
+    expect(choice.get_by_role("radio", name=text(ENGLISH, "start.visibilityPrivate"))).not_to_be_checked()
+    person.get_by_role("button", name=text(ENGLISH, "start.visibilityInfoButton")).click()
+    expect(person.get_by_text(text(ENGLISH, "start.visibilityInfo"))).to_be_visible()
+    expect_no_german(
+        person, "start.visibility", "start.visibilityOpen", "start.visibilityPrivate", "start.visibilityInfo"
+    )
+
+
+def test_the_lobby_reads_in_english_and_leaks_no_german(
+    open_person: Callable[..., Page], e2e_server: RunningServer, expected_request_failures: list[str]
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
+    person = open_person(username="Rosa", locale=ENGLISH, **DESKTOP)
+    serve_stream(
+        person,
+        stream_of(
+            mine=MineAnswer(tables=[private_table_answer("Rosa")]).model_dump_json(),
+            open_tables=[
+                open_table_answer("Zora", names=("Zora", "Zeno", None), waiting_seat=2),
+                open_table_answer("Jonas", names=("Jonas", "Jana", None), ends_at=datetime(2027, 1, 1, tzinfo=UTC)),
+            ],
+        ),
+    )
+
+    person.goto(f"{e2e_server.base_url}/")
+
+    expect(person.get_by_role("heading", name=text(ENGLISH, "lobby.openTables"))).to_be_visible()
+    expect(person.get_by_role("img", name=text(ENGLISH, "lobby.private"))).to_be_visible()
+    waits = open_card(person, "Zora", ENGLISH)
+    expect(waits).to_contain_text(text(ENGLISH, "lobby.chipGameWaits"))
+    expect(
+        waits.get_by_role("button", name=text(ENGLISH, "lobby.sitAt", title=title_of("Zora", ENGLISH)))
+    ).to_have_count(1)
+    expect(open_card(person, "Jonas", ENGLISH)).to_contain_text(text(ENGLISH, "lobby.chipPaused"))
+    expect_no_german(person, "lobby.openTables", "lobby.chipGameWaits", "lobby.chipPaused")
+
+
+def test_a_refused_sit_reads_in_english(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]
+) -> None:
+    owner = record_page_errors(open_person(username="Zora", **DESKTOP), page_errors)
+    guest = open_person(username="Sibylle", locale=ENGLISH, **DESKTOP)
+    owner.goto(f"{e2e_server.base_url}/")
+    owner.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    owner.get_by_role("button", name=OPEN_TABLE).click()
+    expect(owner).to_have_url(TABLE_URL)
+    guest.route(
+        f"**{TABLE_SIT_SUFFIX}", lambda route: route.fulfill(status=422, content_type="application/json", body="{}")
+    )
+    guest.goto(f"{e2e_server.base_url}/")
+
+    open_card(guest, "Zora", ENGLISH).get_by_role("button").first.click()
+
+    expect(guest.get_by_role("alert")).to_have_text(text(ENGLISH, "lobby.sitFailed"))
+    expect_no_german(guest, "lobby.sitFailed")
+
+
+def test_the_empty_open_list_reads_in_english(
+    open_person: Callable[..., Page], e2e_server: RunningServer, expected_request_failures: list[str]
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
+    person = open_person(username="Tilda", locale=ENGLISH, **DESKTOP)
+    serve_stream(person, stream_of(open_tables=[]))
+
+    person.goto(f"{e2e_server.base_url}/")
+
+    expect(person.get_by_role("status").filter(has_text=text(ENGLISH, "lobby.noOpenTables"))).to_be_visible()
+    expect_no_german(person, "lobby.noOpenTables")
