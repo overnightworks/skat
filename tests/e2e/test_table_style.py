@@ -23,6 +23,22 @@ SOUND_PANEL = text(SOURCE_LANGUAGE, "sound.panelName")
 TONE = text(SOURCE_LANGUAGE, "sound.tone")
 BEACH = ".beach"
 STYLE_TILES = ".style-tile"
+STRIP = ".actions"
+
+
+def expect_the_key_in_the_strip(person: Page) -> None:
+    """The style key is visible in the play strip and lies within the strip's box."""
+    strip = person.locator(STRIP)
+    key = strip.get_by_role("button", name=STYLE_KEY)
+    expect(key).to_be_visible()
+    key_box = key.bounding_box()
+    strip_box = strip.bounding_box()
+    assert key_box is not None
+    assert strip_box is not None
+    assert key_box["x"] >= strip_box["x"]
+    assert key_box["x"] + key_box["width"] <= strip_box["x"] + strip_box["width"]
+    assert key_box["y"] >= strip_box["y"]
+    assert key_box["y"] + key_box["height"] <= strip_box["y"] + strip_box["height"]
 
 
 def sea_levels(page: Page) -> list[float]:
@@ -90,6 +106,7 @@ def test_the_style_panel_opens_inside_the_page_and_changes_the_table_at_every_wi
     table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, game="kreuz")
     chooser = table.pages[table.seat_at["forehand"]]
 
+    expect_the_key_in_the_strip(chooser)
     chooser.get_by_role("button", name=STYLE_KEY).click()
 
     expect(chooser.locator(STYLE_TILES)).to_have_count(len(TableStyle))
@@ -104,4 +121,6 @@ def test_the_style_panel_opens_inside_the_page_and_changes_the_table_at_every_wi
     chooser.locator(f"{STYLE_TILES}.style-strandbar").click()
     for person in table.everyone:
         expect(person.locator(ROOM)).to_have_attribute("data-style", "strandbar")
+    chooser.keyboard.press("Escape")
+    expect_the_key_in_the_strip(chooser)
     assert page_errors == []
