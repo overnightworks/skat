@@ -1,0 +1,8 @@
+claim_id = "e43f2f87fe704fea9398eb185ac6ff19"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "540682229ff504d740edb00791a91286d5cf3cd7"
+branch = "claude/issue-535-skat-s-readiness-fails-while-its-databas"
+scope = ["src/skat/host/app.py", "src/skat/store/migrate.py", "src/skat/web/routes.py", "tests/host/test_app.py", "tests/store/test_migrate.py", "tests/web/test_routes.py"]
+opened_commit = "8bc986b32b592b5b62e874bf4607994a4cd34201"
+whole_reason = "The route, the non-raising head check it calls and the engine it is wired into at start are one path: a check nothing calls is dead, and a route with no check still answers 200 on a broken database."
