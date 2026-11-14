@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import SecretStr
 from sqlalchemy import func, select, text
+from sqlalchemy.exc import DataError
 from webauth.ports import AccountEvent, AccountEventKind, AccountKind
 from webauth.store_contract import STORE_CHECKS, StoreAdapter
 
@@ -144,7 +145,7 @@ class TestASignInEntry:
         assert (count(engine, accounts), count(engine, sessions)) == (0, 0)
 
     def test_whose_session_write_fails_keeps_the_tokens_out_of_the_error_text(self, stores):
-        with pytest.raises(Exception, match="NUL") as failure:
+        with pytest.raises(DataError, match="NUL") as failure:
             sign_in(stores, refresh_token="secret-refresh-token\x00")
 
         assert "secret-refresh-token" not in str(failure.value)
