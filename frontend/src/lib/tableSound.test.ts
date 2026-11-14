@@ -66,6 +66,7 @@ function tableSeenFrom(ownSeat: number): Table {
         hand: null,
         former_holder_name: null,
         is_mine_to_return: false,
+        nudge: null,
     }));
     return {
         id: "a".repeat(32),

@@ -15,6 +15,7 @@ export function chairs(mine: number, ready: number[] = []): Chair[] {
         hand: null,
         former_holder_name: null,
         is_mine_to_return: false,
+        nudge: null,
     }));
 }
 

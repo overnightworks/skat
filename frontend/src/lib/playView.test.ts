@@ -35,6 +35,7 @@ function chairs(mine: number, positions: Record<number, Position> = POSITIONS): 
         hand: { position: positions[seat] as Position, card_count: 9 },
         former_holder_name: null,
         is_mine_to_return: false,
+        nudge: null,
     }));
 }
 
