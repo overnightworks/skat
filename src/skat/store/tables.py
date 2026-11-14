@@ -63,7 +63,7 @@ from skat.table.transactions import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
+    from collections.abc import Generator, Iterable, Sequence
     from datetime import datetime
 
     from sqlalchemy import Row
@@ -145,6 +145,23 @@ def _chair_of(seat: Row[*tuple[Any, ...]]) -> Chair:
     return Chair(seat.seat, occupant, ready=seat.ready)
 
 
+def _read_seats(connection: Connection, table_id: str) -> Sequence[Row[*tuple[Any, ...]]]:
+    return connection.execute(
+        select(
+            chairs.c.seat,
+            chairs.c.account_id,
+            chairs.c.display_name,
+            chairs.c.occupant_kind,
+            chairs.c.owner_account,
+            chairs.c.ready,
+            chairs.c.held_in_hand,
+            chairs.c.former_holder_name,
+        )
+        .where(chairs.c.table_id == table_id)
+        .order_by(chairs.c.seat)
+    ).all()
+
+
 def _table_record(
     connection: Connection, table_id: str, *, row_lock: Literal["update", "share"] | None = "share"
 ) -> TableRecord | EndedTable | None:
@@ -160,20 +177,7 @@ def _table_record(
             table.version,
             Ending(EndReason(table.end_reason), table.empty_seconds, table.unplayed_days, table.closed_by_name),
         )
-    seats = connection.execute(
-        select(
-            chairs.c.seat,
-            chairs.c.account_id,
-            chairs.c.display_name,
-            chairs.c.occupant_kind,
-            chairs.c.owner_account,
-            chairs.c.ready,
-            chairs.c.held_in_hand,
-            chairs.c.former_holder_name,
-        )
-        .where(chairs.c.table_id == table_id)
-        .order_by(chairs.c.seat)
-    ).all()
+    seats = _read_seats(connection, table_id)
     return TableRecord(
         id=TableId(table_id),
         version=table.version,
