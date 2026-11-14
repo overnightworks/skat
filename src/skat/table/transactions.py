@@ -115,6 +115,10 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         """The version of each live table among `table_ids`, in id order; no row is locked."""
         ...
 
+    def chairs_taken_by(self, table_ids: Iterable[TableId], account_ids: frozenset[str]) -> frozenset[OccupiedChair]:
+        """The chairs at `table_ids` whose occupant is among `account_ids`; no row is locked."""
+        ...
+
 
 class TableTransactions(Protocol):  # pragma: no cover - a port's method bodies are signatures; the adapters run
     def begin(self) -> AbstractContextManager[TableTransaction]:

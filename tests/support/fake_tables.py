@@ -169,6 +169,14 @@ class FakeTableStore:
             if isinstance(table, TableRecord) and table.id.value in wanted
         )
 
+    def chairs_taken_by(self, table_ids: Iterable[TableId], account_ids: frozenset[str]) -> frozenset[OccupiedChair]:
+        wanted = {table_id.value for table_id in table_ids}
+        return frozenset(
+            chair
+            for chair in self.occupied_chairs()
+            if chair.table_id.value in wanted and chair.account_id in account_ids
+        )
+
     def locked_book_entry(self, table_id: TableId, agent_account: str) -> BookEntry | None:
         return self.book.get((table_id.value, agent_account))
 

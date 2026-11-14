@@ -472,6 +472,17 @@ class _PostgresTableTransaction:
             )
         )
 
+    def chairs_taken_by(self, table_ids: Iterable[TableId], account_ids: frozenset[str]) -> frozenset[OccupiedChair]:
+        return frozenset(
+            OccupiedChair(TableId(row.table_id), row.account_id)
+            for row in self._connection.execute(
+                select(chairs.c.table_id, chairs.c.account_id).where(
+                    chairs.c.table_id.in_([table_id.value for table_id in table_ids]),
+                    chairs.c.account_id.in_(account_ids),
+                )
+            )
+        )
+
     def locked_book_entry(self, table_id: TableId, agent_account: str) -> BookEntry | None:
         return locked_entry(self._connection, table_id.value, agent_account)
 

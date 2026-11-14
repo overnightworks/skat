@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import pytest
 
 from skat.table.records import Actor, CreateTable, Ending, SitDown, StandUp, TableId
-from skat.table.transactions import TableVersion
+from skat.table.transactions import OccupiedChair, TableVersion
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 
 pytestmark = pytest.mark.postgres
@@ -52,3 +52,16 @@ def test_the_versions_of_named_tables_leave_out_an_ended_one_and_any_that_was_no
         versions = transaction.versions_of([named, ended, TableId("0" * 32)])
 
     assert versions == (TableVersion(named, stored(transactions, named.value).version),)
+
+
+def test_the_chairs_taken_by_named_accounts_at_named_tables_leave_out_other_tables_and_other_sitters(
+    service, transactions
+):
+    named, unnamed = (open_table(service, ANNA, name) for name in "ab")
+    service.sit(BEN, SitDown("sit-ben", named.value, 2), NOBODY_CONNECTED)
+    service.sit(BEN, SitDown("sit-ben-unnamed", unnamed.value, 2), NOBODY_CONNECTED)
+
+    with transactions.begin() as transaction:
+        chairs = transaction.chairs_taken_by([named], frozenset({BEN.account_id, "account-nobody"}))
+
+    assert chairs == frozenset({OccupiedChair(named, BEN.account_id)})

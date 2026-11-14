@@ -12,6 +12,7 @@ from tests.web.support.streams import (
     VISITOR,
     Admission,
     admitting,
+    leased_reader,
     next_item,
     next_view,
     reader,
@@ -156,7 +157,11 @@ async def connected_a_watcher(service, presence, table_id):
     await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
 
 
-async def started_an_agent_lease(service, presence, table_id):
+async def started_the_lease_of_a_sitter(service, presence, table_id):
+    presence.renew_lease(OPENER.account_id)
+
+
+async def started_the_lease_of_a_stranger(service, presence, table_id):
     presence.renew_lease(VISITOR.account_id)
 
 
@@ -175,7 +180,8 @@ class TestTheTableSourceMoves:
             pytest.param(did_nothing, False, id="nothing"),
             pytest.param(sat_down, True, id="a-commit"),
             pytest.param(connected_a_watcher, True, id="a-watcher"),
-            pytest.param(started_an_agent_lease, True, id="an-agent-lease"),
+            pytest.param(started_the_lease_of_a_sitter, True, id="the-lease-of-a-sitter"),
+            pytest.param(started_the_lease_of_a_stranger, False, id="the-lease-of-an-account-that-sits-elsewhere"),
             pytest.param(closed_the_table, True, id="the-end"),
         ],
     )
@@ -184,8 +190,14 @@ class TestTheTableSourceMoves:
     ):
         async def scenario():
             presence = idle_presence()
+            leasing = service.with_leases(presence.live_leases)
             source = TableSource(
-                presence, reader(service, table_id), version_reader(service, table_id), table_id, OPENER.account_id
+                presence,
+                reader(leasing, table_id),
+                version_reader(leasing, table_id),
+                leased_reader(leasing, table_id),
+                table_id,
+                OPENER.account_id,
             )
             await source.open(lambda: None)
             await source.read(OPENER)

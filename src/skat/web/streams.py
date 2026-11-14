@@ -97,12 +97,14 @@ class TableSource:
         presence: Presence,
         read_view: Callable[[Actor, frozenset[str]], Awaitable[TableView | None]],
         read_version: Callable[[], Awaitable[int | None]],
+        read_leased: Callable[[], Awaitable[frozenset[str]]],
         table_id: str,
         account_id: str,
     ) -> None:
         self._presence = presence
         self._read_view = read_view
         self._read_version = read_version
+        self._read_leased = read_leased
         self._table_id = table_id
         self._account_id = account_id
         self._subscription: Subscription | None = None
@@ -113,15 +115,15 @@ class TableSource:
         self._subscription = await self._presence.subscribe(self._table_id, self._account_id, wake)
 
     async def read(self, actor: Actor) -> SourceMessage:
+        leased = await self._read_leased()
         with self._presence.waits.reading(self._table_id):
             connected = self._presence.connected(self._table_id)
-            leases = self._presence.live_leases()
             view = await self._read_view(actor, connected)
             if view is None:
                 message = f"table {self._table_id} vanished while a stream watched it"
                 raise RuntimeError(message)
             nudges = self._presence.waits.nudges_of(view)
-        self._read_standing = (view.version, connected, leases)
+        self._read_standing = (view.version, connected, leased)
         if self._first_read and view.ended is None:
             await self._ask_for_next_deal(view)
         self._first_read = False
@@ -129,7 +131,7 @@ class TableSource:
 
     async def moved(self, actor: Actor) -> bool:  # noqa: ARG002 - the port passes the actor; a table's version needs none
         version = await self._read_version()
-        standing = (version, self._presence.connected(self._table_id), self._presence.live_leases())
+        standing = (version, self._presence.connected(self._table_id), await self._read_leased())
         return version is None or standing != self._read_standing
 
     def close(self) -> None:
@@ -349,6 +351,10 @@ def create_streams_router(
             versions = await run_in_threadpool(tables.table_versions, (TableId(table_id),))
             return versions[0].version if versions else None
 
+        async def read_leased() -> frozenset[str]:
+            seats = await run_in_threadpool(tables.leased_seats, (TableId(table_id),))
+            return frozenset(seat.account_id for seat in seats)
+
         # Nothing is registered or held open for an id that is no table, and a refusal gives the slot back.
         try:
             first_view = await read_view(opened_as, frozenset())
@@ -366,7 +372,7 @@ def create_streams_router(
                 yield message_of(_table_message(first_view, {}))
                 return
             sources = [
-                TableSource(presence, read_view, read_version, table_id, opened_as.account_id),
+                TableSource(presence, read_view, read_version, read_leased, table_id, opened_as.account_id),
                 attention_of(table_id, opened_as.account_id),
             ]
             async for item in stream_messages(

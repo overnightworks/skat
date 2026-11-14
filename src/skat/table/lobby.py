@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
     from skat.table.member_view import MemberView
     from skat.table.records import Actor, Chair, TableId, TableOptions
-    from skat.table.transactions import PausedFacts, TableTransactions, TableVersion
+    from skat.table.transactions import OccupiedChair, PausedFacts, TableTransactions, TableVersion
     from skat.table.views import PausedEntryView
 
 __all__ = [
@@ -156,6 +156,17 @@ class LobbyReads:
         """
         with self._transactions.begin() as transaction:
             return transaction.versions_of(table_ids)
+
+    def leased_seats(self, table_ids: Iterable[TableId]) -> frozenset[OccupiedChair]:
+        """The chairs at `table_ids` whose occupant is an agent with a running lease, who counts as present there
+        without a stream; an unlocked read, which is how a caller asks cheaply whether who is present at a table
+        changed. Nothing is read while no lease runs.
+        """
+        leased = self._live_leases()
+        if not leased:
+            return frozenset()
+        with self._transactions.begin() as transaction:
+            return transaction.chairs_taken_by(table_ids, leased)
 
     def my_tables(
         self,
