@@ -15,9 +15,12 @@
     const ordered = $derived(inDisplayOrder(cards));
 
     // A card pressed and moved follows the pointer; the click that ends a drag must not tap the card as well.
+    // A card dropped past the threshold stays where it was dropped until the update arrives, or the play is refused.
     type Press = PointerEvent & { currentTarget: HTMLButtonElement };
     let drag = $state<{ card: Card; startX: number; startY: number } | null>(null);
+    let dropped = $state<Card | null>(null);
     let clickEndsDrag = false;
+    const raised = $derived(drag?.card ?? dropped);
 
     const slotOf = (event: Press): HTMLElement => event.currentTarget.parentElement as HTMLElement;
     const travelOf = (event: Press, held: { startX: number; startY: number }) => ({
@@ -26,33 +29,50 @@
     });
 
     function press(event: Press, card: Card): void {
+        if (event.button !== 0 || !event.isPrimary) return;
         clickEndsDrag = false;
         event.currentTarget.setPointerCapture(event.pointerId);
         drag = { card, startX: event.clientX, startY: event.clientY };
     }
 
     function move(event: Press): void {
-        if (drag === null) return;
+        if (drag === null || !event.isPrimary) return;
         const { dx, dy } = travelOf(event, drag);
         slotOf(event).style.setProperty("--drag-x", `${String(dx)}px`);
         slotOf(event).style.setProperty("--drag-y", `${String(dy)}px`);
     }
 
     function letGo(event: Press): { card: Card; dx: number; dy: number } | null {
-        if (drag === null) return null;
+        if (drag === null || !event.isPrimary) return null;
         const held = { card: drag.card, ...travelOf(event, drag) };
         drag = null;
-        slotOf(event).style.removeProperty("--drag-x");
-        slotOf(event).style.removeProperty("--drag-y");
         return held;
     }
 
-    function release(event: Press, hand: PlayingHand): void {
+    function putBack(slot: HTMLElement): void {
+        slot.style.removeProperty("--drag-x");
+        slot.style.removeProperty("--drag-y");
+    }
+
+    function cancel(event: Press): void {
+        const slot = slotOf(event);
+        if (letGo(event) !== null) putBack(slot);
+    }
+
+    async function release(event: Press, hand: PlayingHand): Promise<void> {
+        const slot = slotOf(event);
         const held = letGo(event);
         if (held === null) return;
         const verdict = dragVerdict(held, event.currentTarget.offsetHeight);
         clickEndsDrag = verdict !== "tap";
-        if (verdict === "play") hand.play(held.card);
+        if (verdict !== "play") {
+            putBack(slot);
+            return;
+        }
+        dropped = held.card;
+        if (await hand.play(held.card)) return;
+        dropped = null;
+        putBack(slot);
     }
 
     function tapUnlessDragged(hand: PlayingHand, card: Card): void {
@@ -70,7 +90,7 @@
             class:ok={look === "legal"}
             class:touch={look === "lifted"}
             class:no={look === "dimmed" || !pickable}
-            class:dragging={drag !== null && includesCard([drag.card], card)}
+            class:dragging={raised !== null && includesCard([raised], card)}
         >
             {#if picking !== undefined}
                 <button
@@ -98,9 +118,9 @@
                     }}
                     onpointermove={move}
                     onpointerup={(event) => {
-                        release(event, playing);
+                        void release(event, playing);
                     }}
-                    onpointercancel={letGo}
+                    onpointercancel={cancel}
                     onclick={() => {
                         tapUnlessDragged(playing, card);
                     }}

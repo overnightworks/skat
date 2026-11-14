@@ -20,13 +20,13 @@ export type TrickSlot = (typeof TRICK_SLOTS)[number];
 export type LaidCard = { card: Card; seat: number; slot: TrickSlot; name: string; initial: string };
 export type SideNames = { declarer: string; opponents: string };
 // What the hand needs while its holder is on turn to play: a first tap lifts a legal card, a second plays it, and a
-// card moved upward past the threshold plays at once.
+// card moved upward past the threshold plays at once; a play settles as accepted or refused.
 export type PlayingHand = {
     legal: readonly Card[];
     lifted: Card | null;
     disabled: boolean;
     tap: (card: Card) => void;
-    play: (card: Card) => void;
+    play: (card: Card) => Promise<boolean>;
 };
 
 // The turn goes forehand, middlehand, rearhand and round again; while a hand runs every chair holds a position.

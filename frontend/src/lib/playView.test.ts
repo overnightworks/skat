@@ -245,7 +245,7 @@ describe("how a card of the own hand looks", () => {
         lifted,
         disabled: false,
         tap: () => undefined,
-        play: () => undefined,
+        play: () => Promise.resolve(true),
     });
 
     it.each([
