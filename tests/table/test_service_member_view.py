@@ -30,7 +30,7 @@ from skat.table.records import (
 )
 from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
-from skat.table.transactions import HeldTable
+from skat.table.transactions import TableVersion
 from tests.support.calls import call_facts
 from tests.support.fake_tables import FakeTableStore
 from tests.support.played_game import (
@@ -430,7 +430,7 @@ class TestTheMomentsOfAnAccount:
 
     def test_a_table_that_ended_after_the_candidates_were_listed_counts_for_no_moment(self, scene, monkeypatch):
         scene.store.tables[scene.table_id] = EndedTable(TableId(scene.table_id), 9, Ending.empty(3600))
-        monkeypatch.setattr(scene.store, "tables_of", lambda _account: (HeldTable(TableId(scene.table_id), 8),))
+        monkeypatch.setattr(scene.store, "tables_of", lambda _account: (TableVersion(TableId(scene.table_id), 8),))
 
         assert scene.service.moments_of(MOZART.account_id) == {TableMoment.LOBBY}
 

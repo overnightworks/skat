@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING
 from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord, Visibility
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
-from skat.table.transactions import DuplicateReceiptError, HeldTable, LiveWait, OccupiedChair, PausedFacts
+from skat.table.transactions import DuplicateReceiptError, LiveWait, OccupiedChair, PausedFacts, TableVersion
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterable, Iterator
     from datetime import datetime
 
     from skat.table.member_place import BookEntry
@@ -146,9 +146,9 @@ class FakeTableStore:
             if chair.occupant is not None
         )
 
-    def tables_of(self, account_id: str) -> tuple[HeldTable, ...]:
+    def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
         return tuple(
-            HeldTable(table.id, table.version)
+            TableVersion(table.id, table.version)
             for table in sorted(self.tables.values(), key=lambda each: each.id.value)
             if isinstance(table, TableRecord)
             if any(chair.occupant is not None and chair.occupant.account_id == account_id for chair in table.chairs)
@@ -159,6 +159,22 @@ class FakeTableStore:
             table.id
             for table in sorted(self.tables.values(), key=lambda each: each.id.value)
             if isinstance(table, TableRecord) and table.visibility is Visibility.OPEN
+        )
+
+    def versions_of(self, table_ids: Iterable[TableId]) -> tuple[TableVersion, ...]:
+        wanted = {table_id.value for table_id in table_ids}
+        return tuple(
+            TableVersion(table.id, table.version)
+            for table in sorted(self.tables.values(), key=lambda each: each.id.value)
+            if isinstance(table, TableRecord) and table.id.value in wanted
+        )
+
+    def chairs_taken_by(self, table_ids: Iterable[TableId], account_ids: frozenset[str]) -> frozenset[OccupiedChair]:
+        wanted = {table_id.value for table_id in table_ids}
+        return frozenset(
+            chair
+            for chair in self.occupied_chairs()
+            if chair.table_id.value in wanted and chair.account_id in account_ids
         )
 
     def locked_book_entry(self, table_id: TableId, agent_account: str) -> BookEntry | None:
