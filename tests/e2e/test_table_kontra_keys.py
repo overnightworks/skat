@@ -9,9 +9,8 @@ from playwright.sync_api import Page, expect
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of
 from tests.e2e.support.hands import deal_playing_table
-from tests.e2e.support.kontra import ContestedTable
+from tests.e2e.support.kontra import ContestedTable, FirstCardTable
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE
-from tests.e2e.test_table_kontra_first import FirstCardTable
 
 if TYPE_CHECKING:
     from collections.abc import Callable
