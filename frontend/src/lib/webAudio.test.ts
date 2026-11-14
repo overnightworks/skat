@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Voice } from "./sound.ts";
-import { createWebAudioPort, type AudioEnvironment } from "./webAudio.ts";
+import {
+    CEILING_DECIBELS,
+    ceilingCurve,
+    createWebAudioPort,
+    LIMITER_THRESHOLD_DECIBELS,
+    type AudioEnvironment,
+} from "./webAudio.ts";
 
 const SAMPLE_RATE = 8;
 const NOW = 5;
@@ -20,6 +26,8 @@ class FakeParam {
 }
 
 class FakeNode {
+    curve: Float32Array | null = null;
+    oversample = "none";
     readonly gain = new FakeParam();
     readonly frequency = new FakeParam();
     readonly Q = new FakeParam();
@@ -62,6 +70,7 @@ class FakeContext {
     readonly filters: FakeNode[] = [];
     readonly gains: FakeNode[] = [];
     readonly compressors: FakeNode[] = [];
+    readonly shapers: FakeNode[] = [];
     readonly buffers: { samples: Float32Array }[] = [];
     decodes: ArrayBuffer[] = [];
     static decodeRejects = false;
@@ -83,6 +92,10 @@ class FakeContext {
 
     createDynamicsCompressor(): FakeNode {
         return this.track(this.compressors);
+    }
+
+    createWaveShaper(): FakeNode {
+        return this.track(this.shapers);
     }
 
     createBufferSource(): FakeNode {
@@ -219,7 +232,7 @@ describe("the context", () => {
         const port = createWebAudioPort(environment);
         await port.resume();
 
-        expect(port.ready()).toBe(true);
+        expect(port.ready(false)).toBe(true);
     });
 });
 
@@ -227,13 +240,13 @@ describe("ready", () => {
     beforeEachReset();
 
     it("is false before the first resume", () => {
-        expect(createWebAudioPort(pageWith().environment).ready()).toBe(false);
+        expect(createWebAudioPort(pageWith().environment).ready(false)).toBe(false);
     });
 
     it("is true while the context runs and the page is visible", async () => {
         const port = await readyPort();
 
-        expect(port.ready()).toBe(true);
+        expect(port.ready(false)).toBe(true);
     });
 
     it("is false while the page is hidden", async () => {
@@ -242,7 +255,16 @@ describe("ready", () => {
 
         page.document.hidden = true;
 
-        expect(port.ready()).toBe(false);
+        expect(port.ready(false)).toBe(false);
+    });
+
+    it("is true in a hidden page when the sound is asked for there", async () => {
+        const page = pageWith();
+        const port = await readyPort(page);
+
+        page.document.hidden = true;
+
+        expect(port.ready(true)).toBe(true);
     });
 
     it("is false once the context stops running", async () => {
@@ -250,7 +272,7 @@ describe("ready", () => {
 
         onlyContext().state = "suspended";
 
-        expect(port.ready()).toBe(false);
+        expect(port.ready(false)).toBe(false);
     });
 });
 
@@ -263,14 +285,14 @@ describe("a browser that cannot make sound", () => {
 
         await port.resume();
 
-        expect(port.ready()).toBe(false);
+        expect(port.ready(false)).toBe(false);
     });
 
     it("stays silent when the resume is rejected", async () => {
         FakeContext.resumeRejects = true;
         const port = await readyPort();
 
-        expect(port.ready()).toBe(false);
+        expect(port.ready(false)).toBe(false);
     });
 
     it("stays silent when the context cannot be made", async () => {
@@ -279,7 +301,7 @@ describe("a browser that cannot make sound", () => {
         }
         const port = await readyPort(pageWith(Refusing));
 
-        expect(port.ready()).toBe(false);
+        expect(port.ready(false)).toBe(false);
     });
 
     it("stays silent when the audio session cannot be set", async () => {
@@ -293,21 +315,32 @@ describe("a browser that cannot make sound", () => {
         const port = await readyPort(page);
 
         expect(FakeContext.made).toHaveLength(0);
-        expect(port.ready()).toBe(false);
+        expect(port.ready(false)).toBe(false);
     });
 });
 
 describe("the master", () => {
     beforeEachReset();
 
-    it("runs through a limiter to the destination", async () => {
+    it("runs through a limiter and a ceiling to the destination", async () => {
         await readyPort();
         const context = onlyContext();
 
         const [master] = context.gains;
         const [limiter] = context.compressors;
+        const [ceiling] = context.shapers;
         expect(master?.connectedTo).toEqual([limiter]);
-        expect(limiter?.connectedTo).toEqual([context.destination]);
+        expect(limiter?.connectedTo).toEqual([ceiling]);
+        expect(ceiling?.connectedTo).toEqual([context.destination]);
+    });
+
+    it("shapes the ceiling with the curve the module owns, sample by sample", async () => {
+        await readyPort();
+
+        const [ceiling] = onlyContext().shapers;
+
+        expect(ceiling?.curve).toEqual(ceilingCurve());
+        expect(ceiling?.oversample).toBe("none");
     });
 
     it("limits hard from a level below full scale on, without lowering what stays under it", async () => {
@@ -484,5 +517,34 @@ describe("recordings", () => {
 
         expect(page.fetched).toEqual([ACHTZEHN, ACHTZEHN]);
         expect(onlyContext().sources).toHaveLength(woken);
+    });
+});
+
+describe("the ceiling curve", () => {
+    const curve = ceilingCurve();
+    const ceiling = 10 ** (CEILING_DECIBELS / 20);
+    const knee = 10 ** (LIMITER_THRESHOLD_DECIBELS / 20);
+    const inputAt = (index: number): number => (2 * index) / (curve.length - 1) - 1;
+
+    it("never passes full scale, and holds the level that its ceiling names", () => {
+        expect(CEILING_DECIBELS).toBeLessThan(0);
+        expect(Math.max(...curve.map(Math.abs))).toBeLessThanOrEqual(ceiling);
+    });
+
+    it("leaves everything under the limiter's threshold as it is", () => {
+        curve.forEach((output, index) => {
+            if (Math.abs(inputAt(index)) <= knee) expect(output).toBeCloseTo(inputAt(index), 5);
+        });
+    });
+
+    it("rises with its input, so a louder sound is never made quieter", () => {
+        curve.forEach((output, index) => {
+            if (index > 0) expect(output).toBeGreaterThanOrEqual(curve[index - 1] as number);
+        });
+    });
+
+    it("is odd, so it adds no offset", () => {
+        expect(curve[Math.floor(curve.length / 2)]).toBe(0);
+        expect(curve[0]).toBe(-(curve.at(-1) as number));
     });
 });
