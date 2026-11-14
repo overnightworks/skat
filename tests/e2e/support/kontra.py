@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 KONTRA_OPTIONS = {"sayer": "any-opponent", "reach": "kontra-re", "deadline": "own-card"}
 # Only an opponent who bid says Kontra, and the declarer answers with Re.
 BIDDERS_ONLY_OPTIONS = {"sayer": "bidders-only", "reach": "kontra-re", "deadline": "own-card"}
+FIRST_CARD_OPTIONS = {**BIDDERS_ONLY_OPTIONS, "deadline": "first-card"}
 KEY = ".copy.kontra"
 STAMP = ".callout"
 
@@ -59,6 +60,18 @@ class LeadingTable(KontraTable):
         passes("middlehand"),
         passes("rearhand"),
     )
+
+
+class FirstCardTable(ContestedTable):
+    """The forehand bid and leads; the first card waits for its word."""
+
+    kontra_options: ClassVar[dict[str, str]] = FIRST_CARD_OPTIONS
+
+
+class LeadingFirstCardTable(LeadingTable):
+    """The declarer leads; the first card waits for the middlehand's word."""
+
+    kontra_options: ClassVar[dict[str, str]] = FIRST_CARD_OPTIONS
 
 
 def expect_nothing_to_overflow(person: Page) -> None:
