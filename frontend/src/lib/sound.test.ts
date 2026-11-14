@@ -26,6 +26,18 @@ class FakePort implements AudioPort {
     playVoice(voice: Voice, afterSeconds: number): void {
         this.played.push({ voice, afterSeconds });
     }
+
+    loaded: string[] = [];
+    spoken: { url: string; afterSeconds: number }[] = [];
+
+    loadRecordings(urls: readonly string[]): Promise<void> {
+        this.loaded.push(...urls);
+        return Promise.resolve();
+    }
+
+    playRecording(url: string, afterSeconds: number): void {
+        this.spoken.push({ url, afterSeconds });
+    }
 }
 
 function soundOver(port: FakePort, settings: SoundSettings = DEFAULT_SOUND_SETTINGS) {
@@ -106,5 +118,47 @@ describe("resume", () => {
         await soundOver(port).resume();
 
         expect(port.resumed).toBe(1);
+    });
+});
+
+describe("speak", () => {
+    it("plays the recording a little after now and the delay asked for", () => {
+        const port = new FakePort();
+
+        soundOver(port).speak("/voice/achtzehn.mp3", 0.5);
+
+        expect(port.spoken).toHaveLength(1);
+        expect(port.spoken[0]?.url).toBe("/voice/achtzehn.mp3");
+        expect(port.spoken[0]?.afterSeconds).toBeGreaterThan(0.5);
+    });
+
+    it.each([
+        { name: "while muted", settings: { muted: true, volume: 70 }, ready: true },
+        { name: "while the port is not ready", settings: DEFAULT_SOUND_SETTINGS, ready: false },
+    ])("plays nothing $name", ({ settings, ready }) => {
+        const port = new FakePort();
+        port.readyNow = ready;
+
+        soundOver(port, settings).speak("/voice/achtzehn.mp3", 0);
+
+        expect(port.spoken).toEqual([]);
+    });
+
+    it("plays at the volume the player set", () => {
+        const port = new FakePort();
+
+        soundOver(port, { muted: false, volume: 100 }).speak("/voice/achtzehn.mp3", 0);
+
+        expect(port.loudness).toEqual([1]);
+    });
+});
+
+describe("prepare", () => {
+    it("has the port load the recordings", async () => {
+        const port = new FakePort();
+
+        await soundOver(port).prepare(["/a.mp3", "/b.mp3"]);
+
+        expect(port.loaded).toEqual(["/a.mp3", "/b.mp3"]);
     });
 });

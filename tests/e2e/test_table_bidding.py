@@ -442,6 +442,41 @@ def test_the_own_turn_ring_breathes_and_holds_still_for_reduced_motion(
     assert ("breathe" in tile.evaluate("(tile) => getComputedStyle(tile).animationName")) is animated
 
 
+@pytest.mark.parametrize("form_factor", WIDTHS)
+@pytest.mark.parametrize(
+    ("device_motion", "stored", "spring"),
+    [
+        ("no-preference", {"motionSet": "dezent"}, "bubble-dezent"),
+        ("no-preference", {"motionSet": "verspielt"}, "bubble-verspielt"),
+        ("reduce", {"motionSet": "dezent"}, "none"),
+        ("reduce", {"motionSet": "dezent", "replayMotion": True}, "bubble-dezent"),
+    ],
+    ids=["dezent", "verspielt", "reduced", "reduced-but-overridden"],
+)
+def test_a_bid_springs_up_in_the_picked_set_and_a_bubble_that_was_already_there_stands_still(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    device_motion: str,
+    stored: dict[str, Any],
+    spring: str,
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, {**form_factor, "reduced_motion": device_motion})
+    watcher = table.watcher
+    watcher.evaluate("record => localStorage.setItem('skat.settings', record)", json.dumps(stored))
+    watcher.reload()
+    expect(watcher.locator(SKAT_CARD)).to_have_count(2)
+
+    step(table.middlehand, table, AuctionAction.BID, LOWEST_BID)
+
+    expect(watcher.locator(BUBBLE)).to_have_css("animation-name", spring)
+    watcher.reload()
+    expect(watcher.locator(BUBBLE)).to_have_count(1)
+    expect(watcher.locator(BUBBLE)).to_have_css("animation-name", "none")
+    assert page_errors == []
+
+
 def seats_by_position(table: Table) -> dict[str, int]:
     answer = answer_of(table.watcher, table)
     return {chair["hand"]["position"]: chair["seat"] for chair in answer["chairs"]}

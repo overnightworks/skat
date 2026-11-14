@@ -803,6 +803,278 @@ msgctxt "bid.pass"
 msgid "Weg"
 msgstr ""
 
+msgctxt "voice.pass"
+msgid "Weg"
+msgstr ""
+
+msgctxt "voice.kontra"
+msgid "Kontra"
+msgstr ""
+
+msgctxt "voice.re"
+msgid "Re"
+msgstr ""
+
+msgctxt "voice.supra"
+msgid "Supra"
+msgstr ""
+
+msgctxt "voice.hirsch"
+msgid "Hirsch"
+msgstr ""
+
+msgctxt "voice.value18"
+msgid "achtzehn"
+msgstr ""
+
+msgctxt "voice.value20"
+msgid "zwanzig"
+msgstr ""
+
+msgctxt "voice.value22"
+msgid "zweiundzwanzig"
+msgstr ""
+
+msgctxt "voice.value23"
+msgid "dreiundzwanzig"
+msgstr ""
+
+msgctxt "voice.value24"
+msgid "vierundzwanzig"
+msgstr ""
+
+msgctxt "voice.value27"
+msgid "siebenundzwanzig"
+msgstr ""
+
+msgctxt "voice.value30"
+msgid "dreißig"
+msgstr ""
+
+msgctxt "voice.value33"
+msgid "dreiunddreißig"
+msgstr ""
+
+msgctxt "voice.value35"
+msgid "fünfunddreißig"
+msgstr ""
+
+msgctxt "voice.value36"
+msgid "sechsunddreißig"
+msgstr ""
+
+msgctxt "voice.value40"
+msgid "vierzig"
+msgstr ""
+
+msgctxt "voice.value44"
+msgid "vierundvierzig"
+msgstr ""
+
+msgctxt "voice.value45"
+msgid "fünfundvierzig"
+msgstr ""
+
+msgctxt "voice.value46"
+msgid "sechsundvierzig"
+msgstr ""
+
+msgctxt "voice.value48"
+msgid "achtundvierzig"
+msgstr ""
+
+msgctxt "voice.value50"
+msgid "fünfzig"
+msgstr ""
+
+msgctxt "voice.value54"
+msgid "vierundfünfzig"
+msgstr ""
+
+msgctxt "voice.value55"
+msgid "fünfundfünfzig"
+msgstr ""
+
+msgctxt "voice.value59"
+msgid "neunundfünfzig"
+msgstr ""
+
+msgctxt "voice.value60"
+msgid "sechzig"
+msgstr ""
+
+msgctxt "voice.value63"
+msgid "dreiundsechzig"
+msgstr ""
+
+msgctxt "voice.value66"
+msgid "sechsundsechzig"
+msgstr ""
+
+msgctxt "voice.value70"
+msgid "siebzig"
+msgstr ""
+
+msgctxt "voice.value72"
+msgid "zweiundsiebzig"
+msgstr ""
+
+msgctxt "voice.value77"
+msgid "siebenundsiebzig"
+msgstr ""
+
+msgctxt "voice.value80"
+msgid "achtzig"
+msgstr ""
+
+msgctxt "voice.value81"
+msgid "einundachtzig"
+msgstr ""
+
+msgctxt "voice.value84"
+msgid "vierundachtzig"
+msgstr ""
+
+msgctxt "voice.value88"
+msgid "achtundachtzig"
+msgstr ""
+
+msgctxt "voice.value90"
+msgid "neunzig"
+msgstr ""
+
+msgctxt "voice.value96"
+msgid "sechsundneunzig"
+msgstr ""
+
+msgctxt "voice.value99"
+msgid "neunundneunzig"
+msgstr ""
+
+msgctxt "voice.value100"
+msgid "hundert"
+msgstr ""
+
+msgctxt "voice.value108"
+msgid "hundertacht"
+msgstr ""
+
+msgctxt "voice.value110"
+msgid "hundertzehn"
+msgstr ""
+
+msgctxt "voice.value117"
+msgid "hundertsiebzehn"
+msgstr ""
+
+msgctxt "voice.value120"
+msgid "hundertzwanzig"
+msgstr ""
+
+msgctxt "voice.value121"
+msgid "hunderteinundzwanzig"
+msgstr ""
+
+msgctxt "voice.value126"
+msgid "hundertsechsundzwanzig"
+msgstr ""
+
+msgctxt "voice.value130"
+msgid "hundertdreißig"
+msgstr ""
+
+msgctxt "voice.value132"
+msgid "hundertzweiunddreißig"
+msgstr ""
+
+msgctxt "voice.value135"
+msgid "hundertfünfunddreißig"
+msgstr ""
+
+msgctxt "voice.value140"
+msgid "hundertvierzig"
+msgstr ""
+
+msgctxt "voice.value143"
+msgid "hundertdreiundvierzig"
+msgstr ""
+
+msgctxt "voice.value144"
+msgid "hundertvierundvierzig"
+msgstr ""
+
+msgctxt "voice.value150"
+msgid "hundertfünfzig"
+msgstr ""
+
+msgctxt "voice.value153"
+msgid "hundertdreiundfünfzig"
+msgstr ""
+
+msgctxt "voice.value154"
+msgid "hundertvierundfünfzig"
+msgstr ""
+
+msgctxt "voice.value156"
+msgid "hundertsechsundfünfzig"
+msgstr ""
+
+msgctxt "voice.value160"
+msgid "hundertsechzig"
+msgstr ""
+
+msgctxt "voice.value162"
+msgid "hundertzweiundsechzig"
+msgstr ""
+
+msgctxt "voice.value165"
+msgid "hundertfünfundsechzig"
+msgstr ""
+
+msgctxt "voice.value168"
+msgid "hundertachtundsechzig"
+msgstr ""
+
+msgctxt "voice.value170"
+msgid "hundertsiebzig"
+msgstr ""
+
+msgctxt "voice.value176"
+msgid "hundertsechsundsiebzig"
+msgstr ""
+
+msgctxt "voice.value180"
+msgid "hundertachtzig"
+msgstr ""
+
+msgctxt "voice.value187"
+msgid "hundertsiebenundachtzig"
+msgstr ""
+
+msgctxt "voice.value192"
+msgid "hundertzweiundneunzig"
+msgstr ""
+
+msgctxt "voice.value198"
+msgid "hundertachtundneunzig"
+msgstr ""
+
+msgctxt "voice.value204"
+msgid "zweihundertvier"
+msgstr ""
+
+msgctxt "voice.value216"
+msgid "zweihundertsechzehn"
+msgstr ""
+
+msgctxt "voice.value240"
+msgid "zweihundertvierzig"
+msgstr ""
+
+msgctxt "voice.value264"
+msgid "zweihundertvierundsechzig"
+msgstr ""
+
 msgctxt "game.forehand"
 msgid "Vorhand"
 msgstr ""
@@ -933,6 +1205,10 @@ msgstr ""
 
 msgctxt "sound.sets"
 msgid "Klänge"
+msgstr ""
+
+msgctxt "sound.voice"
+msgid "Stimme"
 msgstr ""
 
 msgctxt "sound.motion"

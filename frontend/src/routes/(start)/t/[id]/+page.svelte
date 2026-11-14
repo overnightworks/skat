@@ -12,10 +12,10 @@
     } from "#lib/auctionMarks.ts";
     import { abortView } from "#lib/abort.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
-    import { cuesBetween } from "#lib/cues.ts";
+    import { cuesBetween, springsUp, stampBetween, type BidWord } from "#lib/cues.ts";
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { giveUpAsk, giveUpView, refusalNotice } from "#lib/giveUp.ts";
-    import { plaqueLine, stampBetween, type Stamp } from "#lib/kontra.ts";
+    import { plaqueLine, type Stamp } from "#lib/kontra.ts";
     import { legalLinks } from "#lib/legal.ts";
     import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import {
@@ -141,6 +141,8 @@
     let playedThisHand = $state<Card[]>([]);
     // The latest word said at this table in the running hand, which the stamp shows for a moment.
     let stamp = $state<Stamp | null>(null);
+    // The latest bid this page saw said, whose bubble springs up.
+    let bidSaid = $state<{ seat: number; word: BidWord } | null>(null);
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
     // The version of the latest streamed table, which the control that calls agents follows.
     let streamedVersion = $state<number | null>(null);
@@ -182,7 +184,9 @@
                 playedThisHand = [...playedThisHand, cue.card];
             } else if (cue.kind === "give-up-refused") {
                 showSeatNote(refusalNotice(table.chairs, cue.seats));
-            } else {
+            } else if (cue.kind === "bid-said") {
+                bidSaid = cue;
+            } else if (cue.kind === "auction-ended") {
                 justWon = true;
                 clearTimeout(wonTimer);
                 wonTimer = setTimeout(() => (justWon = false), WON_MOMENT_MILLISECONDS);
@@ -205,6 +209,7 @@
         shaking = false;
         playedThisHand = [];
         stamp = null;
+        bidSaid = null;
         let current = true;
         let stopWatching = (): void => {};
         void readTable(id).then((answer) => {
@@ -631,9 +636,11 @@
                                         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                                     </span>
                                 {/if}
-                                {#if marks.bubble}
-                                    <SpeechBubble bubble={marks.bubble} initial={chair.occupant_name.slice(0, 1)} />
-                                {/if}
+                                <SpeechBubble
+                                    bubble={marks.bubble}
+                                    initial={chair.occupant_name.slice(0, 1)}
+                                    fresh={springsUp(bidSaid, chair.seat, marks.bubble)}
+                                />
                                 <RamschMarks marks={ramschMark} initial={chair.occupant_name.slice(0, 1)} />
                                 {#if chair.nudge !== null}
                                     {@const version = current.version}

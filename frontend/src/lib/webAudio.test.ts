@@ -60,6 +60,8 @@ class FakeContext {
     readonly gains: FakeNode[] = [];
     readonly compressors: FakeNode[] = [];
     readonly buffers: { samples: Float32Array }[] = [];
+    decodes: ArrayBuffer[] = [];
+    static decodeRejects = false;
 
     constructor() {
         FakeContext.made.push(this);
@@ -92,6 +94,12 @@ class FakeContext {
         return this.track(this.filters);
     }
 
+    decodeAudioData(bytes: ArrayBuffer): Promise<{ decodedFrom: ArrayBuffer }> {
+        this.decodes.push(bytes);
+        if (FakeContext.decodeRejects) return Promise.reject(new Error("undecodable"));
+        return Promise.resolve({ decodedFrom: bytes });
+    }
+
     createBuffer(_channels: number, length: number): { getChannelData: () => Float32Array } {
         const samples = new Float32Array(length);
         this.buffers.push({ samples });
@@ -109,17 +117,31 @@ interface FakePage {
     environment: AudioEnvironment;
     document: { hidden: boolean };
     audioSession: { type: string } | undefined;
+    fetched: string[];
+    fetchRejects: boolean;
 }
 
 function pageWith(contextClass: unknown = FakeContext): FakePage {
     const document = { hidden: false };
     const audioSession = { type: "auto" };
-    const environment = {
-        AudioContext: contextClass as AudioEnvironment["AudioContext"],
-        navigator: { audioSession },
+    const page: FakePage = {
+        environment: {
+            AudioContext: contextClass as AudioEnvironment["AudioContext"],
+            navigator: { audioSession },
+            document,
+            fetch: (url) => {
+                page.fetched.push(url);
+                return page.fetchRejects
+                    ? Promise.reject(new Error("offline"))
+                    : Promise.resolve({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(url.length)) });
+            },
+        },
         document,
+        audioSession,
+        fetched: [],
+        fetchRejects: false,
     };
-    return { environment, document, audioSession };
+    return page;
 }
 
 function onlyContext(): FakeContext {
@@ -233,7 +255,7 @@ describe("a browser that cannot make sound", () => {
     beforeEachReset();
 
     it("stays silent without an AudioContext", async () => {
-        const environment = { navigator: {}, document: { hidden: false } };
+        const environment = { navigator: {}, document: { hidden: false }, fetch: pageWith().environment.fetch };
         const port = createWebAudioPort(environment);
 
         await port.resume();
@@ -382,5 +404,72 @@ function beforeEachReset(): void {
     beforeEach(() => {
         FakeContext.made = [];
         FakeContext.resumeRejects = false;
+        FakeContext.decodeRejects = false;
     });
 }
+
+describe("recordings", () => {
+    beforeEachReset();
+
+    const ACHTZEHN = "/voice/achtzehn.mp3";
+    const ZWANZIG = "/voice/zwanzig.mp3";
+
+    it("are not fetched before the context is made", async () => {
+        const page = pageWith();
+
+        await createWebAudioPort(page.environment).loadRecordings([ACHTZEHN]);
+
+        expect(page.fetched).toEqual([]);
+    });
+
+    it("are fetched once, however often they are asked for", async () => {
+        const page = pageWith();
+        const port = await readyPort(page);
+
+        await Promise.all([port.loadRecordings([ACHTZEHN, ZWANZIG]), port.loadRecordings([ACHTZEHN])]);
+        await port.loadRecordings([ACHTZEHN, ZWANZIG]);
+
+        expect(page.fetched).toEqual([ACHTZEHN, ZWANZIG]);
+        expect(onlyContext().decodes).toHaveLength(2);
+    });
+
+    it("play from the start of their buffer through the master gain, after the delay asked for", async () => {
+        const port = await readyPort();
+        await port.loadRecordings([ACHTZEHN]);
+        const woken = onlyContext().sources.length;
+
+        port.playRecording(ACHTZEHN, 0.25);
+
+        const [source] = onlyContext().sources.slice(woken);
+        expect(source?.buffer).toEqual({ decodedFrom: onlyContext().decodes[0] });
+        expect(source?.startedAt).toBe(NOW + 0.25);
+        expect(source?.connectedTo).toEqual([onlyContext().gains[0]]);
+    });
+
+    it("that are not loaded play nothing", async () => {
+        const port = await readyPort();
+        const woken = onlyContext().sources.length;
+
+        port.playRecording(ACHTZEHN, 0);
+
+        expect(onlyContext().sources).toHaveLength(woken);
+    });
+
+    it.each([
+        { name: "that cannot be fetched", fetchRejects: true, decodeRejects: false },
+        { name: "that cannot be decoded", fetchRejects: false, decodeRejects: true },
+    ])("$name stay unloaded and are fetched again by the next call", async ({ fetchRejects, decodeRejects }) => {
+        const page = pageWith();
+        const port = await readyPort(page);
+        page.fetchRejects = fetchRejects;
+        FakeContext.decodeRejects = decodeRejects;
+        const woken = onlyContext().sources.length;
+
+        await port.loadRecordings([ACHTZEHN]);
+        port.playRecording(ACHTZEHN, 0);
+        await port.loadRecordings([ACHTZEHN]);
+
+        expect(page.fetched).toEqual([ACHTZEHN, ACHTZEHN]);
+        expect(onlyContext().sources).toHaveLength(woken);
+    });
+});
