@@ -26,7 +26,7 @@ def skat(hold, issuer):
 
 @pytest.fixture
 def kontra_table(skat, agent):
-    """A Hand game declared at a table opened with Kontra and Re where the agent holds the forehand, whose turn it is."""
+    """A Hand game declared at a table opened with Kontra and Re, the agent holding the forehand and the turn."""
     table = AgentTable(skat, agent, FOREHAND, options=kontra_options("own-card"))
     table.declared_hand_game()
     skat.client.cookies.clear()
