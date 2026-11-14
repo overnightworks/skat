@@ -180,10 +180,11 @@ class TestHandsThatEnd:
         ("ending", "kind"),
         [
             pytest.param(GameEnding.GIVEN_UP, ActKind.GIVE_UP, id="given-up"),
+            pytest.param(GameEnding.SHORTENED, ActKind.SHORTEN, id="shortened"),
             pytest.param(GameEnding.THROWN_DOWN, ActKind.THROW_DOWN, id="thrown-down"),
         ],
     )
-    def test_a_game_given_up_or_thrown_down_says_who_ended_it_before_its_result(self, ending, kind):
+    def test_a_game_given_up_shortened_or_thrown_down_says_who_ended_it_before_its_result(self, ending, kind):
         entry = replace(an_entry(), ending=ending, ended_by_seat=2)
         ended = replace(after_a_game(a_hand(), entry), series=Series(36, 3))
 
