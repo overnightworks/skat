@@ -49,6 +49,7 @@ from skat.table.records import (
     Series,
     TableId,
     TableRecord,
+    TableStyle,
     Visibility,
     parsed_refusal,
 )
@@ -208,6 +209,7 @@ def _table_record(
         options=options_of(table),
         bock=BockRounds(tuple(table.bock_rounds), table.ramsch_round_games),
         visibility=Visibility(table.visibility),
+        style=TableStyle(table.style),
     )
 
 
@@ -300,6 +302,7 @@ class _PostgresTableTransaction:
             .values(
                 version=table.version,
                 dealer=table.dealer,
+                style=table.style.value,
                 **played,
                 series_deals=None if table.series is None else table.series.deals,
                 series_number=series_number_of(table),
