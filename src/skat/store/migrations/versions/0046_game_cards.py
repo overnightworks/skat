@@ -15,7 +15,7 @@ PILES = ("hand", "skat", "laid-skat", "put-away", "trick")
 GAME = ("table_id", "series_number", "ordinal")
 
 
-def upgrade() -> None:
+def _create_game_cards() -> None:
     op.create_table(
         "game_cards",
         sa.Column("table_id", sa.Text(), nullable=False),
@@ -44,6 +44,9 @@ def upgrade() -> None:
             name="game_cards_a_pile_names_what_it_is_in",
         ),
     )
+
+
+def _create_game_cards_indexes() -> None:
     op.create_index(
         "game_cards_each_card_dealt_once",
         "game_cards",
@@ -79,3 +82,8 @@ def upgrade() -> None:
         unique=True,
         postgresql_where=sa.text("pile = 'put-away'"),
     )
+
+
+def upgrade() -> None:
+    _create_game_cards()
+    _create_game_cards_indexes()
