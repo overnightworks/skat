@@ -11,9 +11,8 @@ from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
+from tests.e2e.support.kontra import KEY, STAMP, ContestedTable, KontraTable, expect_nothing_to_overflow
 from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
-from tests.e2e.support.raw_http import RawSession
-from tests.e2e.support.tables import open_table_with_options
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -26,35 +25,9 @@ pytestmark = pytest.mark.e2e
 KONTRA = text(SOURCE_LANGUAGE, "kontra.kontra")
 RE = text(SOURCE_LANGUAGE, "kontra.re")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "kontra.commandFailed")
-KEY = ".copy.kontra"
 ROUND_KEY_PIXELS = 52
-STAMP = ".callout"
 NEAR_CARD = ".laid.near .face"
 SECOND_LINE = ".plaque .pushes"
-# Only an opponent who bid says Kontra, and the declarer answers with Re.
-KONTRA_OPTIONS = {"kontra": {"sayer": "bidders-only", "reach": "kontra-re", "deadline": "own-card"}}
-
-
-class KontraTable(DeclaringTable):
-    """A table opened through the API with Kontra and Re."""
-
-    @staticmethod
-    def _open_table(
-        opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember], *, running_points: bool
-    ) -> str:
-        assert not running_points
-        return open_table_with_options(opener, server, RawSession(server, member_of(opener)), KONTRA_OPTIONS)
-
-
-class ContestedTable(KontraTable):
-    """The forehand holds at the first bid and drops out at the second; the rearhand passes at once."""
-
-    def _win_the_auction(self, seat_at: dict[str, int]) -> None:
-        self.step(seat_at["middlehand"], TABLE_AUCTION_BID_SUFFIX, value=VALID_BIDS[0])
-        self.step(seat_at["forehand"], TABLE_AUCTION_HOLD_SUFFIX)
-        self.step(seat_at["middlehand"], TABLE_AUCTION_BID_SUFFIX, value=VALID_BIDS[-1])
-        self.step(seat_at["forehand"], TABLE_AUCTION_PASS_SUFFIX)
-        self.step(seat_at["rearhand"], TABLE_AUCTION_PASS_SUFFIX)
 
 
 class LeadingTable(KontraTable):
@@ -109,17 +82,6 @@ def expect_every_page_to_show(table: PlayingTable, word: str, factor: int) -> No
         expect(person.locator(SECOND_LINE)).to_have_text(
             text(SOURCE_LANGUAGE, "kontra.plaque", word=word, factor=str(factor))
         )
-
-
-def expect_nothing_to_overflow(person: Page) -> None:
-    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-    viewport = person.viewport_size
-    assert viewport is not None
-    for part in person.locator(f"{KEY}, {STAMP}, .actions > *").all():
-        box = part.bounding_box()
-        assert box is not None
-        assert box["x"] >= 0, box
-        assert box["x"] + box["width"] <= viewport["width"], box
 
 
 @pytest.mark.parametrize(

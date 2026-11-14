@@ -1,5 +1,5 @@
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -7,10 +7,8 @@ from playwright.sync_api import Page, expect
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of
 from tests.e2e.support.hands import deal_playing_table
+from tests.e2e.support.kontra import BIDDERS_ONLY_OPTIONS, ContestedTable, expect_nothing_to_overflow
 from tests.e2e.support.people import WIDTHS
-from tests.e2e.support.raw_http import RawSession
-from tests.e2e.support.tables import open_table_with_options
-from tests.e2e.test_table_kontra import ContestedTable, expect_nothing_to_overflow
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -27,8 +25,6 @@ YOU = text(SOURCE_LANGUAGE, "kontra.you")
 WAIT_LINE = ".plaque .game.gives"
 DIMMED_HAND = ".controls.held"
 DIMMED_FAN = ".fan.dim"
-# Only the opponent who bid owes a word, and the first card waits for it.
-FIRST_CARD_OPTIONS = {"kontra": {"sayer": "bidders-only", "reach": "kontra-re", "deadline": "first-card"}}
 
 
 def decline_of(word: str) -> str:
@@ -38,29 +34,7 @@ def decline_of(word: str) -> str:
 class FirstCardTable(ContestedTable):
     """The forehand bid and leads; the first card waits for its word."""
 
-    @staticmethod
-    def _open_table(
-        opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember], *, running_points: bool
-    ) -> str:
-        assert not running_points
-        return open_table_with_options(opener, server, RawSession(server, member_of(opener)), FIRST_CARD_OPTIONS)
-
-
-@pytest.fixture
-def deal_a_first_card_table(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-) -> Callable[..., PlayingTable]:
-    """A declared Kreuz game at a table whose first card waits for the words, before the first card."""
-
-    def deal(form_factor: dict[str, Any]) -> PlayingTable:
-        return deal_playing_table(
-            open_person, e2e_server, member_of, page_errors, form_factor, declaring=FirstCardTable
-        )
-
-    return deal
+    kontra_options: ClassVar[dict[str, str]] = {**BIDDERS_ONLY_OPTIONS, "deadline": "first-card"}
 
 
 def owing_page(table: PlayingTable, position: str) -> Page:
@@ -69,9 +43,13 @@ def owing_page(table: PlayingTable, position: str) -> Page:
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_seat_owing_a_word_declines_it_and_every_other_page_reads_the_wait_from_the_line_and_the_dimmed_cards(
-    deal_a_first_card_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
 ) -> None:
-    table = deal_a_first_card_table(form_factor)
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, declaring=FirstCardTable)
     owing = owing_page(table, "forehand")
     others = [owing_page(table, "middlehand"), owing_page(table, "rearhand"), table.watcher]
     forehand_name = table.names[table.seat_at["forehand"]]
@@ -100,9 +78,13 @@ def test_the_seat_owing_a_word_declines_it_and_every_other_page_reads_the_wait_f
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_after_a_kontra_the_wait_moves_to_the_declarer_who_answers_with_re_or_declines(
-    deal_a_first_card_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
 ) -> None:
-    table = deal_a_first_card_table(form_factor)
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, declaring=FirstCardTable)
     declarer = table.pages[table.declarer_seat]
     declarer_name = table.names[table.declarer_seat]
 
