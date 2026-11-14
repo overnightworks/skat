@@ -2252,9 +2252,9 @@ body {
 }
 
 .room[data-motion] .chair.turn.shaken .tile {
-    animation:
+    animation: /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
         breathe 2.4s ease-in-out infinite,
-        chair-shake 0.6s linear 0.5s; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+        chair-shake 0.6s linear 0.5s;
 }
 
 @keyframes chair-shake {
