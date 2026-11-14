@@ -1,0 +1,7 @@
+claim_id = "7870384db9b34d5ba5b63daf1f3a970f"
+agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
+role = "builder"
+base = "d0e2d770c248a05c6ed1f01709c195936f660598"
+branch = "claude/issue-558-s5-4c5-picture-answering-a-shortening-an"
+scope = ["docs/mockups/table.html"]
+opened_commit = "39055d2e62c97f111d49c5594d39738c21eea26c"
