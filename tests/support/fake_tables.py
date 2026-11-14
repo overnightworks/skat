@@ -1,4 +1,5 @@
 import copy
+from dataclasses import replace
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
@@ -29,6 +30,7 @@ class FakeTableStore:
         self.tables: dict[str, TableRecord | EndedTable] = {}
         self.receipts: dict[tuple[str, str], Receipt] = {}
         self.ended_at: dict[str, datetime] = {}
+        self.with_games: set[str] = set()
         self.empty_since_by_table: dict[str, datetime | None] = {}
         self.last_played_at: dict[str, datetime] = {}
         self.opener_names: dict[str, str] = {}
@@ -41,6 +43,7 @@ class FakeTableStore:
                 self.tables,
                 self.receipts,
                 self.ended_at,
+                self.with_games,
                 self.empty_since_by_table,
                 self.last_played_at,
                 self.opener_names,
@@ -54,6 +57,7 @@ class FakeTableStore:
                 self.tables,
                 self.receipts,
                 self.ended_at,
+                self.with_games,
                 self.empty_since_by_table,
                 self.last_played_at,
                 self.opener_names,
@@ -112,6 +116,8 @@ class FakeTableStore:
         table = self.tables[table_id.value]
         self.tables[table_id.value] = EndedTable(table.id, table.version + 1, ending)
         self.ended_at[table_id.value] = at
+        if table.game_list:
+            self.with_games.add(table_id.value)
         self.last_played_at.pop(table_id.value, None)
         self.opener_names.pop(table_id.value, None)
         self.book = {key: entry for key, entry in self.book.items() if entry.table_id != table_id}
@@ -120,6 +126,17 @@ class FakeTableStore:
             for key, receipt in self.receipts.items()
             if receipt.table_id != table_id or receipt.command == CREATE_TABLE_COMMAND
         }
+
+    def forget_ended_before(self, cutoff: datetime) -> None:
+        due = {table_id for table_id, at in self.ended_at.items() if at <= cutoff}
+        for table_id in due - self.with_games:
+            del self.tables[table_id], self.ended_at[table_id]
+            self.receipts = {
+                key: receipt for key, receipt in self.receipts.items() if receipt.table_id.value != table_id
+            }
+        for table_id in due & self.with_games:
+            ended = self.tables[table_id]
+            self.tables[table_id] = EndedTable(ended.id, ended.version, replace(ended.ending, closed_by_name=None))
 
     def empty_since(self, table_id: TableId) -> datetime | None:
         return self.empty_since_by_table.get(table_id.value)
