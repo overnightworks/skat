@@ -15,7 +15,7 @@ class Database:
     def __init__(self) -> None:
         self.ready = True
 
-    def __call__(self) -> bool:
+    async def __call__(self) -> bool:
         return self.ready
 
 
