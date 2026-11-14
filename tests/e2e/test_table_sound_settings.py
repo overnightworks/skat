@@ -11,7 +11,6 @@ from tests.e2e.support.audio import (
     VOICES_OF_ONE_CARD,
     open_at,
     open_watcher,
-    playing_table,
     tap,
     voices_started,
 )
@@ -24,7 +23,6 @@ if TYPE_CHECKING:
 
     from tests.e2e.support.hands import PlayingTable
     from tests.e2e.support.server import RunningServer
-    from tests.support.signed_in import SeededMember
 
 pytestmark = pytest.mark.e2e
 
@@ -91,16 +89,6 @@ GLASS_GAP = """neighbour => {
     const lobby = document.querySelector('.lobby-face').getBoundingClientRect();
     return neighbour === 'watchers' ? watchers.left - speaker.right : speaker.left - lobby.right;
 }"""
-
-
-@pytest.fixture
-def table(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-) -> PlayingTable:
-    return playing_table(open_person, e2e_server, member_of, page_errors)
 
 
 def speaker_of(page: Page) -> Any:
