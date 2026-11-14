@@ -86,6 +86,13 @@ export function gameSheetView(sheet: GameSheet): GameSheetView {
     };
 }
 
+function sideOf(takerSeat: number | null, declarerSeat: number | null): SheetTrick["side"] {
+    if (takerSeat === null || declarerSeat === null) {
+        return "none";
+    }
+    return takerSeat === declarerSeat ? "declarer" : "opponents";
+}
+
 function cardsView(
     cards: NonNullable<GameSheet["cards"]>,
     seatOf: (seat: number) => SheetSeat,
@@ -114,12 +121,7 @@ function cardsView(
             cards: trick.cards.map((each) => ({ card: each.card, by: seatOf(each.seat) })),
             taker: trick.taker_seat === null ? null : seatOf(trick.taker_seat),
             points: trick.points === null ? null : String(trick.points),
-            side:
-                trick.taker_seat === null || declarerSeat === null
-                    ? "none"
-                    : trick.taker_seat === declarerSeat
-                      ? "declarer"
-                      : "opponents",
+            side: sideOf(trick.taker_seat, declarerSeat),
         })),
     };
 }
