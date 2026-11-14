@@ -16,7 +16,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from webauth.config import WebAuthConfig
-    from webauth.single_process_stores import SingleProcessStores, StoredAccount, StoredSession
+    from webauth.ports import SessionRecord, UserRecord
+
+    from skat.web.sign_in import SignInPorts
 
 SUBJECT_BYTES = 12
 
@@ -27,8 +29,8 @@ def new_id_token() -> SecretStr:
 
 @dataclass(frozen=True)
 class SeededMember:
-    account: StoredAccount
-    session: StoredSession = field(repr=False)
+    account: UserRecord
+    session: SessionRecord = field(repr=False)
     set_cookie_headers: tuple[str, ...] = field(repr=False)
 
 
@@ -50,19 +52,26 @@ def handshake_headers(member: SeededMember | None, origin: str | None = TEST_PUB
     return headers
 
 
-def new_account(stores: SingleProcessStores, config: WebAuthConfig) -> StoredAccount:
+def new_account(stores: SignInPorts, config: WebAuthConfig) -> UserRecord:
     """A member's account under a fresh subject."""
     suffix = secrets.token_hex(SUBJECT_BYTES)
-    return stores.accounts.create_for_subject(
-        f"subject-{suffix}", f"member-{suffix}", role=AppRole.USER, kind=AccountKind.PERSON
-    )
+    with stores.transaction() as entry:
+        return entry.accounts.create_for_subject(
+            f"subject-{suffix}", f"member-{suffix}", role=AppRole.USER, kind=AccountKind.PERSON
+        )
+
+
+def account_of(stores: SignInPorts, subject: str) -> UserRecord | None:
+    """The account under the issuer's `subject`, if it signed in."""
+    with stores.transaction() as entry:
+        return entry.accounts.get(subject)
 
 
 def seed_member(
-    stores: SingleProcessStores,
+    stores: SignInPorts,
     config: WebAuthConfig,
     *,
-    account: StoredAccount | None = None,
+    account: UserRecord | None = None,
     expires_in: timedelta | None = None,
     refresh_token: str | None = None,
     account_language: str | None = None,
@@ -78,14 +87,15 @@ def seed_member(
         account = new_account(stores, config)
     now = datetime.fromtimestamp(int(config.wall_clock()), UTC)
     lifetime = timedelta(seconds=config.session_lifetime.absolute_max_age_seconds) if expires_in is None else expires_in
-    session = stores.sessions.create(
-        account.id,
-        now=now,
-        expires_at=now + lifetime,
-        refresh_token=None if refresh_token is None else SecretStr(refresh_token),
-        id_token=new_id_token(),
-        account_language=account_language,
-    )
+    with stores.transaction() as entry:
+        session = entry.sessions.create(
+            account.id,
+            now=now,
+            expires_at=now + lifetime,
+            refresh_token=None if refresh_token is None else SecretStr(refresh_token),
+            id_token=new_id_token(),
+            account_language=account_language,
+        )
     response = Response()
     issue_session_cookies(response, session.id, config)
     return SeededMember(

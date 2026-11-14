@@ -114,7 +114,13 @@ class TestCreateApp:
         tables = FreeingSignal(FakeTableStore())
         tables.create(Actor(account_id="account-anna", display_name="Anna"), CreateTable(command_id="command-open"))
         settings = sign_in_settings().settings.model_copy(update={"chair_hold_seconds": 0.05})
-        app = create_app(settings, page_build=fixture_page_build(), tables=tables, rule_sets=in_memory_rule_sets())
+        app = create_app(
+            settings,
+            page_build=fixture_page_build(),
+            tables=tables,
+            rule_sets=in_memory_rule_sets(),
+            stores=in_memory_stores(),
+        )
 
         with TestClient(app):
             assert tables.chair_freed.wait(timeout=10)
@@ -126,7 +132,13 @@ class TestCreateApp:
         tables.release_end.set()
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         settings = sign_in_settings(empty_table_seconds=1).settings
-        app = create_app(settings, page_build=fixture_page_build(), tables=tables, rule_sets=in_memory_rule_sets())
+        app = create_app(
+            settings,
+            page_build=fixture_page_build(),
+            tables=tables,
+            rule_sets=in_memory_rule_sets(),
+            stores=in_memory_stores(),
+        )
 
         with TestClient(app):
             assert tables.table_ended.wait(timeout=10)
@@ -198,6 +210,7 @@ class TestCreateApp:
             page_build=fixture_page_build(),
             tables=TableService(Unreadable()),
             rule_sets=in_memory_rule_sets(),
+            stores=in_memory_stores(),
         )
 
         with pytest.raises(ConnectionError), TestClient(app):
@@ -218,6 +231,7 @@ class TestCreateApp:
             tables=tables,
             rule_sets=in_memory_rule_sets(),
             chair_scheduler=IdleScheduler(),
+            stores=in_memory_stores(),
         )
 
         with TestClient(app):
@@ -230,7 +244,13 @@ class TestCreateApp:
         tables = EndingSignal(FakeTableStore())
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         settings = sign_in_settings(empty_table_seconds=1).settings
-        app = create_app(settings, page_build=fixture_page_build(), tables=tables, rule_sets=in_memory_rule_sets())
+        app = create_app(
+            settings,
+            page_build=fixture_page_build(),
+            tables=tables,
+            rule_sets=in_memory_rule_sets(),
+            stores=in_memory_stores(),
+        )
         client = TestClient(app)
         client.__enter__()
         assert tables.end_entered.wait(timeout=10)
@@ -254,6 +274,7 @@ class TestCreateApp:
                 page_build=fixture_page_build(),
                 tables=in_memory_tables(),
                 rule_sets=in_memory_rule_sets(),
+                stores=in_memory_stores(),
             )
         )
         assert isinstance(config, WebAuthConfig)
@@ -266,7 +287,7 @@ class TestCreateApp:
         tables = in_memory_tables()
         rule_sets = in_memory_rule_sets()
         with pytest.raises(StartRefusedError, match="session_secret_file"):
-            create_app(settings, page_build=page_build, tables=tables, rule_sets=rule_sets)
+            create_app(settings, page_build=page_build, tables=tables, rule_sets=rule_sets, stores=in_memory_stores())
 
     def test_account_route_reads_the_sessions_the_sign_in_wrote(self, sign_in_settings):
         sign_in = sign_in_settings()
@@ -277,6 +298,7 @@ class TestCreateApp:
             tables=in_memory_tables(),
             rule_sets=in_memory_rule_sets(),
             issuer_transports=issuer.transports,
+            stores=in_memory_stores(),
         )
         browser = TestClient(app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
         sign_in_through_issuer(browser, issuer)
@@ -433,6 +455,7 @@ class UnplayedTables:
             tables=self.tables,
             rule_sets=in_memory_rule_sets(),
             chair_scheduler=self.scheduler,
+            stores=in_memory_stores(),
         )
 
     async def stop_while_held(self, reached, free, *, free_during_the_stop):
@@ -634,6 +657,7 @@ class TestLoggedExceptions:
             page_build=fixture_page_build(),
             tables=in_memory_tables(),
             rule_sets=in_memory_rule_sets(),
+            stores=in_memory_stores(),
         )
         sentinel = secrets.token_urlsafe(16)
 

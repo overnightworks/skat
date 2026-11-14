@@ -13,7 +13,7 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import AddressedSession
 from tests.e2e.support.tables import sit_in, watch
-from tests.support.signed_in import seed_member
+from tests.support.signed_in import account_of, seed_member
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -84,7 +84,7 @@ class RamschStageTable:
         }
         if agent:
             agent.request("tools/list")
-            account = server.stores.accounts.get(agent.subject)
+            account = account_of(server.stores, agent.subject)
             assert account is not None
             self.sessions[AGENT_SEAT] = AddressedSession(
                 server, seed_member(server.stores, server.config, account=account)

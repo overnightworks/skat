@@ -110,12 +110,11 @@ def test_a_second_refusal_soon_after_the_sign_in_shows_the_sign_in_page_instead_
 
 
 def test_a_stream_of_an_ended_session_ends_when_another_viewer_leaves(e2e_server: RunningServer) -> None:
-    accounts = {
-        name: e2e_server.stores.accounts.create_for_subject(
-            f"subject-{name}", name, role=AppRole.USER, kind=AccountKind.PERSON
-        )
-        for name in ("raw-ben", "raw-cleo")
-    }
+    with e2e_server.stores.transaction() as entry:
+        accounts = {
+            name: entry.accounts.create_for_subject(f"subject-{name}", name, role=AppRole.USER, kind=AccountKind.PERSON)
+            for name in ("raw-ben", "raw-cleo")
+        }
     ben, cleo = (
         RawSession(e2e_server, seed_member(e2e_server.stores, e2e_server.config, account=account))
         for account in accounts.values()
