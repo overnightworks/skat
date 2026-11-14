@@ -1,8 +1,0 @@
-claim_id = "ad13912d227b4003bad88c312d21e4a0"
-agent = "Claude af547fd1-2a94-44ff-81dc-6c2f047c07ff"
-role = "builder"
-base = "d01514fec3da272590c83e3f0999ecb3c1a434a8"
-branch = "claude/issue-595-accounts-and-sessions-live-in-postgres-s"
-scope = ["docs/ARCHITECTURE.md", "pyproject.toml", "src/skat/host/app.py", "src/skat/host/main.py", "src/skat/store", "src/skat/web/calling.py", "src/skat/web/sign_in.py", "tests", "uv.lock"]
-opened_commit = "07f45f3fd2072dfbe627edc7b198d57b7a630a9f"
-whole_reason = "The adapter, its migration, the composition that replaces the in-memory stores and the two-process proof are one change: an adapter without the proof proves nothing, and the proof has no caller without the adapter."
