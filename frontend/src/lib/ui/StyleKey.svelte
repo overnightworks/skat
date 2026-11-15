@@ -4,6 +4,7 @@
     import { words } from "#lib/words.ts";
     import { chooseStyle, type TableStyle } from "../../routes/(start)/tables.ts";
     import AnchoredPanel from "./AnchoredPanel.svelte";
+    import StylePreview from "./StylePreview.svelte";
 
     // A seated person's key: it opens the panel that gives the whole table its style. The stream brings the change to
     // every page, this one included; until it does, the panel shows the choice, and a refusal gives the table's style back.
@@ -83,37 +84,40 @@
         {words["table.styleName"]}
     </div>
     <div class="style-body">
-        <div class="style-tiles" role="radiogroup" aria-label={words["table.styleName"]}>
-            {#each TABLE_STYLE_TOKENS as style (style)}
-                <label class="style-tile style-{style}">
-                    <input
-                        type="radio"
-                        name="table-style"
-                        checked={style === shown}
-                        onchange={() => {
-                            void choose(style);
-                        }}
-                    />
-                    <span class="style-face">
-                        <span class="style-preview" aria-hidden="true"></span>
-                        <span class="style-name">
-                            {#if style === shown}
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2.8"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg
-                                >
-                            {/if}
-                            {words[NAMES[style]]}
+        <div class="style-row">
+            <b class="style-label">{words["table.style"]}</b>
+            <div class="style-tiles" role="radiogroup" aria-label={words["table.styleName"]}>
+                {#each TABLE_STYLE_TOKENS as style (style)}
+                    <label class="style-tile style-{style}">
+                        <input
+                            type="radio"
+                            name="table-style"
+                            checked={style === shown}
+                            onchange={() => {
+                                void choose(style);
+                            }}
+                        />
+                        <span class="style-face">
+                            <StylePreview {style} />
+                            <span class="style-name">
+                                {#if style === shown}
+                                    <svg
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2.8"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg
+                                    >
+                                {/if}
+                                {words[NAMES[style]]}
+                            </span>
                         </span>
-                    </span>
-                </label>
-            {/each}
+                    </label>
+                {/each}
+            </div>
         </div>
-        <p class="sound-note">{words["table.styleNote"]}</p>
+        <p class="sound-note style-note">{words["table.styleNote"]}</p>
     </div>
 </AnchoredPanel>

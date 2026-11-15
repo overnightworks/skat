@@ -48,8 +48,21 @@
     }
 }
 
-.room .style-body {
-    padding: 12px 16px 14px;
+/* The panel's one row, as the blessed picture sets it: the label over the two tiles, then the note under them. */
+.room .style-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 16px 12px;
+}
+
+.room .style-label {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.room .style-note {
+    padding: 2px 16px 14px;
 }
 
 .room .style-tiles {
@@ -95,21 +108,8 @@
 .room .style-preview {
     display: block;
     width: 100%;
-    aspect-ratio: 120 / 76;
+    height: auto;
     border-radius: 9px;
-}
-
-.room .style-klassik .style-preview {
-    background:
-        radial-gradient(ellipse 41% 33% at 50% 52%, #1d7a55 97%, transparent 100%),
-        radial-gradient(ellipse 45% 38% at 50% 52%, #7a4c2a 97%, transparent 100%), #1b130d;
-}
-
-.room .style-strandbar .style-preview {
-    background:
-        radial-gradient(ellipse 22% 34% at 50% 66%, #d7b27c 96%, transparent 100%),
-        radial-gradient(ellipse 25% 39% at 50% 66%, #e8cf9f 96%, transparent 100%),
-        linear-gradient(180deg, #2a2760 0 32%, #2f6285 32% 47%, #cba57a 47%);
 }
 
 .room .style-name {
