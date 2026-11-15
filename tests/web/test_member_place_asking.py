@@ -650,5 +650,5 @@ class TestAPulseThatFails:
         with capture_logs() as logs:
             wait(skat, time, ASK_AGAIN_AFTER)
 
-        assert [log["error"] for log in logs if log["event"] == "member_signal_failed"] == ["ConnectionResetError"]
+        assert [log["error_type"] for log in logs if log["event"] == "member_signal.failed"] == ["ConnectionResetError"]
         assert agent.view(table_id)["revision"] == revision_of(version, 1)

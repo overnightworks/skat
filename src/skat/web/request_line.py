@@ -1,7 +1,7 @@
-"""What Skat tells the request line of each request: the signed-in person and the client address.
+"""What Skat tells the log about each request: the signed-in person and the client address for the request line.
 
-The two decisions are webauth's (the session gate admits the person, the trusted proxies name the client); this module
-only hands the answers to logline, which writes the line.
+Both decisions are webauth's (the session gate admits the person, the trusted proxies name the client); this module only
+hands the answers to logline, which writes the line.
 """
 
 from __future__ import annotations

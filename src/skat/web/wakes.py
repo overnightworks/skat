@@ -186,7 +186,7 @@ class SharedWakes:
                     wakes.wake_locally(topic)
         except StoreError as failure:
             # The failure's message may carry an address, so only its type is logged.
-            log.error("wake channel lost", error=type(failure).__name__)
+            log.error("wake_channel.failed", error_type=type(failure).__name__)
             if subscribed.is_set():
                 self._end_process()
             raise
@@ -199,6 +199,6 @@ class SharedWakes:
                 # A failure leaves the delivery uncertain, and a duplicate wake is harmless.
                 last = attempt == _PUBLISH_ATTEMPTS - 1
                 report = log.error if last else log.warning
-                report("wake publish failed", error=type(failure).__name__)
+                report("wake_publish.failed", error_type=type(failure).__name__)
             else:
                 return

@@ -38,6 +38,8 @@ VOICE = text(SOURCE_LANGUAGE, "sound.voice")
 RECORDED_KEY = re.compile(r"/(voice\.\w+)\.[\w-]+\.mp3$")
 # The recordings of the page's language, which the page decodes once its voice is on.
 RECORDING_COUNT = sum(key.startswith("voice.") for key in WORDS[SOURCE_LANGUAGE])
+# The confirmations the voice says for a hold instead of its number.
+CONFIRMATIONS = {key for key in WORDS[SOURCE_LANGUAGE] if key.startswith("voice.hold")}
 SOUND_SETS = ("leise", "stammtisch", "funkeln")
 # The voices one word of Kontra starts in each sound set, at the table's first tap.
 KONTRA_KNOCK_VOICES = {"leise": 6, "stammtisch": 7, "funkeln": 7}
@@ -103,7 +105,7 @@ def keys_said(page: Page) -> list[str]:
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_with_the_voice_on_the_watcher_hears_each_bid_and_pass_from_its_recording(
+def test_with_the_voice_on_the_watcher_hears_each_bid_pass_and_a_confirmation_for_the_hold_from_its_recording(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -112,13 +114,14 @@ def test_with_the_voice_on_the_watcher_hears_each_bid_and_pass_from_its_recordin
 ) -> None:
     table = deal(open_person, e2e_server, member_of, page_errors, {"voice": True}, form_factor=form_factor)
 
-    assert keys_said(table.watcher) == [
-        f"voice.value{OPENING_BID}",
+    opening, hold, raised, *passes = keys_said(table.watcher)
+    assert [opening, raised, *passes] == [
         f"voice.value{OPENING_BID}",
         f"voice.value{RAISED_BID}",
         "voice.pass",
         "voice.pass",
     ]
+    assert hold in CONFIRMATIONS
     assert page_errors == []
 
 

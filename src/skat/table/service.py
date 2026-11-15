@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
+from skat.table.command_log import command_step, noted
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.ending import close_table, end_unplayed_table, forget_ended_tables, table_with_opener, unplayed_tables
 from skat.table.game_reads import GameListReads
@@ -94,6 +95,7 @@ from skat.table.records import (
 )
 from skat.table.rules import (
     AGREE_TO_GIVE_UP_COMMAND,
+    CREATE_TABLE_COMMAND,
     DECLINE_GIVE_UP_COMMAND,
     GIVE_UP_COMMAND,
     PLAY_CARD_COMMAND,
@@ -131,7 +133,7 @@ from skat.table.series_end import (
 )
 from skat.table.server_steps import ServerSteps
 from skat.table.style import STYLE_COMMAND, StyleCommand, decide_style, style_payload
-from skat.table.transactions import DuplicateReceiptError
+from skat.table.transactions import retried_on_duplicate_receipt
 from skat.table.views import CommandResult, TableView, view_of
 
 if TYPE_CHECKING:
@@ -203,20 +205,22 @@ class TableService(LobbyReads, GameListReads):
         return clone
 
     def create(self, actor: Actor, command: CreateTable) -> TableView:
-        try:
-            return self._create_once(actor, command)
-        except DuplicateReceiptError:
-            # An identical request committed between this one's lookup and its receipt; the retry finds that receipt.
-            return self._create_once(actor, command)
+        table_id = self._table_id_of_create(actor, command)
+        with command_step(CREATE_TABLE_COMMAND, table_id.value):
+            return retried_on_duplicate_receipt(lambda: self._create_once(actor, command, table_id))
 
-    def _create_once(self, actor: Actor, command: CreateTable) -> TableView:
+    def _table_id_of_create(self, actor: Actor, command: CreateTable) -> TableId:
+        """The id the request's table gets, or the id of the table its command id made before."""
+        with self._transactions.begin() as transaction:
+            replay = transaction.replay(actor.account_id, command.command_id)
+        return self._new_table_id() if replay is None else replay.table.id
+
+    def _create_once(self, actor: Actor, command: CreateTable, table_id: TableId) -> TableView:
         with self._transactions.begin() as transaction:
             replay = transaction.replay(actor.account_id, command.command_id)
             if replay is not None:
                 return view_of(replayed_table(replay, command), actor.account_id, frozenset(), actor.account_id)
-            table = decide_create(
-                actor, self._new_table_id(), command.series_length, command.options, command.visibility
-            )
+            table = decide_create(actor, table_id, command.series_length, command.options, command.visibility)
             transaction.add_table(table, actor.display_name)
             transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))
@@ -679,12 +683,8 @@ class TableService(LobbyReads, GameListReads):
     ) -> CommandResult | None:
         """Run the command once; `after_accepted` writes more inside the transaction, after an accepted first run."""
         arguments = (actor, connected_accounts, table_id, command_id, command, payload, decide, after_accepted)
-        try:
-            return self._run_command_once(*arguments)
-        except DuplicateReceiptError:
-            # The same command id committed on another table between this one's lookup and its receipt;
-            # the retry finds that receipt and replays it or refuses the reuse.
-            return self._run_command_once(*arguments)
+        with command_step(command, table_id) as timed:
+            return noted(timed, retried_on_duplicate_receipt(lambda: self._run_command_once(*arguments)))
 
     def _run_command_once(
         self,

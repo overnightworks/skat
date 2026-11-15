@@ -328,7 +328,7 @@ async def _end_unplayed_tables(
             if at_start:
                 raise
             # The failure's message may carry an account id, so only its type is logged.
-            log.error("unplayed table end failed", table_id=table_id.value, error=type(failure).__name__)
+            log.error("unplayed_table_end.failed", table_id=table_id.value, error_type=type(failure).__name__)
             continue
         if ended:
             presence.table_ended(table_id.value)
@@ -348,6 +348,14 @@ def _session_forgetter(app: FastAPI, sessions: ExpirableSessions) -> Callable[[]
     return forget
 
 
+async def _swept(step: Callable[[], Awaitable[None]], log_failure: Callable[[str], None]) -> None:
+    """Run one step of a sweep; a failure is logged by its type, and the next step and the next sweep still run."""
+    try:
+        await step()
+    except Exception as failure:
+        log_failure(type(failure).__name__)
+
+
 def _sweep_tables(
     settings: ServerSettings,
     tables: TableService,
@@ -357,16 +365,17 @@ def _sweep_tables(
     period_seconds: float,
 ) -> None:
     async def sweep() -> None:
-        steps = (
-            ("unplayed tables read failed", lambda: _end_unplayed_tables(settings, tables, presence, at_start=False)),
-            ("ended tables forget failed", lambda: _forget_ended_tables(settings, tables)),
-            ("expired sessions forget failed", forget_expired_sessions),
+        await _swept(
+            lambda: _end_unplayed_tables(settings, tables, presence, at_start=False),
+            lambda failure: log.error("unplayed_tables_read.failed", error_type=failure),
         )
-        for failure_message, step in steps:
-            try:
-                await step()
-            except Exception as failure:
-                log.error(failure_message, error=type(failure).__name__)
+        await _swept(
+            lambda: _forget_ended_tables(settings, tables),
+            lambda failure: log.error("ended_tables_forget.failed", error_type=failure),
+        )
+        await _swept(
+            forget_expired_sessions, lambda failure: log.error("expired_sessions_forget.failed", error_type=failure)
+        )
         if not presence.stopped:
             scheduler.schedule(period_seconds, sweep)
 
@@ -401,6 +410,7 @@ def _serving(
             _sweep_tables(settings, tables, presence, scheduler, forget_expired_sessions, unplayed_sweep_seconds)
             try:
                 async with serving.state.mcp_front.running():
+                    log.info("process.ready")
                     yield
             finally:
                 presence.stop()

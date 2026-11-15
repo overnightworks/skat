@@ -7,15 +7,17 @@ from dataclasses import replace
 from datetime import timedelta
 
 import pytest
-from agents.member import LEASE_SECONDS, STANDING_URI, AcceptInvitationRefusal
+from agents.mcp_wire import MCP_ENDPOINT_PATH
+from agents.member import ACCEPT_INVITATION_TOOL, LEASE_SECONDS, STANDING_URI, AcceptInvitationRefusal
+from logline import REQUEST_EVENT, Outcome
 from starlette.concurrency import run_in_threadpool
-from structlog.testing import capture_logs
 
 from skat.table.member_place import MemberRefusal
 from skat.table.records import TableId
-from skat.web.mcp import MCP_GROUP
+from skat.web.mcp import MCP_GROUP, READ_TABLE_TOOL, ToolRefusal
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.calls import call_facts
+from tests.support.log_lines import lines_of, logged
 from tests.support.played_game import after_the_first_game
 from tests.web.support.agent import UPDATED, Agent
 from tests.web.support.calling import running_skat
@@ -282,17 +284,14 @@ class TestAnAcceptThatIsStale:
             pytest.param({"unknown": 1}, id="an-unknown-argument"),
         ],
     )
-    def test_not_as_stale_when_the_arguments_are_malformed_and_the_front_logs_it(
-        self, invite, skat, agent, owner, table_id, changes
-    ):
+    def test_not_as_stale_when_the_arguments_are_malformed(self, invite, skat, agent, owner, table_id, changes):
         offer = invite(agent, table_id, owner)
         before = stored(skat)
 
-        with at_the_table(skat, table_id, owner), capture_logs() as logs:
+        with at_the_table(skat, table_id, owner):
             answer = agent.accept(table_id, offer, **changes)
 
         assert (answer.is_error, "stale_invitation" in answer.text) == (True, False)
-        assert [entry["event"] for entry in logs if entry["log_level"] == "warning"] == ["accept_invitation_malformed"]
         assert stored(skat) == before
         assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
 
@@ -513,3 +512,56 @@ class TestAHandOfTwoAgentsAndAPerson:
         assert ended["entries"][0]["seq"] > max(line["seq"] for line in before["entries"])
         assert [line["kind"] for line in next_hand["entries"]] == ["deal"]
         assert next_hand["starts_at"] > ended["entries"][0]["seq"]
+
+
+class TestToolCallLine:
+    def test_a_route_tool_writes_one_ok_line_naming_the_tool_on_the_trace_of_the_mcp_request(
+        self, agent, owner, table_id, capsys
+    ):
+        with logged(capsys) as lines:
+            agent.read(table_id)
+
+        (call,) = lines_of(lines, "tool_call.ended")
+        (mcp_request,) = [line for line in lines_of(lines, REQUEST_EVENT) if line["route"] == MCP_ENDPOINT_PATH]
+        assert (call["tool"], call["outcome"]) == (READ_TABLE_TOOL, Outcome.OK)
+        assert call["trace_id"] == mcp_request["trace_id"] is not None
+
+    def test_a_route_that_answers_an_error_ends_the_call_refused(self, agent, capsys):
+        with logged(capsys) as lines:
+            agent.read("not-a-table-id")
+
+        (call,) = lines_of(lines, "tool_call.ended")
+        assert (call["outcome"], call["reason"]) == (Outcome.REFUSED, ToolRefusal.ROUTE_ERROR)
+
+    def test_a_refused_accept_is_in_skats_own_log_with_the_refusals_code(self, invite, agent, owner, table_id, capsys):
+        offer = invite(agent, table_id, owner)
+
+        with logged(capsys) as lines:
+            agent.accept(table_id, offer, epoch=offer.epoch + 1)
+
+        (call,) = lines_of(lines, "tool_call.ended")
+        assert (call["tool"], call["outcome"], call["reason"]) == (
+            ACCEPT_INVITATION_TOOL,
+            Outcome.REFUSED,
+            AcceptInvitationRefusal.STALE_INVITATION,
+        )
+
+    def test_an_accept_with_malformed_arguments_is_refused_for_its_own_code(
+        self, invite, skat, agent, owner, table_id, capsys
+    ):
+        offer = invite(agent, table_id, owner)
+
+        with at_the_table(skat, table_id, owner), logged(capsys) as lines:
+            agent.accept(table_id, offer, epoch=-1)
+
+        (call,) = lines_of(lines, "tool_call.ended")
+        assert (call["outcome"], call["reason"]) == (Outcome.REFUSED, ToolRefusal.MALFORMED_ARGUMENTS)
+
+    def test_an_accepted_invitation_ends_ok_without_a_reason(self, invite, skat, agent, owner, table_id, capsys):
+        offer = invite(agent, table_id, owner)
+
+        with at_the_table(skat, table_id, owner), logged(capsys) as lines:
+            agent.accept(table_id, offer)
+
+        (call,) = lines_of(lines, "tool_call.ended")
+        assert (call["tool"], call["outcome"], "reason" in call) == (ACCEPT_INVITATION_TOOL, Outcome.OK, False)

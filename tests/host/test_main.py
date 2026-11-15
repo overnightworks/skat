@@ -1,11 +1,13 @@
 import json
 import logging
 import secrets
+import signal
 
 import logline
 import logline.testing
 import pytest
 from fastapi.testclient import TestClient
+from logline import Outcome
 from pydantic import ValidationError
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
@@ -84,6 +86,47 @@ class TestMain:
         lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
         request_lines = [line for line in lines if line["event"] == logline.REQUEST_EVENT]
         assert [(line["service"], line["status"]) for line in request_lines] == [("skat", 200)]
+
+    @pytest.mark.redis
+    def test_writes_a_started_and_a_stopped_line_around_the_serve_and_one_ready_line_when_the_app_is_served(
+        self, server, configured_environment, database_url, redis_url, capsys
+    ):
+        configured_environment(database_url, redis_url=redis_url)
+        main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
+        with TestClient(server.runs[0]["app"]):
+            pass
+
+        events = [json.loads(line)["event"] for line in capsys.readouterr().out.splitlines()]
+        assert [event for event in events if event.startswith("process.")] == [
+            "process.started",
+            "process.stopped",
+            "process.ready",
+        ]
+
+    def test_a_sigterm_while_serving_writes_the_stopped_line_and_then_ends_the_process_by_that_signal(
+        self, configured_environment, database_url, monkeypatch, capsys
+    ):
+        configured_environment(database_url)
+        written_when_the_process_ends: list[str] = []
+        dispositions_when_the_process_ends: list[object] = []
+
+        def end_process_by(signal_number: int) -> None:
+            written_when_the_process_ends.append(capsys.readouterr().out)
+            dispositions_when_the_process_ends.append(signal.getsignal(signal_number))
+
+        def serve_until_sigterm(_app, **_options) -> None:
+            signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
+
+        monkeypatch.setattr(signal, "raise_signal", end_process_by)
+
+        main(["serve"], run_server=serve_until_sigterm, build_directory=FIXTURE_DIRECTORY)
+
+        (written,) = written_when_the_process_ends
+        assert [json.loads(line)["event"] for line in written.splitlines() if "process." in line] == [
+            "process.started",
+            "process.stopped",
+        ]
+        assert dispositions_when_the_process_ends == [signal.SIG_DFL]
 
     def test_refuses_to_start_without_the_page_build_and_names_the_build_command(
         self, server, configured_environment, database_url, tmp_path
@@ -249,6 +292,20 @@ class TestMigrate:
         engine = create_store_engine(only_the_database_setting)
         assert {"tables", "chairs", "receipts"} <= set(inspect(engine).get_table_names())
         engine.dispose()
+
+    def test_writes_the_migration_as_one_timed_line_between_the_start_and_the_stop(
+        self, only_the_database_setting, capsys
+    ):
+        main(["migrate"])
+
+        lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+        assert [line["event"] for line in lines if line["logger"].startswith("skat.")] == [
+            "process.started",
+            "migration.ended",
+            "process.stopped",
+        ]
+        (migration,) = [line for line in lines if line["event"] == "migration.ended"]
+        assert (migration["outcome"], migration["duration_ms"] >= 0) == (Outcome.OK, True)
 
     def test_hands_the_operator_account_setting_to_the_migration(self, only_the_database_setting, monkeypatch):
         operator_account_id = f"account-{secrets.token_hex(8)}"

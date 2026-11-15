@@ -43,6 +43,11 @@ CLEAN_EXIT = 0
 SIGTERM_EXIT = -signal.SIGTERM
 
 
+def lines_of(process: SkatProcess, event: str) -> list[dict]:
+    lines = [json.loads(line) for line in process.output().splitlines() if line.startswith("{")]
+    return [line for line in lines if line.get("event") == event]
+
+
 class Pods:
     """Two processes of Skat on one database, and the adapter that seeds the sessions they share."""
 
@@ -155,6 +160,27 @@ class TestASeededSession:
 
         assert exit_status in {CLEAN_EXIT, SIGTERM_EXIT}
         assert (admitted_by_the_other_meanwhile, pods.account_status(pods.first, cookie)) == (200, 200)
+
+
+class TestAStopWithSigterm:
+    def test_writes_the_process_stopped_line_before_the_process_ends(self, pods):
+        logged_before = len(lines_of(pods.second, "process.stopped"))
+
+        exit_status = pods.second.stop()
+        stopped_lines = len(lines_of(pods.second, "process.stopped")) - logged_before
+        pods.second.start()
+
+        assert (exit_status, stopped_lines) == (SIGTERM_EXIT, 1)
+
+
+class TestATableCommandLine:
+    def test_of_an_opened_table_carries_the_id_the_request_answers_with(self, pods):
+        cookie, _ = pods.member()
+
+        table_id = pods.table_opened_by(pods.first, cookie)
+
+        creations = [line for line in lines_of(pods.first, "table_command.ended") if line["command"] == "create-table"]
+        assert creations[-1]["table_id"] == table_id
 
 
 class TestTheSignInBudget:
