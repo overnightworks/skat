@@ -26,9 +26,11 @@ from skat.table.records import (
     StandUp,
     TableId,
     TableOptions,
+    TableStyle,
     Visibility,
 )
 from skat.table.service import CommandIdReusedError, TableService
+from skat.table.style import StyleCommand
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
 from skat.web.tables import TABLES_PATH
@@ -94,6 +96,27 @@ def test_a_table_opened_private_is_listed_to_nobody_and_an_open_one_is_after_a_r
     service.create(OPENER, CreateTable(command_id="command-2", visibility=Visibility.PRIVATE))
 
     assert service.open_table_ids() == (TableId(listed),)
+
+
+def test_a_style_a_member_chose_reads_back_for_every_viewer_after_a_reload(service):
+    created = service.create(OPENER, CreateTable(command_id="command-1"))
+    assert created.style is TableStyle.KLASSIK
+
+    changed = service.change_style(OPENER, StyleCommand("command-style", created.id, TableStyle.STRANDBAR), frozenset())
+
+    assert changed.refusal is None
+    assert service.view(VISITOR, created.id, frozenset()).style is TableStyle.STRANDBAR
+
+
+def test_a_visitor_without_a_chair_cannot_change_the_style_and_it_stays_after_a_reload(service):
+    created = service.create(OPENER, CreateTable(command_id="command-1"))
+
+    refused = service.change_style(
+        VISITOR, StyleCommand("command-style", created.id, TableStyle.STRANDBAR), frozenset()
+    )
+
+    assert refused.refusal is Refusal.NOT_SEATED
+    assert service.view(OPENER, created.id, frozenset()).style is TableStyle.KLASSIK
 
 
 def test_an_ended_open_table_is_listed_to_nobody(service):

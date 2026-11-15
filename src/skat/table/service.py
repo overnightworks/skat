@@ -130,6 +130,7 @@ from skat.table.series_end import (
     series_end_payload,
 )
 from skat.table.server_steps import ServerSteps
+from skat.table.style import STYLE_COMMAND, StyleCommand, decide_style, style_payload
 from skat.table.transactions import DuplicateReceiptError
 from skat.table.views import CommandResult, TableView, view_of
 
@@ -426,6 +427,19 @@ class TableService(LobbyReads, GameListReads):
             READY_COMMAND,
             ready_payload(command),
             lambda table: decide_ready(table, actor, command),
+        )
+
+    def change_style(
+        self, actor: Actor, command: StyleCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            STYLE_COMMAND,
+            style_payload(command),
+            lambda table: decide_style(table, actor, command),
         )
 
     def start_new_series(

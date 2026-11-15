@@ -23,6 +23,12 @@ class FakeParam {
     exponentialRampToValueAtTime(value: number, at: number): void {
         this.ramps.push({ value, at });
     }
+
+    readonly targets: { value: number; at: number; timeConstant: number }[] = [];
+
+    setTargetAtTime(value: number, at: number, timeConstant: number): void {
+        this.targets.push({ value, at, timeConstant });
+    }
 }
 
 class FakeNode {
@@ -37,6 +43,7 @@ class FakeNode {
     readonly attack = new FakeParam();
     readonly release = new FakeParam();
     type = "";
+    loop = false;
     buffer: unknown;
     startedAt: number | undefined;
     stoppedAt: number | undefined;
@@ -359,6 +366,54 @@ describe("the master", () => {
         port.setLoudness(0.25);
 
         expect(onlyContext().gains[0]?.gain.sets).toEqual([{ value: 0.25, at: NOW }]);
+    });
+});
+
+describe("the sea", () => {
+    beforeEachReset();
+
+    it("is not made before the first tap, whatever level is asked", () => {
+        const port = createWebAudioPort(pageWith().environment);
+
+        port.setSea(0.5);
+
+        expect(FakeContext.made).toEqual([]);
+    });
+
+    it("is not made while it stays silent", async () => {
+        const port = await readyPort();
+        const woken = onlyContext().sources.length;
+
+        port.setSea(0);
+
+        expect(onlyContext().sources).toHaveLength(woken);
+    });
+
+    it("starts at the first level above silence as looped noise through the limiter's input", async () => {
+        const port = await readyPort();
+
+        port.setSea(0.4);
+
+        const looped = onlyContext().sources.filter((source) => source.loop);
+        expect(looped.length).toBeGreaterThan(0);
+        const sea = onlyContext().gains.find((gain) => gain.gain.targets.length > 0);
+        expect(sea?.connectedTo).toContain(onlyContext().compressors[0]);
+    });
+
+    it("fades to each level from the context's time on and is made once", async () => {
+        const port = await readyPort();
+
+        port.setSea(0.4);
+        const sources = onlyContext().sources.length;
+        port.setSea(0);
+
+        const sea = onlyContext().gains.find((gain) => gain.gain.targets.length > 0);
+        expect(sea?.gain.targets.map(({ value, at }) => ({ value, at }))).toEqual([
+            { value: 0.4, at: NOW },
+            { value: 0, at: NOW },
+        ]);
+        expect(sea?.gain.targets.every(({ timeConstant }) => timeConstant > 0)).toBe(true);
+        expect(onlyContext().sources).toHaveLength(sources);
     });
 });
 

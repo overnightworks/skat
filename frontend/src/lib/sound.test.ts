@@ -41,6 +41,12 @@ class FakePort implements AudioPort {
     playRecording(url: string, afterSeconds: number): void {
         this.spoken.push({ url, afterSeconds });
     }
+
+    sea: number[] = [];
+
+    setSea(level: number): void {
+        this.sea.push(level);
+    }
 }
 
 function soundOver(port: FakePort, settings: SoundSettings = DEFAULT_SOUND_SETTINGS) {
@@ -174,5 +180,83 @@ describe("prepare", () => {
         await soundOver(port).prepare(["/a.mp3", "/b.mp3"]);
 
         expect(port.loaded).toEqual(["/a.mp3", "/b.mp3"]);
+    });
+});
+
+describe("sea", () => {
+    const wanted = (port: FakePort, settings: SoundSettings = DEFAULT_SOUND_SETTINGS) => {
+        const sound = soundOver(port, settings);
+        sound.sea(true);
+        return sound;
+    };
+    const lastLevel = (port: FakePort) => port.sea.at(-1);
+
+    it("is silent until the table wants it", () => {
+        const port = new FakePort();
+
+        soundOver(port).sea(false);
+
+        expect(lastLevel(port)).toBe(0);
+    });
+
+    it("runs under the volume the cues play by, quieter than a cue", () => {
+        const port = new FakePort();
+        const louder = new FakePort();
+
+        wanted(port, { muted: false, volume: 40 });
+        wanted(louder, { muted: false, volume: 80 });
+
+        expect(lastLevel(port)).toBeGreaterThan(0);
+        expect(lastLevel(louder)).toBeGreaterThan(lastLevel(port) as number);
+        expect(lastLevel(louder)).toBeLessThan(1);
+    });
+
+    it("is silent while muted or at volume 0", () => {
+        const muted = new FakePort();
+        const zero = new FakePort();
+
+        wanted(muted, { muted: true, volume: 70 });
+        wanted(zero, { muted: false, volume: 0 });
+
+        expect([lastLevel(muted), lastLevel(zero)]).toEqual([0, 0]);
+    });
+
+    it("fades out while the window is hidden and back when it is shown again", () => {
+        const port = new FakePort();
+        const sound = wanted(port);
+        const shown = lastLevel(port);
+
+        port.hiddenWindow = true;
+        sound.sea(true);
+        const hidden = lastLevel(port);
+        port.hiddenWindow = false;
+        sound.sea(true);
+
+        expect([hidden, lastLevel(port)]).toEqual([0, shown]);
+    });
+
+    it("stays silent on a device that makes no sound, and starts once the first tap wakes it", async () => {
+        const port = new FakePort();
+        port.readyNow = false;
+        const sound = wanted(port);
+        expect(lastLevel(port)).toBe(0);
+
+        port.readyNow = true;
+        await sound.resume();
+
+        expect(lastLevel(port)).toBeGreaterThan(0);
+    });
+
+    it("follows a changed volume at the next call", () => {
+        const port = new FakePort();
+        let settings: SoundSettings = { muted: false, volume: 30 };
+        const sound = createSound(port, () => settings);
+        sound.sea(true);
+        const quiet = lastLevel(port) as number;
+
+        settings = { muted: false, volume: 90 };
+        sound.sea(true);
+
+        expect(lastLevel(port)).toBeGreaterThan(quiet);
     });
 });

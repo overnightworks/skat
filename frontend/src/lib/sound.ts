@@ -35,6 +35,8 @@ export interface AudioPort {
     loadRecordings(urls: readonly string[]): Promise<void>;
     /** Plays a recording that is loaded; one that is not is skipped. */
     playRecording(url: string, afterSeconds: number): void;
+    /** Fades the sea that runs under the table to `level`, from 0 (silent) to 1; the port makes the sea at the first level above 0. */
+    setSea(level: number): void;
 }
 
 export interface SoundSettings {
@@ -63,7 +65,12 @@ export interface Sound {
     speak(url: string, afterSeconds: number): void;
     prepare(urls: readonly string[]): Promise<void>;
     resume(): Promise<void>;
+    /** The table wants the sea or not; it runs under the same mute and volume as every sound, and only while the window is shown. */
+    sea(wanted: boolean): void;
 }
+
+/** The sea lies under the cues: this much of what the volume allows a cue. */
+const SEA_SHARE = 0.55;
 
 /** A sound that comes late is worse than none, so a voice list plays at once or not at all. */
 export function createSound(port: AudioPort, settings: () => SoundSettings): Sound {
@@ -75,6 +82,14 @@ export function createSound(port: AudioPort, settings: () => SoundSettings): Sou
         return true;
     }
 
+    let seaWanted = false;
+    // The sea follows the settings at every call; a hidden window or a device that stays silent lets it fade out.
+    function tuneSea(): void {
+        const { muted, volume } = settings();
+        const running = seaWanted && !muted && port.ready(false);
+        port.setSea(running ? SEA_SHARE * (volume / FULL_VOLUME) ** LOUDNESS_CURVE : 0);
+    }
+
     return {
         play(voices, hearing = HEARD_IN_VIEW) {
             if (!audible(hearing)) return;
@@ -84,6 +99,13 @@ export function createSound(port: AudioPort, settings: () => SoundSettings): Sou
             if (audible(HEARD_IN_VIEW)) port.playRecording(url, LEAD_SECONDS + afterSeconds);
         },
         prepare: (urls) => port.loadRecordings(urls),
-        resume: () => port.resume(),
+        async resume() {
+            await port.resume();
+            tuneSea();
+        },
+        sea(wanted) {
+            seaWanted = wanted;
+            tuneSea();
+        },
     };
 }

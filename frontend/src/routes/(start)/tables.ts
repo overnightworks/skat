@@ -26,6 +26,7 @@ import {
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
     type STAGE_TOKENS,
+    type TABLE_STYLE_TOKENS,
     SUIT_TOKENS,
     TABLE_CARD_SUFFIX,
     TABLE_CLOSE_SUFFIX,
@@ -56,6 +57,7 @@ import {
     TABLE_SERIES_END_REFUSE_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
+    TABLE_STYLE_SUFFIX,
     TABLES_PATH,
     type WORD_TOKENS,
 } from "#lib/wire.ts";
@@ -278,6 +280,8 @@ export type Series = {
     standings: Standing[] | null;
     end_proposal: EndProposal | null;
 };
+export type TableStyle = (typeof TABLE_STYLE_TOKENS)[number];
+
 export type Table = {
     id: string;
     version: number;
@@ -291,6 +295,8 @@ export type Table = {
     aborted: PassedIn | null;
     // Null once the table has ended.
     options: Options | null;
+    // The look the whole table shares, which a seated person changes; null once the table has ended.
+    style: TableStyle | null;
     bock: Bock | null;
     ended: Ended | null;
     // True only for the account that opened the table, who may close it.
@@ -457,6 +463,12 @@ export function markReady(id: string, commandId: string, ordinal: number, series
 // „Neue Serie“ names the series it saw as „Weiter“ does, so a tap on a series that has since been replaced is refused.
 export function startNewSeries(id: string, commandId: string, series: number): Promise<Outcome> {
     return post(id, TABLE_NEW_SERIES_SUFFIX, { command_id: commandId, series });
+}
+
+// A seated person gives the table a style; the stream brings it to every page at the table, so the answer's table is
+// not shown.
+export function chooseStyle(id: string, commandId: string, style: TableStyle): Promise<Outcome> {
+    return post(id, TABLE_STYLE_SUFFIX, { command_id: commandId, style });
 }
 
 export type SeriesEndAnswer = "agree" | "refuse";

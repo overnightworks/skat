@@ -491,6 +491,7 @@ describe("the key of the agents that sit", () => {
         series: null,
         aborted: null,
         options: null,
+        style: null,
         bock: null,
         ended: null,
     });

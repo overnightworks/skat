@@ -20,6 +20,7 @@ from skat.table.records import (
     TableId,
     TableOptions,
     TableRecord,
+    TableStyle,
     Visibility,
 )
 from skat.table.rules import (
@@ -63,6 +64,7 @@ def table_with(*seated: tuple[int, Actor]) -> TableRecord:
         options=TableOptions(),
         bock=BockRounds.start(),
         visibility=Visibility.OPEN,
+        style=TableStyle.KLASSIK,
     )
 
 

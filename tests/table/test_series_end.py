@@ -17,6 +17,7 @@ from skat.table.records import (
     TableId,
     TableOptions,
     TableRecord,
+    TableStyle,
     Visibility,
     parsed_refusal,
 )
@@ -51,6 +52,7 @@ def between_games(
         options=TableOptions(),
         bock=BockRounds.start(),
         visibility=Visibility.OPEN,
+        style=TableStyle.KLASSIK,
     )
 
 
