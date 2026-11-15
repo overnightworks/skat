@@ -1,0 +1,8 @@
+claim_id = "28a881b870d141fabf7969bb0a5cb2b8"
+agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
+role = "builder"
+base = "403291f20e0d79f6de1b5aecd5ae4a59671bbfdb"
+branch = "claude/issue-626-skat-pins-agents-v0-47-0-and-answers-who"
+scope = ["pyproject.toml", "src/skat/host/app.py", "src/skat/web/calling.py", "tests", "uv.lock"]
+opened_commit = "b274492443b484ad53ec6898e8a6c156fd9c482e"
+whole_reason = "the pin touches the lock, the calling front, its wiring and their tests"
