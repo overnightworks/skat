@@ -46,9 +46,15 @@ def create_style_router(tables: TableService, presence: Presence) -> APIRouter:
 
         Refused: not seated. The style the table already has changes nothing and is no error.
         """
-        command = StyleCommand(command_id=body.command_id, table_id=table_id, style=body.style)
         return await command_answer(
-            partial(tables.change_style, actor_of(request), command), presence, table_id, response
+            partial(
+                tables.change_style,
+                actor_of(request),
+                StyleCommand(command_id=body.command_id, table_id=table_id, style=body.style),
+            ),
+            presence,
+            table_id,
+            response,
         )
 
     return router

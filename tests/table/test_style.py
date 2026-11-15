@@ -2,7 +2,7 @@ import pytest
 
 from skat.table.records import Refusal, TableStyle
 from skat.table.style import StyleCommand, decide_style, style_payload
-from tests.table.test_ready import ANNA, BEN, CLEO, DORA, TABLE_VERSION, pending
+from tests.support.pending_table import ANNA, BEN, CLEO, DORA, TABLE_VERSION, pending
 
 
 def styled(style: TableStyle, *, command_id: str = "command-style") -> StyleCommand:
