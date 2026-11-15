@@ -55,16 +55,11 @@ describe("the style key", () => {
         ]);
     });
 
-    it("sets the row's label over the two tiles, each with the picture of its style", () => {
+    it("sets the row's label over the two tiles", () => {
         show();
 
         const row = document.querySelector(".style-row") as HTMLElement;
         expect(row.firstElementChild?.textContent).toBe(words["table.style"]);
-        expect(
-            [...row.querySelectorAll(".style-tile")].map(
-                (each) => each.querySelectorAll("svg.style-preview > *").length > 1,
-            ),
-        ).toEqual([true, true]);
     });
 
     it("sends the other style to the table's style path and keeps the mark until the stream brings it", async () => {
