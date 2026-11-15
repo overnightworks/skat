@@ -5239,7 +5239,7 @@ body {
     }
 
     .room .actions:has(.give-up):has(.copy.close) .copy:is(.shorten, .play-open) {
-        padding-inline: 6px;
+        padding-inline: 3px;
         font-size: 14px;
     }
 }
