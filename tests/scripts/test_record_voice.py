@@ -23,13 +23,21 @@ def lines_of(language: str) -> list[record_voice.SpokenLine]:
 
 
 @pytest.mark.parametrize("language", LANGUAGES)
-def test_every_language_speaks_a_pass_each_word_of_kontra_each_valid_bid_and_the_nudge_grumbles(language: str) -> None:
+def test_every_language_speaks_a_pass_each_word_of_kontra_each_valid_bid_null_each_confirmation_and_the_nudge_grumbles(
+    language: str,
+) -> None:
     keys = {line.key for line in lines_of(language)}
 
     expected = {
         "voice.pass",
         *(f"voice.{word.value}" for word in Word),
         *(f"voice.value{bid}" for bid in VALID_BIDS),
+        "voice.null",
+        "voice.holdYes",
+        "voice.holdSure",
+        "voice.holdOfCourse",
+        "voice.holdCertainly",
+        "voice.holdHaveIt",
         "voice.grumbleComing",
         "voice.grumbleRush",
         "voice.grumbleThinking",
