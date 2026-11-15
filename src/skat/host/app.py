@@ -1,6 +1,7 @@
 import signal
 import time
 from contextlib import asynccontextmanager, nullcontext
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Final, cast
 
@@ -108,6 +109,17 @@ async def _always_ready() -> bool:  # NOSONAR(S7503) the database_ready port is 
 def end_with_sigterm() -> None:
     """Ask the server to stop as an orchestrator does, which ends its streams and lets the platform restart it."""
     signal.raise_signal(signal.SIGTERM)
+
+
+@dataclass(frozen=True, kw_only=True)
+class PodLinks:
+    """What the pods of one deployment share: the counts of their sign-in limits, the channel that carries their
+    wakes, and how a pod stops itself when that channel cannot be heard.
+    """
+
+    rate_limits: RateLimitBackend
+    wake_channel: WakeChannel
+    end_process: Callable[[], None] = end_with_sigterm
 
 
 def _content_security_policy(page_build: PageBuild, call_origin: str | None) -> str:
@@ -410,8 +422,7 @@ def create_app(
     tables: TableService,
     rule_sets: RuleSetService,
     stores: SignInPorts,
-    rate_limits: RateLimitBackend,
-    wake_channel: WakeChannel,
+    pods: PodLinks,
     issuer_transports: IssuerTransports = ISSUER_OVER_HTTPS,
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
@@ -419,9 +430,8 @@ def create_app(
     unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
     resource_changes: Callable[[ListeningChanged], ResourceChanges] = ResourceChanges,
     database_ready: Callable[[], Awaitable[bool]] = _always_ready,
-    end_process: Callable[[], None] = end_with_sigterm,
 ) -> FastAPI:
-    sign_in_configs = build_sign_in_configs(settings, rate_limits)
+    sign_in_configs = build_sign_in_configs(settings, pods.rate_limits)
 
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
@@ -431,7 +441,7 @@ def create_app(
     # One scheduler and one clock of waits serve the presence and the member front, so stopping the presence cancels
     # the pulses that ask a seat again with the chair holds' timers.
     scheduler = chair_scheduler if chair_scheduler is not None else LoopScheduler()
-    shared_wakes = SharedWakes(wake_channel, end_process=end_process)
+    shared_wakes = SharedWakes(pods.wake_channel, end_process=pods.end_process)
     wakes = WakeList(shared_wakes.publish)
     slots = StreamSlots(settings.streams_per_account)
     presence = _presence(settings, tables, chair_clock, scheduler, wakes)

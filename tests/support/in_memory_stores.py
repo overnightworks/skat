@@ -1,8 +1,10 @@
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from webauth.rate_limit import SingleProcessRateLimitBackend
 from webauth.single_process_stores import SingleProcessStores
 
+from skat.host.app import PodLinks
 from skat.web.sign_in import LoggingAuditSink
 from tests.support.loopback_wake_channel import single_pod_channel
 
@@ -20,4 +22,5 @@ def in_process_rate_limits() -> SingleProcessRateLimitBackend:
 
 def single_pod(**overrides: object) -> dict[str, object]:
     """The keyword arguments of `create_app` that other pods would share: here the ones one process keeps alone."""
-    return {"rate_limits": in_process_rate_limits(), "wake_channel": single_pod_channel(), **overrides}
+    links = PodLinks(rate_limits=in_process_rate_limits(), wake_channel=single_pod_channel())
+    return {"pods": replace(links, **overrides)}
