@@ -8,7 +8,6 @@
     const DESKTOP_FROM = 900;
     const GAP_BELOW_THE_KEY = 8;
     let viewportWidth = $state(0);
-    let key: HTMLButtonElement | undefined = $state();
 </script>
 
 <svelte:window
@@ -22,14 +21,13 @@
     <button
         type="button"
         class="reaction-key"
-        bind:this={key}
         class:on={reactionTray().open}
         aria-expanded={reactionTray().open}
         aria-controls={REACTION_TRAY_ID}
         aria-label={words["table.reactions"]}
         title={words["table.reactions"]}
-        onclick={() => {
-            const below = (key?.getBoundingClientRect().bottom ?? 0) + GAP_BELOW_THE_KEY;
+        onclick={(event) => {
+            const below = event.currentTarget.getBoundingClientRect().bottom + GAP_BELOW_THE_KEY;
             setReactionTray(!reactionTray().open, below);
         }}
     >
