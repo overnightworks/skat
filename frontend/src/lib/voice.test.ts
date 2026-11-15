@@ -15,11 +15,6 @@ describe("the word the voice says for a cue", () => {
             key: "voice.value18",
         },
         {
-            name: "a hold",
-            cue: { kind: "bid-said", seat: SEAT, word: { action: "hold", value: 264 } },
-            key: "voice.value264",
-        },
-        {
             name: "a pass",
             cue: { kind: "bid-said", seat: SEAT, word: { action: "pass", value: null } },
             key: "voice.pass",
@@ -55,6 +50,59 @@ describe("the word the voice says for a cue", () => {
             const cue: Cue = { kind: "bid-said", seat: SEAT, word: { action: "bid", value } };
             expect(Object.hasOwn(catalog, voiceKeyOf(cue) as string)).toBe(true);
         }
+    });
+});
+
+const HOLD_VALUES = [18, 20, 22, 23, 24, 27, 264];
+const SEATS = [0, 1, 2];
+
+function said(action: "bid" | "hold", seat: number, value: number): Cue {
+    return { kind: "bid-said", seat, word: { action, value } };
+}
+
+describe("the word the voice says for a hold", () => {
+    it("is never a number but a confirmation of the catalog, whatever the value", async () => {
+        const catalog = await loadWords(sourceLanguage);
+
+        for (const seat of SEATS) {
+            for (const value of HOLD_VALUES) {
+                const key = voiceKeyOf(said("hold", seat, value)) as string;
+                expect(key).toMatch(/^voice\.hold/);
+                expect(Object.hasOwn(catalog, key)).toBe(true);
+            }
+        }
+    });
+
+    it("is the same confirmation on every page for the same hold", () => {
+        for (const seat of SEATS) {
+            for (const value of HOLD_VALUES) {
+                expect(voiceKeyOf(said("hold", seat, value))).toBe(voiceKeyOf(said("hold", seat, value)));
+            }
+        }
+    });
+
+    it("varies between holds, so a table does not hear one word every time", () => {
+        const keys = SEATS.flatMap((seat) => HOLD_VALUES.map((value) => voiceKeyOf(said("hold", seat, value))));
+
+        expect(new Set(keys).size).toBeGreaterThan(2);
+    });
+});
+
+describe("the word the voice says for a bid of 23", () => {
+    const keys = SEATS.map((seat) => voiceKeyOf(said("bid", seat, 23)));
+
+    it("is dreiundzwanzig or Null, and both are said at some seat", () => {
+        expect(new Set(keys)).toEqual(new Set(["voice.value23", "voice.null"]));
+    });
+
+    it("is the same word on every page for the same bid", () => {
+        expect(SEATS.map((seat) => voiceKeyOf(said("bid", seat, 23)))).toEqual(keys);
+    });
+
+    it("is a key of the catalog either way", async () => {
+        const catalog = await loadWords(sourceLanguage);
+
+        for (const key of keys) expect(Object.hasOwn(catalog, key as string)).toBe(true);
     });
 });
 
