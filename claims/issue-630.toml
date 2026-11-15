@@ -1,8 +1,0 @@
-claim_id = "321bbfc4b40948309838057e14fa75f5"
-agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
-role = "builder"
-base = "3350ec39e3da98e140e84773ce6840439fa70a18"
-branch = "claude/issue-630-a-page-that-fails-again-after-its-retry"
-scope = ["frontend/src", "src/skat", "tests"]
-opened_commit = "54c738eca9415ce0ab36648b7859e75d4af39474"
-whole_reason = "operator's live finding and requests of 15.11.2026 span page, service and tests"
