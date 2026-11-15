@@ -19,6 +19,8 @@ let stage: StageState = $state(SETTLED);
 // The seat whose pile's last trick the player looks at again, or none.
 let looking: number | null = $state(null);
 let timer: ReturnType<typeof setTimeout> | undefined;
+// What the page does with the result of the hand whose last trick the stage moves, once the stage has settled.
+let showResult: (() => void) | undefined;
 // The chairs that changed hands in the latest update, while their motion lasts.
 let moving: readonly ChairCue[] = $state([]);
 let movingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -34,6 +36,11 @@ function apply(step: Step, cues: readonly Cue[] = []): void {
     stage = step.stage;
     if (step.beats.includes("glide-started")) soundForGlide();
     if (step.beats.includes("turn-shown")) soundForTurn(cues);
+    if (step.beats.includes("result-shown")) {
+        const show = showResult;
+        showResult = undefined;
+        show?.();
+    }
     if (stage.phase === "settled") return;
     const phaseEnds = stage.until;
     timer = setTimeout(() => {
@@ -69,6 +76,7 @@ function stopChairs(): void {
 /** The first table of a page, a reconnect and a table left behind show at once, as the received table says. */
 export function resetStage(): void {
     clearTimeout(timer);
+    showResult = undefined;
     clearTimeout(dealTimer);
     stage = SETTLED;
     looking = null;
@@ -89,8 +97,17 @@ function startDealing(): void {
     }, DEAL_MILLISECONDS);
 }
 
-/** The update `cues` brought to the table that followed `previous`. */
-export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[]): void {
+/** Whether the stage moves a trick now: a hidden window and a device without motion show every table at once. */
+export function stageMoves(): boolean {
+    const motion = motionInForce();
+    return timingOf(motion === undefined ? undefined : MOTION_SETS[motion], document.hidden) !== null;
+}
+
+/**
+ * The update `cues` brought to the table that followed `previous`. `whenResultShown` is given for the cues of the
+ * trick that closes the hand: the stage calls it once that trick has rested and swept, or at once when it does not move.
+ */
+export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[], whenResultShown?: () => void): void {
     if (previous === undefined) {
         resetStage();
         return;
@@ -105,12 +122,14 @@ export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[]
         moving = cues.filter(isChairCue);
         movingTimer = setTimeout(stopChairs, chairMilliseconds);
     }
+    showResult = whenResultShown;
     apply(
         receive(stage, {
             cues,
             before: previous.hand?.playing ?? null,
             timing: timingOf(motionSet, document.hidden),
             mode: currentSettings().lastTrick,
+            closing: whenResultShown !== undefined,
             now: Date.now(),
         }),
         cues,

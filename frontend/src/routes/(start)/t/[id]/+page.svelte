@@ -13,7 +13,8 @@
     import { abortView } from "#lib/abort.ts";
     import { grumblingAt, ring, stopRinging } from "#lib/bell.svelte.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
-    import { cuesBetween, springsUp, stampBetween, type BidWord } from "#lib/cues.ts";
+    import { closedHandOrdinal, closeHand } from "#lib/closingTrick.ts";
+    import { cuesBetween, springsUp, stampBetween, type BidWord, type Cue } from "#lib/cues.ts";
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { giveUpAsk, giveUpView, refusalNotice } from "#lib/giveUp.ts";
     import { firstCardWait, type Stamp } from "#lib/kontra.ts";
@@ -74,6 +75,7 @@
         isDealing,
         receiveOnStage,
         resetStage,
+        stageMoves,
         sweepingTo,
         trickIsMoving,
     } from "#lib/stage.svelte.ts";
@@ -91,6 +93,7 @@
         isSuitGame,
         markReady,
         positionWord,
+        readGameSheet,
         readTable,
         seatedAgentsKey,
         seriesNumberOf,
@@ -114,6 +117,8 @@
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
     const SEAT_NOTICE_MILLISECONDS = 4000;
+    // A game sheet that is slower than this does not hold the result back.
+    const SHEET_WAIT_MILLISECONDS = 1500;
 
     const { data }: PageProps = $props();
     // The route has an [id] segment, so the parameter is always present.
@@ -158,12 +163,61 @@
         seatNoteTimer = setTimeout(() => (seatNote = null), SEAT_NOTICE_MILLISECONDS);
     }
 
+    // The hand its last card ended, while its last trick is drawn and swept: the tables that arrive meanwhile wait behind it.
+    let closing: { queued: [Table, Table][] } | null = null;
+
     function showTable(previous: Table | undefined, table: Table): void {
+        if (closing !== null && previous !== undefined) {
+            closing.queued.push([previous, table]);
+            return;
+        }
+        closing = null;
+        const ordinal = previous === undefined ? null : closedHandOrdinal(previous, table);
+        if (previous !== undefined && ordinal !== null && stageMoves())
+            closeHandAtItsLastTrick(previous, table, ordinal);
+        else presentTable(previous, table, cuesBetween(previous, table));
+    }
+
+    function showQueued(queued: readonly [Table, Table][]): void {
+        for (const [previous, table] of queued) showTable(previous, table);
+    }
+
+    // The table that follows the last card has no hand, so the last trick is drawn from the game's sheet, rests and sweeps
+    // as any trick, and the result of the game appears when the stage has settled.
+    function closeHandAtItsLastTrick(previous: Table, table: Table, ordinal: number): void {
+        const hold = { queued: [] as [Table, Table][] };
+        closing = hold;
+        const slow = new Promise<null>((resolve) => setTimeout(resolve, SHEET_WAIT_MILLISECONDS, null));
+        void Promise.race([readGameSheet(id, ordinal), slow]).then((sheet) => {
+            if (closing !== hold) return;
+            const cues = cuesBetween(previous, table);
+            const drawn = stageMoves() ? closeHand(previous, table, sheet) : null;
+            if (drawn === null) {
+                closing = null;
+                presentTable(previous, table, cues);
+                showQueued(hold.queued);
+                return;
+            }
+            const isResult = (cue: Cue): boolean => cue.kind === "result-appeared";
+            presentTable(previous, drawn.held, [...cues.filter((cue) => !isResult(cue)), ...drawn.cues], () => {
+                if (closing !== hold) return;
+                closing = null;
+                presentTable(drawn.held, table, cues.filter(isResult));
+                showQueued(hold.queued);
+            });
+        });
+    }
+
+    function presentTable(
+        previous: Table | undefined,
+        table: Table,
+        cues: readonly Cue[],
+        whenResultShown?: () => void,
+    ): void {
         streamedVersion = table.version;
         streamedWatchers = table.watchers;
         seatedAgents = seatedAgentsKey(previous, table);
         const nudged = previous === undefined ? null : nudgedNote(previous, table);
-        const cues = cuesBetween(previous, table);
         const note = seatNotice(cues, table) ?? nudged;
         if (note !== null) showSeatNote(note);
         seatNote = noticeStanding(seatNote, table);
@@ -171,7 +225,6 @@
         if (previous === undefined || cues.some((cue) => cue.kind === "dealt")) playedThisHand = [];
         stamp = stampBetween(previous, table) ?? stamp;
         soundForCues(cues, table);
-        receiveOnStage(previous, cues);
         for (const cue of cues) {
             if (cue.kind === "card-played") {
                 playedThisHand = [...playedThisHand, cue.card];
@@ -191,6 +244,8 @@
         }
         if (table.result === null) countedOrdinal = null;
         outcome = { kind: "table", table };
+        // The stage may show the result at once, so nothing of this table is set after it.
+        receiveOnStage(previous, cues, whenResultShown);
     }
 
     // SvelteKit keeps this component when the address changes from one table to another.
@@ -206,6 +261,7 @@
         playedThisHand = [];
         stamp = null;
         bidSaid = null;
+        closing = null;
         resetStage();
         stopRinging();
         let current = true;
@@ -242,6 +298,7 @@
             clearTimeout(wonTimer);
             clearTimeout(seatNoteTimer);
             stopWatching();
+            closing = null;
             resetStage();
             stopRinging();
         };

@@ -34,6 +34,9 @@ VOICES_OF_ONE_SWEEP = 1
 # A card sounds as one noise burst and one tone.
 VOICES_OF_THREE_CARDS = 6
 HAND_CARD = ".own-hand .card"
+RESULT_CARD = ".result"
+# The thirtieth card ends the hand.
+CARDS_IN_A_HAND = 30
 # An installed clock keeps ticking until paused, and pausing only moves time forward, so it stops this far ahead.
 CLOCK_HOLD_LEAD = timedelta(seconds=5)
 
@@ -172,6 +175,59 @@ def test_a_finished_trick_rests_then_sweeps_to_its_winner_with_one_sweep_sound_a
     expect_the_piles(watcher, table)
     expect_the_rim_on(watcher, second_taker)
     assert len(voices_started(watcher)) == sounded_after_first_sweep + VOICES_OF_THREE_CARDS + VOICES_OF_ONE_SWEEP
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_result_waits_for_the_last_trick_to_rest_and_sweep_to_its_winner(
+    table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    watcher = open_watcher(open_person, page_errors, table, form_factor)
+    table.play_out(CARDS_IN_A_HAND)
+
+    expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+    expect(watcher.locator(RESULT_CARD)).to_have_count(0)
+    run_until(watcher, SWEEPING, 1)
+    expect(watcher.locator(RESULT_CARD)).to_have_count(0)
+
+    run_until(watcher, RESULT_CARD, 1)
+
+    expect(watcher.locator(FELT_CARD)).to_have_count(0)
+    assert table.result()["ordinal"] > 0
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_result_shows_at_once_with_reduced_motion(
+    table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    watcher = open_watcher(open_person, page_errors, table, form_factor, moving=False)
+    table.play_out(CARDS_IN_A_HAND)
+
+    expect(watcher.locator(RESULT_CARD)).to_have_count(1)
+    expect(watcher.locator(FELT_CARD)).to_have_count(0)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_reload_shows_the_result_directly(
+    table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table.play_out(CARDS_IN_A_HAND)
+
+    watcher = open_watcher(open_person, page_errors, table, form_factor)
+
+    expect(watcher.locator(RESULT_CARD)).to_have_count(1)
+    expect(watcher.locator(FELT_CARD)).to_have_count(0)
     assert page_errors == []
 
 

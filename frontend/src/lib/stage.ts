@@ -24,6 +24,8 @@ export interface StageState {
     readonly glideMilliseconds: number;
     /** Whether the viewer's turn came with the update that finished this trick; it is shown once the trick has settled. */
     readonly turnPending: boolean;
+    /** Whether this finished trick closes the hand, so the result waits and is shown once the trick has settled. */
+    readonly resultPending: boolean;
 }
 
 export const SETTLED: StageState = {
@@ -33,6 +35,7 @@ export const SETTLED: StageState = {
     before: null,
     glideMilliseconds: 0,
     turnPending: false,
+    resultPending: false,
 };
 
 /** What a moving table takes; null is a budget of zero, where every state shows at once. */
@@ -62,8 +65,8 @@ export function chairMoveMilliseconds(cues: readonly Cue[], motion: MotionSet | 
     return Math.max(0, ...seconds) * MILLISECONDS;
 }
 
-/** The moments the stage hands to the sound: the sweep begins, and the table is settled for the viewer's turn. */
-export type Beat = "glide-started" | "turn-shown";
+/** The moments the stage hands to the page: the sweep begins, the table is settled for the viewer's turn, and for the result of the hand the last trick closed. */
+export type Beat = "glide-started" | "turn-shown" | "result-shown";
 
 export interface Step {
     readonly stage: StageState;
@@ -75,18 +78,23 @@ export interface Received {
     readonly before: Playing | null;
     readonly timing: Timing | null;
     readonly mode: LastTrickMode;
+    /** Whether the trick of these cues is the last of the hand, whose result the page holds back until the stage has settled. */
+    readonly closing: boolean;
     readonly now: number;
 }
 
-/** The moment is over at once: a trick that has not begun to glide still sounds its sweep once, and a turn that waited is shown. */
+/** The moment is over at once: a trick that has not begun to glide still sounds its sweep once, and a turn or a result that waited is shown. */
 export function jump(stage: StageState): Step {
     if (stage.phase === "settled") return { stage, beats: [] };
     const sweeps = stage.phase === "resting" && stage.glideMilliseconds > 0;
-    return { stage: SETTLED, beats: [...(sweeps ? ["glide-started" as const] : []), ...turnBeat(stage)] };
+    return { stage: SETTLED, beats: [...(sweeps ? ["glide-started" as const] : []), ...settledBeats(stage)] };
 }
 
-function turnBeat(stage: StageState): readonly Beat[] {
-    return stage.turnPending ? ["turn-shown"] : [];
+function settledBeats(stage: StageState): readonly Beat[] {
+    return [
+        ...(stage.turnPending ? ["turn-shown" as const] : []),
+        ...(stage.resultPending ? ["result-shown" as const] : []),
+    ];
 }
 
 // The viewer's turn is shown once the table is settled: at once, or when the moment that holds it is over.
@@ -100,7 +108,7 @@ export function receive(stage: StageState, received: Received): Step {
 
 // A card laid ends the moment before it, since the table has moved on, and with it the turn that waited for that moment;
 // the finished trick of this update then begins its own.
-function receiveTrick(stage: StageState, { cues, before, timing, mode, now }: Received): Step {
+function receiveTrick(stage: StageState, { cues, before, timing, mode, closing, now }: Received): Step {
     const jumped = cues.some((cue) => cue.kind === "card-played")
         ? jump({ ...stage, turnPending: false })
         : { stage, beats: [] };
@@ -108,16 +116,18 @@ function receiveTrick(stage: StageState, { cues, before, timing, mode, now }: Re
     if (takenAt === -1) return jumped;
     const { trick } = cues[takenAt] as Extract<Cue, { kind: "trick-taken" }>;
     const leadFollows = cues.slice(takenAt + 1).some((cue) => cue.kind === "card-played");
+    const resultBeats: readonly Beat[] = closing ? ["result-shown"] : [];
     if (mode === "stay") {
-        // A trick that stays lies on the felt with or without the stage; only a lead in the same update needs the rest.
-        return leadFollows && timing !== null
-            ? { stage: resting(trick, before, now, timing.restMilliseconds, 0), beats: jumped.beats }
-            : { stage: SETTLED, beats: jumped.beats };
+        // A trick that stays lies on the felt with or without the stage; only a lead in the same update, or the result
+        // that comes after it, needs the rest.
+        return (leadFollows || closing) && timing !== null
+            ? { stage: resting(trick, before, now, timing.restMilliseconds, 0, closing), beats: jumped.beats }
+            : { stage: SETTLED, beats: [...jumped.beats, ...resultBeats] };
     }
     return timing === null
-        ? { stage: SETTLED, beats: [...jumped.beats, "glide-started"] }
+        ? { stage: SETTLED, beats: [...jumped.beats, "glide-started", ...resultBeats] }
         : {
-              stage: resting(trick, before, now, timing.restMilliseconds, timing.glideMilliseconds),
+              stage: resting(trick, before, now, timing.restMilliseconds, timing.glideMilliseconds, closing),
               beats: jumped.beats,
           };
 }
@@ -128,13 +138,23 @@ function resting(
     now: number,
     restMilliseconds: number,
     glideMilliseconds: number,
+    resultPending: boolean,
 ): StageState {
-    return { phase: "resting", until: now + restMilliseconds, trick, before, glideMilliseconds, turnPending: false };
+    return {
+        phase: "resting",
+        until: now + restMilliseconds,
+        trick,
+        before,
+        glideMilliseconds,
+        turnPending: false,
+        resultPending,
+    };
 }
 
 /** The moment the phase ends, the next begins. */
 export function advance(stage: StageState, now: number): Step {
     if (stage.phase === "settled" || now < stage.until) return { stage, beats: [] };
-    if (stage.phase === "gliding" || stage.glideMilliseconds === 0) return { stage: SETTLED, beats: turnBeat(stage) };
+    if (stage.phase === "gliding" || stage.glideMilliseconds === 0)
+        return { stage: SETTLED, beats: settledBeats(stage) };
     return { stage: { ...stage, phase: "gliding", until: now + stage.glideMilliseconds }, beats: ["glide-started"] };
 }

@@ -32,10 +32,10 @@ const TAKEN: Cue = { kind: "trick-taken", trick: TRICK };
 const TURN: Cue = { kind: "turn-came" };
 
 function received(changes: Partial<Received>): Received {
-    return { cues: [], before: BEFORE, timing: TIMING, mode: "sweep", now: NOW, ...changes };
+    return { cues: [], before: BEFORE, timing: TIMING, mode: "sweep", closing: false, now: NOW, ...changes };
 }
 
-function resting(glideMilliseconds = TIMING.glideMilliseconds, turnPending = false): StageState {
+function resting(glideMilliseconds = TIMING.glideMilliseconds, turnPending = false, resultPending = false): StageState {
     return {
         phase: "resting",
         until: NOW + TIMING.restMilliseconds,
@@ -43,6 +43,7 @@ function resting(glideMilliseconds = TIMING.glideMilliseconds, turnPending = fal
         before: BEFORE,
         glideMilliseconds,
         turnPending,
+        resultPending,
     };
 }
 
@@ -232,5 +233,48 @@ describe("the turn that came to the viewer", () => {
 
     it("is not shown again once it has been", () => {
         expect(advance(SETTLED, NOW)).toEqual({ stage: SETTLED, beats: [] });
+    });
+});
+
+describe("the result of the hand the last trick ends", () => {
+    const closing = { cues: [COMPLETING, TAKEN], closing: true };
+
+    it("waits for the last trick to rest and glide before it is shown", () => {
+        const received_ = receive(SETTLED, received(closing));
+        const gliding = advance(received_.stage, NOW + TIMING.restMilliseconds);
+        const settled = advance(gliding.stage, NOW + TIMING.restMilliseconds + TIMING.glideMilliseconds);
+
+        expect(received_).toEqual({ stage: resting(TIMING.glideMilliseconds, false, true), beats: [] });
+        expect(gliding.beats).toEqual(["glide-started"]);
+        expect(settled).toEqual({ stage: SETTLED, beats: ["result-shown"] });
+    });
+
+    it("is shown at once with a budget of zero, the sweep still sounding", () => {
+        const step = receive(SETTLED, received({ ...closing, timing: null }));
+
+        expect(step).toEqual({ stage: SETTLED, beats: ["glide-started", "result-shown"] });
+    });
+
+    it("is shown when the window turns hidden while the last trick rests", () => {
+        expect(jump(resting(TIMING.glideMilliseconds, false, true))).toEqual({
+            stage: SETTLED,
+            beats: ["glide-started", "result-shown"],
+        });
+    });
+
+    it("is shown after the rest of a last trick that stays on the felt", () => {
+        const step = receive(SETTLED, received({ ...closing, mode: "stay" }));
+
+        expect(step).toEqual({ stage: resting(0, false, true), beats: [] });
+        expect(advance(step.stage, NOW + TIMING.restMilliseconds)).toEqual({
+            stage: SETTLED,
+            beats: ["result-shown"],
+        });
+    });
+
+    it("is shown at once with a budget of zero when the last trick stays on the felt", () => {
+        const step = receive(SETTLED, received({ ...closing, mode: "stay", timing: null }));
+
+        expect(step).toEqual({ stage: SETTLED, beats: ["result-shown"] });
     });
 });
