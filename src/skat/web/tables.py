@@ -44,7 +44,6 @@ if TYPE_CHECKING:
     from skat.web.presence import Presence
 
 TABLES_PATH: Final = "/api/tables"
-
 TABLE_PAGE_PREFIX: Final = "/t/"
 # The live view of a table: `TABLES_PATH/{table_id}` plus this.
 TABLE_EVENTS_SUFFIX: Final = "/events"

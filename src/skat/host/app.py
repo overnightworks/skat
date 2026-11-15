@@ -78,6 +78,7 @@ from skat.web.sign_in import (
 )
 from skat.web.streams import StreamSlots, StreamSource, create_streams_router
 from skat.web.style import create_style_router
+from skat.web.sweep_line import SweepCounts, SweepLine
 from skat.web.tables import create_tables_router
 from skat.web.wakes import SharedWakes, WakeList
 
@@ -328,11 +329,13 @@ def _refuse_invalid_request(_request: Request, refusal: Exception) -> JSONRespon
 
 async def _end_unplayed_tables(
     settings: ServerSettings, tables: TableService, presence: Presence, *, at_start: bool
-) -> None:
-    """End every table whose days without a deal or step of play are up and wake its streams. A table that fails is
-    skipped and retried by the next run, except at the start, where the failure stops the server.
+) -> int:
+    """End every table whose days without a deal or step of play are up and wake its streams, and return how many
+    ended. A table that fails is skipped and retried by the next run, except at the start, where the failure stops the
+    server.
     """
     days = settings.paused_table_days
+    ended_count = 0
     for table_id in await run_in_threadpool(tables.unplayed_tables, days):
         try:
             ended = await run_in_threadpool(tables.end_unplayed_table, table_id, days, presence.writing(table_id.value))
@@ -344,28 +347,35 @@ async def _end_unplayed_tables(
             continue
         if ended:
             presence.table_ended(table_id.value)
+            ended_count += 1
+    return ended_count
 
 
-async def _forget_ended_tables(settings: ServerSettings, tables: TableService) -> None:
-    await run_in_threadpool(tables.forget_ended_tables, settings.ended_table_days)
+async def _forget_ended_tables(settings: ServerSettings, tables: TableService) -> int:
+    return await run_in_threadpool(tables.forget_ended_tables, settings.ended_table_days)
 
 
-def _session_forgetter(app: FastAPI, sessions: ExpirableSessions) -> Callable[[], Awaitable[None]]:
-    """The call that deletes the sessions expired by webauth's clock; every pod runs it, and a repeat deletes none."""
+def _session_forgetter(app: FastAPI, sessions: ExpirableSessions) -> Callable[[], Awaitable[int]]:
+    """The call that deletes the sessions expired by webauth's clock and returns how many went; every pod runs it, and
+    a repeat deletes none.
+    """
 
-    async def forget() -> None:
+    async def forget() -> int:
         now = datetime.fromtimestamp(installed_web_auth_config(app).wall_clock(), UTC)
-        await run_in_threadpool(sessions.delete_expired, now)
+        return await run_in_threadpool(sessions.delete_expired, now)
 
     return forget
 
 
-async def _swept(step: Callable[[], Awaitable[None]], log_failure: Callable[[str], None]) -> None:
-    """Run one step of a sweep; a failure is logged by its type, and the next step and the next sweep still run."""
+async def _swept(step: Callable[[], Awaitable[int]], log_failure: Callable[[str], None]) -> int | None:
+    """Run one step of a sweep and return its count; a failure is logged by its type and counts nothing, and the next
+    step and the next sweep still run.
+    """
     try:
-        await step()
+        return await step()
     except Exception as failure:
         log_failure(type(failure).__name__)
+        return None
 
 
 def _sweep_tables(
@@ -373,21 +383,26 @@ def _sweep_tables(
     tables: TableService,
     presence: Presence,
     scheduler: Scheduler,
-    forget_expired_sessions: Callable[[], Awaitable[None]],
+    forget_expired_sessions: Callable[[], Awaitable[int]],
     period_seconds: float,
 ) -> None:
+    line = SweepLine()
+
     async def sweep() -> None:
-        await _swept(
+        step = line.run()
+        ended = await _swept(
             lambda: _end_unplayed_tables(settings, tables, presence, at_start=False),
             lambda failure: log.error("unplayed_tables_read.failed", error_type=failure),
         )
-        await _swept(
+        forgotten_tables = await _swept(
             lambda: _forget_ended_tables(settings, tables),
             lambda failure: log.error("ended_tables_forget.failed", error_type=failure),
         )
-        await _swept(
+        forgotten_sessions = await _swept(
             forget_expired_sessions, lambda failure: log.error("expired_sessions_forget.failed", error_type=failure)
         )
+        counts = SweepCounts(ended or 0, forgotten_tables or 0, forgotten_sessions or 0)
+        line.written(step, counts, failed=None in (ended, forgotten_tables, forgotten_sessions))
         if not presence.stopped:
             scheduler.schedule(period_seconds, sweep)
 
