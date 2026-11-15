@@ -3546,8 +3546,9 @@ body {
         --lie: 9deg;
     }
 
-    .room .laid.near {
-        top: 64%;
+    .room .laid.near,
+    .room .lead-slot {
+        top: 55%;
     }
 
     .room .points {
@@ -3943,12 +3944,18 @@ body {
     .room .own-hand.picking {
         --card-width: 96px;
         --strip: 48px;
+
+        /* The hand steps down by the lift, so a picked card stays clear of the near chair above it. */
+        margin-top: calc(var(--card-width) * 0.3 + 12px);
+    }
+
+    .room .own-hand .pick.picked {
+        translate: 0 calc(var(--card-width) * -0.3);
     }
 
     .room .declare {
         flex-direction: row;
-        place-self: center;
-        margin-bottom: 0;
+        margin-bottom: calc(var(--near-chair-width) * 0.75 + 12px);
     }
 
     .room .declare.choosing {
@@ -3957,12 +3964,11 @@ body {
         margin-left: 76px;
     }
 
-    /* The stage's two keys stand centred under the skat, whose cards are 80px wide here. */
+    /* The stage's two keys stand centred over the near chair. */
     .room .declare.pushing.choosing {
         grid-column: 1 / 3;
         justify-self: center;
         margin-left: 0;
-        translate: 0 106px;
     }
 
     /* The drop slots stand over their button. */
@@ -4169,19 +4175,34 @@ body {
     }
 
     /* The far chairs stand at the felt's rim, the near one centred over the hand, as the scenes draw them. */
+    .room .chair:nth-child(3) {
+        --chair-width: var(--near-chair-width);
+    }
+
     .room .stage {
         width: min(100%, 1180px);
         grid-template-rows: auto minmax(165px, 1fr) minmax(165px, 1fr) auto;
         --chair-width: 160px;
+        --near-chair-width: 128px;
         padding-bottom: 8px;
     }
     .room .felt {
         margin-inline: 120px;
     }
 
-    /* While a hand is played the near chair stands on the felt's lower rim, its top lapping the place where the own card lands, and the hand steps down by as much. */
+    /* While a hand is played the near chair stands on the felt's lower rim, just below the place where the own card lands and above the hand, and the hand steps down by as much as the chair sticks out. */
     .room .stage:has(> .trick) {
-        --chair-drop: 60px;
+        --chair-drop: 66px;
+        --trick-rise: 80px;
+    }
+
+    /* The trick lies up among the far chairs' row, where the felt is wide and nothing else stands, and the felt keeps its height below it, so the near chair, the hand and the bar still fit the screen. */
+    .room .stage:has(> .trick) .trick {
+        margin-top: calc(var(--trick-rise) * -1);
+    }
+
+    .room .stage:has(> .trick) .felt {
+        margin-bottom: calc(36px - var(--trick-rise));
     }
 
     .room .stage:has(> .trick) .chair:nth-child(3) {
@@ -4194,8 +4215,25 @@ body {
         margin-top: 12px;
     }
 
+    /* A card lifted in the hand stops short of the chair above it. */
     .room .stage:has(> .trick) .controls {
-        margin-top: calc(12px + var(--chair-drop));
+        margin-top: calc(22px + var(--chair-drop));
+    }
+
+    /* The near chair's plate grows by the away note, so the controls step down by as much. */
+    .room .stage:has(.chair:nth-child(3) .away-note) .controls {
+        margin-top: 26px;
+    }
+
+    .room .stage:has(> .trick):has(.chair:nth-child(3) .away-note) .controls {
+        margin-top: calc(36px + var(--chair-drop));
+    }
+
+    /* The near chair is too narrow for the away mark beside its position label, so the mark stands below it. */
+    .room .chair:nth-child(3) .mark.pos ~ .mark.away {
+        top: 36px;
+        right: 6px;
+        left: auto;
     }
     .room .chair:nth-child(1) {
         justify-self: start;
