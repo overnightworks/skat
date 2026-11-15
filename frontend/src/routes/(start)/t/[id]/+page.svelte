@@ -95,6 +95,7 @@
         isDealing,
         receiveOnStage,
         resetStage,
+        stageMoves,
         sweepingTo,
         trickIsMoving,
     } from "#lib/stage.svelte.ts";
@@ -213,7 +214,7 @@
         receiveOnStage(previous, cues, whenResultShown);
     };
 
-    const tables = tableShowing(presentTable, (ordinal) => readGameSheet(id, ordinal));
+    const tables = tableShowing(presentTable, (ordinal) => readGameSheet(id, ordinal), stageMoves);
 
     // SvelteKit keeps this component when the address changes from one table to another.
     $effect(() => {

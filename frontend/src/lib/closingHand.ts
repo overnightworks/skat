@@ -1,6 +1,5 @@
 import { closeHand } from "#lib/closingTrick.ts";
 import { closedHandOrdinal, cuesBetween, type Cue } from "#lib/cues.ts";
-import { stageMoves } from "#lib/stage.svelte.ts";
 import type { GameSheet, Table } from "../routes/(start)/tables.ts";
 
 // A game sheet that is slower than this does not hold the result back.
@@ -32,6 +31,7 @@ type Held = { queued: [Table, Table][] };
 export function tableShowing(
     present: Presenter,
     readSheet: (ordinal: number) => Promise<GameSheet | null>,
+    stageMoves: () => boolean,
 ): TableShowing {
     let shown: Table | undefined;
     let closing: Held | null = null;

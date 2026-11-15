@@ -3,10 +3,7 @@ import { tableShowing } from "#lib/closingHand.ts";
 import { afterTheLastCard, beforeTheLastCard, sheetOfTheLastTrick } from "#lib/closingTrick.fixtures.ts";
 import type { Cue } from "#lib/cues.ts";
 import { MIDDLEHAND } from "#lib/cues.fixtures.ts";
-import { stageMoves } from "#lib/stage.svelte.ts";
 import type { GameSheet, Table } from "../routes/(start)/tables.ts";
-
-vi.mock("#lib/stage.svelte.ts", () => ({ stageMoves: vi.fn() }));
 
 type Presented = { previous: Table | undefined; table: Table; cues: readonly Cue[] };
 
@@ -15,13 +12,19 @@ const nextHand: Table = { ...beforeTheLastCard, version: 20 };
 const afterwards: Table = { ...afterTheLastCard, version: 21 };
 const lastTrickSheet = sheetOfTheLastTrick(MIDDLEHAND);
 
+let stageIsMoving = true;
+
 function showing(readSheet: (ordinal: number) => Promise<GameSheet | null>) {
     const presented: Presented[] = [];
     const resultShown: (() => void)[] = [];
-    const shown = tableShowing((previous, table, cues, whenResultShown) => {
-        presented.push({ previous, table, cues });
-        if (whenResultShown !== undefined) resultShown.push(whenResultShown);
-    }, readSheet);
+    const shown = tableShowing(
+        (previous, table, cues, whenResultShown) => {
+            presented.push({ previous, table, cues });
+            if (whenResultShown !== undefined) resultShown.push(whenResultShown);
+        },
+        readSheet,
+        () => stageIsMoving,
+    );
     return { shown, presented, resultShown };
 }
 
@@ -29,12 +32,11 @@ const kinds = (presentation: Presented | undefined): string[] => presentation?.c
 
 beforeEach(() => {
     vi.useFakeTimers();
-    vi.mocked(stageMoves).mockReturnValue(true);
+    stageIsMoving = true;
 });
 
 afterEach(() => {
     vi.useRealTimers();
-    vi.mocked(stageMoves).mockReset();
 });
 
 describe("the tables the stream brings", () => {
@@ -156,7 +158,7 @@ describe("the table that follows the last card", () => {
     });
 
     it("shows the table as any other when the stage does not move", () => {
-        vi.mocked(stageMoves).mockReturnValue(false);
+        stageIsMoving = false;
         const readSheet = vi.fn(() => Promise.resolve<GameSheet | null>(lastTrickSheet));
         const { shown, presented } = showing(readSheet);
         shown.begin(beforeTheLastCard);
@@ -172,7 +174,7 @@ describe("the table that follows the last card", () => {
         shown.begin(beforeTheLastCard);
 
         shown.show(afterwards);
-        vi.mocked(stageMoves).mockReturnValue(false);
+        stageIsMoving = false;
         await vi.advanceTimersByTimeAsync(0);
 
         expect(presented.map(({ table }) => table)).toEqual([afterwards]);
