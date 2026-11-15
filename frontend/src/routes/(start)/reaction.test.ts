@@ -2,12 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { OWN_SEAT, tableSeenFrom } from "#lib/tableSound.fixtures.ts";
 import { REACTION_TOKENS, TABLE_REACTION_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
+import { words } from "#lib/words.ts";
 import {
     EMOTES,
+    emoteGlyph,
     isTableObject,
     reactionMark,
     reactionName,
     reactionsBetween,
+    spokenOf,
     throwReaction,
     type Thrown,
 } from "./reaction.ts";
@@ -39,10 +42,31 @@ describe("the closed set of reactions", () => {
         expect(isTableObject(reaction)).toBe(reactionMark(reaction) === null);
     });
 
+    it.each(REACTION_TOKENS)(
+        "draws %s as a glyph if it is an emote and as none if it is an object of the table",
+        (reaction) => {
+            expect(emoteGlyph(reaction) === "").toBe(isTableObject(reaction));
+        },
+    );
+
     it("offers the emotes in the tray and the objects of the table not", () => {
         expect(EMOTES).toEqual(REACTION_TOKENS.filter((reaction) => !isTableObject(reaction)));
         expect(EMOTES.length).toBeGreaterThan(0);
         expect(EMOTES.length).toBeLessThan(REACTION_TOKENS.length);
+    });
+});
+
+describe("what a screen reader says of the latest reaction", () => {
+    it("is nothing before the first", () => {
+        expect(spokenOf(undefined)).toBe("");
+    });
+
+    it("names the thrower and the reaction", () => {
+        expect(spokenOf(thrown(1))).toBe(`Anna ${words[reactionName("fire")]}`);
+    });
+
+    it("names the reaction alone for a watcher", () => {
+        expect(spokenOf({ ...thrown(1), by_seat: null, by_name: null }).trim()).toBe(words[reactionName("fire")]);
     });
 });
 

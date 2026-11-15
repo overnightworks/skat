@@ -1,5 +1,5 @@
 import { REACTION_TOKENS, TABLE_REACTION_SUFFIX } from "#lib/wire.ts";
-import type { Key, words } from "#lib/words.ts";
+import { words, type Key } from "#lib/words.ts";
 import { post, type Table } from "./tables.ts";
 
 // The catalog keys whose word is a plain text, which a name or a glyph is.
@@ -34,6 +34,17 @@ export function reactionName(reaction: Reaction): TextKey {
 /** The glyph of an emote; null for an object of the table. */
 export function reactionMark(reaction: Reaction): TextKey | null {
     return REACTION_WORDS[reaction].mark;
+}
+
+/** The glyph an emote is drawn as on the felt; nothing for an object of the table, which the table draws. */
+export function emoteGlyph(reaction: Reaction): string {
+    const mark = REACTION_WORDS[reaction].mark;
+    return mark === null ? "" : words[mark];
+}
+
+/** What a screen reader says of the latest reaction: who threw it, if anyone, and what; nothing before the first. */
+export function spokenOf(thrown: Thrown | undefined): string {
+    return thrown === undefined ? "" : `${thrown.by_name ?? ""} ${words[reactionName(thrown.reaction)]}`;
 }
 
 /** Whether the reaction is a tap on an object of the table, which the table draws, and no emote that flies. */
