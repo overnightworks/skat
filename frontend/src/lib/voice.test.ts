@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Cue } from "./cues.ts";
-import { everyRecording, recordingOf, voiceKeyOf, type VoiceKey } from "./voice.ts";
+import { everyRecording, grumbleOf, recordingOf, voiceKeyOf, type VoiceKey } from "./voice.ts";
 import { languages, loadWords, sourceLanguage } from "./words/index.ts";
 import { VALID_BIDS } from "./wire.ts";
 
@@ -40,6 +40,14 @@ describe("the word the voice says for a cue", () => {
         expect(voiceKeyOf(cue)).toBeUndefined();
     });
 
+    it("is one of the grumbles for a nudged chair, whichever the pick", async () => {
+        const catalog = await loadWords(sourceLanguage);
+        const keys = [0, 1, 2, 3, 4, 5, 6].map((pick) => voiceKeyOf({ kind: "nudged", seat: SEAT, pick }));
+
+        expect(new Set(keys).size).toBeGreaterThan(1);
+        for (const key of keys) expect(Object.hasOwn(catalog, key as string)).toBe(true);
+    });
+
     it("has a key in the catalog for every bid the auction allows", async () => {
         const catalog = await loadWords(sourceLanguage);
 
@@ -47,6 +55,17 @@ describe("the word the voice says for a cue", () => {
             const cue: Cue = { kind: "bid-said", seat: SEAT, word: { action: "bid", value } };
             expect(Object.hasOwn(catalog, voiceKeyOf(cue) as string)).toBe(true);
         }
+    });
+});
+
+describe("the grumble of a nudged chair", () => {
+    it("is the same line for the same pick and another line for the next pick", () => {
+        expect([grumbleOf(7), grumbleOf(7)]).toEqual([grumbleOf(7), grumbleOf(7)]);
+        expect(grumbleOf(8)).not.toBe(grumbleOf(7));
+    });
+
+    it("is a voice line for every pick, however large", () => {
+        for (const pick of [0, 5, 10 ** 9]) expect(grumbleOf(pick)).toMatch(/^voice\./);
     });
 });
 

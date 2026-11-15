@@ -51,6 +51,16 @@ export function chairsWithCards(cards: [number, number, number]): Chair[] {
     }));
 }
 
+// The table with the nudges `seat` has had at its version; `byName` is read in the nudged seat's own answer only.
+export function nudged(source: Table, seat: number, nudges: number, byName: string | null = null): Table {
+    return {
+        ...source,
+        chairs: source.chairs.map((chair) =>
+            chair.seat === seat ? { ...chair, nudge: { nudges, may_nudge: false, by_name: byName } } : chair,
+        ),
+    };
+}
+
 export function playing(changes: Partial<Playing>): Playing {
     return {
         turn_seat: FOREHAND,

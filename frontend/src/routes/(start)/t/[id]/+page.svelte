@@ -11,6 +11,7 @@
         passedInScene,
     } from "#lib/auctionMarks.ts";
     import { abortView } from "#lib/abort.ts";
+    import { grumblingAt, ring, stopRinging } from "#lib/bell.svelte.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
     import { cuesBetween, springsUp, stampBetween, type BidWord } from "#lib/cues.ts";
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
@@ -150,7 +151,6 @@
     let seatedAgents = $state("");
     // The free chair whose tap asks the question before a sit, while a hand runs.
     let asking = $state<number | null>(null);
-    let shaking = $state(false);
 
     function showSeatNote(note: SeatNotice): void {
         seatNote = note;
@@ -163,7 +163,6 @@
         streamedWatchers = table.watchers;
         seatedAgents = seatedAgentsKey(previous, table);
         const nudged = previous === undefined ? null : nudgedNote(previous, table);
-        shaking = nudged !== null;
         const cues = cuesBetween(previous, table);
         const note = seatNotice(cues, table) ?? nudged;
         if (note !== null) showSeatNote(note);
@@ -180,6 +179,8 @@
                 showSeatNote(refusalNotice(table.chairs, cue.seats));
             } else if (cue.kind === "bid-said") {
                 bidSaid = cue;
+            } else if (cue.kind === "nudged") {
+                ring(cue);
             } else if (cue.kind === "result-appeared") {
                 countedOrdinal = cue.ordinal;
             } else if (cue.kind === "auction-ended") {
@@ -202,11 +203,11 @@
         streamedVersion = null;
         seatNote = null;
         asking = null;
-        shaking = false;
         playedThisHand = [];
         stamp = null;
         bidSaid = null;
         resetStage();
+        stopRinging();
         let current = true;
         let stopWatching = (): void => {};
         void readTable(id).then((answer) => {
@@ -242,6 +243,7 @@
             clearTimeout(seatNoteTimer);
             stopWatching();
             resetStage();
+            stopRinging();
         };
     });
 
@@ -567,6 +569,7 @@
                         class:got={chair.seat === sweepingTo()}
                         class:turn={onTurn}
                         class:nudgeable={chair.nudge !== null}
+                        class:shaken={grumblingAt(chair.seat) !== null}
                         data-seat={chair.seat}
                         data-moving={chairMoving(chair.seat)}
                     >
@@ -631,7 +634,7 @@
                                     </span>
                                 {/if}
                                 <SpeechBubble
-                                    bubble={marks.bubble}
+                                    bubble={grumblingAt(chair.seat) === null ? marks.bubble : null}
                                     initial={chair.occupant_name.slice(0, 1)}
                                     fresh={springsUp(bidSaid, chair.seat, marks.bubble)}
                                 />
@@ -642,7 +645,7 @@
                                     seat={chair.seat}
                                     name={chair.occupant_name}
                                     nudge={chair.nudge}
-                                    shaking={chair.is_mine && shaking}
+                                    grumble={grumblingAt(chair.seat)}
                                 />
                             {/if}
                             {#if onResult}

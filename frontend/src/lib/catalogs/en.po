@@ -963,6 +963,18 @@ msgctxt "voice.hirsch"
 msgid "Hirsch"
 msgstr "Hirsch"
 
+msgctxt "voice.grumbleComing"
+msgid "Jaja, ich komm ja schon!"
+msgstr "Yeah, yeah, I'm coming!"
+
+msgctxt "voice.grumbleRush"
+msgid "Hetz mich nicht!"
+msgstr "Don't rush me!"
+
+msgctxt "voice.grumbleThinking"
+msgid "Moment, ich denk noch!"
+msgstr "Hold on, I'm thinking!"
+
 msgctxt "voice.value18"
 msgid "achtzehn"
 msgstr "eighteen"
