@@ -1,5 +1,6 @@
 <script lang="ts">
     import { gameRows, type GameRow } from "#lib/series.ts";
+    import GameRowFace from "#lib/ui/GameRowFace.svelte";
     import GameSheet from "#lib/ui/GameSheet.svelte";
     import { words } from "#lib/words.ts";
 
@@ -79,14 +80,7 @@
                 {#each rows ?? [] as row (row.number)}
                     <li>
                         <button type="button" class="grow" onclick={() => (opened = row)}>
-                            <span class="nr">{row.number}</span>
-                            <span class="dot" aria-hidden="true">{row.initial}</span>
-                            <span class="txt">
-                                <b>{row.name}</b>
-                                {#if row.line !== null}<small>{row.line}</small>{/if}
-                            </span>
-                            <span class="val">{row.value}</span>
-                            <span class="gain" class:minus={row.lost}>{row.gain}</span>
+                            <GameRowFace {row} />
                         </button>
                     </li>
                 {/each}

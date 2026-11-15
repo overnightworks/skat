@@ -1,7 +1,14 @@
 import { faceOf, type AskButton, type AskView } from "#lib/giveUp.ts";
 import { LEVEL_WORDS, withMinus } from "#lib/result.ts";
 import { listFormat, words } from "#lib/words.ts";
-import { gameLabel, type Game, type SeriesEndAnswer, type SeriesEntry, type Table } from "../routes/(start)/tables.ts";
+import {
+    gameLabel,
+    type Game,
+    type SeriesEndAnswer,
+    type SeriesEntry,
+    type Standing,
+    type Table,
+} from "../routes/(start)/tables.ts";
 
 // The series as the table answers it: the page counts, asks and ranks what the server decided and decides no rule.
 export function seriesOver(table: Table): boolean {
@@ -53,6 +60,9 @@ export type StandingRow = {
     place: number;
     name: string;
     initial: string;
+    // The chair the account last held in the series, whose colour its dot wears, and whether it sat there as an agent.
+    seat: number;
+    agent: boolean;
     total: string;
     record: string;
     winner: boolean;
@@ -69,6 +79,23 @@ export type StandingsView = {
 
 const FIRST_PLACE = 1;
 
+// One account's place as the server ranked it. `seated` names the accounts that still hold a chair, by seat; with none
+// given nobody is judged to have left, as at a table that has ended.
+export function standingRow(standing: Standing, seated: ReadonlyMap<string, number> | null): StandingRow {
+    const name = standing.display_name ?? words["table.seriesNameless"];
+    return {
+        place: standing.place,
+        name,
+        initial: name.slice(0, 1),
+        seat: standing.seat,
+        agent: standing.kind === "agent",
+        total: withMinus(standing.total),
+        record: words["table.seriesRecord"]({ won: String(standing.won), lost: String(standing.lost) }),
+        winner: standing.place === FIRST_PLACE,
+        gone: seated !== null && !seated.has(name),
+    };
+}
+
 // The end of the series: every account of its list ranked as the server ranked it; the same for every viewer.
 export function standingsView(table: Table): StandingsView | null {
     const series = table.series;
@@ -78,18 +105,7 @@ export function standingsView(table: Table): StandingsView | null {
             chair.occupant_name === null ? [] : [[chair.occupant_name, chair.seat] as const],
         ),
     );
-    const rows = series.standings.map((standing) => {
-        const name = standing.display_name ?? words["table.seriesNameless"];
-        return {
-            place: standing.place,
-            name,
-            initial: name.slice(0, 1),
-            total: withMinus(standing.total),
-            record: words["table.seriesRecord"]({ won: String(standing.won), lost: String(standing.lost) }),
-            winner: standing.place === FIRST_PLACE,
-            gone: !seated.has(name),
-        };
-    });
+    const rows = series.standings.map((standing) => standingRow(standing, seated));
     const winnerSeats = new Set(rows.filter((row) => row.winner).flatMap((row) => seated.get(row.name) ?? []));
     return {
         heading: words["table.seriesEnded"],
@@ -102,8 +118,10 @@ export function standingsView(table: Table): StandingsView | null {
 export type GameRow = {
     number: number;
     name: string;
-    // The seat a Ramsch row names, whose colour its dot wears; a declared game's row has none, its sheet knows the declarer.
-    subjectSeat: number | null;
+    // The seat the row names, whose colour its dot wears: a declared game's declarer, a Ramsch's subject; and whether
+    // that seat held an agent.
+    subjectSeat: number;
+    agent: boolean;
     initial: string;
     // The game and its levels; a Ramsch says how often its skat was pushed, and a Ramsch with no push has none.
     line: string | null;
@@ -131,7 +149,8 @@ function declaredRow(entry: Extract<SeriesEntry, { kind: "declared" }>): GameRow
     return {
         number: entry.number,
         name,
-        subjectSeat: null,
+        subjectSeat: entry.declarer_seat,
+        agent: entry.declarer_kind === "agent",
         initial: name.slice(0, 1),
         line: [gameLabel(entry).name, ...levels].join(", "),
         value: String(entry.settled_value),
@@ -151,6 +170,7 @@ function ramschRow(entry: Extract<SeriesEntry, { kind: "ramsch" }>): GameRow {
         number: entry.number,
         name: words["table.seriesRamschOf"]({ name: listFormat.format(subjects) }),
         subjectSeat: subjectSeats[0] as number,
+        agent: entry.seats[(subjectSeats[0] as number) - 1]?.kind === "agent",
         initial: (subjects[0] as string).slice(0, 1),
         line: entry.pushes === 0 ? null : words["table.seriesPushed"]({ count: entry.pushes }),
         value: "",

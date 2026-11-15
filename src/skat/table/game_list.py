@@ -445,13 +445,16 @@ def result_view_of(table: TableRecord) -> ResultView | RamschResultView | None:
 
 @dataclass(frozen=True)
 class SeriesEntryView:
-    """One finished game in the table's list, the same for every viewer: its place, its declarer by the name stored
-    with the game (None for an entry stored before names were kept), the game, its levels, its value, the
-    declarer's gain or loss and the card points he is credited with. It names no account and no card.
+    """One finished game in the table's list, the same for every viewer: its place, its declarer by the name and kind
+    stored with the game (None for an entry stored before they were kept) and the seat he sat in, the game, its
+    levels, its value, the declarer's gain or loss and the card points he is credited with. It names no account and no
+    card.
     """
 
     number: int
     declarer_name: str | None
+    declarer_seat: int
+    declarer_kind: OccupantKind | None
     declaration: Declaration
     levels: tuple[Level, ...]
     settled_value: int
@@ -463,11 +466,12 @@ class SeriesEntryView:
 
 @dataclass(frozen=True)
 class RamschSeriesSeat:
-    """One seat of a Ramsch's row: the name stored with the game (None for an entry stored before names were kept)
-    and the seat's list score.
+    """One seat of a Ramsch's row: the name and kind stored with the game (None for an entry stored before they were
+    kept) and the seat's list score.
     """
 
     name: str | None
+    kind: OccupantKind | None
     score: int
 
 
@@ -494,7 +498,8 @@ def _series_entry_view_of(
         return RamschSeriesEntryView(
             number=number,
             seats=tuple(
-                RamschSeriesSeat(name, score) for name, score in zip(entry.seat_names, entry.seat_scores, strict=True)
+                RamschSeriesSeat(name, kind, score)
+                for name, kind, score in zip(entry.seat_names, entry.seat_kinds, entry.seat_scores, strict=True)
             ),
             durchmarsch=entry.durchmarsch_seat is not None,
             jungfrau=entry.jungfrau,
@@ -505,6 +510,8 @@ def _series_entry_view_of(
     return SeriesEntryView(
         number=number,
         declarer_name=entry.seat_names[entry.declarer_seat - 1],
+        declarer_seat=entry.declarer_seat,
+        declarer_kind=entry.seat_kinds[entry.declarer_seat - 1],
         declaration=entry.declaration,
         levels=entry.levels,
         settled_value=entry.settled_value,

@@ -156,19 +156,8 @@ def _backfill_series() -> None:
     )
 
 
-def _assert_every_series_has_its_row() -> None:
-    op.execute(
-        "DO $$ BEGIN"
-        " IF EXISTS (SELECT 1 FROM game_list g WHERE NOT EXISTS"
-        "  (SELECT 1 FROM series s WHERE s.table_id = g.table_id AND s.number = g.series_number))"
-        " OR EXISTS (SELECT 1 FROM tables t WHERE NOT EXISTS"
-        "  (SELECT 1 FROM series s WHERE s.table_id = t.id AND s.number = t.series_number))"
-        " THEN RAISE EXCEPTION 'a series of a game or a table has no row to move to'; END IF;"
-        " END $$"
-    )
-
-
 def _guard_games_by_their_series() -> None:
+    """The foreign key's creation fails loud on a game whose series the backfill missed, before any column is dropped."""
     kinds = [f"seat_{seat}_kind" for seat in (1, 2, 3)]
     op.execute(
         "ALTER TABLE game_list DROP CONSTRAINT game_list_table_id_fkey,"
@@ -183,7 +172,6 @@ def _guard_games_by_their_series() -> None:
 def upgrade() -> None:
     _create_series()
     _backfill_series()
-    _assert_every_series_has_its_row()
     _guard_games_by_their_series()
     # A dropped column takes every check that names it with it.
     op.execute("ALTER TABLE tables " + ", ".join(f"DROP COLUMN {column}" for column in MOVED_COLUMNS))

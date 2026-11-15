@@ -2526,6 +2526,125 @@ const BELL_SCENES=[
     ['Lena schaut zu und hat keinen Stuhl: dieselbe Glocke, dasselbe Rütteln und dieselbe Blase wie bei den Spielern, nur ohne ihre eigenen Karten.']],
 ];
 agentScenes(BELL_SCENES);
+/* ===== the series end: the ask, the wait, a refusal, the choice, the silent minute, the settings and the closed link ===== */
+const HOUSE_RULES=[
+  {id:'points',ic:I.points,name:'Laufende Augen zeigen',line:'Alle sehen die Augen im Spiel',chip:'Augen'},
+  {id:'kontra',ic:I.kontra,name:'Kontra und Re',line:'Verdoppeln und zurückdoppeln',chip:'Kontra',vars:[
+    {q:'Wer darf Kontra sagen?',pick:['Jeder Gegner','Nur wer gereizt hat'],at:1},
+    {q:'Wie weit geht es?',pick:['Kontra, Re','mit Ständen','bis Hirsch'],at:2},
+    {q:'Wann muss das Wort fallen?',pick:['bis zur eigenen Karte','vor der ersten Karte'],at:0}]},
+  {id:'ramsch',ic:I.ramsch,name:'Ramsch beim Einpassen',line:'Alle passen: jeder gegen jeden',chip:'Ramsch',vars:[
+    {q:'Wie zählt der Ramsch?',pick:['Augen','Augen durch 10','Skat zum Verlierer'],at:0},
+    {q:'Jungfrau (kein Stich)',pick:['Verlierer doppelt','Aus'],at:0},
+    {q:'Durchmarsch (alle Stiche)',pick:['Gewinnt 120','120, nicht doppelt','Aus'],at:0}],
+    sub:{id:'schieben',ic:I.schieben,name:'Schieberamsch',line:'Den Skat weiterschieben',vars:[
+      {q:'Was beim Schieben gilt',pick:['Buben bleiben','Buben dürfen weg','Nicht doppelt'],at:0},
+      {q:'Grand Hand statt Ramsch',pick:['Aus','Erlaubt'],at:0}]}},
+  {id:'bock',ic:I.bock,name:'Bockrunden',line:'Manche Spiele zählen doppelt',chip:'Bock',vars:[
+    {q:'Bock gibt es nach',flags:[['60 zu 60',1],['Grand Hand gewonnen',1],['Verloren nach Kontra',1],['Re',1],['Alle gepasst',0],['Schneider',0]]},
+    {q:'Neuer Auslöser im Bock',pick:['Runden dazu','Nochmal doppelt','Zählt nicht'],at:0}]},
+];
+const ruleRow=(r,on,sub)=>`<div class="hrule ${sub?'sub':''} ${on.includes(r.id)?'on':''}" role="group" aria-label="${r.name}"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${r.line}</small></span>
+  <span class="sw ${on.includes(r.id)?'on':''}" role="switch" tabindex="0" aria-checked="${on.includes(r.id)}" aria-label="${r.name}"><i>${I.check}</i></span></div>`;
+/* a rule's variants start with the values of the picked set; „Offiziell“ holds none, so a rule switched on there starts with Felix's */
+const askRow=(a)=>a.flags
+  ?`<div class="ask" role="group" aria-label="${a.q}"><span class="q">${a.q}</span><div class="flags">${a.flags.map(([name,v])=>`<div class="flag"><span>${name}</span><span class="sw sm ${v?'on':''}" role="switch" tabindex="0" aria-checked="${!!v}" aria-label="${name}"><i>${I.check}</i></span></div>`).join('')}</div></div>`
+  :`<div class="ask" role="radiogroup" aria-label="${a.q}"><span class="q">${a.q}</span><div class="pick" style="--n:${a.pick.length}">${a.pick.map((name,i)=>`<span class="pk ${i===a.at?'on':''}" role="radio" aria-checked="${i===a.at}" tabindex="0">${i===a.at?I.check:''}${name}</span>`).join('')}</div></div>`;
+/* a rule switched on unfolds into its variants; one with none, or off, stays the plain row */
+const ruleUnit=(r,on,sub)=>on.includes(r.id)&&r.vars
+  ?`<div class="unit ${sub?'sub':''}">${ruleRow(r,on)}<div class="vars">${r.vars.map(askRow).join('')}</div></div>`
+  :ruleRow(r,on,sub);
+const rulesPart=(on)=>`<div class="hrules">${HOUSE_RULES.map(r=>ruleUnit(r,on)+(r.sub&&on.includes(r.id)?ruleUnit(r.sub,on,true):'')).join('')}</div>`;
+/* the sets a person can pick when opening a table; the official one is the default */
+const RULE_SETS=[{id:'official',name:'Offiziell',on:[]},{id:'felix',name:'Felix',on:['kontra','ramsch','schieben','bock']},{id:'skatabend',name:'Skatabend',on:[]}];
+const setChoice=(picked)=>`<div class="sets" role="radiogroup" aria-label="Regeln">${RULE_SETS.map(t=>`<span class="set ${t.id===picked?'on':''}" role="radio" aria-checked="${t.id===picked}" tabindex="0">${t.id===picked?I.check:''}${t.name}</span>`).join('')}</div>`;
+/* the length of a table's series: any multiple of 3 from 3 to 99, set in a number field with steps of 3 and named once when the table opens */
+const lengthChoice=(length)=>`<div class="stepper" role="group" aria-label="Länge der Serie"><span class="step" role="button" tabindex="0" aria-label="3 Spiele weniger">−</span><span class="stepvalue" role="spinbutton" tabindex="0" aria-valuemin="3" aria-valuemax="99" aria-valuenow="${length}" aria-label="Spiele">${length}<small>Spiele</small></span><span class="step" role="button" tabindex="0" aria-label="3 Spiele mehr">${I.plus}</span></div>`;
+Object.assign(P,{
+  mozart:{...P.nova,n:'Mozart'},
+  benSelf:{...P.ben,n:'Du'},
+});
+/* the three chairs, seen from the near one: clockwise near, left, right */
+const SEATING={ben:{near:'benSelf',left:'anna',right:'mozart'},anna:{near:'annaSelf',left:'mozart',right:'ben'}};
+const seriesEndSeats=(d,view,marks={},o={})=>{const L=endLayout(d),who=SEATING[view],place={left:L.anna,right:L.nova,near:L.you};
+  return ['left','right','near'].map(spot=>{const k=who[spot],base=k.replace('Self','').toLowerCase();
+    return seat(k,{...place[spot],marks:marks[base]||[],win:(o.winners||[]).includes(base)});}).join('');};
+const seriesEndCoasters=(d,view,score)=>{const who=SEATING[view];
+  return chairCoasters(endLayout(d),['left','right','near'].map(spot=>score[who[spot].replace('Self','').toLowerCase()]));};
+const BEFORE_END={anna:148,ben:62,mozart:55};
+MARK.yes=`<span class="mark ready" title="Ja">${I.check}</span>`;
+/* the ask on the plaque: who asks, the minute counting down, the two answers for whoever has not answered */
+const askLine=(line,clock)=>`<div class="game">${faceDot('anna')}${line}</div><div class="clockline">${I.clock}<span>ohne Antwort in ${clock} = Nein</span></div>`;
+const seriesEndPlaque=(d,inner)=>plaque(d?640:195,d?150:206,inner).replace('class="plaque"','class="plaque ask"');
+const JA_NEIN=answers({icon:I.check,text:'Ja'},{icon:I.cross,text:'Nein'});
+const bareBar=(keys)=>`<div class="sbar">${keys}</div>`;
+
+/* the standings with the next series' settings under them and the way to change them */
+const NEXT_RULES=['ramsch','kontra'];
+const nextLine=(o={})=>`<div class="nextline"><span class="lbl">Nächste Serie</span><span class="chips"><span class="chip len">${I.clock}12 Spiele</span>${TABLE_RULES.filter(r=>NEXT_RULES.includes(r.id)).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join('')}</span><span class="change" role="button">Ändern</span></div>`;
+const seriesEndRank=([k,place,total])=>{const p=P[k];
+  return `<div class="rank ${place===1?'win':''}"><span class="place">${place}</span><span class="dot ${p.agent?'agent':''}" style="${dotStyle(p)}">${dotInner(p)}</span>`
+    +`<span class="txt"><b>${p.n}${p.agent?aiMark():''}</b></span><span class="sum">${withMinus(total)}</span></div>`;};
+const END_ROWS=[['anna',1,502],['benSelf',2,365],['mozart',3,233]];
+const END_ROWS_ANNA=[['annaSelf',1,502],['ben',2,365],['mozart',3,233]];
+const FINAL={anna:502,ben:365,mozart:233};
+const seriesEndStandings=(d,rows)=>`<div class="result standing" role="status" style="${at(d?{left:640,top:100,width:480}:{left:195,top:158,width:358})}">
+  <h3>${I.trophy}Serie zu Ende</h3><div class="sub">36 Spiele</div><div class="ranks">${rows.map(seriesEndRank).join('')}</div>${nextLine()}</div>`;
+const NEW_SERIES_KEY=barKey('',I.check,'Neue Serie');
+const STOP_KEY=barKey('glass',I.stand,'Aufhören');
+/* the ended table's link: the empty chairs, the final standings, the games to read, a new table */
+const lastGames=()=>[...GAMES_PLAYED].reverse().slice(0,7).map(([n,k,...rest])=>{const who=k==='felix'?'mozart':k,p=P[who],row=gameRow([n+16,who==='mozart'?'anna':who,...rest]);
+  return who==='mozart'?row.replace(/<span class="dot" style="[^"]*">A<\/span>/,`<span class="dot agent">${dotInner(p)}</span>`).replace('<b>Anna</b>',`<b>${p.n}${aiMark()}</b>`):row;}).join('');
+const CLOSED_ROWS=[['anna',1,502],['ben',2,365],['mozart',3,233]];
+const closedTable=(d)=>(d?emptyChair(DE.anna,'anna',-7)+emptyChair(DE.right,'ben',7)+emptyChair(DE.you,'felix',4)+table(DB.table)
+  :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table))+homeButton(d,homeBadge)
+  +`<div class="result standing closedseries" role="status" style="${at(d?{left:640,top:40,width:500}:{left:195,top:64,width:358})}"><h3>${I.trophy}Serie beendet</h3><div class="sub">36 Spiele</div>
+  <div class="ranks">${CLOSED_ROWS.map(seriesEndRank).join('')}</div><div class="gamesbox"><span class="lbl">Spiele</span><div class="rows">${lastGames()}</div></div>
+  <div class="btns"><span class="button button-stage">${I.plus}Neuer Tisch</span></div></div>`;
+const COUNT_8=(d)=>seriesCount(d,8);
+
+
+/* „Ändern“ opens the start sheet's body filled with the last series' values over the end scene, behind a scrim */
+const SETTINGS_SHEET={390:{x:195,w:354,top:40,h:780},1280:{x:640,w:440,top:24,h:752}};
+const SERIES_END_SCENE=(d)=>dealRoom(d,{watchers:1})+seriesEndStandings(d,END_ROWS)
+  +seriesEndSeats(d,'ben',{anna:['ready'],mozart:['ready'],ben:['notTapped']},{winners:['anna']})+seriesEndCoasters(d,'ben',FINAL)
+  +bareBar(NEW_SERIES_KEY+STOP_KEY);
+const seriesSheet=(d)=>{const z=SETTINGS_SHEET[d?1280:390];
+  return `<div class="scrim over"></div><div class="setsheet" role="dialog" aria-label="Nächste Serie" style="${at({left:z.x,top:z.top,width:z.w,'max-height':z.h})}"><h3>Nächste Serie</h3>
+  ${lengthChoice(12)}${setChoice('')}
+  <div class="sbody down">${rulesPart(['kontra','ramsch'])}</div>
+  <p class="takeback">Speichern nimmt Annas und Mozarts „Neue Serie“ zurück.</p>
+  <div class="btns"><span class="button button-stage">${I.check}Speichern</span><span class="button button-glass">Abbrechen</span></div></div>`;};
+const SERIES_END_SCENES=[
+  ['seriesend-ask','Ben wird gefragt',(d)=>dealRoom(d,{watchers:1})+COUNT_8(d)
+    +seriesEndPlaque(d,askLine('Anna möchte die Serie beenden','0:42')+JA_NEIN)
+    +seriesEndSeats(d,'ben',{anna:['yes'],mozart:['yes'],ben:['unanswered']})+seriesEndCoasters(d,'ben',BEFORE_END)+bareBar(''),
+    ['Anna hat aus ⋯ „Serie beenden“ vorgeschlagen; ihr Stuhl trägt ihr Ja. Mozart ist ein Agent und stimmt wie jeder Mensch, sein Ja steht an seinem Stuhl. Antwortet Ben nicht binnen der Minute, zählt das als Nein.']],
+  ['seriesend-wait','Anna wartet auf Ben',(d)=>dealRoom(d,{watchers:1})+COUNT_8(d)
+    +seriesEndPlaque(d,`<div class="game">${faceDot('ben')}Warte auf Ben${waitDots()}</div><div class="clockline">${I.clock}<span>ohne Antwort in 0:42 = Nein</span></div>`)
+    +seriesEndSeats(d,'anna',{anna:['yes'],mozart:['yes'],ben:['unanswered']})+seriesEndCoasters(d,'anna',BEFORE_END)+tableBar(d,{seated:true}),
+    ['Wer fragt, sieht die Marken und die Minute; eine Taste zum Zurücknehmen gibt es nicht.']],
+  ['seriesend-refused','Ben sagt Nein',(d)=>dealRoom(d,{watchers:1})+COUNT_8(d)
+    +notice('Ben möchte weiterspielen','ben',d?640:195,d?190:236)
+    +seriesEndSeats(d,'anna',{ben:['declined']})+seriesEndCoasters(d,'anna',BEFORE_END)+endBar(d,tapButton),
+    ['Ein Nein beendet den Vorschlag: das Kreuz an Bens Stuhl und die Zeile nennen ihn, „Weiter“ ist zurück, und bis zum nächsten Spiel gibt es keinen neuen Vorschlag.']],
+  ['seriesend-end','Serie zu Ende, Ben wählt',(d)=>dealRoom(d,{watchers:1})+seriesEndStandings(d,END_ROWS)
+    +seriesEndSeats(d,'ben',{anna:['ready'],mozart:['ready'],ben:['notTapped']},{winners:['anna']})+seriesEndCoasters(d,'ben',FINAL)
+    +bareBar(NEW_SERIES_KEY+STOP_KEY),
+    ['Genau zwei Tasten: „Neue Serie“ setzt die Marke am eigenen Stuhl, „Aufhören“ steht auf. Die Zeile darunter zeigt, womit die nächste Serie beginnt; „Ändern“ öffnet die Einstellungen.',
+     'Mozart wählt wie jeder Mensch: sein Haken heißt, er hat „Neue Serie“ getippt. Die neue Serie beginnt erst, wenn alle drei gewählt haben.']],
+  ['seriesend-silent','Neue Serie: Mozart antwortet noch',(d)=>dealRoom(d,{watchers:1})+seriesEndStandings(d,END_ROWS_ANNA)
+    +plaque(d?640:195,d?600:506,`<div class="game">${I.clock}Ohne Antwort in 0:38 endet der Tisch</div>`).replace('class="plaque"','class="plaque ask timer"')
+    +seriesEndSeats(d,'anna',{anna:['ready'],ben:['ready'],mozart:['notTapped']},{winners:['anna']})+seriesEndCoasters(d,'anna',FINAL)
+    +bareBar(`<span class="cb wide glass" role="status">Warte auf Mozart${waitDots()}</span>`+STOP_KEY),
+    ['Eine neue Serie braucht das „Neue Serie“ aller drei. Antwortet einer binnen der Minute nicht, zählt das als Nein: der Tisch endet, und alle sind zurück in der Lobby.']],
+  ['seriesend-settings','Nächste Serie ändern',(d)=>SERIES_END_SCENE(d)+seriesSheet(d),
+    ['„Ändern“ öffnet die Einstellungen der nächsten Serie, gefüllt mit denen der letzten. Speichern nimmt Annas und Mozarts „Neue Serie“ zurück, denn sie haben die alten Einstellungen gewählt.']],
+  ['seriesend-closed','Der Link eines beendeten Tisches',(d)=>closedTable(d),
+    ['Wer den Link eines beendeten Tisches öffnet, sieht die Rangliste mit Platz und Punkten und kann jedes Spiel der Serie nachlesen; wer den Tisch beendet hat, steht nirgends.']],
+];
+scenes(SERIES_END_SCENES);
+ORDER.push(...SERIES_END_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
@@ -2919,6 +3038,89 @@ if(panels.length){hangPanels();document.fonts.ready.then(hangPanels);}}
   .seat.shaken .chair.mo{animation:chair-shake .6s linear .5s both}
   @keyframes chair-shake{0%,100%{translate:0 0;rotate:0deg}15%{translate:5px 0;rotate:1.6deg}35%{translate:-5px 0;rotate:-1.6deg}55%{translate:4px 0;rotate:1.2deg}75%{translate:-3px 0;rotate:-.8deg}}
 }
+</style>
+<style>
+/* ---------- the series' settings sheet: the start page's sheet parts, scoped to the sheet ---------- */
+.setsheet{transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px 16px 16px;border-radius:24px; background:rgba(12,14,17,.8);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:inset 0 0 0 1.5px rgba(240,214,150,.32),0 24px 50px -16px rgba(0,0,0,.9)}
+.d1280 .setsheet{gap:10px}
+.setsheet h3{font-family:var(--font-mark);font-size:32px;font-weight:700;color:#f3cf7a;line-height:1;text-shadow:0 2px 0 rgba(0,0,0,.4)}
+.setsheet .btns{display:flex;gap:10px;width:100%}
+.setsheet .hrules{display:flex;flex-direction:column;gap:8px;width:100%}
+.setsheet .hrule{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 12px;border-radius:16px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(240,214,150,.14)}
+.setsheet .hrule .ic{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--glass);color:var(--on-stage-soft)}
+.setsheet .hrule .ic svg{width:20px;height:20px}
+.setsheet .hrule.on .ic{background:var(--accent-stage);color:var(--stage)}
+.setsheet .hrule .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.setsheet .hrule b{font-size:15px;font-weight:600;line-height:1.2}
+.setsheet .hrule small{font-size:12.5px;line-height:1.25;color:var(--on-stage-soft)}
+.setsheet .hrule.sub{margin-left:26px;min-height:46px;position:relative}
+.setsheet .hrule.sub::before{content:"";position:absolute;left:-14px;top:-9px;height:35px;width:10px;border-left:1.5px solid rgba(240,214,150,.32);border-bottom:1.5px solid rgba(240,214,150,.32);border-radius:0 0 0 8px}
+.setsheet .unit{display:flex;flex-direction:column;border-radius:16px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(240,214,150,.14)}
+.setsheet .unit>.hrule{background:none;box-shadow:none}
+.setsheet .unit.sub{margin-left:26px;position:relative}
+.setsheet .unit.sub::before{content:"";position:absolute;left:-14px;top:-9px;height:35px;width:10px;border-left:1.5px solid rgba(240,214,150,.32);border-bottom:1.5px solid rgba(240,214,150,.32);border-radius:0 0 0 8px}
+.setsheet .unit.sub>.hrule{min-height:46px}
+.setsheet .hrule.sub .ic,.setsheet .unit.sub .hrule .ic{width:30px;height:30px}
+.setsheet .hrule.sub .ic svg,.setsheet .unit.sub .hrule .ic svg{width:17px;height:17px}
+.setsheet .vars{display:flex;flex-direction:column;gap:10px;padding:2px 12px 12px}
+.setsheet .ask{display:flex;flex-direction:column;gap:5px}
+.setsheet .ask .q{font-size:12.5px;font-weight:600;line-height:1.2;color:var(--on-stage-soft)}
+.setsheet .pick{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:6px}
+.setsheet .pk{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:40px;padding:4px 8px;border-radius:999px;background:var(--glass);color:var(--on-stage); font-size:13px;font-weight:600;line-height:1.15;text-align:center;box-shadow:inset 0 0 0 1px rgba(240,214,150,.22);cursor:pointer}
+.setsheet .pk svg{width:14px;height:14px;flex:none}
+.setsheet .pk.on{background:var(--accent-stage);color:var(--stage);box-shadow:none}
+.setsheet .flags{display:flex;flex-direction:column;gap:4px}
+.setsheet .flag{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px 0 12px;border-radius:12px;background:rgba(0,0,0,.22);font-size:14px;font-weight:600}
+.setsheet .flag>span:first-child{flex:1;min-width:0}
+.setsheet .sw.sm{width:40px;height:24px}
+.setsheet .sw.sm i{width:18px;height:18px}
+.setsheet .sw.sm.on i{left:19px}
+.setsheet .sw.sm i svg{width:11px;height:11px}
+.setsheet .sbody{position:relative;display:flex;flex-direction:column;align-items:center;gap:16px;flex:0 1 auto;min-height:0;width:calc(100% + 48px);margin:-24px;padding:24px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+.setsheet .sbody.up,.setsheet .sbody.down{clip-path:inset(16px -24px)}
+.d1280 .setsheet .sbody{gap:10px}
+.setsheet>.choice,.setsheet>.stepper,.setsheet>.sets,.setsheet>.save,.setsheet>.btns{flex:none}
+.setsheet .sbody.down{-webkit-mask-image:linear-gradient(#000 calc(100% - 40px),transparent);mask-image:linear-gradient(#000 calc(100% - 40px),transparent)}
+.setsheet .sbody.up{-webkit-mask-image:linear-gradient(transparent,#000 40px);mask-image:linear-gradient(transparent,#000 40px)}
+.setsheet .sbody.up.down{-webkit-mask-image:linear-gradient(transparent,#000 40px,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(transparent,#000 40px,#000 calc(100% - 40px),transparent)}
+.setsheet .sbody>*{flex:none}
+.setsheet .sw{flex:none;position:relative;width:48px;height:28px;border-radius:999px;background:var(--glass);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.22)}
+.setsheet .sw i{position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#f4ecd9;color:var(--stage);box-shadow:0 2px 4px rgba(0,0,0,.5)}
+.setsheet .sw i svg{display:none;width:13px;height:13px}
+.setsheet .sw.on{background:var(--accent-stage);box-shadow:none}
+.setsheet .sw.on i{left:23px}
+.setsheet .sw.on i svg{display:block}
+.setsheet .sets{display:flex;gap:8px;width:100%}
+.setsheet .set{flex:1;min-width:0;position:relative;height:44px;padding:0 10px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--glass);color:var(--on-stage); font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:inset 0 0 0 1px rgba(240,214,150,.22);cursor:pointer}
+.setsheet .set svg{width:16px;height:16px;flex:none}
+.setsheet .set.on{background:var(--accent-stage);color:var(--stage);box-shadow:none}
+.setsheet .stepper{display:flex;gap:8px;width:100%}
+.setsheet .stepper .step,.setsheet .stepper .stepvalue{height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--glass);color:var(--on-stage);font-size:15px;font-weight:600;box-shadow:inset 0 0 0 1px rgba(240,214,150,.22)}
+.setsheet .stepper .step{flex:none;width:56px;font-size:22px;cursor:pointer}
+.setsheet .stepper .step svg{width:16px;height:16px}
+.setsheet .stepper .stepvalue{flex:1;min-width:0}
+.setsheet .stepper .stepvalue small{font-size:15px;font-weight:600;opacity:.75}
+.clockline{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:var(--on-stage-soft);font-variant-numeric:tabular-nums}
+.clockline svg{width:16px;height:16px}
+.rank .dot.agent{background:radial-gradient(circle at 34% 30%,#d9e6ff,#4467b8 60%,#1d2c55);color:#fff}
+.rank .dot.agent svg{width:17px;height:17px}
+.nextline{display:flex;align-items:center;flex-wrap:wrap;justify-content:center;gap:8px 10px;width:100%;padding-top:4px}
+.nextline .lbl{font-size:13px;font-weight:600;color:var(--on-stage-soft)}
+.nextline .chip.len{background:var(--glass);color:var(--on-stage);box-shadow:none}
+.nextline .change{font-size:14px;font-weight:600;color:var(--accent-stage);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.plaque.timer .game{gap:8px;font-size:15px}
+.plaque.timer .game svg{width:18px;height:18px}
+.gamesbox{display:flex;flex-direction:column;gap:6px;width:100%;min-height:0}
+.gamesbox .lbl{font-size:13px;font-weight:600;color:var(--on-stage-soft);padding-left:4px}
+.gamesbox .rows{display:flex;flex-direction:column;overflow:hidden;-webkit-mask-image:linear-gradient(#000 calc(100% - 36px),transparent);mask-image:linear-gradient(#000 calc(100% - 36px),transparent)}
+.p390 .closedseries .gamesbox .rows{max-height:250px}
+.d1280 .closedseries .gamesbox .rows{max-height:210px}
+.grow .dot.agent{background:radial-gradient(circle at 34% 30%,#d9e6ff,#4467b8 60%,#1d2c55);color:#fff}
+.grow .dot.agent svg{width:16px;height:16px}
+
+.setsheet{z-index:46}
+.setsheet .btns{position:static;transform:none}
+.takeback{flex:none;font-size:13px;color:var(--on-stage-soft);text-align:center}
 </style>
 </body>
 </html>

@@ -500,6 +500,8 @@ export type SeriesEntry =
           kind: "declared";
           number: number;
           declarer_name: string | null;
+          declarer_seat: number;
+          declarer_kind: "person" | "agent" | null;
           game: Game;
           hand: boolean;
           ouvert: boolean;
@@ -514,7 +516,7 @@ export type SeriesEntry =
     | {
           kind: "ramsch";
           number: number;
-          seats: { name: string | null; score: number }[];
+          seats: { name: string | null; kind: "person" | "agent" | null; score: number }[];
           durchmarsch: boolean;
           jungfrau: boolean;
           bock_factor: number;

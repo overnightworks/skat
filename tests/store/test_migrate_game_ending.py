@@ -64,7 +64,7 @@ class TestFromAListOfEveryKindAtRevisionTwentyFive:
 
     def test_the_store_reads_an_old_declared_entry_as_played_out_with_no_seat(self, migrated):
         with migrated.connect() as connection:
-            declared = [entry for entry in read_game_list(connection, "t") if isinstance(entry, ListEntry)]
+            declared = [entry for entry in read_game_list(connection, "t", 1) if isinstance(entry, ListEntry)]
 
         assert [(entry.ending, entry.ended_by_seat) for entry in declared] == [(GameEnding.PLAYED_OUT, None)] * 2
 

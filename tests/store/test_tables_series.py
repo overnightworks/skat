@@ -387,18 +387,16 @@ class TestEndingEarly:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param("UPDATE tables SET series_end_proposer = 4", id="a-proposer-beyond-the-seats"),
-            pytest.param("UPDATE tables SET series_end_proposer = 0", id="a-proposer-below-the-seats"),
+            pytest.param("UPDATE series SET end_proposer = 4", id="a-proposer-beyond-the-seats"),
+            pytest.param("UPDATE series SET end_proposer = 0", id="a-proposer-below-the-seats"),
+            pytest.param("UPDATE series SET end_proposer = 1, end_accepter = 4", id="an-accepter-beyond-the-seats"),
+            pytest.param("UPDATE series SET end_accepter = 2", id="an-accepter-without-a-proposer"),
             pytest.param(
-                "UPDATE tables SET series_end_proposer = 1, series_end_accepter = 4", id="an-accepter-beyond-the-seats"
-            ),
-            pytest.param("UPDATE tables SET series_end_accepter = 2", id="an-accepter-without-a-proposer"),
-            pytest.param(
-                "UPDATE tables SET series_end_proposer = 2, series_end_accepter = 2",
+                "UPDATE series SET end_proposer = 2, end_accepter = 2",
                 id="an-accepter-equal-to-the-proposer",
             ),
             pytest.param(
-                "UPDATE tables SET series_ended_early = true, series_end_proposer = 1",
+                "UPDATE series SET ended_early = true, end_proposer = 1",
                 id="an-ended-series-with-a-proposal",
             ),
         ],
@@ -410,13 +408,14 @@ class TestEndingEarly:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param("UPDATE tables SET series_end_proposer = 1 WHERE id = 'plain'", id="a-proposal"),
-            pytest.param("UPDATE tables SET series_ended_early = true WHERE id = 'plain'", id="an-early-end"),
+            pytest.param("UPDATE series SET end_proposer = 1 WHERE table_id = 'plain'", id="a-proposal"),
+            pytest.param("UPDATE series SET ended_early = true WHERE table_id = 'plain'", id="an-early-end"),
         ],
     )
     def test_the_checks_refuse_a_proposal_or_an_early_end_on_a_table_without_a_series(self, engine, statement):
         with engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version) VALUES ('plain', 1)"))
+            connection.execute(text("INSERT INTO series (table_id, number) VALUES ('plain', 1)"))
 
         with pytest.raises(IntegrityError):
             run_in_transaction(engine, text(statement))

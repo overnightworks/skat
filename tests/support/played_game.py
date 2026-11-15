@@ -9,7 +9,7 @@ from skat.engine.games import GameKind
 from skat.engine.tricks import CardPlayed
 from skat.engine.value import Matadors
 from skat.table.game_cards import GameCards, SeatedCard
-from skat.table.game_list import GameEnding, ListEntry, RamschEntry
+from skat.table.game_list import GameEnding, ListEntry, RamschEntry, series_list_view_of
 from skat.table.hand_state import game_of
 from skat.table.playing import card_played
 from skat.table.records import (
@@ -19,6 +19,7 @@ from skat.table.records import (
     HandProgress,
     Occupant,
     OccupantKind,
+    PlayedSeries,
     Series,
     TableId,
     TableOptions,
@@ -203,3 +204,8 @@ def a_game_cards(laid_skat: tuple[Card, ...] = ()) -> GameCards:
         tricks=tricks,
         laid_skat=laid_skat,
     )
+
+
+def list_rows_of(table: TableRecord):
+    """The rows of a live table's list: the series it plays, read with the options it plays under."""
+    return series_list_view_of(PlayedSeries(1, table.options, table.game_list))

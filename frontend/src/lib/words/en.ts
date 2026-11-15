@@ -308,6 +308,7 @@ const translated = {
     })[pluralRules.select(count)],
     "closed.closed": "Table closed",
     "closed.closedBy": (gaps: { readonly name: string }) => gaps.name + " closed the table",
+    "closed.seriesEnded": "Series ended",
     "declare.commandFailed": "That did not work",
     "declare.takeSkat": "Pick up",
     "push.takeSkat": "Take the Skat",

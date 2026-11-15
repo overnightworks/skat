@@ -25,13 +25,13 @@ class TestFromATableAndARuleSetWithRamschAtRevisionFortyTwo:
             ),
         )
 
-    @pytest.mark.parametrize("table", ["tables", "rule_sets"])
+    @pytest.mark.parametrize("table", ["series", "rule_sets"])
     def test_keeps_the_stored_occasion(self, migrated, table):
         select = text(f"SELECT ramsch_occasion FROM {table}")  # noqa: S608 - only the test's fixed literals reach this text
 
         assert only_row(migrated, select) == ("passed-in",)
 
-    @pytest.mark.parametrize("table", ["tables", "rule_sets"])
+    @pytest.mark.parametrize("table", ["series", "rule_sets"])
     @pytest.mark.parametrize("occasion", ["bock-rounds", "passed-in-and-bock-rounds"])
     def test_accepts_each_new_occasion(self, migrated, table, occasion):
         run_in_transaction(
@@ -39,7 +39,7 @@ class TestFromATableAndARuleSetWithRamschAtRevisionFortyTwo:
             text(f"UPDATE {table} SET ramsch_occasion = '{occasion}', {RAMSCH_OPTIONS}"),  # noqa: S608 - only the test's fixed literals reach this text
         )
 
-    @pytest.mark.parametrize("table", ["tables", "rule_sets"])
+    @pytest.mark.parametrize("table", ["series", "rule_sets"])
     def test_refuses_another_occasion(self, migrated, table):
         with pytest.raises(IntegrityError):
             run_in_transaction(
@@ -48,10 +48,10 @@ class TestFromATableAndARuleSetWithRamschAtRevisionFortyTwo:
             )
 
     def test_a_table_that_existed_has_no_ramsch_round_game_pending(self, migrated):
-        select = text("SELECT ramsch_round_games FROM tables")
+        select = text("SELECT ramsch_round_games FROM series")
 
         assert only_row(migrated, select) == (0,)
 
     def test_refuses_a_negative_count_of_ramsch_round_games(self, migrated):
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, text("UPDATE tables SET ramsch_round_games = -1"))
+            run_in_transaction(migrated, text("UPDATE series SET ramsch_round_games = -1"))

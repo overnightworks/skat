@@ -396,7 +396,7 @@
     {/if}
     <main class="stage" class:stale={!connected} class:after-drop={greeted}>
         {#if outcome?.kind === "table" && outcome.table.ended !== null}
-            <TableClosed ended={outcome.table.ended} />
+            <TableClosed {id} ended={outcome.table.ended} />
         {:else if outcome?.kind === "table"}
             {@const ownCards = outcome.table.hand?.own_cards ?? []}
             {@const declaredGame = outcome.table.hand?.declaring?.declaration?.game ?? null}
@@ -781,7 +781,7 @@
                 </p>
             {/if}
         {:else if outcome?.kind === "missing"}
-            <TableClosed ended={null} />
+            <TableClosed {id} ended={null} />
         {:else if outcome?.kind === "failed"}
             <section class="panel" role="alert">
                 <h1>{words["table.loadFailed"]}</h1>

@@ -8,6 +8,7 @@ from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field ty
 from skat.engine.value import Level  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.game_list import GameEnding, RamschSeriesEntryView
 from skat.table.game_sheet import CardState, DeclaredCount
+from skat.table.records import OccupantKind  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS, AnnouncementToken, GameToken
 from skat.web.mcp import READ_SERIES_LIST_MARK, Exclusion, excluded
 from skat.web.tables import TABLES_PATH, CardAnswer, SeatedCardAnswer, card_answer_of
@@ -26,6 +27,8 @@ class SeriesEntryAnswer(BaseModel):
     kind: Literal["declared"]
     number: int
     declarer_name: str | None
+    declarer_seat: int
+    declarer_kind: OccupantKind | None
     game: GameToken
     hand: bool
     ouvert: bool
@@ -40,6 +43,7 @@ class SeriesEntryAnswer(BaseModel):
 
 class RamschSeriesSeatAnswer(BaseModel):
     name: str | None
+    kind: OccupantKind | None
     score: int
 
 
@@ -63,7 +67,7 @@ def _entry_answer_of(entry: SeriesEntryView | RamschSeriesEntryView) -> SeriesEn
         return RamschSeriesEntryAnswer(
             kind="ramsch",
             number=entry.number,
-            seats=[RamschSeriesSeatAnswer(name=seat.name, score=seat.score) for seat in entry.seats],
+            seats=[RamschSeriesSeatAnswer(name=seat.name, kind=seat.kind, score=seat.score) for seat in entry.seats],
             durchmarsch=entry.durchmarsch,
             jungfrau=entry.jungfrau,
             bock_factor=entry.bock_factor,
@@ -75,6 +79,8 @@ def _entry_answer_of(entry: SeriesEntryView | RamschSeriesEntryView) -> SeriesEn
         kind="declared",
         number=entry.number,
         declarer_name=entry.declarer_name,
+        declarer_seat=entry.declarer_seat,
+        declarer_kind=entry.declarer_kind,
         game=GAME_TOKENS[declaration.kind],
         hand=declaration.hand,
         ouvert=declaration.ouvert,

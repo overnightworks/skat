@@ -134,6 +134,22 @@ describe("standingsView", () => {
         ]);
     });
 
+    it("gives each account the seat it last held and whether an agent held it", () => {
+        const view = standingsView(
+            ended({
+                standings: [
+                    { ...standings[0], seat: 3, kind: "agent" },
+                    { ...standings[1], seat: 2, kind: null },
+                ],
+            }),
+        );
+
+        expect(view?.rows.map((row) => [row.seat, row.agent])).toEqual([
+            [3, true],
+            [2, false],
+        ]);
+    });
+
     it("marks who has left the series and the seats of the winner", () => {
         const view = standingsView(ended());
 
@@ -202,7 +218,8 @@ describe("gameRows", () => {
         expect(row).toMatchObject({
             number: 4,
             name: "player 2",
-            subjectSeat: null,
+            subjectSeat: 2,
+            agent: false,
             initial: "p",
             line: `${words["game.handName"]({ game: words["game.grand"] })}, ${words["result.levelSchneider"]}`,
             value: "48",
@@ -224,6 +241,7 @@ describe("gameRows", () => {
             number: 7,
             name: words["table.seriesRamschOf"]({ name: "player 2" }),
             subjectSeat: 2,
+            agent: true,
             line: words["table.seriesPushed"]({ count: 2 }),
             value: "",
             gain: "−40",
@@ -237,9 +255,9 @@ describe("gameRows", () => {
             durchmarsch: true,
             pushes: 0,
             seats: [
-                { name: "player 3", score: 120 },
-                { name: "player 1", score: 0 },
-                { name: "player 2", score: 0 },
+                { name: "player 3", kind: "person" as const, score: 120 },
+                { name: "player 1", kind: "person" as const, score: 0 },
+                { name: "player 2", kind: "person" as const, score: 0 },
             ],
         };
         const [row] = gameRows([sweep]);
@@ -256,9 +274,9 @@ describe("gameRows", () => {
         const twins = {
             ...RAMSCH_ENTRY,
             seats: [
-                { name: null, score: 0 },
-                { name: null, score: 0 },
-                { name: null, score: -40 },
+                { name: null, kind: null, score: 0 },
+                { name: null, kind: null, score: 0 },
+                { name: null, kind: null, score: -40 },
             ],
         };
         const [row] = gameRows([twins]);

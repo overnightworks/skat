@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { closedWords } from "#lib/closed.ts";
+import { closedStandings, closedWords } from "#lib/closed.ts";
 import { words } from "#lib/words.ts";
+import type { Ended } from "../routes/(start)/tables.ts";
 
 describe("the heading of a table that closed itself", () => {
     it.each([
@@ -85,6 +86,33 @@ describe("the heading of a table its opener closed", () => {
                 game_count: null,
             }),
         ).toBe(words["closed.closed"]);
+    });
+});
+
+describe("the standings of an ended table", () => {
+    const closedWith = { reason: "closed", empty_seconds: null, unplayed_days: null, closed_by_name: null } as const;
+    const played: Ended = {
+        ...closedWith,
+        standings: [
+            { display_name: "Anna", seat: 1, kind: "person", total: 502, won: 10, lost: 4, place: 1 },
+            { display_name: "Mozart", seat: 3, kind: "agent", total: 233, won: 6, lost: 2, place: 2 },
+        ],
+        game_count: 36,
+    };
+
+    it("ranks the last series with its game count and each account's seat and kind, whatever the reason", () => {
+        const view = closedStandings(played);
+
+        expect(view?.heading).toBe(words["closed.seriesEnded"]);
+        expect(view?.sub).toBe(words["table.seriesGames"](36));
+        expect(view?.rows.map((row) => [row.place, row.name, row.seat, row.agent, row.gone])).toEqual([
+            [1, "Anna", 1, false, false],
+            [2, "Mozart", 3, true, false],
+        ]);
+    });
+
+    it("has none for a table that finished no game", () => {
+        expect(closedStandings({ ...closedWith, standings: null, game_count: null })).toBeNull();
     });
 });
 

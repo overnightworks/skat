@@ -62,7 +62,7 @@ class TestFromALiveTableAndAGameAtRevisionTwenty:
 
         assert tuple(row) == ("declared", 1, "kreuz", 48, None, None, None)
 
-    @pytest.mark.parametrize("table", ["tables", "rule_sets"])
+    @pytest.mark.parametrize("table", ["series", "rule_sets"])
     def test_the_old_table_and_rule_set_play_without_ramsch(self, migrated, table):
         columns = "ramsch_occasion, ramsch_scoring, ramsch_jungfrau, ramsch_durchmarsch"
         select = text(f"SELECT {columns} FROM {table}")  # noqa: S608 - only the test's fixed literals reach this text
@@ -126,7 +126,7 @@ class TestFromALiveTableAndAGameAtRevisionTwenty:
         with pytest.raises(IntegrityError):
             run_in_transaction(migrated, refused)
 
-    @pytest.mark.parametrize("table", ["tables", "rule_sets"])
+    @pytest.mark.parametrize("table", ["series", "rule_sets"])
     @pytest.mark.parametrize(
         "change",
         [
@@ -163,7 +163,7 @@ class TestFromALiveTableAndAGameAtRevisionTwenty:
         with pytest.raises(IntegrityError):
             run_in_transaction(migrated, refused)
 
-    @pytest.mark.parametrize("table", ["tables", "rule_sets"])
+    @pytest.mark.parametrize("table", ["series", "rule_sets"])
     def test_accepts_the_four_ramsch_options_together(self, migrated, table):
         options = (
             "ramsch_occasion = 'passed-in', ramsch_scoring = 'skat-to-loser',"

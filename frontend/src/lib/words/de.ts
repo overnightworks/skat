@@ -210,6 +210,7 @@ export type Words = {
     readonly "closed.unplayedDays": (count: number) => string;
     readonly "closed.closed": string;
     readonly "closed.closedBy": (gaps: { readonly name: string }) => string;
+    readonly "closed.seriesEnded": string;
     readonly "declare.commandFailed": string;
     readonly "declare.takeSkat": string;
     readonly "push.takeSkat": string;
@@ -804,6 +805,7 @@ export const words: Words = {
     })[pluralRules.select(count)],
     "closed.closed": "Tisch geschlossen",
     "closed.closedBy": (gaps: { readonly name: string }) => gaps.name + " hat den Tisch geschlossen",
+    "closed.seriesEnded": "Serie beendet",
     "declare.commandFailed": "Das hat nicht geklappt",
     "declare.takeSkat": "Aufnehmen",
     "push.takeSkat": "Skat nehmen",

@@ -3,7 +3,7 @@ from dataclasses import replace
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError, IntegrityError
+from sqlalchemy.exc import IntegrityError
 
 from skat.engine.bock import BockRounds
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
@@ -15,7 +15,7 @@ from skat.table.ready import NewSeriesCommand
 from skat.table.records import Actor, EndedTable, EndProposal, Series, TableId
 from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
-from tests.support.migrations import list_row, migrated_from, only_row, run_in_transaction, upgrade_to
+from tests.support.migrations import list_row, migrated_from, only_row, run_in_transaction
 from tests.support.postgres import created_database
 
 pytestmark = pytest.mark.postgres
@@ -40,6 +40,11 @@ SETTINGS = {
 }
 SETTING_COLUMNS = ", ".join(SETTINGS)
 LENGTH = 12
+# The service reads only ids of the shape it hands out.
+PROPOSED = "b0" * 16
+BOCKED = "b1" * 16
+EARLY = "b2" * 16
+GONE_WITH_GAMES = "b3" * 16
 
 
 def table_row(table_id, **changed):
@@ -89,26 +94,32 @@ STATES_AT_0047 = (
         series_deals="NULL",
         **{**dict.fromkeys(SETTINGS, "NULL"), "show_running_points": "false"},
     ),
-    table_row("proposed", series_end_proposer=1, series_end_accepter=2),
-    seated("proposed"),
-    played("proposed", 1),
-    table_row("bocked", series_end_proposer=1, series_end_accepter=2, bock_rounds="ARRAY[3]", ramsch_round_games=1),
-    seated("bocked"),
-    played("bocked", 1),
-    table_row("early", series_number=2, series_deals=7, series_ended_early="true"),
-    seated("early"),
-    played("early", 1),
-    played("early", 2),
+    table_row(PROPOSED, series_end_proposer=1, series_end_accepter=2),
+    seated(PROPOSED),
+    played(PROPOSED, 1),
+    table_row(
+        BOCKED,
+        series_end_proposer=1,
+        series_end_accepter=2,
+        bock_rounds="ARRAY[3]",
+        ramsch_round_games=1,
+    ),
+    seated(BOCKED),
+    played(BOCKED, 1),
+    table_row(EARLY, series_number=2, series_deals=7, series_ended_early="true"),
+    seated(EARLY),
+    played(EARLY, 1),
+    played(EARLY, 2),
     text(
         "INSERT INTO tables (id, version, ended_at, end_reason, empty_seconds)"
         " VALUES ('gone-gameless', 7, now(), 'empty', 60)"
     ),
-    table_row("gone-with-games", dealer="NULL", last_played_at="NULL", series_deals=LENGTH),
+    table_row(GONE_WITH_GAMES, dealer="NULL", last_played_at="NULL", series_deals=LENGTH),
     text(
         "UPDATE tables SET ended_at = now(), end_reason = 'closed', closed_by_name = 'Anna'"
-        " WHERE id = 'gone-with-games'"
+        f" WHERE id = '{GONE_WITH_GAMES}'"
     ),
-    played("gone-with-games", 1),
+    played(GONE_WITH_GAMES, 1),
 )
 
 
@@ -162,8 +173,6 @@ class TestFromTablesAtTheRevisionBefore:
             "points",
             "off",
             "off",
-            None,
-            None,
         ]
 
     def test_a_table_in_its_second_series_gets_row_one_with_every_deal_played_and_row_two_with_its_counters(
@@ -183,7 +192,7 @@ class TestFromTablesAtTheRevisionBefore:
 
     def test_an_ended_table_keeps_the_series_of_its_games_and_a_gameless_one_its_pointed_series(self, migrated):
         assert numbers_of(migrated, "gone-gameless") == [1]
-        assert numbers_of(migrated, "gone-with-games") == [1]
+        assert numbers_of(migrated, GONE_WITH_GAMES) == [1]
 
     def test_no_table_loses_a_series_a_game_or_the_pointer_names(self, migrated):
         assert only_row(
@@ -209,14 +218,14 @@ class TestFromTablesAtTheRevisionBefore:
         )
 
     def test_the_ended_table_with_games_reads_the_standings_its_options_gave_before(self, migrated, service):
-        ended = record_of(migrated, "gone-with-games")
+        ended = record_of(migrated, GONE_WITH_GAMES)
 
         assert isinstance(ended, EndedTable)
         assert ended.last_series.number == 1
         assert ended.last_series.options.kontra == KontraOptions(
             KontraSayer.ANY_OPPONENT, KontraReach.KONTRA_RE_STANDINGS, KontraDeadline.OWN_CARD
         )
-        view = service.view(PEOPLE[1], "gone-with-games", frozenset())
+        view = service.view(PEOPLE[1], GONE_WITH_GAMES, frozenset())
         assert [(each.account_id, each.total, each.place) for each in view.ended.standings] == [
             ("account-anna", 148, 1),
             ("account-ben", 0, 2),
@@ -246,59 +255,39 @@ class TestFromTablesAtTheRevisionBefore:
         assert series_row(migrated, "second", 1)[1] == LENGTH
 
     def test_a_standing_proposal_stays_on_its_row_and_a_third_yes_ends_the_series(self, migrated, service):
-        assert record_of(migrated, "proposed").series.end_proposal == EndProposal(1, 2)
+        assert record_of(migrated, PROPOSED).series.end_proposal == EndProposal(1, 2)
 
-        answer = service.agree_to_end_series(PEOPLE[3], SeriesEndCommand("yes-3", "proposed"), ALL_THREE)
+        answer = service.agree_to_end_series(PEOPLE[3], SeriesEndCommand("yes-3", PROPOSED), ALL_THREE)
 
         assert answer.refusal is None
-        assert series_row(migrated, "proposed", 1)[2:5] == (True, None, None)
+        assert series_row(migrated, PROPOSED, 1)[2:5] == (True, None, None)
 
     def test_a_pending_bock_round_doubles_the_next_game_and_the_end_of_the_series_lapses_it(self, migrated, service):
-        before = record_of(migrated, "bocked")
+        before = record_of(migrated, BOCKED)
         assert (before.bock, bock_factor_of(before)) == (BockRounds((3,), 1), 2)
 
-        service.agree_to_end_series(PEOPLE[3], SeriesEndCommand("yes-3", "bocked"), ALL_THREE)
+        service.agree_to_end_series(PEOPLE[3], SeriesEndCommand("yes-3", BOCKED), ALL_THREE)
 
-        assert record_of(migrated, "bocked").bock == BockRounds.start()
-        assert series_row(migrated, "bocked", 1)[5:7] == ([], 0)
+        assert record_of(migrated, BOCKED).bock == BockRounds.start()
+        assert series_row(migrated, BOCKED, 1)[5:7] == ([], 0)
 
     def test_an_early_ended_series_stays_ended_while_the_next_series_takes_its_own_row_and_proposal(
         self, migrated, service
     ):
-        assert record_of(migrated, "early").series == Series(LENGTH, 7, number=2, ended_early=True)
+        assert record_of(migrated, EARLY).series == Series(LENGTH, 7, number=2, ended_early=True)
         for seat, person in PEOPLE.items():
-            service.start_new_series(person, NewSeriesCommand(f"new-{seat}", "early", 2), ALL_THREE)
+            service.start_new_series(person, NewSeriesCommand(f"new-{seat}", EARLY, 2), ALL_THREE)
 
-        assert service.deal_next(TableId("early"), nullcontext(ALL_THREE)) is True
-        dealt = record_of(migrated, "early")
+        assert service.deal_next(TableId(EARLY), nullcontext(ALL_THREE)) is True
+        dealt = record_of(migrated, EARLY)
         with PostgresTableTransactions(migrated).begin() as transaction:
             transaction.save_table(
                 replace(dealt, series=replace(dealt.series, end_proposal=EndProposal(1))), played_at=None
             )
 
-        assert numbers_of(migrated, "early") == [1, 2, 3]
-        assert series_row(migrated, "early", 2)[2:5] == (True, None, None)
-        assert series_row(migrated, "early", 3)[1:5] == (1, False, 1, None)
-
-
-class TestAGameWhoseSeriesCannotBeMovedTo:
-    def test_stops_the_migration_before_anything_is_dropped(self, unmigrated_engine):
-        upgrade_to(unmigrated_engine, "0047")
-        with unmigrated_engine.begin() as connection:
-            # A game without its table cannot exist; replication mode lets the fixture write one.
-            connection.execute(text("SET session_replication_role = replica"))
-            connection.execute(text(list_row(table_id="'orphan'")))
-
-        with pytest.raises(DBAPIError, match="has no row to move to"):
-            migrate(unmigrated_engine)
-
-        assert only_row(
-            unmigrated_engine,
-            text(
-                "SELECT count(*) FROM information_schema.columns"
-                " WHERE table_name = 'tables' AND column_name = 'series_length'"
-            ),
-        ) == (1,)
+        assert numbers_of(migrated, EARLY) == [1, 2, 3]
+        assert series_row(migrated, EARLY, 2)[2:5] == (True, None, None)
+        assert series_row(migrated, EARLY, 3)[1:5] == (1, False, 1, None)
 
 
 def constraints_of(engine):

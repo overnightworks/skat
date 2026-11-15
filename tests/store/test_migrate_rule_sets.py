@@ -26,7 +26,7 @@ class TestFromALiveTableAtRevisionFifteen:
     def test_the_table_reads_its_options_as_before_and_no_set_exists(self, migrated):
         with migrated.connect() as connection:
             options = connection.execute(
-                text("SELECT show_running_points, kontra_sayer, kontra_reach, kontra_deadline FROM tables")
+                text("SELECT show_running_points, kontra_sayer, kontra_reach, kontra_deadline FROM series")
             ).one()
             sets = connection.execute(text("SELECT count(*) FROM rule_sets")).scalar_one()
 

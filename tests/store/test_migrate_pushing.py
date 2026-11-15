@@ -56,7 +56,7 @@ class TestFromARamschTableAndItsListAtRevisionTwentySix:
         migrate(unmigrated_engine)
         return unmigrated_engine
 
-    @pytest.mark.parametrize("table", ["tables", "rule_sets"])
+    @pytest.mark.parametrize("table", ["series", "rule_sets"])
     def test_every_old_table_and_set_reads_no_pushing_rule(self, migrated, table):
         select = text(f"SELECT ramsch_pushing FROM {table}")  # noqa: S608 - only the test's fixed literals reach this text
         with migrated.connect() as connection:
@@ -73,12 +73,12 @@ class TestFromARamschTableAndItsListAtRevisionTwentySix:
             assert compare_metadata(MigrationContext.configure(connection), metadata) == []
 
     def test_accepts_a_pushing_rule_on_a_table_that_plays_ramsch_and_a_ramsch_row_with_its_pushes(self, migrated):
-        run_in_transaction(migrated, text("UPDATE tables SET ramsch_pushing = 'jacks-may-go'"))
+        run_in_transaction(migrated, text("UPDATE series SET ramsch_pushing = 'jacks-may-go'"))
         run_in_transaction(migrated, text("UPDATE game_list SET pushes = 3 WHERE kind = 'ramsch'"))
 
         with migrated.connect() as connection:
             row = connection.execute(
-                text("SELECT t.ramsch_pushing, g.pushes FROM tables t, game_list g WHERE g.kind = 'ramsch'")
+                text("SELECT t.ramsch_pushing, g.pushes FROM series t, game_list g WHERE g.kind = 'ramsch'")
             ).one()
 
         assert tuple(row) == ("jacks-may-go", 3)
@@ -86,7 +86,7 @@ class TestFromARamschTableAndItsListAtRevisionTwentySix:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param("UPDATE tables SET ramsch_pushing = 'always'", id="a-rule-outside-the-three"),
+            pytest.param("UPDATE series SET ramsch_pushing = 'always'", id="a-rule-outside-the-three"),
             pytest.param("UPDATE rule_sets SET ramsch_pushing = 'jacks-stay'", id="a-set-with-pushing-and-no-ramsch"),
             pytest.param("UPDATE game_list SET pushes = 4 WHERE kind = 'ramsch'", id="four-pushes"),
             pytest.param("UPDATE game_list SET pushes = -1 WHERE kind = 'ramsch'", id="negative-pushes"),

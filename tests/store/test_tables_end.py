@@ -113,7 +113,7 @@ def test_the_end_step_deletes_the_chairs_hand_and_steps_of_a_running_hand_and_ke
 
     after = rows_of(engine, table_id.value)
     kept = {name for name, rows in after.items() if rows}
-    assert kept == {"tables", "receipts"}
+    assert kept == {"tables", "series", "receipts"}
     assert len(after["tables"]) == 1
 
 
@@ -414,7 +414,7 @@ def test_the_unplayed_end_keeps_the_game_list_and_every_other_row_goes_and_store
     )
 
     after = rows_of(engine, table_id.value)
-    assert {name for name, rows in after.items() if rows} == {"tables", "receipts", "game_list"}
+    assert {name for name, rows in after.items() if rows} == {"tables", "series", "receipts", "game_list"}
     assert after["game_list"] == games
     assert [row[2] for row in after["receipts"]] == [CREATE_TABLE_COMMAND]
     with engine.connect() as connection:
@@ -430,7 +430,9 @@ def test_the_unplayed_end_keeps_the_game_list_and_every_other_row_goes_and_store
             ).where(tables.c.id == table_id.value)
         ).one()
     assert tuple(row) == (UNPLAYED_AT, EndReason.UNPLAYED.value, None, UNPLAYED_DAYS, None, None, None)
-    assert stored(transactions, table_id.value) == EndedTable(table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
+    assert replace(stored(transactions, table_id.value), last_series=None) == EndedTable(
+        table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS)
+    )
 
 
 CLOSED_AT = datetime(2026, 11, 13, 9, 0, tzinfo=UTC)
@@ -447,7 +449,7 @@ def test_the_close_keeps_the_game_list_and_the_create_and_close_receipts_and_sto
 
     assert result.refusal is None
     after = rows_of(engine, table_id.value)
-    assert {name for name, rows in after.items() if rows} == {"tables", "receipts", "game_list"}
+    assert {name for name, rows in after.items() if rows} == {"tables", "series", "receipts", "game_list"}
     assert after["game_list"] == games
     assert sorted(row[:3] for row in after["receipts"]) == [
         (OPENER.account_id, "close-one", "close-table"),
@@ -460,7 +462,9 @@ def test_the_close_keeps_the_game_list_and_the_create_and_close_receipts_and_sto
             )
         ).one()
     assert tuple(row) == (CLOSED_AT, EndReason.CLOSED.value, OPENER.display_name, None)
-    assert stored(transactions, table_id.value) == EndedTable(table_id, version + 1, Ending.closed("Anna"))
+    assert replace(stored(transactions, table_id.value), last_series=None) == EndedTable(
+        table_id, version + 1, Ending.closed("Anna")
+    )
 
 
 def test_the_close_deletes_the_rows_of_a_running_hand(service, transactions, stored, engine):
@@ -469,7 +473,7 @@ def test_the_close_deletes_the_rows_of_a_running_hand(service, transactions, sto
     service.close(OPENER, CloseTable("close-one", table_id.value))
 
     after = rows_of(engine, table_id.value)
-    assert {name for name, rows in after.items() if rows} == {"tables", "receipts"}
+    assert {name for name, rows in after.items() if rows} == {"tables", "series", "receipts"}
 
 
 def test_a_close_retry_after_the_commit_answers_the_ended_table_and_a_refusal_writes_no_receipt(
@@ -509,7 +513,7 @@ def test_the_unplayed_end_deletes_the_rows_of_a_running_hand(service, transactio
     unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS, nullcontext(NOBODY_CONNECTED))
 
     after = rows_of(engine, table_id.value)
-    assert {name for name, rows in after.items() if rows} == {"tables", "receipts"}
+    assert {name for name, rows in after.items() if rows} == {"tables", "series", "receipts"}
 
 
 def test_the_unplayed_end_clears_an_outstanding_give_up_request(service, transactions, stored, engine):
@@ -671,9 +675,12 @@ def test_a_play_that_meets_the_expiry_holding_the_row_finds_the_table_ended_and_
     expired, played = rivals.settle(rivals.expire(rivals.first_hold), rivals.play())
 
     assert (expired, played) == ([True], [None])
-    assert rivals.stored() == EndedTable(rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
+    assert replace(rivals.stored(), last_series=None) == EndedTable(
+        rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS)
+    )
     assert {name for name, rows in rows_of(rivals.engine, rivals.table_id.value).items() if rows} == {
         "tables",
+        "series",
         "receipts",
         "game_list",
     }
@@ -684,7 +691,9 @@ def test_two_expiries_that_meet_end_the_table_once(rivals):
     first, second = rivals.settle(rivals.expire(rivals.first_hold), rivals.expire())
 
     assert (first, second) == ([True], [False])
-    assert rivals.stored() == EndedTable(rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
+    assert replace(rivals.stored(), last_series=None) == EndedTable(
+        rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS)
+    )
 
 
 ENDED_TABLE_DAYS = 7
@@ -755,7 +764,7 @@ def test_forgetting_keeps_an_ended_table_with_games_and_clears_only_its_closers_
     forgetting_service(transactions).forget_ended_tables(ENDED_TABLE_DAYS)
 
     after = rows_of(engine, table_id.value)
-    assert {name for name, rows in after.items() if rows} == {"tables", "receipts", "game_list"}
+    assert {name for name, rows in after.items() if rows} == {"tables", "series", "receipts", "game_list"}
     assert after["game_list"] == before["game_list"]
     assert after["receipts"] == before["receipts"]
     ended = stored(transactions, table_id.value)
