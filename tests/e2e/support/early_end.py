@@ -17,6 +17,7 @@ OPEN_CARDS = ".open"
 OPEN_TAG = ".open-tag"
 NOTICE = ".notice.seat"
 NOTICE_MILLISECONDS = 4000
+THREE_SECONDS_MILLISECONDS = 3000
 STRIP = ".actions"
 OWN_CARDS = ".own-hand .card"
 

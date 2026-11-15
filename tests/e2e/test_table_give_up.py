@@ -7,6 +7,7 @@ from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.playing import TABLE_GIVE_UP_AGREE_SUFFIX, TABLE_GIVE_UP_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of, reload_and_wait
+from tests.e2e.support.early_end import THREE_SECONDS_MILLISECONDS
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.result_card import CARD, listed, waiting_for
@@ -39,7 +40,6 @@ NOTICE_MILLISECONDS = 4000
 KEY = ".copy.give-up"
 STRIP = ".actions"
 ROUND_KEY_PIXELS = 52
-THREE_SECONDS_MILLISECONDS = 3000
 CARDS_AFTER_ONE_TRICK = 3
 KREUZ = text(SOURCE_LANGUAGE, "game.kreuz")
 REQUEST = ".plaque.ask"

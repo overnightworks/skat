@@ -15,6 +15,7 @@ from tests.e2e.support.early_end import (
     OPEN_TAG,
     OWN_CARDS,
     REQUEST,
+    THREE_SECONDS_MILLISECONDS,
     expect_nothing_to_overflow,
     expect_the_stamp,
     mark_on,
@@ -46,7 +47,6 @@ YOU_PLAY_OPEN = text(SOURCE_LANGUAGE, "table.youPlayOpen")
 OPEN_MARK = text(SOURCE_LANGUAGE, "table.playsOpenMark")
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
 PLAY_OPEN_KEY = ".copy.play-open"
-THREE_SECONDS_MILLISECONDS = 3000
 
 
 @pytest.fixture(scope="module")
@@ -232,7 +232,7 @@ def test_a_right_open_play_ends_the_game_with_the_played_open_stamp_of_the_oppon
     assert page_errors == []
 
 
-def test_the_key_asks_a_second_tap_and_sends_nothing_before_it(
+def test_the_key_sends_nothing_before_its_second_tap(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
     table = deal_a_game(PHONE)
@@ -246,8 +246,7 @@ def test_the_key_asks_a_second_tap_and_sends_nothing_before_it(
     key.click()
 
     expect(key).to_have_attribute("title", PLAY_OPEN_SURE)
-    player.wait_for_timeout(THREE_SECONDS_MILLISECONDS + NOTICE_MILLISECONDS // 4)
-    expect(key).to_have_attribute("title", PLAY_OPEN)
+    expect(key).to_have_attribute("title", PLAY_OPEN, timeout=3 * THREE_SECONDS_MILLISECONDS)
     assert sent == []
     assert page_errors == []
 
