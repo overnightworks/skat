@@ -22,6 +22,7 @@ Every touch of it runs on the event loop's thread, in the read of the view, whic
 the awaited agent at each deadline; the signal of a commit, which runs on a worker thread, touches neither.
 """
 
+import json
 from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Final
@@ -48,7 +49,7 @@ from agents.member import (
     place_view_uri,
     place_window_uri,
 )
-from agents.tools import Principal, ToolDeclaration, ToolEffect, ToolOutcome
+from agents.tools import Principal, ToolDeclaration, ToolEffect, ToolOutcome, tool_parameters
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import HTTPConnection
@@ -93,9 +94,15 @@ ACCEPT_INVITATION_DECLARATION: Final = ToolDeclaration(
         "the invitation's id and epoch. A refusal says why: the invitation no longer stands, the person you work for "
         "is not at the table, or no chair is free for you, the chair you held in the running hand being taken included."
     ),
-    parameters=AcceptInvitationArguments.model_json_schema(),
+    parameters=tool_parameters(AcceptInvitationArguments),
     effect=ToolEffect.SIDE_EFFECTING,
 )
+
+
+_MALFORMED_ACCEPT_TEXT: Final = "the arguments of accept_invitation are malformed"
+"""The text of the error an accept answers with when its arguments do not fit the library's record; the library's
+refusal codes have none for it, so no code stands in its place.
+"""
 
 
 def _refused(refusal: AcceptInvitationRefusal) -> ToolOutcome:
@@ -308,9 +315,11 @@ def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTo
 
     async def handler(request: PersonRequest, arguments: JsonObject) -> ToolOutcome:
         try:
-            accepted = AcceptInvitationArguments.model_validate(arguments)
-        except ValidationError:
-            return _refused(AcceptInvitationRefusal.STALE_INVITATION)
+            accepted = AcceptInvitationArguments.model_validate_json(json.dumps(arguments))
+        except ValidationError as malformed:
+            problems = [f"{'.'.join(map(str, each['loc']))}: {each['type']}" for each in malformed.errors()]
+            logger.warning("accept_invitation_malformed", problems=problems)
+            return ToolOutcome(_MALFORMED_ACCEPT_TEXT, is_error=True)
         if accepted.place.kind != TABLE_PLACE_KIND:
             return _refused(AcceptInvitationRefusal.STALE_INVITATION)
         table_id = accepted.place.id
