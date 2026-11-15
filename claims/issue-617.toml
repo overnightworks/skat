@@ -1,8 +1,0 @@
-claim_id = "64729039fddf457081ec23c87414bda3"
-agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
-role = "builder"
-base = "1ab6cd2eaca8cb4fa1bf590c6c204095940c30c2"
-branch = "claude/issue-617-the-page-answers-a-shortening-and-shows"
-scope = ["frontend/src/lib/catalogs/de.po", "frontend/src/lib/catalogs/en.po", "frontend/src/lib/cues.test.ts", "frontend/src/lib/cues.ts", "frontend/src/lib/giveUp.fixtures.ts", "frontend/src/lib/giveUp.test.ts", "frontend/src/lib/giveUp.ts", "frontend/src/lib/playView.test.ts", "frontend/src/lib/playView.ts", "frontend/src/lib/result.fixtures.ts", "frontend/src/lib/result.test.ts", "frontend/src/lib/result.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui", "frontend/src/lib/wire.ts", "frontend/src/lib/words", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "src/skat/web/words.py", "tests/e2e/test_table_give_up.py", "tests/e2e/test_table_open_play.py", "tests/e2e/test_table_shorten.py"]
-opened_commit = "dbec99c8af6ca12170b07f66c1bf0479bd6382e7"
-whole_reason = "The keys, the answers, the open cards and the result stamps are one flow on one page: a shortening with no way to answer never ends, and an open play whose cards the page does not draw shows nothing."
