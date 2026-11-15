@@ -261,7 +261,7 @@ class TestChairHold:
 
         assert len(releases.calls) == 3
         assert wakes.counts["ben"] == woken_before + 1
-        assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE] * 2
+        assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE] * 2
         assert "anna" not in str(logs)
 
     def test_a_member_returning_while_the_freeing_waits_keeps_the_chair(self, holding, time, releases):
