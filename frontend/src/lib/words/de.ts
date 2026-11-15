@@ -371,7 +371,6 @@ export type Words = {
     readonly "card.letterQueen": string;
     readonly "card.letterKing": string;
     readonly "card.letterAce": string;
-    readonly "agents.pill": string;
     readonly "table.agentSits": (gaps: { readonly name: string }) => string;
     readonly "table.agentLeft": (gaps: { readonly name: string }) => string;
     readonly "table.standUpNotice": (gaps: { readonly name: string }) => string;
@@ -968,7 +967,6 @@ export const words: Words = {
     "card.letterQueen": "D",
     "card.letterKing": "K",
     "card.letterAce": "A",
-    "agents.pill": "Agenten",
     "table.agentSits": (gaps: { readonly name: string }) => gaps.name + " setzt sich",
     "table.agentLeft": (gaps: { readonly name: string }) => gaps.name + " ist gegangen",
     "table.standUpNotice": (gaps: { readonly name: string }) => gaps.name + " ist aufgestanden",

@@ -1525,10 +1525,6 @@ msgctxt "card.letterAce"
 msgid "A"
 msgstr "A"
 
-msgctxt "agents.pill"
-msgid "Agenten"
-msgstr "Agents"
-
 msgctxt "table.agentSits"
 msgid "{name} setzt sich"
 msgstr "{name} sits down"

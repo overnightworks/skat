@@ -469,7 +469,6 @@ const translated = {
     "card.letterQueen": "Q",
     "card.letterKing": "K",
     "card.letterAce": "A",
-    "agents.pill": "Agents",
     "table.agentSits": (gaps: { readonly name: string }) => gaps.name + " sits down",
     "table.agentLeft": (gaps: { readonly name: string }) => gaps.name + " left",
     "table.standUpNotice": (gaps: { readonly name: string }) => gaps.name + " stood up",
