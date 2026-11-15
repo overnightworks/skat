@@ -233,8 +233,9 @@ class TestStartingToFollow:
 
         async def run():
             pod = self.silent_pod()
+            following = pod.shared.following(pod.wake_list)
             with pytest.raises(StartRefusedError, match="redis_url"):
-                async with pod.shared.following(pod.wake_list):
+                async with following:
                     pytest.fail("served without a subscription")
 
         asyncio.run(run())
@@ -243,8 +244,9 @@ class TestStartingToFollow:
         async def run():
             pod = self.silent_pod()
             pod.channel.inbox.put_nowait(StoreError("refused"))
+            following = pod.shared.following(pod.wake_list)
             with pytest.raises(StoreError):
-                async with pod.shared.following(pod.wake_list):
+                async with following:
                     pytest.fail("served without a subscription")
 
             assert not pod.ended.is_set()
