@@ -299,7 +299,12 @@ def test_a_caller_who_left_the_calling_group_keeps_the_list_until_he_has_read_th
     account = member_of(felix).account.id
     agent = ListeningAgent(e2e_server, account, "Raffael", "agent-subject-raffael")
     try:
-        open_table_menu(felix)
+        # The opening read has been answered before the group is taken away, or it would answer a list already hidden.
+        with felix.expect_response(
+            lambda response: response.request.method == "GET" and response.url.endswith(TABLE_AGENTS_SUFFIX)
+        ):
+            open_table_menu(felix)
+        expect(agents_list(felix)).to_be_visible()
         e2e_server.issuer.grant_groups(account, ())
 
         felix.get_by_role("button", name=call_label("Raffael")).click()
