@@ -34,7 +34,7 @@ const CONFIRMATIONS = [
 
 // The one value the voice names two ways: as the number and as Null, whose lowest game is worth the same.
 const NULL_BID = 23;
-const NULL_BID_WORDS = [`voice.value${String(NULL_BID)}`, "voice.null"] as const satisfies readonly VoiceKey[];
+const NULL_BID_WORDS = ["voice.value23", "voice.null"] as const satisfies readonly VoiceKey[];
 
 // The word of a bid or a hold: what every page of the table sees of it decides the pick, so every page says the same.
 function bidWordKeyOf(seat: number, { action, value }: BidWord): VoiceKey {
