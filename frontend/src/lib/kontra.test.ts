@@ -77,6 +77,10 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
             legal_cards: [],
             running_points: null,
             give_up: null,
+            shortening: null,
+            shortening_refused_seat: null,
+            open_play_seat: null,
+            open_hands: [],
             kontra: playingKontra === "no hand" ? null : playingKontra,
         },
     };

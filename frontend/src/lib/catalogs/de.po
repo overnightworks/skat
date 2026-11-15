@@ -319,6 +319,46 @@ msgctxt "table.playOn"
 msgid "Weiterspielen"
 msgstr ""
 
+msgctxt "table.wantsToShorten"
+msgid "{name} will abkürzen"
+msgstr ""
+
+msgctxt "table.demands"
+msgid "Fordert {#level}{level}{/level}"
+msgstr ""
+
+msgctxt "table.shorten"
+msgid "Abkürzen"
+msgstr ""
+
+msgctxt "table.playOpen"
+msgid "Offen spielen"
+msgstr ""
+
+msgctxt "table.playOpenSure"
+msgid "Wirklich offen spielen?"
+msgstr ""
+
+msgctxt "table.playsOpen"
+msgid "{name} spielt offen"
+msgstr ""
+
+msgctxt "table.youPlayOpen"
+msgid "Du spielst offen"
+msgstr ""
+
+msgctxt "table.playsOpenOn"
+msgid "{name} spielt offen weiter"
+msgstr ""
+
+msgctxt "table.saidNoPlayingOn"
+msgid "{name} sagte Nein, es geht weiter"
+msgstr ""
+
+msgctxt "table.saidYes"
+msgid "sagte Ja"
+msgstr ""
+
 msgctxt "table.saidNo"
 msgid "sagte Nein"
 msgstr ""
@@ -701,6 +741,14 @@ msgstr ""
 
 msgctxt "result.givenUp"
 msgid "Aufgegeben"
+msgstr ""
+
+msgctxt "result.shortened"
+msgid "Abgekürzt"
+msgstr ""
+
+msgctxt "result.playedOpen"
+msgid "Offen gespielt"
 msgstr ""
 
 msgctxt "result.declarerWins"
