@@ -6,11 +6,12 @@ from playwright.sync_api import Page, expect
 
 from skat.table.records import TableStyle
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.table_menu import menu_button
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-STYLE_KEY = text(SOURCE_LANGUAGE, "table.styleName")
+STYLE_KEY = text(SOURCE_LANGUAGE, "table.style")
 ROOM = ".room"
 TABLE_SCENES = Path(__file__).parents[3] / "docs" / "mockups" / "table.html"
 STYLES = [pytest.param(TableStyle.KLASSIK, id="klassik"), pytest.param(TableStyle.STRANDBAR, id="strandbar")]
@@ -45,8 +46,8 @@ FURNITURE_CLEAR = """() => {
 
 
 def choose_style(person: Page, style: TableStyle) -> None:
-    """A seated person picks the table's style through the key and its panel."""
-    person.get_by_role("button", name=STYLE_KEY).click()
+    """A seated person picks the table's style through the menu's row and its panel."""
+    menu_button(person, STYLE_KEY).click()
     person.locator(f".style-tile.style-{style.value}").click()
     person.keyboard.press("Escape")
 

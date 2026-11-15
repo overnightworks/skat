@@ -27,6 +27,7 @@ from tests.e2e.support.early_end import (
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.result_card import CARD, waiting_for
+from tests.e2e.support.table_menu import GIVE_UP_ROW, menu_button
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -253,14 +254,14 @@ def test_a_card_takes_the_request_back_on_every_page(
     assert page_errors == []
 
 
-def test_only_the_declarer_has_the_key_and_it_sits_before_aufgeben(
+def test_only_the_declarer_has_the_key_in_the_strip_and_aufgeben_lies_in_the_menu(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
     table = deal_a_game(PHONE)
 
     declarer = table.pages[table.declarer_seat]
-    keys = declarer.locator(f"{SHORTEN_KEY}, .copy.give-up").evaluate_all("keys => keys.map(key => key.title)")
-    assert keys == [SHORTEN, GIVE_UP]
+    assert declarer.locator(".actions > .copy").evaluate_all("keys => keys.map(key => key.title)") == [SHORTEN]
+    expect(menu_button(declarer, GIVE_UP)).to_be_visible()
     expect(declarer.locator(SHORTEN_KEY)).to_have_count(1)
     for seat in opponents(table):
         expect(table.pages[seat].locator(SHORTEN_KEY)).to_have_count(0)
@@ -282,7 +283,7 @@ def test_no_key_while_the_declarer_still_declares_or_a_chair_is_open_or_a_reques
     declarer = table.pages[table.declarer_seat]
     expect(declarer.locator(".chair.mine")).to_have_count(1)
     expect(declarer.locator(SHORTEN_KEY)).to_have_count(0)
-    expect(declarer.locator(".copy.give-up")).to_have_count(0)
+    expect(declarer.locator(GIVE_UP_ROW)).to_have_count(0)
 
 
 def test_a_shortening_with_a_demanded_level_names_the_level_under_the_line_on_every_page(

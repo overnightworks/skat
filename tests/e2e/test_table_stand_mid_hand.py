@@ -10,6 +10,7 @@ from playwright.sync_api import Page, expect
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import plate_of
 
 if TYPE_CHECKING:
@@ -26,7 +27,6 @@ SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
 SIT_QUESTION = text(SOURCE_LANGUAGE, "table.sitQuestion")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 LOCKED = text(SOURCE_LANGUAGE, "table.chairLocked")
-ROUND_KEY_PIXELS = 52
 OWN_HAND = ".own-hand"
 NOTICE = "p.notice"
 NEVER_UNDER_THE_NOTICE = (".plaque", ".bubble", ".chair .fan", ".chair .tile", ".trick .laid")
@@ -41,7 +41,7 @@ SENTENCE_INSIDE_THE_PILL = """notice => {
 
 
 def stand_key_of(person: Page):
-    return person.get_by_role("button", name=STAND_UP)
+    return menu_button(person, STAND_UP)
 
 
 def chair_of(person: Page, seat: int):
@@ -58,12 +58,12 @@ def overlaps(first: dict[str, float], second: dict[str, float]) -> bool:
 
 
 def stands_up_through_the_key(person: Page) -> None:
-    person.get_by_role("button", name=STAND_UP).click()
+    menu_button(person, STAND_UP).click()
     person.get_by_role("button", name=STAND_UP_ARMED).click()
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_key_is_round_on_a_phone_and_keeps_its_word_at_1280_and_the_first_tap_only_arms_it(
+def test_the_menu_row_keeps_its_word_and_the_first_tap_only_arms_it(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -74,11 +74,7 @@ def test_the_key_is_round_on_a_phone_and_keeps_its_word_at_1280_and_the_first_ta
     seat = table.seat_at["rearhand"]
     person = table.pages[seat]
     key = stand_key_of(person)
-    phone = form_factor["viewport"]["width"] < 900
 
-    box = key.bounding_box()
-    assert box is not None
-    assert (box["width"] <= ROUND_KEY_PIXELS) is phone
     expect(key).to_have_attribute("title", STAND_UP)
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
@@ -116,7 +112,7 @@ def test_the_second_tap_stands_up_and_the_others_read_it_once_while_the_person_w
     expect(chair_of(person, seat).get_by_role("button", name=SIT_DOWN)).to_be_visible()
     expect(chair_of(person, seat).locator(".fan-spot")).to_have_count(1)
     expect(person.locator(".chair").last).to_have_attribute("data-seat", str(seat))
-    expect(stand_key_of(person)).to_have_count(0)
+    expect(person.locator(".row.stand")).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

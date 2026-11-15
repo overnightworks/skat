@@ -28,6 +28,7 @@ from tests.e2e.support.early_end import (
 from tests.e2e.support.people import PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.result_card import waiting_for
 from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
+from tests.e2e.support.table_menu import close_table_menu, menu_button
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -240,19 +241,17 @@ def test_the_key_sends_nothing_before_its_second_tap(
     assert page_errors == []
 
 
-def test_only_an_opponent_has_the_key_and_it_sits_before_aufgeben_and_a_chair_left_open_takes_it(
+def test_only_an_opponent_has_the_key_in_the_strip_and_aufgeben_lies_in_the_menu_and_a_chair_left_open_takes_the_key(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
     table = deal_a_game(PHONE)
     first, second = opponents(table)
 
     for seat in (first, second):
-        keys = (
-            table.pages[seat]
-            .locator(f"{PLAY_OPEN_KEY}, .copy.give-up")
-            .evaluate_all("keys => keys.map(key => key.title)")
-        )
-        assert keys == [PLAY_OPEN, text(SOURCE_LANGUAGE, "table.giveUp")]
+        person = table.pages[seat]
+        assert person.locator(".actions > .copy").evaluate_all("keys => keys.map(key => key.title)") == [PLAY_OPEN]
+        expect(menu_button(person, text(SOURCE_LANGUAGE, "table.giveUp"))).to_be_visible()
+        close_table_menu(person)
     expect(table.pages[table.declarer_seat].locator(PLAY_OPEN_KEY)).to_have_count(0)
     expect(table.watcher.locator(PLAY_OPEN_KEY)).to_have_count(0)
 

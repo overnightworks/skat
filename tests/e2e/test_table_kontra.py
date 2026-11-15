@@ -11,6 +11,7 @@ from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wa
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.kontra import KEY, STAMP, ContestedTable, LeadingTable, expect_nothing_to_overflow
 from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
+from tests.e2e.support.table_menu import close_table_menu, menu_button
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -23,7 +24,7 @@ pytestmark = pytest.mark.e2e
 KONTRA = text(SOURCE_LANGUAGE, "kontra.kontra")
 RE = text(SOURCE_LANGUAGE, "kontra.re")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "kontra.commandFailed")
-ROUND_KEY_PIXELS = 52
+GIVE_UP = text(SOURCE_LANGUAGE, "table.giveUp")
 NEAR_CARD = ".laid.near .face"
 SECOND_LINE = ".plaque .pushes"
 
@@ -128,23 +129,18 @@ def test_an_opponent_who_bid_says_kontra_and_the_declarer_re_and_every_page_show
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_aufgeben_goes_round_on_a_phone_beside_kontra_or_offen_spielen_and_every_key_but_the_close_key_stays_one_row(
+def test_the_strip_beside_kontra_or_offen_spielen_stays_one_row_and_aufgeben_lies_in_the_menu(
     deal_a_kontra_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_kontra_table({**form_factor, "groups": (AGENT_ADDERS_GROUP,)})
-    phone = form_factor["viewport"]["width"] < 900
-    offered = says_kontra(table)
-    none = passed_at_once(table)
 
-    for person in (offered, none):
-        give_up = person.locator(".copy.give-up").bounding_box()
-        assert give_up is not None
-        assert (give_up["width"] <= ROUND_KEY_PIXELS) is phone
+    for person in (says_kontra(table), passed_at_once(table)):
+        expect(menu_button(person, GIVE_UP)).to_be_visible()
+        close_table_menu(person)
     for person in table.everyone:
-        # The opener's close key may sit in a second row at 1280, where Offen spielen widens the strip; a phone's
-        # nowrap strip keeps it in the row, which the overflow check holds.
-        keys = person.locator(".actions > .copy:not(.close), .actions .pill-anchor")
-        assert keys.evaluate_all("keys => new Set(keys.map(key => key.offsetTop)).size") == 1
+        expect(person.locator(".actions .row")).to_have_count(0)
+        keys = person.locator(".actions .copy")
+        assert keys.evaluate_all("keys => new Set(keys.map(key => key.offsetTop)).size") <= 1
         expect_nothing_to_overflow(person)
     assert page_errors == []
 

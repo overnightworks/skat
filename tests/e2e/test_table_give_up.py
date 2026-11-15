@@ -11,6 +11,7 @@ from tests.e2e.support.early_end import THREE_SECONDS_MILLISECONDS, expect_a_ref
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.result_card import CARD, listed, waiting_for
+from tests.e2e.support.table_menu import GIVE_UP_ROW, MENU, close_table_menu, open_table_menu
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -30,16 +31,14 @@ SHORTEN = text(SOURCE_LANGUAGE, "table.shorten")
 PLAY_OPEN = text(SOURCE_LANGUAGE, "table.playOpen")
 GIVE_UP_SURE = text(SOURCE_LANGUAGE, "table.giveUpSure")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-PILL = text(SOURCE_LANGUAGE, "agents.pill")
-COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 GIVEN_UP_STAMP = text(SOURCE_LANGUAGE, "result.givenUp")
 NOTICE = ".notice"
 NOTICE_SENTENCE = f"{NOTICE} .label"
 NOTICE_MILLISECONDS = 4000
-KEY = ".copy.give-up"
+KEY = GIVE_UP_ROW
 STRIP = ".actions"
-ROUND_KEY_PIXELS = 52
+BESIDE_THE_MENU = (4, 4)
 CARDS_AFTER_ONE_TRICK = 3
 KREUZ = text(SOURCE_LANGUAGE, "game.kreuz")
 REQUEST = ".plaque.ask"
@@ -425,31 +424,28 @@ def strip_keys(person: Page) -> list[str]:
 
 
 def give_up_key(person: Page) -> Any:
-    return person.locator(KEY)
+    """The give-up row of the menu, which is opened first."""
+    return open_table_menu(person).locator(KEY)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_every_seated_bar_carries_its_own_key_then_aufgeben_and_a_round_aufstehen_and_the_watcher_has_none(
+def test_every_seated_strip_carries_only_its_own_key_and_the_menu_holds_aufgeben_and_aufstehen_and_the_watcher_has_none(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_game(form_factor)
-    phone = form_factor["viewport"]["width"] < 900
 
     for seat, person in table.pages.items():
-        key = give_up_key(person)
-        stand = button_of(person, STAND_UP)
-        expect(key).to_have_attribute("title", GIVE_UP)
-        assert strip_keys(person)[:3] == [SHORTEN if seat == table.declarer_seat else PLAY_OPEN, GIVE_UP, STAND_UP]
-        stand_box = stand.bounding_box()
-        assert stand_box is not None
-        assert (stand_box["width"] <= ROUND_KEY_PIXELS) is phone
+        expect(give_up_key(person)).to_have_attribute("title", GIVE_UP)
+        expect(button_of(person, STAND_UP)).to_be_visible()
+        close_table_menu(person)
+        assert strip_keys(person) == [SHORTEN if seat == table.declarer_seat else PLAY_OPEN]
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-    expect(give_up_key(table.watcher)).to_have_count(0)
+    expect(table.watcher.locator(KEY)).to_have_count(0)
     assert page_errors == []
 
 
 @pytest.mark.parametrize("form_factor", [SMALL_PHONE, DESKTOP], ids=["360", "1280"])
-def test_the_armed_key_beside_aufstehen_the_pill_and_the_link_stays_in_one_row_without_scrolling(
+def test_the_armed_row_stays_inside_the_menu_and_the_menu_inside_the_page_without_scrolling(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_game({**form_factor, "groups": (AGENT_ADDERS_GROUP,)})
@@ -458,11 +454,14 @@ def test_the_armed_key_beside_aufstehen_the_pill_and_the_link_stays_in_one_row_w
     give_up_key(person).click()
 
     expect(give_up_key(person)).to_have_attribute("title", GIVE_UP_SURE)
-    keys = [give_up_key(person), button_of(person, STAND_UP), button_of(person, PILL), button_of(person, COPY_LINK)]
-    boxes = [key.bounding_box() for key in keys]
-    assert None not in boxes
-    assert len({box["y"] for box in boxes if box}) == 1, boxes
-    assert max(box["x"] + box["width"] for box in boxes if box) <= form_factor["viewport"]["width"]
+    row = give_up_key(person).bounding_box()
+    menu = person.locator(MENU).bounding_box()
+    assert row is not None
+    assert menu is not None
+    assert menu["x"] <= row["x"]
+    assert row["x"] + row["width"] <= menu["x"] + menu["width"]
+    assert menu["x"] >= 0
+    assert menu["x"] + menu["width"] <= form_factor["viewport"]["width"]
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     assert page_errors == []
 
@@ -506,7 +505,7 @@ def test_a_tap_elsewhere_a_reload_a_card_and_a_newer_version_each_put_the_armed_
     opponent = opponents(table)[0]
 
     give_up_key(person).click()
-    person.locator(".plaque").click()
+    person.mouse.click(*BESIDE_THE_MENU)
     expect(give_up_key(person)).to_have_attribute("title", GIVE_UP)
 
     give_up_key(person).click()
@@ -626,5 +625,5 @@ def test_a_chair_left_open_takes_the_key_from_every_bar(
 
     for person in others:
         expect(person.locator(".chair.mine")).to_have_count(1)
-        expect(give_up_key(person)).to_have_count(0)
+        expect(person.locator(KEY)).to_have_count(0)
     assert page_errors == []

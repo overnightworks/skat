@@ -8,6 +8,7 @@ from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import SIT_DOWN
 
 if TYPE_CHECKING:
@@ -183,7 +184,7 @@ def test_a_freed_chair_has_no_coaster_and_a_newcomer_on_it_reads_zero(
     totals = totals_of(table)
     leaver = next(seat for seat in table.names if seat != table.declarer_seat)
 
-    table.pages[leaver].locator(".actions").get_by_role("button", name=STAND_UP).click()
+    menu_button(table.pages[leaver], STAND_UP).click()
     expect(table.watcher.locator(f".chair[data-seat='{leaver}'] .coaster")).to_have_count(0)
     expect(table.watcher.locator(COASTER)).to_have_count(len(totals) - 1)
     table.watcher.locator(f".chair[data-seat='{leaver}']").get_by_role("button", name=SIT_DOWN).click()

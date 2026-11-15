@@ -16,6 +16,7 @@ from skat.web.words import text as word_text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
+from tests.e2e.support.table_menu import close_table_menu, menu_button
 from tests.e2e.support.tables import (
     OPEN_TABLE,
     RUNNING_POINTS_SWITCH,
@@ -52,7 +53,8 @@ def same_origin(server: RunningServer) -> dict[str, str]:
 
 def expect_a_table_seating(person: Page, opener: str, *, mine: bool) -> None:
     expect(person.get_by_text(word_text(SOURCE_LANGUAGE, "table.waitingForPlayers"))).to_be_visible()
-    expect(person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "table.copyLink"))).to_be_visible()
+    expect(menu_button(person, word_text(SOURCE_LANGUAGE, "table.copyLink"))).to_be_visible()
+    close_table_menu(person)
     chairs = person.locator(".chair")
     expect(chairs).to_have_count(3)
     expect(person.locator(".chair[data-seat='1'] .plate")).to_have_text(
@@ -298,7 +300,7 @@ def test_the_link_control_copies_the_absolute_link_of_the_table(
     person.context.grant_permissions(["clipboard-read", "clipboard-write"], origin=e2e_server.base_url)
     path = open_new_table(person, e2e_server)
 
-    person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "table.copyLink")).click()
+    menu_button(person, word_text(SOURCE_LANGUAGE, "table.copyLink")).click()
 
     expect(person.get_by_role("status")).to_have_text(word_text(SOURCE_LANGUAGE, "table.linkCopied"))
     assert person.evaluate("navigator.clipboard.readText()") == f"{e2e_server.base_url}{path}"
@@ -311,7 +313,7 @@ def test_a_refused_copy_says_so(
     open_new_table(person, e2e_server)
     person.evaluate("() => { navigator.clipboard.writeText = () => Promise.reject(new Error('refused')); }")
 
-    person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "table.copyLink")).click()
+    menu_button(person, word_text(SOURCE_LANGUAGE, "table.copyLink")).click()
 
     expect(person.get_by_role("status")).to_have_text(word_text(SOURCE_LANGUAGE, "table.linkCopyFailed"))
 

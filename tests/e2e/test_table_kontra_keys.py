@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 # The deal that draws the opener's seat as dealer, so the opener is the rearhand and neither the forehand nor the
-# middlehand, who say Kontra and Re in the main test, carry the opener's close key.
+# middlehand, who say Kontra and Re in the main test, carry the opener's close row.
 DEAL_WHERE_THE_OPENER_DEALS = 1
 OPENER_SEAT = 1
 KONTRA = text(SOURCE_LANGUAGE, "kontra.kontra")
@@ -117,7 +117,7 @@ def expect_the_keys_to_match_the_scene(person: Page, frame: str, word: str, *, d
     if declines:
         assert abs(gap_between(drawn) - gap_between(scene)) <= ONE_PIXEL, (drawn, scene)
         if on_a_phone:
-            assert abs(centre_of(drawn) - centre_of(scene)) <= CENTRED_WITHIN, (drawn, scene)
+            assert abs(centre_of(drawn) - viewport["width"] / 2) <= CENTRED_WITHIN, drawn
 
 
 def gap_between(keys: dict[str, Any]) -> float:
@@ -176,7 +176,7 @@ def test_the_kontra_and_re_keys_have_the_scenes_size_mark_and_word_and_every_key
 
 
 @pytest.mark.parametrize("form_factor", [pytest.param(NARROW_PHONE, id="360"), pytest.param(PHONE, id="390")])
-def test_the_opener_on_a_phone_sees_the_kontra_key_without_its_mark_beside_the_close_key(
+def test_the_opener_on_a_phone_sees_the_kontra_key_as_the_scene_draws_it_with_the_close_row_in_the_menu(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -188,8 +188,8 @@ def test_the_opener_on_a_phone_sees_the_kontra_key_without_its_mark_beside_the_c
     opener = table.pages[OPENER_SEAT]
     expect(button_of(opener, KONTRA)).to_be_visible()
 
-    # The close key is the sixth key of a phone's strip, which the scenes do not draw: the word loses its mark.
-    expect(opener.locator(".actions > .copy.close")).to_have_count(1)
-    assert not the_page_draws(opener, KONTRA, declines=False)["word"]["mark"]
+    expect(opener.locator(".row.close")).to_have_count(1)
+    expect(opener.locator(".actions .row")).to_have_count(0)
+    expect_the_keys_to_match_the_scene(opener, "kontra-offer", KONTRA, declines=False)
     expect_the_rows_to_fit(opener)
     assert page_errors == []
