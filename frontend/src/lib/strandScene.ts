@@ -54,20 +54,19 @@ function wave(width: number, y: number, amplitude: number, length: number): stri
     return path;
 }
 
-export function beachOf(size: BeachSize): Beach {
-    const desktop = size === "desktop";
-    const { width, height } = BEACH_VIEWS[size];
-    const horizon = Math.round(height * (desktop ? 0.21 : 0.095));
-    const shore = Math.round(height * (desktop ? 0.38 : 0.17));
-    const sunX = Math.round(width * (desktop ? 0.7 : 0.68));
-    const random = seeded();
-    const stars = Array.from({ length: desktop ? 26 : 14 }, (): Dot => {
+type Random = () => number;
+
+function starsOf(desktop: boolean, width: number, horizon: number, random: Random): Dot[] {
+    return Array.from({ length: desktop ? 26 : 14 }, (): Dot => {
         const x = Math.round(random() * width);
         const y = Math.round(random() * horizon * 0.8);
         return { x, y, r: 0.6 + random() * 0.9, opacity: 0.45 + random() * 0.5, light: true };
     });
+}
+
+function sunPathOf(desktop: boolean, sunX: number, horizon: number): Beach["sunPath"] {
     const scale = desktop ? 1.6 : 1;
-    const sunPath = Array.from({ length: 9 }, (_, index) => {
+    return Array.from({ length: 9 }, (_, index) => {
         const barWidth = (52 - index * 5.5) * scale;
         return {
             x: sunX - barWidth / 2,
@@ -77,8 +76,11 @@ export function beachOf(size: BeachSize): Beach {
             opacity: 0.7 - index * 0.07,
         };
     });
+}
+
+function seaLinesOf(desktop: boolean, width: number, horizon: number, shore: number): Beach["seaLines"] {
     const seaCount = desktop ? 9 : 4;
-    const seaLines = Array.from({ length: seaCount }, (_, index) => ({
+    return Array.from({ length: seaCount }, (_, index) => ({
         d: wave(
             width,
             horizon + 14 + index * ((shore - horizon - 20) / seaCount),
@@ -87,8 +89,11 @@ export function beachOf(size: BeachSize): Beach {
         ),
         opacity: 0.05 + index * 0.014,
     }));
+}
+
+function foamOf(desktop: boolean, width: number, shore: number): Beach["foam"] {
     const length = desktop ? 90 : 60;
-    const foam = [
+    return [
         { d: wave(width, shore, desktop ? 4 : 3, length), width: 0, opacity: 0.5, shift: 0 },
         {
             d: wave(width, shore + (desktop ? 5 : 3), desktop ? 4 : 3, length),
@@ -98,17 +103,34 @@ export function beachOf(size: BeachSize): Beach {
         },
         { d: wave(width, shore + (desktop ? 18 : 11), desktop ? 3 : 2.4, length), width: 1.6, opacity: 0.3, shift: 2 },
     ];
-    const speckle = Array.from({ length: desktop ? 150 : 90 }, (): Dot => {
+}
+
+function speckleOf(desktop: boolean, width: number, height: number, shore: number, random: Random): Dot[] {
+    return Array.from({ length: desktop ? 150 : 90 }, (): Dot => {
         const x = Math.round(random() * width);
         const y = Math.round(shore + 16 + random() * (height - shore - 16));
         return { x, y, r: 0.7 + random() * 1.3, opacity: 0.22, light: random() > 0.5 };
     });
-    const bulbs = desktop
-        ? Array.from({ length: 17 }, (_, index) => ({
-              x: Math.round(330 + index * 38.75),
-              y: Math.round(22 + Math.sin((index / 16) * Math.PI) * 22 + 12),
-          }))
-        : [];
+}
+
+function bulbsOf(desktop: boolean): Beach["bulbs"] {
+    if (!desktop) return [];
+    return Array.from({ length: 17 }, (_, index) => ({
+        x: Math.round(330 + index * 38.75),
+        y: Math.round(22 + Math.sin((index / 16) * Math.PI) * 22 + 12),
+    }));
+}
+
+export function beachOf(size: BeachSize): Beach {
+    const desktop = size === "desktop";
+    const { width, height } = BEACH_VIEWS[size];
+    const horizon = Math.round(height * (desktop ? 0.21 : 0.095));
+    const shore = Math.round(height * (desktop ? 0.38 : 0.17));
+    const sunX = Math.round(width * (desktop ? 0.7 : 0.68));
+    const random = seeded();
+    // The stars draw from the sequence before the sand, so each lies where the blessed picture has it.
+    const stars = starsOf(desktop, width, horizon, random);
+    const speckle = speckleOf(desktop, width, height, shore, random);
     return {
         width,
         height,
@@ -119,10 +141,10 @@ export function beachOf(size: BeachSize): Beach {
         glowRadius: desktop ? 260 : 150,
         stars,
         speckle,
-        sunPath,
-        seaLines,
-        foam,
-        bulbs,
+        sunPath: sunPathOf(desktop, sunX, horizon),
+        seaLines: seaLinesOf(desktop, width, horizon, shore),
+        foam: foamOf(desktop, width, shore),
+        bulbs: bulbsOf(desktop),
         foamDepth: desktop ? 26 : 16,
     };
 }
