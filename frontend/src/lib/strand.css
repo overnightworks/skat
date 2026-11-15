@@ -60,6 +60,12 @@
     padding: 10px 16px 12px;
 }
 
+@media (min-width: 900px) {
+    .room .style-row {
+        padding: 8px 16px 10px;
+    }
+}
+
 .room .style-label {
     font-size: 15px;
     font-weight: 600;
