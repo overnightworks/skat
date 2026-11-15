@@ -72,11 +72,7 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     if (next.version === previous.version) return nudges;
     const cues: Cue[] = chairCuesBetween(previous, next);
     if (auctionJustEnded(previous, next)) cues.push({ kind: "auction-ended" });
-    const { laid, completed, completing } = cardsLaidBetween(previous, next);
-    for (const [index, { seat, card }] of laid.entries()) {
-        cues.push({ kind: "card-played", seat, card });
-        if (index === completing - 1 && completed !== null) cues.push({ kind: "trick-taken", trick: completed });
-    }
+    cues.push(...cardCuesBetween(previous, next));
     const refusers = giveUpRefusedBetween(previous, next);
     if (refusers !== null) cues.push({ kind: "give-up-refused", seats: refusers });
     const shorteningRefuser = shorteningRefusedBetween(previous, next);
@@ -101,6 +97,17 @@ export function closedHandOrdinal(previous: Table, next: Table): number | null {
     const { result } = next;
     if (previous.hand?.playing == null || next.hand !== null || result === null) return null;
     return result.kind === "declared" && result.ending !== "played-out" ? null : result.ordinal;
+}
+
+// Each card the update laid, and the trick the completing card finished right after it.
+function cardCuesBetween(previous: Table, next: Table): Cue[] {
+    const { laid, completed, completing } = cardsLaidBetween(previous, next);
+    return laid.flatMap(({ seat, card }, index): Cue[] => {
+        const played: Cue = { kind: "card-played", seat, card };
+        return index === completing - 1 && completed !== null
+            ? [played, { kind: "trick-taken", trick: completed }]
+            : [played];
+    });
 }
 
 function nudgedCuesBetween(previous: Table, next: Table): Cue[] {
