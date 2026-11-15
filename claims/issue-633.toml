@@ -1,8 +1,0 @@
-claim_id = "4488a17028fc42599916a991c2529a03"
-agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
-role = "builder"
-base = "3350ec39e3da98e140e84773ce6840439fa70a18"
-branch = "claude/issue-633-a-hold-answers-with-a-yes-instead-of-the"
-scope = ["docs/mockups", "frontend/src", "src/skat/web/words.py", "tests"]
-opened_commit = "d8c56e3b4997a1ec18a962da5c7649e9dbed7bef"
-whole_reason = "operator's live finding and requests of 15.11.2026 span page, service and tests"
