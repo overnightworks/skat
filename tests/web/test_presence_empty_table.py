@@ -190,7 +190,7 @@ class TestWhenTheStoreFails:
         with capture_logs() as logs:
             run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
 
-        assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE]
+        assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE]
         assert (logs[0]["table_id"], "anna" in str(logs)) == (TABLE, False)
         assert ends.calls == []
 
@@ -351,7 +351,7 @@ class TestTheStoredTimeSinceNobodyWasThere:
             run(time.advance(0))
         run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
 
-        assert [(log["error"], log["table_id"]) for log in logs] == [("ConnectionError", TABLE)]
+        assert [(log["error_type"], log["table_id"]) for log in logs] == [("ConnectionError", TABLE)]
         assert notes.calls[-1] == (TABLE, frozenset())
 
     def test_a_retried_leave_write_notes_who_is_connected_when_it_runs_after_a_reconnect(self, noting, time, notes):
