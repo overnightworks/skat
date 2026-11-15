@@ -10,6 +10,7 @@ from playwright.sync_api import Page, expect
 from skat.web.abort import TABLE_ABORT_AGREE_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of
+from tests.e2e.support.early_end import expect_nothing_to_overflow
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE, WIDTHS
 
@@ -33,6 +34,7 @@ NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 KEY = ".copy.abort"
 ASK = ".plaque.ask"
+ABORT_PARTS = f"{KEY}, {ASK}, {ASK} button"
 ARMED_RUN_OUT_SECONDS = 3
 RUN_OUT_TIMEOUT_MILLISECONDS = 3 * ARMED_RUN_OUT_SECONDS * 1000
 
@@ -63,17 +65,6 @@ def deal_a_waiting_hand(
     return deal
 
 
-def expect_nothing_to_overflow(person: Page) -> None:
-    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-    viewport = person.viewport_size
-    assert viewport is not None
-    for part in person.locator(f"{KEY}, {ASK}, {ASK} button").all():
-        box = part.bounding_box()
-        assert box is not None
-        assert box["x"] >= 0
-        assert box["x"] + box["width"] <= viewport["width"]
-
-
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_person_taps_the_key_twice_the_other_agrees_and_the_hand_ends_aborted(
     deal_a_waiting_hand: Callable[..., tuple[PlayingTable, Page, Page]],
@@ -84,14 +75,14 @@ def test_a_person_taps_the_key_twice_the_other_agrees_and_the_hand_ends_aborted(
     proposer_name = table.names[table.seat_of(proposer)]
     answerer_seat = table.seat_of(answerer)
     answerer_name = table.names[answerer_seat]
-    expect_nothing_to_overflow(proposer)
+    expect_nothing_to_overflow(proposer, ABORT_PARTS)
     expect(table.watcher.locator(KEY)).to_have_count(0)
 
     proposer.locator(KEY).click()
 
     expect(proposer.locator(KEY)).to_contain_text(ABORT_SURE)
     expect(answerer.locator(ASK)).to_have_count(0)
-    expect_nothing_to_overflow(proposer)
+    expect_nothing_to_overflow(proposer, ABORT_PARTS)
 
     proposer.locator(KEY).click()
 
@@ -107,7 +98,7 @@ def test_a_person_taps_the_key_twice_the_other_agrees_and_the_hand_ends_aborted(
     expect(table.watcher.locator(ASK)).to_contain_text(wants_to_abort(proposer_name))
     expect(table.watcher.locator(f"{ASK} button")).to_have_count(0)
     for person in (proposer, answerer):
-        expect_nothing_to_overflow(person)
+        expect_nothing_to_overflow(person, ABORT_PARTS)
 
     button_of(answerer, ABORT).click()
 

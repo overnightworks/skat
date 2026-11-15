@@ -22,7 +22,6 @@ from tests.e2e.support.early_end import (
     mark_on,
     opponents,
 )
-from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.result_card import waiting_for
 from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
@@ -30,8 +29,8 @@ from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
+    from tests.e2e.support.hands import PlayingTable
     from tests.e2e.support.server import RunningServer
-    from tests.support.signed_in import SeededMember
 
 pytestmark = pytest.mark.e2e
 
@@ -55,21 +54,6 @@ def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServ
     random_source = AlwaysTheSameDeal(DEAL_WITH_A_RIGHT_OPEN_PLAY_AT_THE_END)
     with skat_on_new_database(tmp_path_factory, random_source=random_source) as server:
         yield server
-
-
-@pytest.fixture
-def deal_a_game(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-) -> Callable[..., PlayingTable]:
-    """A declared game before its first card."""
-
-    def deal(form_factor: dict[str, Any], *, console: bool = True) -> PlayingTable:
-        return deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, console=console)
-
-    return deal
 
 
 @pytest.fixture

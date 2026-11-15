@@ -419,21 +419,6 @@ def test_after_a_yes_the_given_up_card_takes_the_next_hand_with_weiter(
     assert page_errors == []
 
 
-@pytest.fixture
-def deal_a_game(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-) -> Callable[..., PlayingTable]:
-    """A declared game before its first card, with the failure of a refused tap kept out of the console check."""
-
-    def deal(form_factor: dict[str, Any], *, console: bool = True) -> PlayingTable:
-        return deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, console=console)
-
-    return deal
-
-
 def strip_keys(person: Page) -> list[str]:
     """The titles of the keys of the strip, left to right."""
     return person.locator(f"{STRIP} > .copy").evaluate_all("keys => keys.map(key => key.title || key.ariaLabel)")

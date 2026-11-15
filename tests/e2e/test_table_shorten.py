@@ -43,21 +43,6 @@ GIVE_UP = text(SOURCE_LANGUAGE, "table.giveUp")
 
 
 @pytest.fixture
-def deal_a_game(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-) -> Callable[..., PlayingTable]:
-    """A declared game before its first card."""
-
-    def deal(form_factor: dict[str, Any], *, console: bool = True) -> PlayingTable:
-        return deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, console=console)
-
-    return deal
-
-
-@pytest.fixture
 def deal_a_shortening(deal_a_game: Callable[..., PlayingTable]) -> Callable[..., PlayingTable]:
     """A declared game after two tricks at which the declarer shortened by the key on his page."""
 

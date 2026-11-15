@@ -42,11 +42,12 @@ def expect_the_stamp(
         expect(person.locator(REQUEST)).to_have_count(0)
 
 
-def expect_nothing_to_overflow(person: Page) -> None:
+def expect_nothing_to_overflow(person: Page, parts: str = f"{REQUEST}, {NOTICE}") -> None:
+    """The page does not scroll sideways and every part the selector names lies inside the viewport."""
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     viewport = person.viewport_size
     assert viewport is not None
-    for part in person.locator(f"{REQUEST}, {NOTICE}").all():
+    for part in person.locator(parts).all():
         box = part.bounding_box()
         assert box is not None
         assert box["x"] >= 0
