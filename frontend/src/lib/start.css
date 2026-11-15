@@ -5109,13 +5109,13 @@ body {
         display: none;
     }
 
-    /* The armed open play asks a longer question than the strip has room for beside four round keys, so it sets its sentence in two lines rather than push a key off the screen. */
-    .room .actions:has(.give-up) .copy.play-open.arm {
+    /* The keys that shorten and play open are longer than the strip has room for beside four round keys and the close key, and the armed open play asks a longer question still, so they give way, the open play in two lines, rather than push a key off the screen. */
+    .room .actions:has(.give-up) .copy:is(.shorten, .play-open) {
         flex-shrink: 1;
         min-width: 0;
     }
 
-    .room .copy.play-open.arm .label {
+    .room .copy.play-open .label {
         white-space: normal;
         text-align: center;
         line-height: 1.15;
@@ -5212,14 +5212,12 @@ body {
     }
 }
 
-/* During a hand the opener's strip holds the give-up or Kontra, the stand-up, the agents' pill, the link and the close key: on a phone Kontra keeps its word alone, and on the narrowest the gaps and the give-up's padding give way too, so the row stays inside the screen. */
+/* During a hand the opener's strip holds the give-up or Kontra, the stand-up, the agents' pill, the link and the close key: on a phone Kontra keeps its word alone, and the gaps and the give-up's padding give way too, so the row stays inside the screen. */
 @media (max-width: 899px) {
     .room .actions:has(.copy.close) > .copy:is(.kontra, .shorten, .play-open) svg {
         display: none;
     }
-}
 
-@media (max-width: 383px) {
     .room .actions:has(.give-up):has(.copy.close) {
         gap: 4px;
     }
@@ -5230,10 +5228,19 @@ body {
     }
 }
 
-/* The keys that shorten and play open show their word alone on the narrowest phones, as Kontra does. */
+/* The keys that shorten and play open show their word alone on the narrowest phones, as Kontra does; beside the close key their word is set smaller in less padding, as the row has no more room. */
 @media (max-width: 379px) {
     .room .copy:is(.shorten, .play-open) svg {
         display: none;
+    }
+
+    .room .actions:has(.give-up):has(.copy.close) {
+        gap: 3px;
+    }
+
+    .room .actions:has(.give-up):has(.copy.close) .copy:is(.shorten, .play-open) {
+        padding-inline: 6px;
+        font-size: 14px;
     }
 }
 
