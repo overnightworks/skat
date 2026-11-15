@@ -1803,8 +1803,29 @@ body {
 
     /* A notice that the game goes on stands below the open rows of a side chair, in one line, with the trick below it. */
     .room .stage:has(.chair:is(:nth-child(1), :nth-child(2)) .open) .notice.seat {
+        position: relative;
+        top: calc(var(--chair-width) * 0.76 + 14px + var(--open-drop) + var(--open-width) * 1.4);
         max-width: calc(100% - 24px);
-        margin-top: calc(var(--chair-width) * 0.76 + 14px + var(--open-drop) + var(--open-width) * 1.4);
+        margin-top: 0;
+    }
+
+    /* The plaque of a game with open cards at a side chair lies on the felt beside the rows, on the other side, as the scenes draw it, below the far fan, so the row above the chairs is free. */
+    .room .stage:has(.chair:is(:nth-child(1), :nth-child(2)) .open):not(:has(> .result)) .plaque:not(.wide) {
+        position: relative;
+        z-index: 2;
+        grid-row: 2;
+        align-self: start;
+        top: 46px;
+        margin-top: calc(var(--chair-width) * 0.75 + 18px);
+        margin-bottom: calc(var(--table-card-width) * -1.07);
+    }
+
+    .room .stage:has(.chair:nth-child(1) .open) .plaque:not(.wide) {
+        justify-self: end;
+    }
+
+    .room .stage:has(.chair:nth-child(2) .open) .plaque:not(.wide) {
+        justify-self: start;
     }
 
     .room .stage:has(.chair:is(:nth-child(1), :nth-child(2)) .open) .notice.seat .label {

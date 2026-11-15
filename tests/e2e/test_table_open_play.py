@@ -19,6 +19,7 @@ from tests.e2e.support.early_end import (
     STRIP,
     THREE_SECONDS_MILLISECONDS,
     expect_nothing_to_overflow,
+    expect_the_hand_and_the_strip_on_the_first_screen,
     expect_the_stamp,
     mark_on,
     opponents,
@@ -150,6 +151,7 @@ def test_the_declarers_play_on_opens_that_opponents_cards_for_everyone_with_the_
         expect(person.locator(NOTICE)).to_contain_text(plays_open_on(table.names[player]))
         expect(mark_on(person, player, ".mark.open-play")).to_have_attribute("title", OPEN_MARK)
         expect_nothing_to_overflow(person)
+        expect_the_hand_and_the_strip_on_the_first_screen(person)
     for person in table.everyone:
         expect(person.locator(NOTICE)).to_have_count(0, timeout=3 * NOTICE_MILLISECONDS)
     assert page_errors == []
@@ -189,6 +191,7 @@ def test_a_reconnect_keeps_the_standing_request_for_a_watcher(
     table = deal_a_game(PHONE, console=False)
     table.play_out(CARDS_AFTER_TWO_TRICKS)
     player, _ = opponents(table)
+    expect(table.pages[player].locator(OWN_CARDS)).to_have_count(8)
     play_open_through_the_key(table.pages[player])
     watcher = table.watcher
     expect(watcher.locator(REQUEST)).to_contain_text(plays_open(table.names[player]))

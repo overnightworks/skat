@@ -17,6 +17,7 @@ from tests.e2e.support.early_end import (
     REQUEST,
     SHORTEN_KEY,
     expect_nothing_to_overflow,
+    expect_the_hand_and_the_strip_on_the_first_screen,
     expect_the_stamp,
     mark_on,
     opponents,
@@ -134,6 +135,7 @@ def test_one_no_opens_the_declarers_cards_to_everyone_crosses_the_refuser_and_te
         expect(mark_on(person, refuser, CROSS)).to_have_attribute("title", SAID_NO)
         expect(mark_on(person, other, CROSS)).to_have_count(0)
         expect_nothing_to_overflow(person)
+        expect_the_hand_and_the_strip_on_the_first_screen(person)
     for person in table.everyone:
         expect(person.locator(NOTICE)).to_have_count(0, timeout=3 * NOTICE_MILLISECONDS)
     assert page_errors == []

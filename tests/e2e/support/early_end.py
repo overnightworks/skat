@@ -22,6 +22,7 @@ NOTICE_MILLISECONDS = 4000
 THREE_SECONDS_MILLISECONDS = 3000
 STRIP = ".actions"
 OWN_CARDS = ".own-hand .card"
+OWN_HAND = ".own-hand"
 
 
 def opponents(table: PlayingTable) -> list[int]:
@@ -52,3 +53,13 @@ def expect_nothing_to_overflow(person: Page, parts: str = f"{REQUEST}, {NOTICE}"
         assert box is not None
         assert box["x"] >= 0
         assert box["x"] + box["width"] <= viewport["width"]
+
+
+def expect_the_hand_and_the_strip_on_the_first_screen(person: Page) -> None:
+    """The own hand and the strip of keys lie above the lower edge of the screen."""
+    viewport = person.viewport_size
+    assert viewport is not None
+    for part in person.locator(f"{OWN_HAND}, {STRIP}").all():
+        box = part.bounding_box()
+        assert box is not None
+        assert box["y"] + box["height"] <= viewport["height"]
