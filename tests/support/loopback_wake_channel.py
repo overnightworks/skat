@@ -17,8 +17,11 @@ class LoopbackWakeChannel:
         self._acknowledging = acknowledging
         self.inbox: asyncio.Queue[Wake | Resubscribed | BaseException] = asyncio.Queue()
         self.failures_before_publishing: list[BaseException] = []
+        self.turns_before_publishing = 0
 
     async def publish(self, address: str) -> None:
+        for _ in range(self.turns_before_publishing):
+            await asyncio.sleep(0)
         if self.failures_before_publishing:
             raise self.failures_before_publishing.pop(0)
         self._bus.published.append(address)

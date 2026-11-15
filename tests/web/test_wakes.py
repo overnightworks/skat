@@ -14,6 +14,8 @@ from tests.web.support.wake_pods import ARRIVAL_SECONDS, Pod, run_pods
 
 FIRST_TABLE = TableTopic("a" * 32)
 SECOND_TABLE = TableTopic("b" * 32)
+# More event-loop turns than leaving takes, so that only waiting for the publish lets it arrive.
+SLOW_PUBLISH_TURNS = 50
 ANNA = AccountTopic("account-anna")
 OTHER_ACCOUNT = AccountTopic("account-other")
 
@@ -79,6 +81,7 @@ def between_pods(scenario, *, pods=2):
     bus = LoopbackWakeBus()
     channels = [bus.pod() for _ in range(pods)]
     run_pods(channels, lambda *pod_list: scenario(bus, *pod_list))
+    return bus
 
 
 class TestSharedWakes:
@@ -180,14 +183,13 @@ class TestSharedWakes:
         between_pods(scenario)
 
     def test_leaving_waits_for_the_publishes_that_are_pending(self):
-        async def scenario(bus, first, _second):
+        async def scenario(_bus, first, _second):
+            first.channel.turns_before_publishing = SLOW_PUBLISH_TURNS
             first.wake_list.wake(FIRST_TABLE)
 
-            await first.shared.drain()
+        bus = between_pods(scenario)
 
-            assert len(bus.published) == 1
-
-        between_pods(scenario)
+        assert len(bus.published) == 1
 
     def test_the_channel_ending_with_a_store_error_after_the_start_is_logged_by_its_type_and_ends_the_process(self):
         async def scenario(_bus, first, _second):
