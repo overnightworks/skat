@@ -1,13 +1,25 @@
 <script lang="ts">
+    import { beatOf } from "#lib/tableReactions.svelte.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
+    import { words } from "#lib/words.ts";
+    import { reactionName, throwReaction } from "../../routes/(start)/reaction.ts";
 
     // A cocktail on a straw coaster and a shell on the rim of the table: they sit at the rim's edge, clear of every card
-    // and key, and the stylesheet places them.
+    // and key, and the stylesheet places them. A tap on either is a reaction every page at the table shows and hears.
+    const { id }: { id: string } = $props();
     const uid = $props.id();
 </script>
 
 {#if tableStyle() === "strandbar"}
-    <span class="decor cocktail" aria-hidden="true">
+    <button
+        type="button"
+        class="decor cocktail"
+        data-beat={beatOf("cocktail")}
+        aria-label={words[reactionName("cocktail")]}
+        onclick={() => {
+            void throwReaction(id, "cocktail");
+        }}
+    >
         <svg viewBox="0 0 64 100" focusable="false">
             <defs>
                 <linearGradient id="drink-{uid}" x1="0" y1="0" x2="1" y2="1">
@@ -41,8 +53,16 @@
             <path d="M14 22L16 3" stroke="#6d4a2b" stroke-width="1.4" stroke-linecap="round" />
             <path d="M7 7Q16-5 25 7Q21 4.5 16 5.5Q11 4.5 7 7Z" fill="#2fb7a6" />
         </svg>
-    </span>
-    <span class="decor shell" aria-hidden="true">
+    </button>
+    <button
+        type="button"
+        class="decor shell"
+        data-beat={beatOf("shell")}
+        aria-label={words[reactionName("shell")]}
+        onclick={() => {
+            void throwReaction(id, "shell");
+        }}
+    >
         <svg viewBox="0 0 72 62" focusable="false">
             <defs>
                 <radialGradient id="shell-{uid}" cx=".5" cy=".75" r=".8">
@@ -68,5 +88,5 @@
             />
             <path d="M30 56h12l-2 4H32z" fill="#e8bfae" />
         </svg>
-    </span>
+    </button>
 {/if}

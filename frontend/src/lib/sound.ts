@@ -35,9 +35,12 @@ export interface AudioPort {
     loadRecordings(urls: readonly string[]): Promise<void>;
     /** Plays a recording that is loaded; one that is not is skipped. */
     playRecording(url: string, afterSeconds: number): void;
-    /** Fades the sea that runs under the table to `level`, from 0 (silent) to 1; the port makes the sea at the first level above 0. */
-    setSea(level: number): void;
+    /** Fades the ambience that runs under the table to `level`, from 0 (silent) to 1; the port makes it at the first level above 0. */
+    setAmbience(ambience: Ambience, level: number): void;
 }
+
+/** What runs under the table: the surf of the beach bar or the murmur of a pub room. */
+export type Ambience = "sea" | "pub";
 
 export interface SoundSettings {
     readonly muted: boolean;
@@ -65,12 +68,13 @@ export interface Sound {
     speak(url: string, afterSeconds: number): void;
     prepare(urls: readonly string[]): Promise<void>;
     resume(): Promise<void>;
-    /** The table wants the sea or not; it runs under the same mute and volume as every sound, and only while the window is shown. */
-    sea(wanted: boolean): void;
+    /** The ambience the table wants, or none; it runs under the same mute and volume as every sound, and only while the window is shown. */
+    ambience(wanted: Ambience | undefined): void;
 }
 
-/** The sea lies under the cues: this much of what the volume allows a cue. */
-const SEA_SHARE = 0.55;
+/** An ambience lies under the cues: this much of what the volume allows a cue. */
+const AMBIENCE_SHARE: Record<Ambience, number> = { sea: 0.55, pub: 0.4 };
+const AMBIENCES = Object.keys(AMBIENCE_SHARE) as Ambience[];
 
 /** A sound that comes late is worse than none, so a voice list plays at once or not at all. */
 export function createSound(port: AudioPort, settings: () => SoundSettings): Sound {
@@ -82,12 +86,16 @@ export function createSound(port: AudioPort, settings: () => SoundSettings): Sou
         return true;
     }
 
-    let seaWanted = false;
-    // The sea follows the settings at every call; a hidden window or a device that stays silent lets it fade out.
-    function tuneSea(): void {
+    let ambienceWanted: Ambience | undefined;
+    // The ambience follows the settings at every call; a hidden window or a device that stays silent lets it fade out,
+    // and the one the table no longer wants fades with it.
+    function tuneAmbience(): void {
         const { muted, volume } = settings();
-        const running = seaWanted && !muted && port.ready(false);
-        port.setSea(running ? SEA_SHARE * (volume / FULL_VOLUME) ** LOUDNESS_CURVE : 0);
+        const running = !muted && port.ready(false);
+        for (const ambience of AMBIENCES) {
+            const level = (volume / FULL_VOLUME) ** LOUDNESS_CURVE * AMBIENCE_SHARE[ambience];
+            port.setAmbience(ambience, running && ambience === ambienceWanted ? level : 0);
+        }
     }
 
     return {
@@ -101,11 +109,11 @@ export function createSound(port: AudioPort, settings: () => SoundSettings): Sou
         prepare: (urls) => port.loadRecordings(urls),
         async resume() {
             await port.resume();
-            tuneSea();
+            tuneAmbience();
         },
-        sea(wanted) {
-            seaWanted = wanted;
-            tuneSea();
+        ambience(wanted) {
+            ambienceWanted = wanted;
+            tuneAmbience();
         },
     };
 }

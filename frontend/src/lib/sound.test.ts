@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createSound, DEFAULT_SOUND_SETTINGS, type AudioPort, type SoundSettings, type Voice } from "./sound.ts";
+import {
+    createSound,
+    DEFAULT_SOUND_SETTINGS,
+    type Ambience,
+    type AudioPort,
+    type SoundSettings,
+    type Voice,
+} from "./sound.ts";
 
 const CLICK: Voice = { kind: "noise", at: 0, seconds: 0.05, frequency: 3000, quality: 1, gain: 0.5 };
 const THUMP: Voice = { kind: "tone", wave: "sine", at: 0.1, seconds: 0.06, frequency: 170, gain: 0.2 };
@@ -42,10 +49,15 @@ class FakePort implements AudioPort {
         this.spoken.push({ url, afterSeconds });
     }
 
-    sea: number[] = [];
+    // The levels each ambience was set to.
+    ambience: Partial<Record<Ambience, number[]>> = {};
 
-    setSea(level: number): void {
-        this.sea.push(level);
+    get sea(): number[] {
+        return this.ambience.sea ?? [];
+    }
+
+    setAmbience(ambience: Ambience, level: number): void {
+        (this.ambience[ambience] ??= []).push(level);
     }
 }
 
@@ -186,7 +198,7 @@ describe("prepare", () => {
 describe("sea", () => {
     const wanted = (port: FakePort, settings: SoundSettings = DEFAULT_SOUND_SETTINGS) => {
         const sound = soundOver(port, settings);
-        sound.sea(true);
+        sound.ambience("sea");
         return sound;
     };
     const lastLevel = (port: FakePort) => port.sea.at(-1);
@@ -194,7 +206,7 @@ describe("sea", () => {
     it("is silent until the table wants it", () => {
         const port = new FakePort();
 
-        soundOver(port).sea(false);
+        soundOver(port).ambience(undefined);
 
         expect(lastLevel(port)).toBe(0);
     });
@@ -227,10 +239,10 @@ describe("sea", () => {
         const shown = lastLevel(port);
 
         port.hiddenWindow = true;
-        sound.sea(true);
+        sound.ambience("sea");
         const hidden = lastLevel(port);
         port.hiddenWindow = false;
-        sound.sea(true);
+        sound.ambience("sea");
 
         expect([hidden, lastLevel(port)]).toEqual([0, shown]);
     });
@@ -247,15 +259,24 @@ describe("sea", () => {
         expect(lastLevel(port)).toBeGreaterThan(0);
     });
 
+    it("gives way to the ambience the table wants now: the pub's murmur plays and the sea fades", () => {
+        const port = new FakePort();
+        const sound = wanted(port);
+
+        sound.ambience("pub");
+
+        expect([lastLevel(port), ((port.ambience.pub ?? []).at(-1) as number) > 0]).toEqual([0, true]);
+    });
+
     it("follows a changed volume at the next call", () => {
         const port = new FakePort();
         let settings: SoundSettings = { muted: false, volume: 30 };
         const sound = createSound(port, () => settings);
-        sound.sea(true);
+        sound.ambience("sea");
         const quiet = lastLevel(port) as number;
 
         settings = { muted: false, volume: 90 };
-        sound.sea(true);
+        sound.ambience("sea");
 
         expect(lastLevel(port)).toBeGreaterThan(quiet);
     });

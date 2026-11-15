@@ -375,7 +375,7 @@ describe("the sea", () => {
     it("is not made before the first tap, whatever level is asked", () => {
         const port = createWebAudioPort(pageWith().environment);
 
-        port.setSea(0.5);
+        port.setAmbience("sea", 0.5);
 
         expect(FakeContext.made).toEqual([]);
     });
@@ -384,7 +384,7 @@ describe("the sea", () => {
         const port = await readyPort();
         const woken = onlyContext().sources.length;
 
-        port.setSea(0);
+        port.setAmbience("sea", 0);
 
         expect(onlyContext().sources).toHaveLength(woken);
     });
@@ -392,7 +392,7 @@ describe("the sea", () => {
     it("starts at the first level above silence as looped noise through the limiter's input", async () => {
         const port = await readyPort();
 
-        port.setSea(0.4);
+        port.setAmbience("sea", 0.4);
 
         const looped = onlyContext().sources.filter((source) => source.loop);
         expect(looped.length).toBeGreaterThan(0);
@@ -403,9 +403,9 @@ describe("the sea", () => {
     it("fades to each level from the context's time on and is made once", async () => {
         const port = await readyPort();
 
-        port.setSea(0.4);
+        port.setAmbience("sea", 0.4);
         const sources = onlyContext().sources.length;
-        port.setSea(0);
+        port.setAmbience("sea", 0);
 
         const sea = onlyContext().gains.find((gain) => gain.gain.targets.length > 0);
         expect(sea?.gain.targets.map(({ value, at }) => ({ value, at }))).toEqual([
@@ -414,6 +414,25 @@ describe("the sea", () => {
         ]);
         expect(sea?.gain.targets.every(({ timeConstant }) => timeConstant > 0)).toBe(true);
         expect(onlyContext().sources).toHaveLength(sources);
+    });
+});
+
+describe("the pub's murmur", () => {
+    beforeEachReset();
+
+    it("is its own bed of looped noise, made once beside the sea and fading by itself", async () => {
+        const port = await readyPort();
+
+        port.setAmbience("sea", 0.4);
+        const afterSea = onlyContext().sources.length;
+        port.setAmbience("pub", 0.3);
+        const afterPub = onlyContext().sources.length;
+        port.setAmbience("pub", 0);
+
+        const beds = onlyContext().gains.filter((gain) => gain.gain.targets.length > 0);
+        expect(afterPub).toBeGreaterThan(afterSea);
+        expect(beds.map((bed) => bed.gain.targets.map(({ value }) => value))).toEqual([[0.4], [0.3, 0]]);
+        expect(onlyContext().sources).toHaveLength(afterPub);
     });
 });
 

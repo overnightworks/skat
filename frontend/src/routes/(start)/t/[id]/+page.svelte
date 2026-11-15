@@ -79,6 +79,7 @@
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import StandKey from "#lib/ui/StandKey.svelte";
+    import KlassikDecor from "#lib/ui/KlassikDecor.svelte";
     import ReactionTray from "#lib/ui/ReactionTray.svelte";
     import StrandDecor from "#lib/ui/StrandDecor.svelte";
     import ThrownEmotes from "#lib/ui/ThrownEmotes.svelte";
@@ -99,7 +100,7 @@
         sweepingTo,
         trickIsMoving,
     } from "#lib/stage.svelte.ts";
-    import { receiveReactions, resetReactions } from "#lib/tableReactions.svelte.ts";
+    import { beatOf, receiveReactions, resetReactions } from "#lib/tableReactions.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
     import { words } from "#lib/words.ts";
@@ -132,7 +133,7 @@
         type Table,
     } from "../../tables.ts";
     import { nudgedNote } from "../../nudge.ts";
-    import { reactionsBetween } from "../../reaction.ts";
+    import { reactionName, reactionsBetween, throwReaction } from "../../reaction.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
@@ -544,8 +545,9 @@
                     {/if}
                 </div>
             {/if}
-            <div class="felt" aria-hidden="true">
-                <StrandDecor />
+            <div class="felt">
+                <StrandDecor {id} />
+                <KlassikDecor {id} />
                 <ThrownEmotes chairs={outcome.table.chairs} />
             </div>
             {#if standing !== null}
@@ -682,7 +684,17 @@
                                 >{/if}</span
                         >
                         {#if chair.total !== null}
-                            <span class="coaster">{withMinus(chair.total)}</span>
+                            <button
+                                type="button"
+                                class="coaster"
+                                data-beat={beatOf("coaster")}
+                                aria-label={`${words[reactionName("coaster")]} ${withMinus(chair.total)}`}
+                                onclick={() => {
+                                    void throwReaction(id, "coaster");
+                                }}
+                            >
+                                {withMinus(chair.total)}
+                            </button>
                         {/if}
                         {#if chair.hand !== null}
                             {#if openCards.length > 0}

@@ -7,7 +7,7 @@ import { showTableStyle } from "#lib/tableStyle.svelte.ts";
 import StyleScene from "#lib/ui/StyleScene.svelte";
 import { stubAudioContext } from "../../testing/stubBrowser.ts";
 
-describe("the sea under the table", () => {
+describe("the ambience under the table", () => {
     const { AudioContext, seaLevels } = stubAudioContext();
     let mounted: ReturnType<typeof mount> | undefined;
 
@@ -43,10 +43,12 @@ describe("the sea under the table", () => {
         changeSetting("muted", false);
     });
 
-    const level = (): number | undefined => seaLevels.at(-1);
+    // A change of ambience sets both of them, the one the table wants and the one it let go; the louder of the two latest
+    // settings is what is heard.
+    const level = (): number | undefined => (seaLevels.length === 0 ? undefined : Math.max(...seaLevels.slice(-2)));
 
-    function showScene(): void {
-        mounted = mount(StyleScene, { target: document.body, props: { style: "strandbar" } });
+    function showScene(style: "strandbar" | "klassik" | null = "strandbar"): void {
+        mounted = mount(StyleScene, { target: document.body, props: { style } });
         flushSync();
     }
 
@@ -60,6 +62,22 @@ describe("the sea under the table", () => {
         showScene();
 
         expect(level()).toBeGreaterThan(0);
+    });
+
+    it("murmurs under a table in the style Klassik", () => {
+        showScene("klassik");
+
+        expect(level()).toBeGreaterThan(0);
+    });
+
+    it("stays silent for a table that has ended", () => {
+        showScene("strandbar");
+        const before = seaLevels.length;
+        void unmount(mounted as ReturnType<typeof mount>);
+        mounted = undefined;
+        showScene(null);
+
+        expect(seaLevels.slice(before).every((each) => each === 0)).toBe(true);
     });
 
     it("follows the device's mute", () => {

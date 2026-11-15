@@ -2,7 +2,7 @@ import type { Cue } from "./cues.ts";
 import { watchDeviceMotion } from "./deviceMotion.svelte.ts";
 import { MOTION_SETS, type MotionSet } from "./motionSets.ts";
 import { currentSettings, loadSettings, motionInForce, soundSettings } from "./settings.svelte.ts";
-import { createSound, type AudioPort, type SoundSettings, type Voice } from "./sound.ts";
+import { createSound, type Ambience, type AudioPort, type SoundSettings, type Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundMoment, type SoundSet } from "./soundSets.ts";
 import { everyRecording, recordingOf, voiceKeyOf, type VoiceKey } from "./voice.ts";
 import { createWebAudioPort } from "./webAudio.ts";
@@ -54,8 +54,8 @@ export interface TableSound {
     preview(): Promise<void>;
     /** Fetches the recordings while the voice is on, so a word is said the moment its cue comes. */
     prepareVoice(): Promise<void>;
-    /** Runs the sea under the table while it is wanted, or lets it fade; it sounds only after a tap and follows the device's volume and mute. */
-    sea(wanted: boolean): void;
+    /** Runs the ambience under the table while it is wanted, or lets it fade; it sounds only after a tap and follows the device's volume and mute. */
+    ambience(wanted: Ambience | undefined): void;
 }
 
 interface Moment {
@@ -216,8 +216,8 @@ export function createTableSound({
             sound.play(soundSet().voices["card-played"](OWN_CARD_GAIN));
         },
         prepareVoice,
-        sea: (wanted) => {
-            sound.sea(wanted);
+        ambience: (wanted) => {
+            sound.ambience(wanted);
         },
     };
 }
@@ -281,9 +281,9 @@ export function previewSound(): Promise<void> {
     return pageSound().preview();
 }
 
-/** Runs the sea under the table while `wanted`; every call re-reads the device's volume and mute. */
-export function runSea(wanted: boolean): void {
-    pageSound().sea(wanted);
+/** Runs the ambience the table `wanted`, none for undefined; every call re-reads the device's volume and mute. */
+export function runAmbience(wanted: Ambience | undefined): void {
+    pageSound().ambience(wanted);
 }
 
 /** Fetches the recordings of the voice once the player has switched it on. */

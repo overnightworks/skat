@@ -252,3 +252,121 @@
         opacity: 0;
     }
 }
+
+/* The objects of the table are buttons: a tap on one is seen and heard at every page of the table. Each makes its move
+   (a sway, a hop, a half turn) when its beat changes; the two beats are the same move under two names, so that a new tap
+   starts it anew while the button stays where it is. */
+.room .felt button.decor,
+.room button.coaster {
+    padding: 0;
+    border: 0;
+    cursor: pointer;
+}
+
+.room .felt button.decor {
+    background: none;
+    pointer-events: auto;
+}
+
+.room .felt button.decor:focus-visible,
+.room button.coaster:focus-visible {
+    outline: 2px solid var(--brass-hi);
+    outline-offset: 4px;
+}
+
+.room button.coaster {
+    font-family: inherit;
+}
+
+.room .felt .decor.lamp {
+    --swing: 6deg;
+
+    right: 4%;
+    bottom: 12%;
+    height: 46px;
+    transform: translate(50%, 20%);
+    transform-origin: 50% 100%;
+    --beat-glow: drop-shadow(0 0 16px rgba(255, 205, 130, 0.95));
+}
+
+.room .felt .decor.cocktail {
+    --swing: 9deg;
+
+    transform-origin: 50% 100%;
+}
+
+.room .felt .decor.shell {
+    --swing: 14deg;
+    --hop: -4px;
+}
+
+.room button.coaster {
+    --turn: 360deg;
+    --hop: -6px;
+}
+
+@media (min-width: 900px) {
+    .room .felt .decor.lamp {
+        height: 64px;
+    }
+}
+
+.room[data-motion] :is(.decor, button.coaster) {
+    --amp: 1;
+    --beat-seconds: 0.9s;
+}
+
+.room[data-motion="dezent"] :is(.decor, button.coaster) {
+    --amp: 0.5;
+    --beat-seconds: 0.5s;
+}
+
+.room[data-motion] :is(.decor, button.coaster)[data-beat="odd"] {
+    animation: object-beat-odd var(--beat-seconds) ease-in-out; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room[data-motion] :is(.decor, button.coaster)[data-beat="even"] {
+    animation: object-beat-even var(--beat-seconds) ease-in-out; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes object-beat-odd {
+    20% {
+        rotate: calc(var(--swing, 0deg) * -1 * var(--amp));
+        translate: 0 var(--hop, 0);
+        scale: 1.08;
+        filter: var(--beat-glow, drop-shadow(0 6px 5px rgba(25, 12, 30, 0.5)));
+    }
+
+    50% {
+        rotate: calc(var(--swing, 0deg) * var(--amp));
+    }
+
+    80% {
+        rotate: calc(var(--swing, 0deg) * -0.4 * var(--amp));
+    }
+
+    100% {
+        rotate: var(--turn, 0deg);
+    }
+}
+
+@keyframes object-beat-even {
+    20% {
+        rotate: calc(var(--swing, 0deg) * -1 * var(--amp));
+        translate: 0 var(--hop, 0);
+        scale: 1.08;
+        filter: var(--beat-glow, drop-shadow(0 6px 5px rgba(25, 12, 30, 0.5)));
+    }
+
+    50% {
+        rotate: calc(var(--swing, 0deg) * var(--amp));
+    }
+
+    80% {
+        rotate: calc(var(--swing, 0deg) * -0.4 * var(--amp));
+    }
+
+    100% {
+        rotate: var(--turn, 0deg);
+    }
+}
