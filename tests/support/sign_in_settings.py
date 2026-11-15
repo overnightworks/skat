@@ -11,6 +11,8 @@ TEST_ISSUER = "https://issuer.test.invalid/realms/test"
 TEST_PUBLIC_ORIGIN = "https://skat.test.invalid"
 # Names no server: settings tests never connect, and a test that does overrides `database_url`.
 TEST_DATABASE_URL = "postgresql://skat@database.test.invalid/skat"
+# Names no server either: a test that reaches Redis overrides `redis_url`.
+TEST_REDIS_URL = "redis://redis.test.invalid:6379/0"
 SESSION_SECRET_BYTES = 36
 DATABASE_PASSWORD_BYTES = 18
 CLIENT_SECRET_BYTES = 24
@@ -41,6 +43,7 @@ def build_sign_in_settings(directory: Path, **overrides: str | int | Path | None
         "oidc_client_secret_file": client_secret_file,
         "database_url": TEST_DATABASE_URL,
         "database_password_file": database_password_file,
+        "redis_url": TEST_REDIS_URL,
         "public_origin": TEST_PUBLIC_ORIGIN,
         "session_secret_file": session_secret_file,
         **overrides,

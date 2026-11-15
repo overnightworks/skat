@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from skat.web.constants import APP_ASSET_PATH, HEALTH_PATH, HOME_PATH
 from skat.web.routes import create_router
 from skat.web.sign_in import build_sign_in_configs
-from tests.support.in_memory_stores import in_memory_stores
+from tests.support.in_memory_stores import in_memory_stores, in_process_rate_limits
 from tests.support.page_build import fixture_page_build
 
 
@@ -28,7 +28,7 @@ def database() -> Database:
 def client(sign_in_settings, database):
     application = FastAPI()
     sessions = in_memory_stores().sessions
-    web_auth = build_sign_in_configs(sign_in_settings().settings).web_auth
+    web_auth = build_sign_in_configs(sign_in_settings().settings, in_process_rate_limits()).web_auth
     application.include_router(create_router(fixture_page_build(), sessions, web_auth, database))
     return TestClient(application)
 

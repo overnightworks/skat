@@ -424,6 +424,7 @@
             <TableClosed ended={outcome.table.ended} />
         {:else if outcome?.kind === "table"}
             {@const ownCards = outcome.table.hand?.own_cards ?? []}
+            {@const declaredGame = outcome.table.hand?.declaring?.declaration?.game ?? null}
             <!-- A chair waits only on a seated viewer, and a seated viewer's chair always carries their name. -->
             {@const ownChair = outcome.table.chairs.find((chair) => chair.is_mine)}
             {@const ownInitial = String(ownChair?.occupant_name).slice(0, 1)}
@@ -704,7 +705,7 @@
                                 {#if chair.is_mine}
                                     <OpenTag />
                                 {:else}
-                                    <OpenHand cards={openCards} dim={held} />
+                                    <OpenHand cards={openCards} game={declaredGame} dim={held} />
                                 {/if}
                             {:else if !chair.is_mine}
                                 <div class="fan-spot">
@@ -733,7 +734,7 @@
             {/if}
             <div class="controls" class:held={giveUp?.cardsHeld === true || wait?.held(ownChair?.seat)}>
                 {#if ownCards.length > 0}
-                    <OwnHand cards={ownCards} {picking} {playing} />
+                    <OwnHand cards={ownCards} game={declaredGame} {picking} {playing} />
                 {/if}
                 <div class="actions" class:on-result={onResult}>
                     <KontraKey {id} table={outcome.table} bind:note />
