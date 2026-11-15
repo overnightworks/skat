@@ -44,6 +44,9 @@ export function isTableObject(reaction: Reaction): boolean {
 /** The emotes of the tray, in the order the set lists them. */
 export const EMOTES: readonly Reaction[] = REACTION_TOKENS.filter((reaction) => REACTION_WORDS[reaction].mark !== null);
 
+/** The tray's element id, which its key names as the element it opens. */
+export const REACTION_TRAY_ID = "reaction-tray";
+
 // The reactions `table` carries that `previous` did not. A page with no table before it, as after a reload or a dropped
 // connection, plays none: a reaction thrown before it arrived is over.
 export function reactionsBetween(previous: Table | undefined, table: Table): Thrown[] {

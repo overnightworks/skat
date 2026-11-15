@@ -65,8 +65,8 @@ RESTING_PLACE = """selector => {
 
 # The place of the element in the layer that carries the emotes, before its motion moves it.
 POSITION_IN_LAYER = "selector => { const e = document.querySelector(selector); return [e.offsetLeft, e.offsetTop]; }"
-# Every key of the row of actions that stands on the screen, as its box; the tray's own buttons are no key of the row.
-ACTION_KEYS = """() => [...document.querySelectorAll('.actions button:not(.tray *)')]
+# Every key of the row of actions that stands on the screen, as its box.
+ACTION_KEYS = """() => [...document.querySelectorAll('.actions button')]
     .map(key => key.getBoundingClientRect()).filter(box => box.width > 0)
     .map(box => ({ x: box.x, y: box.y, width: box.width, height: box.height }))"""
 
@@ -91,6 +91,10 @@ def throwing_tray(person: Page) -> None:
     assert viewport is not None
     box = tray.bounding_box()
     assert box is not None
+    if not is_wide(person):
+        key_box = key.bounding_box()
+        assert key_box is not None
+        assert box["y"] >= key_box["y"] + key_box["height"]
     assert box["x"] >= 0
     assert box["x"] + box["width"] <= viewport["width"]
     assert box["y"] >= 0

@@ -73,7 +73,6 @@
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import StandKey from "#lib/ui/StandKey.svelte";
     import KlassikDecor from "#lib/ui/KlassikDecor.svelte";
-    import ReactionTray from "#lib/ui/ReactionTray.svelte";
     import StrandDecor from "#lib/ui/StrandDecor.svelte";
     import ThrownEmotes from "#lib/ui/ThrownEmotes.svelte";
     import StyleKey from "#lib/ui/StyleKey.svelte";
@@ -730,7 +729,6 @@
                     {#if seated && !onResult && keyWord(outcome.table) === null}
                         <StyleKey {id} bind:note />
                     {/if}
-                    <ReactionTray {id} />
                     {#if callMode}
                         <SoundButton place="strip" />
                     {:else}

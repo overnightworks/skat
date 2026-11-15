@@ -11,6 +11,16 @@ const STILL_EMOTE_SECONDS = 2.5;
 let flying = $state<Thrown[]>([]);
 let taps = $state<Partial<Record<Reaction, number>>>({});
 let timers: ReturnType<typeof setTimeout>[] = [];
+// Whether a phone's tray stands open, and how far below the top of the screen it hangs.
+let tray = $state({ open: false, top: 0 });
+
+export function reactionTray(): Readonly<{ open: boolean; top: number }> {
+    return tray;
+}
+
+export function setReactionTray(open: boolean, top = 0): void {
+    tray = { open, top };
+}
 
 export function flyingEmotes(): readonly Thrown[] {
     return flying;
@@ -51,10 +61,11 @@ export function receiveReactions(brought: readonly Thrown[]): void {
     }
 }
 
-/** Forgets what flies, as the page leaves one table for another. */
+/** Forgets what flies and closes the tray, as the page leaves one table for another. */
 export function resetReactions(): void {
     for (const timer of timers) clearTimeout(timer);
     timers = [];
     flying = [];
     taps = {};
+    tray = { open: false, top: 0 };
 }

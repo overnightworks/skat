@@ -1,6 +1,8 @@
 <script lang="ts">
     import { words } from "#lib/words.ts";
     import LobbyButton from "./LobbyButton.svelte";
+    import ReactionKey from "./ReactionKey.svelte";
+    import ReactionTray from "./ReactionTray.svelte";
     import SeriesCount from "./SeriesCount.svelte";
     import SoundButton from "./SoundButton.svelte";
     import TableRules from "./TableRules.svelte";
@@ -41,6 +43,8 @@
             <SeriesCount id={live.id} text={live.count} version={live.version} />
         {/if}
         <TableRules options={live.options} bock={live.bock} />
+        <ReactionKey />
+        <ReactionTray id={live.id} />
         {#if !callMode}
             <SoundButton place="bar" />
         {/if}

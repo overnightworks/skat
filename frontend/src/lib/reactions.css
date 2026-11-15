@@ -14,20 +14,53 @@
     position: relative;
 }
 
-/* The tray: a phone opens it from its key and the script sets --tray-bottom, so that it stands above the row of keys; a wide screen shows it as a rail at the edge. */
-.room .reaction-key svg {
-    width: 24px;
-    height: 24px;
-}
-
+/* The key: a round glass button in the table's top row, as the Lobby button and the speaker are. From 390 px it stands right after the Lobby button; on the narrowest phones the speaker takes that place and the key stands left of the watchers. */
 .room .reaction-key {
-    padding: 0 16px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin: 2px auto 2px 6px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--on-stage);
+    background: rgba(244, 246, 248, 0.26);
+    backdrop-filter: blur(14px);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+        0 4px 10px -4px rgba(0, 0, 0, 0.7);
+    cursor: pointer;
 }
 
+@media (max-width: 389px) {
+    .room .reaction-key {
+        order: 1;
+        margin: 2px 6px 2px 0;
+    }
+
+    .room .bar .watchers {
+        order: 2;
+    }
+}
+
+.room .reaction-key.on {
+    color: var(--stage-ink, #0c0e11);
+    background: var(--on-stage);
+}
+
+.room .reaction-key svg {
+    width: 22px;
+    height: 22px;
+}
+
+/* The tray: a phone opens it from its key, and the script sets --tray-top, so that it hangs below the key; a wide screen shows it as a rail at the edge. */
 .room .tray {
     position: fixed;
-    bottom: var(--tray-bottom, 150px);
-    left: 50%;
+    top: var(--tray-top, 64px);
+    right: 14px;
     z-index: 20;
     display: none;
     gap: 2px;
@@ -38,7 +71,6 @@
     box-shadow:
         0 12px 26px -8px rgba(0, 0, 0, 0.9),
         inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-    transform: translateX(-50%);
 }
 
 .room .tray.open {
@@ -64,18 +96,13 @@
 }
 
 @media (min-width: 900px) {
-    .room .reaction-key {
-        display: none;
-    }
-
     .room .tray {
+        top: auto;
         right: 18px;
         bottom: 112px;
-        left: auto;
         display: flex;
         flex-direction: column;
         border-radius: 26px;
-        transform: none;
     }
 }
 

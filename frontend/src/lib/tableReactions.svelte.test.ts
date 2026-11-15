@@ -8,7 +8,8 @@ vi.mock("./tableSound.ts", () => ({
 vi.mock("./settings.svelte.ts", () => ({ motionInForce: () => motion }));
 let motion: "dezent" | "verspielt" | undefined;
 
-const { beatOf, flyingEmotes, receiveReactions, resetReactions } = await import("./tableReactions.svelte.ts");
+const { beatOf, flyingEmotes, reactionTray, receiveReactions, resetReactions, setReactionTray } =
+    await import("./tableReactions.svelte.ts");
 const { MOTION_SETS } = await import("./motionSets.ts");
 
 const MILLISECONDS_PER_SECOND = 1000;
@@ -62,11 +63,12 @@ describe("what the table plays of the reactions it receives", () => {
         expect([beats, beatOf("shell"), flyingEmotes()]).toEqual([[undefined, "odd", "even", "odd"], undefined, []]);
     });
 
-    it("forgets the flying emotes and the taps when the page leaves the table", () => {
+    it("forgets the flying emotes and the taps and closes the tray when the page leaves the table", () => {
         receiveReactions([thrown(1, "gasp"), thrown(2, "shell")]);
+        setReactionTray(true, 60);
 
         resetReactions();
 
-        expect([flyingEmotes(), beatOf("shell")]).toEqual([[], undefined]);
+        expect([flyingEmotes(), beatOf("shell"), reactionTray().open]).toEqual([[], undefined, false]);
     });
 });
