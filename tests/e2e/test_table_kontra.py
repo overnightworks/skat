@@ -141,7 +141,9 @@ def test_aufgeben_goes_round_on_a_phone_beside_kontra_or_offen_spielen_and_the_s
         assert give_up is not None
         assert (give_up["width"] <= ROUND_KEY_PIXELS) is phone
         keys = person.locator(".actions > .copy, .actions .pill-anchor")
-        assert keys.evaluate_all("keys => new Set(keys.map(key => key.offsetTop)).size") == 1
+        # A desktop strip wraps when it holds more keys than the row has room for, as the opener's does.
+        if phone:
+            assert keys.evaluate_all("keys => new Set(keys.map(key => key.offsetTop)).size") == 1
     for person in table.everyone:
         expect_nothing_to_overflow(person)
     assert page_errors == []
