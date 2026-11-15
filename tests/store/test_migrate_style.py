@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from tests.support.migrations import migrated_from, run_in_transaction
+from tests.support.migrations import migrated_from, only_row, run_in_transaction
 
 pytestmark = pytest.mark.postgres
 
@@ -24,8 +24,7 @@ class TestFromATableAtRevisionFortyFive:
     def test_accepts_the_other_style(self, migrated):
         run_in_transaction(migrated, text("UPDATE tables SET style = 'strandbar' WHERE id = 'first'"))
 
-        with migrated.connect() as connection:
-            assert connection.execute(text("SELECT style FROM tables WHERE id = 'first'")).scalar_one() == "strandbar"
+        assert only_row(migrated, text("SELECT style FROM tables WHERE id = 'first'")) == ("strandbar",)
 
     @pytest.mark.parametrize(
         "statement",
