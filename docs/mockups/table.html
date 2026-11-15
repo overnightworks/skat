@@ -911,9 +911,11 @@ frame('call-trick-390','Stich geht an dich','Handy 390 px','p390',
 /* ===== desktop: Anna at the left chair, Nova at the right chair, you at the near edge ===== */
 const DB={
   table:{x:170,y:66,w:940,h:566,tr:283,rim:18,line:22,ry:'47%',rs:240},
-  anna:{x:22,y:180,w:236,h:178}, nova:{x:1022,y:180,w:236,h:178}, you:{x:568,y:458,w:144,h:108},
-  coasters:[[230,330,50,-10],[1000,330,50,8],[512,504,50,-6]],
+  anna:{x:22,y:180,w:236,h:178}, nova:{x:1022,y:180,w:236,h:178}, you:{x:580,y:474,w:120,h:90},
+  coasters:[[230,330,50,-10],[1000,330,50,8],[528,516,50,-6]],
 };
+/* the trick's cards lie at these heights: the far two above, the own card below them, clear of the own chair under it */
+const FAR_Y=254, NEAR_Y=398;
 /* the own chair stands centred over the hand; where a glow, a sweep or a burst aims at it, it aims at this point */
 const YOU_AT=[DB.you.x+DB.you.w/2,DB.you.y+DB.you.h/2];
 /* the reckoning's panel ends at 566 px, so the near chair steps down below it, as on the phone */
@@ -939,9 +941,9 @@ frame('call-bid-1280','Reizen im Anruf','Desktop 1280 px','d1280',
 frame('call-play-1280','Stich im Anruf','Desktop 1280 px','d1280',
   dbRoom({left:8,glow:glow(640,640,640,170)})
   +plaque(640,98,gameLine('c','Kreuz'))
-  +played('K','s','anna',{x:560,y:276,w:96,rot:-11})
-  +played('7','s','nova',{x:720,y:276,w:96,rot:9,fresh:true,fx:'300px',fy:'-30px',fr:'60deg'})
-  +ghost(640,432,96)
+  +played('K','s','anna',{x:560,y:FAR_Y,w:96,rot:-11})
+  +played('7','s','nova',{x:720,y:FAR_Y,w:96,rot:9,fresh:true,fx:'300px',fy:'-30px',fr:'60deg'})
+  +ghost(640,NEAR_Y,96)
   +emote('🔥','ben',{x:856,y:420,ox:1150,oy:56,lift:40,es:56,k:.84,trail:true,W:1280,H:800})
   +dbSeats({video:true,anna:['decl'],you:['turn'],score:[148,62,55]})
   +hand(PLAY_HAND,{...DESK_HAND,swipe:true})+callBar(true));
@@ -949,11 +951,11 @@ frame('call-play-1280','Stich im Anruf','Desktop 1280 px','d1280',
 frame('call-trick-1280','Stich geht an dich','Desktop 1280 px','d1280',
   dbRoom({left:7})
   +plaque(640,98,gameLine('c','Kreuz'))
-  +played('K','s','anna',{x:560,y:276,w:96,rot:-11,sweep:sweepTo(560,276,640,330,...YOU_AT,.72,{gr:-4})})
-  +played('7','s','nova',{x:720,y:276,w:96,rot:9,sweep:sweepTo(720,276,640,330,...YOU_AT,.72,{gr:5})})
-  +played('A','s','felix',{x:640,y:432,w:96,rot:0,notag:true,blank:true,sweep:sweepTo(640,432,640,330,...YOU_AT,.65,{op:.2})})
-  +played('A','s','felix',{x:640,y:432,w:96,rot:0,notag:true,blank:true,sweep:sweepTo(640,432,640,330,...YOU_AT,.685,{op:.4})})
-  +played('A','s','felix',{x:640,y:432,w:96,rot:0,sweep:sweepTo(640,432,640,330,...YOU_AT,.72)})
+  +played('K','s','anna',{x:560,y:FAR_Y,w:96,rot:-11,sweep:sweepTo(560,FAR_Y,640,330,...YOU_AT,.72,{gr:-4})})
+  +played('7','s','nova',{x:720,y:FAR_Y,w:96,rot:9,sweep:sweepTo(720,FAR_Y,640,330,...YOU_AT,.72,{gr:5})})
+  +played('A','s','felix',{x:640,y:NEAR_Y,w:96,rot:0,notag:true,blank:true,sweep:sweepTo(640,NEAR_Y,640,330,...YOU_AT,.65,{op:.2})})
+  +played('A','s','felix',{x:640,y:NEAR_Y,w:96,rot:0,notag:true,blank:true,sweep:sweepTo(640,NEAR_Y,640,330,...YOU_AT,.685,{op:.4})})
+  +played('A','s','felix',{x:640,y:NEAR_Y,w:96,rot:0,sweep:sweepTo(640,NEAR_Y,640,330,...YOU_AT,.72)})
   +dbSeats({video:true,anna:['decl'],score:[148,62,55],got:'.63s;--d:.45s'})
   +pop(`${I.check}Stich`,YOU_AT[0],DB.you.y-20,.3)
   +hand(AFTER_HAND,DESK_HAND)+callBar(true));
@@ -1082,7 +1084,7 @@ const SKAT_SCENES=[
     +plaque(d?640:195,d?98:176,gameLine('h','Herz Hand'))
     +(d?skat(584,190,80):skat(154,290,52))
     +(d?bubble('anna','Herz Hand',{x:44,y:392,tail:'50%'}):bubble('anna','Herz Hand',{x:14,y:228,tail:'30%'}))
-    +(d?ghost(640,432,96):ghost(195,440,70))
+    +(d?ghost(640,NEAR_Y,96):ghost(195,440,70))
     +seats(d,{video:true,anna:['decl'],you:['turn'],score:[148,62,55]})+ownHand(d,OPPONENT_HAND)+callBar(d)],
 ];
 /* a scene drawn at both widths; its rules are the one-line notes under it */
@@ -1245,7 +1247,7 @@ scenes(SKAT_OTHER_SCENES);
 ORDER.splice(ORDER.indexOf('skat-declared-390'),0,...SKAT_OTHER_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 
 /* ===== a trick seen without a hand of one's own, and a trick that waits for someone who left ===== */
-const TRICK_SLOT={left:(d)=>({x:d?560:136,y:d?276:318,w:d?96:70,rot:d?-11:-9}),right:(d)=>({x:d?720:254,y:d?276:318,w:d?96:70,rot:d?9:8}),near:(d)=>({x:d?640:195,y:d?432:440,w:d?96:70,rot:0})};
+const TRICK_SLOT={left:(d)=>({x:d?560:136,y:d?FAR_Y:318,w:d?96:70,rot:d?-11:-9}),right:(d)=>({x:d?720:254,y:d?FAR_Y:318,w:d?96:70,rot:d?9:8}),near:(d)=>({x:d?640:195,y:d?NEAR_Y:440,w:d?96:70,rot:0})};
 const pointsNamed=(eyes,names,pw)=>points(eyes[0],eyes[1],pw).replace(`Anna ${eyes[0]}`,`${names[0]} ${eyes[0]}`).replace(`Wir ${eyes[1]}`,`${names[1]} ${eyes[1]}`);
 const PLAY_OTHER_SCENES=[
   ['play-watch','Zuschauen beim Stich',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:nearTurn(d)})+watching(3,d)
@@ -1365,7 +1367,7 @@ const ANNOUNCED=gameLine('h','Herz Hand','<span class="x2">Schneider angesagt</s
 const widePlaque=(cx,y,inner)=>plaque(cx,y,inner).replace('class="plaque"','class="plaque wide"');
 const FELIX_AGAINST=[['D','c'],['9','c'],['7','c'],['D','s'],['9','s'],['8','s'],['K','h'],['7','h'],['K','d'],['9','d']];
 const announcedTrick=(d)=>played('K','s','anna',TRICK_SLOT.left(d))
-  +played('7','s','nova',{...TRICK_SLOT.right(d),fresh:true,fx:d?'300px':'70px',fy:d?'-30px':'-170px',fr:d?'60deg':'40deg'})+(d?ghost(640,432,96):ghost(195,440,70));
+  +played('7','s','nova',{...TRICK_SLOT.right(d),fresh:true,fx:d?'300px':'70px',fy:d?'-30px':'-170px',fr:d?'60deg':'40deg'})+(d?ghost(640,NEAR_Y,96):ghost(195,440,70));
 const ANNOUNCE_SCENES=[
   ['announce-play','Angesagt, du spielst dagegen',(d)=>room(d,{left:8,glow:yourTurn(d)})
     +widePlaque(d?640:195,d?98:186,ANNOUNCED)+announcedTrick(d)
@@ -1399,7 +1401,7 @@ const ouvertPlaque=(d)=>widePlaque(d?640:290,d?98:196,gameLine('','Grand ouvert'
 const openTag=(d)=>`<div class="tag-glass" title="Offen für alle" style="${at(d?{left:598,top:526}:{left:166,top:614})}">${I.eye}<span>Offen</span></div>`;
 const OUVERT_SCENES=[
   ['ouvert-before','Offen, vor der ersten Karte',(d)=>room(d,{left:0,glow:yourTurn(d)})+sideFans(d,0,10)
-    +ouvertPlaque(d)+openHand(OUVERT_HAND,d)+(d?ghost(640,432,96):ghost(195,440,70))
+    +ouvertPlaque(d)+openHand(OUVERT_HAND,d)+(d?ghost(640,NEAR_Y,96):ghost(195,440,70))
     +seats(d,{video:true,anna:['decl'],you:['turn'],score:[148,62,55]})+ownHand(d,FELIX_AGAINST)+callBar(d)],
   ['ouvert-watch','Zuschauen bei offenen Karten',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:nearTurn(d)})+watching(3,d)
     +sideFans(d,0,7)+nearFan(d,8)+ouvertPlaque(d)
@@ -1408,7 +1410,7 @@ const OUVERT_SCENES=[
     +played('7','s','ben',{...TRICK_SLOT.right(d),fresh:true,fx:d?'300px':'70px',fy:d?'-30px':'-170px',fr:d?'60deg':'40deg'})
     +seat('anna',{...L.anna,marks:['decl']})+seat('ben',L.nova)+seat('lena',{...L.you,marks:['turn']})+tableBar(d);}],
   ['ouvert-own','Offen, du spielst',(d)=>room(d,{left:10,glow:yourTurn(d)})
-    +widePlaque(d?640:195,d?98:176,gameLine('','Grand ouvert'))+(d?ghost(640,432,96):ghost(195,440,70))+openTag(d)
+    +widePlaque(d?640:195,d?98:176,gameLine('','Grand ouvert'))+(d?ghost(640,NEAR_Y,96):ghost(195,440,70))+openTag(d)
     +seats(d,{video:true,you:['decl','turn'],score:[148,62,55]})
     +ownHand(d,OUVERT_HAND)+callBar(d)],
 ];
@@ -1542,7 +1544,7 @@ const FELIX_HOLDS=PLAY_HAND.map(([r,s])=>[r,s,'no']);
 /* on the phone the trick sits lower than usual, clear of the plaque that grows to carry the answers */
 const lowered=(slot)=>({...slot,y:slot.y+(slot.w<80?16:0)});
 const earlierCards=(d,left='anna')=>played('K','s',left,lowered(TRICK_SLOT.left(d)))+played('7','s','ben',lowered(TRICK_SLOT.right(d)));
-const yourCard=(d)=>d?ghost(640,432,96):ghost(195,440,70);
+const yourCard=(d)=>d?ghost(640,NEAR_Y,96):ghost(195,440,70);
 /* Anna declares and asks; Felix, an opponent, answers while the trick stays his to play */
 const answeringAnna=(d,o={})=>giveUpTable(d,{glow:yourTurn(d),left:7})+askPlaque(d,`${faceDot('anna')}Anna will aufgeben`,answers())
   +earlierCards(d)+yourCard(d)+giveUpSeats(d,{anna:['decl'],ben:o.ben,you:['turn']})+ownHand(d,FELIX_FOLLOWS)+giveUpBar(d,GIVE_UP);
@@ -1624,7 +1626,7 @@ const runningPoints=(d)=>points(28,41,d?190:150);
 P.felixSeen={...P.felix,n:'Felix'};
 const ruleWatch=(d)=>{const L=d?DB:PBR;
   return ruleRoom(d,nearTurn(d))+watching(2,d)+ruleTop(d,ANNAS_RULES)+nearFan(d,7)
-    +plaque(d?640:195,d?98:176,gameLine('c','Kreuz')+pointsNamed([28,41],['Anna','Gegner'],d?190:150))+announcedTrick(d).replace(d?ghost(640,432,96):ghost(195,440,70),'')
+    +plaque(d?640:195,d?98:176,gameLine('c','Kreuz')+pointsNamed([28,41],['Anna','Gegner'],d?190:150))+announcedTrick(d).replace(d?ghost(640,NEAR_Y,96):ghost(195,440,70),'')
     +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felixSeen',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
     +tableBar(d);};
 const RULES_SCENES=[
@@ -1718,7 +1720,7 @@ const WAIT_LINE=`<div class="game">Warte auf Mitspieler${waitDots()}</div>`;
 
 /* Nova's chair is free in a running hand: the cards of its fan wait beside it, the score stays on its coaster, nobody holds the turn */
 const OPEN_NOTICE='Nova ist gegangen';
-const openNotice=(d)=>notice(OPEN_NOTICE,'nova',mid(d),d?432:462);
+const openNotice=(d)=>notice(OPEN_NOTICE,'nova',mid(d),d?NEAR_Y:462);
 const openChair=(d,o={})=>{const L=seatsOf(d),near=o.viewer==='lena'?seat('felixSeen',L.you):seat('felix',L.you);
   return tableOf(d,{fans:o.fans||8,count:true,watchers:o.watchers})+(o.plaque||kreuz(d,WAIT_LINE))+(o.trick??lead(d,'anna','left',DROP_TRICK,o.viewer==='lena'?10:0))
     +seat('anna',{...L.anna,marks:['decl']})+freeSeat(L.nova,{idle:o.viewer!=='lena'})+near+chairCoasters(L,TOTALS_BEFORE);};
@@ -2216,7 +2218,7 @@ const demandLine=(level)=>level?`<div class="game pushes">Fordert <b>${level}</b
 const requestPlaque=(d,line,below)=>centred(d,askPlaque(d,line,below));
 const trickDrop=(d,level,answering)=>(d?0:answering?16:0)+(level&&(answering||!d)?PLAQUE_LINE:0);
 /* Felix's own card has no room on the 360 felt, which is 64 px shorter */
-const cardWaits=(d,drop=0)=>narrow()?'':d?ghost(640,432+drop,96):centred(d,yourCard(d));
+const cardWaits=(d,drop=0)=>narrow()?'':d?ghost(640,NEAR_Y+drop,96):centred(d,yourCard(d));
 const earlierAt=(d,drop=0)=>{const lowered_=(slot)=>slotAt(d,{...slot,y:slot.y+drop});
   return played('K','s','anna',lowered_(TRICK_SLOT.left(d)))+played('7','s','ben',lowered_(TRICK_SLOT.right(d)));};
 /* Anna declares and asks to shorten; Felix, an opponent, answers while the trick stays his to play */
@@ -2393,7 +2395,7 @@ const pile=(d,who,tricks,o={})=>{const p=PILE_AT[who](d),w=PILE_W(d);
   const button=o.last?`role="button" tabindex="0" title="Letzter Stich" aria-label="Letzter Stich"`:'';
   return `<div class="pile ${o.last?'last':''}" ${button} style="${at({left:p.x,top:p.y})}">${cards}</div>`;};
 /* the third trick on the felt, Felix's ace where the near card goes; the 360 felt is 64 px shorter, so there all three cards shrink a little, the far two rise and the near one sinks, and no card covers a name */
-const nearSlot=(d)=>slotAt(d,{...TRICK_SLOT.near(d),y:d?432:narrow()?PB.you.y-54:PB.you.y-57,...(narrow()?{w:64}:{})});
+const nearSlot=(d)=>slotAt(d,{...TRICK_SLOT.near(d),y:d?NEAR_Y:narrow()?PB.you.y-54:PB.you.y-57,...(narrow()?{w:64}:{})});
 const THIRD_TRICK=[['K','s','anna','left'],['7','s','nova','right'],['A','s','felix','near']];
 const slotOf=(d,slot)=>slot==='near'?nearSlot(d):slotAt(d,{...TRICK_SLOT[slot](d),...(narrow()?{y:280,w:64}:{})});
 const restingTrick=(d)=>THIRD_TRICK.map(([r,s,k,slot])=>played(r,s,k,{...slotOf(d,slot),fresh:k==='felix',fx:'0px',fy:'120px',fr:'0deg'})).join('');
@@ -2411,7 +2413,7 @@ const sweepTrail=(d,w)=>{const g=gatherAt(d),p=PILE_AT.felix(d),W=w,H=d?800:w===
 const faceTag=(k)=>`<span class="tag face ${P[k].agent?'agent':''}">${faceDot(k)}</span>`;
 const lastShown=(d)=>{const p=PILE_AT.felix(d),cx=d?432:PB.cx-20,w=d?84:58;
   const cards=THIRD_TRICK.map(([r,s,k],i)=>`<div class="lt-card ${k==='felix'?'took':''}" style="${at({'--rot':`${(i-1)*5}deg`})}">${card(r,s,'',at({'--w':w}))}${d?tag(k):faceTag(k)}</div>`).join('');
-  return `<div class="lastshow" role="dialog" aria-label="Letzter Stich" style="${at({left:cx,top:d?p.y-90:PB.you.y-12,'--caret':`${p.x-cx}px`})}"><div class="lt-head">Letzter Stich</div><div class="lt-cards">${cards}</div></div>`;};
+  return `<div class="lastshow" role="dialog" aria-label="Letzter Stich" style="${at({left:cx,top:d?p.y-100:PB.you.y-12,'--caret':`${p.x-cx}px`})}"><div class="lt-head">Letzter Stich</div><div class="lt-cards">${cards}</div></div>`;};
 const trickTable=(d,w,o)=>{const L=seatsOf(d);
   return tableOf(d,{fans:7,count:true,glow:o.glow})+kreuz(d)+(o.felt||'')+pile(d,'anna',1,{last:o.annaLast})+pile(d,'felix',o.felixTricks,{last:!o.annaLast,landing:o.landing})
     +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:o.turn?['turn']:[],got:o.got})+chairCoasters(L,TOTALS_BEFORE)
