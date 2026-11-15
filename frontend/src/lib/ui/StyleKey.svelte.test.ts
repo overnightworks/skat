@@ -62,6 +62,14 @@ describe("the style key", () => {
         expect(row.firstElementChild?.textContent).toBe(words["table.style"]);
     });
 
+    it("names the tiles' group after the row's visible label", () => {
+        show();
+
+        const group = document.querySelector<HTMLElement>("[role=radiogroup]") as HTMLElement;
+        const label = document.getElementById(group.getAttribute("aria-labelledby") ?? "");
+        expect([label?.textContent, group.hasAttribute("aria-label")]).toEqual([words["table.style"], false]);
+    });
+
     it("sends the other style to the table's style path and keeps the mark until the stream brings it", async () => {
         const fetcher = vi.fn().mockResolvedValue(Response.json({}));
         vi.stubGlobal("fetch", fetcher);

@@ -9,6 +9,8 @@
     // A seated person's key: it opens the panel that gives the whole table its style. The stream brings the change to
     // every page, this one included; until it does, the panel shows the choice, and a refusal gives the table's style back.
     let { id, note = $bindable() }: { id: string; note: string } = $props();
+    const instanceId = $props.id();
+    const labelId = `${instanceId}-style-label`;
 
     // The widths of the blessed pictures: a phone's panel and a desktop's, from the width the stylesheet shows the word at.
     const PHONE_PANEL_WIDTH = 328;
@@ -85,8 +87,8 @@
     </div>
     <div class="style-body">
         <div class="style-row">
-            <b class="style-label">{words["table.style"]}</b>
-            <div class="style-tiles" role="radiogroup" aria-label={words["table.styleName"]}>
+            <b class="style-label" id={labelId}>{words["table.style"]}</b>
+            <div class="style-tiles" role="radiogroup" aria-labelledby={labelId}>
                 {#each TABLE_STYLE_TOKENS as style (style)}
                     <label class="style-tile style-{style}">
                         <input
