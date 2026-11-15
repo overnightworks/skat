@@ -2,9 +2,9 @@
 // card says.
 
 import { withMinus } from "#lib/result.ts";
-import { openStream } from "#lib/stream.ts";
+import { openStream, type StreamRefusal } from "#lib/stream.ts";
 import { tableRules, type RuleChip } from "#lib/tableRules.ts";
-import { ACCOUNT_PATH, LOBBY_EVENTS_PATH, type WAITING_CASE_TOKENS } from "#lib/wire.ts";
+import { LOBBY_EVENTS_PATH, type WAITING_CASE_TOKENS } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
 import type { Options } from "./tables.ts";
 
@@ -102,6 +102,7 @@ export function watchLobby(
     onMine: (tables: LobbyTable[]) => void,
     onOpen: (tables: OpenTable[]) => void,
     onConnection: (connected: boolean) => void,
+    onRefusal: (refusal: Exclude<StreamRefusal, "signedOut">) => void,
 ): () => void {
     return openStream(LOBBY_EVENTS_PATH, {
         events: {
@@ -112,11 +113,11 @@ export function watchLobby(
                 onOpen((JSON.parse(data) as Open).tables);
             },
         },
-        sessionPath: ACCOUNT_PATH,
         onConnection,
-        onRefused: () => {
+        onRefused: (refusal) => {
             // The gate leads a page without a session to the sign-in.
-            location.reload();
+            if (refusal === "signedOut") location.reload();
+            else onRefusal(refusal);
         },
     });
 }

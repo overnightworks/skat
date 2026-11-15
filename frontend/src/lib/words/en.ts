@@ -7,6 +7,7 @@ const pluralRules = new Intl.PluralRules("en");
 const translated = {
     "app.name": "Skat",
     "app.reconnecting": "reconnecting",
+    "app.tooManyStreams": "too many pages open",
     "app.unreachable": "Skat is not reachable right now.",
     "app.pageNotFound": "This page does not exist.",
     "app.pageFailed": "This page cannot be loaded.",
@@ -118,6 +119,7 @@ const translated = {
         other: "Lobby, " + numberFormat.format(count) + " tables are waiting for you",
     })[pluralRules.select(count)],
     "table.reconnecting": "reconnecting",
+    "table.tooManyStreams": "too many pages open",
     "table.sitDown": "Sit down",
     "table.standUp": "Stand up",
     "table.standUpArmed": "Really stand up?",

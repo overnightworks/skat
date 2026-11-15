@@ -87,9 +87,6 @@ deal_a_declaring_table = [["tests/e2e/test_table_give_up.py", "deal_a_game"]]
 [clones."tests/e2e/support/tables.py"]
 watch = [["tests/e2e/test_table_cards.py", "watch"], ["tests/e2e/test_table_deal_marks.py", "watch"], ["tests/e2e/test_table_watch.py", "watch"]]
 
-[clones."tests/e2e/test_call_sign_in.py"]
-"test_a_framed_table_whose_stream_ends_without_a_refusal_dims_and_comes_back_without_reload_or_sign_in.end_the_first_stream" = [["tests/e2e/test_table_home.py", "test_a_lost_stream_hides_the_number_and_the_stream_coming_back_brings_it_again.count_one_then_end_and_refuse_the_rest"]]
-
 [clones."tests/e2e/test_my_tables.py"]
 test_going_back_from_a_table_returns_to_a_current_list = [["tests/e2e/test_tables.py", "test_a_reload_shows_the_same_table_with_the_opener_still_in_chair_one"]]
 

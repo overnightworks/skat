@@ -105,6 +105,11 @@ def watch(person: Page, server: RunningServer, path: str) -> None:
     expect(person.locator(".chair")).to_have_count(3)
 
 
+def watch_until_the_agents_are_read(person: Page, server: RunningServer, path: str) -> None:
+    with until_the_agents_are_read(person):
+        watch(person, server, path)
+
+
 def watchers_of(person: Page):
     """The count of people who watch, which a page shows only from a table its own stream brought."""
     return person.locator(".watchers span")
