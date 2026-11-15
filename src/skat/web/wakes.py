@@ -198,6 +198,7 @@ class SharedWakes:
             except StoreError as failure:
                 # A failure leaves the delivery uncertain, and a duplicate wake is harmless.
                 last = attempt == _PUBLISH_ATTEMPTS - 1
-                (log.error if last else log.warning)("wake publish failed", error=type(failure).__name__)
+                report = log.error if last else log.warning
+                report("wake publish failed", error=type(failure).__name__)
             else:
                 return
