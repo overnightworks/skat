@@ -5120,6 +5120,15 @@ body {
         text-align: center;
         line-height: 1.15;
     }
+
+    /* The word „Offen spielen“ is the longest key beside four round ones, so its padding and the strip's gaps give way to keep the row inside the screen. */
+    .room .actions:has(.copy.play-open) {
+        gap: 4px;
+    }
+
+    .room .actions:has(.give-up) .copy.play-open:not(.arm) {
+        padding-inline: 10px;
+    }
 }
 
 /* The smallest phones keep the stand-up's word beside the pill, which sets its names in a smaller padding. */
