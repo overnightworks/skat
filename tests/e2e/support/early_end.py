@@ -61,9 +61,11 @@ def expect_nothing_to_overflow(person: Page, parts: str = f"{REQUEST}, {NOTICE}"
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     viewport = person.viewport_size
     assert viewport is not None
-    for part in person.locator(parts).all():
-        box = part.bounding_box()
-        assert box is not None
+    # One evaluation measures every part at once: a timed notice that leaves between two measurements is no failure.
+    boxes = person.locator(parts).evaluate_all(
+        "parts => parts.map(part => { const { x, width } = part.getBoundingClientRect(); return { x, width }; })"
+    )
+    for box in boxes:
         assert box["x"] >= 0
         assert box["x"] + box["width"] <= viewport["width"]
 
