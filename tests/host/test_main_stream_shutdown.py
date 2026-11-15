@@ -14,11 +14,10 @@ from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
 from tests.support.in_memory_stores import in_memory_stores, single_pod
 from tests.support.page_build import fixture_page_build
-from tests.support.running_server import started_server
+from tests.support.running_server import STARTED_WITHIN_SECONDS, started_server
 from tests.support.signed_in import cookie_header, seed_member
 
 LOOPBACK_HOST = "127.0.0.1"
-STARTED_WITHIN_SECONDS = 10
 
 
 class CollectingHandler(logging.Handler):

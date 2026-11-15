@@ -2,7 +2,7 @@ from agents.member import LEASE_SECONDS
 
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, AgentLease, ChairHold, EmptyTable, NextDeal, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
-from skat.web.wakes import WakeList
+from skat.web.wakes import Topic, WakeList
 
 
 class IdleScheduler:
@@ -51,8 +51,8 @@ def idle_agent_lease() -> AgentLease:
     return AgentLease(LEASE_SECONDS, seat_nowhere)
 
 
-def publish_nowhere(topic):
-    pass
+def publish_nowhere(_topic: Topic) -> None:
+    """Tells no other pod."""
 
 
 def idle_wakes() -> WakeList:
