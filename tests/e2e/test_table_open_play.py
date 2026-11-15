@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, Route, expect
 
 from skat.web.playing import TABLE_PLAY_OPEN_SUFFIX
 from skat.web.tables import TABLES_PATH
@@ -47,6 +47,7 @@ PLAY_OPEN = text(SOURCE_LANGUAGE, "table.playOpen")
 PLAY_OPEN_SURE = text(SOURCE_LANGUAGE, "table.playOpenSure")
 YOU_PLAY_OPEN = text(SOURCE_LANGUAGE, "table.youPlayOpen")
 OPEN_MARK = text(SOURCE_LANGUAGE, "table.playsOpenMark")
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
 
 
@@ -289,3 +290,21 @@ def test_the_strip_with_the_key_stays_one_row_without_scrolling_also_armed(
     expect(armed).to_have_attribute("title", PLAY_OPEN_SURE)
     expect_nothing_to_overflow(opponent, f"{STRIP} > *")
     assert page_errors == []
+
+
+def test_a_second_tap_that_the_table_refuses_shows_the_failure_note_and_offers_the_key_again(
+    deal_a_game: Callable[..., PlayingTable],
+) -> None:
+    # The browser logs the refused open play as a console error; that refusal is the point of this test.
+    table = deal_a_game(PHONE, console=False)
+    player = table.pages[opponents(table)[0]]
+
+    def refuse(route: Route) -> None:
+        route.fulfill(status=409, content_type="application/json", body="{}")
+
+    player.route(f"**{table.declaring.api_path}{TABLE_PLAY_OPEN_SUFFIX}", refuse)
+    play_open_through_the_key(player)
+
+    expect(player.locator(".note")).to_have_text(COMMAND_FAILED)
+    expect(player.locator(PLAY_OPEN_KEY)).to_be_enabled()
+    expect(player.locator(REQUEST)).to_have_count(0)

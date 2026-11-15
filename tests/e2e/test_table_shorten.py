@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, Route, expect
 
 from skat.web.playing import TABLE_SHORTEN_SUFFIX
 from skat.web.tables import TABLES_PATH
@@ -38,6 +38,8 @@ pytestmark = pytest.mark.e2e
 YES = text(SOURCE_LANGUAGE, "table.yes")
 NO = text(SOURCE_LANGUAGE, "table.no")
 SHORTEN = text(SOURCE_LANGUAGE, "table.shorten")
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
+DEMANDS_SCHNEIDER = text(SOURCE_LANGUAGE, "table.demands", level=text(SOURCE_LANGUAGE, "result.levelSchneider"))
 SAID_YES = text(SOURCE_LANGUAGE, "table.saidYes")
 SAID_NO = text(SOURCE_LANGUAGE, "table.saidNo")
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
@@ -281,3 +283,35 @@ def test_no_key_while_the_declarer_still_declares_or_a_chair_is_open_or_a_reques
     expect(declarer.locator(".chair.mine")).to_have_count(1)
     expect(declarer.locator(SHORTEN_KEY)).to_have_count(0)
     expect(declarer.locator(".copy.give-up")).to_have_count(0)
+
+
+def test_a_shortening_with_a_demanded_level_names_the_level_under_the_line_on_every_page(
+    deal_a_game: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_game(PHONE)
+    table.play_out(CARDS_AFTER_TWO_TRICKS)
+
+    table.declaring.step(table.declarer_seat, TABLE_SHORTEN_SUFFIX, claim="schneider")
+
+    for person in table.everyone:
+        expect(person.locator(f"{REQUEST} .pushes b")).to_have_text(text(SOURCE_LANGUAGE, "result.levelSchneider"))
+        expect(person.locator(f"{REQUEST} .pushes")).to_have_text(DEMANDS_SCHNEIDER)
+    assert page_errors == []
+
+
+def test_a_tap_that_the_table_refuses_shows_the_failure_note_and_offers_the_key_again(
+    deal_a_game: Callable[..., PlayingTable],
+) -> None:
+    # The browser logs the refused shortening as a console error; that refusal is the point of this test.
+    table = deal_a_game(PHONE, console=False)
+    declarer = table.pages[table.declarer_seat]
+
+    def refuse(route: Route) -> None:
+        route.fulfill(status=409, content_type="application/json", body="{}")
+
+    declarer.route(f"**{table.declaring.api_path}{TABLE_SHORTEN_SUFFIX}", refuse)
+    declarer.locator(SHORTEN_KEY).click()
+
+    expect(declarer.locator(".note")).to_have_text(COMMAND_FAILED)
+    expect(declarer.locator(SHORTEN_KEY)).to_be_enabled()
+    expect(declarer.locator(REQUEST)).to_have_count(0)
