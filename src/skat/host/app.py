@@ -1,3 +1,4 @@
+import signal
 import time
 from contextlib import asynccontextmanager, nullcontext
 from datetime import UTC, datetime
@@ -77,7 +78,7 @@ from skat.web.sign_in import (
 from skat.web.streams import StreamSlots, StreamSource, create_streams_router
 from skat.web.style import create_style_router
 from skat.web.tables import create_tables_router
-from skat.web.wakes import WakeList
+from skat.web.wakes import SharedWakes, WakeList
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
@@ -92,6 +93,7 @@ if TYPE_CHECKING:
     from skat.web.page_build import PageBuild
     from skat.web.settings import ServerSettings
     from skat.web.sign_in import ExpirableSessions
+    from skat.web.wakes import WakeChannel
 
 
 UNPLAYED_SWEEP_SECONDS: Final = 3600
@@ -101,6 +103,11 @@ log = structlog.get_logger()
 
 async def _always_ready() -> bool:  # NOSONAR(S7503) the database_ready port is awaited
     return True
+
+
+def end_with_sigterm() -> None:
+    """Ask the server to stop as an orchestrator does, which ends its streams and lets the platform restart it."""
+    signal.raise_signal(signal.SIGTERM)
 
 
 def _content_security_policy(page_build: PageBuild, call_origin: str | None) -> str:
@@ -361,25 +368,31 @@ def _serving(
     scheduler: Scheduler,
     sessions: ExpirableSessions,
     unplayed_sweep_seconds: float,
+    shared_wakes: SharedWakes,
+    wakes: WakeList,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
     @asynccontextmanager
     async def hold_chairs_while_serving(serving: FastAPI) -> AsyncGenerator[None]:
-        # Leave times are not stored, so every chair seated at the start is held for a full hold from now.
-        # A table already past its wait has ended before the first request; every other waits what is left of it.
-        occupied = await run_in_threadpool(tables.occupied_chairs)
-        presence.hold_chairs((chair.table_id.value, chair.account_id) for chair in occupied)
-        presence.watch_empty_tables(await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds))
-        await _end_unplayed_tables(settings, tables, presence, at_start=True)
-        await _forget_ended_tables(settings, tables)
-        forget_expired_sessions = _session_forgetter(serving, sessions)
-        await forget_expired_sessions()
-        _sweep_tables(settings, tables, presence, scheduler, forget_expired_sessions, unplayed_sweep_seconds)
-        try:
-            async with serving.state.mcp_front.running():
-                yield
-        finally:
-            presence.stop()
-            await presence.finish_writes()
+        # The wakes come first: a pod that serves before it hears them may show a state another pod has changed.
+        async with shared_wakes.following(wakes):
+            # Leave times are not stored, so every chair seated at the start is held for a full hold from now.
+            # A table already past its wait has ended before the first request; every other waits what is left of it.
+            occupied = await run_in_threadpool(tables.occupied_chairs)
+            presence.hold_chairs((chair.table_id.value, chair.account_id) for chair in occupied)
+            presence.watch_empty_tables(
+                await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds)
+            )
+            await _end_unplayed_tables(settings, tables, presence, at_start=True)
+            await _forget_ended_tables(settings, tables)
+            forget_expired_sessions = _session_forgetter(serving, sessions)
+            await forget_expired_sessions()
+            _sweep_tables(settings, tables, presence, scheduler, forget_expired_sessions, unplayed_sweep_seconds)
+            try:
+                async with serving.state.mcp_front.running():
+                    yield
+            finally:
+                presence.stop()
+                await presence.finish_writes()
 
     return hold_chairs_while_serving
 
@@ -398,6 +411,7 @@ def create_app(
     rule_sets: RuleSetService,
     stores: SignInPorts,
     rate_limits: RateLimitBackend,
+    wake_channel: WakeChannel,
     issuer_transports: IssuerTransports = ISSUER_OVER_HTTPS,
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
@@ -405,6 +419,7 @@ def create_app(
     unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
     resource_changes: Callable[[ListeningChanged], ResourceChanges] = ResourceChanges,
     database_ready: Callable[[], Awaitable[bool]] = _always_ready,
+    end_process: Callable[[], None] = end_with_sigterm,
 ) -> FastAPI:
     sign_in_configs = build_sign_in_configs(settings, rate_limits)
 
@@ -416,11 +431,14 @@ def create_app(
     # One scheduler and one clock of waits serve the presence and the member front, so stopping the presence cancels
     # the pulses that ask a seat again with the chair holds' timers.
     scheduler = chair_scheduler if chair_scheduler is not None else LoopScheduler()
-    wakes = WakeList()
+    shared_wakes = SharedWakes(wake_channel, end_process=end_process)
+    wakes = WakeList(shared_wakes.publish)
     slots = StreamSlots(settings.streams_per_account)
     presence = _presence(settings, tables, chair_clock, scheduler, wakes)
 
-    app = _new_app(_serving(settings, tables, presence, scheduler, stores.sessions, unplayed_sweep_seconds))
+    app = _new_app(
+        _serving(settings, tables, presence, scheduler, stores.sessions, unplayed_sweep_seconds, shared_wakes, wakes)
+    )
     app.include_router(create_router(page_build, stores.sessions, sign_in_configs.web_auth, database_ready))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))

@@ -1,3 +1,4 @@
+import signal
 import threading
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -9,7 +10,7 @@ from starlette.requests import Request
 from webauth.config import WebAuthConfig, installed_web_auth_config
 from webauth.dependencies import session_id_from_request
 
-from skat.host.app import create_app
+from skat.host.app import create_app, end_with_sigterm
 from skat.table.records import Actor, CreateTable, EndReason, SitDown
 from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
@@ -383,3 +384,14 @@ class TestCreateApp:
     @pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
     def test_generated_documentation_is_not_served(self, sign_in_settings, path):
         assert signed_in_client(sign_in_settings().settings).get(path).status_code == 404
+
+
+def test_the_process_is_ended_by_a_sigterm_to_itself_as_an_orchestrator_stops_it():
+    received = []
+    previous = signal.signal(signal.SIGTERM, lambda number, _frame: received.append(number))
+    try:
+        end_with_sigterm()
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+    assert received == [signal.SIGTERM]

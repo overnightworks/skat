@@ -7,7 +7,7 @@ from sqlalchemy.engine import make_url
 
 from skat.host.app import create_app
 from skat.store.migrate import ReadinessProbe, create_store_engine, database_health, migrate, require_head
-from skat.store.redis_clients import shared_rate_limits
+from skat.store.redis_clients import shared_rate_limits, shared_wake_channel
 from skat.store.rule_sets import PostgresRuleSets
 from skat.store.sign_in import PostgresSignInStores
 from skat.store.tables import PostgresTableTransactions
@@ -109,6 +109,7 @@ def main(
         rule_sets=RuleSetService(PostgresRuleSets(engine)),
         stores=PostgresSignInStores(engine, audit=LoggingAuditSink()),
         rate_limits=shared_rate_limits(settings.redis_url),
+        wake_channel=shared_wake_channel(settings.redis_url),
         database_ready=ReadinessProbe(lambda: database_health(engine)),
     )
     run_server(app, **uvicorn_options(settings))

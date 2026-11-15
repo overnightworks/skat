@@ -157,6 +157,6 @@ class ServerSettings(DatabaseSettings):
     ended_table_days: int = Field(default=DEFAULT_ENDED_TABLE_DAYS, gt=0, le=HIGHEST_TABLE_DAYS)
     # How many lobby and table streams one account may hold open at once; one more is refused with a 429.
     streams_per_account: int = Field(default=DEFAULT_STREAMS_PER_ACCOUNT, gt=0)
-    # The Redis every pod shares for its sign-in limits; it keeps nothing durable. Like the database URL,
+    # The Redis every pod shares for its sign-in limits and its wakes; it keeps nothing durable. Like the database URL,
     # it carries no credentials.
     redis_url: CredentiallessRedisUrl = Field(repr=False)
