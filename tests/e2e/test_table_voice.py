@@ -42,6 +42,16 @@ SOUND_SETS = ("leise", "stammtisch", "funkeln")
 # The voices one word of Kontra starts in each sound set, at the table's first tap.
 KONTRA_KNOCK_VOICES = {"leise": 6, "stammtisch": 7, "funkeln": 7}
 OPENING_BID, RAISED_BID = VALID_BIDS[0], VALID_BIDS[-1]
+GAME = "kreuz"
+# The words the watcher hears from the deal: the auction's five, then the declared game.
+WORDS_OF_THE_DEAL = [
+    f"voice.value{OPENING_BID}",
+    f"voice.value{OPENING_BID}",
+    f"voice.value{RAISED_BID}",
+    "voice.pass",
+    "voice.pass",
+    f"voice.{GAME}",
+]
 
 
 def table_with_settings(stored: dict[str, object], *, kontra: bool = False) -> type[DeclaringTable]:
@@ -92,6 +102,7 @@ def deal(
         member_of,
         page_errors,
         form_factor,
+        game=GAME,
         declaring=table_with_settings(stored, kontra=kontra),
     )
 
@@ -112,13 +123,8 @@ def test_with_the_voice_on_the_watcher_hears_each_bid_and_pass_from_its_recordin
 ) -> None:
     table = deal(open_person, e2e_server, member_of, page_errors, {"voice": True}, form_factor=form_factor)
 
-    assert keys_said(table.watcher) == [
-        f"voice.value{OPENING_BID}",
-        f"voice.value{OPENING_BID}",
-        f"voice.value{RAISED_BID}",
-        "voice.pass",
-        "voice.pass",
-    ]
+    wait_for_recordings_started(table.watcher, len(WORDS_OF_THE_DEAL))
+    assert keys_said(table.watcher) == WORDS_OF_THE_DEAL
     assert page_errors == []
 
 
@@ -148,7 +154,7 @@ def test_a_reload_says_nothing(
     page_errors: list[str],
 ) -> None:
     table = deal(open_person, e2e_server, member_of, page_errors, {"voice": True})
-    assert len(keys_said(table.watcher)) == 5
+    wait_for_recordings_started(table.watcher, len(WORDS_OF_THE_DEAL))
 
     reload_and_wait(table.watcher)
     tap(table.watcher)
@@ -167,13 +173,13 @@ def test_a_word_of_kontra_knocks_in_every_sound_set_and_is_said_with_the_voice_o
     sound_set: str,
 ) -> None:
     table = deal(open_person, e2e_server, member_of, page_errors, {"voice": True, "soundSet": sound_set}, kontra=True)
-    assert len(keys_said(table.watcher)) == 5
+    wait_for_recordings_started(table.watcher, len(WORDS_OF_THE_DEAL))
     before = len(voices_started(table.watcher))
 
     say_kontra_as_an_opponent(table)
 
-    wait_for_recordings_started(table.watcher, 6)
-    assert keys_said(table.watcher)[5:] == ["voice.kontra"]
+    wait_for_recordings_started(table.watcher, len(WORDS_OF_THE_DEAL) + 1)
+    assert keys_said(table.watcher)[len(WORDS_OF_THE_DEAL) :] == ["voice.kontra"]
     assert len(voices_started(table.watcher)) - before == KONTRA_KNOCK_VOICES[sound_set]
     assert page_errors == []
 
