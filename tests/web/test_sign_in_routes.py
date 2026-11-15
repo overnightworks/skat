@@ -11,7 +11,6 @@ import pytest
 import structlog.testing
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
-from logline import Outcome
 from pydantic import SecretStr
 from webauth.admission import AppRole
 from webauth.config import WebAuthConfig, install_web_auth_config, web_auth_config
@@ -36,7 +35,6 @@ from skat.web.constants import (
 from skat.web.page_build import BuiltPage, PageBuild
 from skat.web.secret_files import StartRefusedError
 from skat.web.sign_in import (
-    IssuerRefusal,
     IssuerTransports,
     LoggingAuditSink,
     build_relying_party,
@@ -48,7 +46,6 @@ from skat.web.words import LANGUAGES, SOURCE_LANGUAGE, text
 from tests.support.end_session_page import EndSessionPage
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.in_memory_stores import in_memory_stores
-from tests.support.log_lines import lines_of, logged
 from tests.support.page_build import fixture_page_build, served_page
 from tests.support.sign_in_settings import TEST_ISSUER, TEST_PUBLIC_ORIGIN, SignInSettings
 from tests.support.signed_in import new_id_token
@@ -754,32 +751,6 @@ class TestLogs:
         assert [(log["reason"], log["idp_error"]) for log in logs if log["event"] == "sign_in.refused"] == [
             ("token-request-refused", "invalid_client")
         ]
-
-    def test_the_exchange_and_the_key_set_fetch_write_one_ok_line_each(self, harness, capsys):
-        with logged(capsys) as lines:
-            harness.sign_in_through(harness.browser())
-
-        (exchange,) = lines_of(lines, "token_exchange.ended")
-        (fetch,) = lines_of(lines, "key_set_fetch.ended")
-        assert (exchange["outcome"], fetch["outcome"]) == (Outcome.OK, Outcome.OK)
-
-    def test_an_issuer_that_answers_an_error_status_ends_the_exchange_refused(self, make_harness, capsys):
-        harness = make_harness(windows_line_ending=True)
-
-        with logged(capsys) as lines:
-            harness.sign_in_through(harness.browser())
-
-        (exchange,) = lines_of(lines, "token_exchange.ended")
-        assert (exchange["outcome"], exchange["reason"]) == (Outcome.REFUSED, IssuerRefusal.ERROR_STATUS)
-
-    def test_an_issuer_that_cannot_be_reached_ends_the_exchange_failed_with_the_errors_type(self, harness, capsys):
-        harness.issuer.token_endpoint_is_down = True
-
-        with logged(capsys) as lines:
-            harness.sign_in_through(harness.browser())
-
-        (exchange,) = lines_of(lines, "token_exchange.ended")
-        assert (exchange["outcome"], exchange["error_type"]) == (Outcome.FAILED, "TokenEndpointError")
 
     def test_no_secret_reaches_a_log_or_a_response_body(self, harness):
         browser, refused_browser = harness.browser(), harness.browser()

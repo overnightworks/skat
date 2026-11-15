@@ -200,11 +200,20 @@ def _timed_key_set_fetch(fetch: KeySetFetch) -> KeySetFetch:
     return timed
 
 
+def timed_issuer_calls(transports: IssuerTransports) -> IssuerTransports:
+    """The two calls to the issuer, each written as one log line."""
+    return IssuerTransports(
+        post_token_request=_timed_token_request(transports.post_token_request),
+        fetch_key_set=_timed_key_set_fetch(transports.fetch_key_set),
+    )
+
+
 def build_relying_party(sign_in_configs: SignInConfigs, issuer_transports: IssuerTransports) -> OidcRelyingParty:
+    timed = timed_issuer_calls(issuer_transports)
     return OidcRelyingParty(
         sign_in_configs.oidc_client,
-        post_token_request=_timed_token_request(issuer_transports.post_token_request),
-        fetch_key_set=_timed_key_set_fetch(issuer_transports.fetch_key_set),
+        post_token_request=timed.post_token_request,
+        fetch_key_set=timed.fetch_key_set,
         wall_clock=sign_in_configs.web_auth.wall_clock,
         monotonic_clock=time.monotonic,
     )
