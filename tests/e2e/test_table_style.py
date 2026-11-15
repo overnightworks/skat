@@ -9,7 +9,7 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.audio import tap
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import PHONE, WIDTHS
-from tests.e2e.support.style import ROOM, STYLE_KEY, TABLE_SCENES, choose_style
+from tests.e2e.support.style import ROOM, STYLE_KEY, choose_style, expect_painted_as_the_scene
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -31,10 +31,6 @@ SCENE_STYLE_ROW = ".snd-row.look"
 PAGE_STYLE_ROW = ".style-row"
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 REFUSED = 409
-ROW_PADDING = """row => {
-    const { paddingTop, paddingBottom } = getComputedStyle(row);
-    return { top: paddingTop, bottom: paddingBottom };
-}"""
 
 
 def expect_the_key_in_the_strip(person: Page) -> None:
@@ -50,20 +46,6 @@ def expect_the_key_in_the_strip(person: Page) -> None:
     assert key_box["x"] + key_box["width"] <= strip_box["x"] + strip_box["width"]
     assert key_box["y"] >= strip_box["y"]
     assert key_box["y"] + key_box["height"] <= strip_box["y"] + strip_box["height"]
-
-
-def expect_the_style_row_to_match_the_scene(person: Page) -> None:
-    """The panel's style row has the padding the blessed "strand-choose" scene gives it at this width."""
-    viewport = person.viewport_size
-    assert viewport is not None
-    frame = f"strand-choose-{viewport['width']}"
-    scene = person.context.new_page()
-    try:
-        scene.goto(f"{TABLE_SCENES.as_uri()}?f={frame}")
-        drawn_in_scene = scene.locator(f"[id='{frame}'] {SCENE_STYLE_ROW}").evaluate(ROW_PADDING)
-    finally:
-        scene.close()
-    assert person.locator(PAGE_STYLE_ROW).evaluate(ROW_PADDING) == drawn_in_scene
 
 
 def sea_levels(page: Page) -> list[float]:
@@ -157,7 +139,9 @@ def test_the_style_panel_opens_inside_the_page_and_changes_the_table_at_every_wi
     chooser.get_by_role("button", name=STYLE_KEY).click()
 
     expect(chooser.locator(STYLE_TILES)).to_have_count(len(TableStyle))
-    expect_the_style_row_to_match_the_scene(chooser)
+    expect_painted_as_the_scene(
+        chooser, "strand-choose", PAGE_STYLE_ROW, SCENE_STYLE_ROW, ["paddingTop", "paddingBottom"]
+    )
     window = chooser.evaluate("({ width: window.innerWidth, height: window.innerHeight })")
     for tile in chooser.locator(STYLE_TILES).all():
         box = tile.bounding_box()
