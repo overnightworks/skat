@@ -18,7 +18,7 @@ from tests.e2e.support.tables import (
     sit_in,
     table_id_of,
     until_the_agents_are_read,
-    watch,
+    watch_until_the_agents_are_read,
     watchers_of,
 )
 
@@ -76,9 +76,9 @@ def seat_the_table(
     with until_the_agents_are_read(people["anna"]):
         path = open_new_table(people["anna"], server)
     for seat, name in zip(range(2, seats + 1), ("ben", "cleo"), strict=False):
-        watch(people[name], server, path)
+        watch_until_the_agents_are_read(people[name], server, path)
         sit_in(people[name], seat)
-    watch(people["dora"], server, path)
+    watch_until_the_agents_are_read(people["dora"], server, path)
     return people, path
 
 

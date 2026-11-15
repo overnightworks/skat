@@ -1,15 +1,16 @@
 import json
 import time
 from datetime import UTC, datetime, timedelta
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 import pytest
 from playwright.sync_api import Page, Request, Route, expect
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 
 from skat.store.game_list import append_game_list
-from skat.store.schema import tables
+from skat.store.schema import metadata, tables
 from skat.web.closing import TABLE_CLOSE_SUFFIX
 from skat.web.settings import DEFAULT_ENDED_TABLE_DAYS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
@@ -25,8 +26,7 @@ from tests.e2e.support.tables import (
     open_new_table,
     sit_in,
     table_id_of,
-    until_the_agents_are_read,
-    watch,
+    watch_until_the_agents_are_read,
     watchers_of,
 )
 from tests.support.played_game import an_entry
@@ -52,6 +52,7 @@ CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_
 UNPLAYED_HEADING = text(SOURCE_LANGUAGE, "closed.unplayedDays", count=UNPLAYED_DAYS)
 NOT_FOUND_HEADING = "Tisch nicht gefunden"
 NAMELESS_CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.closed")
+TOO_MANY_STREAMS = text(SOURCE_LANGUAGE, "table.tooManyStreams")
 UNKNOWN_ID = "0" * 32
 
 
@@ -240,15 +241,80 @@ def test_a_link_whose_table_is_gone_shows_the_card_back_and_offers_a_new_table(
     expect_the_panel_inside_the_viewport(person)
 
 
+def forget_table(server: RunningServer, table_id: str) -> None:
+    """Removes the table and everything stored for it, the way the server's own forgetting of an old table does."""
+    with server.engine.begin() as connection:
+        for stored in reversed(metadata.sorted_tables):
+            if stored is not tables and "table_id" in stored.c:
+                connection.execute(delete(stored).where(stored.c.table_id == table_id))
+        connection.execute(delete(tables).where(tables.c.id == table_id))
+
+
+def test_a_page_whose_table_is_forgotten_while_it_watches_learns_it_from_its_failed_stream_and_shows_it_gone(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    expected_request_failures: list[str],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}/")
+    # The 404s the browser logs for the stream and its probe are the console errors, so only script errors are recorded.
+    person = record_page_errors(open_person(username="anna", **PHONE), page_errors, console=False)
+    held: list[Route] = []
+
+    def hold_the_stream(route: Route) -> None:
+        if route.request.resource_type == "eventsource":
+            held.append(route)
+        else:
+            route.continue_()
+
+    person.route(f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}", hold_the_stream)
+    path = open_new_table(person, e2e_server)
+    expect(person.locator(".chair")).to_have_count(3)
+    forget_table(e2e_server, table_id_of(path))
+
+    for route in held:
+        route.abort()
+
+    expect(person.get_by_role("heading", name=NOT_FOUND_HEADING)).to_be_visible()
+    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
+    expect(person.get_by_text(text(SOURCE_LANGUAGE, "table.reconnecting"))).to_be_hidden()
+    expect_the_panel_inside_the_viewport(person)
+
+
+def test_a_page_whose_account_holds_as_many_streams_as_it_may_says_so_and_keeps_the_table(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    expected_request_failures: list[str],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}/")
+    # The 429s the browser logs for the stream and its probe are the console errors, so only script errors are recorded.
+    person = record_page_errors(open_person(username="anna", **PHONE), page_errors, console=False)
+    held: list[Route] = []
+
+    def hold_the_stream(route: Route) -> None:
+        if route.request.resource_type == "eventsource":
+            held.append(route)
+        else:
+            route.continue_()
+
+    events = f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}"
+    person.route(events, hold_the_stream)
+    open_new_table(person, e2e_server)
+    expect(person.locator(".chair")).to_have_count(3)
+    person.route(events, lambda route: route.fulfill(status=HTTPStatus.TOO_MANY_REQUESTS))
+
+    for route in held:
+        route.abort()
+
+    expect(person.get_by_text(TOO_MANY_STREAMS)).to_be_visible()
+    expect(person.locator(".chair")).to_have_count(3)
+
+
 def played_longer_ago_than_the_days(server: RunningServer, table_id: str) -> None:
     last_play = datetime.now(UTC) - timedelta(days=UNPLAYED_DAYS + 1)
     with server.engine.begin() as connection:
         connection.execute(update(tables).where(tables.c.id == table_id).values(last_played_at=last_play))
-
-
-def watch_until_the_agents_are_read(person: Page, server: RunningServer, path: str) -> None:
-    with until_the_agents_are_read(person):
-        watch(person, server, path)
 
 
 def expect_the_unplayed_face(person: Page) -> None:

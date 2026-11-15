@@ -53,7 +53,7 @@ def test_the_turn_sounds_once_when_the_table_shows_it_and_not_again_for_the_move
     assert sorted(voice["kind"] for voice in voices_started(second)[before:]) == ["noise", "tone", "tone", "tone"]
 
     after_the_turn = len(voices_started(second))
-    table.play_through_the_api(table.own_cards(table.seat_at["middlehand"])[0])
+    table.play_through_the_api(sorted(table.legal_cards(table.seat_at["middlehand"]))[0])
     expect(second.locator(".chair.mine.turn")).to_have_count(0)
     second.wait_for_function("count => window.voicesStarted.length >= count", arg=after_the_turn + VOICES_OF_ONE_CARD)
     # Only the player's own card sounds now; the turn has gone on to the next seat.
