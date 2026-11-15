@@ -1,11 +1,11 @@
 <script lang="ts">
     import { inDisplayOrder } from "#lib/handOrder.ts";
     import CardFace from "#lib/ui/CardFace.svelte";
-    import type { Card } from "../../routes/(start)/tables.ts";
+    import type { Card, Game } from "../../routes/(start)/tables.ts";
 
-    const { cards, dim }: { cards: readonly Card[]; dim: boolean | undefined } = $props();
+    const { cards, game, dim }: { cards: readonly Card[]; game: Game | null; dim: boolean | undefined } = $props();
 
-    const ordered = $derived(inDisplayOrder(cards));
+    const ordered = $derived(inDisplayOrder(cards, game));
     const topRowSize = $derived(Math.ceil(ordered.length / 2));
     const rows = $derived([ordered.slice(0, topRowSize), ordered.slice(topRowSize)]);
 </script>

@@ -18,6 +18,7 @@ from skat.web.sign_in import LoggingAuditSink
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
+from tests.support.in_memory_stores import single_pod
 from tests.support.page_build import fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.skat import mcp_message
@@ -77,6 +78,7 @@ def apps(sign_in_settings, database_url):
             rule_sets=in_memory_rule_sets(),
             stores=PostgresSignInStores(engine, audit=LoggingAuditSink()),
             issuer_transports=issuer.transports,
+            **single_pod(),
         )
         return App(TestClient(app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False))
 

@@ -1,7 +1,7 @@
 import { faceOf, type AskButton, type AskView } from "#lib/giveUp.ts";
 import { LEVEL_WORDS, withMinus } from "#lib/result.ts";
 import { listFormat, words } from "#lib/words.ts";
-import { gameLabel, type SeriesEndAnswer, type SeriesEntry, type Table } from "../routes/(start)/tables.ts";
+import { gameLabel, type Game, type SeriesEndAnswer, type SeriesEntry, type Table } from "../routes/(start)/tables.ts";
 
 // The series as the table answers it: the page counts, asks and ranks what the server decided and decides no rule.
 export function seriesOver(table: Table): boolean {
@@ -110,8 +110,9 @@ export type GameRow = {
     value: string;
     gain: string;
     lost: boolean;
-    // Null is not decided by card points, so its sheet draws no points bar.
-    nullGame: boolean;
+    // The declared game, which orders the sheet's hands and, for Null, decides by no card points so that its sheet draws no
+    // points bar; a Ramsch has none.
+    game: Game | null;
 };
 
 const PLAIN_LEVELS = new Set(["spiel", "hand", "ouvert"]);
@@ -136,7 +137,7 @@ function declaredRow(entry: Extract<SeriesEntry, { kind: "declared" }>): GameRow
         value: String(entry.settled_value),
         gain: signed(entry.score),
         lost: entry.score < 0,
-        nullGame: entry.game === "null",
+        game: entry.game,
     };
 }
 
@@ -155,7 +156,7 @@ function ramschRow(entry: Extract<SeriesEntry, { kind: "ramsch" }>): GameRow {
         value: "",
         gain: signed(score),
         lost: score < 0,
-        nullGame: false,
+        game: null,
     };
 }
 

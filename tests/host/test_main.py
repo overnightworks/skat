@@ -72,10 +72,11 @@ class TestMain:
         main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
         assert [(run["host"], run["port"]) for run in server.runs] == [("127.0.0.1", 9090)]
 
+    @pytest.mark.redis
     def test_writes_each_request_of_the_served_app_as_one_json_line_of_the_skat_service(
-        self, server, configured_environment, database_url, capsys
+        self, server, configured_environment, database_url, redis_url, capsys
     ):
-        configured_environment(database_url)
+        configured_environment(database_url, redis_url=redis_url)
         main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
 
         TestClient(server.runs[0]["app"]).get(LOGIN_PATH)
@@ -309,3 +310,16 @@ class TestUvicornOptions:
         timeout = uvicorn_options(sign_in_settings().settings)["timeout_graceful_shutdown"]
 
         assert 0 < timeout < SERVER_STOP_TIMEOUT_SECONDS
+
+
+class TestRefusedRedisSetting:
+    def test_refuses_to_serve_without_the_redis_url_naming_the_setting_and_starts_nothing(
+        self, server, configured_environment, monkeypatch
+    ):
+        configured_environment()
+        monkeypatch.delenv("SKAT_REDIS_URL")
+
+        with pytest.raises(ValidationError, match="redis_url"):
+            main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
+
+        assert server.runs == []
