@@ -223,8 +223,9 @@ def test_a_reload_in_every_role_and_a_reconnect_keep_the_standing_request(
     page_errors: list[str],
     expected_request_failures: list[str],
 ) -> None:
-    # The streams the test cuts are the console errors the browser logs, so only script errors are recorded.
-    expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}/")
+    # The streams the test cuts are the console errors the browser logs, so only script errors are recorded; the
+    # page's lazily loaded chunks still in flight when the connection is cut fail with it.
+    expected_request_failures.extend([f"{e2e_server.base_url}{TABLES_PATH}/", f"{e2e_server.base_url}/_app/"])
     table = deal_playing_table(open_person, e2e_server, member_of, page_errors, PHONE, console=False)
     table.play_out(CARDS_AFTER_TWO_TRICKS)
     table.declaring.step(table.declarer_seat, TABLE_SHORTEN_SUFFIX)

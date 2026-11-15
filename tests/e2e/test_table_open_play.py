@@ -4,6 +4,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.web.playing import TABLE_PLAY_OPEN_SUFFIX
+from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of, reload_and_wait
 from tests.e2e.support.early_end import (
@@ -189,6 +190,29 @@ def test_a_reload_keeps_the_standing_request_and_the_open_cards_after_playing_on
     for person in table.everyone:
         expect(mark_on(person, player, ".mark.open-play")).to_be_visible()
         expect(person.locator(NOTICE)).to_have_count(0)
+    assert page_errors == []
+
+
+def test_a_reconnect_keeps_the_standing_request_for_a_watcher(
+    deal_a_game: Callable[..., PlayingTable],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    expected_request_failures: list[str],
+) -> None:
+    # The streams the test cuts are the console errors the browser logs, so only script errors are recorded.
+    expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}/")
+    table = deal_a_game(PHONE, console=False)
+    table.play_out(CARDS_AFTER_TWO_TRICKS)
+    player, _ = opponents(table)
+    play_open_through_the_key(table.pages[player])
+    watcher = table.watcher
+    expect(watcher.locator(REQUEST)).to_contain_text(plays_open(table.names[player]))
+
+    watcher.context.set_offline(True)
+    watcher.context.set_offline(False)
+
+    expect(watcher.locator(REQUEST)).to_contain_text(plays_open(table.names[player]))
+    expect(button_of(table.pages[table.declarer_seat], PLAY_ON)).to_be_visible()
     assert page_errors == []
 
 
