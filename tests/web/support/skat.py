@@ -19,7 +19,7 @@ from skat.table.service import TableService
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from tests.support.fake_rule_sets import FakeRuleSetStore
 from tests.support.fake_tables import FakeTableStore
-from tests.support.in_memory_stores import in_memory_stores
+from tests.support.in_memory_stores import in_memory_stores, single_pod
 from tests.support.page_build import fixture_page_build
 from tests.support.payload_cards import DEALER_SEAT, with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -119,6 +119,7 @@ class Skat:
             rule_sets=RuleSetService(self.rule_set_store),
             stores=self.stores,
             **app_options,
+            **single_pod(),
         )
         self.config = installed_web_auth_config(self.app)
         self.client = TestClient(self.app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)

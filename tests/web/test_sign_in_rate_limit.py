@@ -9,6 +9,7 @@ from webauth.config import install_web_auth_config, installed_web_auth_config
 from webauth.policies import RateLimitPolicy
 
 from skat.host.app import create_app
+from skat.store.redis_clients import shared_rate_limits
 from skat.web.constants import (
     ACCOUNT_PATH,
     AUTH_CALLBACK_PATH,
@@ -23,9 +24,10 @@ from skat.web.sign_in import SignInConfigurationError, build_sign_in_configs
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
-from tests.support.in_memory_stores import in_memory_stores
+from tests.support.in_memory_stores import in_memory_stores, in_process_rate_limits, single_pod
 from tests.support.page_build import fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.support.skat_process import LOOPBACK, free_port
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -140,6 +142,7 @@ def make_deployment(sign_in_settings: Callable[..., SignInSettings]) -> Callable
             issuer_transports=issuer.transports,
             database_ready=database_ready or readiness(ready=True),
             stores=in_memory_stores(),
+            **single_pod(),
         )
         install_web_auth_config(
             app, replace(installed_web_auth_config(app), rate_limits=ClockedRateLimitBackend(clock))
@@ -212,6 +215,30 @@ class TestSignInBudget:
         for _ in range(SIGN_IN_BUDGET_REQUESTS // 2):
             assert caller.get(AUTH_START_PATH).status_code == HTTPStatus.SEE_OTHER
         assert caller.get(AUTH_START_PATH).status_code == HTTPStatus.TOO_MANY_REQUESTS
+
+
+class TestARedisThatCannotAnswer:
+    @pytest.fixture
+    def app_without_redis(self, sign_in_settings):
+        sign_in = sign_in_settings()
+        return create_app(
+            sign_in.settings,
+            page_build=fixture_page_build(),
+            tables=in_memory_tables(),
+            rule_sets=in_memory_rule_sets(),
+            issuer_transports=FakeIssuer(sign_in).transports,
+            stores=in_memory_stores(),
+            **single_pod(rate_limits=shared_rate_limits(f"redis://{LOOPBACK}:{free_port()}/0")),
+        )
+
+    def test_every_request_but_the_health_check_is_refused_with_a_503_and_a_retry_time(self, app_without_redis):
+        browser = TestClient(app_without_redis, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
+
+        refused = [browser.get(path) for path in (LOGIN_PATH, AUTH_START_PATH, ACCOUNT_PATH)]
+
+        assert [response.status_code for response in refused] == [HTTPStatus.SERVICE_UNAVAILABLE] * 3
+        assert all("retry-after" in response.headers for response in refused)
+        assert browser.get(HEALTH_PATH).status_code == HTTPStatus.OK
 
 
 class TestExemptions:
@@ -305,7 +332,7 @@ class TestTrustedProxiesSetting:
         settings = sign_in_settings(trusted_proxies=value).settings
 
         with pytest.raises(SignInConfigurationError, match="trusted_proxies") as refusal:
-            build_sign_in_configs(settings)
+            build_sign_in_configs(settings, in_process_rate_limits())
 
         assert value not in str(refusal.value)
         assert "session_secret_file" not in str(refusal.value)
@@ -314,4 +341,4 @@ class TestTrustedProxiesSetting:
         settings = sign_in_settings().settings
 
         assert settings.trusted_proxies == ""
-        assert not build_sign_in_configs(settings).web_auth.trusted_proxies.networks
+        assert not build_sign_in_configs(settings, in_process_rate_limits()).web_auth.trusted_proxies.networks

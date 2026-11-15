@@ -16,8 +16,12 @@
     onMount(() => {
         if (page.status < FIRST_SERVER_ERROR_STATUS) return;
         return startOutage({
-            // eslint-disable-next-line svelte/no-navigation-without-resolve -- the address that failed is already one of this app
-            retry: () => goto(page.url.href, { replaceState: true }),
+            address: page.url.href,
+            retry: async () => {
+                // eslint-disable-next-line svelte/no-navigation-without-resolve -- the address that failed is already one of this app
+                await goto(page.url.href, { replaceState: true });
+                return page.error === null;
+            },
             onState: (next) => {
                 outage = next;
             },

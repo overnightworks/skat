@@ -27,6 +27,7 @@ from skat.web.constants import STREAM_HEARTBEAT_SECONDS
 from skat.web.page_build import BUILD_DIRECTORY, PageBuild
 from skat.web.sign_in import LoggingAuditSink
 from tests.support.fake_issuer import FakeIssuer
+from tests.support.in_memory_stores import single_pod
 from tests.support.postgres import created_database, migrated_template
 from tests.support.sign_in_settings import build_sign_in_settings
 
@@ -186,6 +187,7 @@ class RunningServer:
             unplayed_sweep_seconds=self._unplayed_sweep_seconds,
             chair_clock=self._chair_clock,
             chair_scheduler=self._chair_scheduler,
+            **single_pod(),
         )
         self.config = installed_web_auth_config(app)
         key_file, certificate_file = self._tls_files

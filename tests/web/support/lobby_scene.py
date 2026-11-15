@@ -3,9 +3,9 @@ import json
 from skat.table.records import Actor, CloseTable, CreateTable, SitDown, StandUp, Visibility
 from skat.web.lobby import AttentionSource, LobbySource, OpenTablesSource
 from skat.web.streams import SourceMessage, StreamEvent, stream_messages
-from skat.web.wakes import AccountTopic, OpenTablesTopic, WakeList
+from skat.web.wakes import AccountTopic, OpenTablesTopic
 from tests.support.fake_tables import in_memory_tables
-from tests.support.idle_presence import idle_presence
+from tests.support.idle_presence import idle_presence, idle_wakes
 from tests.web.support.streams import NO_HEARTBEAT_SECONDS, admitting, next_item
 
 DAYS = 90
@@ -40,7 +40,7 @@ class Scene:
     """A service over an in-memory store, one wake list and the presence built on it, as the app wires them."""
 
     def __init__(self, service=None):
-        self.wakes = WakeList()
+        self.wakes = idle_wakes()
         self.presence = idle_presence(self.wakes)
         self.service = (service or in_memory_tables()).with_leases(self.presence.live_leases)
         self.opened = 0

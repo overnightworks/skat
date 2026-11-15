@@ -22,7 +22,7 @@
         void readGameSheet(id, row.number).then((sheet) => {
             if (!current) return;
             failed = sheet === null;
-            view = sheet === null ? null : gameSheetView(sheet);
+            view = sheet === null ? null : gameSheetView(sheet, row.game);
         });
         return () => {
             current = false;
@@ -111,7 +111,7 @@
             </div>
         {/if}
         {#if view.count.kind === "declared"}
-            {#if !row.nullGame}
+            {#if row.game !== "null"}
                 <PointsBar sides={view.count.sides} points={view.count.points} />
             {/if}
         {:else}

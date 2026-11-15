@@ -1,7 +1,7 @@
 import { inDisplayOrder } from "#lib/handOrder.ts";
 import type { SideNames } from "#lib/playView.ts";
 import { listFormat, words } from "#lib/words.ts";
-import type { Card, CardState, GameEnding, GameSheet, Sides } from "../routes/(start)/tables.ts";
+import type { Card, CardState, Game, GameEnding, GameSheet, Sides } from "../routes/(start)/tables.ts";
 
 const TRICKS_IN_A_GAME = 10;
 
@@ -50,7 +50,7 @@ function cardKey(card: Card): string {
 }
 
 // The page draws what the server sent: each seat as the game named it, each trick by the server's taker and points.
-export function gameSheetView(sheet: GameSheet): GameSheetView {
+export function gameSheetView(sheet: GameSheet, game: Game | null): GameSheetView {
     const seats = [1, 2, 3].map((seat): SheetSeat => {
         const name = sheet.seat_names[seat - 1] ?? words["table.seriesNameless"];
         return { seat, name, initial: name.slice(0, 1) };
@@ -71,7 +71,7 @@ export function gameSheetView(sheet: GameSheet): GameSheetView {
                     most: count.seat_points[seat.seat - 1] === most,
                 })),
             },
-            cards: cards === null ? null : cardsView(cards, seatOf, null),
+            cards: cards === null ? null : cardsView(cards, seatOf, null, game),
             end:
                 count.durchmarsch_seat === null
                     ? null
@@ -88,7 +88,7 @@ export function gameSheetView(sheet: GameSheet): GameSheetView {
             sides: { declarer: seatOf(count.declarer_seat).name, opponents: listFormat.format(opponents) },
             points: { declarer: count.declarer_points, opponents: count.opponents_points },
         },
-        cards: cards === null ? null : cardsView(cards, seatOf, count.declarer_seat),
+        cards: cards === null ? null : cardsView(cards, seatOf, count.declarer_seat, game),
         end:
             cards === null || ending === null
                 ? null
@@ -113,6 +113,7 @@ function cardsView(
     cards: NonNullable<GameSheet["cards"]>,
     seatOf: (seat: number) => SheetSeat,
     declarerSeat: number | null,
+    game: Game | null,
 ): SheetCards {
     const putBy = [...new Set(cards.put_away.map((put) => put.seat))];
     return {
@@ -127,7 +128,10 @@ function cardsView(
             const states = new Map(hand.cards.map((each) => [cardKey(each.card), each.state]));
             return {
                 seat: seatOf(hand.seat),
-                cards: inDisplayOrder(hand.cards.map((each) => each.card)).map((card) => ({
+                cards: inDisplayOrder(
+                    hand.cards.map((each) => each.card),
+                    game,
+                ).map((card) => ({
                     card,
                     state: states.get(cardKey(card)) as CardState,
                 })),
