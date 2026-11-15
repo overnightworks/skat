@@ -1,8 +1,0 @@
-claim_id = "d10efe525cee4b879199fa7eba3c4635"
-agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
-role = "builder"
-base = "68a5c3680beb72298d59ed9e88ffd9b82c93c1f8"
-branch = "claude/issue-621-an-agent-with-a-voice-sits-down-again-sk"
-scope = ["docs", "pyproject.toml", "src/skat", "tests", "uv.lock"]
-opened_commit = "cdba4c51f5ce9516ff55623d7012c2b8952ff7bb"
-whole_reason = "A dependency pin whose breaking changes reach wherever skat uses the agents package."
