@@ -60,7 +60,7 @@ from skat.web.presence import (
 )
 from skat.web.pushing import create_pushing_router
 from skat.web.ready import create_ready_router
-from skat.web.request_line import ClientAddressNoting, SignedInPersonNoting
+from skat.web.request_line import ClientAddressNoting, RefusalNoting, SignedInPersonNoting
 from skat.web.routes import create_router
 from skat.web.rule_sets import create_rule_sets_router
 from skat.web.seating import create_seating_router
@@ -131,6 +131,7 @@ def _install_web_auth(
         session_gate=session_gate(sessions, mcp.public_rule),
     )
     # Added after the library stack, these sit outside it and see every request, a refused one included.
+    app.add_middleware(RefusalNoting)
     app.add_middleware(ClientAddressNoting)
     app.add_middleware(RequestLineMiddleware)
 
