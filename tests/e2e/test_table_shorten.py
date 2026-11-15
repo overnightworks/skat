@@ -14,6 +14,7 @@ from tests.e2e.support.early_end import (
     NOTICE_MILLISECONDS,
     OPEN_CARDS,
     OPEN_TAG,
+    OWN_CARDS,
     REQUEST,
     SHORTEN_KEY,
     expect_nothing_to_overflow,
@@ -51,6 +52,7 @@ def deal_a_shortening(deal_a_game: Callable[..., PlayingTable]) -> Callable[...,
         table = deal_a_game(form_factor, console=console)
         table.play_out(CARDS_AFTER_TWO_TRICKS)
         declarer = table.pages[table.declarer_seat]
+        expect(declarer.locator(OWN_CARDS)).to_have_count(8)
         expect(declarer.locator(SHORTEN_KEY)).to_be_enabled()
         declarer.locator(SHORTEN_KEY).click()
         for person in table.everyone:
