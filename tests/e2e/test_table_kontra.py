@@ -128,7 +128,7 @@ def test_an_opponent_who_bid_says_kontra_and_the_declarer_re_and_every_page_show
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_aufgeben_goes_round_on_a_phone_while_kontra_is_offered_and_the_strip_stays_one_row(
+def test_aufgeben_goes_round_on_a_phone_beside_kontra_or_offen_spielen_and_the_strip_stays_one_row(
     deal_a_kontra_table: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_kontra_table({**form_factor, "groups": (AGENT_ADDERS_GROUP,)})
