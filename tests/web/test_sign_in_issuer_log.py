@@ -38,9 +38,10 @@ class TestTokenExchangeLine:
             raise TokenEndpointError("unreachable")
 
         transports = IssuerTransports(post_token_request=unreachable, fetch_key_set=lambda _url: b"")
+        timed = timed_issuer_calls(transports)
 
         with logged(capsys) as lines, pytest.raises(TokenEndpointError):
-            timed_issuer_calls(transports).post_token_request(REQUEST)
+            timed.post_token_request(REQUEST)
 
         (line,) = lines_of(lines, "token_exchange.ended")
         assert (line["outcome"], line["error_type"]) == (Outcome.FAILED, "TokenEndpointError")
