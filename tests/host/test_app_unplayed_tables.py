@@ -231,7 +231,7 @@ class TestUnplayedTables:
 
         assert failed_one == (None, EndReason.UNPLAYED)
         assert retried is EndReason.UNPLAYED
-        assert [entry["error"] for entry in logs] == ["ConnectionError"]
+        assert [entry["error_type"] for entry in logs] == ["ConnectionError"]
         assert "account-anna" not in str(logs)
 
     def test_a_table_read_as_due_that_is_not_due_when_the_row_is_locked_is_left_alone(self, sign_in_settings):
@@ -265,7 +265,7 @@ class TestUnplayedTables:
                 client.portal.call(tick)
             runs_asked_for = len(unplayed.scheduler.sweeps())
 
-        assert [entry["error"] for entry in logs] == ["ConnectionError"]
+        assert [entry["error_type"] for entry in logs] == ["ConnectionError"]
         assert "account-anna" not in str(logs)
         assert runs_asked_for == 2
 
@@ -387,7 +387,7 @@ class TestEndedTables:
             forgotten = unplayed.tables.view(OPENER, table_id.value, frozenset())
 
         assert (kept is None, forgotten is None) == (False, True)
-        assert [entry["error"] for entry in logs] == ["ConnectionError"]
+        assert [entry["error_type"] for entry in logs] == ["ConnectionError"]
         assert "account-anna" not in str(logs)
 
 
@@ -458,5 +458,5 @@ class TestExpiredSessions:
                 client.portal.call(tick)
 
         assert unplayed.ended(table_id).reason is EndReason.UNPLAYED
-        assert [entry["error"] for entry in logs] == ["ConnectionError"]
+        assert [entry["error_type"] for entry in logs] == ["ConnectionError"]
         assert "account-anna" not in str(logs)

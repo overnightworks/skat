@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Protocol
 from skat.table.member_place import MemberBook
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
     from contextlib import AbstractContextManager
     from datetime import datetime
 
@@ -23,6 +23,16 @@ __all__ = [
 
 class DuplicateReceiptError(Exception):
     """Another transaction stored a receipt under the same (account, command id) first."""
+
+
+def retried_on_duplicate_receipt[T](attempt: Callable[[], T]) -> T:
+    """Run the command; when the same command id committed meanwhile, the second run finds that receipt and replays
+    it or refuses the reuse.
+    """
+    try:
+        return attempt()
+    except DuplicateReceiptError:
+        return attempt()
 
 
 class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's method bodies are signatures

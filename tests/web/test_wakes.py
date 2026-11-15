@@ -161,7 +161,9 @@ class TestSharedWakes:
                 first.wake_list.wake(FIRST_TABLE)
                 await second.arrival_of("second")
 
-            assert [(entry["log_level"], entry["error"]) for entry in logged] == [("warning", "StoreError")]
+            assert [(entry["event"], entry["log_level"], entry["error_type"]) for entry in logged] == [
+                ("wake_publish.failed", "warning", "StoreError")
+            ]
             assert "secret detail" not in str(logged)
             assert len(bus.published) == 1
 
@@ -177,7 +179,10 @@ class TestSharedWakes:
                 await first.shared.drain()
 
             assert first.woken == {"local": 1}
-            assert [entry["log_level"] for entry in logged] == ["warning", "error"]
+            assert [(entry["event"], entry["log_level"]) for entry in logged] == [
+                ("wake_publish.failed", "warning"),
+                ("wake_publish.failed", "error"),
+            ]
             assert bus.published == []
 
         between_pods(scenario)
@@ -197,7 +202,9 @@ class TestSharedWakes:
                 first.channel.inbox.put_nowait(StoreError("secret detail"))
                 await asyncio.wait_for(first.ended.wait(), ARRIVAL_SECONDS)
 
-            assert [(entry["log_level"], entry["error"]) for entry in logged] == [("error", "StoreError")]
+            assert [(entry["event"], entry["log_level"], entry["error_type"]) for entry in logged] == [
+                ("wake_channel.failed", "error", "StoreError")
+            ]
             assert "secret detail" not in str(logged)
 
         between_pods(scenario)

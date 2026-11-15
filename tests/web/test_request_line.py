@@ -5,10 +5,13 @@ from fastapi.testclient import TestClient
 from webauth.config import installed_web_auth_config
 
 from skat.host.app import create_app
+from skat.table.records import TableId
 from skat.web.constants import ACCOUNT_PATH, APP_ASSET_PATH, LOGIN_PATH
+from skat.web.tables import TABLES_PATH
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
 from tests.support.in_memory_stores import in_memory_stores, single_pod
+from tests.support.log_lines import logged
 from tests.support.page_build import IMMUTABLE_FILE, fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
@@ -72,3 +75,18 @@ class TestRequestLine:
 
         (line,) = request_lines_of(logs)
         assert (answer.status_code, line["route"]) == (200, APP_ASSET_PATH)
+
+    def test_a_refused_request_leaves_the_request_line_alone_on_its_trace(self, app, stores, browser, capsys):
+        member = seed_member(stores, installed_web_auth_config(app))
+        unknown = TableId.random().value
+
+        with logged(capsys) as lines:
+            answer = browser.get(
+                f"{TABLES_PATH}/{unknown}", headers={"cookie": cookie_header(member.set_cookie_headers)}
+            )
+
+        (request,) = request_lines_of(lines)
+        assert (answer.status_code, request["status"]) == (404, 404)
+        assert [line["event"] for line in lines if line.get("trace_id") == request["trace_id"]] == [
+            logline.REQUEST_EVENT
+        ]

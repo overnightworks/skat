@@ -623,7 +623,7 @@ class TestWhenTheTablesCannotBeRead:
 
             advance(skat, time, hold_seconds)
 
-        assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE]
+        assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE]
         assert woken["chairs"][UNDEALT_AGENT_SEAT - 1]["is_away"] is True
         assert UNDEALT_AGENT_SEAT not in occupied_seats(skat, table_id)
 
