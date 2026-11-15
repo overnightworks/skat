@@ -4,14 +4,17 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.table.records import TableStyle
+from skat.web.style import TABLE_STYLE_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.audio import tap
 from tests.e2e.support.hands import deal_playing_table
-from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.style import ROOM, STYLE_KEY, TABLE_SCENES, choose_style
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from playwright.sync_api import Route
 
     from tests.e2e.support.hands import PlayingTable
     from tests.e2e.support.server import RunningServer
@@ -26,6 +29,8 @@ STYLE_TILES = ".style-tile"
 STRIP = ".actions"
 SCENE_STYLE_ROW = ".snd-row.look"
 PAGE_STYLE_ROW = ".style-row"
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
+REFUSED = 409
 ROW_PADDING = """row => {
     const { paddingTop, paddingBottom } = getComputedStyle(row);
     return { top: paddingTop, bottom: paddingBottom };
@@ -113,6 +118,28 @@ def test_the_sea_runs_under_the_tables_style_after_a_tap_and_follows_the_mute(ta
     choose_style(table.pages[table.seat_at["forehand"]], TableStyle.KLASSIK)
     expect(watcher.locator(ROOM)).to_have_attribute("data-style", "klassik")
     assert sea_levels(watcher)[-1] == 0
+
+
+def test_a_refused_style_shows_the_failure_and_leaves_the_tables_style_marked(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    # The browser logs the refused choice as a console error; that refusal is the point of this test.
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, PHONE, console=False)
+    chooser = table.pages[table.seat_at["forehand"]]
+
+    def refuse(route: Route) -> None:
+        route.fulfill(status=REFUSED, content_type="application/json", body="{}")
+
+    chooser.route(f"**{table.declaring.api_path}{TABLE_STYLE_SUFFIX}", refuse)
+    chooser.get_by_role("button", name=STYLE_KEY).click()
+    chooser.locator(f"{STYLE_TILES}.style-strandbar").click()
+
+    expect(chooser.locator(".note")).to_have_text(COMMAND_FAILED)
+    expect(chooser.locator(f"{STYLE_TILES}.style-klassik input")).to_be_checked()
+    expect(chooser.locator(ROOM)).to_have_attribute("data-style", "klassik")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
