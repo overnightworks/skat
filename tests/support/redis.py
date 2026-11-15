@@ -32,3 +32,14 @@ def fresh_database_url() -> str:
             pytest.fail(f"worker {index} has no Redis database of its own among {databases}; run fewer workers")
         redis.flushdb()
     return url
+
+
+def end_subscriptions(url: str) -> None:
+    """Ends the pub/sub connections of the database `url` names, as a restart of the server would, and no other
+    database's: the server is shared with the other workers' tests.
+    """
+    database = int(urlsplit(url).path.removeprefix("/"))
+    with Redis.from_url(url) as redis:
+        for client in redis.client_list(_type="pubsub"):
+            if int(client["db"]) == database:
+                redis.client_kill_filter(_id=client["id"])

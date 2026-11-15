@@ -2,10 +2,10 @@
 Redis ended re-reads everything it serves when it is subscribed again."""
 
 import pytest
-from redis import Redis
 
 from skat.store.redis_clients import shared_wake_channel
 from skat.web.wakes import TableTopic
+from tests.support.redis import end_subscriptions
 from tests.web.support.wake_pods import run_pods
 
 pytestmark = pytest.mark.redis
@@ -31,8 +31,7 @@ class TestPodsOnARealRedis:
     def test_a_pod_whose_subscription_redis_ended_wakes_every_registration_when_it_is_subscribed_again(self, redis_url):
         async def scenario(_first, second):
             second.listen("table", TABLE)
-            with Redis.from_url(redis_url) as redis:
-                redis.client_kill_filter(_type="pubsub")
+            end_subscriptions(redis_url)
 
             await second.arrival_of("table")
 

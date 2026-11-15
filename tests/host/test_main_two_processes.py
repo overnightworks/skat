@@ -9,7 +9,6 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
-from redis import Redis
 from sqlalchemy.engine import make_url
 from webauth.policies import RateLimitPolicy
 
@@ -23,7 +22,7 @@ from skat.web.sign_in import LoggingAuditSink, build_sign_in_configs
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.support.in_memory_stores import in_process_rate_limits
 from tests.support.postgres import created_database
-from tests.support.redis import fresh_database_url
+from tests.support.redis import end_subscriptions, fresh_database_url
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN, build_sign_in_settings
 from tests.support.signed_in import cookie_header, seed_member
 from tests.support.skat_process import SkatProcess
@@ -112,13 +111,13 @@ def pods(postgres_template, tmp_path_factory) -> Iterator[Pods]:
                 process.kill()
             engine.dispose()
 
+
 @pytest.fixture(autouse=True)
 def an_emptied_redis(pods) -> Iterator[None]:
     """The limits that tests spend from the processes' Redis never reach another test."""
     fresh_database_url()
     yield
     fresh_database_url()
-
 
 
 class TestASeededSession:
@@ -204,8 +203,7 @@ class TestAChangeAtOneProcess:
         with self.table_stream_of(pods, table_id, opener_cookie) as events:
             before = json.loads(next(events))
             tables.sit(Actor(guest_account, "Guest"), SitDown(new_command_id(), table_id, 2), frozenset())
-            with Redis.from_url(pods.redis_url) as redis:
-                redis.client_kill_filter(_type="pubsub")
+            end_subscriptions(pods.redis_url)
             after = json.loads(next(events))
 
         assert after["version"] > before["version"]
