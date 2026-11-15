@@ -1,0 +1,8 @@
+claim_id = "8025c9af40d44190968afbf996cc3b56"
+agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
+role = "builder"
+base = "81f9ed98a2e821dee32262a77b761a40624f9dea"
+branch = "claude/issue-619-the-hand-s-end-and-every-word-are-seen-a"
+scope = ["frontend/src", "scripts/record_voice.py", "tests"]
+opened_commit = "afa447abbf3ea79e2667fd593651e4bb8bdcbefe"
+whole_reason = "The hand's end touches the stage, the cues, the voice recordings and their e2e tests together."
