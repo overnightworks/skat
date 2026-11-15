@@ -5,6 +5,7 @@ from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import CARDS_IN_A_GAME
+from skat.table.records import TableStyle
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
@@ -33,18 +34,24 @@ from tests.e2e.support.result_card import (
     signed,
     waiting_for,
 )
-from tests.e2e.support.style import STYLE_KEY, STYLES, expect_the_furniture_clear, give_the_table_its_style
+from tests.e2e.support.style import (
+    STYLE_KEY,
+    STYLES,
+    expect_painted_as_the_scene,
+    expect_the_furniture_clear,
+    give_the_table_its_style,
+)
 from tests.e2e.support.tables import SIT_DOWN
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from skat.table.records import TableStyle
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
 pytestmark = pytest.mark.e2e
 
+SEAT_TILE_PAINT = ["backgroundImage", "backgroundColor", "color", "boxShadow"]
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
@@ -286,6 +293,11 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     expect_the_seat_tiles_inside_the_card(table.everyone)
     expect_the_page_around_the_card(table.everyone)
     expect_the_furniture_clear(table.everyone, table_style)
+    if table_style is TableStyle.STRANDBAR:
+        for person in table.everyone:
+            expect_painted_as_the_scene(
+                person, "strand-result", ".result .reck:not(.win)", ".reck:not(.win)", SEAT_TILE_PAINT
+            )
     for person in table.everyone:
         expect(person.get_by_role("button", name=STYLE_KEY)).to_have_count(0)
     expect_the_marks(table, set())
