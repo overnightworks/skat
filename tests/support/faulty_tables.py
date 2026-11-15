@@ -101,8 +101,8 @@ class _FaultyTransaction:
     def played_before(self, cutoff: datetime) -> tuple[TableId, ...]:
         return self._inner.played_before(cutoff)
 
-    def forget_ended_before(self, cutoff: datetime) -> None:
-        self._inner.forget_ended_before(cutoff)
+    def forget_ended_before(self, cutoff: datetime) -> int:
+        return self._inner.forget_ended_before(cutoff)
 
     def empty_since(self, table_id: TableId) -> datetime | None:
         return self._inner.empty_since(table_id)

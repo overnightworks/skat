@@ -138,7 +138,9 @@ def end_unplayed_table(
     return members
 
 
-def forget_ended_tables(transactions: TableTransactions, days: int, now: datetime) -> None:
-    """Forget what a table that ended `days` days ago or longer keeps: see `TableTransaction.forget_ended_before`."""
+def forget_ended_tables(transactions: TableTransactions, days: int, now: datetime) -> int:
+    """Forget what a table that ended `days` days ago or longer keeps, and return how many tables that deleted: see
+    `TableTransaction.forget_ended_before`.
+    """
     with transactions.begin() as transaction:
-        transaction.forget_ended_before(now - timedelta(days=days))
+        return transaction.forget_ended_before(now - timedelta(days=days))
