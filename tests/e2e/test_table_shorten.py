@@ -54,7 +54,7 @@ def deal_a_shortening(deal_a_game: Callable[..., PlayingTable]) -> Callable[...,
         table = deal_a_game(form_factor, console=console)
         table.play_out(CARDS_AFTER_TWO_TRICKS)
         declarer = table.pages[table.declarer_seat]
-        expect_the_page_to_show_every_card_played(declarer)
+        expect_the_page_to_show_every_card_played(declarer, CARDS_AFTER_TWO_TRICKS)
         expect(declarer.locator(SHORTEN_KEY)).to_be_enabled()
         declarer.locator(SHORTEN_KEY).click()
         for person in table.everyone:

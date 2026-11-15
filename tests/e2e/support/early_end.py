@@ -33,11 +33,11 @@ def opponents(table: PlayingTable) -> list[int]:
     return sorted(seat for seat in table.pages if seat != table.declarer_seat)
 
 
-def expect_the_page_to_show_every_card_played(person: Page) -> None:
-    """The page shows the table after the two tricks, its own hand and the other chairs' counts alike, so a tap on a
+def expect_the_page_to_show_every_card_played(person: Page, played: int) -> None:
+    """The page shows the table after `played` cards, its own hand and the other chairs' counts alike, so a tap on a
     key sends the table's latest version and is not refused as stale.
     """
-    cards_left = 10 - CARDS_AFTER_TWO_TRICKS // 3
+    cards_left = 10 - played // 3
     expect(person.locator(OWN_CARDS)).to_have_count(cards_left)
     expect(person.locator(COUNT_TAG)).to_have_text([str(cards_left)] * 2)
 

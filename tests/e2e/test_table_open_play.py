@@ -13,7 +13,6 @@ from tests.e2e.support.early_end import (
     NOTICE_MILLISECONDS,
     OPEN_CARDS,
     OPEN_TAG,
-    OWN_CARDS,
     PLAY_OPEN_KEY,
     REQUEST,
     STRIP,
@@ -68,7 +67,7 @@ def deal_a_wrong_open_play(deal_a_game: Callable[..., PlayingTable]) -> Callable
         table = deal_a_game(form_factor)
         table.play_out(CARDS_AFTER_TWO_TRICKS)
         player = table.pages[opponents(table)[0]]
-        expect_the_page_to_show_every_card_played(player)
+        expect_the_page_to_show_every_card_played(player, CARDS_AFTER_TWO_TRICKS)
         play_open_through_the_key(player)
         for person in table.everyone:
             expect(person.locator(REQUEST)).to_be_visible()
@@ -193,7 +192,7 @@ def test_a_reconnect_keeps_the_standing_request_for_a_watcher(
     table = deal_a_game(PHONE, console=False)
     table.play_out(CARDS_AFTER_TWO_TRICKS)
     player, _ = opponents(table)
-    expect_the_page_to_show_every_card_played(table.pages[player])
+    expect_the_page_to_show_every_card_played(table.pages[player], CARDS_AFTER_TWO_TRICKS)
     play_open_through_the_key(table.pages[player])
     watcher = table.watcher
     expect(watcher.locator(REQUEST)).to_contain_text(plays_open(table.names[player]))
@@ -212,7 +211,7 @@ def test_a_right_open_play_ends_the_game_with_the_played_open_stamp_of_the_oppon
     table = deal_a_game(PHONE)
     table.play_out(CARDS_AT_WHICH_OPEN_PLAY_IS_RIGHT)
     player = table.pages[opponents(table)[0]]
-    expect(player.locator(OWN_CARDS)).to_have_count(1)
+    expect_the_page_to_show_every_card_played(player, CARDS_AT_WHICH_OPEN_PLAY_IS_RIGHT)
 
     play_open_through_the_key(player)
 
