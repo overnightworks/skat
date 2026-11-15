@@ -1,56 +1,5 @@
-/* The table's style: the key that picks it, the panel's two tiles and the Strandbar look. Every Strandbar rule hangs on
+/* The table's style: the panel's two tiles and the Strandbar look. Every Strandbar rule hangs on
    the room's style attribute, so Klassik's rules in start.css stay as they are. */
-
-/* The key: the palette with its word at 900 px and wider, the palette alone round on a phone. */
-.room .copy.style-key.on {
-    color: var(--stage-ink, #0c0e11);
-    background: var(--on-stage);
-}
-
-@media (max-width: 899px) {
-    .room .copy.style-key {
-        box-sizing: border-box;
-        justify-content: center;
-        width: 52px;
-        padding: 0;
-    }
-
-    .room .copy.style-key .word {
-        display: none;
-    }
-}
-
-/* During a hand the style key is a fifth button beside the give-up, the stand-up, the agents' pill and the link, and the
-   opener's close key can be a sixth (the key is gone while a Kontra word is offered, so that strip keeps the size its scene
-   draws): a phone's row narrows its buttons to the 44 px touch size, its gaps to 4 px and the give-up's padding to 10 px, and
-   on the narrowest, beside the close key, to 8 px, so that it stays one line inside 360 px. */
-@media (max-width: 899px) {
-    .room .actions:has(.give-up):has(.style-key) {
-        gap: 4px;
-    }
-
-    .room .actions:has(.give-up):has(.style-key) .copy {
-        height: 44px;
-    }
-
-    .room .actions:has(.give-up):has(.style-key) .copy:is(.round, .link, .agents, .style-key, .close) {
-        width: 44px;
-    }
-
-    .room .actions:has(.give-up):has(.style-key) .copy.style-key {
-        padding: 0;
-    }
-
-    .room .actions:has(.give-up):has(.style-key) .copy:not(.round, .link, .agents, .style-key, .close) {
-        padding: 0 10px;
-    }
-}
-
-@media (max-width: 383px) {
-    .room .actions:has(.give-up):has(.style-key):has(.copy.close) .copy.give-up:not(.round) {
-        padding-inline: 8px;
-    }
-}
 
 /* The panel's one row, as the blessed picture sets it: the label over the two tiles, then the note under them. */
 .room .style-row {
@@ -396,10 +345,6 @@
     box-shadow:
         inset 0 0 0 1.5px rgba(243, 207, 122, 0.4),
         0 24px 50px -16px rgba(25, 12, 30, 0.9);
-}
-
-.room[data-style="strandbar"] .copy.style-key.on {
-    background-color: var(--on-stage);
 }
 
 .room[data-style="strandbar"] .card {
