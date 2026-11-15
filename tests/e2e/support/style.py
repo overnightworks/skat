@@ -14,8 +14,8 @@ STYLE_KEY = text(SOURCE_LANGUAGE, "table.styleName")
 ROOM = ".room"
 TABLE_SCENES = Path(__file__).parents[3] / "docs" / "mockups" / "table.html"
 STYLES = [pytest.param(TableStyle.KLASSIK, id="klassik"), pytest.param(TableStyle.STRANDBAR, id="strandbar")]
-# The cocktail and the shell: the furniture the Strandbar style adds as elements.
-DECORATIONS = 2
+# The furniture each style adds as elements: the Strandbar's cocktail and shell, the Klassik's brass lamp.
+DECORATIONS = {TableStyle.STRANDBAR: 2, TableStyle.KLASSIK: 1}
 
 # The cocktail and the shell lie under everything the people at the table read and touch: no sampled point of a card,
 # tag, key, chair, plaque or the result is painted by one of them (their pointer events are switched on so the page
@@ -63,7 +63,7 @@ def give_the_table_its_style(chooser: Page, everyone: Iterable[Page], style: Tab
 def expect_the_furniture_clear(everyone: Iterable[Page], style: TableStyle) -> None:
     """The style's furniture is on the page and covers no card, tag or key, wherever the scene is now."""
     for person in everyone:
-        expect(person.locator(".decor")).to_have_count(DECORATIONS if style is TableStyle.STRANDBAR else 0)
+        expect(person.locator(".decor")).to_have_count(DECORATIONS[style])
         assert person.evaluate(FURNITURE_CLEAR) == []
 
 
