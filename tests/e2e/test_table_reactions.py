@@ -11,7 +11,7 @@ from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.table.records import TableStyle
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.audio import tap, voices_started
-from tests.e2e.support.people import DESKTOP, FORM_FACTORS
+from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
 from tests.e2e.support.style import ROOM, give_the_table_its_style
 
 if TYPE_CHECKING:
@@ -54,6 +54,12 @@ RESTING_PLACE = """selector => {
         width: layer.clientWidth, height: layer.clientHeight,
     };
 }"""
+
+
+# Every key of the row of actions that stands on the screen, as its box; the tray's own buttons are no key of the row.
+ACTION_KEYS = """() => [...document.querySelectorAll('.actions button:not(.tray *)')]
+    .map(key => key.getBoundingClientRect()).filter(box => box.width > 0)
+    .map(box => ({ x: box.x, y: box.y, width: box.width, height: box.height }))"""
 
 
 def is_wide(person: Page) -> bool:
@@ -120,6 +126,23 @@ def test_an_emote_from_the_tray_flies_onto_the_felt_of_every_page_and_sounds_wit
     expect_played_by_every_page(heard_before)
     if not is_wide(thrower):
         expect(thrower.get_by_role("group", name=TRAY)).to_be_hidden()
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_open_tray_covers_no_key_of_the_row_of_actions(
+    deal_a_game: Callable[..., PlayingTable], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_game(form_factor)
+    person = table.pages[table.seat_at["forehand"]]
+
+    throwing_tray(person)
+
+    tray = person.get_by_role("group", name=TRAY).bounding_box()
+    assert tray is not None
+    for key in person.evaluate(ACTION_KEYS):
+        covers_across = tray["x"] < key["x"] + key["width"] and key["x"] < tray["x"] + tray["width"]
+        covers_down = tray["y"] < key["y"] + key["height"] and key["y"] < tray["y"] + tray["height"]
+        assert not (covers_across and covers_down)
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)

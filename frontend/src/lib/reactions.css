@@ -14,7 +14,7 @@
     position: relative;
 }
 
-/* The tray: a phone opens it from its key, a wide screen shows it as a rail at the edge. */
+/* The tray: a phone opens it from its key and the script sets --tray-bottom, so that it stands above the row of keys; a wide screen shows it as a rail at the edge. */
 .room .reaction-key svg {
     width: 24px;
     height: 24px;
@@ -26,7 +26,7 @@
 
 .room .tray {
     position: fixed;
-    bottom: 150px;
+    bottom: var(--tray-bottom, 150px);
     left: 50%;
     z-index: 20;
     display: none;
