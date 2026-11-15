@@ -194,7 +194,14 @@ describe("watchTable after a stream error", () => {
         watchTable(TABLE_ID, onTable, vi.fn(), onConnection, vi.fn());
         const ended = {
             id: TABLE_ID,
-            ended: { reason: "empty", empty_seconds: 1800, unplayed_days: null, closed_by_name: null },
+            ended: {
+                reason: "empty",
+                empty_seconds: 1800,
+                unplayed_days: null,
+                closed_by_name: null,
+                standings: null,
+                game_count: null,
+            },
         };
 
         FakeEventSource.last.message(JSON.stringify(ended));

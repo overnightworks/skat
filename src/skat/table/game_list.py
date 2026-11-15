@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from skat.engine.tricks import PlayedOut
     from skat.engine.value import Level, Matadors
     from skat.table.game_cards import GameCards
-    from skat.table.records import Occupant, TableOptions, TableRecord
+    from skat.table.records import Occupant, OccupantKind, PlayedSeries, TableOptions, TableRecord
 
 
 class GameEnding(StrEnum):
@@ -41,7 +41,8 @@ class ListEntry:
     """One finished game in the table's list: who sat where, what was played, and what it scored.
 
     Schneider and Schwarz are the levels the valuation counted; the matadors are None exactly in Null. Each seat's
-    display name is the one held at the end of the game, None for an entry stored before names were kept. The score
+    display name is the one held at the end of the game, None for an entry stored before names were kept; so is each
+    seat's kind. The score
     is the list score with the Bock factor and the doubling applied; `bock_factor` is 1 outside a Bock game and
     `kontra_word` the last word said, None for a game without one. `ended_by_seat` is the seat whose give-up or
     throw-down ended the game, None exactly when the game was played out. `cards` are the game's cards while the entry
@@ -50,6 +51,7 @@ class ListEntry:
 
     seat_accounts: tuple[str, str, str]
     seat_names: tuple[str | None, str | None, str | None]
+    seat_kinds: tuple[OccupantKind | None, OccupantKind | None, OccupantKind | None]
     declarer_seat: int
     declaration: Declaration
     schneider: bool
@@ -88,7 +90,8 @@ class ListEntry:
 class RamschEntry:
     """One finished Ramsch in the table's list, by seat: the card points each seat counted, its list score, the seat
     that took all ten tricks and won by it (None if no seat did or the table scores it as any loser) and whether
-    a seat with no trick doubled the loser's score. Each seat's display name is the one held at the end of the game.
+    a seat with no trick doubled the loser's score. Each seat's display name and kind are the ones held at the end of
+    the game, None for an entry stored before they were kept.
     `bock_factor` is the Bock factor the Ramsch ran under, 1 outside a Bock game, and `pushes` the times the skat was
     pushed on unseen; the scores are multiplied by both, a Durchmarsch's too unless the table scores it flat. `cards`
     are the game's cards as they are for a declared game's entry.
@@ -96,6 +99,7 @@ class RamschEntry:
 
     seat_accounts: tuple[str, str, str]
     seat_names: tuple[str | None, str | None, str | None]
+    seat_kinds: tuple[OccupantKind | None, OccupantKind | None, OccupantKind | None]
     seat_points: tuple[int, int, int]
     seat_scores: tuple[int, int, int]
     durchmarsch_seat: int | None
@@ -158,6 +162,7 @@ def list_entry_of(
     return ListEntry(
         seat_accounts=(first.account_id, second.account_id, third.account_id),
         seat_names=(first.display_name, second.display_name, third.display_name),
+        seat_kinds=(first.kind, second.kind, third.kind),
         declarer_seat=seats[played.declared.declarer],
         declaration=declaration,
         schneider=valuation.schneider,
@@ -198,6 +203,7 @@ def ramsch_entry_of(played: RamschPlayedOut, table: TableRecord) -> RamschEntry:
     return RamschEntry(
         seat_accounts=(first.account_id, second.account_id, third.account_id),
         seat_names=(first.display_name, second.display_name, third.display_name),
+        seat_kinds=(first.kind, second.kind, third.kind),
         seat_points=(points[0], points[1], points[2]),
         seat_scores=(scores[0], scores[1], scores[2]),
         durchmarsch_seat=None if reckoning.durchmarsch is None else seats[reckoning.durchmarsch],
@@ -223,10 +229,15 @@ class SeatGain:
 
 @dataclass(frozen=True)
 class Standing:
-    """One account's place at the end of a series, named as the list last seated it; None if no name was stored."""
+    """One account's place at the end of a series, named as the list last seated it; None if no name was stored. `seat`
+    and `kind` are the chair and the kind of occupant the list last seated the account as; the kind is None for a game
+    stored before kinds were kept.
+    """
 
     account_id: str
     display_name: str | None
+    seat: int
+    kind: OccupantKind | None
     total: int
     won: int
     lost: int
@@ -351,8 +362,17 @@ def _standing_without_place(game_list: tuple[GameEntry, ...], account_id: str, r
     ]
     last = next(entry for entry in reversed(game_list) if account_id in entry.seat_accounts)
     won = sum(entry.won for entry in declared)
-    name = last.seat_names[last.seat_accounts.index(account_id)]
-    return Standing(account_id, name, total_of(game_list, account_id, reach), won, len(declared) - won, place=0)
+    index = last.seat_accounts.index(account_id)
+    return Standing(
+        account_id,
+        last.seat_names[index],
+        index + 1,
+        last.seat_kinds[index],
+        total_of(game_list, account_id, reach),
+        won,
+        len(declared) - won,
+        place=0,
+    )
 
 
 def _rank_key(standing: Standing) -> tuple[int, int, int]:
@@ -495,6 +515,8 @@ def _series_entry_view_of(
     )
 
 
-def series_list_view_of(table: TableRecord) -> tuple[SeriesEntryView | RamschSeriesEntryView, ...]:
-    """One row per finished game of the table, numbered from 1 in the order played."""
-    return tuple(_series_entry_view_of(number, entry, table.options) for number, entry in enumerate(table.game_list, 1))
+def series_list_view_of(played: PlayedSeries) -> tuple[SeriesEntryView | RamschSeriesEntryView, ...]:
+    """One row per finished game of the series, numbered from 1 in the order played."""
+    return tuple(
+        _series_entry_view_of(number, entry, played.options) for number, entry in enumerate(played.game_list, 1)
+    )

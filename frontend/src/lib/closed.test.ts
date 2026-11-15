@@ -16,14 +16,28 @@ describe("the heading of a table that closed itself", () => {
     ] as const)("names a stored wait of %i seconds by the family %s at the count %i", (seconds, family, count) => {
         const gaps = { minutes: String(count) };
         expect(
-            closedWords({ reason: "empty", empty_seconds: seconds, unplayed_days: null, closed_by_name: null }),
+            closedWords({
+                reason: "empty",
+                empty_seconds: seconds,
+                unplayed_days: null,
+                closed_by_name: null,
+                standings: null,
+                game_count: null,
+            }),
         ).toBe(family === "closed.emptyMinutes" ? words[family](count, gaps) : words[family](count));
     });
 
     it("writes a day-long wait in plain digits without a thousands separator", () => {
-        expect(closedWords({ reason: "empty", empty_seconds: 86400, unplayed_days: null, closed_by_name: null })).toBe(
-            "1440 Minuten niemand da: Tisch geschlossen",
-        );
+        expect(
+            closedWords({
+                reason: "empty",
+                empty_seconds: 86400,
+                unplayed_days: null,
+                closed_by_name: null,
+                standings: null,
+                game_count: null,
+            }),
+        ).toBe("1440 Minuten niemand da: Tisch geschlossen");
     });
 });
 
@@ -34,7 +48,14 @@ describe("the heading of a table that closed for want of play", () => {
         [90, "90 Tage nicht gespielt: Tisch geschlossen"],
     ])("names the stored %i days", (days, heading) => {
         expect(
-            closedWords({ reason: "unplayed", empty_seconds: null, unplayed_days: days, closed_by_name: null }),
+            closedWords({
+                reason: "unplayed",
+                empty_seconds: null,
+                unplayed_days: days,
+                closed_by_name: null,
+                standings: null,
+                game_count: null,
+            }),
         ).toBe(heading);
     });
 });
@@ -42,14 +63,28 @@ describe("the heading of a table that closed for want of play", () => {
 describe("the heading of a table its opener closed", () => {
     it("names the closer", () => {
         expect(
-            closedWords({ reason: "closed", empty_seconds: null, unplayed_days: null, closed_by_name: "Anna" }),
+            closedWords({
+                reason: "closed",
+                empty_seconds: null,
+                unplayed_days: null,
+                closed_by_name: "Anna",
+                standings: null,
+                game_count: null,
+            }),
         ).toBe(words["closed.closedBy"]({ name: "Anna" }));
     });
 
     it("says only that the table is closed once the closer's name has expired", () => {
-        expect(closedWords({ reason: "closed", empty_seconds: null, unplayed_days: null, closed_by_name: null })).toBe(
-            words["closed.closed"],
-        );
+        expect(
+            closedWords({
+                reason: "closed",
+                empty_seconds: null,
+                unplayed_days: null,
+                closed_by_name: null,
+                standings: null,
+                game_count: null,
+            }),
+        ).toBe(words["closed.closed"]);
     });
 });
 

@@ -95,6 +95,7 @@ def an_entry(seat_accounts: tuple[str, str, str] = ANNA_BEN_CLEO) -> ListEntry:
     return ListEntry(
         seat_accounts=seat_accounts,
         seat_names=("Anna", "Ben", "Cleo"),
+        seat_kinds=(OccupantKind.PERSON,) * 3,
         declarer_seat=1,
         declaration=Declaration(GameKind.KREUZ, hand=False, ouvert=False, announcement=Announcement.NONE),
         schneider=False,
@@ -117,7 +118,8 @@ def after_a_game(record: TableRecord, entry: ListEntry, *ready_seats: int) -> Ta
     """The seated table as a game's last card leaves it: `entry` seated at the table's chairs ends its list."""
     seat_accounts = tuple(chair.occupant.account_id for chair in record.chairs)
     chairs = tuple(replace(chair, ready=chair.seat in ready_seats) for chair in record.chairs)
-    listed = replace(entry, seat_accounts=seat_accounts)
+    seat_kinds = tuple(chair.occupant.kind for chair in record.chairs)
+    listed = replace(entry, seat_accounts=seat_accounts, seat_kinds=seat_kinds)
     return replace(record, chairs=chairs, hand=None, progress=HandProgress(), game_list=(*record.game_list, listed))
 
 
@@ -132,6 +134,7 @@ def a_ramsch_entry(
     return RamschEntry(
         seat_accounts=seat_accounts,
         seat_names=("Anna", "Ben", "Cleo"),
+        seat_kinds=(OccupantKind.PERSON,) * 3,
         seat_points=(47, 40, 33),
         seat_scores=seat_scores,
         durchmarsch_seat=None,

@@ -736,6 +736,8 @@ class TestAnEmptyTableEnds:
             "empty_seconds": seconds,
             "unplayed_days": None,
             "closed_by_name": None,
+            "standings": None,
+            "game_count": None,
         }
         assert answer["chairs"] == []
         assert answer["watchers"] == 0

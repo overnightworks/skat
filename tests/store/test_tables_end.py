@@ -18,6 +18,7 @@ from skat.table.records import (
     Ending,
     EndReason,
     GiveUpAsked,
+    OccupantKind,
     SitDown,
     TableId,
     TableRecord,
@@ -26,7 +27,13 @@ from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.faulty_tables import HANG_DEADLINE_SECONDS, FaultyTableTransactions
-from tests.support.played_game import a_whole_game, after_the_first_game, before_the_last_card, declared_herz_hand
+from tests.support.played_game import (
+    a_whole_game,
+    after_the_first_game,
+    before_the_last_card,
+    declared_herz_hand,
+    with_agents,
+)
 from tests.support.table_rows import WorkInAThread, rows_of, wait_until_a_session_waits_for_a_lock
 
 pytestmark = pytest.mark.postgres
@@ -751,7 +758,8 @@ def test_forgetting_keeps_an_ended_table_with_games_and_clears_only_its_closers_
     assert {name for name, rows in after.items() if rows} == {"tables", "receipts", "game_list"}
     assert after["game_list"] == before["game_list"]
     assert after["receipts"] == before["receipts"]
-    assert stored(transactions, table_id.value) == EndedTable(table_id, version, Ending(EndReason.CLOSED))
+    ended = stored(transactions, table_id.value)
+    assert (ended.version, ended.ending) == (version, Ending(EndReason.CLOSED))
 
 
 def test_forgetting_keeps_the_closers_name_of_a_table_with_games_until_the_days_are_up(
@@ -780,3 +788,43 @@ def test_a_create_retry_that_reads_its_receipt_as_the_forgetting_deletes_the_tab
     retry.join()
     assert retry.outcome[0].id != forgotten.value
     assert not any(rows_of(engine, forgotten.value).values())
+
+
+ENDINGS = (
+    pytest.param(Ending.closed("Anna"), id="closed"),
+    pytest.param(Ending.unplayed(UNPLAYED_DAYS), id="unplayed"),
+    pytest.param(Ending.empty(DEFAULT_EMPTY_TABLE_SECONDS), id="empty"),
+)
+
+
+class TestAnEndedTableThatFinishedAGame:
+    @pytest.fixture
+    def agent_game(self, service, transactions, stored):
+        """A listed game whose middle seat was an agent."""
+        table_id = seated_table(service, "one")
+        save(transactions, after_the_first_game(with_agents(stored(transactions, table_id.value), 2)))
+        return table_id
+
+    @pytest.mark.parametrize("ending", ENDINGS)
+    def test_reads_the_standings_of_its_last_series_with_each_seat_and_kind_and_names_no_closer(
+        self, ending, agent_game, transactions, service
+    ):
+        ended_at(transactions, agent_game, ending)
+
+        ended = service.view(OPENER, agent_game.value, NOBODY_CONNECTED).ended
+
+        assert ended.game_count == 1
+        assert ended.closed_by_name is None
+        assert [(each.display_name, each.seat, each.kind, each.place) for each in ended.standings] == [
+            ("Anna", 1, OccupantKind.PERSON, 1),
+            ("Ben", 2, OccupantKind.AGENT, 2),
+            ("Cleo", 3, OccupantKind.PERSON, 2),
+        ]
+
+    def test_a_table_that_finished_no_game_keeps_its_closers_name_and_has_no_standings(self, service, transactions):
+        table_id = undealt_table(service, "one")
+        ended_at(transactions, table_id, Ending.closed("Anna"))
+
+        ended = service.view(OPENER, table_id.value, NOBODY_CONNECTED).ended
+
+        assert (ended.closed_by_name, ended.standings, ended.game_count) == ("Anna", None, None)

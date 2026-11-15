@@ -453,12 +453,26 @@ class Ending:
 
 
 @dataclass(frozen=True)
+class PlayedSeries:
+    """One series' games with the options the series was played under, so what reads them never reads the table's
+    present options.
+    """
+
+    number: int
+    options: TableOptions
+    game_list: tuple[GameEntry, ...]
+
+
+@dataclass(frozen=True)
 class EndedTable:
-    """What stays of an ended table: its id, version and how it ended."""
+    """What stays of an ended table: its id, version and how it ended, and the last series that has games, None for a
+    table that finished no game.
+    """
 
     id: TableId
     version: int
     ending: Ending
+    last_series: PlayedSeries | None = None
 
 
 @dataclass(frozen=True)

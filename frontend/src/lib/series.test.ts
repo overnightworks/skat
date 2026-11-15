@@ -108,11 +108,11 @@ describe("seriesEndOffered", () => {
 
 describe("standingsView", () => {
     const standings = [
-        { display_name: "player 1", total: 502, won: 10, lost: 4, place: 1 },
-        { display_name: "player 2", total: -365, won: 7, lost: 3, place: 2 },
-        { display_name: "player 3", total: -365, won: 7, lost: 3, place: 2 },
-        { display_name: "player 4", total: 118, won: 4, lost: 1, place: 4 },
-        { display_name: null, total: 5, won: 0, lost: 0, place: 5 },
+        { display_name: "player 1", seat: 1, kind: "person" as const, total: 502, won: 10, lost: 4, place: 1 },
+        { display_name: "player 2", seat: 1, kind: "person" as const, total: -365, won: 7, lost: 3, place: 2 },
+        { display_name: "player 3", seat: 1, kind: "person" as const, total: -365, won: 7, lost: 3, place: 2 },
+        { display_name: "player 4", seat: 1, kind: "person" as const, total: 118, won: 4, lost: 1, place: 4 },
+        { display_name: null, seat: 1, kind: "person" as const, total: 5, won: 0, lost: 0, place: 5 },
     ];
     const ended = (changes = {}) =>
         tableBetweenGames(2, seriesAt({ over: true, standings, game_number: 36, ...changes }));

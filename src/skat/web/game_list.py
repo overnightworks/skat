@@ -200,9 +200,9 @@ def create_game_list_router(tables: TableService) -> APIRouter:
         openapi_extra=READ_SERIES_LIST_MARK,
     )
     async def read_series_list(table_id: str, response: Response) -> SeriesListAnswer:
-        """Read the list of finished games of one Skat table, the same for every caller.
+        """Read the list of finished games of one Skat table's current series, the same for every caller.
 
-        One entry per game played so far, in the order played, each with its `number` and its `kind`. A `declared`
+        One entry per game played so far in it, in the order played, each with its `number` and its `kind`. A `declared`
         entry has the `declarer_name` stored with the game (null for a game stored before names were kept), the
         game, its `levels`, its `settled_value` and the declarer's `score`, which is negative for a lost game, the
         `kontra_word`, the last word said or null, and the `bock_factor`, 1 outside a Bock game. A game with a word
@@ -214,8 +214,8 @@ def create_game_list_router(tables: TableService) -> APIRouter:
         1 outside a Bock game, and by its `push_factor`, what the `pushes` (0 to 3) of the skat pushed on unseen made
         of them, 1 without pushes and at a table whose pushes do not double; a Durchmarsch's too unless the table
         scores it flat. A hand everyone passed in at a
-        table without Ramsch leaves no entry. A 404 means no table has this id; a table that has ended answers an
-        empty list.
+        table without Ramsch leaves no entry. A 404 means no table has this id; a table that has ended answers the list
+        of its last series that has games, empty if it finished none.
         """
         response.headers["Cache-Control"] = "no-store"
         entries = await run_in_threadpool(tables.series_list, table_id)
@@ -229,7 +229,7 @@ def create_game_list_router(tables: TableService) -> APIRouter:
         openapi_extra=excluded(Exclusion.GAME_SHEET),
     )
     async def read_game_sheet(table_id: str, number: int, response: Response) -> GameSheetAnswer:
-        """Read one finished game of the table's current series, the same for every caller.
+        """Read one finished game of the series the list shows, the same for every caller.
 
         It has its `number` in the list, the `seat_names` stored with the game (null for a game stored before names
         were kept), what it `count`ed (the declarer's and the opponents' card points and how it `ended`, or each
@@ -239,7 +239,7 @@ def create_game_list_router(tables: TableService) -> APIRouter:
         played, each with its cards from the lead on, its `taker_seat` and its card `points`, both null for a trick an
         early end interrupted. A Ramsch names the seats its skat counted for in `skat_takers`, and the skat as it lay
         when a Schieberamsch's take changed it in `laid_skat`, else empty. A 404 means no table has this id or its
-        list has no game of this number; a table that has ended has no game.
+        list has no game of this number; a table that has ended shows its last series that has games.
         """
 
         response.headers["Cache-Control"] = "no-store"
