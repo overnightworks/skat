@@ -43,6 +43,11 @@ CLEAN_EXIT = 0
 SIGTERM_EXIT = -signal.SIGTERM
 
 
+def stopped_lines_of(process: SkatProcess) -> int:
+    lines = [json.loads(line) for line in process.output().splitlines() if line.startswith("{")]
+    return sum(line.get("event") == "process.stopped" for line in lines)
+
+
 class Pods:
     """Two processes of Skat on one database, and the adapter that seeds the sessions they share."""
 
@@ -155,6 +160,17 @@ class TestASeededSession:
 
         assert exit_status in {CLEAN_EXIT, SIGTERM_EXIT}
         assert (admitted_by_the_other_meanwhile, pods.account_status(pods.first, cookie)) == (200, 200)
+
+
+class TestAStopWithSigterm:
+    def test_writes_the_process_stopped_line_before_the_process_ends(self, pods):
+        logged_before = stopped_lines_of(pods.second)
+
+        exit_status = pods.second.stop()
+        stopped_lines = stopped_lines_of(pods.second) - logged_before
+        pods.second.start()
+
+        assert (exit_status, stopped_lines) == (SIGTERM_EXIT, 1)
 
 
 class TestTheSignInBudget:

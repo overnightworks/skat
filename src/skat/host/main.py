@@ -1,5 +1,7 @@
 import argparse
 import logging
+import signal
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, TypedDict, Unpack
 
 import logline
@@ -23,8 +25,9 @@ from skat.web.sign_in import LoggingAuditSink
 
 if TYPE_CHECKING:
     import socket
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Generator, Sequence
     from pathlib import Path
+    from types import FrameType
 
     from fastapi import FastAPI
     from sqlalchemy import Engine
@@ -100,10 +103,29 @@ def main(
 ) -> None:
     command = command_line_parser().parse_args(arguments).command
     logline.configure("skat")
-    log.info("process.started", command=command)
-    try:
+    with _process_lifetime(command):
         _run(command, run_server, build_directory)
+
+
+@contextmanager
+def _process_lifetime(command: str) -> Generator[None]:
+    """Writes `process.started`, and `process.stopped` however the process ends, a SIGTERM included.
+
+    uvicorn hands a SIGTERM back to the handler it found once it has shut down, and a default handler ends the
+    process at once, past any `finally`; this one writes the line first and then ends the process the same way.
+    """
+
+    def stop_by_signal(signal_number: int, _frame: FrameType | None) -> None:
+        log.info("process.stopped", command=command)
+        signal.signal(signal_number, signal.SIG_DFL)
+        signal.raise_signal(signal_number)
+
+    log.info("process.started", command=command)
+    previous_handler = signal.signal(signal.SIGTERM, stop_by_signal)
+    try:
+        yield
     finally:
+        signal.signal(signal.SIGTERM, previous_handler)
         log.info("process.stopped", command=command)
 
 
