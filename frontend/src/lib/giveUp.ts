@@ -4,7 +4,17 @@ import { gameInPlay } from "#lib/playView.ts";
 import { LEVEL_WORDS } from "#lib/result.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { MarkedPart } from "overnightworks-design";
-import type { Chair, GiveUp, GiveUpAnswer, Playing, Shortening, Table } from "../routes/(start)/tables.ts";
+import { TABLE_GIVE_UP_SUFFIX, TABLE_PLAY_OPEN_SUFFIX, TABLE_SHORTEN_SUFFIX } from "#lib/wire.ts";
+import {
+    post,
+    type Chair,
+    type GiveUp,
+    type GiveUpAnswer,
+    type Outcome,
+    type Playing,
+    type Shortening,
+    type Table,
+} from "../routes/(start)/tables.ts";
 
 // What a chair carries about a question to the table: it said no or yes, has not answered yet, has tapped „Weiter“ or
 // not, or plays open with its cards on the felt.
@@ -261,4 +271,19 @@ export function openCardsMark(table: Table, seat: number): AnswerMark | undefine
     if (!playing) return undefined;
     if (playing.shortening === null && playing.shortening_refused_seat === seat) return "declined";
     return playing.open_hands.some((hand) => hand.seat === seat) ? "open" : undefined;
+}
+
+// The version is the one the page shows, so a give-up on a table that has since moved on is refused; there is no retry.
+export function giveUp(id: string, version: number, commandId: string): Promise<Outcome> {
+    return post(id, TABLE_GIVE_UP_SUFFIX, { command_id: commandId, version });
+}
+
+// The declarer shortens without a demanded level; the opponents answer with `answerGiveUp`.
+export function shorten(id: string, version: number, commandId: string): Promise<Outcome> {
+    return post(id, TABLE_SHORTEN_SUFFIX, { command_id: commandId, version });
+}
+
+// An opponent plays open: the table ends the game at once, or asks the declarer when the play was wrong.
+export function playOpen(id: string, version: number, commandId: string): Promise<Outcome> {
+    return post(id, TABLE_PLAY_OPEN_SUFFIX, { command_id: commandId, version });
 }

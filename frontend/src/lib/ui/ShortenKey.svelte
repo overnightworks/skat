@@ -1,7 +1,7 @@
 <script lang="ts">
-    import { shortenKey } from "#lib/giveUp.ts";
+    import { shorten, shortenKey } from "#lib/giveUp.ts";
     import { words } from "#lib/words.ts";
-    import { shorten, type Table } from "../../routes/(start)/tables.ts";
+    import type { Table } from "../../routes/(start)/tables.ts";
 
     let { id, table, note = $bindable() }: { id: string; table: Table; note: string } = $props();
 

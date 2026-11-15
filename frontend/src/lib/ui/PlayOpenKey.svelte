@@ -1,8 +1,8 @@
 <script lang="ts">
-    import { playOpenKey } from "#lib/giveUp.ts";
+    import { playOpen, playOpenKey } from "#lib/giveUp.ts";
     import ArmedKey from "#lib/ui/ArmedKey.svelte";
     import { words } from "#lib/words.ts";
-    import { playOpen, type Table } from "../../routes/(start)/tables.ts";
+    import type { Table } from "../../routes/(start)/tables.ts";
 
     let { id, table, note = $bindable() }: { id: string; table: Table; note: string } = $props();
 

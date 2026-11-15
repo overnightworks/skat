@@ -1,15 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+    giveUp,
     giveUpAsk,
     giveUpKey,
     giveUpView,
     openCardsMark,
     playOnNotice,
+    playOpen,
     playOpenKey,
     refusalNotice,
+    shorten,
     shortenKey,
 } from "#lib/giveUp.ts";
+import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { words } from "#lib/words.ts";
+import { TABLE_GIVE_UP_SUFFIX, TABLE_PLAY_OPEN_SUFFIX, TABLE_SHORTEN_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
 import type { GiveUp, Shortening } from "../routes/(start)/tables.ts";
 import { DECLARER, FIRST_OPPONENT, SECOND_OPPONENT, WATCHER, tableWith } from "#lib/giveUp.fixtures.ts";
 
@@ -380,5 +385,26 @@ describe("the marks a chair keeps after a request", () => {
             "open",
             undefined,
         ]);
+    });
+});
+
+describe("the requests that end a game early", () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it.each([
+        { name: "give up the game", ask: giveUp, suffix: TABLE_GIVE_UP_SUFFIX },
+        { name: "shorten the game", ask: shorten, suffix: TABLE_SHORTEN_SUFFIX },
+        { name: "play open", ask: playOpen, suffix: TABLE_PLAY_OPEN_SUFFIX },
+    ])("send the version shown and a command id to $name", async ({ ask, suffix }) => {
+        const table = tableWith(DECLARER, null);
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(table)));
+
+        expect(await ask(TABLE_ID, 7, "command-5")).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-5", version: 7 });
     });
 });

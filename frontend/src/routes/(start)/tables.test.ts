@@ -14,7 +14,6 @@ import {
     TABLE_DECLARING_TAKE_SUFFIX,
     TABLE_GIVE_UP_AGREE_SUFFIX,
     TABLE_GIVE_UP_DECLINE_SUFFIX,
-    TABLE_GIVE_UP_SUFFIX,
     TABLE_LIST_SUFFIX,
     TABLE_NEW_SERIES_SUFFIX,
     TABLE_PUSHING_GRAND_HAND_SUFFIX,
@@ -22,14 +21,12 @@ import {
     TABLE_PUSHING_PUT_BACK_SUFFIX,
     TABLE_PUSHING_TAKE_SUFFIX,
     TABLE_READY_SUFFIX,
-    TABLE_PLAY_OPEN_SUFFIX,
     TABLE_SERIES_END_AGREE_SUFFIX,
     TABLE_SERIES_END_REFUSE_SUFFIX,
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
-    TABLE_SHORTEN_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_CLOSE_SUFFIX,
     TABLE_STAND_SUFFIX,
@@ -39,15 +36,12 @@ import {
     answerAbort,
     answerGiveUp,
     answerSeriesEnd,
-    giveUp,
     markReady,
     playCard,
-    playOpen,
     readGameSheet,
     readSeriesList,
     readTable,
     seriesNumberOf,
-    shorten,
     startNewSeries,
     sitDown,
     standUp,
@@ -515,20 +509,6 @@ describe("asking for a table", () => {
             suit: "pik",
             rank: "queen",
         });
-    });
-
-    it.each([
-        { name: "give up the game", ask: giveUp, suffix: TABLE_GIVE_UP_SUFFIX },
-        { name: "shorten the game", ask: shorten, suffix: TABLE_SHORTEN_SUFFIX },
-        { name: "play open", ask: playOpen, suffix: TABLE_PLAY_OPEN_SUFFIX },
-    ])("sends the version shown and a command id to $name", async ({ ask, suffix }) => {
-        answerWith(Response.json(table));
-
-        expect(await ask(TABLE_ID, 7, "command-5")).toEqual({ kind: "table", table });
-
-        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
-        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-5", version: 7 });
     });
 
     it.each([
