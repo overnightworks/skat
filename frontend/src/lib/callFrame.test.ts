@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+    browserCallHost,
     greetCall,
     isFramedInCallMode,
     isHello,
@@ -300,5 +301,34 @@ describe("greetCall", () => {
         await settled();
 
         expect(call.posts).toEqual([]);
+    });
+});
+
+describe("browserCallHost", () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it("posts to the parent window and listens on the page until the listener is removed", () => {
+        const posted: unknown[][] = [];
+        const listeners = new Set<unknown>();
+        const parent = {
+            postMessage: (...message: unknown[]) => posted.push(message),
+        };
+        vi.stubGlobal("window", {
+            parent,
+            addEventListener: (_name: string, handler: unknown) => listeners.add(handler),
+            removeEventListener: (_name: string, handler: unknown) => listeners.delete(handler),
+        });
+        vi.stubGlobal("fetch", (path: string) => Promise.resolve({ status: 200, json: () => Promise.resolve(path) }));
+        const host = browserCallHost();
+
+        host.post({ v: 1, type: "ready", attachment: 1 } as never, "https://call.test");
+        const stopListening = host.listen(() => undefined);
+        const listening = listeners.size;
+        stopListening();
+
+        expect([host.parent, posted.length, listening, listeners.size]).toEqual([parent, 1, 1, 0]);
+        return expect(host.fetch("/x").then((answer) => answer.status)).resolves.toBe(200);
     });
 });

@@ -42,6 +42,23 @@ export interface CallHost {
     listen(handler: (event: CallMessageEvent) => void): () => void;
 }
 
+/** The call's host in a browser page: the parent window, the page's fetch and its message channel. */
+export function browserCallHost(): CallHost {
+    return {
+        parent: window.parent,
+        fetch: (path) => fetch(path),
+        post: (message, targetOrigin) => {
+            window.parent.postMessage(message, targetOrigin);
+        },
+        listen: (handler) => {
+            window.addEventListener("message", handler);
+            return () => {
+                window.removeEventListener("message", handler);
+            };
+        },
+    };
+}
+
 function isPlainObject(data: unknown): data is Record<string, unknown> {
     return typeof data === "object" && data !== null && Object.getPrototypeOf(data) === Object.prototype;
 }

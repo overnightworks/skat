@@ -120,3 +120,24 @@ class TestStreamSlotsAtTheRoutes:
             status = answer.status_code
 
         assert (unknown, status) == ([404, 404], 200)
+
+    def test_a_probe_of_a_stream_takes_no_slot_and_a_probe_at_the_limit_is_refused_with_429(self, sign_in_settings):
+        skat = Skat(lambda: sign_in_settings(streams_per_account=1))
+        headers, _ = skat.member()
+        table_id = skat.create(headers).json()["id"]
+        skat.client.cookies.clear()
+        paths = [LOBBY_EVENTS_PATH, self.events(table_id)]
+
+        free = [skat.client.head(path, headers=headers).status_code for path in paths for _ in range(2)]
+        with skat.client.stream("GET", LOBBY_EVENTS_PATH, headers=headers) as held:
+            held_status = held.status_code
+            at_limit = [skat.client.head(path, headers=headers).status_code for path in paths]
+
+        assert (free, held_status, at_limit) == ([200] * 4, 200, [429, 429])
+
+    def test_a_probe_of_a_table_that_is_not_found_is_a_404(self, sign_in_settings):
+        skat = Skat(lambda: sign_in_settings(streams_per_account=1))
+        headers, _ = skat.member()
+        skat.client.cookies.clear()
+
+        assert skat.client.head(self.events(UNKNOWN_ID), headers=headers).status_code == 404

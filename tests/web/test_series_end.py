@@ -1,3 +1,4 @@
+import json
 from contextlib import nullcontext
 from dataclasses import replace
 
@@ -6,7 +7,8 @@ import pytest
 from skat.table.records import EndProposal, Refusal, Series, TableId
 from skat.table.service import TableService
 from skat.web.game_list import TABLE_LIST_SUFFIX
-from skat.web.tables import TABLES_PATH
+from skat.web.settings import DEFAULT_STREAMS_PER_ACCOUNT
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.web.support.playing import Table
 from tests.web.support.series import (
     agree_to_end,
@@ -396,3 +398,25 @@ class TestRetries:
         ):
             assert answer.status_code == 409
             assert "reused" in answer.json()["detail"]
+
+
+class TestTheStreamOfAnEndedSeries:
+    def opened_as(self, skat, table, headers):
+        """The status of a table stream and its first message, which the stream is closed after."""
+        skat.client.cookies.clear()
+        with skat.client.stream("GET", f"{TABLES_PATH}/{table.table_id}{TABLE_EVENTS_SUFFIX}", headers=headers) as s:
+            first = next(line for line in s.iter_lines() if line.startswith("data: "))
+            return s.status_code, json.loads(first.removeprefix("data: "))
+
+    def test_every_viewer_opens_the_live_table_with_its_finished_series_and_each_open_gives_its_slot_back(
+        self, skat, mid_series
+    ):
+        table = mid_series
+        end_early(skat, table)
+
+        for headers in (*headers_of(table), table.watcher):
+            for _ in range(DEFAULT_STREAMS_PER_ACCOUNT + 1):
+                status, message = self.opened_as(skat, table, headers)
+
+                assert status == 200
+                assert (message["ended"], message["series"]["over"]) == (None, True)
