@@ -191,11 +191,11 @@
 
 .room[data-motion="verspielt"] .surf-foam,
 .room[data-motion="verspielt"] .surf-line {
-    animation: surf-roll 7s ease-in-out infinite alternate;
+    animation: surf-roll 7s ease-in-out infinite alternate; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 .room[data-motion="verspielt"] .surf-line {
-    animation-duration: 9s;
+    animation-duration: 9s; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 /* The table: a round top of pale boards inside a woven rattan rim. */
