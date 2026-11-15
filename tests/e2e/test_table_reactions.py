@@ -167,8 +167,6 @@ def test_a_tap_on_a_coaster_makes_every_coaster_move_and_sound_on_every_page(
         expect(person.locator(COASTER)).to_have_count(len(table.names))
     heard_before = ready_to_hear(table)
     coaster = table.watcher.locator(COASTER).first
-    box = coaster.bounding_box()
-    assert box is not None
     assert min(coaster.evaluate("element => [element.offsetWidth, element.offsetHeight]")) >= MINIMUM_TAP_AREA_PIXELS
 
     coaster.click()
