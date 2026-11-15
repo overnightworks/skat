@@ -65,8 +65,8 @@ RESTING_PLACE = """selector => {
 
 # The place of the element in the layer that carries the emotes, before its motion moves it.
 POSITION_IN_LAYER = "selector => { const e = document.querySelector(selector); return [e.offsetLeft, e.offsetTop]; }"
-# Every key of the table's top row that stands on the screen, as its box: the keys level with the first one, the tray key
-# among them, the tray's own keys not.
+# Every key of the table's top row that stands on the screen, as its box: the keys level with the first one, the tray
+# key among them, the tray's own keys not.
 TOP_ROW_KEYS = """() => {
     const boxes = [...document.querySelectorAll('.bar :is(a, button):not(.tray *)')]
         .map(key => key.getBoundingClientRect()).filter(box => box.width > 0);
