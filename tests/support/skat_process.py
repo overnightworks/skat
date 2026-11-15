@@ -37,6 +37,12 @@ def free_port() -> int:
         return int(probe.getsockname()[1])
 
 
+def _arriving_by(deadline: float, events: Iterator[str]) -> Iterator[str]:
+    for event in events:
+        assert time.monotonic() <= deadline, "an event arrived after the stream's deadline"
+        yield event
+
+
 def _unnamed_event_data(lines: Iterable[str]) -> Iterator[str]:
     named = False
     for line in lines:
@@ -109,15 +115,16 @@ class SkatProcess:
 
     @contextmanager
     def event_stream(self, path: str, *, within_seconds: float, **headers: str) -> Iterator[Iterator[str]]:
-        """The data of the unnamed events of a stream, each of which must arrive within `within_seconds` of the one
-        before, or reading it fails with a timeout.
+        """The data of the unnamed events of a stream, each of which must have arrived within `within_seconds` of the
+        stream's opening, whatever happened between two reads, or reading it fails.
         """
         timeout = httpx2.Timeout(within_seconds, connect=REQUEST_TIMEOUT_SECONDS)
         with httpx2.stream(
             "GET", f"http://{LOOPBACK}:{self.port}{path}", headers=self._headers(headers), timeout=timeout
         ) as response:
+            opened = time.monotonic()
             assert response.status_code == httpx2.codes.OK
-            yield _unnamed_event_data(response.iter_lines())
+            yield _arriving_by(opened + within_seconds, _unnamed_event_data(response.iter_lines()))
 
     @staticmethod
     def _headers(headers: Mapping[str, str]) -> dict[str, str]:
