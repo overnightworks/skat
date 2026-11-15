@@ -136,6 +136,14 @@ describe("the plaque's drawing of a give-up request", () => {
         });
     });
 
+    it("carries the level a shortening demands as the plaque's demand line", () => {
+        const view = giveUpView(tableWith(FIRST_OPPONENT, null, { shortening: SHORTENS_WITH_LEVEL })) as NonNullable<
+            ReturnType<typeof giveUpView>
+        >;
+
+        expect(giveUpAsk(view).demand).toEqual(words["table.demands"]({ level: words["result.levelSchneider"] }));
+    });
+
     it("waits with no button for the asker", () => {
         const view = giveUpView(tableWith(DECLARER, DECLARER_ASKS)) as NonNullable<ReturnType<typeof giveUpView>>;
 
@@ -358,6 +366,10 @@ describe("the marks a chair keeps after a request", () => {
         expect(
             openCardsMark(tableWith(DECLARER, null, { ...refused, shortening: SHORTENS }), SECOND_OPPONENT),
         ).toBeUndefined();
+    });
+
+    it("marks no chair while the table has no hand in play", () => {
+        expect(openCardsMark({ ...tableWith(WATCHER, null), hand: null }, FIRST_OPPONENT)).toBeUndefined();
     });
 
     it("puts an eye on the chair whose cards lie open and none on the others", () => {

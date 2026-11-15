@@ -208,6 +208,8 @@ describe("cues without a sound", () => {
         { name: "an auction that ended", cues: [{ kind: "auction-ended" } satisfies Cue] },
         { name: "a trick taken", cues: [{ kind: "trick-taken", trick: TRICK } satisfies Cue] },
         { name: "a give-up refused", cues: [{ kind: "give-up-refused", seats: [OTHER_SEAT] } satisfies Cue] },
+        { name: "a shortening refused", cues: [{ kind: "shortening-refused", seat: OTHER_SEAT } satisfies Cue] },
+        { name: "an open play played on", cues: [{ kind: "open-play-on", seat: OTHER_SEAT } satisfies Cue] },
         { name: "no cue at all", cues: [] },
     ])("start no voice for $name", ({ cues }) => {
         const port = new FakePort();
