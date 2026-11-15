@@ -1,0 +1,7 @@
+claim_id = "f74961ad24c14195befb34f62a7af374"
+agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
+role = "builder"
+base = "dbf3cb8d1144654347159a29ab21a57a9be490d1"
+branch = "claude/issue-615-skat-pins-webauth-v0-40-1"
+scope = ["pyproject.toml", "uv.lock"]
+opened_commit = "5435ab203cc02c28bbb5d3703239891dfda0ea5e"
