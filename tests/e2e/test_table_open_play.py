@@ -6,7 +6,7 @@ from playwright.sync_api import Page, expect
 from skat.web.playing import TABLE_PLAY_OPEN_SUFFIX
 from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.declaring import button_of, reload_and_wait
+from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
 from tests.e2e.support.early_end import (
     CARDS_AFTER_TWO_TRICKS,
     NOTICE,
@@ -23,6 +23,7 @@ from tests.e2e.support.early_end import (
 )
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE, SMALL_PHONE, WIDTHS
+from tests.e2e.support.ramsch_stage import deal as deal_a_ramsch
 from tests.e2e.support.result_card import waiting_for
 from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
 
@@ -46,6 +47,7 @@ PLAY_OPEN_SURE = text(SOURCE_LANGUAGE, "table.playOpenSure")
 YOU_PLAY_OPEN = text(SOURCE_LANGUAGE, "table.youPlayOpen")
 OPEN_MARK = text(SOURCE_LANGUAGE, "table.playsOpenMark")
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
+STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 PLAY_OPEN_KEY = ".copy.play-open"
 
 
@@ -271,6 +273,34 @@ def test_only_an_opponent_has_the_key_and_it_sits_before_aufgeben_and_a_chair_le
 
     expect(table.pages[second].locator(".chair.mine")).to_have_count(1)
     expect(table.pages[second].locator(PLAY_OPEN_KEY)).to_have_count(0)
+    assert page_errors == []
+
+
+def test_no_key_for_an_opponent_while_the_declarer_still_declares(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str]
+) -> None:
+    declaring = deal_a_declaring_table(PHONE)
+
+    for opponent in declaring.others:
+        expect(opponent.locator(".chair.mine")).to_have_count(1)
+        expect(opponent.locator(PLAY_OPEN_KEY)).to_have_count(0)
+    assert page_errors == []
+
+
+def test_no_key_in_a_ramsch(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    ramsch = deal_a_ramsch(open_person, e2e_server, member_of, page_errors, PHONE)
+
+    ramsch.play_the_first_card_after_two_pushes()
+
+    for person in ramsch.pages.values():
+        expect(button_of(person, STAND_UP)).to_be_visible()
+    for person in ramsch.everyone:
+        expect(person.locator(PLAY_OPEN_KEY)).to_have_count(0)
     assert page_errors == []
 
 

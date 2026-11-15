@@ -160,6 +160,14 @@ class RamschStageTable:
         card = self.view(seat)["hand"]["playing"]["legal_cards"][0]
         self.step(seat, TABLE_CARD_SUFFIX, suit=card["suit"], rank=card["rank"])
 
+    def play_the_first_card_after_two_pushes(self) -> None:
+        """Forehand and middlehand push, rearhand takes the skat and puts two cards back, and forehand leads."""
+        self.push("forehand")
+        self.push("middlehand")
+        self.take("rearhand")
+        self.put_back_two_cards_that_are_no_jack("rearhand")
+        self.lead_a_card("forehand")
+
     def stand_up(self, position: str) -> None:
         self.sessions[self.seat_of(position)].post(
             f"{self.api_path}{TABLE_STAND_SUFFIX}", {"command_id": self._command()}
