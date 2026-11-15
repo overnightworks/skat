@@ -85,7 +85,7 @@ if TYPE_CHECKING:
 
     from webauth.config import WebAuthConfig
     from webauth.oidc import OidcRelyingParty
-    from webauth.ports import AgentFacts, SessionRecordStore
+    from webauth.ports import AgentFacts, RateLimitBackend, SessionRecordStore
 
     from skat.table.rule_sets import RuleSetService
     from skat.table.service import TableService
@@ -397,6 +397,7 @@ def create_app(
     tables: TableService,
     rule_sets: RuleSetService,
     stores: SignInPorts,
+    rate_limits: RateLimitBackend,
     issuer_transports: IssuerTransports = ISSUER_OVER_HTTPS,
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
@@ -405,7 +406,7 @@ def create_app(
     resource_changes: Callable[[ListeningChanged], ResourceChanges] = ResourceChanges,
     database_ready: Callable[[], Awaitable[bool]] = _always_ready,
 ) -> FastAPI:
-    sign_in_configs = build_sign_in_configs(settings)
+    sign_in_configs = build_sign_in_configs(settings, rate_limits)
 
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 

@@ -20,7 +20,7 @@ from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import FakeTableStore, in_memory_tables
 from tests.support.idle_presence import IdleScheduler
-from tests.support.in_memory_stores import in_memory_stores
+from tests.support.in_memory_stores import in_memory_stores, single_pod
 from tests.support.page_build import (
     CALL_PAGE_SCRIPT_HASHES,
     FIXTURE_SCRIPT_HASH,
@@ -46,6 +46,7 @@ def signed_in_client(settings: ServerSettings) -> TestClient:
         tables=in_memory_tables(),
         rule_sets=in_memory_rule_sets(),
         stores=stores,
+        **single_pod(),
     )
     member = seed_member(stores, installed_web_auth_config(app))
     headers = {"cookie": cookie_header(member.set_cookie_headers)}
@@ -115,6 +116,7 @@ class TestCreateApp:
             tables=tables,
             rule_sets=in_memory_rule_sets(),
             stores=in_memory_stores(),
+            **single_pod(),
         )
 
         with TestClient(app):
@@ -133,6 +135,7 @@ class TestCreateApp:
             tables=tables,
             rule_sets=in_memory_rule_sets(),
             stores=in_memory_stores(),
+            **single_pod(),
         )
 
         with TestClient(app):
@@ -156,6 +159,7 @@ class TestCreateApp:
             rule_sets=in_memory_rule_sets(),
             stores=stores,
             chair_scheduler=IdleScheduler(),
+            **single_pod(),
         )
         member = seed_member(stores, installed_web_auth_config(app))
         headers = {"cookie": cookie_header(member.set_cookie_headers), "accept": "application/json"}
@@ -182,6 +186,7 @@ class TestCreateApp:
             rule_sets=in_memory_rule_sets(),
             stores=stores,
             chair_scheduler=IdleScheduler(),
+            **single_pod(),
         )
         member = seed_member(stores, installed_web_auth_config(app))
         opened = tables.create(Actor(member.account.id, "Anna"), CreateTable(command_id="command-open"))
@@ -206,6 +211,7 @@ class TestCreateApp:
             tables=TableService(Unreadable()),
             rule_sets=in_memory_rule_sets(),
             stores=in_memory_stores(),
+            **single_pod(),
         )
 
         with pytest.raises(ConnectionError), TestClient(app):
@@ -227,6 +233,7 @@ class TestCreateApp:
             rule_sets=in_memory_rule_sets(),
             chair_scheduler=IdleScheduler(),
             stores=in_memory_stores(),
+            **single_pod(),
         )
 
         with TestClient(app):
@@ -245,6 +252,7 @@ class TestCreateApp:
             tables=tables,
             rule_sets=in_memory_rule_sets(),
             stores=in_memory_stores(),
+            **single_pod(),
         )
         client = TestClient(app)
         client.__enter__()
@@ -270,6 +278,7 @@ class TestCreateApp:
                 tables=in_memory_tables(),
                 rule_sets=in_memory_rule_sets(),
                 stores=in_memory_stores(),
+                **single_pod(),
             )
         )
         assert isinstance(config, WebAuthConfig)
@@ -282,7 +291,14 @@ class TestCreateApp:
         tables = in_memory_tables()
         rule_sets = in_memory_rule_sets()
         with pytest.raises(StartRefusedError, match="session_secret_file"):
-            create_app(settings, page_build=page_build, tables=tables, rule_sets=rule_sets, stores=in_memory_stores())
+            create_app(
+                settings,
+                page_build=page_build,
+                tables=tables,
+                rule_sets=rule_sets,
+                stores=in_memory_stores(),
+                **single_pod(),
+            )
 
     def test_account_route_reads_the_sessions_the_sign_in_wrote(self, sign_in_settings):
         sign_in = sign_in_settings()
@@ -294,6 +310,7 @@ class TestCreateApp:
             rule_sets=in_memory_rule_sets(),
             issuer_transports=issuer.transports,
             stores=in_memory_stores(),
+            **single_pod(),
         )
         browser = TestClient(app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
         sign_in_through_issuer(browser, issuer)
@@ -313,6 +330,7 @@ class TestCreateApp:
             rule_sets=in_memory_rule_sets(),
             issuer_transports=issuer.transports,
             stores=stores,
+            **single_pod(),
         )
         browser = TestClient(app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
         sign_in_through_issuer(browser, issuer)

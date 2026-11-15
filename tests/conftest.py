@@ -12,6 +12,7 @@ pytest.register_assert_rewrite("tests.support", "tests.e2e.support")
 
 from tests.support.database_relay import DatabaseRelay  # noqa: E402
 from tests.support.postgres import created_database, migrated_template  # noqa: E402
+from tests.support.redis import fresh_database_url  # noqa: E402
 from tests.support.sign_in_settings import SignInSettings, build_sign_in_settings  # noqa: E402
 
 if TYPE_CHECKING:
@@ -36,6 +37,12 @@ def database_url(postgres_template: str) -> Iterator[str]:
     """A migrated database of this test's own."""
     with created_database(postgres_template) as url:
         yield url
+
+
+@pytest.fixture
+def redis_url() -> str:
+    """The URL of this worker's Redis database, emptied for this test."""
+    return fresh_database_url()
 
 
 @pytest.fixture

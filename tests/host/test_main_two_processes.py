@@ -1,5 +1,5 @@
-"""Two real `skat serve` processes on one database serve one session: it is admitted by either, renewed and ended for
-both, and it outlives the stop of one."""
+"""Two real `skat serve` processes on one database and one Redis serve one session: it is admitted by either, renewed
+and ended for both, and it outlives the stop of one; they spend one sign-in budget."""
 
 import signal
 from datetime import timedelta
@@ -7,12 +7,15 @@ from typing import TYPE_CHECKING
 
 import pytest
 from sqlalchemy.engine import make_url
+from webauth.policies import RateLimitPolicy
 
 from skat.store.migrate import create_store_engine
 from skat.store.sign_in import PostgresSignInStores
-from skat.web.constants import ACCOUNT_PATH, LOGOUT_PATH
+from skat.web.constants import ACCOUNT_PATH, AUTH_START_PATH, LOGOUT_PATH
 from skat.web.sign_in import LoggingAuditSink, build_sign_in_configs
+from tests.support.in_memory_stores import in_process_rate_limits
 from tests.support.postgres import created_database
+from tests.support.redis import fresh_database_url
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN, build_sign_in_settings
 from tests.support.signed_in import cookie_header, seed_member
 from tests.support.skat_process import SkatProcess
@@ -20,11 +23,12 @@ from tests.support.skat_process import SkatProcess
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-pytestmark = pytest.mark.postgres
+pytestmark = [pytest.mark.postgres, pytest.mark.redis]
 
 FETCH = {"accept": "application/json"}
 FORM_POST = {"content-type": "application/x-www-form-urlencoded", "origin": TEST_PUBLIC_ORIGIN}
 BEHIND_THE_SEED = timedelta(hours=1)
+SIGN_IN_BUDGET_REQUESTS = RateLimitPolicy().sign_in.max_requests
 CLEAN_EXIT = 0
 SIGTERM_EXIT = -signal.SIGTERM
 
@@ -60,7 +64,9 @@ def without_password(database_url: str) -> str:
 def pods(postgres_template, tmp_path_factory) -> Iterator[Pods]:
     directory = tmp_path_factory.mktemp("pods")
     with created_database(postgres_template) as database_url:
-        sign_in = build_sign_in_settings(directory, database_url=without_password(database_url))
+        sign_in = build_sign_in_settings(
+            directory, database_url=without_password(database_url), redis_url=fresh_database_url()
+        )
         engine = create_store_engine(database_url)
         processes = [SkatProcess(sign_in.environment, directory / f"pod-{name}.log") for name in ("first", "second")]
         try:
@@ -70,7 +76,7 @@ def pods(postgres_template, tmp_path_factory) -> Iterator[Pods]:
                 *processes,
                 PostgresSignInStores(engine, audit=LoggingAuditSink()),
                 engine,
-                build_sign_in_configs(sign_in.settings).web_auth,
+                build_sign_in_configs(sign_in.settings, in_process_rate_limits()).web_auth,
             )
         finally:
             for process in processes:
@@ -113,3 +119,13 @@ class TestASeededSession:
 
         assert exit_status in {CLEAN_EXIT, SIGTERM_EXIT}
         assert (admitted_by_the_other_meanwhile, pods.account_status(pods.first, cookie)) == (200, 200)
+
+
+class TestTheSignInBudget:
+    def test_spent_through_the_first_process_is_refused_by_the_second(self, pods):
+        # An earlier test's logout spent from the same address; the budget starts full.
+        fresh_database_url()
+        spent = [pods.first.request("GET", AUTH_START_PATH).status_code for _ in range(SIGN_IN_BUDGET_REQUESTS)]
+
+        assert set(spent) == {303}
+        assert pods.second.request("GET", AUTH_START_PATH).status_code == 429
