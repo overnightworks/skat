@@ -1,0 +1,8 @@
+claim_id = "9b5126f74137484fa0e81af9f730fa61"
+agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
+role = "builder"
+base = "3350ec39e3da98e140e84773ce6840439fa70a18"
+branch = "claude/issue-636-the-table-s-bottom-bar-holds-only-what-t"
+scope = ["docs/mockups", "frontend/src", "tests/e2e"]
+opened_commit = "54a082c6bb56b51630c80065c4c98f672d72d37d"
+whole_reason = "the bar's keys span the page, the mockups and the e2e tests"
