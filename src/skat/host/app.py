@@ -385,6 +385,7 @@ def _serving(
         _sweep_tables(settings, tables, presence, scheduler, forget_expired_sessions, unplayed_sweep_seconds)
         try:
             async with serving.state.mcp_front.running():
+                log.info("process.ready")
                 yield
         finally:
             presence.stop()

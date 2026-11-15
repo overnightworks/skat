@@ -1,7 +1,9 @@
 import argparse
+import logging
 from typing import TYPE_CHECKING, TypedDict, Unpack
 
 import logline
+import structlog
 import uvicorn
 from sqlalchemy.engine import make_url
 
@@ -25,6 +27,10 @@ if TYPE_CHECKING:
 
     from fastapi import FastAPI
     from sqlalchemy import Engine
+
+
+log = structlog.get_logger()
+_STEP_LOGGER = logging.getLogger(__name__)
 
 
 class UvicornOptions(TypedDict):
@@ -93,10 +99,19 @@ def main(
 ) -> None:
     command = command_line_parser().parse_args(arguments).command
     logline.configure("skat")
+    log.info("process.started", command=command)
+    try:
+        _run(command, run_server, build_directory)
+    finally:
+        log.info("process.stopped", command=command)
+
+
+def _run(command: str, run_server: Callable[..., None], build_directory: Path) -> None:
     # The required settings come from the environment, which the type checker cannot see.
     if command == "migrate":
         database = DatabaseSettings()  # pyright: ignore[reportCallIssue]
-        migrate(create_database_engine(database), operator_account_id=database.operator_account_id)
+        with logline.StepTimer("migration.ended", _STEP_LOGGER):
+            migrate(create_database_engine(database), operator_account_id=database.operator_account_id)
         return
     settings = ServerSettings()  # pyright: ignore[reportCallIssue]
     engine = create_database_engine(settings)
