@@ -58,7 +58,7 @@ TALLER_LANDSCAPE_VIEWPORT = {"width": 844, "height": 600}
 TRICK = ".trick"
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 SPEAKER = ".actions .sound-button"
-# A seated person's call strip holds stand up, the agents pill, the style key and the speaker.
+# A seated person's call strip holds the speaker and the menu key.
 CALL_STRIP_ITEMS = 2
 STRIP = ".actions"
 STAGE = ".stage"
