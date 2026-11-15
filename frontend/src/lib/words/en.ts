@@ -540,6 +540,7 @@ const translated = {
     "rules.lockBadge": "Fixed for this table",
     "rules.lockInfo": "Other rules mean a new table.",
     "rules.info": "Info",
+    "rules.infoMark": "i",
     "rules.close": "Close",
     "rules.chipOfficial": "Official",
     "rules.chipPoints": "Points",
