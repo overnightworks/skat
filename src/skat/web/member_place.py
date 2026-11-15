@@ -25,7 +25,7 @@ the awaited agent at each deadline; the signal of a commit, which runs on a work
 import json
 from dataclasses import dataclass
 from functools import partial
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Final
 
 import anyio.from_thread
 import structlog
@@ -347,7 +347,9 @@ def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTo
     return PersonTool(ACCEPT_INVITATION_DECLARATION, handler)
 
 
-def _pulse(issuer: str, accounts: frozenset[str], change: Callable[[Principal], Coroutine[Any, Any, None]]) -> None:
+def _pulse(
+    issuer: str, accounts: frozenset[str], change: Callable[[Principal], Coroutine[object, object, None]]
+) -> None:
     """Hands each account's `change` to the front's event loop, where `ResourceChanges` lives, from a worker thread.
     The change has committed, so a failure is logged by its type and never turns the command into an error; the
     listener's next listen reads today's truth.

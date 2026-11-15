@@ -249,6 +249,20 @@ class TestAResyncReadsWhoListensAgain:
 
         assert roster.entries() == {}
 
+    def test_a_read_that_fails_in_any_way_leaves_the_roster_applying_the_turns_that_follow(self, roster):
+        async def scenario():
+            async def unreadable(uri):
+                raise RuntimeError("unreadable")
+
+            roster.follow(SimpleNamespace(listeners=unreadable))
+            roster.listening_resynced()
+            await asyncio.gather(*asyncio.all_tasks() - {asyncio.current_task()}, return_exceptions=True)
+            starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+
+        asyncio.run(scenario())
+
+        assert [entry.name for entry in roster.entries().values()] == ["Nova"]
+
     def test_a_resync_before_the_roster_follows_any_changes_reads_nothing(self, roster):
         starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
 

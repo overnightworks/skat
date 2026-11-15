@@ -217,7 +217,7 @@ class AgentRoster:
             self._turns_during_read = []
         try:
             read = await listeners(STANDING_URI)
-        except PlaceStoreError as failure:
+        except Exception as failure:
             logger.warning(LISTENING_READ_FAILED_EVENT, error_type=type(failure).__name__)
         else:
             self._listening = {principal.sub for principal in read}
