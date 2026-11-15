@@ -2,14 +2,17 @@
 
 from typing import TYPE_CHECKING, Literal
 
-from playwright.sync_api import Locator, Page, expect
+from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.result_card import CARD
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from tests.e2e.support.hands import PlayingTable
 
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 CARDS_AFTER_TWO_TRICKS = 6
 REQUEST = ".plaque.ask"
 CROSS = ".mark.declined"
@@ -63,3 +66,14 @@ def expect_the_hand_and_the_strip_on_the_first_screen(person: Page) -> None:
         box = part.bounding_box()
         assert box is not None
         assert box["y"] + box["height"] <= viewport["height"]
+
+
+def expect_a_refused_tap_to_show_the_failure_note(person: Page, command_path: str, tap: Callable[[], None]) -> None:
+    """The table refuses the command that `tap` sends to `command_path`, and the page shows its failure note."""
+
+    def refuse(route: Route) -> None:
+        route.fulfill(status=409, content_type="application/json", body="{}")
+
+    person.route(f"**{command_path}", refuse)
+    tap()
+    expect(person.locator(".note")).to_have_text(COMMAND_FAILED)

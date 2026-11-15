@@ -7,7 +7,7 @@ from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.playing import TABLE_GIVE_UP_AGREE_SUFFIX, TABLE_GIVE_UP_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of, reload_and_wait
-from tests.e2e.support.early_end import THREE_SECONDS_MILLISECONDS
+from tests.e2e.support.early_end import THREE_SECONDS_MILLISECONDS, expect_a_refused_tap_to_show_the_failure_note
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.result_card import CARD, listed, waiting_for
@@ -604,14 +604,13 @@ def test_a_tap_that_the_table_refuses_shows_the_failure_note_and_offers_the_key_
     table = deal_a_game(PHONE, console=False)
     declarer = table.pages[table.declarer_seat]
 
-    def refuse(route: Route) -> None:
-        route.fulfill(status=409, content_type="application/json", body="{}")
+    def tap_twice() -> None:
+        give_up_key(declarer).click()
+        give_up_key(declarer).click()
 
-    declarer.route(f"**{table.declaring.api_path}{TABLE_GIVE_UP_SUFFIX}", refuse)
-    give_up_key(declarer).click()
-    give_up_key(declarer).click()
-
-    expect(declarer.locator(".note")).to_have_text(COMMAND_FAILED)
+    expect_a_refused_tap_to_show_the_failure_note(
+        declarer, f"{table.declaring.api_path}{TABLE_GIVE_UP_SUFFIX}", tap_twice
+    )
     expect(give_up_key(declarer)).to_be_enabled()
     expect(declarer.locator(CARD)).to_have_count(0)
 

@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, Route, expect
+from playwright.sync_api import Page, expect
 
 from skat.web.playing import TABLE_SHORTEN_SUFFIX
 from skat.web.tables import TABLES_PATH
@@ -17,6 +17,7 @@ from tests.e2e.support.early_end import (
     OWN_CARDS,
     REQUEST,
     SHORTEN_KEY,
+    expect_a_refused_tap_to_show_the_failure_note,
     expect_nothing_to_overflow,
     expect_the_hand_and_the_strip_on_the_first_screen,
     expect_the_stamp,
@@ -38,7 +39,6 @@ pytestmark = pytest.mark.e2e
 YES = text(SOURCE_LANGUAGE, "table.yes")
 NO = text(SOURCE_LANGUAGE, "table.no")
 SHORTEN = text(SOURCE_LANGUAGE, "table.shorten")
-COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 DEMANDS_SCHNEIDER = text(SOURCE_LANGUAGE, "table.demands", level=text(SOURCE_LANGUAGE, "result.levelSchneider"))
 SAID_YES = text(SOURCE_LANGUAGE, "table.saidYes")
 SAID_NO = text(SOURCE_LANGUAGE, "table.saidNo")
@@ -306,12 +306,8 @@ def test_a_tap_that_the_table_refuses_shows_the_failure_note_and_offers_the_key_
     table = deal_a_game(PHONE, console=False)
     declarer = table.pages[table.declarer_seat]
 
-    def refuse(route: Route) -> None:
-        route.fulfill(status=409, content_type="application/json", body="{}")
-
-    declarer.route(f"**{table.declaring.api_path}{TABLE_SHORTEN_SUFFIX}", refuse)
-    declarer.locator(SHORTEN_KEY).click()
-
-    expect(declarer.locator(".note")).to_have_text(COMMAND_FAILED)
+    expect_a_refused_tap_to_show_the_failure_note(
+        declarer, f"{table.declaring.api_path}{TABLE_SHORTEN_SUFFIX}", declarer.locator(SHORTEN_KEY).click
+    )
     expect(declarer.locator(SHORTEN_KEY)).to_be_enabled()
     expect(declarer.locator(REQUEST)).to_have_count(0)
