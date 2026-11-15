@@ -1,6 +1,6 @@
 import asyncio
 import hashlib
-import time
+import logging
 import weakref
 from collections import Counter
 from dataclasses import dataclass
@@ -8,9 +8,9 @@ from enum import StrEnum
 from functools import partial
 from typing import TYPE_CHECKING, Final, Protocol
 
-import structlog
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
+from logline import StepTimer
 from starlette.concurrency import run_in_threadpool
 from webauth.config import installed_web_auth_config
 from webauth.dependencies import ConnectionRefusal, admit_session, session_id_from_request
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from skat.web.presence import Presence, Subscription
     from skat.web.reaction_log import Thrown
 
-logger = structlog.get_logger()
+_LOGGER = logging.getLogger(__name__)
 
 EVENT_STREAM: Final = "text/event-stream"
 STREAM_HEADERS: Final = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
@@ -263,12 +263,10 @@ class StreamKind(StrEnum):
     LOBBY = "lobby"
 
 
-class StreamEndReason(StrEnum):
-    ENDED_TABLE = "ended_table"
-    REFUSED = "refused"
-    ERROR = "error"
-    CLIENT_GONE = "client_gone"
-    SHUTDOWN = "shutdown"
+class StreamRefusal(StrEnum):
+    """Why a stream ended refused: the one set of `reason`s of its log line."""
+
+    ADMISSION_LOST = "admission_lost"
 
 
 async def messages_with_end_log(
@@ -277,34 +275,19 @@ async def messages_with_end_log(
     kind: StreamKind,
     table_id: str | None = None,
 ) -> AsyncIterator[str]:
-    """The text of a stream's items, and one log line when the stream ends: its kind, its table id, why it ended and
-    how long it lived, nothing of what it sent. A stream that ends on its own ended its table (a `last` message), was
-    stopped by the server, or lost its session's admission; one that raises is an error with the exception's type;
-    one closed from outside, which a dropped connection does, is a client gone.
+    """The text of a stream's items, and one log line when the stream ends: its kind, its table id, how long it lived
+    and how it ended, nothing of what it sent. A stream that ends on its own ended its table (a `last` message) or was
+    stopped by the server, both ok, or lost its session's admission, which is refused; one that raises failed with
+    the exception's type; one closed from outside, which a dropped connection does, is cancelled.
     """
-    started = time.monotonic()
-    reason = StreamEndReason.CLIENT_GONE
-    error_type: str | None = None
-    try:
+    async with StepTimer("stream.ended", _LOGGER, kind=kind.value, table_id=table_id) as step:
+        ended_table = False
         async for item in items:
             if isinstance(item, SourceMessage) and item.last:
-                reason = StreamEndReason.ENDED_TABLE
+                ended_table = True
             yield message_of(item)
-        if reason is StreamEndReason.CLIENT_GONE:
-            reason = StreamEndReason.SHUTDOWN if stopped() else StreamEndReason.REFUSED
-    except Exception as failure:
-        reason = StreamEndReason.ERROR
-        error_type = type(failure).__name__
-        raise
-    finally:
-        logger.info(
-            "stream_ended",
-            kind=kind.value,
-            table_id=table_id,
-            reason=reason.value,
-            error_type=error_type,
-            lifetime_seconds=round(time.monotonic() - started, 1),
-        )
+        if not (ended_table or stopped()):
+            step.refuse(StreamRefusal.ADMISSION_LOST)
 
 
 class StreamSlots:

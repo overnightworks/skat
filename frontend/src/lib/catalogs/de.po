@@ -996,7 +996,7 @@ msgid "dich"
 msgstr ""
 
 msgctxt "bid.hold"
-msgid "Halten"
+msgid "Ja"
 msgstr ""
 
 msgctxt "bid.pass"
@@ -1023,6 +1023,10 @@ msgctxt "voice.hirsch"
 msgid "Hirsch"
 msgstr ""
 
+msgctxt "voice.null"
+msgid "Null"
+msgstr ""
+
 msgctxt "voice.grumbleComing"
 msgid "Jaja, ich komm ja schon!"
 msgstr ""
@@ -1033,6 +1037,26 @@ msgstr ""
 
 msgctxt "voice.grumbleThinking"
 msgid "Moment, ich denk noch!"
+msgstr ""
+
+msgctxt "voice.holdYes"
+msgid "Ja"
+msgstr ""
+
+msgctxt "voice.holdSure"
+msgid "Klar"
+msgstr ""
+
+msgctxt "voice.holdOfCourse"
+msgid "Natürlich"
+msgstr ""
+
+msgctxt "voice.holdCertainly"
+msgid "Sicher"
+msgstr ""
+
+msgctxt "voice.holdHaveIt"
+msgid "Hab ich"
 msgstr ""
 
 msgctxt "voice.value18"

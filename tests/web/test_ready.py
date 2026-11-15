@@ -235,7 +235,7 @@ class TestRetry:
                 assert first.status_code == 200, first.text
                 assert store.tables[table_id].hand is None
                 skat_logs = [log for log in logs if log["event"] != logline.REQUEST_EVENT]
-                assert [(log["log_level"], log["error"]) for log in skat_logs] == [NAMED_FAILURE]
+                assert [(log["log_level"], log["error_type"]) for log in skat_logs] == [NAMED_FAILURE]
 
                 retried = weiter(server, people[2][0], table_id)
                 dealt = store.tables[table_id]

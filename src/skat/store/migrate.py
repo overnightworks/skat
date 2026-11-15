@@ -237,7 +237,7 @@ class ReadinessProbe:
 
     def _record(self, verdict: ReadinessVerdict) -> None:
         if verdict is not self._verdict:
-            log.warning("database_readiness_changed", was=self._verdict.value, now=verdict.value)
+            log.warning("database_readiness.changed", was=self._verdict.value, now=verdict.value)
             self._verdict = verdict
 
     async def _refresh(self, started_at: float) -> bool:

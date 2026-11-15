@@ -149,7 +149,7 @@ class TestASignalThatFails:
             )
 
         assert answer.status_code == 200, answer.text
-        assert [log["error"] for log in logs if log["event"] == "member_signal_failed"] == ["ConnectionResetError"]
+        assert [log["error_type"] for log in logs if log["event"] == "member_signal.failed"] == ["ConnectionResetError"]
         assert own_chair(agent.view(table.table_id))["nudge"]["nudges"] == 1
 
 

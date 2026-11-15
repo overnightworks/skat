@@ -7,6 +7,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Final, Protocol
 
 import structlog
+from logline import unit_trace
 
 from skat.web.reaction_log import ReactionLog
 from skat.web.waits import AskClock
@@ -41,7 +42,7 @@ class Scheduler(Protocol):  # pragma: no cover - a port's method bodies are sign
 
 
 class LoopScheduler:
-    """The event loop's timers: one task per scheduled action."""
+    """The event loop's timers: one task per scheduled action, each run in a trace of its own."""
 
     def __init__(self) -> None:
         self._tasks: set[asyncio.Task[None]] = set()
@@ -58,7 +59,9 @@ class LoopScheduler:
     @staticmethod
     async def _after(delay: float, action: Callable[[], Awaitable[None]]) -> None:
         await asyncio.sleep(delay)
-        await action()
+        # The task was made inside the request that scheduled it; a unit taken off a timer starts its own trace.
+        with unit_trace(None):
+            await action()
 
 
 @dataclass(frozen=True)
@@ -274,7 +277,7 @@ class Presence:
             table_ids = list(await self._lease.seated_tables(account_id))
         except Exception as failure:
             # The failure's message may carry the account id, so only its type is logged.
-            log.error("lease tables read failed", error=type(failure).__name__)
+            log.error("lease_tables_read.failed", error_type=type(failure).__name__)
             self._hold.scheduler.schedule(
                 CHAIR_RELEASE_RETRY_SECONDS, partial(self._settle_lease, account_id, lapsed=lapsed)
             )
@@ -411,7 +414,7 @@ class Presence:
             )
         except Exception as failure:
             # The failure's message may carry an account id, so only its type is logged.
-            log.error("next deal failed", table_id=table_id, error=type(failure).__name__)
+            log.error("next_deal.failed", table_id=table_id, error_type=type(failure).__name__)
             return
         if dealt:
             self.wake_table(table_id)
@@ -439,7 +442,7 @@ class Presence:
             )
         except Exception as failure:
             # The failure's message may carry an account id, so only its type is logged.
-            log.error("empty since write failed", table_id=table_id, error=type(failure).__name__)
+            log.error("empty_since_write.failed", table_id=table_id, error_type=type(failure).__name__)
             self._note_soon(table_id, CHAIR_RELEASE_RETRY_SECONDS)
             return
         if ended:
@@ -455,7 +458,7 @@ class Presence:
             )
         except Exception as failure:
             # The failure's message may carry an account id, so only its type is logged.
-            log.error("empty table end failed", table_id=table_id, error=type(failure).__name__)
+            log.error("empty_table_end.failed", table_id=table_id, error_type=type(failure).__name__)
             self._hold.scheduler.schedule(CHAIR_RELEASE_RETRY_SECONDS, partial(self._end_if_empty, table_id, wait))
             return
         with self._state:
@@ -494,7 +497,7 @@ class Presence:
             )
         except Exception as failure:
             # The failure's message may carry the account id, so only its type is logged.
-            log.error("chair release failed", table_id=table_id, error=type(failure).__name__)
+            log.error("chair_release.failed", table_id=table_id, error_type=type(failure).__name__)
             self._hold.scheduler.schedule(
                 CHAIR_RELEASE_RETRY_SECONDS, partial(self._expire, table_id, account_id, left_at)
             )

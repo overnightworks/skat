@@ -135,7 +135,7 @@ class TestNextDealPause:
             run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
 
         assert wakes.counts["anna"] == before
-        assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE]
+        assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE]
         assert "anna" not in str(logs)
         holding.deal_soon(TABLE)
         run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
@@ -182,7 +182,7 @@ class TestDealNow:
             run(holding.deal_now(TABLE))
 
         assert wakes.counts["anna"] == before
-        assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE]
+        assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE]
         assert "anna" not in str(logs)
 
     def test_once_the_server_stopped_it_asks_with_none_connected_to_say_so(self, holding, deals):
@@ -397,7 +397,7 @@ class TestNextHandComes:
                     advance(server, time, NEXT_DEAL_PAUSE_SECONDS)
 
                 assert store.tables[table_id] == passed_in
-                assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE]
+                assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE]
                 assert "anna" not in str(logs)
 
                 with streams_of(server, table_id, people[3:]):

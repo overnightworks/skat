@@ -492,7 +492,9 @@ class TestASignalThatFailsAfterTheCommit:
             forehand_auction.middlehand_bids()
 
         assert forehand_auction.record.version == before + 1
-        assert [log["error"] for log in logs if log["event"] == "member_signal_failed"] == ["ConnectionResetError"] * 2
+        assert [log["error_type"] for log in logs if log["event"] == "member_signal.failed"] == [
+            "ConnectionResetError"
+        ] * 2
         assert agent.view(forehand_auction.table_id)["revision"] == revision_of(before + 1, 0)
 
 
