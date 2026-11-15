@@ -37,8 +37,8 @@ describe("what a thrown emote shows on the felt", () => {
         vi.useRealTimers();
     });
 
-    function throwEmote(by_seat: number | null, by_name: string | null): void {
-        const thrown: Thrown = { number: 1, reaction: "fire", by_seat, by_name };
+    function throwEmote(by_seat: number | null, by_name: string | null, reaction: Thrown["reaction"] = "fire"): void {
+        const thrown: Thrown = { number: 1, reaction, by_seat, by_name };
         mounted = mount(ThrownEmotes, {
             target: document.body,
             props: { chairs: [chair(1, false), chair(2, true), chair(3, false)] },
@@ -73,5 +73,26 @@ describe("what a thrown emote shows on the felt", () => {
 
         expect(from?.textContent).toBe("B");
         expect(from?.classList.contains("seat-3")).toBe(true);
+    });
+
+    it("lets a knock land where it is thrown from, with two rings and no trail", () => {
+        throwEmote(1, "Anna", "knock");
+
+        const fist = document.querySelector<HTMLElement>(".emote.knocked");
+        const ring = document.querySelector<HTMLElement>(".knock-ring");
+
+        expect(fist?.textContent).toContain("\u{1F44A}");
+        expect(document.querySelector(".emote-trail")).toBeNull();
+        expect(fist?.style.getPropertyValue("--ox")).toBe(fist?.style.getPropertyValue("--lx"));
+        expect(fist?.style.getPropertyValue("--oy")).toBe(fist?.style.getPropertyValue("--ly"));
+        expect(ring?.style.getPropertyValue("--lx")).toBe(fist?.style.getPropertyValue("--lx"));
+        expect(ring?.style.getPropertyValue("--ly")).toBe(fist?.style.getPropertyValue("--ly"));
+    });
+
+    it("draws no ring for an emote that flies", () => {
+        throwEmote(1, "Anna", "fire");
+
+        expect(document.querySelector(".knock-ring")).toBeNull();
+        expect(document.querySelector(".emote.knocked")).toBeNull();
     });
 });

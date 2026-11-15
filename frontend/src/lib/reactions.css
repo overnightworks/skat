@@ -143,11 +143,43 @@
     vector-effect: non-scaling-stroke;
 }
 
+/* A knock lands where it is, smaller than a flung emote, and two rings spread from the fist over the felt. */
+.room .emote.knocked {
+    width: 34px;
+    height: 34px;
+    font-size: 24px;
+}
+
+.room .knock-ring {
+    position: absolute;
+    top: calc(var(--ly) * 1%);
+    left: calc(var(--lx) * 1%);
+    width: 50px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    box-shadow:
+        0 0 0 2px rgba(251, 248, 240, 0.55),
+        0 0 0 14px rgba(251, 248, 240, 0.08),
+        0 0 0 16px rgba(251, 248, 240, 0.3);
+    pointer-events: none;
+    translate: -50% -50%;
+}
+
 @media (min-width: 900px) {
     .room .emote {
         width: 56px;
         height: 56px;
         font-size: 40px;
+    }
+
+    .room .emote.knocked {
+        width: 48px;
+        height: 48px;
+        font-size: 34px;
+    }
+
+    .room .knock-ring {
+        width: 76px;
     }
 }
 
@@ -163,6 +195,11 @@
 
 .room[data-motion="dezent"] .emote {
     animation: emote-pop 2.1s ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+/* The rings knock twice, in both sets: they swell from the fist and fade. */
+.room[data-motion] .knock-ring {
+    animation: knock-ring 0.7s ease-out 2 both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 @keyframes emote-throw {
@@ -219,6 +256,18 @@
 
     45%,
     100% {
+        opacity: 0;
+    }
+}
+
+@keyframes knock-ring {
+    from {
+        scale: 0.35;
+        opacity: 1;
+    }
+
+    to {
+        scale: 1.35;
         opacity: 0;
     }
 }

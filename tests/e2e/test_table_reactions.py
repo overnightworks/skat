@@ -2,6 +2,7 @@
 a watcher's too, shows and plays each within a second; Klassik has an ambience of its own that sounds only after a tap.
 """
 
+import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -11,6 +12,7 @@ from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.table.records import TableStyle
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.audio import tap, voices_started
+from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
 from tests.e2e.support.style import ROOM, give_the_table_its_style
 
@@ -33,6 +35,11 @@ TRAY = text(SOURCE_LANGUAGE, "table.reactionTray")
 SOUND_PANEL = text(SOURCE_LANGUAGE, "sound.panelName")
 TONE = text(SOURCE_LANGUAGE, "sound.tone")
 EMOTE = ".thrown .emote"
+KNOCK_RING = ".thrown .knock-ring"
+KNOCK_RINGS_SPREAD = "knock-ring"
+NO_ANIMATION = "none"
+# The key the player's choices are kept under in the browser.
+SETTINGS_KEY = "skat.settings"
 TRAIL = ".thrown .emote-trail path"
 COASTER = ".chair .coaster"
 OBJECTS = [
@@ -56,6 +63,8 @@ RESTING_PLACE = """selector => {
 }"""
 
 
+# The place of the element in the layer that carries the emotes, before its motion moves it.
+POSITION_IN_LAYER = "selector => { const e = document.querySelector(selector); return [e.offsetLeft, e.offsetTop]; }"
 # Every key of the row of actions that stands on the screen, as its box; the tray's own buttons are no key of the row.
 ACTION_KEYS = """() => [...document.querySelectorAll('.actions button:not(.tray *)')]
     .map(key => key.getBoundingClientRect()).filter(box => box.width > 0)
@@ -143,6 +152,43 @@ def test_the_open_tray_covers_no_key_of_the_row_of_actions(
         covers_across = tray["x"] < key["x"] + key["width"] and key["x"] < tray["x"] + tray["width"]
         covers_down = tray["y"] < key["y"] + key["height"] and key["y"] < tray["y"] + tray["height"]
         assert not (covers_across and covers_down)
+
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+@pytest.mark.parametrize(
+    ("device_motion", "stored", "rings"),
+    [
+        (MOTION_ALLOWED["reduced_motion"], {"motionSet": "dezent"}, KNOCK_RINGS_SPREAD),
+        (MOTION_ALLOWED["reduced_motion"], {"motionSet": "verspielt"}, KNOCK_RINGS_SPREAD),
+        ("reduce", {"motionSet": "dezent"}, NO_ANIMATION),
+    ],
+    ids=["dezent", "verspielt", "reduced"],
+)
+def test_a_knock_lands_beside_its_chair_and_spreads_two_rings_as_the_motion_set_allows(
+    deal_a_game: Callable[..., PlayingTable],
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    device_motion: str,
+    stored: dict[str, Any],
+    rings: str,
+) -> None:
+    table = deal_a_game({**form_factor, **MOTION_ALLOWED})
+    observer = record_page_errors(open_person(reduced_motion=device_motion, **form_factor), page_errors)
+    observer.add_init_script(f"localStorage.setItem({SETTINGS_KEY!r}, {json.dumps(json.dumps(stored))})")
+    observer.goto(table.watcher.url)
+    expect(observer.locator(".chair")).to_have_count(len(table.names))
+
+    thrower = table.pages[table.seat_at["forehand"]]
+    throwing_tray(thrower)
+    thrower.get_by_role("button", name=text(SOURCE_LANGUAGE, "table.reactionKnock")).click()
+
+    expect(observer.locator(EMOTE)).to_contain_text(text(SOURCE_LANGUAGE, "table.reactionKnockMark"))
+    expect(observer.locator(KNOCK_RING)).to_have_count(1)
+    expect(observer.locator(KNOCK_RING)).to_have_css("animation-name", rings)
+    expect(observer.locator(TRAIL)).to_have_count(0)
+    assert observer.evaluate(POSITION_IN_LAYER, KNOCK_RING) == observer.evaluate(POSITION_IN_LAYER, EMOTE)
+    assert page_errors == []
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
