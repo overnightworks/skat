@@ -26,8 +26,7 @@ from tests.e2e.support.tables import (
     open_new_table,
     sit_in,
     table_id_of,
-    until_the_agents_are_read,
-    watch,
+    watch_until_the_agents_are_read,
     watchers_of,
 )
 from tests.support.played_game import an_entry
@@ -316,11 +315,6 @@ def played_longer_ago_than_the_days(server: RunningServer, table_id: str) -> Non
     last_play = datetime.now(UTC) - timedelta(days=UNPLAYED_DAYS + 1)
     with server.engine.begin() as connection:
         connection.execute(update(tables).where(tables.c.id == table_id).values(last_played_at=last_play))
-
-
-def watch_until_the_agents_are_read(person: Page, server: RunningServer, path: str) -> None:
-    with until_the_agents_are_read(person):
-        watch(person, server, path)
 
 
 def expect_the_unplayed_face(person: Page) -> None:
