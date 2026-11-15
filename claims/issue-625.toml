@@ -3,6 +3,6 @@ agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
 role = "builder"
 base = "403291f20e0d79f6de1b5aecd5ae4a59671bbfdb"
 branch = "claude/issue-625-the-rules-sheet-s-info-button-carries-no"
-scope = ["frontend/src/lib/catalogs", "frontend/src/lib/ui/TableRules.svelte", "frontend/src/lib/words", "quality/baseline.toml", "src/skat/web/words.py"]
+scope = [".github/workflows", "frontend/src/lib/catalogs", "frontend/src/lib/ui/TableRules.svelte", "frontend/src/lib/words", "quality/baseline.toml", "src/skat/web/words.py"]
 opened_commit = "9495c9bfacd1063a2a5f76ca17701a5e2feb0393"
 whole_reason = "the literal moves to the catalog, which regenerates words in both trees"
