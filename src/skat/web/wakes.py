@@ -75,10 +75,6 @@ def _topic_of(address: str) -> Topic | None:
     return None
 
 
-def _published_nowhere(_topic: Topic) -> None:
-    """The publisher of a list that no other pod hears."""
-
-
 class WakeList:
     """Which wakes listen to which topic. A wake carries no data: the woken stream reads its own state again.
 
@@ -87,7 +83,7 @@ class WakeList:
     lock.
     """
 
-    def __init__(self, publish: Callable[[Topic], None] = _published_nowhere) -> None:
+    def __init__(self, publish: Callable[[Topic], None]) -> None:
         self._registrations: dict[Topic, list[Registration]] = {}
         self._publish = publish
 

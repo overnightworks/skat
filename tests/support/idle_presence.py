@@ -51,5 +51,14 @@ def idle_agent_lease() -> AgentLease:
     return AgentLease(LEASE_SECONDS, seat_nowhere)
 
 
+def publish_nowhere(topic):
+    pass
+
+
+def idle_wakes() -> WakeList:
+    """The wakes of a deployment of one pod: nothing is told to other pods."""
+    return WakeList(publish_nowhere)
+
+
 def idle_presence(wakes: WakeList | None = None) -> Presence:
-    return Presence(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), wakes or WakeList())
+    return Presence(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), wakes or idle_wakes())

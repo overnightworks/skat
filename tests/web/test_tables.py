@@ -32,7 +32,7 @@ from skat.web.tables import (
     TABLES_PATH,
     create_tables_router,
 )
-from skat.web.wakes import AccountTopic, WakeList
+from skat.web.wakes import AccountTopic
 from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.idle_presence import (
     idle_agent_lease,
@@ -40,6 +40,7 @@ from tests.support.idle_presence import (
     idle_hold,
     idle_next_deal,
     idle_presence,
+    idle_wakes,
 )
 from tests.support.page_build import fixture_page_build
 from tests.support.payload_cards import (
@@ -160,7 +161,7 @@ class TestReadTable:
             create_tables_router(
                 TableService(skat.store),
                 fixture_page_build(),
-                ProbingPresence(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), WakeList()),
+                ProbingPresence(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), idle_wakes()),
                 skat.stores.sessions,
                 skat.config,
             )
@@ -242,7 +243,7 @@ def stand_after_sitting(skat, headers, table_id):
 
 class RecordingPresence(Presence):
     def __init__(self):
-        super().__init__(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), WakeList())
+        super().__init__(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), idle_wakes())
         self.woken = []
 
     def wake_table(self, table_id):
@@ -255,7 +256,7 @@ def answering_first(skat, tables, presence, wakes=None):
     the composed ones.
     """
     composed = list(skat.app.router.routes)
-    skat.app.include_router(create_seating_router(tables, presence, wakes or WakeList()))
+    skat.app.include_router(create_seating_router(tables, presence, wakes or idle_wakes()))
     skat.app.include_router(
         create_tables_router(tables, fixture_page_build(), presence, skat.stores.sessions, skat.config)
     )
@@ -264,7 +265,7 @@ def answering_first(skat, tables, presence, wakes=None):
 
 def counting_account_wakes(skat, *accounts):
     """Seating routers over a wake list in which one stream listens to each account; returns what each hears."""
-    wakes = WakeList()
+    wakes = idle_wakes()
     heard = {account.id: [] for account in accounts}
     for account in accounts:
         wakes.register([AccountTopic(account.id)], lambda account=account: heard[account.id].append(1))

@@ -6,7 +6,8 @@ from tandem import Resubscribed, StoreError, Wake
 
 from skat.web import wakes as wakes_module
 from skat.web.secret_files import StartRefusedError
-from skat.web.wakes import AccountTopic, OpenTablesTopic, TableTopic, WakeList
+from skat.web.wakes import AccountTopic, OpenTablesTopic, TableTopic
+from tests.support.idle_presence import idle_wakes
 from tests.support.loopback_wake_channel import LoopbackWakeBus
 from tests.web.support.presence import Wakes
 from tests.web.support.wake_pods import ARRIVAL_SECONDS, Pod, run_pods
@@ -24,7 +25,7 @@ def wakes():
 
 class TestWakeList:
     def test_a_wake_reaches_the_registrations_of_its_topic_and_no_other(self, wakes):
-        wake_list = WakeList()
+        wake_list = idle_wakes()
         wake_list.register([FIRST_TABLE], wakes.callback("first"))
         wake_list.register([FIRST_TABLE], wakes.callback("also first"))
         wake_list.register([SECOND_TABLE], wakes.callback("second"))
@@ -34,7 +35,7 @@ class TestWakeList:
         assert wakes.counts == {"first": 1, "also first": 1, "second": 0}
 
     def test_an_account_topic_and_a_table_topic_wake_only_their_own_registrations(self, wakes):
-        wake_list = WakeList()
+        wake_list = idle_wakes()
         wake_list.register([ANNA, FIRST_TABLE], wakes.callback("anna and first"))
         wake_list.register([FIRST_TABLE], wakes.callback("first"))
         wake_list.register([AccountTopic(FIRST_TABLE.table_id)], wakes.callback("an account named like the table"))
@@ -44,7 +45,7 @@ class TestWakeList:
         assert wakes.counts == {"anna and first": 1, "first": 0, "an account named like the table": 0}
 
     def test_a_wake_spares_the_registration_it_names(self, wakes):
-        wake_list = WakeList()
+        wake_list = idle_wakes()
         spared = wake_list.register([FIRST_TABLE], wakes.callback("spared"))
         wake_list.register([FIRST_TABLE], wakes.callback("other"))
 
@@ -53,7 +54,7 @@ class TestWakeList:
         assert wakes.counts == {"spared": 0, "other": 1}
 
     def test_an_unregistered_registration_is_no_longer_woken(self, wakes):
-        wake_list = WakeList()
+        wake_list = idle_wakes()
         ended = wake_list.register([FIRST_TABLE, SECOND_TABLE], wakes.callback("ended"))
         wake_list.register([FIRST_TABLE], wakes.callback("kept"))
 
@@ -64,7 +65,7 @@ class TestWakeList:
         assert wakes.counts == {"ended": 0, "kept": 1}
 
     def test_wake_all_reaches_every_registration_once(self, wakes):
-        wake_list = WakeList()
+        wake_list = idle_wakes()
         wake_list.register([FIRST_TABLE, SECOND_TABLE], wakes.callback("both"))
         wake_list.register([SECOND_TABLE], wakes.callback("second"))
 
