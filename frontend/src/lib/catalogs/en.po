@@ -351,6 +351,10 @@ msgctxt "table.playsOpenOn"
 msgid "{name} spielt offen weiter"
 msgstr "{name} plays open and the game goes on"
 
+msgctxt "table.playsOpenMark"
+msgid "spielt offen"
+msgstr "plays open"
+
 msgctxt "table.saidNoPlayingOn"
 msgid "{name} sagte Nein, es geht weiter"
 msgstr "{name} said no, the game goes on"

@@ -84,6 +84,7 @@ export type Words = {
     readonly "table.playsOpen": (gaps: { readonly name: string }) => string;
     readonly "table.youPlayOpen": string;
     readonly "table.playsOpenOn": (gaps: { readonly name: string }) => string;
+    readonly "table.playsOpenMark": string;
     readonly "table.saidNoPlayingOn": (gaps: { readonly name: string }) => string;
     readonly "table.saidYes": string;
     readonly "table.saidNo": string;
@@ -621,6 +622,7 @@ export const words: Words = {
     "table.playsOpen": (gaps: { readonly name: string }) => gaps.name + " spielt offen",
     "table.youPlayOpen": "Du spielst offen",
     "table.playsOpenOn": (gaps: { readonly name: string }) => gaps.name + " spielt offen weiter",
+    "table.playsOpenMark": "spielt offen",
     "table.saidNoPlayingOn": (gaps: { readonly name: string }) => gaps.name + " sagte Nein, es geht weiter",
     "table.saidYes": "sagte Ja",
     "table.saidNo": "sagte Nein",

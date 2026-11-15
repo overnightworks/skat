@@ -140,6 +140,7 @@ const translated = {
     "table.playsOpen": (gaps: { readonly name: string }) => gaps.name + " plays open",
     "table.youPlayOpen": "You play open",
     "table.playsOpenOn": (gaps: { readonly name: string }) => gaps.name + " plays open and the game goes on",
+    "table.playsOpenMark": "plays open",
     "table.saidNoPlayingOn": (gaps: { readonly name: string }) => gaps.name + " said no, the game goes on",
     "table.saidYes": "said yes",
     "table.saidNo": "said no",
