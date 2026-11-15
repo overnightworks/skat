@@ -7,6 +7,7 @@ from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.playing import TABLE_GIVE_UP_AGREE_SUFFIX, TABLE_GIVE_UP_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of, reload_and_wait
+from tests.e2e.support.early_end import THREE_SECONDS_MILLISECONDS, expect_a_refused_tap_to_show_the_failure_note
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.result_card import CARD, listed, waiting_for
@@ -25,6 +26,8 @@ SAID_NO = text(SOURCE_LANGUAGE, "table.saidNo")
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 GIVE_UP = text(SOURCE_LANGUAGE, "table.giveUp")
+SHORTEN = text(SOURCE_LANGUAGE, "table.shorten")
+PLAY_OPEN = text(SOURCE_LANGUAGE, "table.playOpen")
 GIVE_UP_SURE = text(SOURCE_LANGUAGE, "table.giveUpSure")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 PILL = text(SOURCE_LANGUAGE, "agents.pill")
@@ -37,7 +40,6 @@ NOTICE_MILLISECONDS = 4000
 KEY = ".copy.give-up"
 STRIP = ".actions"
 ROUND_KEY_PIXELS = 52
-THREE_SECONDS_MILLISECONDS = 3000
 CARDS_AFTER_ONE_TRICK = 3
 KREUZ = text(SOURCE_LANGUAGE, "game.kreuz")
 REQUEST = ".plaque.ask"
@@ -417,21 +419,6 @@ def test_after_a_yes_the_given_up_card_takes_the_next_hand_with_weiter(
     assert page_errors == []
 
 
-@pytest.fixture
-def deal_a_game(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-) -> Callable[..., PlayingTable]:
-    """A declared game before its first card, with the failure of a refused tap kept out of the console check."""
-
-    def deal(form_factor: dict[str, Any], *, console: bool = True) -> PlayingTable:
-        return deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, console=console)
-
-    return deal
-
-
 def strip_keys(person: Page) -> list[str]:
     """The titles of the keys of the strip, left to right."""
     return person.locator(f"{STRIP} > .copy").evaluate_all("keys => keys.map(key => key.title || key.ariaLabel)")
@@ -442,17 +429,17 @@ def give_up_key(person: Page) -> Any:
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_every_seated_bar_carries_aufgeben_first_and_a_round_aufstehen_beside_it_and_the_watcher_has_none(
+def test_every_seated_bar_carries_its_own_key_then_aufgeben_and_a_round_aufstehen_and_the_watcher_has_none(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_game(form_factor)
     phone = form_factor["viewport"]["width"] < 900
 
-    for person in table.pages.values():
+    for seat, person in table.pages.items():
         key = give_up_key(person)
         stand = button_of(person, STAND_UP)
         expect(key).to_have_attribute("title", GIVE_UP)
-        assert strip_keys(person)[:2] == [GIVE_UP, STAND_UP]
+        assert strip_keys(person)[:3] == [SHORTEN if seat == table.declarer_seat else PLAY_OPEN, GIVE_UP, STAND_UP]
         stand_box = stand.bounding_box()
         assert stand_box is not None
         assert (stand_box["width"] <= ROUND_KEY_PIXELS) is phone
@@ -617,14 +604,13 @@ def test_a_tap_that_the_table_refuses_shows_the_failure_note_and_offers_the_key_
     table = deal_a_game(PHONE, console=False)
     declarer = table.pages[table.declarer_seat]
 
-    def refuse(route: Route) -> None:
-        route.fulfill(status=409, content_type="application/json", body="{}")
+    def tap_twice() -> None:
+        give_up_key(declarer).click()
+        give_up_key(declarer).click()
 
-    declarer.route(f"**{table.declaring.api_path}{TABLE_GIVE_UP_SUFFIX}", refuse)
-    give_up_key(declarer).click()
-    give_up_key(declarer).click()
-
-    expect(declarer.locator(".note")).to_have_text(COMMAND_FAILED)
+    expect_a_refused_tap_to_show_the_failure_note(
+        declarer, f"{table.declaring.api_path}{TABLE_GIVE_UP_SUFFIX}", tap_twice
+    )
     expect(give_up_key(declarer)).to_be_enabled()
     expect(declarer.locator(CARD)).to_have_count(0)
 

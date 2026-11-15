@@ -41,6 +41,10 @@ const PLAYING: Playing = {
     ],
     legal_cards: [],
     give_up: null,
+    shortening: null,
+    shortening_refused_seat: null,
+    open_play_seat: null,
+    open_hands: [],
     kontra: null,
     running_points: null,
 };
@@ -61,6 +65,7 @@ function ramsch(mine: number, changes: Partial<Hand>): Table {
         series: null,
         aborted: null,
         options: null,
+        style: null,
         bock: null,
         ended: null,
         hand: {

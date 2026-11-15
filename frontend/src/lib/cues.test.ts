@@ -19,6 +19,7 @@ import type {
     Chair,
     Declaring,
     GiveUp,
+    Shortening,
     Kontra,
     LastTrick,
     SeatedCard,
@@ -283,6 +284,53 @@ describe("the moment both opponents refused a give-up", () => {
         },
     ] satisfies { name: string; previous: Table | undefined; next: Table }[])("is not $name", ({ previous, next }) => {
         expect(cuesBetween(previous, next).some((cue) => cue.kind === "give-up-refused")).toBe(false);
+    });
+});
+
+describe("the moment a no ends a shortening", () => {
+    // The declarer at MIDDLEHAND asked to shorten; FOREHAND's no ends the request and opens the declarer's cards.
+    const asked: Shortening = { asking_seat: MIDDLEHAND, claim: "none", agreed_seat: null };
+    const standing = table(5, [8, 8, 8], { current: [], shortening: asked });
+    const refused = table(6, [8, 8, 8], { current: [], refusedBy: FOREHAND });
+
+    it("names the opponent whose no ended it, whether or not an earlier no stood", () => {
+        expect(cuesBetween(standing, refused)).toEqual([{ kind: "shortening-refused", seat: FOREHAND }]);
+        expect(cuesBetween(standing, table(6, [8, 8, 8], { current: [], refusedBy: FOREHAND }))).toHaveLength(1);
+    });
+
+    it.each([
+        {
+            name: "a yes of the first opponent, which keeps the request",
+            next: table(6, [8, 8, 8], { current: [], shortening: { ...asked, agreed_seat: FOREHAND } }),
+        },
+        {
+            name: "a card played, which takes the request back",
+            next: table(6, [8, 7, 8], { current: [{ seat: MIDDLEHAND, card: KARO_JACK }], refusedBy: FOREHAND }),
+        },
+        { name: "the end of the hand", next: { ...table(6, [8, 8, 8]), hand: null } },
+    ] satisfies { name: string; next: Table }[])("is not $name", ({ next }) => {
+        expect(cuesBetween(standing, next).some((cue) => cue.kind === "shortening-refused")).toBe(false);
+    });
+
+    it("is not an old refusal that a reload shows again", () => {
+        expect(cuesBetween(undefined, refused)).toEqual([]);
+    });
+});
+
+describe("the moment the declarer plays on against a wrong open play", () => {
+    const standing = table(5, [8, 8, 8], { current: [], openPlayBy: FOREHAND });
+    const onWithOpenCards = table(6, [8, 8, 8], { current: [], openHands: [{ seat: FOREHAND, cards: [] }] });
+
+    it("names the opponent whose cards lie open now", () => {
+        expect(cuesBetween(standing, onWithOpenCards)).toEqual([{ kind: "open-play-on", seat: FOREHAND }]);
+    });
+
+    it.each([
+        { name: "the declarer's yes, which ends the hand", next: { ...table(6, [8, 8, 8]), hand: null } },
+        { name: "a request that still stands", next: table(6, [8, 8, 8], { current: [], openPlayBy: FOREHAND }) },
+        { name: "an update that leaves no open cards", next: table(6, [8, 8, 8], { current: [] }) },
+    ] satisfies { name: string; next: Table }[])("is not $name", ({ next }) => {
+        expect(cuesBetween(standing, next).some((cue) => cue.kind === "open-play-on")).toBe(false);
     });
 });
 

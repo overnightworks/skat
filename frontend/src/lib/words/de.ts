@@ -78,6 +78,17 @@ export type Words = {
     readonly "table.giveUpSure": string;
     readonly "table.accept": string;
     readonly "table.playOn": string;
+    readonly "table.wantsToShorten": (gaps: { readonly name: string }) => string;
+    readonly "table.demands": (gaps: { readonly level: string }) => readonly (string | { readonly marker: "level"; readonly text: string })[];
+    readonly "table.shorten": string;
+    readonly "table.playOpen": string;
+    readonly "table.playOpenSure": string;
+    readonly "table.playsOpen": (gaps: { readonly name: string }) => string;
+    readonly "table.youPlayOpen": string;
+    readonly "table.playsOpenOn": (gaps: { readonly name: string }) => string;
+    readonly "table.playsOpenMark": string;
+    readonly "table.saidNoPlayingOn": (gaps: { readonly name: string }) => string;
+    readonly "table.saidYes": string;
     readonly "table.saidNo": string;
     readonly "table.noAnswerYet": string;
     readonly "table.abort": string;
@@ -171,6 +182,8 @@ export type Words = {
     readonly "result.lost": string;
     readonly "result.overbid": string;
     readonly "result.givenUp": string;
+    readonly "result.shortened": string;
+    readonly "result.playedOpen": string;
     readonly "result.declarerWins": (gaps: { readonly name: string }) => string;
     readonly "result.declarerLoses": (gaps: { readonly name: string }) => string;
     readonly "result.opponentGameLine": (gaps: { readonly declarer: string; readonly game: string }) => string;
@@ -439,6 +452,7 @@ export type Words = {
     readonly "rules.lockBadge": string;
     readonly "rules.lockInfo": string;
     readonly "rules.info": string;
+    readonly "rules.infoMark": string;
     readonly "rules.close": string;
     readonly "rules.chipOfficial": string;
     readonly "rules.chipPoints": string;
@@ -483,6 +497,11 @@ export type Words = {
     readonly "rules.bockOverlapAppend": string;
     readonly "rules.bockOverlapMultiply": string;
     readonly "rules.bockOverlapIgnore": string;
+    readonly "table.style": string;
+    readonly "table.styleName": string;
+    readonly "table.styleKlassik": string;
+    readonly "table.styleStrandbar": string;
+    readonly "table.styleNote": string;
 };
 // prettier-ignore
 export const words: Words = {
@@ -615,6 +634,17 @@ export const words: Words = {
     "table.giveUpSure": "Wirklich aufgeben?",
     "table.accept": "Annehmen",
     "table.playOn": "Weiterspielen",
+    "table.wantsToShorten": (gaps: { readonly name: string }) => gaps.name + " will abkürzen",
+    "table.demands": (gaps: { readonly level: string }): readonly (string | { readonly marker: "level"; readonly text: string })[] => ["Fordert ", { marker: "level", text: gaps.level }],
+    "table.shorten": "Abkürzen",
+    "table.playOpen": "Offen spielen",
+    "table.playOpenSure": "Wirklich offen spielen?",
+    "table.playsOpen": (gaps: { readonly name: string }) => gaps.name + " spielt offen",
+    "table.youPlayOpen": "Du spielst offen",
+    "table.playsOpenOn": (gaps: { readonly name: string }) => gaps.name + " spielt offen weiter",
+    "table.playsOpenMark": "spielt offen",
+    "table.saidNoPlayingOn": (gaps: { readonly name: string }) => gaps.name + " sagte Nein, es geht weiter",
+    "table.saidYes": "sagte Ja",
     "table.saidNo": "sagte Nein",
     "table.noAnswerYet": "noch keine Antwort",
     "table.abort": "Abbrechen",
@@ -729,6 +759,8 @@ export const words: Words = {
     "result.lost": "Verloren",
     "result.overbid": "Überreizt",
     "result.givenUp": "Aufgegeben",
+    "result.shortened": "Abgekürzt",
+    "result.playedOpen": "Offen gespielt",
     "result.declarerWins": (gaps: { readonly name: string }) => gaps.name + " gewinnt",
     "result.declarerLoses": (gaps: { readonly name: string }) => gaps.name + " verliert",
     "result.opponentGameLine": (gaps: { readonly declarer: string; readonly game: string }) => gaps.declarer + ", " + gaps.game,
@@ -1018,6 +1050,7 @@ export const words: Words = {
     "rules.lockBadge": "Fest für diesen Tisch",
     "rules.lockInfo": "Andere Regeln heißen neuer Tisch.",
     "rules.info": "Info",
+    "rules.infoMark": "i",
     "rules.close": "Schließen",
     "rules.chipOfficial": "Offiziell",
     "rules.chipPoints": "Augen",
@@ -1062,5 +1095,10 @@ export const words: Words = {
     "rules.bockOverlapAppend": "neue Runden hängen sich an",
     "rules.bockOverlapMultiply": "neue Runden multiplizieren sich",
     "rules.bockOverlapIgnore": "neue Runden zählen nicht",
+    "table.style": "Stil",
+    "table.styleName": "Stil des Tisches",
+    "table.styleKlassik": "Klassik",
+    "table.styleStrandbar": "Strandbar",
+    "table.styleNote": "Gilt für alle am Tisch, auch für die Zuschauer.",
 };
 export type Key = keyof Words;

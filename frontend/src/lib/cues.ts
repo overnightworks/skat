@@ -45,6 +45,10 @@ export type Cue =
     | { kind: "trick-taken"; trick: LastTrick }
     // The seats of the opponents who both said no to the declarer's give-up.
     | { kind: "give-up-refused"; seats: number[] }
+    // The opponent whose no ended the declarer's shortening; the game goes on with the declarer's cards open.
+    | { kind: "shortening-refused"; seat: number }
+    // The declarer played on against an opponent's wrong open play; that opponent's cards lie open.
+    | { kind: "open-play-on"; seat: number }
     | { kind: "bid-said"; seat: number; word: BidWord }
     | { kind: "word-said"; said: SaidWord }
     // The game the declarer declared, with what the table's announcement shows of it.
@@ -75,6 +79,10 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     }
     const refusers = giveUpRefusedBetween(previous, next);
     if (refusers !== null) cues.push({ kind: "give-up-refused", seats: refusers });
+    const shorteningRefuser = shorteningRefusedBetween(previous, next);
+    if (shorteningRefuser !== null) cues.push({ kind: "shortening-refused", seat: shorteningRefuser });
+    const openPlayer = openPlayPlayedOnBetween(previous, next);
+    if (openPlayer !== null) cues.push({ kind: "open-play-on", seat: openPlayer });
     for (const bid of bidsSaidBetween(previous, next)) cues.push({ kind: "bid-said", ...bid });
     const declared = next.hand?.declaring?.declaration ?? null;
     if (declared !== null && !sameJson(previous.hand?.declaring?.declaration, declared))
@@ -223,21 +231,46 @@ function bidsSaidBetween(previous: Table, next: Table): { seat: number; word: Bi
         .map((word) => ({ seat: word.seat, word: { action: word.action as BidWord["action"], value: word.value } }));
 }
 
-// The second no clears the declarer's request that already carried the first no, while the game goes on with the same
-// cards on the felt and the same people in the chairs; a card, a yes and a chair that changed hands clear it otherwise.
-function giveUpRefusedBetween(previous: Table, next: Table): number[] | null {
+// A request ends without a card, a chair change or a game end when the felt and the chairs stay as they were.
+function requestEndedWhileTheGameWentOn(previous: Table, next: Table): boolean {
     const before = previous.hand?.playing;
     const after = next.hand?.playing;
-    const asked = before?.give_up;
-    if (!before || typeof asked?.declined_seat !== "number" || after?.give_up !== null) return null;
-    const unchanged =
+    return (
+        !!before &&
+        !!after &&
         sameJson(before.current_trick, after.current_trick) &&
         sameJson(before.last_trick, after.last_trick) &&
         sameJson(
             previous.chairs.map((chair) => chair.occupant_name),
             next.chairs.map((chair) => chair.occupant_name),
-        );
-    return unchanged ? next.chairs.map((chair) => chair.seat).filter((seat) => seat !== asked.asking_seat) : null;
+        )
+    );
+}
+
+// The second no clears the declarer's request that already carried the first no, while the game goes on with the same
+// cards on the felt and the same people in the chairs; a card, a yes and a chair that changed hands clear it otherwise.
+function giveUpRefusedBetween(previous: Table, next: Table): number[] | null {
+    const asked = previous.hand?.playing?.give_up;
+    if (typeof asked?.declined_seat !== "number" || next.hand?.playing?.give_up !== null) return null;
+    return requestEndedWhileTheGameWentOn(previous, next)
+        ? next.chairs.map((chair) => chair.seat).filter((seat) => seat !== asked.asking_seat)
+        : null;
+}
+
+// One no ends a shortening and names its opponent; the game goes on with the same cards on the felt.
+function shorteningRefusedBetween(previous: Table, next: Table): number | null {
+    const refuser = next.hand?.playing?.shortening_refused_seat ?? null;
+    if (!previous.hand?.playing?.shortening || next.hand?.playing?.shortening !== null || refuser === null) return null;
+    return requestEndedWhileTheGameWentOn(previous, next) ? refuser : null;
+}
+
+// The declarer's no to a wrong open play ends the request and leaves that opponent's cards open.
+function openPlayPlayedOnBetween(previous: Table, next: Table): number | null {
+    const player = previous.hand?.playing?.open_play_seat ?? null;
+    const after = next.hand?.playing;
+    if (player === null || after?.open_play_seat !== null) return null;
+    const opened = after.open_hands.some((hand) => hand.seat === player);
+    return opened && requestEndedWhileTheGameWentOn(previous, next) ? player : null;
 }
 
 // The auction ended in the update that brings the declaring to a hand that had none; a page that opens later

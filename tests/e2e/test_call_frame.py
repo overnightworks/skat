@@ -58,8 +58,8 @@ TRICK = ".trick"
 PILL = text(SOURCE_LANGUAGE, "agents.pill")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 SPEAKER = ".actions .sound-button"
-# A call's strip holds stand up, the agents pill and the speaker.
-CALL_STRIP_ITEMS = 3
+# A seated person's call strip holds stand up, the agents pill, the style key and the speaker.
+CALL_STRIP_ITEMS = 4
 STRIP = ".actions"
 STAGE = ".stage"
 STATUS = ".plaque"
@@ -322,7 +322,7 @@ def test_an_agent_sitting_notice_lies_clear_of_the_status_line(
 
 
 @pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
-def test_a_framed_call_strip_at_390_holds_stand_up_the_agents_pill_and_the_speaker_in_one_row(
+def test_a_framed_call_strip_at_390_holds_stand_up_the_agents_pill_the_style_key_and_the_speaker_in_one_row(
     open_person: Callable[..., Page],
     browser_coverage: BrowserCoverage,
     framing_server: RunningServer,

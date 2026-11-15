@@ -26,6 +26,7 @@ import {
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
     type STAGE_TOKENS,
+    type TABLE_STYLE_TOKENS,
     SUIT_TOKENS,
     TABLE_CARD_SUFFIX,
     TABLE_CLOSE_SUFFIX,
@@ -39,9 +40,6 @@ import {
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
     TABLE_EVENTS_SUFFIX,
-    TABLE_GIVE_UP_AGREE_SUFFIX,
-    TABLE_GIVE_UP_DECLINE_SUFFIX,
-    TABLE_GIVE_UP_SUFFIX,
     TABLE_KONTRA_SUFFIX,
     TABLE_NO_WORD_SUFFIX,
     TABLE_LIST_SUFFIX,
@@ -56,6 +54,7 @@ import {
     TABLE_SERIES_END_REFUSE_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
+    TABLE_STYLE_SUFFIX,
     TABLES_PATH,
     type WORD_TOKENS,
 } from "#lib/wire.ts";
@@ -108,6 +107,11 @@ export type LastTrick = { cards: Card[]; leader_seat: number; taker_seat: number
 export type Taken = { seat: number; tricks: number };
 // A give-up the table was asked and has not settled: who asked and which opponent already said no, the same for every viewer.
 export type GiveUp = { asking_seat: number; declined_seat: number | null };
+// The declarer's shortening the opponents were asked and have not settled: the level he demands, none by default, and
+// the opponent who said yes so far, the same for every viewer.
+export type Shortening = { asking_seat: number; claim: Announcement; agreed_seat: number | null };
+// The cards an opponent's open play, or the declarer's no to his shortening, left open to every viewer.
+export type OpenHand = { seat: number; cards: Card[] };
 // The words said in the running hand and their product, with the word the viewer's own chair may say now (null for
 // a watcher and for a chair with none open). At a table whose words end with the first card, that card waits on the
 // seats it names for a word or a decline, and the seats that declined stand beside them; both are empty otherwise.
@@ -128,6 +132,12 @@ export type Playing = {
     // Both sides' points from completed tricks; null unless the table shows them, and in a Null game and a Ramsch.
     running_points: Sides | null;
     give_up: GiveUp | null;
+    shortening: Shortening | null;
+    // The opponent whose no to a shortening left the declarer's cards open; it stays beside a new request.
+    shortening_refused_seat: number | null;
+    // The opponent whose wrong open play waits for the declarer's answer.
+    open_play_seat: number | null;
+    open_hands: OpenHand[];
     // Null at a table without Kontra.
     kontra: Kontra | null;
 };
@@ -227,7 +237,7 @@ export type Result = {
     bock_factor: number;
     // Each word said, in the order said, with the factor it doubled the score to; null when no word was said.
     kontra: { steps: { word: Word; factor: number }[] } | null;
-    // How the game ended, and the seat whose give-up or throw-down ended it; null exactly when it was played out.
+    // How the game ended, and the seat whose give-up, shortening, open play or throw-down ended it; null exactly when it was played out.
     ending: GameEnding;
     ended_by_seat: number | null;
 };
@@ -278,6 +288,8 @@ export type Series = {
     standings: Standing[] | null;
     end_proposal: EndProposal | null;
 };
+export type TableStyle = (typeof TABLE_STYLE_TOKENS)[number];
+
 export type Table = {
     id: string;
     version: number;
@@ -291,6 +303,8 @@ export type Table = {
     aborted: PassedIn | null;
     // Null once the table has ended.
     options: Options | null;
+    // The look the whole table shares, which a seated person changes; null once the table has ended.
+    style: TableStyle | null;
     bock: Bock | null;
     ended: Ended | null;
     // True only for the account that opened the table, who may close it.
@@ -404,23 +418,6 @@ export function playCard(id: string, version: number, commandId: string, card: C
     return post(id, TABLE_CARD_SUFFIX, { command_id: commandId, version, suit: card.suit, rank: card.rank });
 }
 
-// The version is the one the page shows, so a give-up on a table that has since moved on is refused; there is no retry.
-export function giveUp(id: string, version: number, commandId: string): Promise<Outcome> {
-    return post(id, TABLE_GIVE_UP_SUFFIX, { command_id: commandId, version });
-}
-
-export type GiveUpAnswer = "agree" | "decline";
-
-const GIVE_UP_ANSWER_SUFFIXES: Record<GiveUpAnswer, string> = {
-    agree: TABLE_GIVE_UP_AGREE_SUFFIX,
-    decline: TABLE_GIVE_UP_DECLINE_SUFFIX,
-};
-
-// The version is the one the page shows, so an answer to a request that has since gone is refused; there is no retry.
-export function answerGiveUp(id: string, version: number, commandId: string, answer: GiveUpAnswer): Promise<Outcome> {
-    return post(id, GIVE_UP_ANSWER_SUFFIXES[answer], { command_id: commandId, version });
-}
-
 export type AbortAnswer = "agree" | "refuse";
 
 const ABORT_ANSWER_SUFFIXES: Record<AbortAnswer, string> = {
@@ -457,6 +454,12 @@ export function markReady(id: string, commandId: string, ordinal: number, series
 // „Neue Serie“ names the series it saw as „Weiter“ does, so a tap on a series that has since been replaced is refused.
 export function startNewSeries(id: string, commandId: string, series: number): Promise<Outcome> {
     return post(id, TABLE_NEW_SERIES_SUFFIX, { command_id: commandId, series });
+}
+
+// A seated person gives the table a style; the stream brings it to every page at the table, so the answer's table is
+// not shown.
+export function chooseStyle(id: string, commandId: string, style: TableStyle): Promise<Outcome> {
+    return post(id, TABLE_STYLE_SUFFIX, { command_id: commandId, style });
 }
 
 export type SeriesEndAnswer = "agree" | "refuse";

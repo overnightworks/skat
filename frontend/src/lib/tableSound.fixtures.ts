@@ -55,6 +55,13 @@ export class FakePort implements AudioPort {
         this.spoken.push({ url, afterSeconds });
         return RECORDING_SECONDS;
     }
+
+    // The levels the sea was set to.
+    sea: number[] = [];
+
+    setSea(level: number): void {
+        this.sea.push(level);
+    }
 }
 
 export function cardPlayedBy(seat: number): Cue {
@@ -87,6 +94,7 @@ export function tableSeenFrom(ownSeat: number): Table {
         series: null,
         aborted: null,
         options: null,
+        style: null,
         bock: null,
         ended: null,
     };

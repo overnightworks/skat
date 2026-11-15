@@ -2,6 +2,7 @@
     import type { Snippet } from "svelte";
 
     import type { AskView } from "#lib/giveUp.ts";
+    import { Marked } from "overnightworks-design";
 
     const {
         view,
@@ -16,6 +17,8 @@
     } = $props();
 </script>
 
+{#snippet level({ text }: { text: string })}<b>{text}</b>{/snippet}
+
 <div class="plaque ask">
     <span class="game">
         {#each view.faces as face (face.seat)}
@@ -27,6 +30,19 @@
             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
         {/if}
     </span>
+    {#if view.waitsFor}
+        <span class="game">
+            {#each view.waitsFor.faces as face (face.seat)}
+                <span class="face" aria-hidden="true">{face.initial}</span>
+            {/each}
+            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {view.waitsFor.text} compiles to a `?? ""` branch no text can take -->
+            {`${view.waitsFor.text}`}
+            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        </span>
+    {/if}
+    {#if view.demand}
+        <div class="game pushes"><Marked parts={view.demand} marked={{ level }} /></div>
+    {/if}
     {@render children?.()}
     {#if view.buttons.length > 0}
         <div class="answers">
