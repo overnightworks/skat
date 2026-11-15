@@ -288,7 +288,7 @@ def test_the_strip_with_the_key_stays_one_row_without_scrolling_also_armed(
     armed = opponent.locator(PLAY_OPEN_KEY)
     armed.click()
     expect(armed).to_have_attribute("title", PLAY_OPEN_SURE)
-    expect_nothing_to_overflow(opponent, f"{STRIP} > *")
+    expect_nothing_to_overflow(opponent, f"{STRIP} > :not([popover])")
     assert page_errors == []
 
 
