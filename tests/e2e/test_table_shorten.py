@@ -15,6 +15,7 @@ from tests.e2e.support.early_end import (
     OPEN_CARDS,
     OPEN_TAG,
     REQUEST,
+    SHORTEN_KEY,
     expect_nothing_to_overflow,
     expect_the_stamp,
     mark_on,
@@ -22,7 +23,6 @@ from tests.e2e.support.early_end import (
 )
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE, WIDTHS
-from tests.e2e.support.ramsch_stage import deal as deal_a_ramsch
 from tests.e2e.support.result_card import CARD, waiting_for
 
 if TYPE_CHECKING:
@@ -40,8 +40,6 @@ SAID_YES = text(SOURCE_LANGUAGE, "table.saidYes")
 SAID_NO = text(SOURCE_LANGUAGE, "table.saidNo")
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
 GIVE_UP = text(SOURCE_LANGUAGE, "table.giveUp")
-STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-SHORTEN_KEY = ".copy.shorten"
 
 
 @pytest.fixture
@@ -294,20 +292,3 @@ def test_no_key_while_the_declarer_still_declares_or_a_chair_is_open_or_a_reques
     expect(declarer.locator(".chair.mine")).to_have_count(1)
     expect(declarer.locator(SHORTEN_KEY)).to_have_count(0)
     expect(declarer.locator(".copy.give-up")).to_have_count(0)
-
-
-def test_no_key_in_a_ramsch(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-) -> None:
-    ramsch = deal_a_ramsch(open_person, e2e_server, member_of, page_errors, PHONE)
-
-    ramsch.play_the_first_card_after_two_pushes()
-
-    for person in ramsch.pages.values():
-        expect(button_of(person, STAND_UP)).to_be_visible()
-    for person in ramsch.everyone:
-        expect(person.locator(SHORTEN_KEY)).to_have_count(0)
-    assert page_errors == []

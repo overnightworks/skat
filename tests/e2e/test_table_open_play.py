@@ -14,6 +14,7 @@ from tests.e2e.support.early_end import (
     OPEN_CARDS,
     OPEN_TAG,
     OWN_CARDS,
+    PLAY_OPEN_KEY,
     REQUEST,
     THREE_SECONDS_MILLISECONDS,
     expect_nothing_to_overflow,
@@ -23,7 +24,6 @@ from tests.e2e.support.early_end import (
 )
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE, SMALL_PHONE, WIDTHS
-from tests.e2e.support.ramsch_stage import deal as deal_a_ramsch
 from tests.e2e.support.result_card import waiting_for
 from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
 
@@ -47,8 +47,6 @@ PLAY_OPEN_SURE = text(SOURCE_LANGUAGE, "table.playOpenSure")
 YOU_PLAY_OPEN = text(SOURCE_LANGUAGE, "table.youPlayOpen")
 OPEN_MARK = text(SOURCE_LANGUAGE, "table.playsOpenMark")
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
-STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-PLAY_OPEN_KEY = ".copy.play-open"
 
 
 @pytest.fixture(scope="module")
@@ -284,23 +282,6 @@ def test_no_key_for_an_opponent_while_the_declarer_still_declares(
     for opponent in declaring.others:
         expect(opponent.locator(".chair.mine")).to_have_count(1)
         expect(opponent.locator(PLAY_OPEN_KEY)).to_have_count(0)
-    assert page_errors == []
-
-
-def test_no_key_in_a_ramsch(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-) -> None:
-    ramsch = deal_a_ramsch(open_person, e2e_server, member_of, page_errors, PHONE)
-
-    ramsch.play_the_first_card_after_two_pushes()
-
-    for person in ramsch.pages.values():
-        expect(button_of(person, STAND_UP)).to_be_visible()
-    for person in ramsch.everyone:
-        expect(person.locator(PLAY_OPEN_KEY)).to_have_count(0)
     assert page_errors == []
 
 
