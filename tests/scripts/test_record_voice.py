@@ -10,6 +10,7 @@ import pytest
 from scripts import record_voice
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.kontra import Word
+from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS
 from skat.web.words import LANGUAGES
 
 if TYPE_CHECKING:
@@ -23,13 +24,19 @@ def lines_of(language: str) -> list[record_voice.SpokenLine]:
 
 
 @pytest.mark.parametrize("language", LANGUAGES)
-def test_every_language_speaks_a_pass_each_word_of_kontra_each_valid_bid_and_the_nudge_grumbles(language: str) -> None:
+def test_every_language_speaks_a_pass_each_word_of_kontra_each_valid_bid_the_announced_game_and_the_nudge_grumbles(
+    language: str,
+) -> None:
     keys = {line.key for line in lines_of(language)}
 
     expected = {
         "voice.pass",
         *(f"voice.{word.value}" for word in Word),
         *(f"voice.value{bid}" for bid in VALID_BIDS),
+        *(f"voice.{game}" for game in GAME_TOKENS.values()),
+        *(f"voice.{announcement}" for announcement in ANNOUNCEMENT_TOKENS.values() if announcement != "none"),
+        "voice.hand",
+        "voice.ouvert",
         "voice.grumbleComing",
         "voice.grumbleRush",
         "voice.grumbleThinking",

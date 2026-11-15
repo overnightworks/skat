@@ -17,6 +17,7 @@ import type {
     AuctionWord,
     Card,
     Chair,
+    Declaring,
     GiveUp,
     Kontra,
     LastTrick,
@@ -360,6 +361,25 @@ describe("the bid a chair said between two versions of a table", () => {
         },
     ] satisfies { name: string; previous: Table | undefined; next: Table }[])("is not $name", ({ previous, next }) => {
         expect(cuesBetween(previous, next).some((cue) => cue.kind === "bid-said")).toBe(false);
+    });
+});
+
+describe("the game announced between two versions of a table", () => {
+    const announced = (declaration: Declaring["declaration"]): Table =>
+        table(2, EVERY_HAND_DEALT, { declaring: { ...declaringAt("declared"), declaration } });
+    const HERZ_HAND = { game: "herz", hand: true, ouvert: false, announcement: "schneider" } as const;
+
+    it("is the game that the declarer declared, once", () => {
+        const before = table(1, EVERY_HAND_DEALT, { declaring: declaringAt("picked") });
+
+        expect(cuesBetween(before, announced(HERZ_HAND))).toContainEqual({ kind: "game-announced", ...HERZ_HAND });
+        expect(cuesBetween({ ...announced(HERZ_HAND), version: 2 }, { ...announced(HERZ_HAND), version: 3 })).toEqual(
+            [],
+        );
+    });
+
+    it("is not told to a page that has no table before it", () => {
+        expect(cuesBetween(undefined, announced(HERZ_HAND))).toEqual([]);
     });
 });
 

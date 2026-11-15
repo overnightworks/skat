@@ -8,6 +8,7 @@ import {
     type Card,
     type Chair,
     type ChairHand,
+    type Declaring,
     type LastTrick,
     type Playing,
     type SeatedCard,
@@ -45,6 +46,8 @@ export type Cue =
     | { kind: "give-up-refused"; seats: number[] }
     | { kind: "bid-said"; seat: number; word: BidWord }
     | { kind: "word-said"; said: SaidWord }
+    // The game the declarer declared, with what the table's announcement shows of it.
+    | ({ kind: "game-announced" } & NonNullable<Declaring["declaration"]>)
     // The viewer is on turn in a phase of the hand where another chair, or no chair, was before.
     | { kind: "turn-came" }
     // A hand was dealt to a table that was waiting for one.
@@ -72,6 +75,9 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     const refusers = giveUpRefusedBetween(previous, next);
     if (refusers !== null) cues.push({ kind: "give-up-refused", seats: refusers });
     for (const bid of bidsSaidBetween(previous, next)) cues.push({ kind: "bid-said", ...bid });
+    const declared = next.hand?.declaring?.declaration ?? null;
+    if (declared !== null && !sameJson(previous.hand?.declaring?.declaration, declared))
+        cues.push({ kind: "game-announced", ...declared });
     const said = wordSaidBetween(previous, next);
     if (said !== null) cues.push({ kind: "word-said", said });
     if (turnCameBetween(previous, next)) cues.push({ kind: "turn-came" });

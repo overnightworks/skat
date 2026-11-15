@@ -23,13 +23,32 @@ export function grumbleOf(pick: number): VoiceKey {
     return GRUMBLES[pick % GRUMBLES.length] as VoiceKey;
 }
 
-/** The word the voice says for a cue, or nothing when the cue shows nothing a voice would repeat. */
-export function voiceKeyOf(cue: Cue): VoiceKey | undefined {
-    if (cue.kind === "nudged") return grumbleOf(cue.pick);
-    if (cue.kind === "word-said") return `voice.${cue.said.word}`;
-    if (cue.kind !== "bid-said") return undefined;
-    // The server names a value with every bid and every hold.
-    return cue.word.action === "pass" ? "voice.pass" : (`voice.value${String(cue.word.value)}` as VoiceKey);
+/** The words the voice says for a cue in order, none when the cue shows nothing a voice would repeat. */
+export function voiceKeysOf(cue: Cue): VoiceKey[] {
+    switch (cue.kind) {
+        case "nudged":
+            return [grumbleOf(cue.pick)];
+        case "word-said":
+            return [`voice.${cue.said.word}`];
+        case "game-announced":
+            return announcementKeys(cue);
+        case "bid-said":
+            // The server names a value with every bid and every hold.
+            return [cue.word.action === "pass" ? "voice.pass" : (`voice.value${String(cue.word.value)}` as VoiceKey)];
+        default:
+            return [];
+    }
+}
+
+// The game as the table's announcement reads it: the game, Ouvert, Hand and the announced Schneider or Schwarz. A suit or
+// Grand ouvert game includes Hand, and an ouvert game has no announcement.
+function announcementKeys({ game, hand, ouvert, announcement }: Extract<Cue, { kind: "game-announced" }>): VoiceKey[] {
+    if (ouvert) return [`voice.${game}`, "voice.ouvert", ...(game === "null" && hand ? (["voice.hand"] as const) : [])];
+    return [
+        `voice.${game}`,
+        ...(hand ? (["voice.hand"] as const) : []),
+        ...(announcement === "none" ? [] : ([`voice.${announcement}`] as const)),
+    ];
 }
 
 /** Where the recording of a key lies in the page's language. */

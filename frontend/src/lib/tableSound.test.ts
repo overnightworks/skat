@@ -398,6 +398,23 @@ describe("the voice", () => {
         expect(starts[2]).toBeGreaterThanOrEqual((starts[1] as number) + RECORDING_SECONDS);
     });
 
+    it("says the announced game after the words of its update, word by word", () => {
+        const port = new FakePort();
+        const announced: Cue = {
+            kind: "game-announced",
+            game: "herz",
+            hand: true,
+            ouvert: false,
+            announcement: "schneider",
+        };
+
+        soundAt(port, { voice: true }).forCues([BID_EIGHTEEN, announced], tableSeenFrom(OWN_SEAT));
+
+        expect(port.spoken.map(({ url }) => url)).toEqual(
+            ["voice.value18", "voice.herz", "voice.hand", "voice.schneider"].map(RECORDING_OF),
+        );
+    });
+
     it("says nothing while the voice is off, and the taps sound all the same", () => {
         const port = new FakePort();
 
