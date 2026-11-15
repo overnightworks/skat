@@ -1,0 +1,77 @@
+// @vitest-environment jsdom
+import { flushSync, mount, unmount } from "svelte";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import ThrownEmotes from "#lib/ui/ThrownEmotes.svelte";
+import { receiveReactions, resetReactions } from "#lib/tableReactions.svelte.ts";
+import type { Chair } from "../../routes/(start)/tables.ts";
+import type { Thrown } from "../../routes/(start)/reaction.ts";
+
+vi.mock("#lib/tableSound.ts", () => ({ soundForReaction: () => undefined }));
+
+const chair = (seat: number, isMine: boolean): Chair => ({
+    seat,
+    occupant_name: `Person ${String(seat)}`,
+    occupant_kind: "person",
+    is_mine: isMine,
+    is_away: false,
+    ready: true,
+    total: null,
+    hand: null,
+    former_holder_name: null,
+    is_mine_to_return: false,
+    nudge: null,
+});
+
+describe("what a thrown emote shows on the felt", () => {
+    let mounted: ReturnType<typeof mount> | undefined;
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(async () => {
+        if (mounted !== undefined) await unmount(mounted);
+        mounted = undefined;
+        document.body.replaceChildren();
+        resetReactions();
+        vi.useRealTimers();
+    });
+
+    function throwEmote(by_seat: number | null, by_name: string | null): void {
+        const thrown: Thrown = { number: 1, reaction: "fire", by_seat, by_name };
+        mounted = mount(ThrownEmotes, {
+            target: document.body,
+            props: { chairs: [chair(1, false), chair(2, true), chair(3, false)] },
+        });
+        receiveReactions([thrown]);
+        flushSync();
+    }
+
+    it("draws a dashed trail of the arc beside the emote", () => {
+        throwEmote(1, "Anna");
+
+        const path = document.querySelector(".emote-trail path")?.getAttribute("d") ?? "";
+
+        expect(path.startsWith("M")).toBe(true);
+        expect(path.split("L")).toHaveLength(8);
+    });
+
+    it("tells the stylesheet where the emote starts and where it lands", () => {
+        throwEmote(1, "Anna");
+
+        const emote = document.querySelector<HTMLElement>(".emote");
+
+        for (const property of ["--ox", "--oy", "--lx", "--ly"]) {
+            expect(emote?.style.getPropertyValue(property)).toMatch(/^\d+$/);
+        }
+    });
+
+    it("marks the thrower's initial with the colour of the thrower's seat", () => {
+        throwEmote(3, "Ben");
+
+        const from = document.querySelector(".emote .from");
+
+        expect(from?.textContent).toBe("B");
+        expect(from?.classList.contains("seat-3")).toBe(true);
+    });
+});
