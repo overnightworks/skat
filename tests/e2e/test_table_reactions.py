@@ -65,10 +65,14 @@ RESTING_PLACE = """selector => {
 
 # The place of the element in the layer that carries the emotes, before its motion moves it.
 POSITION_IN_LAYER = "selector => { const e = document.querySelector(selector); return [e.offsetLeft, e.offsetTop]; }"
-# Every key of the row of actions that stands on the screen, as its box.
-ACTION_KEYS = """() => [...document.querySelectorAll('.actions button')]
-    .map(key => key.getBoundingClientRect()).filter(box => box.width > 0)
-    .map(box => ({ x: box.x, y: box.y, width: box.width, height: box.height }))"""
+# Every key of the table's top row that stands on the screen, as its box: the keys level with the first one, the tray key
+# among them, the tray's own keys not.
+TOP_ROW_KEYS = """() => {
+    const boxes = [...document.querySelectorAll('.bar :is(a, button):not(.tray *)')]
+        .map(key => key.getBoundingClientRect()).filter(box => box.width > 0);
+    return boxes.filter(box => box.top < boxes[0].bottom)
+        .map(box => ({ x: box.x, y: box.y, width: box.width, height: box.height }));
+}"""
 
 
 def is_wide(person: Page) -> bool:
@@ -142,7 +146,7 @@ def test_an_emote_from_the_tray_flies_onto_the_felt_of_every_page_and_sounds_wit
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_open_tray_covers_no_key_of_the_row_of_actions(
+def test_the_open_tray_covers_no_key_of_the_top_row_it_hangs_by(
     deal_a_game: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_game(form_factor)
@@ -152,7 +156,9 @@ def test_the_open_tray_covers_no_key_of_the_row_of_actions(
 
     tray = person.get_by_role("group", name=TRAY).bounding_box()
     assert tray is not None
-    for key in person.evaluate(ACTION_KEYS):
+    keys = person.evaluate(TOP_ROW_KEYS)
+    assert keys
+    for key in keys:
         covers_across = tray["x"] < key["x"] + key["width"] and key["x"] < tray["x"] + tray["width"]
         covers_down = tray["y"] < key["y"] + key["height"] and key["y"] < tray["y"] + tray["height"]
         assert not (covers_across and covers_down)
