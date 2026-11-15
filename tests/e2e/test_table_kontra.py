@@ -136,13 +136,10 @@ def test_aufgeben_goes_round_on_a_phone_while_kontra_is_offered_and_the_strip_st
     offered = says_kontra(table)
     none = passed_at_once(table)
 
-    give_up = offered.locator(".copy.give-up").bounding_box()
-    assert give_up is not None
-    assert (give_up["width"] <= ROUND_KEY_PIXELS) is phone
-    wide = none.locator(".copy.give-up").bounding_box()
-    assert wide is not None
-    assert wide["width"] > ROUND_KEY_PIXELS
     for person in (offered, none):
+        give_up = person.locator(".copy.give-up").bounding_box()
+        assert give_up is not None
+        assert (give_up["width"] <= ROUND_KEY_PIXELS) is phone
         keys = person.locator(".actions > .copy, .actions .pill-anchor")
         assert keys.evaluate_all("keys => new Set(keys.map(key => key.offsetTop)).size") == 1
     for person in table.everyone:
