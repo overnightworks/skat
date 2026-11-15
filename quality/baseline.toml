@@ -276,6 +276,3 @@ entries_of = [["tests/web/test_tables_ramsch.py", "read_list"], ["tests/web/test
 
 [clones."tests/web/test_tables_ramsch.py"]
 read_list = [["tests/web/test_tables_ramsch_bock.py", "list_rows"]]
-
-[literal_text]
-"frontend/src/lib/ui/TableRules.svelte" = 1
