@@ -16,6 +16,7 @@ from tests.e2e.support.early_end import (
     OWN_CARDS,
     PLAY_OPEN_KEY,
     REQUEST,
+    STRIP,
     THREE_SECONDS_MILLISECONDS,
     expect_nothing_to_overflow,
     expect_the_stamp,
@@ -279,8 +280,9 @@ def test_the_strip_with_the_key_stays_one_row_without_scrolling_also_armed(
         tops = {round(box["y"]) for key in keys if (box := key.bounding_box()) is not None}
         assert len(tops) == 1
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-    armed = table.pages[opponents(table)[0]].locator(PLAY_OPEN_KEY)
+    opponent = table.pages[opponents(table)[0]]
+    armed = opponent.locator(PLAY_OPEN_KEY)
     armed.click()
     expect(armed).to_have_attribute("title", PLAY_OPEN_SURE)
-    assert table.pages[opponents(table)[0]].evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    expect_nothing_to_overflow(opponent, f"{STRIP} > *")
     assert page_errors == []

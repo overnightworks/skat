@@ -5087,6 +5087,18 @@ body {
     .room .copy:is(.give-up, .play-open).arm svg {
         display: none;
     }
+
+    /* The armed open play asks a longer question than the strip has room for beside four round keys, so it sets its sentence in two lines rather than push a key off the screen. */
+    .room .actions:has(.give-up) .copy.play-open.arm {
+        flex-shrink: 1;
+        min-width: 0;
+    }
+
+    .room .copy.play-open.arm .label {
+        white-space: normal;
+        text-align: center;
+        line-height: 1.15;
+    }
 }
 
 /* The smallest phones keep the stand-up's word beside the pill, which sets its names in a smaller padding. */
