@@ -7,6 +7,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Final, Protocol
 
 import structlog
+from logline import unit_trace
 
 from skat.web.waits import AskClock
 from skat.web.wakes import Registration, TableTopic, WakeList
@@ -40,7 +41,7 @@ class Scheduler(Protocol):  # pragma: no cover - a port's method bodies are sign
 
 
 class LoopScheduler:
-    """The event loop's timers: one task per scheduled action."""
+    """The event loop's timers: one task per scheduled action, each run in a trace of its own."""
 
     def __init__(self) -> None:
         self._tasks: set[asyncio.Task[None]] = set()
@@ -57,7 +58,9 @@ class LoopScheduler:
     @staticmethod
     async def _after(delay: float, action: Callable[[], Awaitable[None]]) -> None:
         await asyncio.sleep(delay)
-        await action()
+        # The task was made inside the request that scheduled it; a unit taken off a timer starts its own trace.
+        with unit_trace(None):
+            await action()
 
 
 @dataclass(frozen=True)
