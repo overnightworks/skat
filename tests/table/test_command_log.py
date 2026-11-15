@@ -57,12 +57,23 @@ class TestTableCommandLine:
         (line,) = lines_of(lines, EVENT)
         assert (line["outcome"], line["reason"], line["table_id"]) == (Outcome.REFUSED, CommandNotRun.NO_TABLE, None)
 
-    def test_opening_a_table_writes_one_ok_line(self, service, capsys):
+    def test_opening_a_table_writes_one_ok_line_with_the_id_of_the_table_it_made(self, service, capsys):
+        with logged(capsys) as lines:
+            opened = service.create(OPENER, CreateTable(command_id="command-open"))
+
+        (line,) = lines_of(lines, EVENT)
+        assert (line["command"], line["table_id"], line["outcome"]) == (CREATE_TABLE_COMMAND, opened.id, Outcome.OK)
+
+    def test_opening_a_table_again_under_the_same_command_id_writes_the_id_of_the_table_it_made_before(
+        self, service, capsys
+    ):
+        opened = service.create(OPENER, CreateTable(command_id="command-open"))
+
         with logged(capsys) as lines:
             service.create(OPENER, CreateTable(command_id="command-open"))
 
         (line,) = lines_of(lines, EVENT)
-        assert (line["command"], line["outcome"]) == (CREATE_TABLE_COMMAND, Outcome.OK)
+        assert (line["table_id"], line["outcome"]) == (opened.id, Outcome.OK)
 
     @pytest.mark.parametrize(
         ("closer", "outcome", "reason"),
