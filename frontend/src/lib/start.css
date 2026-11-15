@@ -4168,7 +4168,7 @@ body {
         margin-bottom: 0;
     }
 
-    /* The far chairs stand at the felt's rim, the near one at its lower left, as bid-watch draws them. */
+    /* The far chairs stand at the felt's rim, the near one centred over the hand, as the scenes draw them. */
     .room .stage {
         width: min(100%, 1180px);
         grid-template-rows: auto minmax(165px, 1fr) minmax(165px, 1fr) auto;
@@ -4179,25 +4179,29 @@ body {
         margin-inline: 120px;
     }
 
-    /* While a hand is played the near chair lies beside the trick, so the hand and the bar stay on the screen. */
+    /* While a hand is played the near chair stands on the felt's lower rim, its top lapping the place where the own card lands, and the hand steps down by as much. */
+    .room .stage:has(> .trick) {
+        --chair-drop: 60px;
+    }
+
     .room .stage:has(> .trick) .chair:nth-child(3) {
         grid-row: 3;
         align-self: end;
+        margin-bottom: calc(var(--chair-drop) * -1);
     }
 
     .room .controls {
         margin-top: 12px;
+    }
+
+    .room .stage:has(> .trick) .controls {
+        margin-top: calc(12px + var(--chair-drop));
     }
     .room .chair:nth-child(1) {
         justify-self: start;
     }
     .room .chair:nth-child(2) {
         justify-self: end;
-    }
-    .room .chair:nth-child(3) {
-        grid-column: 1;
-        justify-self: start;
-        margin-left: 40px;
     }
 
     .room .coaster {
@@ -4600,24 +4604,15 @@ body {
     }
 }
 
-/* On a short desktop the near chair stands beside the card, as the scene draws it, so the bar stays on the screen. */
+/* On a short desktop the far chairs stand beside the card, as the scene draws them, so the near chair below it and the bar stay on the screen. */
 @media (min-width: 900px) and (max-height: 860px) {
     .room .result {
         gap: 6px;
     }
 
-    .room .stage:has(> .result) .felt {
-        grid-row: 2 / 4;
-    }
-
-    .room .stage:has(> .result) .chair:nth-child(3) {
+    .room .stage:has(> .result) .chair:is(:nth-child(1), :nth-child(2)) {
         grid-row: 3;
-        justify-self: start;
-        align-self: end;
-    }
-
-    .room .stage:has(> .result) .controls {
-        grid-row: 4;
+        align-self: start;
     }
 }
 
