@@ -84,6 +84,7 @@ if TYPE_CHECKING:
 
 TABLE_PLACE_KIND: Final = "table"
 NOBODY_NAME: Final = "Table"
+SIGNAL_FAILED_EVENT: Final = "member_signal.failed"
 
 logger = structlog.get_logger()
 
@@ -299,7 +300,7 @@ class MemberStandings:
         try:
             self._changes.changed(principal, uri)
         except Exception as failure:
-            logger.error("member_signal.failed", error_type=type(failure).__name__)
+            logger.error(SIGNAL_FAILED_EVENT, error_type=type(failure).__name__)
 
     def _lease_runs(self, principal: Principal) -> bool:
         return principal.sub in self._presence.live_leases()
@@ -355,7 +356,7 @@ def _pulse(issuer: str, accounts: frozenset[str], change: Callable[[Principal], 
         try:
             anyio.from_thread.run_sync(change, Principal(iss=issuer, sub=account))
         except Exception as failure:
-            logger.error("member_signal.failed", error_type=type(failure).__name__)
+            logger.error(SIGNAL_FAILED_EVENT, error_type=type(failure).__name__)
 
 
 def _pulse_uri(changes: ResourceChanges, issuer: str, accounts: frozenset[str], uri: str) -> None:
@@ -394,7 +395,7 @@ def nudge_signal(changes: ResourceChanges, issuer: str) -> Callable[[str, str], 
         try:
             changes.changed(Principal(iss=issuer, sub=account_id), place_view_uri(place))
         except Exception as failure:
-            logger.error("member_signal.failed", error_type=type(failure).__name__)
+            logger.error(SIGNAL_FAILED_EVENT, error_type=type(failure).__name__)
 
     return tell
 
