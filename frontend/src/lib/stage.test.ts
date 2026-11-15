@@ -15,7 +15,7 @@ import {
 import type { LastTrick, Playing } from "../routes/(start)/tables.ts";
 
 const NOW = 10_000;
-const TIMING: Timing = { restMilliseconds: 800, glideMilliseconds: 1000 };
+const TIMING: Timing = timingOf(MOTION_SETS.verspielt, false) as Timing;
 const TRICK: LastTrick = {
     cards: [
         { suit: "kreuz", rank: "king" },
@@ -49,7 +49,10 @@ function resting(glideMilliseconds = TIMING.glideMilliseconds, turnPending = fal
 
 describe("the budget of a table", () => {
     it("is the set's rest and the time from gathering to landing", () => {
-        expect(timingOf(MOTION_SETS.verspielt, false)).toEqual({ restMilliseconds: 800, glideMilliseconds: 1000 });
+        expect(timingOf(MOTION_SETS.verspielt, false)).toMatchObject({
+            restMilliseconds: 800,
+            glideMilliseconds: 1000,
+        });
     });
 
     it.each([
@@ -69,7 +72,7 @@ describe("the time chairs move", () => {
     it.each(Object.values(MOTION_SETS).map((set) => ({ set, name: set.id })))(
         "is the set's time for a chair that is taken in the set $name",
         ({ set }) => {
-            expect(chairMoveMilliseconds([TAKEN_CHAIR], set, false)).toBe(set.chairSitsSeconds * 1000);
+            expect(chairMoveMilliseconds([TAKEN_CHAIR], timingOf(set, false))).toBe(set.chairSitsSeconds * 1000);
         },
     );
 
@@ -78,13 +81,13 @@ describe("the time chairs move", () => {
             [STOOD_CHAIR, OPENED_CHAIR].map((cue) => ({ set, cue, name: `${cue.kind} in ${set.id}` })),
         ),
     )("is the set's time for a chair that empties: $name", ({ set, cue }) => {
-        expect(chairMoveMilliseconds([cue], set, false)).toBe(set.chairEmptiesSeconds * 1000);
+        expect(chairMoveMilliseconds([cue], timingOf(set, false))).toBe(set.chairEmptiesSeconds * 1000);
     });
 
     it("is the longest of the chairs that move in one update", () => {
         const set = MOTION_SETS.verspielt;
 
-        expect(chairMoveMilliseconds([OPENED_CHAIR, TAKEN_CHAIR], set, false)).toBe(
+        expect(chairMoveMilliseconds([OPENED_CHAIR, TAKEN_CHAIR], timingOf(set, false))).toBe(
             Math.max(set.chairSitsSeconds, set.chairEmptiesSeconds) * 1000,
         );
     });
@@ -94,7 +97,7 @@ describe("the time chairs move", () => {
         { name: "no motion set is in force", motion: undefined, hidden: false, cues: [TAKEN_CHAIR] },
         { name: "no chair changed hands", motion: MOTION_SETS.verspielt, hidden: false, cues: [TAKEN] },
     ])("is zero when $name", ({ motion, hidden, cues }) => {
-        expect(chairMoveMilliseconds(cues, motion, hidden)).toBe(0);
+        expect(chairMoveMilliseconds(cues, timingOf(motion, hidden))).toBe(0);
     });
 });
 

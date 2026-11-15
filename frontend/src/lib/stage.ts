@@ -42,6 +42,8 @@ export const SETTLED: StageState = {
 export interface Timing {
     readonly restMilliseconds: number;
     readonly glideMilliseconds: number;
+    readonly chairSitsMilliseconds: number;
+    readonly chairEmptiesMilliseconds: number;
 }
 
 const MILLISECONDS = 1000;
@@ -53,16 +55,18 @@ export function timingOf(motion: MotionSet | undefined, hidden: boolean): Timing
         : {
               restMilliseconds: motion.trickRestSeconds * MILLISECONDS,
               glideMilliseconds: (motion.trickGatherSeconds + motion.trickGlideSeconds) * MILLISECONDS,
+              chairSitsMilliseconds: motion.chairSitsSeconds * MILLISECONDS,
+              chairEmptiesMilliseconds: motion.chairEmptiesSeconds * MILLISECONDS,
           };
 }
 
-/** How long the chairs that changed hands in `cues` move in the set: the longest of them, zero with no set in force or a hidden window. */
-export function chairMoveMilliseconds(cues: readonly Cue[], motion: MotionSet | undefined, hidden: boolean): number {
-    if (motion === undefined || hidden) return 0;
-    const seconds = cues
+/** How long the chairs that changed hands in `cues` move: the longest of them, zero with no budget. */
+export function chairMoveMilliseconds(cues: readonly Cue[], timing: Timing | null): number {
+    if (timing === null) return 0;
+    const milliseconds = cues
         .filter(isChairCue)
-        .map((cue) => (cue.kind === "chair-taken" ? motion.chairSitsSeconds : motion.chairEmptiesSeconds));
-    return Math.max(0, ...seconds) * MILLISECONDS;
+        .map((cue) => (cue.kind === "chair-taken" ? timing.chairSitsMilliseconds : timing.chairEmptiesMilliseconds));
+    return Math.max(0, ...milliseconds);
 }
 
 /** The moments the stage hands to the page: the sweep begins, the table is settled for the viewer's turn, and for the result of the hand the last trick closed. */

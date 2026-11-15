@@ -118,9 +118,9 @@ export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[]
     }
     if (cues.some((cue) => cue.kind === "card-played")) looking = null;
     if (cues.some((cue) => cue.kind === "dealt")) startDealing();
-    const motionSet = motionSetInForce();
+    const timing = timingOf(motionSetInForce(), document.hidden);
     stopChairs();
-    const chairMilliseconds = chairMoveMilliseconds(cues, motionSet, document.hidden);
+    const chairMilliseconds = chairMoveMilliseconds(cues, timing);
     if (chairMilliseconds > 0) {
         moving = cues.filter(isChairCue);
         movingTimer = setTimeout(stopChairs, chairMilliseconds);
@@ -130,7 +130,7 @@ export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[]
         receive(stage, {
             cues,
             before: previous.hand?.playing ?? null,
-            timing: timingOf(motionSet, document.hidden),
+            timing,
             mode: currentSettings().lastTrick,
             closing: whenResultShown !== undefined,
             now: Date.now(),
