@@ -92,6 +92,6 @@
         </span>
     {/each}
 </div>
-<p class="sr-only" role="status">
+<p class="sr-only" aria-live="polite">
     {#if latest !== undefined}{latest.by_name ?? ""} {words[reactionName(latest.reaction)]}{/if}
 </p>
