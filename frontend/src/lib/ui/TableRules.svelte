@@ -72,7 +72,7 @@
                 lockInfoShown = !lockInfoShown;
             }}
         >
-            i
+            {words["rules.infoMark"]}
         </button>
     </span>
     {#if lockInfoShown}

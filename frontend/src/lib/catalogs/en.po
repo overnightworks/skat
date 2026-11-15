@@ -1809,6 +1809,10 @@ msgctxt "rules.info"
 msgid "Info"
 msgstr "Info"
 
+msgctxt "rules.infoMark"
+msgid "i"
+msgstr "i"
+
 msgctxt "rules.close"
 msgid "Schließen"
 msgstr "Close"
