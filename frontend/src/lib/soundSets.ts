@@ -1,5 +1,8 @@
+import { reactionVoices, type Timbre } from "./reactionSounds.ts";
 import type { NoiseVoice, ToneVoice, Voice } from "./sound.ts";
 import type { Key } from "./words.ts";
+import { REACTION_TOKENS } from "./wire.ts";
+import type { Reaction } from "../routes/(start)/reaction.ts";
 
 export type SoundMoment =
     | "card-played"
@@ -21,6 +24,8 @@ export interface SoundSet {
     readonly name: Key;
     /** For each moment, the voices it sounds at the given gain (1 is a moment of the player's own). */
     readonly voices: Readonly<Record<SoundMoment, (gain: number) => readonly Voice[]>>;
+    /** For each reaction thrown at the table, the voices it sounds at the given gain. */
+    readonly reactions: Readonly<Record<Reaction, (gain: number) => readonly Voice[]>>;
     /** The ticks of the gains counting up over the given seconds, and the chime that ends them. */
     readonly counts: (gain: number, seconds: number) => readonly Voice[];
 }
@@ -559,6 +564,13 @@ function levelled(voices: VoicesOf, level: number): VoicesOf {
     return (gain) => voices(gain * level);
 }
 
+// A reaction sounds in the colour of its set: a soft sine, a deep triangle or a bright one.
+function reactionsIn(timbre: Timbre): Record<Reaction, VoicesOf> {
+    return Object.fromEntries(
+        REACTION_TOKENS.map((reaction) => [reaction, (gain: number) => reactionVoices(reaction, timbre, gain)]),
+    ) as Record<Reaction, VoicesOf>;
+}
+
 type CountsOf = (gain: number, seconds: number) => readonly Voice[];
 
 function levelledCounts(counts: CountsOf, level: number): CountsOf {
@@ -583,6 +595,7 @@ export const SOUND_SETS = {
             "chair-opened": levelled(chairKnockLow, 3.46),
             nudged: levelled(cowbellSoft, 0.64),
         },
+        reactions: reactionsIn({ wave: "sine", pitch: 1 }),
         counts: levelledCounts(countTicks, 4.7),
     },
     stammtisch: {
@@ -602,6 +615,7 @@ export const SOUND_SETS = {
             "chair-opened": levelled(chairSlide, 1.83),
             nudged: levelled(cowbellClank, 0.5),
         },
+        reactions: reactionsIn({ wave: "triangle", pitch: 0.8 }),
         counts: levelledCounts(countBell, 1),
     },
     funkeln: {
@@ -621,6 +635,7 @@ export const SOUND_SETS = {
             "chair-opened": levelled(chairBellsDown, 0.85),
             nudged: levelled(cowbellBright, 0.7),
         },
+        reactions: reactionsIn({ wave: "triangle", pitch: 1.3 }),
         counts: levelledCounts(countCoins, 1.09),
     },
 } as const satisfies Record<string, SoundSet>;

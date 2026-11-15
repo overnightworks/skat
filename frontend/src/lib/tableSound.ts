@@ -6,6 +6,7 @@ import { createSound, type AudioPort, type SoundSettings, type Voice } from "./s
 import { SOUND_SETS, type SoundMoment, type SoundSet } from "./soundSets.ts";
 import { everyRecording, recordingOf, voiceKeyOf, type VoiceKey } from "./voice.ts";
 import { createWebAudioPort } from "./webAudio.ts";
+import { isTableObject, type Reaction } from "../routes/(start)/reaction.ts";
 import type { Table } from "../routes/(start)/tables.ts";
 
 /** A card another player lays sounds quieter than the player's own. */
@@ -43,6 +44,8 @@ export interface TableSound {
     /** Wakes the sound at every tap and key on the target; the returned function stops it. */
     arm(target: Pick<EventTarget, "addEventListener" | "removeEventListener">): () => void;
     forCues(cues: readonly Cue[], table: Table): void;
+    /** Sounds a reaction thrown at the table once the emote has landed or the object has made its first move. */
+    forReaction(reaction: Reaction): void;
     /** Sounds the swept trick at the moment it begins to glide, when it has gathered. */
     forGlide(): void;
     /** Sounds and vibrates „Du bist dran“ for the viewer once the table shows it, after the moves of `cues` have landed. */
@@ -175,6 +178,20 @@ export function createTableSound({
                     sound.speak(url, lands + (cue.kind === "nudged" ? GRUMBLE_AFTER_THE_RING_SECONDS : 0));
             }
         },
+        forReaction(reaction) {
+            const moving = motion();
+            const lands =
+                moving === undefined
+                    ? 0
+                    : isTableObject(reaction)
+                      ? moving.objectMovesSeconds
+                      : moving.emoteLandsSeconds;
+            sound.play(
+                soundSet()
+                    .reactions[reaction](1)
+                    .map((voice) => ({ ...voice, at: voice.at + lands })),
+            );
+        },
         forGlide() {
             const gathers = motion()?.trickGatherSeconds ?? 0;
             sound.play(
@@ -242,6 +259,11 @@ export function armSound(): () => void {
 /** Sounds the cues a table update brought. */
 export function soundForCues(cues: readonly Cue[], table: Table): void {
     pageSound().forCues(cues, table);
+}
+
+/** Sounds a reaction thrown at the table. */
+export function soundForReaction(reaction: Reaction): void {
+    pageSound().forReaction(reaction);
 }
 
 /** Sounds the trick that begins to glide to its taker's pile. */

@@ -85,6 +85,7 @@ export function tableSeenFrom(ownSeat: number): Table {
         chairs,
         watchers: 0,
         opened_by_me: false,
+        reactions: [],
         hand: null,
         result: null,
         passed_in: null,

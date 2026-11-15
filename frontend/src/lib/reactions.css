@@ -1,0 +1,254 @@
+/* What the people at the table throw and tap: the tray, the emotes that fly onto the felt and the objects of the table
+   that move when tapped. Every move is drawn only where `data-motion` is set, which the device and the player allow. */
+
+.room .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.room .felt {
+    position: relative;
+}
+
+/* The tray: a phone opens it from its key, a wide screen shows it as a rail at the edge. */
+.room .reaction-key svg {
+    width: 24px;
+    height: 24px;
+}
+
+.room .reaction-key {
+    padding: 0 16px;
+}
+
+.room .tray {
+    position: fixed;
+    bottom: 150px;
+    left: 50%;
+    z-index: 20;
+    display: none;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(23, 27, 32, 0.92);
+    backdrop-filter: blur(14px);
+    box-shadow:
+        0 12px 26px -8px rgba(0, 0, 0, 0.9),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    transform: translateX(-50%);
+}
+
+.room .tray.open {
+    display: flex;
+}
+
+.room .tray button {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.room .tray button:is(:hover, :focus-visible) {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+@media (min-width: 900px) {
+    .room .reaction-key {
+        display: none;
+    }
+
+    .room .tray {
+        right: 18px;
+        bottom: 112px;
+        left: auto;
+        display: flex;
+        flex-direction: column;
+        border-radius: 26px;
+        transform: none;
+    }
+}
+
+/* A thrown emote lands on the felt, its thrower's initial at its corner. */
+.room .thrown {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    container-type: size;
+    pointer-events: none;
+}
+
+/* Where an emote starts and where it lands, in percent of the felt: the first chair stands at the far left, the second at the
+   far right, the own chair at the near edge, and a watcher throws from beyond it. */
+.room .emote[data-from="0"] {
+    --ox: 8;
+    --oy: 2;
+}
+
+.room .emote[data-from="1"] {
+    --ox: 92;
+    --oy: 2;
+}
+
+.room .emote[data-from="2"] {
+    --ox: 50;
+    --oy: 96;
+}
+
+.room .emote[data-from="rim"] {
+    --ox: 50;
+    --oy: 112;
+}
+
+.room .emote[data-spot="0"] {
+    --lx: 42;
+    --ly: 50;
+}
+
+.room .emote[data-spot="1"] {
+    --lx: 58;
+    --ly: 54;
+}
+
+.room .emote[data-spot="2"] {
+    --lx: 50;
+    --ly: 42;
+}
+
+.room .emote[data-spot="3"] {
+    --lx: 36;
+    --ly: 58;
+}
+
+.room .emote[data-spot="4"] {
+    --lx: 64;
+    --ly: 44;
+}
+
+.room .emote {
+    --fx: calc((var(--ox) - var(--lx)) * 1cqw);
+    --fy: calc((var(--oy) - var(--ly)) * 1cqh);
+
+    position: absolute;
+    top: calc(var(--ly) * 1%);
+    left: calc(var(--lx) * 1%);
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+    font-size: 32px;
+    line-height: 1;
+    filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.55));
+    transform: translate(-50%, -50%);
+}
+
+.room .emote .from {
+    position: absolute;
+    right: -8px;
+    bottom: -6px;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--brass-hi);
+    box-shadow: 0 0 0 2px #10241b;
+    color: #111;
+    font-family: "Open Sans", Arial, sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+@media (min-width: 900px) {
+    .room .emote {
+        width: 56px;
+        height: 56px;
+        font-size: 40px;
+    }
+}
+
+/* The playful set throws the emote from its chair: it flies, bounces on the felt, rests and fades; the calm set lets it
+   pop up where it lands. Both keep the time of their motion set. */
+.room[data-motion="verspielt"] .emote {
+    animation: emote-throw 3.23s cubic-bezier(0.3, 0.7, 0.4, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room[data-motion="dezent"] .emote {
+    animation: emote-pop 2.1s ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes emote-throw {
+    0% {
+        translate: var(--fx) var(--fy);
+        scale: 0.4;
+        opacity: 0;
+    }
+
+    5% {
+        opacity: 1;
+    }
+
+    16% {
+        translate: calc(var(--fx) * 0.3) calc(var(--fy) * 0.3 - 46px);
+        scale: 1.25;
+    }
+
+    26% {
+        translate: 0 0;
+        scale: 1.18 0.82;
+    }
+
+    32% {
+        translate: 0 -10px;
+        scale: 0.95 1.06;
+    }
+
+    38% {
+        translate: 0 0;
+        scale: 1;
+    }
+
+    88% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        scale: 0.9;
+    }
+}
+
+@keyframes emote-pop {
+    0% {
+        scale: 0.5;
+        opacity: 0;
+    }
+
+    14% {
+        scale: 1.15;
+        opacity: 1;
+    }
+
+    24% {
+        scale: 1;
+    }
+
+    85% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}

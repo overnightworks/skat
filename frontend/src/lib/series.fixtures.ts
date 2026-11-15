@@ -40,6 +40,7 @@ export function tableBetweenGames(mine: number, series: Series | null, ready: nu
         bock: null,
         ended: null,
         opened_by_me: false,
+        reactions: [],
     };
 }
 

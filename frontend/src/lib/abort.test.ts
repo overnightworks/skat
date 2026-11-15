@@ -38,6 +38,7 @@ function tableWith(mine: number, open: number | null, yes: number[] | null): Tab
         bock: null,
         ended: null,
         opened_by_me: false,
+        reactions: [],
         hand: {
             dealer_seat: 3,
             own_cards: [],

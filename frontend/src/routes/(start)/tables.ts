@@ -60,6 +60,7 @@ import {
 } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
 import type { Nudge } from "./nudge.ts";
+import type { Thrown } from "./reaction.ts";
 
 const SIGNED_OUT_STATUS = 401;
 export const NOT_FOUND_STATUS = 404;
@@ -309,6 +310,8 @@ export type Table = {
     ended: Ended | null;
     // True only for the account that opened the table, who may close it.
     opened_by_me: boolean;
+    // The reactions thrown at the table in the last seconds, oldest first.
+    reactions: Thrown[];
 };
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =

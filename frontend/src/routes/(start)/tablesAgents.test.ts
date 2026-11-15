@@ -485,6 +485,7 @@ describe("the key of the agents that sit", () => {
         chairs,
         watchers: 0,
         opened_by_me: false,
+        reactions: [],
         hand: null,
         result: null,
         passed_in: null,

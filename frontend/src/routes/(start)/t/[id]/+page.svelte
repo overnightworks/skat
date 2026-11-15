@@ -79,7 +79,9 @@
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import StandKey from "#lib/ui/StandKey.svelte";
+    import ReactionTray from "#lib/ui/ReactionTray.svelte";
     import StrandDecor from "#lib/ui/StrandDecor.svelte";
+    import ThrownEmotes from "#lib/ui/ThrownEmotes.svelte";
     import StyleKey from "#lib/ui/StyleKey.svelte";
     import StyleScene from "#lib/ui/StyleScene.svelte";
     import TrickPile from "#lib/ui/TrickPile.svelte";
@@ -97,6 +99,7 @@
         sweepingTo,
         trickIsMoving,
     } from "#lib/stage.svelte.ts";
+    import { receiveReactions, resetReactions } from "#lib/tableReactions.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
     import { words } from "#lib/words.ts";
@@ -129,6 +132,7 @@
         type Table,
     } from "../../tables.ts";
     import { nudgedNote } from "../../nudge.ts";
+    import { reactionsBetween } from "../../reaction.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
@@ -191,6 +195,7 @@
         if (previous === undefined || cues.some((cue) => cue.kind === "dealt")) playedThisHand = [];
         stamp = stampBetween(previous, table) ?? stamp;
         soundForCues(cues, table);
+        receiveReactions(reactionsBetween(previous, table));
         receiveOnStage(previous, cues);
         for (const cue of cues) {
             if (cue.kind === "card-played") {
@@ -227,6 +232,7 @@
         bidSaid = null;
         resetStage();
         stopRinging();
+        resetReactions();
         let current = true;
         let stopWatching = (): void => {};
         void readTable(id).then((answer) => {
@@ -273,6 +279,7 @@
             stopWatching();
             resetStage();
             stopRinging();
+            resetReactions();
         };
     });
 
@@ -537,7 +544,10 @@
                     {/if}
                 </div>
             {/if}
-            <div class="felt" aria-hidden="true"><StrandDecor /></div>
+            <div class="felt" aria-hidden="true">
+                <StrandDecor />
+                <ThrownEmotes chairs={outcome.table.chairs} />
+            </div>
             {#if standing !== null}
                 <Standings view={standing} />
             {:else if view !== null}
@@ -742,6 +752,7 @@
                     {#if seated && !onResult && keyWord(outcome.table) === null}
                         <StyleKey {id} bind:note />
                     {/if}
+                    <ReactionTray {id} />
                     {#if callMode}
                         <SoundButton place="strip" />
                     {:else}

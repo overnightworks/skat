@@ -51,6 +51,7 @@ export function tableWith(
         bock: null,
         ended: null,
         opened_by_me: false,
+        reactions: [],
         hand: {
             dealer_seat: 3,
             own_cards: [],

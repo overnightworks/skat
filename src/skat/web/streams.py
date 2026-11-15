@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from skat.table.service import TableService
     from skat.table.views import TableView
     from skat.web.presence import Presence, Subscription
+    from skat.web.reaction_log import Thrown
 
 logger = structlog.get_logger()
 
@@ -92,8 +93,8 @@ def message_of(item: SourceMessage | IdleHeartbeat) -> str:
     return f"{named}data: {item.data}\n\n"
 
 
-def _table_message(view: TableView, nudges: Mapping[int, NudgeState]) -> SourceMessage:
-    return SourceMessage(answer_of(view, nudges).model_dump_json(), last=view.ended is not None)
+def _table_message(view: TableView, nudges: Mapping[int, NudgeState], reactions: Sequence[Thrown]) -> SourceMessage:
+    return SourceMessage(answer_of(view, nudges, reactions).model_dump_json(), last=view.ended is not None)
 
 
 class TableSource:
@@ -130,11 +131,12 @@ class TableSource:
                 message = f"table {self._table_id} vanished while a stream watched it"
                 raise RuntimeError(message)
             nudges = self._presence.waits.nudges_of(view)
+            reactions = self._presence.reactions.shown(self._table_id)
         self._read_standing = (view.version, connected, leased)
         if self._first_read and view.ended is None:
             await self._ask_for_next_deal(view)
         self._first_read = False
-        return _table_message(view, nudges)
+        return _table_message(view, nudges, reactions)
 
     async def moved(self, _actor: Actor, /) -> bool:
         version = await self._read_version()
@@ -428,7 +430,7 @@ async def _table_items(
 ) -> AsyncIterator[SourceMessage | IdleHeartbeat]:
     # An ended table has nobody to watch: its one message is its answer, and nothing registers.
     if first_view.ended is not None:
-        yield _table_message(first_view, {})
+        yield _table_message(first_view, {}, ())
         return
     async for item in stream_messages(
         open_sources(), admit, lambda: presence.stopped, heartbeat_seconds=heartbeat_seconds
