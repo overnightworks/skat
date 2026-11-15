@@ -28,6 +28,7 @@ from skat.table.records import (
     StandUp,
     TableId,
     TableRecord,
+    TableStyle,
     Visibility,
 )
 
@@ -88,6 +89,7 @@ def decide_create(
         options=options,
         bock=BockRounds.start(),
         visibility=visibility,
+        style=TableStyle.KLASSIK,
     )
 
 
@@ -181,6 +183,7 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
         options=table.options,
         bock=table.bock,
         visibility=table.visibility,
+        style=table.style,
     )
     return _abort_if_agreed(_abort_while_open(changed))
 
@@ -267,6 +270,7 @@ def _abort_while_open(table: TableRecord) -> TableRecord:
         options=table.options,
         bock=table.bock,
         visibility=table.visibility,
+        style=table.style,
     )
 
 
@@ -292,6 +296,7 @@ def aborted_hand(table: TableRecord) -> TableRecord:
         options=table.options,
         bock=bock,
         visibility=table.visibility,
+        style=table.style,
     )
 
 
@@ -392,6 +397,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
         options=table.options,
         bock=table.bock,
         visibility=table.visibility,
+        style=table.style,
     )
 
 

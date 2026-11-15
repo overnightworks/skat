@@ -49,6 +49,7 @@ export function table(
         aborted: null,
         bock: null,
         ended: null,
+        style: null,
         options: {
             show_running_points: false,
             kontra: null,

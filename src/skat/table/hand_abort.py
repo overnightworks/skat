@@ -55,6 +55,7 @@ def decide_agree_to_abort(table: TableRecord, actor: Actor) -> Decision:
         options=table.options,
         bock=table.bock,
         visibility=table.visibility,
+        style=table.style,
     )
     return Decision(aborted_hand(agreed) if abort_agreed(agreed) else agreed)
 

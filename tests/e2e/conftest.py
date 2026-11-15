@@ -5,6 +5,7 @@ import pytest
 from webauth.admission import AppRole
 from webauth.ports import AccountKind
 
+from skat.table.records import TableStyle
 from skat.web.words import SOURCE_LANGUAGE
 from tests.e2e.support.audio import RECORDING_AUDIO_SCRIPT, playing_table
 from tests.e2e.support.browser_coverage import BrowserCoverage
@@ -242,6 +243,12 @@ def deal_a_game(
         return deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, console=console)
 
     return deal
+
+
+@pytest.fixture
+def table_style() -> TableStyle:
+    """The look a test's table is dealt in; a test that proves a scene in every style parametrizes it with `STYLES`."""
+    return TableStyle.KLASSIK
 
 
 @pytest.fixture

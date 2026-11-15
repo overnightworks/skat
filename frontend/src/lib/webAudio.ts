@@ -18,7 +18,10 @@ export interface AudioEnvironment {
 interface Graph {
     readonly context: AudioContext;
     readonly master: GainNode;
+    /** Where every source joins the limiter: the cues go through the master, the sea beside it. */
+    readonly output: AudioNode;
     readonly noise: AudioBuffer;
+    sea?: GainNode;
 }
 
 /** Above this level the limiter takes over; the sets play below it, so it acts on voices that land on top of each other. */
@@ -31,6 +34,18 @@ const LIMITER_RATIO = 20;
 const LIMITER_ATTACK_SECONDS = 0.001;
 const LIMITER_RELEASE_SECONDS = 0.1;
 const NOISE_SECONDS = 1.5;
+/** The sea's level ramps to each new level over this time, so a mute or a hidden tab fades it. */
+export const SEA_FADE_SECONDS = 1.2;
+/** A swell takes this long from one wave to the next; the foam's hiss swells half a swell later. */
+const SWELL_HERTZ = 0.11;
+const SURF_HERTZ = 420;
+const SURF_QUALITY = 0.5;
+const SURF_BASE = 0.22;
+const SURF_DEPTH = 0.18;
+const FOAM_HERTZ = 2400;
+const FOAM_QUALITY = 0.6;
+const FOAM_BASE = 0.035;
+const FOAM_DEPTH = 0.03;
 /** The envelope of a voice: a quick rise, an exponential fall, a tail before the source stops. The sets' loudness test renders by them. */
 export const TONE_ATTACK_SECONDS = 0.004;
 export const NOISE_ATTACK_SECONDS = 0.003;
@@ -92,7 +107,7 @@ export function createWebAudioPort(environment: AudioEnvironment): AudioPort {
         master.connect(limiter);
         limiter.connect(ceiling);
         ceiling.connect(context.destination);
-        return { context, master, noise: noiseBuffer(context) };
+        return { context, master, output: limiter, noise: noiseBuffer(context) };
     }
 
     return {
@@ -110,6 +125,12 @@ export function createWebAudioPort(environment: AudioEnvironment): AudioPort {
         setLoudness(gain) {
             const { context, master } = graph as Graph;
             master.gain.setValueAtTime(gain, context.currentTime);
+        },
+        setSea(level) {
+            if (graph === undefined || (graph.sea === undefined && level <= 0)) return;
+            const current = graph;
+            current.sea ??= startSea(current);
+            current.sea.gain.setTargetAtTime(level, current.context.currentTime, SEA_FADE_SECONDS / 3);
         },
         async loadRecordings(urls) {
             if (graph === undefined) return;
@@ -134,6 +155,38 @@ export function createWebAudioPort(environment: AudioEnvironment): AudioPort {
             else startNoise(current, voice, start);
         },
     };
+}
+
+// The surf is noise that a slow swell opens and closes, and a thin hiss of foam that swells half a swell later; both
+// run for as long as the page lives and the returned gain, which starts silent, is all that is heard of them.
+function startSea({ context, output, noise }: Graph): GainNode {
+    const sea = context.createGain();
+    sea.gain.value = 0;
+    sea.connect(output);
+    const layers = [
+        { hertz: SURF_HERTZ, quality: SURF_QUALITY, base: SURF_BASE, depth: SURF_DEPTH, type: "lowpass", lag: 0 },
+        { hertz: FOAM_HERTZ, quality: FOAM_QUALITY, base: FOAM_BASE, depth: FOAM_DEPTH, type: "bandpass", lag: 0.5 },
+    ] as const;
+    for (const layer of layers) {
+        const source = context.createBufferSource();
+        source.buffer = noise;
+        source.loop = true;
+        const filter = context.createBiquadFilter();
+        filter.type = layer.type;
+        filter.frequency.value = layer.hertz;
+        filter.Q.value = layer.quality;
+        const swell = context.createGain();
+        swell.gain.value = layer.base;
+        const wave = context.createOscillator();
+        wave.frequency.value = SWELL_HERTZ;
+        const depth = context.createGain();
+        depth.gain.value = layer.depth;
+        wave.connect(depth).connect(swell.gain);
+        source.connect(filter).connect(swell).connect(sea);
+        source.start();
+        wave.start(context.currentTime + layer.lag / SWELL_HERTZ);
+    }
+    return sea;
 }
 
 function noiseBuffer(context: AudioContext): AudioBuffer {

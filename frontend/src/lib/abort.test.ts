@@ -34,6 +34,7 @@ function tableWith(mine: number, open: number | null, yes: number[] | null): Tab
         series: null,
         aborted: null,
         options: null,
+        style: null,
         bock: null,
         ended: null,
         opened_by_me: false,

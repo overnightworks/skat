@@ -32,6 +32,7 @@ from skat.table.records import (
     TableId,
     TableOptions,
     TableRecord,
+    TableStyle,
     Visibility,
 )
 
@@ -99,6 +100,7 @@ def seated_table():
         options=TableOptions(),
         bock=BockRounds.start(),
         visibility=Visibility.OPEN,
+        style=TableStyle.KLASSIK,
     )
 
 

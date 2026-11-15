@@ -24,6 +24,7 @@ from skat.table.records import (
     TableId,
     TableOptions,
     TableRecord,
+    TableStyle,
     Visibility,
 )
 from skat.table.views import view_of
@@ -57,6 +58,7 @@ def seated_table(
         TableOptions(),
         BockRounds.start(),
         Visibility.OPEN,
+        TableStyle.KLASSIK,
     )
 
 
