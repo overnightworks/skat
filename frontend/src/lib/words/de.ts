@@ -492,6 +492,9 @@ export type Words = {
     readonly "table.styleKlassik": string;
     readonly "table.styleStrandbar": string;
     readonly "table.styleNote": string;
+    readonly "table.menu": string;
+    readonly "table.menuTable": string;
+    readonly "table.menuGame": string;
 };
 // prettier-ignore
 export const words: Words = {
@@ -1080,5 +1083,8 @@ export const words: Words = {
     "table.styleKlassik": "Klassik",
     "table.styleStrandbar": "Strandbar",
     "table.styleNote": "Gilt für alle am Tisch, auch für die Zuschauer.",
+    "table.menu": "Mehr",
+    "table.menuTable": "Tisch",
+    "table.menuGame": "Spiel",
 };
 export type Key = keyof Words;

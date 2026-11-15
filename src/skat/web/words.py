@@ -494,6 +494,9 @@ type Key = Literal[
     'table.styleKlassik',
     'table.styleStrandbar',
     'table.styleNote',
+    'table.menu',
+    'table.menuTable',
+    'table.menuGame',
 ]
 type Language = Literal[
     'de',
@@ -1044,6 +1047,9 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'table.styleKlassik': 'Klassik',
         'table.styleStrandbar': 'Strandbar',
         'table.styleNote': 'Gilt für alle am Tisch, auch für die Zuschauer.',
+        'table.menu': 'Mehr',
+        'table.menuTable': 'Tisch',
+        'table.menuGame': 'Spiel',
     },
     'en': {
         'app.name': 'Skat',
@@ -1575,6 +1581,9 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'table.styleKlassik': 'Classic',
         'table.styleStrandbar': 'Beach bar',
         'table.styleNote': 'Applies to everyone at the table, watchers included.',
+        'table.menu': 'More',
+        'table.menuTable': 'Table',
+        'table.menuGame': 'Game',
     },
 }
 

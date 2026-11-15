@@ -590,6 +590,9 @@ const translated = {
     "table.styleKlassik": "Classic",
     "table.styleStrandbar": "Beach bar",
     "table.styleNote": "Applies to everyone at the table, watchers included.",
+    "table.menu": "More",
+    "table.menuTable": "Table",
+    "table.menuGame": "Game",
 } satisfies Words;
 // A translation that leaves out a gap of its source fails here.
 ({} as Words) satisfies typeof translated;

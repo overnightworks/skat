@@ -3,7 +3,7 @@ import {
     answerGiveUp,
     giveUp,
     giveUpAsk,
-    giveUpKey,
+    giveUpOffered,
     giveUpView,
     openCardsMark,
     playOpen,
@@ -164,40 +164,26 @@ describe("the plaque's drawing of a give-up request", () => {
     });
 });
 
-describe("the give-up key on the table bar", () => {
+describe("the give-up row in the table menu", () => {
     it.each([FIRST_OPPONENT, DECLARER, SECOND_OPPONENT])("is offered to the seated person on chair %i", (viewer) => {
-        expect(giveUpKey(tableWith(viewer, null))).not.toBeNull();
+        expect(giveUpOffered(tableWith(viewer, null))).toBe(true);
     });
 
-    it("stays while a request stands, so a repeated tap is the table's to refuse, and keeps its word", () => {
-        expect(giveUpKey(tableWith(FIRST_OPPONENT, DECLARER_ASKS))).toEqual({ round: false });
+    it("stays while a request stands, so a repeated tap is the table's to refuse", () => {
+        expect(giveUpOffered(tableWith(FIRST_OPPONENT, DECLARER_ASKS))).toBe(true);
     });
 
-    it.each([DECLARER, FIRST_OPPONENT])(
-        "goes round beside the key that shortens or plays open, as chair %i has it",
-        (viewer) => {
-            expect(giveUpKey(tableWith(viewer, null))).toEqual({ round: true });
-        },
-    );
-
-    it("goes round while Kontra is offered", () => {
-        expect(giveUpKey(tableWith(FIRST_OPPONENT, null, { kontraWord: "kontra" }))).toEqual({ round: true });
-    });
-
-    it("keeps its word while the first card waits on the viewer for a Kontra word, whose pair has a bar of its own", () => {
-        const owing = tableWith(FIRST_OPPONENT, null, { kontraWord: "kontra", owedBy: FIRST_OPPONENT });
-
-        expect(giveUpKey(owing)).toEqual({ round: false });
-    });
-
-    it("goes round while the first card waits on another seat for its word", () => {
+    it("is offered while Kontra is offered and while the first card waits for a word", () => {
         const owing = tableWith(FIRST_OPPONENT, null, { kontraWord: "kontra", owedBy: SECOND_OPPONENT });
 
-        expect(giveUpKey(owing)).toEqual({ round: true });
+        expect([
+            giveUpOffered(tableWith(FIRST_OPPONENT, null, { kontraWord: "kontra" })),
+            giveUpOffered(owing),
+        ]).toEqual([true, true]);
     });
 
     it("is offered for a Grand Hand declared in the Ramsch stage", () => {
-        expect(giveUpKey(tableWith(FIRST_OPPONENT, null, { grandHandInRamsch: true }))).not.toBeNull();
+        expect(giveUpOffered(tableWith(FIRST_OPPONENT, null, { grandHandInRamsch: true }))).toBe(true);
     });
 
     it.each([
@@ -206,7 +192,7 @@ describe("the give-up key on the table bar", () => {
         { name: "the hand is a Ramsch", table: tableWith(FIRST_OPPONENT, null, { ramsch: true }) },
         { name: "no hand is dealt", table: { ...tableWith(FIRST_OPPONENT, null), hand: null } },
     ])("is missing when $name", ({ table }) => {
-        expect(giveUpKey(table)).toBeNull();
+        expect(giveUpOffered(table)).toBe(false);
     });
 });
 

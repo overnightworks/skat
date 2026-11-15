@@ -4,7 +4,7 @@
     const { oncopy }: { oncopy: () => void } = $props();
 </script>
 
-<button type="button" class="copy link" aria-label={words["table.copyLink"]} onclick={oncopy}>
+<button type="button" class="row link" onclick={oncopy}>
     <svg
         viewBox="0 0 24 24"
         fill="none"

@@ -37,18 +37,14 @@
     import { seriesCountText, seriesEndAsk, seriesOver, standingsView } from "#lib/series.ts";
     import { declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, LegalLinks, Marked } from "overnightworks-design";
-    import AbortKey from "#lib/ui/AbortKey.svelte";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
-    import AgentsPill from "#lib/ui/AgentsPill.svelte";
     import AnswerMarks from "#lib/ui/AnswerMarks.svelte";
     import AskPlaque from "#lib/ui/AskPlaque.svelte";
     import AwayMark from "#lib/ui/AwayMark.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
     import DecidingPlaque from "#lib/ui/DecidingPlaque.svelte";
-    import CopyLinkKey from "#lib/ui/CopyLinkKey.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
-    import CloseKey from "#lib/ui/CloseKey.svelte";
     import DealerMark from "#lib/ui/DealerMark.svelte";
     import CardCountTag from "#lib/ui/CardCountTag.svelte";
     import CardDeck from "#lib/ui/CardDeck.svelte";
@@ -58,7 +54,6 @@
     import FaceDownSkat from "#lib/ui/FaceDownSkat.svelte";
     import FreeChairTile from "#lib/ui/FreeChairTile.svelte";
     import LockedChairTile from "#lib/ui/LockedChairTile.svelte";
-    import GiveUpKey from "#lib/ui/GiveUpKey.svelte";
     import KontraKey from "#lib/ui/KontraKey.svelte";
     import KontraLines from "#lib/ui/KontraLines.svelte";
     import NudgeBell from "#lib/ui/NudgeBell.svelte";
@@ -74,17 +69,15 @@
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SeatNoticeLine from "#lib/ui/SeatNoticeLine.svelte";
     import ShortenKey from "#lib/ui/ShortenKey.svelte";
-    import SeriesEndKey from "#lib/ui/SeriesEndKey.svelte";
     import Standings from "#lib/ui/Standings.svelte";
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
-    import StandKey from "#lib/ui/StandKey.svelte";
     import StrandDecor from "#lib/ui/StrandDecor.svelte";
-    import StyleKey from "#lib/ui/StyleKey.svelte";
     import StyleScene from "#lib/ui/StyleScene.svelte";
     import TrickPile from "#lib/ui/TrickPile.svelte";
     import TrickStage from "#lib/ui/TrickStage.svelte";
     import TableBar from "#lib/ui/TableBar.svelte";
+    import TableMenu from "#lib/ui/TableMenu.svelte";
     import WeiterKey from "#lib/ui/WeiterKey.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { bockLine } from "#lib/tableRules.ts";
@@ -307,6 +300,11 @@
         else void seat(sitDown(id, chairSeat, crypto.randomUUID()));
     }
 
+    // A result, the standings or a Ramsch's reckoning stands on the table.
+    function resultOnStage(table: Table): boolean {
+        return standingsView(table) !== null || declaredResult(table) !== null || ramschResultView(table) !== null;
+    }
+
     async function copy(): Promise<void> {
         note = (await copyTableLink(id)) ? words["table.linkCopied"] : words["table.linkCopyFailed"];
     }
@@ -359,6 +357,29 @@
 
 {#snippet factor({ text }: { text: string })}<b>{text}</b>{/snippet}
 
+{#snippet tableMenu(place: "bar" | "strip")}
+    {#if outcome?.kind === "table" && outcome.table.ended === null}
+        {@const table = outcome.table}
+        <TableMenu
+            {id}
+            {table}
+            bind:note
+            {place}
+            {callMode}
+            {seated}
+            styleOffered={seated && !resultOnStage(table) && keyWord(table) === null}
+            oncopy={copy}
+            onstand={() => {
+                void seat(standUp(id, crypto.randomUUID()));
+            }}
+            {streamedVersion}
+            {seatedAgents}
+            watchers={streamedWatchers}
+            kitWords={data.kitWords}
+        />
+    {/if}
+{/snippet}
+
 {#snippet waitingLine()}
     <span class="gives">
         <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
@@ -392,7 +413,11 @@
                       count: seriesCountText(outcome.table),
                   }
                 : null}
-        />
+        >
+            {#snippet menu()}
+                {@render tableMenu("bar")}
+            {/snippet}
+        </TableBar>
     {/if}
     <main class="stage" class:stale={!connected} class:after-drop={greeted}>
         {#if outcome?.kind === "table" && outcome.table.ended !== null}
@@ -415,7 +440,7 @@
             {@const view = declared === null ? null : resultView(outcome.table)}
             {@const ramschView = ramschResultView(outcome.table)}
             {@const standing = standingsView(outcome.table)}
-            {@const onResult = standing !== null || view !== null || ramschView !== null}
+            {@const onResult = resultOnStage(outcome.table)}
             {@const winners =
                 standing?.winnerSeats ??
                 new Set((view ?? ramschView)?.rows.filter((row) => row.won).map((row) => row.seat))}
@@ -712,8 +737,6 @@
                 {/if}
                 <div class="actions" class:on-result={onResult}>
                     <KontraKey {id} table={outcome.table} bind:note />
-                    <AbortKey {id} table={outcome.table} bind:note />
-                    <SeriesEndKey {id} table={outcome.table} bind:note />
                     <WeiterKey
                         {bar}
                         watching={standing !== null}
@@ -723,32 +746,9 @@
                     />
                     <ShortenKey {id} table={outcome.table} bind:note />
                     <PlayOpenKey {id} table={outcome.table} bind:note />
-                    <GiveUpKey {id} table={outcome.table} bind:note />
-                    {#if seated}
-                        <StandKey
-                            handRuns={outcome.table.hand !== null}
-                            onstand={() => {
-                                void seat(standUp(id, crypto.randomUUID()));
-                            }}
-                        />
-                    {/if}
-                    <AgentsPill
-                        tableId={id}
-                        {streamedVersion}
-                        {seatedAgents}
-                        watchers={streamedWatchers}
-                        kitWords={data.kitWords}
-                    />
-                    {#if seated && !onResult && keyWord(outcome.table) === null}
-                        <StyleKey {id} bind:note />
-                    {/if}
                     {#if callMode}
                         <SoundButton place="strip" />
-                    {:else}
-                        <CopyLinkKey oncopy={copy} />
-                    {/if}
-                    {#if outcome.table.opened_by_me && !callMode}
-                        <CloseKey {id} bind:note />
+                        {@render tableMenu("strip")}
                     {/if}
                 </div>
                 <p class="note" role="status">{note}</p>

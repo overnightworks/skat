@@ -2006,3 +2006,15 @@ msgstr ""
 msgctxt "table.styleNote"
 msgid "Gilt für alle am Tisch, auch für die Zuschauer."
 msgstr ""
+
+msgctxt "table.menu"
+msgid "Mehr"
+msgstr ""
+
+msgctxt "table.menuTable"
+msgid "Tisch"
+msgstr ""
+
+msgctxt "table.menuGame"
+msgid "Spiel"
+msgstr ""

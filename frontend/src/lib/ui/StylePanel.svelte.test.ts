@@ -3,12 +3,12 @@ import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { showTableStyle } from "#lib/tableStyle.svelte.ts";
-import StyleKey from "#lib/ui/StyleKey.svelte";
+import StylePanel from "#lib/ui/StylePanel.svelte";
 import StyleScene from "#lib/ui/StyleScene.svelte";
 import { TABLE_STYLE_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
 
-describe("the style key", () => {
+describe("the style panel", () => {
     let mounted: ReturnType<typeof mount> | undefined;
 
     afterEach(async () => {
@@ -19,15 +19,18 @@ describe("the style key", () => {
         vi.unstubAllGlobals();
     });
 
-    // The note the key hands its parent, as a bound prop does.
+    // The note the panel hands its parent, as a bound prop does.
     let note = "";
 
     function show(): void {
         note = "";
-        mounted = mount(StyleKey, {
+        mounted = mount(StylePanel, {
             target: document.body,
             props: {
                 id: TABLE_ID,
+                anchor: document.body.appendChild(document.createElement("button")),
+                side: "below",
+                open: false,
                 get note() {
                     return note;
                 },

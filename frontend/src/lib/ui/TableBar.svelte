@@ -1,5 +1,6 @@
 <script lang="ts">
     import { words } from "#lib/words.ts";
+    import type { Snippet } from "svelte";
     import LobbyButton from "./LobbyButton.svelte";
     import SeriesCount from "./SeriesCount.svelte";
     import SoundButton from "./SoundButton.svelte";
@@ -8,16 +9,18 @@
     import type { Bock, Options } from "../../routes/(start)/tables.ts";
 
     // `live` is the table while it runs: its watchers, the rules it was opened with, its Bock games and the series' count,
-    // whose list reads again at each version of table `id`. In a call the wordmark stands in for the link to the Lobby and
-    // the call's own strip carries the speaker.
+    // whose list reads again at each version of table `id`. `menu` is the table's menu, which stands at the bar's end. In a
+    // call the wordmark stands in for the link to the Lobby, and the call's own strip carries the speaker and the menu.
     let {
         callMode,
         attention,
         connected,
         live,
+        menu,
     }: {
         callMode: boolean;
         attention: number;
+        menu: Snippet;
         connected: boolean;
         live: {
             id: string;
@@ -65,5 +68,8 @@
             </svg>
             <span>{live.watchers}</span>
         </div>
+        {#if !callMode}
+            {@render menu()}
+        {/if}
     {/if}
 </header>

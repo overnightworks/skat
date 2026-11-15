@@ -2008,3 +2008,15 @@ msgstr "Beach bar"
 msgctxt "table.styleNote"
 msgid "Gilt für alle am Tisch, auch für die Zuschauer."
 msgstr "Applies to everyone at the table, watchers included."
+
+msgctxt "table.menu"
+msgid "Mehr"
+msgstr "More"
+
+msgctxt "table.menuTable"
+msgid "Tisch"
+msgstr "Table"
+
+msgctxt "table.menuGame"
+msgid "Spiel"
+msgstr "Game"
