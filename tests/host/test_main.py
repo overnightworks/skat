@@ -1,6 +1,7 @@
 import json
 import logging
 import secrets
+import signal
 
 import logline
 import logline.testing
@@ -101,6 +102,31 @@ class TestMain:
             "process.stopped",
             "process.ready",
         ]
+
+    def test_a_sigterm_while_serving_writes_the_stopped_line_and_then_ends_the_process_by_that_signal(
+        self, configured_environment, database_url, monkeypatch, capsys
+    ):
+        configured_environment(database_url)
+        written_when_the_process_ends: list[str] = []
+        dispositions_when_the_process_ends: list[object] = []
+
+        def end_process_by(signal_number: int) -> None:
+            written_when_the_process_ends.append(capsys.readouterr().out)
+            dispositions_when_the_process_ends.append(signal.getsignal(signal_number))
+
+        def serve_until_sigterm(_app, **_options) -> None:
+            signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
+
+        monkeypatch.setattr(signal, "raise_signal", end_process_by)
+
+        main(["serve"], run_server=serve_until_sigterm, build_directory=FIXTURE_DIRECTORY)
+
+        (written,) = written_when_the_process_ends
+        assert [json.loads(line)["event"] for line in written.splitlines() if "process." in line] == [
+            "process.started",
+            "process.stopped",
+        ]
+        assert dispositions_when_the_process_ends == [signal.SIG_DFL]
 
     def test_refuses_to_start_without_the_page_build_and_names_the_build_command(
         self, server, configured_environment, database_url, tmp_path
