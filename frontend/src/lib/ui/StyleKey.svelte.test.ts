@@ -107,17 +107,6 @@ describe("the style key", () => {
         ]);
     });
 
-    it("sends nothing for the style the table already has", () => {
-        const fetcher = vi.fn();
-        vi.stubGlobal("fetch", fetcher);
-        showTableStyle("strandbar");
-        show();
-
-        tile(words["table.styleStrandbar"]).dispatchEvent(new Event("change", { bubbles: true }));
-
-        expect(fetcher).not.toHaveBeenCalled();
-    });
-
     it("says the style holds for everyone at the table", () => {
         show();
 

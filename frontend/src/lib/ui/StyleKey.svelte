@@ -30,7 +30,6 @@
     async function choose(style: TableStyle): Promise<void> {
         note = "";
         shown = style;
-        if (style === tableStyle()) return;
         if ((await chooseStyle(id, crypto.randomUUID(), style)).kind === "table") return;
         shown = tableStyle();
         note = words["table.commandFailed"];
