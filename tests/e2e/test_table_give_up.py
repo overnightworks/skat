@@ -25,6 +25,8 @@ SAID_NO = text(SOURCE_LANGUAGE, "table.saidNo")
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 GIVE_UP = text(SOURCE_LANGUAGE, "table.giveUp")
+SHORTEN = text(SOURCE_LANGUAGE, "table.shorten")
+PLAY_OPEN = text(SOURCE_LANGUAGE, "table.playOpen")
 GIVE_UP_SURE = text(SOURCE_LANGUAGE, "table.giveUpSure")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 PILL = text(SOURCE_LANGUAGE, "agents.pill")
@@ -442,17 +444,17 @@ def give_up_key(person: Page) -> Any:
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_every_seated_bar_carries_aufgeben_first_and_a_round_aufstehen_beside_it_and_the_watcher_has_none(
+def test_every_seated_bar_carries_its_own_key_then_aufgeben_and_a_round_aufstehen_and_the_watcher_has_none(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_game(form_factor)
     phone = form_factor["viewport"]["width"] < 900
 
-    for person in table.pages.values():
+    for seat, person in table.pages.items():
         key = give_up_key(person)
         stand = button_of(person, STAND_UP)
         expect(key).to_have_attribute("title", GIVE_UP)
-        assert strip_keys(person)[:2] == [GIVE_UP, STAND_UP]
+        assert strip_keys(person)[:3] == [SHORTEN if seat == table.declarer_seat else PLAY_OPEN, GIVE_UP, STAND_UP]
         stand_box = stand.bounding_box()
         assert stand_box is not None
         assert (stand_box["width"] <= ROUND_KEY_PIXELS) is phone

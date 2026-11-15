@@ -48,8 +48,8 @@ export type GiveUpView = {
 };
 
 // What the strip beside „Aufgeben“ offers a seated person: the declarer's „Abkürzen“ and an opponent's „Offen spielen“,
-// each while a declared game is played, no chair is open, no request stands and no Kontra word is owed before the first
-// card, whose pair of keys has a bar of its own.
+// each while a declared game is played, no chair is open, no request stands and no Kontra word is offered, whose key
+// leaves the strip no room for a second one on a phone.
 export function shortenKey(table: Table): boolean {
     return requestKeyHolder(table) === "declarer";
 }
@@ -61,12 +61,12 @@ export function playOpenKey(table: Table): boolean {
 function requestKeyHolder(table: Table): "declarer" | "opponent" | null {
     const inPlay = gameInPlay(table);
     const viewerSeat = table.chairs.find((chair) => chair.is_mine)?.seat;
-    const owesTheFirstCardsWord = declinableWord(table) !== null;
+    const offeredAKontraWord = keyWord(table) !== null;
     if (
         inPlay === null ||
         viewerSeat === undefined ||
         handWaits(table.hand) ||
-        owesTheFirstCardsWord ||
+        offeredAKontraWord ||
         requestStands(inPlay.playing)
     )
         return null;

@@ -321,6 +321,7 @@ describe("the keys that shorten and play open", () => {
         { name: "a give-up stands", table: tableWith(DECLARER, OPPONENT_ASKS) },
         { name: "a shortening stands", table: tableWith(DECLARER, null, { shortening: SHORTENS }) },
         { name: "an open play waits", table: tableWith(FIRST_OPPONENT, null, { openPlayBy: SECOND_OPPONENT }) },
+        { name: "a Kontra word is offered", table: tableWith(FIRST_OPPONENT, null, { kontraWord: "kontra" }) },
         {
             name: "the viewer owes the Kontra word before the first card",
             table: tableWith(FIRST_OPPONENT, null, { kontraWord: "kontra", owedBy: FIRST_OPPONENT }),
