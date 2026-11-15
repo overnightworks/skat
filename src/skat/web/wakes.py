@@ -56,13 +56,11 @@ _OPEN_TABLES_ADDRESS: Final = "open-tables"
 
 def _address_of(topic: Topic) -> str:
     """What a wake names on the channel between pods: the topic and never any content."""
-    match topic:
-        case TableTopic(table_id):
-            return _TABLE_PREFIX + table_id
-        case AccountTopic(account_id):
-            return _ACCOUNT_PREFIX + account_id
-        case OpenTablesTopic():
-            return _OPEN_TABLES_ADDRESS
+    if isinstance(topic, TableTopic):
+        return _TABLE_PREFIX + topic.table_id
+    if isinstance(topic, AccountTopic):
+        return _ACCOUNT_PREFIX + topic.account_id
+    return _OPEN_TABLES_ADDRESS
 
 
 def _topic_of(address: str) -> Topic | None:
@@ -181,13 +179,11 @@ class SharedWakes:
     async def _follow(self, wakes: WakeList, subscribed: asyncio.Event) -> None:
         try:
             async for event in self._channel.received():
-                match event:
-                    case Resubscribed():
-                        subscribed.set()
-                        wakes.wake_all()
-                    case Wake(address):
-                        if (topic := _topic_of(address)) is not None:
-                            wakes.wake_locally(topic)
+                if isinstance(event, Resubscribed):
+                    subscribed.set()
+                    wakes.wake_all()
+                elif (topic := _topic_of(event.address)) is not None:
+                    wakes.wake_locally(topic)
         except StoreError as failure:
             # The failure's message may carry an address, so only its type is logged.
             log.error("wake channel lost", error=type(failure).__name__)
