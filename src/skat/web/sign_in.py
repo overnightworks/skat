@@ -1,5 +1,7 @@
+import logging
 import time
 from dataclasses import dataclass
+from enum import StrEnum
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Annotated, Protocol
 from urllib.parse import parse_qs, quote, urlsplit
@@ -7,6 +9,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 import structlog
 from fastapi import APIRouter, FastAPI, Query, Request, Response
 from fastapi.responses import RedirectResponse
+from logline import StepTimer
 from webauth.admission import AdmissionRefusal
 from webauth.config import SessionLifetime, WebAuthConfig
 from webauth.https_client import fetch_key_set_over_https
@@ -52,6 +55,7 @@ if TYPE_CHECKING:
     from pydantic import SecretStr
     from starlette.requests import HTTPConnection
     from webauth.jwt_verification import KeySetFetch
+    from webauth.oidc import TokenEndpointAnswer, TokenRequest
     from webauth.ports import AccountEvent, SignInTransaction
 
     from skat.web.page_build import PageBuild, SignInPages
@@ -61,13 +65,14 @@ OPENID_CONNECT_PATH = "/protocol/openid-connect"
 SIGN_IN_ADDRESS = f'href="{AUTH_START_PATH}"'.encode()
 
 logger = structlog.get_logger()
+_STEP_LOGGER = logging.getLogger(__name__)
 
 
 class LoggingAuditSink:
     """Logs each account event by its kind, the issuer's subject and the role, never a username."""
 
     def account_event(self, event: AccountEvent) -> None:
-        logger.info("account_event", kind=event.kind.value, subject_id=event.subject_id, role=event.role)
+        logger.info("account.changed", kind=event.kind.value, sub=event.subject_id, role=event.role)
 
 
 class ExpirableSessions(SessionRecordStore, Protocol):  # pragma: no cover - a port's method bodies are signatures
@@ -104,6 +109,12 @@ class IssuerTransports:
 
     post_token_request: TokenRequestPost
     fetch_key_set: KeySetFetch
+
+
+class IssuerRefusal(StrEnum):
+    """Why a call to the issuer ended refused: the one set of `reason`s of its log lines."""
+
+    ERROR_STATUS = "error_status"
 
 
 ISSUER_OVER_HTTPS = IssuerTransports(
@@ -166,11 +177,34 @@ def _build_web_auth(
     )
 
 
+def _timed_token_request(post: TokenRequestPost) -> TokenRequestPost:
+    """The call, with each exchange written as one log line; an issuer that answers an error status refused it."""
+
+    def timed(request: TokenRequest) -> TokenEndpointAnswer:
+        with StepTimer("token_exchange.ended", _STEP_LOGGER) as step:
+            answer = post(request)
+            if answer.status >= HTTPStatus.BAD_REQUEST:
+                step.refuse(IssuerRefusal.ERROR_STATUS)
+        return answer
+
+    return timed
+
+
+def _timed_key_set_fetch(fetch: KeySetFetch) -> KeySetFetch:
+    """The fetch, with each call written as one log line."""
+
+    def timed(url: str) -> bytes:
+        with StepTimer("key_set_fetch.ended", _STEP_LOGGER):
+            return fetch(url)
+
+    return timed
+
+
 def build_relying_party(sign_in_configs: SignInConfigs, issuer_transports: IssuerTransports) -> OidcRelyingParty:
     return OidcRelyingParty(
         sign_in_configs.oidc_client,
-        post_token_request=issuer_transports.post_token_request,
-        fetch_key_set=issuer_transports.fetch_key_set,
+        post_token_request=_timed_token_request(issuer_transports.post_token_request),
+        fetch_key_set=_timed_key_set_fetch(issuer_transports.fetch_key_set),
         wall_clock=sign_in_configs.web_auth.wall_clock,
         monotonic_clock=time.monotonic,
     )
@@ -276,10 +310,10 @@ def _refusal_response(refusal: SignInRefusal, sign_in_pages: SignInPages) -> Res
 
 def _log_refusal(refusal: OidcRefusal | AdmissionRefusal) -> None:
     if isinstance(refusal, AdmissionRefusal):
-        logger.info("sign_in_refused", reason=refusal.value)
+        logger.info("sign_in.refused", reason=refusal.value)
         return
     codes = {
         "idp_error": refusal.idp_error,
         "token_rejection": None if refusal.token_rejection is None else refusal.token_rejection.value,
     }
-    logger.info("sign_in_refused", reason=refusal.reason.value, **{name: code for name, code in codes.items() if code})
+    logger.info("sign_in.refused", reason=refusal.reason.value, **{name: code for name, code in codes.items() if code})
