@@ -1,0 +1,8 @@
+claim_id = "0edc116bec7840198eb1ca43a309c23b"
+agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
+role = "builder"
+base = "3350ec39e3da98e140e84773ce6840439fa70a18"
+branch = "claude/issue-632-on-desktop-the-own-seat-sits-centred-wit"
+scope = ["docs/mockups", "frontend/src"]
+opened_commit = "742cef2a1cbc3621d36aeb626303a7273cc9b33f"
+whole_reason = "operator's live finding and requests of 15.11.2026 span page, service and tests"
