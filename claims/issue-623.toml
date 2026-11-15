@@ -1,8 +1,0 @@
-claim_id = "1dae4d9f60844986ae5d3c7bb0864b4d"
-agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
-role = "builder"
-base = "782458f29793cc377ab7bd0dd9abbcca1e791d98"
-branch = "claude/issue-623-skat-logs-every-request-and-member-step"
-scope = ["docs", "pyproject.toml", "src/skat", "tests", "uv.lock"]
-opened_commit = "953e9ecc755e9a7b582a1e00c2c9881dd433a086"
-whole_reason = "Logging touches every route, member tool and table command."
