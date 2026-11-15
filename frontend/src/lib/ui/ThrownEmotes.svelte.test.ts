@@ -75,6 +75,15 @@ describe("what a thrown emote shows on the felt", () => {
         expect(from?.classList.contains("seat-3")).toBe(true);
     });
 
+    it("shows a watcher's emote with no name badge, as a watcher has no name at the table", () => {
+        throwEmote(null, null);
+
+        const emote = document.querySelector(".emote");
+
+        expect(emote?.textContent).toContain("\u{1F525}");
+        expect(emote?.querySelector(".from")).toBeNull();
+    });
+
     it("lets a knock land where it is thrown from, with two rings and no trail", () => {
         throwEmote(1, "Anna", "knock");
 
