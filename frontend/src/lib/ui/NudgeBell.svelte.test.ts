@@ -34,13 +34,13 @@ describe("the bell at the chair the table waits for", () => {
         seat: AWAITED_SEAT,
         name: NAME,
         nudge: null as Nudge | null,
-        shaking: false,
+        grumble: null as string | null,
     });
 
-    function show(nudge: Nudge | null, shaking = false): void {
+    function show(nudge: Nudge | null, grumble: string | null = null): void {
         props.version = VERSION;
         props.nudge = nudge;
-        props.shaking = shaking;
+        props.grumble = grumble;
         mounted = mount(NudgeBell, { target: document.body, props });
         flushSync();
     }
@@ -95,35 +95,46 @@ describe("the bell at the chair the table waits for", () => {
         expect(bell()).toBeNull();
     });
 
-    it("rests with its tick for a viewer who may not nudge again, and stays at rest after the minute", () => {
+    it("leaves nothing at a chair that was nudged and may not be nudged again, not even a tick", () => {
         show({ nudges: 2, may_nudge: false, by_name: null });
-        const resting = [bell()?.classList.contains("belled"), bell()?.querySelector("i") !== null];
 
         pass(ASK_AGAIN_AFTER);
 
-        expect([resting, bell()?.tagName, bell()?.getAttribute("aria-label")]).toEqual([
-            [true, true],
-            "SPAN",
-            words["table.nudged"],
-        ]);
+        expect([bell(), document.querySelector(".mark.bell i, .cowbell")]).toEqual([null, null]);
     });
 
-    it("rests after a first nudge for a viewer who may nudge again and is offered once more a minute later", () => {
+    it("leaves nothing after a first nudge for a viewer who may nudge again and offers the bell once more a minute later", () => {
         show(mayNudge(1));
-        const resting = bell()?.tagName;
+        const resting = bell();
 
         pass(ASK_AGAIN_AFTER);
 
-        expect([resting, bell()?.tagName]).toEqual(["SPAN", "BUTTON"]);
+        expect([resting, bell()?.tagName]).toEqual([null, "BUTTON"]);
     });
 
-    it("shakes only when the page is told the nudge has just arrived", () => {
-        show({ nudges: 1, may_nudge: false, by_name: "Anna" }, true);
-        const shaking = bell()?.classList.contains("shaken");
-        void unmount(mounted as ReturnType<typeof mount>);
+    it("swings the cowbell over the chair and shows the line it grumbles, named after the chair's person", () => {
+        show({ nudges: 1, may_nudge: false, by_name: null }, "Hetz mich nicht!");
+
+        expect([
+            document.querySelector(".cowbell")?.getAttribute("aria-label"),
+            document.querySelector(".bubble.grumble .said")?.textContent,
+            document.querySelector(".bubble.grumble .dot")?.textContent,
+        ]).toEqual([words["table.nudged"], "Hetz mich nicht!", NAME.slice(0, 1)]);
+    });
+
+    it("shows no cowbell and no grumble while the page was not told the nudge has just arrived", () => {
         show({ nudges: 1, may_nudge: false, by_name: "Anna" });
 
-        expect([shaking, bell()?.classList.contains("shaken")]).toEqual([true, false]);
+        expect([document.querySelector(".cowbell"), document.querySelector(".bubble")]).toEqual([null, null]);
+    });
+
+    it("lets the cowbell go when the grumble is over", () => {
+        show({ nudges: 1, may_nudge: false, by_name: null }, "Hetz mich nicht!");
+
+        props.grumble = null;
+        flushSync();
+
+        expect(document.querySelector(".cowbell")).toBeNull();
     });
 
     it("starts its minute anew when the table moves on to a newer version", () => {
@@ -139,14 +150,14 @@ describe("the bell at the chair the table waits for", () => {
         expect([before, bell()?.tagName]).toEqual([null, "BUTTON"]);
     });
 
-    it("starts its minute anew when the chair was nudged once more, and rests until then", () => {
+    it("starts its minute anew when the chair was nudged once more, and offers nothing until then", () => {
         show(mayNudge());
         pass(ASK_AGAIN_AFTER);
 
         props.nudge = mayNudge(1);
         flushSync();
 
-        expect(bell()?.tagName).toBe("SPAN");
+        expect(bell()).toBeNull();
     });
 
     it("shows nothing at a chair that has no nudge and offers its bell a minute after the nudge appears", () => {

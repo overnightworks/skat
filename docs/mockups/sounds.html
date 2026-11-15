@@ -250,6 +250,7 @@ function tone(t,{f=440,f2=null,dur=.2,type='sine',g=.3,a=.004,vib=0}={}){
 }
 const bell=(t,f,g=.2,dur=.45)=>{ tone(t,{f,dur,g}); tone(t,{f:f*2.01,dur:dur*.6,g:g*.3}); tone(t,{f:f*3.02,dur:dur*.3,g:g*.12}); };
 const knock=(t,g=.5,f=190)=>{ tone(t,{f,f2:f*.62,dur:.07,g,type:'sine'}); noise(t,{f:1300,q:3,dur:.025,g:g*.6}); tone(t,{f:f*2.4,f2:f*1.4,dur:.03,g:g*.15,type:'triangle'}); };
+const cowStrike=(t,g,type,f,dur)=>{ tone(t,{f,dur,g,type}); tone(t,{f:Math.round(f*1.48),dur:dur*.7,g:g*.7,type}); noise(t,{f:3400,q:1.5,dur:.02,g:g*.5}); };
 const snap=(t,g=.5,f=3200)=>{ noise(t,{f,q:.9,dur:.045,g}); tone(t,{f:170,f2:110,dur:.06,g:g*.25}); };
 
 /* S[kind][variant](t, info): t is the start of the moment on the audio clock */
@@ -291,9 +292,9 @@ const S={
     B:(t,i)=>{ tone(t+i.hit,{f:380,f2:760,dur:.09,g:.3}); },
     C:(t,i)=>{ const h=t+i.hit; tone(h,{f:660,dur:.05,type:'triangle',g:.22}); tone(h+.06,{f:880,dur:.07,type:'triangle',g:.22}); }},
   nudge:{
-    A:(t,i)=>{ knock(t,.7); knock(t+.13,.7); },
-    B:(t,i)=>{ knock(t,.65); knock(t+.13,.65); bell(t+.26,1047,.12,.35); },
-    C:(t,i)=>{ knock(t,.6); knock(t+.13,.6); tone(t+.24,{f:520,dur:.22,type:'triangle',g:.14,vib:40}); }},
+    A:(t,i)=>{ cowStrike(t,.2,'sine',587,.26); cowStrike(t+.17,.14,'sine',587,.26); },
+    B:(t,i)=>{ cowStrike(t,.16,'square',540,.22); cowStrike(t+.17,.16,'square',540,.3); },
+    C:(t,i)=>{ cowStrike(t,.2,'triangle',680,.22); cowStrike(t+.17,.2,'triangle',820,.3); }},
   free:{
     A:(t,i)=>{ knock(t+i.hit,.22,140); },
     B:(t,i)=>{ const h=t+i.hit; noise(h,{f:520,f2:200,q:2,dur:.26,g:.18,a:.06}); tone(h+.12,{f:200,f2:120,dur:.12,g:.2}); }}
@@ -468,10 +469,10 @@ M.push({id:'bid',rank:8,title:'Ein Gebot wird gesagt',voice:true,
     anim(st,q(st,'b'),m==='dezent'?[{opacity:0,transform:'translateY(5px)'},{opacity:1,transform:'none'}]:[{opacity:0,transform:'scale(.5) translateY(8px)'},{opacity:1,transform:'scale(1.15)',offset:.6},{transform:'none'}],{duration:t.dur,easing:E_OUT}); return t; }});
 
 /* 9 nudge */
-M.push({id:'nudge',rank:9,title:'Anstupsen „Du bist dran“',vib:[30,60,30],
-  sounds:[['A','Doppelklopfen'],['B','Doppelklopfen mit Glöckchen'],['C','Doppelklopfen mit Wackelton']],
+M.push({id:'nudge',rank:9,title:'Anstupsen: die Kuhglocke',vib:[30,60,30],
+  sounds:[['A','Kuhglocke, weich'],['B','Kuhglocke, klirrend'],['C','Kuhglocke, hell']],
   timing:(m)=>({dur:pick(m,300,400),hit:0,gain:1}),
-  line:m=>`Dein Stuhl wackelt kurz, ein Hinweis erscheint: ${pick(m,'300 ms, ein kleiner Ruck.','400 ms, ein kräftiges Wackeln.')}`,
+  line:m=>`Eine Kuhglocke schwingt über dem Stuhl und läutet zweimal, dein Stuhl wackelt kurz, ein Hinweis erscheint: ${pick(m,'300 ms, ein kleiner Ruck.','400 ms, ein kräftiges Wackeln.')}`,
   build:()=>seat('a','anna',118,10,{w:84,h:46})+hand(40,160,112,HAND)+seat('me','du',118,176,{w:84})+'<div class="tag" data-k="tag" style="left:104px;top:150px">Anna stupst dich an</div>',
   play(st,m){ const t=this.timing(m);
     anim(st,q(st,'me'),m==='dezent'?[{transform:'none'},{transform:'translateY(-4px)',offset:.35},{transform:'none',offset:.7},{transform:'none'}]

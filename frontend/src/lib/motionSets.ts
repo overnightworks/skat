@@ -26,6 +26,8 @@ export interface MotionSet {
     readonly countStartsSeconds: number;
     /** How long the gains count up; the set's CSS keeps the same time. */
     readonly countSeconds: number;
+    /** From the cue to the moment the cowbell has swung in over the nudged chair and rings; the set's CSS keeps the same time. */
+    readonly bellRingsSeconds: number;
     /** How many suit pieces a won result throws; none is none. */
     readonly confettiPieces: number;
 }
@@ -45,6 +47,7 @@ export const MOTION_SETS = {
         resultLandsSeconds: 0.52,
         countStartsSeconds: 0.3,
         countSeconds: 0.7,
+        bellRingsSeconds: 0.18,
         confettiPieces: 0,
     },
     verspielt: {
@@ -61,6 +64,7 @@ export const MOTION_SETS = {
         resultLandsSeconds: 0.83,
         countStartsSeconds: 0.3,
         countSeconds: 1.1,
+        bellRingsSeconds: 0.3,
         confettiPieces: 16,
     },
 } as const satisfies Record<string, MotionSet>;

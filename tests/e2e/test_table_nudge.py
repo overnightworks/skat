@@ -1,8 +1,9 @@
 """The table waits for a seat that stays silent: after a minute every seated player but the awaited one is offered a
-bell at its chair, a tap rests it with its tick for everyone, and the nudged person's own bell shakes once with a
-sentence above the hand.
+bell at its chair, and a tap swings a cowbell over that chair on every page, shakes the chair and lets its person
+grumble in a bubble, while the nudged person also reads a sentence above the hand.
 """
 
+import re
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -30,10 +31,13 @@ pytestmark = pytest.mark.e2e
 MILLISECONDS_PER_SECOND = 1000
 REFUSED = 409
 BELL = ".mark.bell"
-RESTING_BELL = f"{BELL}.belled"
+COWBELL = ".cowbell"
+GRUMBLE = ".bubble.grumble"
 NOTICE = ".notice.seat"
 NOTE = ".note"
 TAP_AREA_PIXELS = 44
+# The cowbell and the grumble are gone within this many seconds.
+COWBELL_STAYS_SECONDS = 10
 
 
 class WaitedClock:
@@ -103,6 +107,11 @@ class SilentSeat:
             }"""
         )
 
+    def hold_the_pages_still(self) -> None:
+        """Stops the pages' clocks, so a timer fires only when the test lets the pages wait."""
+        for page in self.table.everyone:
+            page.clock.pause_at(page.evaluate("Date.now()") + MILLISECONDS_PER_SECOND)
+
     def let_the_pages_wait(self, seconds: float) -> None:
         for page in self.table.everyone:
             page.clock.fast_forward(int(seconds * MILLISECONDS_PER_SECOND))
@@ -130,7 +139,7 @@ def silent_seat(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_bell_comes_after_a_minute_to_the_seated_but_the_awaited_and_a_tap_rests_it_for_everyone(
+def test_the_bell_comes_after_a_minute_to_the_seated_but_the_awaited_and_a_tap_rings_a_cowbell_for_everyone(
     silent_seat: Callable[..., SilentSeat], form_factor: dict[str, Any]
 ) -> None:
     waiting = silent_seat(form_factor)
@@ -158,16 +167,25 @@ def test_the_bell_comes_after_a_minute_to_the_seated_but_the_awaited_and_a_tap_r
     expect(waiting.awaited.locator(BELL)).to_have_count(0)
     expect(waiting.watcher.locator(BELL)).to_have_count(0)
 
+    waiting.hold_the_pages_still()
     waiting.bell_button(nudger).click()
 
     for page in waiting.table.everyone:
-        expect(waiting.chair(page).locator(RESTING_BELL)).to_have_count(1)
+        expect(waiting.chair(page).locator(COWBELL)).to_have_count(1)
+        expect(waiting.chair(page).locator(GRUMBLE)).to_have_count(1)
+        expect(waiting.chair(page).locator(f"{BELL} i")).to_have_count(0)
+        expect(waiting.chair(page)).to_have_class(re.compile(r"\bshaken\b"))
     expect(waiting.bell_button(nudger)).to_have_count(0)
     expect(waiting.awaited.locator(f"{NOTICE} .label")).to_have_text(nudges_you(nudger_name))
-    expect(waiting.chair(waiting.awaited).locator(f"{RESTING_BELL}.shaken")).to_have_count(1)
+    assert len({waiting.chair(page).locator(GRUMBLE).inner_text() for page in waiting.table.everyone}) == 1
     for page in (*waiting.nudgers, waiting.watcher):
         expect(page.locator(NOTICE)).to_have_count(0)
-        expect(page.locator(f"{BELL}.shaken")).to_have_count(0)
+
+    waiting.let_the_pages_wait(COWBELL_STAYS_SECONDS)
+
+    for page in waiting.table.everyone:
+        expect(page.locator(COWBELL)).to_have_count(0)
+        expect(page.locator(GRUMBLE)).to_have_count(0)
 
 
 def test_a_new_version_at_the_same_awaited_chair_starts_the_minute_again(
@@ -191,7 +209,7 @@ def test_a_new_version_at_the_same_awaited_chair_starts_the_minute_again(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_notice_and_the_shake_do_not_come_again_when_the_nudged_person_reloads(
+def test_the_notice_and_the_cowbell_do_not_come_again_when_the_nudged_person_reloads(
     silent_seat: Callable[..., SilentSeat], form_factor: dict[str, Any]
 ) -> None:
     waiting = silent_seat(form_factor)
@@ -202,9 +220,9 @@ def test_the_notice_and_the_shake_do_not_come_again_when_the_nudged_person_reloa
 
     reload_and_wait(waiting.awaited)
 
-    expect(waiting.chair(waiting.awaited).locator(RESTING_BELL)).to_have_count(1)
     expect(waiting.awaited.locator(NOTICE)).to_have_count(0)
-    expect(waiting.awaited.locator(f"{BELL}.shaken")).to_have_count(0)
+    expect(waiting.awaited.locator(COWBELL)).to_have_count(0)
+    expect(waiting.awaited.locator(GRUMBLE)).to_have_count(0)
 
 
 def test_a_tap_the_server_refuses_as_too_early_changes_nothing_on_the_page(
@@ -222,6 +240,6 @@ def test_a_tap_the_server_refuses_as_too_early_changes_nothing_on_the_page(
     assert refused.value.status == REFUSED
     assert refused.value.json()["reason"] == NudgeRefusal.TOO_EARLY
     expect(waiting.bell_button(nudger)).to_have_count(1)
-    expect(nudger.locator(RESTING_BELL)).to_have_count(0)
+    expect(nudger.locator(COWBELL)).to_have_count(0)
     expect(nudger.locator(NOTE)).to_have_text("")
     expect(waiting.awaited.locator(NOTICE)).to_have_count(0)
