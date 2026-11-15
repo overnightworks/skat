@@ -40,9 +40,6 @@ import {
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
     TABLE_EVENTS_SUFFIX,
-    TABLE_GIVE_UP_AGREE_SUFFIX,
-    TABLE_GIVE_UP_DECLINE_SUFFIX,
-    TABLE_GIVE_UP_SUFFIX,
     TABLE_KONTRA_SUFFIX,
     TABLE_NO_WORD_SUFFIX,
     TABLE_LIST_SUFFIX,
@@ -110,6 +107,11 @@ export type LastTrick = { cards: Card[]; leader_seat: number; taker_seat: number
 export type Taken = { seat: number; tricks: number };
 // A give-up the table was asked and has not settled: who asked and which opponent already said no, the same for every viewer.
 export type GiveUp = { asking_seat: number; declined_seat: number | null };
+// The declarer's shortening the opponents were asked and have not settled: the level he demands, none by default, and
+// the opponent who said yes so far, the same for every viewer.
+export type Shortening = { asking_seat: number; claim: Announcement; agreed_seat: number | null };
+// The cards an opponent's open play, or the declarer's no to his shortening, left open to every viewer.
+export type OpenHand = { seat: number; cards: Card[] };
 // The words said in the running hand and their product, with the word the viewer's own chair may say now (null for
 // a watcher and for a chair with none open). At a table whose words end with the first card, that card waits on the
 // seats it names for a word or a decline, and the seats that declined stand beside them; both are empty otherwise.
@@ -130,6 +132,12 @@ export type Playing = {
     // Both sides' points from completed tricks; null unless the table shows them, and in a Null game and a Ramsch.
     running_points: Sides | null;
     give_up: GiveUp | null;
+    shortening: Shortening | null;
+    // The opponent whose no to a shortening left the declarer's cards open; it stays beside a new request.
+    shortening_refused_seat: number | null;
+    // The opponent whose wrong open play waits for the declarer's answer.
+    open_play_seat: number | null;
+    open_hands: OpenHand[];
     // Null at a table without Kontra.
     kontra: Kontra | null;
 };
@@ -229,7 +237,7 @@ export type Result = {
     bock_factor: number;
     // Each word said, in the order said, with the factor it doubled the score to; null when no word was said.
     kontra: { steps: { word: Word; factor: number }[] } | null;
-    // How the game ended, and the seat whose give-up or throw-down ended it; null exactly when it was played out.
+    // How the game ended, and the seat whose give-up, shortening, open play or throw-down ended it; null exactly when it was played out.
     ending: GameEnding;
     ended_by_seat: number | null;
 };
@@ -408,23 +416,6 @@ export function takePushingStep(id: string, version: number, commandId: string, 
 // The client names only the card: the seat that plays it comes from the session.
 export function playCard(id: string, version: number, commandId: string, card: Card): Promise<Outcome> {
     return post(id, TABLE_CARD_SUFFIX, { command_id: commandId, version, suit: card.suit, rank: card.rank });
-}
-
-// The version is the one the page shows, so a give-up on a table that has since moved on is refused; there is no retry.
-export function giveUp(id: string, version: number, commandId: string): Promise<Outcome> {
-    return post(id, TABLE_GIVE_UP_SUFFIX, { command_id: commandId, version });
-}
-
-export type GiveUpAnswer = "agree" | "decline";
-
-const GIVE_UP_ANSWER_SUFFIXES: Record<GiveUpAnswer, string> = {
-    agree: TABLE_GIVE_UP_AGREE_SUFFIX,
-    decline: TABLE_GIVE_UP_DECLINE_SUFFIX,
-};
-
-// The version is the one the page shows, so an answer to a request that has since gone is refused; there is no retry.
-export function answerGiveUp(id: string, version: number, commandId: string, answer: GiveUpAnswer): Promise<Outcome> {
-    return post(id, GIVE_UP_ANSWER_SUFFIXES[answer], { command_id: commandId, version });
 }
 
 export type AbortAnswer = "agree" | "refuse";

@@ -1581,7 +1581,7 @@ body {
 
 /* The cross of whoever said no and the dots of whoever has not answered stand where an opponent's chair has the
    declarer's star, clear of the turn mark. */
-.room .mark:is(.declined, .unanswered) {
+.room .mark:is(.declined, .unanswered, .agreed, .open-play) {
     position: absolute;
     z-index: 2;
     top: 16px;
@@ -1605,6 +1605,20 @@ body {
 }
 
 .room .mark.declined svg {
+    width: 15px;
+    height: 15px;
+}
+
+/* The yes of an opponent to a shortening and the eye of one whose cards lie open stand where the no and the waiting dots do, clear of the turn mark. */
+.room .mark:is(.agreed, .open-play) {
+    width: 26px;
+}
+
+.room .mark.agreed {
+    color: var(--ok-stage);
+}
+
+.room .mark:is(.agreed, .open-play) svg {
     width: 15px;
     height: 15px;
 }
@@ -1785,6 +1799,38 @@ body {
 
     .room .stage:has(.chair:is(:nth-child(1), :nth-child(2)) .open) :is(.laid.near, .lead-slot) {
         top: 80%;
+    }
+
+    /* A notice that the game goes on stands below the open rows of a side chair, in one line, with the trick below it. */
+    .room .stage:has(.chair:is(:nth-child(1), :nth-child(2)) .open) .notice.seat {
+        position: relative;
+        top: calc(var(--chair-width) * 0.76 + 14px + var(--open-drop) + var(--open-width) * 1.4);
+        max-width: calc(100% - 24px);
+        margin-top: 0;
+    }
+
+    /* The plaque of a game with open cards at a side chair lies on the felt beside the rows, on the other side, as the scenes draw it, below the far fan, so the row above the chairs is free. */
+    .room .stage:has(.chair:is(:nth-child(1), :nth-child(2)) .open):not(:has(> .result)) .plaque:not(.wide) {
+        position: relative;
+        z-index: 2;
+        grid-row: 2;
+        align-self: start;
+        top: 46px;
+        margin-top: calc(var(--chair-width) * 0.75 + 18px);
+        margin-bottom: calc(var(--table-card-width) * -1.07);
+    }
+
+    .room .stage:has(.chair:nth-child(1) .open) .plaque:not(.wide) {
+        justify-self: end;
+    }
+
+    .room .stage:has(.chair:nth-child(2) .open) .plaque:not(.wide) {
+        justify-self: start;
+    }
+
+    .room .stage:has(.chair:is(:nth-child(1), :nth-child(2)) .open) .notice.seat .label {
+        flex-shrink: 0;
+        white-space: nowrap;
     }
 
     .room .stage:has(.chair:nth-child(3) .open) .controls {
@@ -5054,13 +5100,34 @@ body {
         display: none;
     }
 
-    .room .copy.give-up.arm {
+    .room .copy:is(.give-up, .play-open).arm {
         padding: 0 12px;
         font-size: 14px;
     }
 
-    .room .copy.give-up.arm svg {
+    .room .copy:is(.give-up, .play-open).arm svg {
         display: none;
+    }
+
+    /* The keys that shorten and play open are longer than the strip has room for beside four round keys and the close key, and the armed open play asks a longer question still, so they give way, the open play in two lines, rather than push a key off the screen. */
+    .room .actions:has(.give-up) .copy:is(.shorten, .play-open) {
+        flex-shrink: 1;
+        min-width: 0;
+    }
+
+    .room .copy.play-open .label {
+        white-space: normal;
+        text-align: center;
+        line-height: 1.15;
+    }
+
+    /* The word „Offen spielen“ is the longest key beside four round ones, so its padding and the strip's gaps give way to keep the row inside the screen. */
+    .room .actions:has(.copy.play-open) {
+        gap: 4px;
+    }
+
+    .room .actions:has(.give-up) .copy.play-open:not(.arm) {
+        padding-inline: 10px;
     }
 }
 
@@ -5145,20 +5212,35 @@ body {
     }
 }
 
-/* During a hand the opener's strip holds the give-up or Kontra, the stand-up, the agents' pill, the link and the close key: on a phone Kontra keeps its word alone, and on the narrowest the gaps and the give-up's padding give way too, so the row stays inside the screen. */
+/* During a hand the opener's strip holds the give-up or Kontra, the stand-up, the agents' pill, the link and the close key: on a phone Kontra keeps its word alone, and the gaps and the give-up's padding give way too, so the row stays inside the screen. */
 @media (max-width: 899px) {
-    .room .actions:has(.copy.close) > .copy.kontra svg {
+    .room .actions:has(.copy.close) > .copy:is(.kontra, .shorten, .play-open) svg {
         display: none;
     }
-}
 
-@media (max-width: 383px) {
     .room .actions:has(.give-up):has(.copy.close) {
         gap: 4px;
     }
 
-    .room .actions:has(.give-up):has(.copy.close) .copy.give-up:not(.round) {
+    .room .actions:has(.give-up):has(.copy.close) .copy.give-up:not(.round),
+    .room .actions:has(.give-up):has(.copy.close) .copy:is(.shorten, .play-open) {
         padding-inline: 10px;
+    }
+}
+
+/* The keys that shorten and play open show their word alone on the narrowest phones, as Kontra does; beside the close key their word is set smaller in less padding, as the row has no more room. */
+@media (max-width: 379px) {
+    .room .copy:is(.shorten, .play-open) svg {
+        display: none;
+    }
+
+    .room .actions:has(.give-up):has(.copy.close) {
+        gap: 3px;
+    }
+
+    .room .actions:has(.give-up):has(.copy.close) .copy:is(.shorten, .play-open) {
+        padding-inline: 3px;
+        font-size: 14px;
     }
 }
 

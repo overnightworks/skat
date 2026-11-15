@@ -12,9 +12,6 @@ import {
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
-    TABLE_GIVE_UP_AGREE_SUFFIX,
-    TABLE_GIVE_UP_DECLINE_SUFFIX,
-    TABLE_GIVE_UP_SUFFIX,
     TABLE_LIST_SUFFIX,
     TABLE_NEW_SERIES_SUFFIX,
     TABLE_PUSHING_GRAND_HAND_SUFFIX,
@@ -37,9 +34,7 @@ import {
 } from "#lib/wire.ts";
 import {
     answerAbort,
-    answerGiveUp,
     answerSeriesEnd,
-    giveUp,
     markReady,
     playCard,
     readGameSheet,
@@ -529,29 +524,6 @@ describe("asking for a table", () => {
             suit: "pik",
             rank: "queen",
         });
-    });
-
-    it("sends the version shown and a command id to give up the game", async () => {
-        answerWith(Response.json(table));
-
-        expect(await giveUp(TABLE_ID, 7, "command-5")).toEqual({ kind: "table", table });
-
-        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_GIVE_UP_SUFFIX}`);
-        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-5", version: 7 });
-    });
-
-    it.each([
-        { answer: "agree" as const, suffix: TABLE_GIVE_UP_AGREE_SUFFIX },
-        { answer: "decline" as const, suffix: TABLE_GIVE_UP_DECLINE_SUFFIX },
-    ])("sends the version shown and a command id to $answer a give-up", async ({ answer, suffix }) => {
-        answerWith(Response.json(table));
-
-        expect(await answerGiveUp(TABLE_ID, 7, "command-5", answer)).toEqual({ kind: "table", table });
-
-        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
-        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-5", version: 7 });
     });
 
     it.each([

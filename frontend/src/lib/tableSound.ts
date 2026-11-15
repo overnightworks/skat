@@ -97,6 +97,8 @@ const LANDS_AFTER: Record<Cue["kind"], (motion: MotionSet) => number> = {
     "auction-ended": () => 0,
     "trick-taken": () => 0,
     "give-up-refused": () => 0,
+    "shortening-refused": () => 0,
+    "open-play-on": () => 0,
     "turn-came": () => 0,
     dealt: () => 0,
     "result-appeared": (motion) => motion.resultLandsSeconds,

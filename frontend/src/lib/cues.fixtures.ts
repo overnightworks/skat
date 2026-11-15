@@ -5,9 +5,11 @@ import type {
     Declaring,
     GiveUp,
     Kontra,
+    OpenHand,
     Playing,
     Position,
     SeatedCard,
+    Shortening,
     Table,
 } from "../routes/(start)/tables.ts";
 
@@ -74,6 +76,10 @@ export function playing(changes: Partial<Playing>): Playing {
         legal_cards: [],
         running_points: null,
         give_up: null,
+        shortening: null,
+        shortening_refused_seat: null,
+        open_play_seat: null,
+        open_hands: [],
         kontra: null,
         ...changes,
     };
@@ -88,6 +94,10 @@ export function table(
         current?: SeatedCard[];
         last?: Playing["last_trick"];
         giveUp?: GiveUp | null;
+        shortening?: Shortening | null;
+        refusedBy?: number | null;
+        openPlayBy?: number | null;
+        openHands?: OpenHand[];
         spoken?: AuctionWord[];
         kontra?: Kontra | null;
     } = {},
@@ -117,6 +127,10 @@ export function table(
                       current_trick: changes.current ?? [],
                       last_trick: changes.last ?? null,
                       give_up: changes.giveUp ?? null,
+                      shortening: changes.shortening ?? null,
+                      shortening_refused_seat: changes.refusedBy ?? null,
+                      open_play_seat: changes.openPlayBy ?? null,
+                      open_hands: changes.openHands ?? [],
                       kontra: changes.kontra ?? null,
                   })
                 : null,

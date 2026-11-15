@@ -15,11 +15,24 @@
     import { bidLadder } from "#lib/bidLadder.ts";
     import { cuesBetween, springsUp, stampBetween, type BidWord } from "#lib/cues.ts";
     import { browserCallHost, greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
-    import { giveUpAsk, giveUpView, refusalNotice } from "#lib/giveUp.ts";
+    import {
+        answerGiveUp,
+        giveUpAsk,
+        giveUpView,
+        openCardsMark,
+        requestEndedNotice,
+        type GiveUpAnswer,
+    } from "#lib/giveUp.ts";
     import { firstCardWait, keyWord, type Stamp } from "#lib/kontra.ts";
     import { legalLinks } from "#lib/legal.ts";
     import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
-    import { bidLineOfGameDeclaredInTheStage, gameInPlay, sideNames, type PlayingHand } from "#lib/playView.ts";
+    import {
+        bidLineOfGameDeclaredInTheStage,
+        gameInPlay,
+        openCardsOf,
+        sideNames,
+        type PlayingHand,
+    } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import { seriesCountText, seriesEndAsk, seriesOver, standingsView } from "#lib/series.ts";
     import { declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
@@ -31,6 +44,7 @@
     import AskPlaque from "#lib/ui/AskPlaque.svelte";
     import AwayMark from "#lib/ui/AwayMark.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
+    import DecidingPlaque from "#lib/ui/DecidingPlaque.svelte";
     import CopyLinkKey from "#lib/ui/CopyLinkKey.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
@@ -51,6 +65,7 @@
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PassMark from "#lib/ui/PassMark.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
+    import PlayOpenKey from "#lib/ui/PlayOpenKey.svelte";
     import PushControls from "#lib/ui/PushControls.svelte";
     import PointsBar from "#lib/ui/PointsBar.svelte";
     import RamschMarks from "#lib/ui/RamschMarks.svelte";
@@ -58,6 +73,7 @@
     import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SeatNoticeLine from "#lib/ui/SeatNoticeLine.svelte";
+    import ShortenKey from "#lib/ui/ShortenKey.svelte";
     import SeriesEndKey from "#lib/ui/SeriesEndKey.svelte";
     import Standings from "#lib/ui/Standings.svelte";
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
@@ -87,7 +103,6 @@
     import TableClosed from "./TableClosed.svelte";
     import {
         answerAbort,
-        answerGiveUp,
         answerSeriesEnd,
         bidLineWhileDeclaring,
         copyTableLink,
@@ -108,7 +123,6 @@
         type SeriesEndAnswer,
         type AuctionAction,
         type Card,
-        type GiveUpAnswer,
         type Options,
         type Outcome,
         type Picking,
@@ -170,7 +184,7 @@
         seatedAgents = seatedAgentsKey(previous, table);
         const nudged = previous === undefined ? null : nudgedNote(previous, table);
         const cues = cuesBetween(previous, table);
-        const note = seatNotice(cues, table) ?? nudged;
+        const note = requestEndedNotice(cues, table.chairs) ?? seatNotice(cues, table) ?? nudged;
         if (note !== null) showSeatNote(note);
         seatNote = noticeStanding(seatNote, table);
         if (!handWaits(table.hand)) asking = null;
@@ -181,8 +195,6 @@
         for (const cue of cues) {
             if (cue.kind === "card-played") {
                 playedThisHand = [...playedThisHand, cue.card];
-            } else if (cue.kind === "give-up-refused") {
-                showSeatNote(refusalNotice(table.chairs, cue.seats));
             } else if (cue.kind === "bid-said") {
                 bidSaid = cue;
             } else if (cue.kind === "nudged") {
@@ -435,17 +447,7 @@
                     }}
                 />
             {:else if deciding !== null}
-                <div class="plaque deciding">
-                    {#if deciding.kind === "won"}
-                        <span>{deciding.text}</span>
-                    {:else}
-                        <span>{deciding.bid}</span>
-                        <span class="gives">
-                            {deciding.line}
-                            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                        </span>
-                    {/if}
-                </div>
+                <DecidingPlaque {deciding} />
             {:else if bidLine !== null}
                 <div class="plaque">
                     <span>{bidLine}</span>
@@ -566,7 +568,8 @@
                               : chairMarks(auction, chair.seat, ownChair?.seat, waits)}
                     {@const ramschMark = ramschMarks(ramschTable, chair.seat)}
                     {@const onTurn = marks.turn || chair.seat === turnSeat || ramschMark.turn || wait?.owes(chair.seat)}
-                    {@const openCards = chair.seat === declaring?.declarer_seat ? declaring.open_cards : []}
+                    {@const openCards = openCardsOf(current, chair.seat)}
+                    {@const held = giveUp?.cardsHeld === true || wait?.held(chair.seat)}
                     <li
                         class="chair"
                         class:mine={chair.is_mine}
@@ -608,7 +611,10 @@
                                         {`${words["table.plays"]}`}
                                     </span>
                                 {/if}
-                                <AnswerMarks mark={(giveUp?.marks ?? abort.marks).get(chair.seat)} />
+                                <AnswerMarks
+                                    mark={(giveUp?.marks ?? abort.marks).get(chair.seat) ??
+                                        openCardsMark(current, chair.seat)}
+                                />
                                 <AnswerMarks mark={wait?.marks.get(chair.seat)} />
                                 {#if onTurn}
                                     <span class="mark turn" aria-hidden="true">
@@ -673,14 +679,11 @@
                                 {#if chair.is_mine}
                                     <OpenTag />
                                 {:else}
-                                    <OpenHand cards={openCards} dim={wait?.held(chair.seat)} />
+                                    <OpenHand cards={openCards} dim={held} />
                                 {/if}
                             {:else if !chair.is_mine}
                                 <div class="fan-spot">
-                                    <BackFan
-                                        count={chair.hand.card_count}
-                                        dim={chair.is_away || giveUp?.cardsHeld === true || wait?.held(chair.seat)}
-                                    />
+                                    <BackFan count={chair.hand.card_count} dim={chair.is_away || held} />
                                 </div>
                             {/if}
                             {#if !chair.is_mine && openCards.length === 0}
@@ -718,6 +721,8 @@
                         sent={sentFromVersion === current.version}
                         ontap={() => tapWeiter(current)}
                     />
+                    <ShortenKey {id} table={outcome.table} bind:note />
+                    <PlayOpenKey {id} table={outcome.table} bind:note />
                     <GiveUpKey {id} table={outcome.table} bind:note />
                     {#if seated}
                         <StandKey

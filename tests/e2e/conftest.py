@@ -12,6 +12,7 @@ from tests.e2e.support.browser_coverage import BrowserCoverage
 from tests.e2e.support.deal_pause import HeldDealPause
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.failure_record import FailureRecord
+from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
 from tests.e2e.support.server import RunningServer, skat_on_new_database
 from tests.e2e.support.shards import select_shard
@@ -225,6 +226,21 @@ def deal_a_declaring_table(
 ) -> Callable[..., DeclaringTable]:
     def deal(form_factor: dict[str, Any], *, console: bool = True) -> DeclaringTable:
         return DeclaringTable(open_person, e2e_server, member_of, page_errors, form_factor, console=console)
+
+    return deal
+
+
+@pytest.fixture
+def deal_a_game(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> Callable[..., PlayingTable]:
+    """A declared game before its first card, with the failure of a refused tap kept out of the console check."""
+
+    def deal(form_factor: dict[str, Any], *, console: bool = True) -> PlayingTable:
+        return deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, console=console)
 
     return deal
 

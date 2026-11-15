@@ -1,8 +1,8 @@
 <script lang="ts">
-    import { giveUpKey } from "#lib/giveUp.ts";
+    import { giveUp, giveUpKey } from "#lib/giveUp.ts";
     import ArmedKey from "#lib/ui/ArmedKey.svelte";
     import { words } from "#lib/words.ts";
-    import { giveUp, type Table } from "../../routes/(start)/tables.ts";
+    import type { Table } from "../../routes/(start)/tables.ts";
 
     let { id, table, note = $bindable() }: { id: string; table: Table; note: string } = $props();
 

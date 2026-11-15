@@ -5,6 +5,7 @@ import {
     cardsToPlay,
     dragVerdict,
     gameInPlay,
+    openCardsOf,
     ownCardSlotOpen,
     pileOf,
     playedCards,
@@ -13,6 +14,7 @@ import {
     trickOnTheFelt,
     type PlayingHand,
 } from "#lib/playView.ts";
+import { DECLARER, FIRST_OPPONENT, SECOND_OPPONENT, tableWith } from "#lib/giveUp.fixtures.ts";
 import { SETTLED, type StageState } from "#lib/stage.ts";
 import { words } from "#lib/words.ts";
 import type { Auction, Card, Chair, LastTrick, Playing, Position, Table } from "../routes/(start)/tables.ts";
@@ -56,6 +58,10 @@ function playing(changes: Partial<Playing>): Playing {
         legal_cards: [],
         running_points: null,
         give_up: null,
+        shortening: null,
+        shortening_refused_seat: null,
+        open_play_seat: null,
+        open_hands: [],
         kontra: null,
         ...changes,
     };
@@ -501,5 +507,33 @@ describe("the bid of a game declared in the stage of a Ramsch", () => {
     it("is none while no game is declared and with no hand on the table", () => {
         expect(bidLineOfGameDeclaredInTheStage(withAuction({ words: passes }))).toBeNull();
         expect(bidLineOfGameDeclaredInTheStage({ ...table(1, {}), hand: null })).toBeNull();
+    });
+});
+
+describe("the cards a chair holds open to every viewer", () => {
+    const declarerCards: Card[] = [KARO_ACE];
+    const opponentCards: Card[] = [HERZ_TEN];
+    const open = tableWith(FIRST_OPPONENT, null, { openHands: [{ seat: FIRST_OPPONENT, cards: opponentCards }] });
+    const table = {
+        ...open,
+        hand: {
+            ...(open.hand as NonNullable<Table["hand"]>),
+            declaring: {
+                ...(open.hand?.declaring as NonNullable<NonNullable<Table["hand"]>["declaring"]>),
+                open_cards: declarerCards,
+            },
+        },
+    };
+
+    it("are the declarer's after an ouvert game or a no, and an opponent's after his open play, and no other chair's", () => {
+        expect([DECLARER, FIRST_OPPONENT, SECOND_OPPONENT].map((seat) => openCardsOf(table, seat))).toEqual([
+            declarerCards,
+            opponentCards,
+            [],
+        ]);
+    });
+
+    it("are none without a hand", () => {
+        expect(openCardsOf({ ...table, hand: null }, DECLARER)).toEqual([]);
     });
 });
