@@ -82,7 +82,7 @@
     <button
         bind:this={key}
         type="button"
-        class={["menu-key", place === "strip" ? "strip" : "bar", open && "on"]}
+        class={["menu-key", place === "strip" && "strip", open && "on"]}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={words["table.menu"]}
