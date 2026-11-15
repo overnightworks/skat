@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import { gameSheetView, hasEleventhRow } from "#lib/gameSheet.ts";
 import { GIVEN_UP_SHEET, OLD_SHEET, RAMSCH_SHEET, SCHIEBERAMSCH_SHEET } from "#lib/series.fixtures.ts";
 import { words } from "#lib/words.ts";
+import type { Card } from "../routes/(start)/tables.ts";
+
+const HERZ_TEN: Card = { suit: "herz", rank: "ten" };
+const KARO_ACE: Card = { suit: "karo", rank: "ace" };
 
 describe("gameSheetView of a declared game", () => {
-    const view = gameSheetView(GIVEN_UP_SHEET);
+    const view = gameSheetView(GIVEN_UP_SHEET, null);
 
     it("counts the declarer against the opponents, each by the name stored with the game", () => {
         expect(view.count).toMatchObject({
@@ -53,7 +57,7 @@ describe("gameSheetView of a declared game", () => {
     ] as const)("words an ending %s as %s", (ending, key) => {
         const sheet = { ...GIVEN_UP_SHEET, count: { ...GIVEN_UP_SHEET.count, ending } };
 
-        expect(gameSheetView(sheet as typeof GIVEN_UP_SHEET).end?.label).toBe(words[key]);
+        expect(gameSheetView(sheet as typeof GIVEN_UP_SHEET, null).end?.label).toBe(words[key]);
     });
 
     it("reads a game played out with fewer than ten tricks as decided, with nobody who ended it", () => {
@@ -62,7 +66,7 @@ describe("gameSheetView of a declared game", () => {
             count: { ...GIVEN_UP_SHEET.count, ending: "played-out", ended_by_seat: null },
         };
 
-        expect(gameSheetView(sheet as typeof GIVEN_UP_SHEET).end).toEqual({
+        expect(gameSheetView(sheet as typeof GIVEN_UP_SHEET, null).end).toEqual({
             label: words["table.sheetDecided"],
             by: null,
         });
@@ -79,16 +83,16 @@ describe("gameSheetView of a declared game", () => {
             cards: { ...(GIVEN_UP_SHEET.cards as NonNullable<typeof GIVEN_UP_SHEET.cards>), tricks },
         };
 
-        expect(gameSheetView(sheet as typeof GIVEN_UP_SHEET).end).toBeNull();
+        expect(gameSheetView(sheet as typeof GIVEN_UP_SHEET, null).end).toBeNull();
     });
 
     it("says nothing of an ending for a game with no stored cards", () => {
-        expect(gameSheetView(OLD_SHEET)).toMatchObject({ cards: null, end: null });
+        expect(gameSheetView(OLD_SHEET, null)).toMatchObject({ cards: null, end: null });
     });
 });
 
 describe("gameSheetView of a Ramsch", () => {
-    const view = gameSheetView(RAMSCH_SHEET);
+    const view = gameSheetView(RAMSCH_SHEET, null);
 
     it("counts each seat's points and highlights the most, naming a seat stored without a name as nobody", () => {
         expect(
@@ -110,7 +114,7 @@ describe("gameSheetView of a Ramsch", () => {
     });
 
     it("keeps the skat as it lay, which the skat counted for, apart from the skat as dealt after a take", () => {
-        const schieberamsch = gameSheetView(SCHIEBERAMSCH_SHEET);
+        const schieberamsch = gameSheetView(SCHIEBERAMSCH_SHEET, null);
 
         expect([schieberamsch.cards?.skat, schieberamsch.cards?.laidSkat]).toEqual([
             [{ suit: "pik", rank: "seven" }],
@@ -119,16 +123,29 @@ describe("gameSheetView of a Ramsch", () => {
     });
 
     it("draws a Ramsch with no stored cards by its count alone", () => {
-        expect(gameSheetView({ ...RAMSCH_SHEET, cards: null })).toMatchObject({ cards: null, end: null });
+        expect(gameSheetView({ ...RAMSCH_SHEET, cards: null }, null)).toMatchObject({ cards: null, end: null });
     });
 
     it("has no end line without a Durchmarsch and names the seat that swept as the end", () => {
         const sweep = { ...RAMSCH_SHEET, count: { kind: "ramsch", seat_points: [120, 0, 0], durchmarsch_seat: 1 } };
 
         expect(view.end).toBeNull();
-        expect(gameSheetView(sweep as typeof RAMSCH_SHEET).end).toMatchObject({
+        expect(gameSheetView(sweep as typeof RAMSCH_SHEET, null).end).toMatchObject({
             label: words["table.sheetDurchmarsch"],
         });
+    });
+});
+
+describe("gameSheetView hand order", () => {
+    const declarerHand = (game: Parameters<typeof gameSheetView>[1]) =>
+        gameSheetView(GIVEN_UP_SHEET, game).cards?.hands[1]?.cards.map((held) => held.card);
+
+    it("shows a hand as before while the game is not named", () => {
+        expect(declarerHand(null)).toEqual([HERZ_TEN, KARO_ACE]);
+    });
+
+    it("puts the trump suit of a suit game before the other suits in every hand", () => {
+        expect(declarerHand("karo")).toEqual([KARO_ACE, HERZ_TEN]);
     });
 });
 
@@ -136,14 +153,17 @@ describe("hasEleventhRow", () => {
     const trick = RAMSCH_SHEET.cards?.tricks[0] as NonNullable<typeof RAMSCH_SHEET.cards>["tricks"][number];
     const sweep = { kind: "ramsch", seat_points: [120, 0, 0], durchmarsch_seat: 1 };
     const withTricks = (count: number, ended: boolean) =>
-        gameSheetView({
-            ...RAMSCH_SHEET,
-            count: ended ? sweep : RAMSCH_SHEET.count,
-            cards: {
-                ...(RAMSCH_SHEET.cards as NonNullable<typeof RAMSCH_SHEET.cards>),
-                tricks: Array.from({ length: count }, (_, index) => ({ ...trick, number: index + 1 })),
-            },
-        } as typeof RAMSCH_SHEET);
+        gameSheetView(
+            {
+                ...RAMSCH_SHEET,
+                count: ended ? sweep : RAMSCH_SHEET.count,
+                cards: {
+                    ...(RAMSCH_SHEET.cards as NonNullable<typeof RAMSCH_SHEET.cards>),
+                    tricks: Array.from({ length: count }, (_, index) => ({ ...trick, number: index + 1 })),
+                },
+            } as typeof RAMSCH_SHEET,
+            null,
+        );
 
     it.each([
         [10, false, false],
@@ -155,6 +175,6 @@ describe("hasEleventhRow", () => {
     });
 
     it("tells a game with no stored cards to have none", () => {
-        expect(hasEleventhRow(gameSheetView(OLD_SHEET))).toBe(false);
+        expect(hasEleventhRow(gameSheetView(OLD_SHEET, null))).toBe(false);
     });
 });
