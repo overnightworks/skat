@@ -34,10 +34,14 @@ function edgeAnswers(...statuses: (number | "refused")[]) {
     return probes;
 }
 
-function outage() {
+// The controller remembers addresses across its own instances, so each test names an address of its own.
+let addresses = 0;
+const freshAddress = (): string => `/t/${String(addresses++)}`;
+
+function outage(address = freshAddress(), loaded = false) {
     const states: OutageState[] = [];
-    const retry = vi.fn(() => Promise.resolve());
-    const end = startOutage({ retry, onState: (state) => states.push(state) });
+    const retry = vi.fn(() => Promise.resolve(loaded));
+    const end = startOutage({ address, retry, onState: (state) => states.push(state) });
     return { states, retry, end };
 }
 
@@ -126,6 +130,48 @@ describe("startOutage", () => {
         expect(states).toEqual([]);
     });
 
+    it("shows the failed state at the first answer of a remounted page whose address the edge answered for before", async () => {
+        const probes = edgeAnswers(ANSWERED);
+        const address = freshAddress();
+        const first = outage(address);
+
+        await vi.advanceTimersByTimeAsync(1_000);
+        first.end();
+        const remounted = outage(address);
+        await vi.advanceTimersByTimeAsync(1_000);
+
+        expect(remounted.retry).not.toHaveBeenCalled();
+        expect(remounted.states).toEqual(["failed"]);
+        expect(probes).toHaveLength(2);
+    });
+
+    it("retries an address again once its route loaded in between", async () => {
+        edgeAnswers(ANSWERED);
+        const address = freshAddress();
+        const first = outage(address, true);
+
+        await vi.advanceTimersByTimeAsync(1_000);
+        first.end();
+        const later = outage(address);
+        await vi.advanceTimersByTimeAsync(1_000);
+
+        expect(later.retry).toHaveBeenCalledTimes(1);
+        expect(later.states).toEqual([]);
+    });
+
+    it("retries an address again once the edge went away after the first retry", async () => {
+        edgeAnswers(ANSWERED, "refused", ANSWERED);
+        const address = freshAddress();
+        const first = outage(address);
+
+        await vi.advanceTimersByTimeAsync(1_000 + 2_000);
+        first.end();
+        const later = outage(address);
+        await vi.advanceTimersByTimeAsync(1_000);
+
+        expect(later.retry).toHaveBeenCalledTimes(1);
+    });
+
     it("probes at once when the tab becomes visible, and not when it is hidden", async () => {
         const probes = edgeAnswers(BAD_GATEWAY);
         outage();
@@ -195,7 +241,13 @@ describe("startOutage", () => {
         const states: OutageState[] = [];
         let loaded: () => void = () => undefined;
         const end = startOutage({
-            retry: () => new Promise<void>((resolve) => (loaded = resolve)),
+            address: freshAddress(),
+            retry: () =>
+                new Promise<boolean>((resolve) => {
+                    loaded = () => {
+                        resolve(true);
+                    };
+                }),
             onState: (state) => states.push(state),
         });
 
