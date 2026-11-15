@@ -118,26 +118,27 @@ function recordingsOf(language: string): string[] {
 }
 
 describe.each(languages)("the recordings in %s", (language) => {
-    it("each have a voice key in the catalog, and a key without a recording stays silent", async () => {
+    it("are exactly one per voice key of the catalog, and none lacks a key", async () => {
         const keys = Object.keys(await loadWords(language)).filter((key) => key.startsWith("voice."));
-        const recorded = recordingsOf(language).map((file) => file.slice(0, -RECORDING_SUFFIX.length));
 
-        expect(recorded.length).toBeGreaterThan(0);
-        expect(recorded.filter((key) => !keys.includes(key))).toEqual([]);
+        expect(recordingsOf(language)).toEqual(keys.map((key) => `${key}${RECORDING_SUFFIX}`).sort());
+        expect(keys.length).toBeGreaterThan(0);
     });
 });
 
 describe("the recordings of the page's language", () => {
-    it("are found by key", () => {
-        const recorded = recordingsOf(sourceLanguage).map((file) =>
-            file.slice(0, -RECORDING_SUFFIX.length),
+    it("are found by key", async () => {
+        const keys = Object.keys(await loadWords(sourceLanguage)).filter((key) =>
+            key.startsWith("voice."),
         ) as VoiceKey[];
 
-        for (const key of recorded) expect(recordingOf(key)).toContain(key);
+        for (const key of keys) expect(recordingOf(key)).toContain(key);
     });
 
-    it("are all fetched in advance, and none of another language", () => {
-        expect(everyRecording()).toHaveLength(recordingsOf(sourceLanguage).length);
+    it("are all fetched in advance, and none of another language", async () => {
+        const keys = Object.keys(await loadWords(sourceLanguage)).filter((key) => key.startsWith("voice."));
+
+        expect(everyRecording()).toHaveLength(keys.length);
     });
 
     it("have no recording for a key that was never recorded", () => {

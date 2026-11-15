@@ -1,6 +1,5 @@
 import json
 import re
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -8,7 +7,7 @@ from playwright.sync_api import Page, expect
 
 from skat.engine.bidding import VALID_BIDS
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
-from skat.web.words import SOURCE_LANGUAGE, text
+from skat.web.words import SOURCE_LANGUAGE, WORDS, text
 from tests.e2e.support.audio import (
     recordings_started,
     tap,
@@ -33,13 +32,12 @@ pytestmark = pytest.mark.e2e
 
 # The key the player's choice is kept under in the browser.
 SETTINGS_KEY = "skat.settings"
-RECORDINGS_DIRECTORY = Path(__file__).resolve().parents[2] / "frontend" / "src" / "lib" / "voice"
 SOUND_PANEL = text(SOURCE_LANGUAGE, "sound.panelName")
 VOICE = text(SOURCE_LANGUAGE, "sound.voice")
 # The file of a recording is named by its catalog key and a hash of its bytes, after a dot.
 RECORDED_KEY = re.compile(r"/(voice\.\w+)\.[\w-]+\.mp3$")
 # The recordings of the page's language, which the page decodes once its voice is on.
-RECORDING_COUNT = len(list((RECORDINGS_DIRECTORY / SOURCE_LANGUAGE).glob("*.mp3")))
+RECORDING_COUNT = sum(key.startswith("voice.") for key in WORDS[SOURCE_LANGUAGE])
 SOUND_SETS = ("leise", "stammtisch", "funkeln")
 # The voices one word of Kontra starts in each sound set, at the table's first tap.
 KONTRA_KNOCK_VOICES = {"leise": 6, "stammtisch": 7, "funkeln": 7}
