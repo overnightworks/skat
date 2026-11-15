@@ -112,6 +112,14 @@ def pods(postgres_template, tmp_path_factory) -> Iterator[Pods]:
                 process.kill()
             engine.dispose()
 
+@pytest.fixture(autouse=True)
+def an_emptied_redis(pods) -> Iterator[None]:
+    """The limits that tests spend from the processes' Redis never reach another test."""
+    fresh_database_url()
+    yield
+    fresh_database_url()
+
+
 
 class TestASeededSession:
     def test_is_admitted_by_both_processes(self, pods):
@@ -152,8 +160,6 @@ class TestASeededSession:
 
 class TestTheSignInBudget:
     def test_spent_through_the_first_process_is_refused_by_the_second(self, pods):
-        # An earlier test's logout spent from the same address; the budget starts full.
-        fresh_database_url()
         spent = [pods.first.request("GET", AUTH_START_PATH).status_code for _ in range(SIGN_IN_BUDGET_REQUESTS)]
 
         assert set(spent) == {303}
