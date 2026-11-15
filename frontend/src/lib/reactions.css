@@ -157,7 +157,7 @@
     animation: emote-throw 3.23s cubic-bezier(0.3, 0.7, 0.4, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
-.room[data-motion="verspielt"] .trail {
+.room[data-motion="verspielt"] .emote-trail {
     animation: emote-trail 3.23s ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
