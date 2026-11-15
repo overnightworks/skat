@@ -54,14 +54,14 @@ export class FakePort implements AudioPort {
     }
 
     // The levels each ambience was set to.
-    ambience: Partial<Record<Ambience, number[]>> = {};
+    ambience: Record<Ambience, number[]> = { sea: [], pub: [] };
 
     get sea(): number[] {
-        return this.ambience.sea ?? [];
+        return this.ambience.sea;
     }
 
     setAmbience(ambience: Ambience, level: number): void {
-        (this.ambience[ambience] ??= []).push(level);
+        this.ambience[ambience].push(level);
     }
 }
 

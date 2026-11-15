@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MOTION_SETS } from "./motionSets.ts";
 import { SOUND_SETS } from "./soundSets.ts";
 import { earliest, FakePort, soundAt } from "./tableSound.fixtures.ts";
+import { stubBrowser } from "../testing/stubBrowser.ts";
 
 describe("the sound of a reaction", () => {
     it.each(["fire", "lamp"] as const)("sounds %s in the chosen set, at the full gain of a cue", (reaction) => {
@@ -29,5 +30,29 @@ describe("the sound of a reaction", () => {
         soundAt(port, { muted: true }).forReaction("cheers");
 
         expect(port.played).toEqual([]);
+    });
+});
+
+describe("the page's sound of a reaction", () => {
+    beforeEach(() => {
+        vi.resetModules();
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it("sounds a reaction only after the first tap and none before it", async () => {
+        const { started, listeners } = stubBrowser({ reducedMotion: true });
+        const { armSound, soundForReaction } = await import("./tableSound.ts");
+        armSound();
+
+        soundForReaction("clap");
+        const before = started.length;
+        listeners.get("pointerup")?.();
+        soundForReaction("clap");
+
+        expect(before).toBe(0);
+        expect(started.length).toBeGreaterThan(0);
     });
 });
