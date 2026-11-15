@@ -19,7 +19,12 @@ from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
-from tests.e2e.support.style import STYLES, expect_the_furniture_clear, give_the_table_its_style
+from tests.e2e.support.style import (
+    STYLES,
+    expect_painted_as_the_scene,
+    expect_the_furniture_clear,
+    give_the_table_its_style,
+)
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
 
 if TYPE_CHECKING:
@@ -47,6 +52,8 @@ HELD = ".ladder .held"
 LIT = ".ladder .now"
 HIGHER = ".ladder .higher button"
 MAIN = ".bid-buttons .button-stage"
+PASS_BUTTON = ".bid-buttons .button-glass"
+BID_CHIP_PAINT = ["backgroundColor", "color"]
 STRIP = ".ladder .higher"
 TURN_CHAIR = ".chair.mine.turn"
 PLAQUE = ".plaque"
@@ -211,6 +218,11 @@ def test_the_middlehand_opens_and_only_the_one_whose_turn_it_is_gets_controls(
 
     assert_the_opening_ladder(middlehand)
     expect_the_furniture_clear((table.forehand, middlehand, table.rearhand, table.watcher), table_style)
+    if table_style is TableStyle.STRANDBAR:
+        expect_painted_as_the_scene(
+            middlehand, "strand-auction", HIGHER, ".ladder span:not(.held):not(.now)", BID_CHIP_PAINT
+        )
+        expect_painted_as_the_scene(middlehand, "strand-auction", PASS_BUTTON, ".btns .button-glass", BID_CHIP_PAINT)
     expect(middlehand.locator(TURN_CHAIR)).to_have_count(1)
     for other in (table.forehand, table.rearhand, table.watcher):
         expect(other.locator(PLAQUE)).to_have_text(BIDDING)

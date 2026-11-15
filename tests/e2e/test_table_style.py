@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -9,7 +8,7 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.audio import tap
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import WIDTHS
-from tests.e2e.support.style import ROOM, STYLE_KEY, choose_style
+from tests.e2e.support.style import ROOM, STYLE_KEY, TABLE_SCENES, choose_style
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -25,7 +24,6 @@ TONE = text(SOURCE_LANGUAGE, "sound.tone")
 BEACH = ".beach"
 STYLE_TILES = ".style-tile"
 STRIP = ".actions"
-TABLE_SCENES = Path(__file__).parents[2] / "docs" / "mockups" / "table.html"
 SCENE_STYLE_ROW = ".snd-row.look"
 PAGE_STYLE_ROW = ".style-row"
 ROW_PADDING = """row => {

@@ -350,6 +350,22 @@
     background-color: rgba(28, 17, 22, 0.74);
 }
 
+/* The bid's chips and its give-up are dark glass with light text, the held rung a shade darker. */
+.room[data-style="strandbar"] .ladder > span:not(.now, .held),
+.room[data-style="strandbar"] .higher button,
+.room[data-style="strandbar"] .button-glass {
+    background-color: rgba(28, 17, 22, 0.74);
+    color: var(--on-stage);
+}
+
+.room[data-style="strandbar"] .ladder > span.held {
+    background-color: rgba(28, 17, 22, 0.8);
+}
+
+.room[data-style="strandbar"] .button-glass {
+    background-color: rgba(28, 17, 22, 0.62);
+}
+
 .room[data-style="strandbar"] .result {
     box-shadow:
         inset 0 0 0 1.5px rgba(243, 207, 122, 0.4),

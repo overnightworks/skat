@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -11,6 +12,7 @@ if TYPE_CHECKING:
 
 STYLE_KEY = text(SOURCE_LANGUAGE, "table.styleName")
 ROOM = ".room"
+TABLE_SCENES = Path(__file__).parents[3] / "docs" / "mockups" / "table.html"
 STYLES = [pytest.param(TableStyle.KLASSIK, id="klassik"), pytest.param(TableStyle.STRANDBAR, id="strandbar")]
 # The cocktail and the shell: the furniture the Strandbar style adds as elements.
 DECORATIONS = 2
@@ -63,3 +65,23 @@ def expect_the_furniture_clear(everyone: Iterable[Page], style: TableStyle) -> N
     for person in everyone:
         expect(person.locator(".decor")).to_have_count(DECORATIONS if style is TableStyle.STRANDBAR else 0)
         assert person.evaluate(FURNITURE_CLEAR) == []
+
+
+PAINT = """(element, properties) => {
+    const painted = getComputedStyle(element);
+    return Object.fromEntries(properties.map((property) => [property, painted[property]]));
+}"""
+
+
+def expect_painted_as_the_scene(person: Page, scene: str, live: str, drawn: str, properties: list[str]) -> None:
+    """`live` has the computed `properties` that `drawn` has in the blessed scene at this width."""
+    viewport = person.viewport_size
+    assert viewport is not None
+    frame = f"{scene}-{viewport['width']}"
+    page_of_scenes = person.context.new_page()
+    try:
+        page_of_scenes.goto(f"{TABLE_SCENES.as_uri()}?f={frame}")
+        in_scene = page_of_scenes.locator(f"[id='{frame}'] {drawn}").first.evaluate(PAINT, properties)
+    finally:
+        page_of_scenes.close()
+    assert person.locator(live).first.evaluate(PAINT, properties) == in_scene
