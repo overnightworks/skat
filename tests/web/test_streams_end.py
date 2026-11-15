@@ -2,13 +2,13 @@ import json
 from contextlib import nullcontext
 
 import pytest
-from structlog.testing import capture_logs
+from logline import REQUEST_EVENT, Outcome
 
 from skat.table.records import CreateTable, EndReason, TableId
 from skat.web.lobby import LOBBY_EVENTS_PATH
 from skat.web.presence import EmptyTable, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
-from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamKind, messages_with_end_log
+from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamKind, StreamRefusal, messages_with_end_log
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from skat.web.wakes import WakeList
 from tests.support.fake_tables import in_memory_tables
@@ -19,6 +19,7 @@ from tests.support.idle_presence import (
     idle_next_deal,
     idle_presence,
 )
+from tests.support.log_lines import lines_of, logged
 from tests.web.support.skat import Skat, streams_of, unnamed_lines
 from tests.web.support.streams import (
     OPENER,
@@ -174,94 +175,100 @@ async def idle():
     yield IDLE_HEARTBEAT
 
 
-def ended_lines(logs):
-    return [log for log in logs if log["event"] == "stream_ended"]
+def ended_lines(lines):
+    return lines_of(lines, "stream.ended")
 
 
 class TestTheEndLogOfAStream:
     @pytest.mark.parametrize(
-        ("items", "stopped", "reason", "error_type"),
+        ("items", "stopped", "outcome", "reason"),
         [
-            pytest.param(ended_table, False, "ended_table", None, id="ended-table"),
-            pytest.param(finishing, False, "refused", None, id="refused-admission"),
-            pytest.param(idle, True, "shutdown", None, id="shutdown"),
+            pytest.param(ended_table, False, Outcome.OK, None, id="ended-table"),
+            pytest.param(finishing, False, Outcome.REFUSED, StreamRefusal.ADMISSION_LOST, id="refused-admission"),
+            pytest.param(idle, True, Outcome.OK, None, id="shutdown"),
         ],
     )
-    def test_a_stream_that_ends_by_itself_logs_one_line_with_the_reason_it_ended(
-        self, items, stopped, reason, error_type
+    def test_a_stream_that_ends_by_itself_logs_one_line_with_how_it_ended(
+        self, capsys, items, stopped, outcome, reason
     ):
         async def scenario():
             return [message async for message in messages_with_end_log(items(), lambda: stopped, StreamKind.LOBBY)]
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run_on_a_loop_of_its_own(scenario())
 
-        assert [(log["reason"], log["error_type"]) for log in ended_lines(logs)] == [(reason, error_type)]
+        assert [(line["outcome"], line.get("reason")) for line in ended_lines(lines)] == [(outcome, reason)]
 
-    def test_a_stream_whose_producer_raises_logs_the_exception_type_and_passes_the_error_on(self):
+    def test_a_stream_whose_producer_raises_logs_the_exception_type_and_passes_the_error_on(self, capsys):
         async def scenario():
             return [message async for message in messages_with_end_log(failing(), lambda: False, StreamKind.LOBBY)]
 
         producer_run = scenario()
 
-        with capture_logs() as logs, pytest.raises(ProducerFailedError):
+        with logged(capsys) as lines, pytest.raises(ProducerFailedError):
             run_on_a_loop_of_its_own(producer_run)
 
-        assert [(log["reason"], log["error_type"]) for log in ended_lines(logs)] == [("error", "ProducerFailedError")]
+        assert [(line["outcome"], line["error_type"]) for line in ended_lines(lines)] == [
+            (Outcome.FAILED, "ProducerFailedError")
+        ]
 
-    def test_a_stream_closed_from_outside_logs_a_client_gone(self):
+    def test_a_stream_closed_from_outside_logs_a_cancelled_end(self, capsys):
         async def scenario():
             stream = messages_with_end_log(idle(), lambda: False, StreamKind.LOBBY)
             await anext(stream)
             await stream.aclose()
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run_on_a_loop_of_its_own(scenario())
 
-        assert [log["reason"] for log in ended_lines(logs)] == ["client_gone"]
+        assert [line["outcome"] for line in ended_lines(lines)] == [Outcome.CANCELLED]
 
-    def test_the_line_names_the_kind_the_table_and_the_lifetime_and_nothing_a_stream_sent(self):
+    def test_the_line_names_the_kind_the_table_and_the_duration_and_nothing_a_stream_sent(self, capsys):
         async def scenario():
             stream = messages_with_end_log(ended_table(), lambda: False, StreamKind.TABLE, "table-id")
             return [message async for message in stream]
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run_on_a_loop_of_its_own(scenario())
 
-        [line] = ended_lines(logs)
-        assert (line["kind"], line["table_id"], line["lifetime_seconds"] >= 0) == ("table", "table-id", True)
+        [line] = ended_lines(lines)
+        assert (line["kind"], line["table_id"], line["duration_ms"] >= 0) == ("table", "table-id", True)
         assert "the end" not in str(line)
-        assert set(line) == {"event", "log_level", "kind", "table_id", "reason", "error_type", "lifetime_seconds"}
 
 
 class TestTheEndLogAtTheRoutes:
     def events(self, table_id):
         return f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}"
 
-    def test_an_ended_tables_stream_logs_one_ended_table_line_with_its_table_id(self, server, time, hold):
+    def test_an_ended_tables_stream_logs_one_ok_line_with_its_table_id_on_the_trace_of_its_request(
+        self, server, time, hold, capsys
+    ):
         headers, _ = server.member()
         table_id = server.create(headers).json()["id"]
         server.client.portal.call(time.advance, hold.settings.empty_table_seconds)
 
-        with capture_logs() as logs, server.client.stream("GET", self.events(table_id), headers=headers) as answer:
+        with logged(capsys) as lines, server.client.stream("GET", self.events(table_id), headers=headers) as answer:
             list(answer.iter_lines())
 
-        assert [(log["kind"], log["table_id"], log["reason"]) for log in ended_lines(logs)] == [
-            ("table", table_id, "ended_table")
-        ]
+        (line,) = ended_lines(lines)
+        (request,) = [each for each in lines_of(lines, REQUEST_EVENT) if each["route"].endswith(TABLE_EVENTS_SUFFIX)]
+        assert (line["kind"], line["table_id"], line["outcome"]) == ("table", table_id, Outcome.OK)
+        assert line["trace_id"] == request["trace_id"] is not None
 
     @pytest.mark.parametrize("kind", [StreamKind.TABLE, StreamKind.LOBBY])
-    def test_a_stream_whose_session_ends_logs_one_refused_line(self, sign_in_settings, kind):
+    def test_a_stream_whose_session_ends_logs_one_refused_line(self, sign_in_settings, capsys, kind):
         skat = Skat(sign_in_settings, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
         headers, member = skat.member()
         table_id = skat.create(headers).json()["id"]
         skat.client.cookies.clear()
         path = LOBBY_EVENTS_PATH if kind is StreamKind.LOBBY else self.events(table_id)
 
-        with capture_logs() as logs, skat.client.stream("GET", path, headers=headers) as answer:
-            lines = unnamed_lines(answer.iter_lines())
-            next(lines)
+        with logged(capsys) as lines, skat.client.stream("GET", path, headers=headers) as answer:
+            stream = unnamed_lines(answer.iter_lines())
+            next(stream)
             skat.stores.sessions.delete_for_user(member.id)
-            list(lines)
+            list(stream)
 
-        assert [(log["kind"], log["reason"]) for log in ended_lines(logs)] == [(kind.value, "refused")]
+        assert [(line["kind"], line["outcome"], line["reason"]) for line in ended_lines(lines)] == [
+            (kind.value, Outcome.REFUSED, StreamRefusal.ADMISSION_LOST)
+        ]
