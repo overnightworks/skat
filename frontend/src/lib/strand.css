@@ -20,9 +20,10 @@
     }
 }
 
-/* During a hand the style key is a fifth button beside the give-up, the stand-up, the agents' pill and the link, and the Kontra
-   word or the opener's close key can be a sixth: a phone's row narrows its buttons to the 44 px touch size, its gaps to 4 px
-   and a word key's padding to 10 px so that it stays one line inside 360 px. */
+/* During a hand the style key is a fifth button beside the give-up, the stand-up, the agents' pill and the link, and the
+   opener's close key can be a sixth (the key is gone while a Kontra word is offered, so that strip keeps the size its scene
+   draws): a phone's row narrows its buttons to the 44 px touch size, its gaps to 4 px and the give-up's padding to 10 px, and
+   on the narrowest to 8 px, so that it stays one line inside 360 px. */
 @media (max-width: 899px) {
     .room .actions:has(.give-up):has(.style-key) {
         gap: 4px;
@@ -38,6 +39,12 @@
 
     .room .actions:has(.give-up):has(.style-key) .copy:not(.round, .link, .agents, .style-key, .close) {
         padding: 0 10px;
+    }
+}
+
+@media (max-width: 383px) {
+    .room .actions:has(.give-up):has(.style-key) .copy:not(.round, .link, .agents, .style-key, .close) {
+        padding: 0 8px;
     }
 }
 

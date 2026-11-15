@@ -15,7 +15,7 @@
     import { cuesBetween, springsUp, stampBetween, type BidWord } from "#lib/cues.ts";
     import { greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { giveUpAsk, giveUpView, refusalNotice } from "#lib/giveUp.ts";
-    import { firstCardWait, type Stamp } from "#lib/kontra.ts";
+    import { firstCardWait, keyWord, type Stamp } from "#lib/kontra.ts";
     import { legalLinks } from "#lib/legal.ts";
     import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import { bidLineOfGameDeclaredInTheStage, gameInPlay, sideNames, type PlayingHand } from "#lib/playView.ts";
@@ -731,7 +731,7 @@
                         watchers={streamedWatchers}
                         kitWords={data.kitWords}
                     />
-                    {#if seated && !onResult}
+                    {#if seated && !onResult && keyWord(outcome.table) === null}
                         <StyleKey {id} bind:note />
                     {/if}
                     {#if callMode}
