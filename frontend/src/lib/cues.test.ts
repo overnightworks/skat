@@ -99,11 +99,23 @@ describe("the cards laid between two versions of a table", () => {
         },
     );
 
+    it("lays every card of a trick that completes before the page saw its start, from its leader, and then names the trick", () => {
+        const previous = table(3, [10, 10, 10], { current: [] });
+        const next = table(4, [9, 9, 9], { current: [], last: FIRST_TRICK_LAST });
+
+        expect(cuesBetween(previous, next)).toEqual([
+            { kind: "card-played", seat: FOREHAND, card: KREUZ_KING },
+            { kind: "card-played", seat: MIDDLEHAND, card: HERZ_NINE },
+            { kind: "card-played", seat: REARHAND, card: KREUZ_ACE },
+            { kind: "trick-taken", trick: FIRST_TRICK_LAST },
+        ]);
+    });
+
     it.each([
         {
             name: "two completed tricks that the page skipped lay nothing",
             previous: table(3, [8, 8, 8], { current: [], last: FIRST_TRICK_LAST }),
-            next: table(5, [7, 7, 7], { current: [], last: { ...FIRST_TRICK_LAST, leader_seat: REARHAND } }),
+            next: table(5, [6, 6, 6], { current: [], last: { ...FIRST_TRICK_LAST, leader_seat: REARHAND } }),
         },
         {
             name: "the first lead of a new deal lays nothing",

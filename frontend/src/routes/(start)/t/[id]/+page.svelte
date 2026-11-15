@@ -13,8 +13,8 @@
     import { abortView } from "#lib/abort.ts";
     import { grumblingAt, ring, stopRinging } from "#lib/bell.svelte.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
-    import { closedHandOrdinal, closeHand } from "#lib/closingTrick.ts";
-    import { cuesBetween, springsUp, stampBetween, type BidWord, type Cue } from "#lib/cues.ts";
+    import { closeHand } from "#lib/closingTrick.ts";
+    import { closedHandOrdinal, cuesBetween, springsUp, stampBetween, type BidWord, type Cue } from "#lib/cues.ts";
     import { browserCallHost, greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import { giveUpAsk, giveUpView, refusalNotice } from "#lib/giveUp.ts";
     import { firstCardWait, type Stamp } from "#lib/kontra.ts";
@@ -188,22 +188,27 @@
     function closeHandAtItsLastTrick(previous: Table, table: Table, ordinal: number): void {
         const hold = { queued: [] as [Table, Table][] };
         closing = hold;
-        const slow = new Promise<null>((resolve) => setTimeout(resolve, SHEET_WAIT_MILLISECONDS, null));
+        let slowTimer: ReturnType<typeof setTimeout> | undefined;
+        const slow = new Promise<null>((resolve) => {
+            slowTimer = setTimeout(resolve, SHEET_WAIT_MILLISECONDS, null);
+        });
         void Promise.race([readGameSheet(id, ordinal), slow]).then((sheet) => {
+            clearTimeout(slowTimer);
             if (closing !== hold) return;
             const cues = cuesBetween(previous, table);
-            const drawn = stageMoves() ? closeHand(previous, table, sheet) : null;
-            if (drawn === null) {
+            const held = stageMoves() ? closeHand(previous, table, sheet) : null;
+            const trickCues = held === null ? [] : cuesBetween(previous, held);
+            if (held === null || !trickCues.some((cue) => cue.kind === "trick-taken")) {
                 closing = null;
                 presentTable(previous, table, cues);
                 showQueued(hold.queued);
                 return;
             }
             const isResult = (cue: Cue): boolean => cue.kind === "result-appeared";
-            presentTable(previous, drawn.held, [...cues.filter((cue) => !isResult(cue)), ...drawn.cues], () => {
+            presentTable(previous, held, [...trickCues, ...cues.filter((cue) => !isResult(cue))], () => {
                 if (closing !== hold) return;
                 closing = null;
-                presentTable(drawn.held, table, cues.filter(isResult));
+                presentTable(held, table, cues.filter(isResult));
                 showQueued(hold.queued);
             });
         });

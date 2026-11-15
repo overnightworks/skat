@@ -3,6 +3,7 @@ import { stampOf, type SaidWord, type Stamp } from "./kontra.ts";
 import { handWaits } from "./openChair.ts";
 import { declaredResult, resultIsGood } from "./result.ts";
 import {
+    seatsInTurnFrom,
     type AuctionAction,
     type AuctionWord,
     type Card,
@@ -67,10 +68,10 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     if (next.version === previous.version) return nudges;
     const cues: Cue[] = chairCuesBetween(previous, next);
     if (auctionJustEnded(previous, next)) cues.push({ kind: "auction-ended" });
-    const { laid, completed } = cardsLaidBetween(previous, next);
+    const { laid, completed, completing } = cardsLaidBetween(previous, next);
     for (const [index, { seat, card }] of laid.entries()) {
         cues.push({ kind: "card-played", seat, card });
-        if (index === 0 && completed !== null) cues.push({ kind: "trick-taken", trick: completed });
+        if (index === completing - 1 && completed !== null) cues.push({ kind: "trick-taken", trick: completed });
     }
     const refusers = giveUpRefusedBetween(previous, next);
     if (refusers !== null) cues.push({ kind: "give-up-refused", seats: refusers });
@@ -85,6 +86,13 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     const appeared = resultAppearedBetween(previous, next);
     if (appeared !== null) cues.push(appeared);
     return [...cues, ...nudges];
+}
+
+/** The ordinal of the result a page that watched the play receives when the last card ended the hand, else null. A hand that ended by a give-up or a throw-down has no last trick. */
+export function closedHandOrdinal(previous: Table, next: Table): number | null {
+    const { result } = next;
+    if (previous.hand?.playing == null || next.hand !== null || result === null) return null;
+    return result.kind === "declared" && result.ending !== "played-out" ? null : result.ordinal;
 }
 
 function nudgedCuesBetween(previous: Table, next: Table): Cue[] {
@@ -238,8 +246,9 @@ function auctionJustEnded(previous: Table, next: Table): boolean {
     return !!previous.hand && !previous.hand.declaring && next.hand?.declaring?.stage === "choosing";
 }
 
-type TrickStep = { laid: SeatedCard[]; completed: LastTrick | null };
-const NO_STEP: TrickStep = { laid: [], completed: null };
+// The first `completing` of the cards laid finished the `completed` trick; the cards after them lead the next.
+type TrickStep = { laid: SeatedCard[]; completed: LastTrick | null; completing: number };
+const NO_STEP: TrickStep = { laid: [], completed: null, completing: 0 };
 
 // The cards this update laid on the felt, in the order they were laid, and the trick they completed if any; nothing
 // unless every change is explained.
@@ -251,32 +260,37 @@ function cardsLaidBetween(previous: Table, next: Table): TrickStep {
     return step !== null && handCountsExplain(previous.chairs, next.chairs, step.laid) ? step : NO_STEP;
 }
 
-// Either the trick on the felt grew, or it completed: then its last card and the cards on the new trick are laid.
+// Either the trick on the felt grew, or it completed: then the cards of it that the page has not seen laid, and the
+// cards on the new trick, are laid.
 function trickStepBetween(before: Playing, after: Playing, chairs: Chair[]): TrickStep | null {
     if (sameJson(before.last_trick, after.last_trick)) {
         const added = cardsAddedToTrick(before.current_trick, after.current_trick);
-        return added === null ? null : { laid: added, completed: null };
+        return added === null ? null : { laid: added, completed: null, completing: 0 };
     }
     const completed = after.last_trick;
-    if (completed === null || before.current_trick.length === 0) return null;
-    const completing = completingCard(before.current_trick, chairs, completed);
-    return completing === null ? null : { laid: [completing, ...after.current_trick], completed };
+    if (completed === null) return null;
+    const completing = completingCards(before.current_trick, chairs, completed);
+    return completing === null
+        ? null
+        : { laid: [...completing, ...after.current_trick], completed, completing: completing.length };
 }
 
 function cardsAddedToTrick(before: SeatedCard[], after: SeatedCard[]): SeatedCard[] | null {
     return sameJson(after.slice(0, before.length), before) ? after.slice(before.length) : null;
 }
 
-// The trick's cards carry no seats, so the card that completed it belongs to the one chair that has not played in it.
-function completingCard(trick: SeatedCard[], chairs: Chair[], completed: LastTrick): SeatedCard | null {
-    const playedSeats = new Set(trick.map((seated) => seated.seat));
-    const waiting = chairs.map((chair) => chair.seat).filter((seat) => !playedSeats.has(seat));
-    const trickCards = trick.map((seated) => seated.card);
+// The trick's cards carry no seats, so they go round the table from the leader. The cards the page saw on the felt
+// are its first, and the rest completed it, which may be more than one when the page missed an update.
+function completingCards(seen: SeatedCard[], chairs: Chair[], completed: LastTrick): SeatedCard[] | null {
+    const seats = seatsInTurnFrom(chairs, completed.leader_seat);
+    const trick = completed.cards.map((card, index) => ({ seat: seats[index] as number, card }));
     const explained =
-        waiting.length === 1 &&
-        completed.cards.length === trick.length + 1 &&
-        sameJson(completed.cards.slice(0, trick.length), trickCards);
-    return explained ? { seat: waiting[0] as number, card: completed.cards[trick.length] as Card } : null;
+        trick.length === SEATS_AT_A_TABLE &&
+        sameJson(
+            completed.cards.slice(0, seen.length),
+            seen.map((seated) => seated.card),
+        );
+    return explained ? trick.slice(seen.length) : null;
 }
 
 // Each card laid takes one card from its player's hand, and no other hand changes.

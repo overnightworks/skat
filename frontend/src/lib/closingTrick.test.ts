@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { closeHand, closedHandOrdinal } from "#lib/closingTrick.ts";
+import { closeHand } from "#lib/closingTrick.ts";
+import { closedHandOrdinal, cuesBetween } from "#lib/cues.ts";
 import { FOREHAND, MIDDLEHAND, REARHAND, table } from "#lib/cues.fixtures.ts";
 import { LOST_GAME, ramschResult, table as tableWithResult } from "#lib/result.fixtures.ts";
 import type { Card, GameSheet, Table } from "../routes/(start)/tables.ts";
@@ -41,7 +42,7 @@ function sheetOfTheLastTrick(taker: number | null, cards = IN_THE_LAST_TRICK): G
     };
 }
 
-const beforeTheLastCard = table(8, [1, 1, 1], { current: LAST_CARD_ON_THE_FELT });
+const beforeTheLastCard = table(8, [0, 0, 1], { current: LAST_CARD_ON_THE_FELT });
 const afterTheLastCard: Table = { ...tableWithResult(FOREHAND, { ordinal: 3 }), version: 9 };
 
 describe("the hand that the last card ends", () => {
@@ -70,12 +71,12 @@ describe("the hand that the last card ends", () => {
 
 describe("the last trick of a hand that the game sheet names", () => {
     it("shows the felt as the trick that finished, taken by the sheet's taker, and every pile counted", () => {
-        const closing = closeHand(beforeTheLastCard, afterTheLastCard, sheetOfTheLastTrick(MIDDLEHAND));
+        const held = closeHand(beforeTheLastCard, afterTheLastCard, sheetOfTheLastTrick(MIDDLEHAND));
 
-        expect(closing?.held.version).toBe(afterTheLastCard.version);
-        expect(closing?.held.chairs.map((chair) => chair.hand?.card_count)).toEqual([0, 0, 0]);
-        expect(closing?.held.hand?.own_cards).toEqual([]);
-        expect(closing?.held.hand?.playing).toMatchObject({
+        expect(held?.version).toBe(afterTheLastCard.version);
+        expect(held?.chairs.map((chair) => chair.hand?.card_count)).toEqual([0, 0, 0]);
+        expect(held?.hand?.own_cards).toEqual([]);
+        expect(held?.hand?.playing).toMatchObject({
             current_trick: [],
             last_trick: { cards: [KREUZ_KING, HERZ_NINE, KREUZ_ACE], leader_seat: FOREHAND, taker_seat: MIDDLEHAND },
             taken: [
@@ -87,9 +88,9 @@ describe("the last trick of a hand that the game sheet names", () => {
     });
 
     it("tells the cards laid and then the trick taken, so the card lands before the trick rests", () => {
-        const closing = closeHand(beforeTheLastCard, afterTheLastCard, sheetOfTheLastTrick(MIDDLEHAND));
+        const held = closeHand(beforeTheLastCard, afterTheLastCard, sheetOfTheLastTrick(MIDDLEHAND));
 
-        expect(closing?.cues).toEqual([
+        expect(held && cuesBetween(beforeTheLastCard, held)).toEqual([
             { kind: "card-played", seat: REARHAND, card: KREUZ_ACE },
             {
                 kind: "trick-taken",
@@ -100,10 +101,11 @@ describe("the last trick of a hand that the game sheet names", () => {
 
     it("lays every card of the trick the page did not see when it missed an update", () => {
         const behind = table(7, [1, 1, 1], { current: [] });
-        const closing = closeHand(behind, afterTheLastCard, sheetOfTheLastTrick(MIDDLEHAND));
+        const held = closeHand(behind, afterTheLastCard, sheetOfTheLastTrick(MIDDLEHAND));
 
-        expect(closing?.cues.filter((cue) => cue.kind === "card-played")).toHaveLength(3);
-        expect(closing?.cues.at(-1)?.kind).toBe("trick-taken");
+        const cues = held === null ? [] : cuesBetween(behind, held);
+        expect(cues.filter((cue) => cue.kind === "card-played")).toHaveLength(3);
+        expect(cues.at(-1)?.kind).toBe("trick-taken");
     });
 
     it.each([
