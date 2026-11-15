@@ -38,20 +38,15 @@ VOICE = text(SOURCE_LANGUAGE, "sound.voice")
 RECORDED_KEY = re.compile(r"/(voice\.\w+)\.[\w-]+\.mp3$")
 # The recordings of the page's language, which the page decodes once its voice is on.
 RECORDING_COUNT = sum(key.startswith("voice.") for key in WORDS[SOURCE_LANGUAGE])
+# The confirmations the voice says for a hold instead of its number.
+CONFIRMATIONS = {key for key in WORDS[SOURCE_LANGUAGE] if key.startswith("voice.hold")}
 SOUND_SETS = ("leise", "stammtisch", "funkeln")
 # The voices one word of Kontra starts in each sound set, at the table's first tap.
 KONTRA_KNOCK_VOICES = {"leise": 6, "stammtisch": 7, "funkeln": 7}
 OPENING_BID, RAISED_BID = VALID_BIDS[0], VALID_BIDS[-1]
 GAME = "kreuz"
-# The words the watcher hears from the deal: the auction's five, then the declared game.
-WORDS_OF_THE_DEAL = [
-    f"voice.value{OPENING_BID}",
-    f"voice.value{OPENING_BID}",
-    f"voice.value{RAISED_BID}",
-    "voice.pass",
-    "voice.pass",
-    f"voice.{GAME}",
-]
+# The words the watcher hears from the deal: a bid, a hold, a raise, two passes and the declared game.
+WORDS_OF_THE_DEAL = 6
 
 
 def table_with_settings(stored: dict[str, object], *, kontra: bool = False) -> type[DeclaringTable]:
@@ -114,7 +109,7 @@ def keys_said(page: Page) -> list[str]:
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_with_the_voice_on_the_watcher_hears_each_bid_and_pass_from_its_recording(
+def test_with_the_voice_on_the_watcher_hears_each_bid_pass_and_a_confirmation_for_the_hold_from_its_recording(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -123,8 +118,16 @@ def test_with_the_voice_on_the_watcher_hears_each_bid_and_pass_from_its_recordin
 ) -> None:
     table = deal(open_person, e2e_server, member_of, page_errors, {"voice": True}, form_factor=form_factor)
 
-    wait_for_recordings_started(table.watcher, len(WORDS_OF_THE_DEAL))
-    assert keys_said(table.watcher) == WORDS_OF_THE_DEAL
+    wait_for_recordings_started(table.watcher, WORDS_OF_THE_DEAL)
+    opening, hold, raised, *passes_and_game = keys_said(table.watcher)
+    assert [opening, raised, *passes_and_game] == [
+        f"voice.value{OPENING_BID}",
+        f"voice.value{RAISED_BID}",
+        "voice.pass",
+        "voice.pass",
+        f"voice.{GAME}",
+    ]
+    assert hold in CONFIRMATIONS
     assert page_errors == []
 
 
@@ -154,7 +157,7 @@ def test_a_reload_says_nothing(
     page_errors: list[str],
 ) -> None:
     table = deal(open_person, e2e_server, member_of, page_errors, {"voice": True})
-    wait_for_recordings_started(table.watcher, len(WORDS_OF_THE_DEAL))
+    wait_for_recordings_started(table.watcher, WORDS_OF_THE_DEAL)
 
     reload_and_wait(table.watcher)
     tap(table.watcher)
@@ -173,13 +176,13 @@ def test_a_word_of_kontra_knocks_in_every_sound_set_and_is_said_with_the_voice_o
     sound_set: str,
 ) -> None:
     table = deal(open_person, e2e_server, member_of, page_errors, {"voice": True, "soundSet": sound_set}, kontra=True)
-    wait_for_recordings_started(table.watcher, len(WORDS_OF_THE_DEAL))
+    wait_for_recordings_started(table.watcher, WORDS_OF_THE_DEAL)
     before = len(voices_started(table.watcher))
 
     say_kontra_as_an_opponent(table)
 
-    wait_for_recordings_started(table.watcher, len(WORDS_OF_THE_DEAL) + 1)
-    assert keys_said(table.watcher)[len(WORDS_OF_THE_DEAL) :] == ["voice.kontra"]
+    wait_for_recordings_started(table.watcher, WORDS_OF_THE_DEAL + 1)
+    assert keys_said(table.watcher)[WORDS_OF_THE_DEAL:] == ["voice.kontra"]
     assert len(voices_started(table.watcher)) - before == KONTRA_KNOCK_VOICES[sound_set]
     assert page_errors == []
 

@@ -259,6 +259,11 @@ export type Words = {
     readonly "voice.grumbleComing": string;
     readonly "voice.grumbleRush": string;
     readonly "voice.grumbleThinking": string;
+    readonly "voice.holdYes": string;
+    readonly "voice.holdSure": string;
+    readonly "voice.holdOfCourse": string;
+    readonly "voice.holdCertainly": string;
+    readonly "voice.holdHaveIt": string;
     readonly "voice.value18": string;
     readonly "voice.value20": string;
     readonly "voice.value22": string;
@@ -837,7 +842,7 @@ export const words: Words = {
     "kontra.decline": (gaps: { readonly word: string }) => "Kein " + gaps.word,
     "kontra.firstCardWaits": (gaps: { readonly names: string }) => "Erste Karte wartet auf " + gaps.names,
     "kontra.you": "dich",
-    "bid.hold": "Halten",
+    "bid.hold": "Ja",
     "bid.pass": "Weg",
     "voice.pass": "Weg",
     "voice.kontra": "Kontra",
@@ -857,6 +862,11 @@ export const words: Words = {
     "voice.grumbleComing": "Jaja, ich komm ja schon!",
     "voice.grumbleRush": "Hetz mich nicht!",
     "voice.grumbleThinking": "Moment, ich denk noch!",
+    "voice.holdYes": "Ja",
+    "voice.holdSure": "Klar",
+    "voice.holdOfCourse": "Natürlich",
+    "voice.holdCertainly": "Sicher",
+    "voice.holdHaveIt": "Hab ich",
     "voice.value18": "achtzehn",
     "voice.value20": "zwanzig",
     "voice.value22": "zweiundzwanzig",
