@@ -1,11 +1,22 @@
 import copy
+import logging
 import secrets
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import TYPE_CHECKING
+
+from logline import StepTimer
 
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
-from skat.table.ending import close_table, end_unplayed_table, forget_ended_tables, table_with_opener, unplayed_tables
+from skat.table.ending import (
+    CLOSE_TABLE_COMMAND,
+    close_table,
+    end_unplayed_table,
+    forget_ended_tables,
+    table_with_opener,
+    unplayed_tables,
+)
 from skat.table.game_reads import GameListReads
 from skat.table.hand_abort import (
     AGREE_TO_ABORT_COMMAND,
@@ -94,6 +105,7 @@ from skat.table.records import (
 )
 from skat.table.rules import (
     AGREE_TO_GIVE_UP_COMMAND,
+    CREATE_TABLE_COMMAND,
     DECLINE_GIVE_UP_COMMAND,
     GIVE_UP_COMMAND,
     PLAY_CARD_COMMAND,
@@ -143,6 +155,29 @@ if TYPE_CHECKING:
     from skat.table.transactions import OccupiedChair, TableTransaction, TableTransactions
 
 __all__ = ["CommandIdReusedError", "CommandResult", "TableService"]
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class CommandNotRun(StrEnum):
+    """Why a table command did not run, beside the refusals of `skat.table.records`."""
+
+    NO_TABLE = "no-table"
+
+
+def _command_step(command: str, table_id: str | None = None) -> StepTimer:
+    """The timer of a table command's line; the id is logged only when it names a table, as parsed."""
+    identifier = None if table_id is None else TableId.parse(table_id)
+    return StepTimer(
+        "table_command.ended", _LOGGER, command=command, table_id=None if identifier is None else identifier.value
+    )
+
+
+def _note_refusal(step: StepTimer, result: CommandResult | None) -> None:
+    if result is None:
+        step.refuse(CommandNotRun.NO_TABLE)
+    elif result.refusal is not None:
+        step.refuse(result.refusal.value)
 
 
 def _utc_now() -> datetime:
@@ -203,11 +238,12 @@ class TableService(LobbyReads, GameListReads):
         return clone
 
     def create(self, actor: Actor, command: CreateTable) -> TableView:
-        try:
-            return self._create_once(actor, command)
-        except DuplicateReceiptError:
-            # An identical request committed between this one's lookup and its receipt; the retry finds that receipt.
-            return self._create_once(actor, command)
+        with _command_step(CREATE_TABLE_COMMAND):
+            try:
+                return self._create_once(actor, command)
+            except DuplicateReceiptError:
+                # An identical request committed between this one's lookup and its receipt; the retry finds it.
+                return self._create_once(actor, command)
 
     def _create_once(self, actor: Actor, command: CreateTable) -> TableView:
         with self._transactions.begin() as transaction:
@@ -568,7 +604,9 @@ class TableService(LobbyReads, GameListReads):
         """Close the table for everyone if the actor opened it, the ended table as the answer, else the refusal
         `not-allowed`; None when no live table has the id.
         """
-        closed = close_table(self._transactions, actor, command, self._now)
+        with _command_step(CLOSE_TABLE_COMMAND, command.table_id) as step:
+            closed = close_table(self._transactions, actor, command, self._now)
+            _note_refusal(step, None if closed is None else closed.result)
         if closed is None:
             return None
         self._tell_seats(closed.members)
@@ -679,12 +717,15 @@ class TableService(LobbyReads, GameListReads):
     ) -> CommandResult | None:
         """Run the command once; `after_accepted` writes more inside the transaction, after an accepted first run."""
         arguments = (actor, connected_accounts, table_id, command_id, command, payload, decide, after_accepted)
-        try:
-            return self._run_command_once(*arguments)
-        except DuplicateReceiptError:
-            # The same command id committed on another table between this one's lookup and its receipt;
-            # the retry finds that receipt and replays it or refuses the reuse.
-            return self._run_command_once(*arguments)
+        with _command_step(command, table_id) as step:
+            try:
+                result = self._run_command_once(*arguments)
+            except DuplicateReceiptError:
+                # The same command id committed on another table between this one's lookup and its receipt;
+                # the retry finds that receipt and replays it or refuses the reuse.
+                result = self._run_command_once(*arguments)
+            _note_refusal(step, result)
+        return result
 
     def _run_command_once(
         self,
