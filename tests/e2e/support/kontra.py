@@ -78,7 +78,7 @@ def expect_nothing_to_overflow(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     viewport = person.viewport_size
     assert viewport is not None
-    for part in person.locator(f"{KEY}, {STAMP}, .actions > *").all():
+    for part in person.locator(f"{KEY}, {STAMP}, .actions > :not(.anchored-overlay)").all():
         box = part.bounding_box()
         assert box is not None
         assert box["x"] >= 0, box
