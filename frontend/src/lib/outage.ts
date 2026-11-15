@@ -12,10 +12,17 @@ const ANSWERED_STATUS = 200;
 export type OutageState = "reconnecting" | "unreachable" | "failed";
 
 export type OutageOptions = {
-    // Loads the route again; it resolves when the navigation is done, whether it loaded or failed again.
-    retry: () => Promise<void>;
+    // The address of the route that failed: the page that stands in for it can be built again by every load of it that
+    // fails, and the address is what the next one finds the earlier retry by.
+    address: string;
+    // Loads the route again; it resolves when the navigation is done, with whether the route loaded.
+    retry: () => Promise<boolean>;
     onState: (state: OutageState) => void;
 };
+
+// The addresses whose route was loaded again after the edge answered and has not loaded since: a failing load builds the
+// stand-in page anew, and the new one must not start the same retry over.
+const retriedAddresses = new Set<string>();
 
 async function edgeAnswers(): Promise<boolean> {
     try {
@@ -30,7 +37,6 @@ async function edgeAnswers(): Promise<boolean> {
 export function startOutage(options: OutageOptions): () => void {
     let ended = false;
     let asking = false;
-    let retried = false;
     let waits = 0;
     let wait: ReturnType<typeof setTimeout> | undefined;
     const minute = setTimeout(() => {
@@ -59,15 +65,15 @@ export function startOutage(options: OutageOptions): () => void {
             const answered = await edgeAnswers();
             if (ended) return;
             if (!answered) {
-                retried = false;
-            } else if (retried) {
+                retriedAddresses.delete(options.address);
+            } else if (retriedAddresses.has(options.address)) {
                 // The edge answered before and answers now, and the route still fails: nothing here heals it.
                 end();
                 options.onState("failed");
                 return;
             } else {
-                retried = true;
-                await options.retry();
+                retriedAddresses.add(options.address);
+                if (await options.retry()) retriedAddresses.delete(options.address);
             }
         } finally {
             asking = false;
