@@ -12,7 +12,7 @@ from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import LANGUAGES, SOURCE_LANGUAGE
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
-from tests.support.in_memory_stores import in_memory_stores
+from tests.support.in_memory_stores import in_memory_stores, single_pod
 from tests.support.page_build import fixture_page_build, served_page
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
@@ -28,6 +28,7 @@ def skat_app(sign_in_settings, stores) -> FastAPI:
         tables=in_memory_tables(),
         rule_sets=in_memory_rule_sets(),
         stores=stores,
+        **single_pod(),
     )
 
 

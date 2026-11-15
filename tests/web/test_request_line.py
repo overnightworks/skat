@@ -12,7 +12,7 @@ from skat.web.request_line import RequestRefusal
 from skat.web.tables import TABLES_PATH
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
-from tests.support.in_memory_stores import in_memory_stores
+from tests.support.in_memory_stores import in_memory_stores, single_pod
 from tests.support.log_lines import lines_of, logged
 from tests.support.page_build import IMMUTABLE_FILE, fixture_page_build
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -35,6 +35,7 @@ def app(sign_in_settings, stores):
         tables=in_memory_tables(),
         rule_sets=in_memory_rule_sets(),
         stores=stores,
+        **single_pod(),
     )
 
 

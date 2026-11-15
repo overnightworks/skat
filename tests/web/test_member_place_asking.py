@@ -26,9 +26,8 @@ from skat.web.presence import ChairHold, EmptyTable, Presence
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from skat.web.waits import AskClock
-from skat.web.wakes import WakeList
 from tests.support.calls import call_facts
-from tests.support.idle_presence import free_no_chair, idle_agent_lease, idle_next_deal
+from tests.support.idle_presence import free_no_chair, idle_agent_lease, idle_next_deal, idle_wakes
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -506,7 +505,7 @@ class TestAnEndedTablesWaitIsDropped:
             idle_next_deal(),
             EmptyTable(60, ending.answer, ending.answer),
             idle_agent_lease(),
-            WakeList(),
+            idle_wakes(),
         )
         presence.waits.see(TABLE, 6)
 

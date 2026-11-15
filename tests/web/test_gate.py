@@ -41,7 +41,7 @@ from skat.web.words import SOURCE_LANGUAGE
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
-from tests.support.in_memory_stores import in_memory_stores
+from tests.support.in_memory_stores import in_memory_stores, in_process_rate_limits, single_pod
 from tests.support.page_build import (
     ANNOUNCER_STYLE_HASH,
     CALL_PAGE_MODULE,
@@ -131,6 +131,7 @@ class Application:
             stores=self.stores,
             issuer_transports=self.issuer.transports,
             **options,
+            **single_pod(),
         )
         self.config = installed_web_auth_config(self.app)
         self.client = TestClient(self.app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
@@ -463,7 +464,9 @@ class TestSessionLifetime:
         sign_in = sign_in_settings()
         stores = in_memory_stores()
         now = [1_800_000_000.0]
-        config: WebAuthConfig = replace(build_sign_in_configs(sign_in.settings).web_auth, wall_clock=lambda: now[0])
+        config: WebAuthConfig = replace(
+            build_sign_in_configs(sign_in.settings, in_process_rate_limits()).web_auth, wall_clock=lambda: now[0]
+        )
         member = seed_member(stores, config)
         app = FastAPI()
         install_web_auth_config(app, config)

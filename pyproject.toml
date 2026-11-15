@@ -9,7 +9,8 @@ dependencies = [
     "fastapi>=0.123.7",
     "overnightworks-agents[mcp-server] @ git+https://github.com/overnightworks/agents@v0.45.0",
     "overnightworks-logline @ git+https://github.com/overnightworks/logline@v0.3.0",
-    "overnightworks-webauth @ git+https://github.com/overnightworks/webauth@v0.40.1",
+    "overnightworks-tandem @ git+https://github.com/overnightworks/tandem@v0.2.0",
+    "overnightworks-webauth[redis] @ git+https://github.com/overnightworks/webauth@v0.40.1",
     "psycopg[binary]>=3.2",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
@@ -29,7 +30,12 @@ build-backend = "hatchling.build"
 [tool.uv]
 # The overnightworks libraries are built from their git tags; a named package
 # overrides a global --no-build, so every other package still installs as a wheel.
-no-binary-package = ["overnightworks-agents", "overnightworks-logline", "overnightworks-webauth"]
+no-binary-package = [
+    "overnightworks-agents",
+    "overnightworks-logline",
+    "overnightworks-tandem",
+    "overnightworks-webauth",
+]
 # Their build backends run with these exact tools, as hatchling is pinned above.
 build-constraint-dependencies = ["setuptools==84.2.1", "wheel==0.48.0"]
 
@@ -83,9 +89,10 @@ allowed-confusables = ["×"]
 runtime-evaluated-decorators = ["fastapi.APIRouter.api_route", "fastapi.APIRouter.get"]
 
 # import-linter names no submodule of an external package, so this is the rule that keeps webauth's single-process
-# stores, which live in one process's memory, out of Skat's code.
+# stores and limiter, which live in one process's memory, out of Skat's code.
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "webauth.single_process_stores".msg = "Accounts and sessions live in the database every pod shares: use skat.store.sign_in."
+"webauth.rate_limit.SingleProcessRateLimitBackend".msg = "Limits live in the Redis every pod shares: use skat.store.redis_clients."
 
 [tool.ruff.lint.per-file-ignores]
 "src/skat/web/words.py" = [
@@ -95,7 +102,7 @@ runtime-evaluated-decorators = ["fastapi.APIRouter.api_route", "fastapi.APIRoute
 "tests/**/*.py" = [
     "ANN",     # relax annotations in tests
     "ARG",     # allow unused arguments in fixtures
-    "TID251",  # the single-process stores are the unit tests' port fake
+    "TID251",  # the single-process stores and limiter are the unit tests' port fake
 ]
 
 [tool.ruff.format]
@@ -129,6 +136,7 @@ addopts = [
 markers = [
     "e2e: browser end-to-end tests",
     "postgres: tests that need the throwaway Postgres named by SKAT_TEST_POSTGRES_URL",
+    "redis: tests that need the throwaway Redis named by SKAT_TEST_REDIS_URL",
 ]
 
 # --- Coverage ---
@@ -195,6 +203,8 @@ forbidden_modules = [
     "webauth",
     "agents",
     "mcp",
+    "redis",
+    "tandem",
 ]
 
 [[tool.importlinter.contracts]]

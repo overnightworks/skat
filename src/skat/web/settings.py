@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 from typing import Annotated, Final
+from urllib.parse import urlsplit
 
 from pydantic import AfterValidator, BeforeValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -88,6 +89,27 @@ def _require_postgres_url_without_password(url: str) -> str:
     return url
 
 
+_REDIS_DATABASE_PATH = re.compile(r"(/\d+)?", re.ASCII)
+
+
+def _require_redis_url_without_credentials(url: str) -> str:
+    try:
+        parsed = urlsplit(url)
+        # Reading the port validates it.
+        _ = parsed.port
+    except ValueError:
+        # The parser's messages quote parts of the URL.
+        raise ValueError("must be a redis URL") from None
+    if parsed.scheme not in {"redis", "rediss"} or not parsed.hostname:
+        raise ValueError("must be a redis or rediss URL naming a host")
+    if "@" in parsed.netloc:
+        raise ValueError("must not carry credentials")
+    # redis-py reads query parameters over its own options, such as the timeouts the client is built with.
+    if parsed.query or parsed.fragment or not _REDIS_DATABASE_PATH.fullmatch(parsed.path):
+        raise ValueError("must end in at most a database number")
+    return url
+
+
 IssuerUrl = Annotated[str, AfterValidator(_require_no_trailing_slash)]
 OriginUrl = Annotated[str, AfterValidator(_require_browser_origin)]
 OptionalOriginUrl = Annotated[OriginUrl | None, BeforeValidator(_unset_when_empty)]
@@ -95,6 +117,7 @@ VisibleText = Annotated[str, AfterValidator(_require_visible_text)]
 OptionalAccountId = Annotated[VisibleText | None, BeforeValidator(_unset_when_empty)]
 AbsolutePath = Annotated[Path, AfterValidator(_require_absolute_path)]
 PasswordlessPostgresUrl = Annotated[str, AfterValidator(_require_postgres_url_without_password)]
+CredentiallessRedisUrl = Annotated[str, AfterValidator(_require_redis_url_without_credentials)]
 
 
 class DatabaseSettings(BaseSettings):
@@ -134,3 +157,6 @@ class ServerSettings(DatabaseSettings):
     ended_table_days: int = Field(default=DEFAULT_ENDED_TABLE_DAYS, gt=0, le=HIGHEST_TABLE_DAYS)
     # How many lobby and table streams one account may hold open at once; one more is refused with a 429.
     streams_per_account: int = Field(default=DEFAULT_STREAMS_PER_ACCOUNT, gt=0)
+    # The Redis every pod shares for its sign-in limits and its wakes; it keeps nothing durable. Like the database URL,
+    # it carries no credentials.
+    redis_url: CredentiallessRedisUrl = Field(repr=False)

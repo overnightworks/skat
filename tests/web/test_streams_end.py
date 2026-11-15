@@ -10,7 +10,6 @@ from skat.web.presence import EmptyTable, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamKind, StreamRefusal, messages_with_end_log
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
-from skat.web.wakes import WakeList
 from tests.support.fake_tables import in_memory_tables
 from tests.support.idle_presence import (
     end_no_table,
@@ -18,6 +17,7 @@ from tests.support.idle_presence import (
     idle_hold,
     idle_next_deal,
     idle_presence,
+    idle_wakes,
 )
 from tests.support.log_lines import lines_of, logged
 from tests.web.support.skat import Skat, streams_of, unnamed_lines
@@ -110,7 +110,7 @@ class TestAStreamWhoseArrivalWriteFails:
             return False
 
         empty_table = EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_no_table, note)
-        presence = Presence(idle_hold(), idle_next_deal(), empty_table, idle_agent_lease(), WakeList())
+        presence = Presence(idle_hold(), idle_next_deal(), empty_table, idle_agent_lease(), idle_wakes())
 
         async def scenario():
             failed = stream_of(presence, service, VISITOR, table_id)

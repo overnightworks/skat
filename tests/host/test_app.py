@@ -1,3 +1,4 @@
+import signal
 import threading
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -9,7 +10,7 @@ from starlette.requests import Request
 from webauth.config import WebAuthConfig, installed_web_auth_config
 from webauth.dependencies import session_id_from_request
 
-from skat.host.app import create_app
+from skat.host.app import create_app, end_with_sigterm
 from skat.table.records import Actor, CreateTable, EndReason, SitDown
 from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
@@ -20,7 +21,7 @@ from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import FakeTableStore, in_memory_tables
 from tests.support.idle_presence import IdleScheduler
-from tests.support.in_memory_stores import in_memory_stores
+from tests.support.in_memory_stores import in_memory_stores, single_pod
 from tests.support.page_build import (
     CALL_PAGE_SCRIPT_HASHES,
     FIXTURE_SCRIPT_HASH,
@@ -46,6 +47,7 @@ def signed_in_client(settings: ServerSettings) -> TestClient:
         tables=in_memory_tables(),
         rule_sets=in_memory_rule_sets(),
         stores=stores,
+        **single_pod(),
     )
     member = seed_member(stores, installed_web_auth_config(app))
     headers = {"cookie": cookie_header(member.set_cookie_headers)}
@@ -115,6 +117,7 @@ class TestCreateApp:
             tables=tables,
             rule_sets=in_memory_rule_sets(),
             stores=in_memory_stores(),
+            **single_pod(),
         )
 
         with TestClient(app):
@@ -133,6 +136,7 @@ class TestCreateApp:
             tables=tables,
             rule_sets=in_memory_rule_sets(),
             stores=in_memory_stores(),
+            **single_pod(),
         )
 
         with TestClient(app):
@@ -156,6 +160,7 @@ class TestCreateApp:
             rule_sets=in_memory_rule_sets(),
             stores=stores,
             chair_scheduler=IdleScheduler(),
+            **single_pod(),
         )
         member = seed_member(stores, installed_web_auth_config(app))
         headers = {"cookie": cookie_header(member.set_cookie_headers), "accept": "application/json"}
@@ -182,6 +187,7 @@ class TestCreateApp:
             rule_sets=in_memory_rule_sets(),
             stores=stores,
             chair_scheduler=IdleScheduler(),
+            **single_pod(),
         )
         member = seed_member(stores, installed_web_auth_config(app))
         opened = tables.create(Actor(member.account.id, "Anna"), CreateTable(command_id="command-open"))
@@ -206,6 +212,7 @@ class TestCreateApp:
             tables=TableService(Unreadable()),
             rule_sets=in_memory_rule_sets(),
             stores=in_memory_stores(),
+            **single_pod(),
         )
 
         with pytest.raises(ConnectionError), TestClient(app):
@@ -227,6 +234,7 @@ class TestCreateApp:
             rule_sets=in_memory_rule_sets(),
             chair_scheduler=IdleScheduler(),
             stores=in_memory_stores(),
+            **single_pod(),
         )
 
         with TestClient(app):
@@ -245,6 +253,7 @@ class TestCreateApp:
             tables=tables,
             rule_sets=in_memory_rule_sets(),
             stores=in_memory_stores(),
+            **single_pod(),
         )
         client = TestClient(app)
         client.__enter__()
@@ -270,6 +279,7 @@ class TestCreateApp:
                 tables=in_memory_tables(),
                 rule_sets=in_memory_rule_sets(),
                 stores=in_memory_stores(),
+                **single_pod(),
             )
         )
         assert isinstance(config, WebAuthConfig)
@@ -278,11 +288,15 @@ class TestCreateApp:
     def test_does_not_start_without_its_sign_in_files(self, sign_in_settings):
         settings = sign_in_settings().settings
         settings.session_secret_file.unlink()
-        page_build = fixture_page_build()
-        tables = in_memory_tables()
-        rule_sets = in_memory_rule_sets()
+        arguments = {
+            "page_build": fixture_page_build(),
+            "tables": in_memory_tables(),
+            "rule_sets": in_memory_rule_sets(),
+            "stores": in_memory_stores(),
+            **single_pod(),
+        }
         with pytest.raises(StartRefusedError, match="session_secret_file"):
-            create_app(settings, page_build=page_build, tables=tables, rule_sets=rule_sets, stores=in_memory_stores())
+            create_app(settings, **arguments)
 
     def test_account_route_reads_the_sessions_the_sign_in_wrote(self, sign_in_settings):
         sign_in = sign_in_settings()
@@ -294,6 +308,7 @@ class TestCreateApp:
             rule_sets=in_memory_rule_sets(),
             issuer_transports=issuer.transports,
             stores=in_memory_stores(),
+            **single_pod(),
         )
         browser = TestClient(app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
         sign_in_through_issuer(browser, issuer)
@@ -313,6 +328,7 @@ class TestCreateApp:
             rule_sets=in_memory_rule_sets(),
             issuer_transports=issuer.transports,
             stores=stores,
+            **single_pod(),
         )
         browser = TestClient(app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
         sign_in_through_issuer(browser, issuer)
@@ -365,3 +381,14 @@ class TestCreateApp:
     @pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
     def test_generated_documentation_is_not_served(self, sign_in_settings, path):
         assert signed_in_client(sign_in_settings().settings).get(path).status_code == 404
+
+
+def test_the_process_is_ended_by_a_sigterm_to_itself_as_an_orchestrator_stops_it():
+    received = []
+    previous = signal.signal(signal.SIGTERM, lambda number, _frame: received.append(number))
+    try:
+        end_with_sigterm()
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+    assert received == [signal.SIGTERM]

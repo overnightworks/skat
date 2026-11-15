@@ -15,7 +15,7 @@ from skat.table.records import Actor, CloseTable, CreateTable, EndReason, SitDow
 from skat.table.service import TableService
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import FakeTableStore
-from tests.support.in_memory_stores import in_memory_stores
+from tests.support.in_memory_stores import in_memory_stores, single_pod
 from tests.support.page_build import (
     fixture_page_build,
 )
@@ -111,6 +111,7 @@ class UnplayedTables:
             rule_sets=in_memory_rule_sets(),
             chair_scheduler=self.scheduler,
             stores=self.stores,
+            **single_pod(),
         )
 
     def app_on_a_clock(self, wall_clock):

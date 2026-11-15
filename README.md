@@ -18,7 +18,7 @@ You need Python 3.14+, [uv](https://docs.astral.sh/uv/), Node 24 or 26 and pnpm.
 
 Sign-in returns the person to `SKAT_PUBLIC_ORIGIN`, which must be https, so open Skat at that origin (behind a TLS-terminating proxy), not at the plain listen address. The issuer needs a client whose redirect URI is `SKAT_PUBLIC_ORIGIN` + `/auth/callback` and that sends the groups claim.
 
-The tests that touch the database run against a throwaway Postgres: `make test` and `make e2e` start one through `scripts/test_postgres.sh`, which needs Docker. `make check` runs the lint, the unit tests, the dead-code check and the frontend checks; `make e2e` drives the browser tests and needs Playwright's Chromium installed once.
+The tests that touch the database or Redis run against a throwaway Postgres and Redis: `make test` and `make e2e` start one through `scripts/test_stores.sh`, together with a throwaway Redis, which needs Docker. `make check` runs the lint, the unit tests, the dead-code check and the frontend checks; `make e2e` drives the browser tests and needs Playwright's Chromium installed once.
 
 ## Configuration
 
@@ -34,6 +34,7 @@ Every setting is an environment variable. The secrets are read from the files na
 | `SKAT_SESSION_SECRET_FILE` | required | Absolute path of the file holding the session signing key. |
 | `SKAT_DATABASE_URL` | required | The Postgres connection URL without a password, as `postgresql://user@host/database`; Skat refuses to start if it carries a password or any query parameter. |
 | `SKAT_DATABASE_PASSWORD_FILE` | required | Absolute path of the file holding only the database password. |
+| `SKAT_REDIS_URL` | required | The URL of the Redis every pod shares, as `redis://host:6379/0` (`rediss://` for TLS); Skat refuses to start if it carries credentials or any query parameter. Redis keeps the sign-in and request limits, which hold across pods, and carries the wakes that tell every pod's streams a table changed; it holds nothing durable. A pod refuses to start without a subscription to the wakes within ten seconds. While it cannot answer, every request but `/health` is refused with a 503. `skat migrate` does not read it. |
 | `SKAT_OPERATOR_ACCOUNT_ID` | unset | The sign-in account id of the operator. `skat migrate` reads it when it runs and installs the operator's rule set „Felix“ on that account, or replaces it keeping its id; unset or empty, no set is installed. A migration applies once, so set it before the first `skat migrate` that reaches the revision. |
 | `SKAT_TRUSTED_PROXIES` | empty | Addresses and CIDR blocks, comma-separated, of the proxies allowed to name the client in `X-Forwarded-For`. |
 | `SKAT_CHAIR_HOLD_SECONDS` | `300` | How long a seated member whose last stream ended keeps the chair at a table on which no hand was dealt; a positive number. At a table on which a hand was dealt the chair is kept until its holder stands up or the table ends. |

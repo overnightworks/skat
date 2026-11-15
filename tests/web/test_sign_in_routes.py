@@ -45,7 +45,7 @@ from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import LANGUAGES, SOURCE_LANGUAGE, text
 from tests.support.end_session_page import EndSessionPage
 from tests.support.fake_issuer import FakeIssuer
-from tests.support.in_memory_stores import in_memory_stores
+from tests.support.in_memory_stores import in_memory_stores, in_process_rate_limits
 from tests.support.page_build import fixture_page_build, served_page
 from tests.support.sign_in_settings import TEST_ISSUER, TEST_PUBLIC_ORIGIN, SignInSettings
 from tests.support.signed_in import new_id_token
@@ -132,7 +132,7 @@ def make_harness(sign_in_settings) -> Callable[..., SignInHarness]:
         sign_in.settings.oidc_client_secret_file.write_text(
             sign_in.client_secret + ("\r\n" if windows_line_ending else "\n")
         )
-        configs = build_sign_in_configs(sign_in.settings)
+        configs = build_sign_in_configs(sign_in.settings, in_process_rate_limits())
         issuer = FakeIssuer(sign_in)
         transports = issuer.transports
         if key_set_of is not None:
