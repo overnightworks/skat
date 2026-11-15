@@ -57,8 +57,8 @@ FUNKELN_KINDS = ["tone", "noise", "tone"]
 TAP_TARGET_PIXELS = 44
 # The desktop layout starts at this width, where the speaker carries its word.
 DESKTOP_FROM_PIXELS = 900
-# From this width the speaker stands left of the watchers; below it, right after the Lobby button.
-LEFT_OF_WATCHERS_FROM_PIXELS = 390
+# From this width the speaker stands left of the watchers; below it, right after the back key.
+LEFT_OF_WATCHERS_FROM_PIXELS = DESKTOP_FROM_PIXELS
 # The pixels between the glass of the speaker and the glass of the button or pill beside it.
 SPEAKER_GAP_PIXELS = 8
 BROKEN_STORAGE = {
@@ -211,13 +211,20 @@ def test_a_reload_keeps_the_choice(
 
 
 def uncovered_card_point(page: Page) -> tuple[float, float]:
-    """A point on a card of the own hand, beside the open panel and outside of it."""
+    """A point on a card of the own hand, beside the open panel and outside of it.
+
+    The fan shows each card's left strip and the last card whole, so the points are the strips and the last card's
+    right edge.
+    """
     panel = panel_of(page).bounding_box()
     assert panel is not None
-    for card in page.locator(".own-hand .play").all():
-        box = card.bounding_box()
-        assert box is not None
-        x, y = box["x"] + CARD_EDGE_INSET, box["y"] + box["height"] / 2
+    boxes = [card.bounding_box() for card in page.locator(".own-hand .play").all()]
+    assert None not in boxes
+    cards = [box for box in boxes if box]
+    points = [(box["x"] + CARD_EDGE_INSET, box["y"] + box["height"] / 2) for box in cards]
+    last = cards[-1]
+    points.append((last["x"] + last["width"] - CARD_EDGE_INSET, last["y"] + last["height"] / 2))
+    for x, y in points:
         if not (panel["x"] <= x <= panel["x"] + panel["width"] and panel["y"] <= y <= panel["y"] + panel["height"]):
             return x, y
     raise AssertionError("the open panel covers every card")
