@@ -30,13 +30,13 @@
             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
         {/if}
     </span>
-    {#if view.then}
+    {#if view.waitsFor}
         <span class="game">
-            {#each view.then.faces as face (face.seat)}
+            {#each view.waitsFor.faces as face (face.seat)}
                 <span class="face" aria-hidden="true">{face.initial}</span>
             {/each}
-            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {view.then.text} compiles to a `?? ""` branch no text can take -->
-            {`${view.then.text}`}
+            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {view.waitsFor.text} compiles to a `?? ""` branch no text can take -->
+            {`${view.waitsFor.text}`}
             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
         </span>
     {/if}

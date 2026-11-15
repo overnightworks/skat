@@ -35,7 +35,7 @@ export type AskView<Answer extends string> = {
     // The level a shortening demands, under the line; null when none is demanded.
     demand?: readonly MarkedPart<"level">[] | null;
     // A second line of the plaque, who the viewer waits for after the line that says what the viewer did.
-    then?: { text: string; faces: AskFace[] } | null;
+    waitsFor?: { text: string; faces: AskFace[] } | null;
     buttons: AskButton<Answer>[];
 };
 
@@ -52,7 +52,7 @@ export type GiveUpView = {
     // The level the declarer demands with his shortening; null for every other request.
     demand: string | null;
     // After an open play the one who played it also reads whom the table waits for.
-    then: { text: string; faces: AskFace[] } | null;
+    waitsFor: { text: string; faces: AskFace[] } | null;
     // The declarer's side may not play a card while an opponent's request stands.
     cardsHeld: boolean;
 };
@@ -122,7 +122,7 @@ function whoIsAsked(table: Table, declarerSeat: number, askerSeat: number): Aske
     };
 }
 
-const NO_DEMAND = { demand: null, then: null } as const;
+const NO_DEMAND = { demand: null, waitsFor: null } as const;
 
 // The answerers are the side that did not ask; while a chair is open the request is not the plaque's to show.
 export function giveUpView(table: Table): GiveUpView | null {
@@ -182,14 +182,15 @@ function shorteningView(asked: Asked, request: Shortening): GiveUpView {
 
     const faces = (asking ? pendingSeats : [askerSeat]).map((seat) => faceOf(chairs, seat));
     const names = listFormat.format(faces.map((face) => face.name));
+    const offeredAnswers: GiveUpAnswer[] = viewerSeat === agreedSeat ? ["decline"] : ["agree", "decline"];
     return {
         line: asking ? "waits" : "wants-to-shorten",
         text: asking ? words["table.waitingFor"]({ names }) : words["table.wantsToShorten"]({ name: names }),
         faces,
-        answers: answering ? (viewerSeat === agreedSeat ? ["decline"] : ["agree", "decline"]) : [],
+        answers: answering ? offeredAnswers : [],
         marks,
         demand: claim === "none" ? null : LEVEL_WORDS[claim],
-        then: null,
+        waitsFor: null,
         cardsHeld: false,
     };
 }
@@ -208,7 +209,7 @@ function openPlayView(asked: Asked): GiveUpView {
         answers: answering ? ["agree", "decline"] : [],
         marks: new Map<number, AnswerMark>(asking ? answererSeats.map((seat) => [seat, "unanswered"]) : []),
         demand: null,
-        then: asking
+        waitsFor: asking
             ? {
                   text: words["table.waitingFor"]({ names: listFormat.format(awaited.map((face) => face.name)) }),
                   faces: awaited,
@@ -259,7 +260,7 @@ export function giveUpAsk(view: GiveUpView): AskView<GiveUpAnswer> {
         faces: view.faces,
         waits: view.line === "waits",
         demand: view.demand === null ? null : words["table.demands"]({ level: view.demand }),
-        then: view.then,
+        waitsFor: view.waitsFor,
         buttons: view.answers.map((answer) => buttons[answer]),
     };
 }

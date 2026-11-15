@@ -33,7 +33,7 @@ describe("a give-up request on the table", () => {
             answers: ["agree", "decline"],
             marks: new Map(),
             demand: null,
-            then: null,
+            waitsFor: null,
             cardsHeld: false,
         });
     });
@@ -133,7 +133,7 @@ describe("the plaque's drawing of a give-up request", () => {
             faces: view.faces,
             waits: false,
             demand: null,
-            then: null,
+            waitsFor: null,
             buttons: [
                 { answer: "agree", word: words["table.accept"], icon: "check", primary: true },
                 { answer: "decline", word: words["table.playOn"], icon: "play", primary: false },
@@ -292,7 +292,7 @@ describe("an opponent's wrong open play on the table", () => {
             text: words["table.playsOpen"]({ name: "player 1" }),
             faces: [{ seat: FIRST_OPPONENT, name: "player 1", initial: "p" }],
             answers: ["agree", "decline"],
-            then: null,
+            waitsFor: null,
             cardsHeld: true,
         });
     });
@@ -303,7 +303,7 @@ describe("an opponent's wrong open play on the table", () => {
         expect(view).toMatchObject({
             text: words["table.youPlayOpen"],
             answers: [],
-            then: { text: words["table.waitingFor"]({ names: "player 2" }), faces: [{ seat: DECLARER }] },
+            waitsFor: { text: words["table.waitingFor"]({ names: "player 2" }), faces: [{ seat: DECLARER }] },
             marks: new Map([[DECLARER, "unanswered"]]),
         });
     });
@@ -311,7 +311,7 @@ describe("an opponent's wrong open play on the table", () => {
     it.each([WATCHER, SECOND_OPPONENT])("shows chair %i the plaque without a button or a second line", (viewer) => {
         expect(giveUpView(tableWith(viewer, null, { openPlayBy: FIRST_OPPONENT }))).toMatchObject({
             answers: [],
-            then: null,
+            waitsFor: null,
         });
     });
 });
