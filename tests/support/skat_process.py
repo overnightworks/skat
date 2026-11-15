@@ -43,7 +43,8 @@ def _arriving_by(deadline: float, events: Iterator[str]) -> Iterator[str]:
         yield event
 
 
-def _unnamed_event_data(lines: Iterable[str]) -> Iterator[str]:
+def unnamed_event_data(lines: Iterable[str]) -> Iterator[str]:
+    """The data of the events of a stream that carry no name, one per event."""
     named = False
     for line in lines:
         if line.startswith("event: "):
@@ -124,7 +125,7 @@ class SkatProcess:
         ) as response:
             opened = time.monotonic()
             assert response.status_code == httpx2.codes.OK
-            yield _arriving_by(opened + within_seconds, _unnamed_event_data(response.iter_lines()))
+            yield _arriving_by(opened + within_seconds, unnamed_event_data(response.iter_lines()))
 
     @staticmethod
     def _headers(headers: Mapping[str, str]) -> dict[str, str]:
