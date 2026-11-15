@@ -15,7 +15,7 @@ const ROW: GameRow = {
     value: "88",
     gain: "−88",
     lost: true,
-    nullGame: false,
+    game: null,
 };
 
 describe("the skat line of an opened Ramsch", () => {

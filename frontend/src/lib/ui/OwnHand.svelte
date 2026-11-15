@@ -4,15 +4,21 @@
     import { mayPick } from "#lib/pushView.ts";
     import CardFace from "#lib/ui/CardFace.svelte";
     import { words } from "#lib/words.ts";
-    import { cardName, includesCard, type Card, type Picking } from "../../routes/(start)/tables.ts";
+    import { cardName, includesCard, type Card, type Game, type Picking } from "../../routes/(start)/tables.ts";
 
     const {
         cards,
+        game,
         picking,
         playing,
-    }: { cards: readonly Card[]; picking?: Picking | undefined; playing?: PlayingHand | undefined } = $props();
+    }: {
+        cards: readonly Card[];
+        game: Game | null;
+        picking?: Picking | undefined;
+        playing?: PlayingHand | undefined;
+    } = $props();
 
-    const ordered = $derived(inDisplayOrder(cards));
+    const ordered = $derived(inDisplayOrder(cards, game));
 
     // A card pressed and moved follows the pointer; the click that ends a drag must not tap the card as well.
     // A card dropped past the threshold stays where it was dropped until the update arrives, or the play is refused.
