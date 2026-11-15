@@ -2,15 +2,17 @@
 
 import asyncio
 from contextlib import contextmanager
+from types import SimpleNamespace
 
 import pytest
 from agents.mcp_server.listen import ResourceChanges
-from agents.member import STANDING_URI, PlaceRef, place_view_uri
+from agents.member import LISTEN_ALLOWANCE_SECONDS, STANDING_URI, PlaceRef, place_view_uri
 from agents.tools import Principal
 from webauth.ports import AgentFacts
 
 from skat.web.calling import AgentRoster
 from skat.web.mcp import token_carries_agent_facts
+from tests.support.in_memory_place_store import InMemoryPlaceStore
 
 NOVA = Principal(iss="an-issuer", sub="agent-nova")
 BACH = Principal(iss="an-issuer", sub="agent-bach")
@@ -30,18 +32,32 @@ def starts_to_listen(roster, principal, facts, uri=STANDING_URI):
         roster.listening_changed(principal, uri, True)
 
 
+class Clock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+
 def listens_once_and_closes(roster, principal, facts, *, after_close):
-    """The agent's one listen on its standing through the library's own bookkeeping; `after_close` runs once the
-    stream has ended, before the loop has run anything the library scheduled for the end of the allowance.
+    """The agent's one listen on its standing through the library's own bookkeeping and a place store; `after_close`
+    runs once the stream has ended, and the allowance passes before the store lapses the stream.
     """
 
     async def listen_then_close():
-        changes = ResourceChanges(roster.listening_changed)
-        with changes.opened(principal) as stream, token_of(facts):
-            changes.acknowledged(principal, stream, [STANDING_URI], tools=False)
-        after_close()
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
+        clock = Clock()
+        store = InMemoryPlaceStore(clock)
+        changes = ResourceChanges(store, listening_changed=roster.listening_changed)
+        async with changes.following():
+            async with changes.opened(principal) as stream:
+                with token_of(facts):
+                    await changes.acknowledged(principal, stream, [STANDING_URI], tools=False)
+            await store.settled()
+            after_close()
+            clock.now += LISTEN_ALLOWANCE_SECONDS
+            await store.lapse_due("a-pod")
+            await store.settled()
 
     asyncio.run(listen_then_close())
 
@@ -119,8 +135,7 @@ class TestACallOfAnAgentWithFacts:
 
 
 class TestAnEntryOutlivesTheEndOfItsListenByTheLibrarysAllowance:
-    def test_the_entry_stays_when_the_listen_ends_and_is_dropped_once_the_allowance_passed(self, roster, monkeypatch):
-        monkeypatch.setattr("agents.mcp_server.listen.LISTEN_ALLOWANCE_SECONDS", 0)
+    def test_the_entry_stays_when_the_listen_ends_and_is_dropped_once_the_allowance_passed(self, roster):
         held_at_the_end = []
 
         listens_once_and_closes(
@@ -162,3 +177,61 @@ class TestAnAgentKeepsOneKey:
         starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
 
         assert roster.entries()[NOVA.sub].key == key
+
+
+def resynced_while_the_store_answers(roster, *, listeners, meanwhile):
+    """`listeners` is the read the resync makes, held until `meanwhile` has run; returns once it has answered."""
+
+    async def scenario():
+        read_started = asyncio.Event()
+        answered = asyncio.Event()
+        released = asyncio.Event()
+
+        async def read(uri):
+            read_started.set()
+            await released.wait()
+            answered.set()
+            return listeners
+
+        roster.follow(SimpleNamespace(listeners=read))
+        roster.listening_resynced()
+        await read_started.wait()
+        meanwhile()
+        released.set()
+        await answered.wait()
+
+    asyncio.run(scenario())
+
+
+class TestAResyncReadsWhoListensAgain:
+    def test_an_agent_the_read_names_is_listed_with_the_name_and_owner_of_its_last_call(self, roster):
+        roster.heard(NOVA.sub, AgentFacts(owner="owner-felix", name="Nova"))
+
+        resynced_while_the_store_answers(roster, listeners=frozenset({NOVA}), meanwhile=lambda: None)
+
+        assert [entry.name for entry in roster.entries().values()] == ["Nova"]
+
+    def test_an_agent_the_read_does_not_name_is_dropped(self, roster):
+        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+
+        resynced_while_the_store_answers(roster, listeners=frozenset(), meanwhile=lambda: None)
+
+        assert roster.entries() == {}
+
+    def test_a_no_that_arrives_while_the_store_answers_wins_over_the_read(self, roster):
+        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+
+        resynced_while_the_store_answers(
+            roster, listeners=frozenset({NOVA}), meanwhile=lambda: roster.listening_changed(NOVA, STANDING_URI, False)
+        )
+
+        assert roster.entries() == {}
+
+    def test_a_yes_that_arrives_while_the_store_answers_wins_over_the_read(self, roster):
+        roster.heard(BACH.sub, AgentFacts(owner="owner-felix", name="Bach"))
+
+        resynced_while_the_store_answers(
+            roster, listeners=frozenset(), meanwhile=lambda: roster.listening_changed(BACH, STANDING_URI, True)
+        )
+
+        assert [entry.name for entry in roster.entries().values()] == ["Bach"]

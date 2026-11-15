@@ -6,6 +6,7 @@ from webauth.single_process_stores import SingleProcessStores
 
 from skat.host.app import PodLinks
 from skat.web.sign_in import LoggingAuditSink
+from tests.support.in_memory_place_store import InMemoryPlaceStore
 from tests.support.loopback_wake_channel import single_pod_channel
 
 if TYPE_CHECKING:
@@ -22,5 +23,7 @@ def in_process_rate_limits() -> SingleProcessRateLimitBackend:
 
 def single_pod(**overrides: object) -> dict[str, object]:
     """The keyword arguments of `create_app` that other pods would share: here the ones one process keeps alone."""
-    links = PodLinks(rate_limits=in_process_rate_limits(), wake_channel=single_pod_channel())
+    links = PodLinks(
+        rate_limits=in_process_rate_limits(), wake_channel=single_pod_channel(), place_store=InMemoryPlaceStore()
+    )
     return {"pods": replace(links, **overrides)}

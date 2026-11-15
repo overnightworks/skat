@@ -25,7 +25,7 @@ the awaited agent at each deadline; the signal of a commit, which runs on a work
 import json
 from dataclasses import dataclass
 from functools import partial
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 import anyio.from_thread
 import structlog
@@ -68,7 +68,7 @@ from skat.web.mcp import ToolRefusal, token_carries_agent_facts, tool_step
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, actor_for, answer_of
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Collection, Iterable
+    from collections.abc import Awaitable, Callable, Collection, Coroutine, Iterable
 
     from agents.mcp_server import MemberResources
     from agents.tools import JsonObject
@@ -298,7 +298,7 @@ class MemberStandings:
         if not self._asks.is_current(table_id, version):
             return
         try:
-            self._changes.changed(principal, uri)
+            await self._changes.changed(principal, uri)
         except Exception as failure:
             logger.error(SIGNAL_FAILED_EVENT, error_type=type(failure).__name__)
 
@@ -347,14 +347,14 @@ def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTo
     return PersonTool(ACCEPT_INVITATION_DECLARATION, handler)
 
 
-def _pulse(issuer: str, accounts: frozenset[str], change: Callable[[Principal], None]) -> None:
+def _pulse(issuer: str, accounts: frozenset[str], change: Callable[[Principal], Coroutine[Any, Any, None]]) -> None:
     """Hands each account's `change` to the front's event loop, where `ResourceChanges` lives, from a worker thread.
     The change has committed, so a failure is logged by its type and never turns the command into an error; the
     listener's next listen reads today's truth.
     """
     for account in accounts:
         try:
-            anyio.from_thread.run_sync(change, Principal(iss=issuer, sub=account))
+            anyio.from_thread.run(change, Principal(iss=issuer, sub=account))
         except Exception as failure:
             logger.error(SIGNAL_FAILED_EVENT, error_type=type(failure).__name__)
 
@@ -384,16 +384,16 @@ def tools_signal(changes: ResourceChanges, issuer: str) -> Callable[[frozenset[s
     return tell
 
 
-def nudge_signal(changes: ResourceChanges, issuer: str) -> Callable[[str, str], None]:
+def nudge_signal(changes: ResourceChanges, issuer: str) -> Callable[[str, str], Awaitable[None]]:
     """The signal of a nudge that reached an agent's seat: the agent is told at once on its view's URI. It runs on the
     event loop's thread, where `ResourceChanges` lives, and a failure is logged by its type: the agent's next read
     shows the nudge.
     """
 
-    def tell(table_id: str, account_id: str) -> None:
+    async def tell(table_id: str, account_id: str) -> None:
         place = PlaceRef(kind=TABLE_PLACE_KIND, id=table_id)
         try:
-            changes.changed(Principal(iss=issuer, sub=account_id), place_view_uri(place))
+            await changes.changed(Principal(iss=issuer, sub=account_id), place_view_uri(place))
         except Exception as failure:
             logger.error(SIGNAL_FAILED_EVENT, error_type=type(failure).__name__)
 

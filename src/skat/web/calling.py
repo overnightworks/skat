@@ -7,21 +7,25 @@ decision through `TableService` and maps its refusals onto the kit's reason toke
 and no agent's tool, and every one runs on the event loop, which is also where the roster and the changes'
 `listens_to` live.
 
-The roster holds an agent for as long as the library counts it as listening on its standing: from its first
+The roster holds an agent for as long as the library counts it as listening on its standing, on any pod: from its first
 acknowledged listen until the library's `LISTEN_ALLOWANCE_SECONDS` after its last listen ended, so a closed agent stays
-listed for that long and two agents of one owner with one name are two rows. It holds it under its token's name and
-owner, and a key per agent account, minted here at first need and kept in this process only, so a row keeps its key from
-the call to the seat, whether or not the agent listens. The held answers are one yes or no per session, kept in this
-process only: the display never reads the issuer per render, and a call or a send-away reads the person's groups fresh
-at the act.
+listed for that long and two agents of one owner with one name are two rows. Which agents listen follows the library's
+turns, which may repeat or come out of order, and is read again from the place store after every resync. It holds an
+agent under the name and owner its last token said, and a key per agent account, minted here at first need and kept in
+this process only, so a row keeps its key from the call to the seat, whether or not the agent listens. The held answers
+are one yes or no per session, kept in this process only: the display never reads the issuer per render, and a call or
+a send-away reads the person's groups fresh at the act.
 """
 
+import asyncio
 import secrets
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal
 
+import structlog
+from agents.mcp_server import PlaceStoreError
 from agents.member import INVITATION_SECONDS, STANDING_URI
 from agents.tools import Principal
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -46,7 +50,7 @@ from skat.web.mcp import Exclusion, excluded, token_carries_agent_facts
 from skat.web.tables import TABLES_PATH, CommandRequest, actor_of
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Collection
+    from collections.abc import Awaitable, Callable, Collection
 
     from agents.mcp_server import ResourceChanges
     from webauth.config import WebAuthConfig
@@ -69,7 +73,9 @@ DISPLAY_REFUSAL_HOLD: Final = timedelta(minutes=5)
 ROSTER_KEY_BYTES: Final = 16
 NO_TABLE_DETAIL: Final = "table not found"
 
-type ListeningChanged = Callable[[Principal, str, bool], None]
+LISTENING_READ_FAILED_EVENT: Final = "agent_listening_read.failed"
+
+logger = structlog.get_logger()
 
 
 class CallRefusal(StrEnum):
@@ -133,35 +139,60 @@ class RosterEntry:
 
 
 class AgentRoster:
-    """The agents that listen on their standing right now, by account. An entry is made when the agent starts to listen,
-    with the name and owner its token carries, and dropped when the library reports that its listen has lapsed. Every
-    agent account the page has seen has one key for good. Only the front's event loop touches it.
+    """The agents that listen on their standing right now, by account. Which agents listen follows the library's turns,
+    which every pod gets in order but may repeat, and a read of the place store after each resync, which replaces what a
+    turn lost while the subscription was down; the name and owner of an agent are the ones its last token said, and
+    every agent account the page has seen has one key for good. Only the front's event loop touches it.
     """
 
     def __init__(self) -> None:
-        self._entries: dict[str, RosterEntry] = {}
+        self._facts: dict[str, AgentFacts] = {}
+        self._listening: set[str] = set()
         self._keys: dict[str, str] = {}
+        self._listeners: Callable[[str], Awaitable[frozenset[Principal]]] | None = None
+        self._rereading: asyncio.Task[None] | None = None
+        self._turns_during_read: list[tuple[str, bool]] | None = None
+
+    def follow(self, changes: ResourceChanges) -> None:
+        """Reads who listens from `changes` after each resync; call once, before the front runs."""
+        self._listeners = changes.listeners
 
     def listening_changed(self, principal: Principal, uri: str, listens: bool) -> None:
-        """The callback `ResourceChanges` calls when the answer of `listens_to` changes; it does not block."""
+        """The callback `ResourceChanges` calls with each turn of the answer of `listens_to`; it does not block and may
+        be called again with the direction it already told.
+        """
         if uri != STANDING_URI:
             return
-        if not listens:
-            self._entries.pop(principal.sub, None)
-            return
-        facts = token_carries_agent_facts.get()
+        facts = token_carries_agent_facts.get() if listens else None
         if facts is not None:
-            self._remember(principal.sub, facts)
+            self._facts[principal.sub] = facts
+        if self._turns_during_read is not None:
+            self._turns_during_read.append((principal.sub, listens))
+        else:
+            self._apply(principal.sub, listens)
+
+    def listening_resynced(self) -> None:
+        """The callback `ResourceChanges` calls after every confirmed subscription: a turn sent while it was down is
+        lost, so who listens is read again, and the turns that arrive meanwhile are applied after the read.
+        """
+        if self._listeners is None:
+            return
+        if self._rereading is not None:
+            self._rereading.cancel()
+        self._rereading = asyncio.create_task(self._read_listeners(self._listeners))
 
     def heard(self, account_id: str, facts: AgentFacts) -> None:
-        """An admitted call of the agent: a listening agent's name and owner follow its token; a silent agent gets no
-        entry from it.
+        """An admitted call of the agent: its name and owner follow its token. A silent agent is listed only once it
+        listens.
         """
-        if account_id in self._entries:
-            self._remember(account_id, facts)
+        self._facts[account_id] = facts
 
     def entries(self) -> dict[str, RosterEntry]:
-        return dict(self._entries)
+        return {
+            account: RosterEntry(self.key_of(account), facts.name, facts.owner)
+            for account in self._listening
+            if (facts := self._facts.get(account)) is not None
+        }
 
     def key_of(self, account_id: str) -> str:
         """The agent's key, made when it is first asked for."""
@@ -175,8 +206,24 @@ class AgentRoster:
         """The account a key names, or None for a key no agent was given."""
         return next((account for account, held in self._keys.items() if held == key), None)
 
-    def _remember(self, account_id: str, facts: AgentFacts) -> None:
-        self._entries[account_id] = RosterEntry(self.key_of(account_id), facts.name, facts.owner)
+    def _apply(self, account_id: str, listens: bool) -> None:
+        if listens:
+            self._listening.add(account_id)
+        else:
+            self._listening.discard(account_id)
+
+    async def _read_listeners(self, listeners: Callable[[str], Awaitable[frozenset[Principal]]]) -> None:
+        if self._turns_during_read is None:
+            self._turns_during_read = []
+        try:
+            read = await listeners(STANDING_URI)
+        except PlaceStoreError as failure:
+            logger.warning(LISTENING_READ_FAILED_EVENT, error_type=type(failure).__name__)
+        else:
+            self._listening = {principal.sub for principal in read}
+        turns, self._turns_during_read = self._turns_during_read, None
+        for account_id, listens in turns:
+            self._apply(account_id, listens)
 
 
 @dataclass(frozen=True)
@@ -313,7 +360,7 @@ class _Calling:
         tables: TableService,
         presence: Presence,
         roster: AgentRoster,
-        listens: Callable[[str], bool],
+        listens: Callable[[str], Awaitable[bool]],
         membership: CallerMembership,
     ) -> None:
         self._tables = tables
@@ -343,7 +390,7 @@ class _Calling:
                     viewer=viewer,
                     viewer_present=viewer_present,
                     streams=streams,
-                    listens=self._listens(account),
+                    listens=await self._listens(account),
                     viewer_is_member=viewer_is_member,
                 ),
             )
@@ -538,8 +585,13 @@ def create_calling_router(
     issuer: str,
     membership: CallerMembership,
 ) -> APIRouter:
-    def listens(account_id: str) -> bool:
-        return changes.listens_to(Principal(iss=issuer, sub=account_id), STANDING_URI)
+    async def listens(account_id: str) -> bool:
+        try:
+            return await changes.listens_to(Principal(iss=issuer, sub=account_id), STANDING_URI)
+        except PlaceStoreError as failure:
+            # An agent whose listen cannot be read is not offered, and the next control read asks again.
+            logger.warning(LISTENING_READ_FAILED_EVENT, error_type=type(failure).__name__)
+            return False
 
     calling = _Calling(tables, presence, roster, listens, membership)
     router = APIRouter()
