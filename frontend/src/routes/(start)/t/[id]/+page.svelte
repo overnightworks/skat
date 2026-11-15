@@ -15,7 +15,14 @@
     import { bidLadder } from "#lib/bidLadder.ts";
     import { cuesBetween, springsUp, stampBetween, type BidWord } from "#lib/cues.ts";
     import { browserCallHost, greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
-    import { giveUpAsk, giveUpView, openCardsMark, playOnNotice, refusalNotice } from "#lib/giveUp.ts";
+    import {
+        answerGiveUp,
+        giveUpAsk,
+        giveUpView,
+        openCardsMark,
+        requestEndedNotice,
+        type GiveUpAnswer,
+    } from "#lib/giveUp.ts";
     import { firstCardWait, keyWord, type Stamp } from "#lib/kontra.ts";
     import { legalLinks } from "#lib/legal.ts";
     import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
@@ -37,6 +44,7 @@
     import AskPlaque from "#lib/ui/AskPlaque.svelte";
     import AwayMark from "#lib/ui/AwayMark.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
+    import DecidingPlaque from "#lib/ui/DecidingPlaque.svelte";
     import CopyLinkKey from "#lib/ui/CopyLinkKey.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
@@ -95,7 +103,6 @@
     import TableClosed from "./TableClosed.svelte";
     import {
         answerAbort,
-        answerGiveUp,
         answerSeriesEnd,
         bidLineWhileDeclaring,
         copyTableLink,
@@ -116,7 +123,6 @@
         type SeriesEndAnswer,
         type AuctionAction,
         type Card,
-        type GiveUpAnswer,
         type Options,
         type Outcome,
         type Picking,
@@ -178,7 +184,7 @@
         seatedAgents = seatedAgentsKey(previous, table);
         const nudged = previous === undefined ? null : nudgedNote(previous, table);
         const cues = cuesBetween(previous, table);
-        const note = seatNotice(cues, table) ?? nudged;
+        const note = requestEndedNotice(cues, table.chairs) ?? seatNotice(cues, table) ?? nudged;
         if (note !== null) showSeatNote(note);
         seatNote = noticeStanding(seatNote, table);
         if (!handWaits(table.hand)) asking = null;
@@ -189,10 +195,6 @@
         for (const cue of cues) {
             if (cue.kind === "card-played") {
                 playedThisHand = [...playedThisHand, cue.card];
-            } else if (cue.kind === "give-up-refused") {
-                showSeatNote(refusalNotice(table.chairs, cue.seats));
-            } else if (cue.kind === "shortening-refused" || cue.kind === "open-play-on") {
-                showSeatNote(playOnNotice(table.chairs, cue));
             } else if (cue.kind === "bid-said") {
                 bidSaid = cue;
             } else if (cue.kind === "nudged") {
@@ -445,17 +447,7 @@
                     }}
                 />
             {:else if deciding !== null}
-                <div class="plaque deciding">
-                    {#if deciding.kind === "won"}
-                        <span>{deciding.text}</span>
-                    {:else}
-                        <span>{deciding.bid}</span>
-                        <span class="gives">
-                            {deciding.line}
-                            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                        </span>
-                    {/if}
-                </div>
+                <DecidingPlaque {deciding} />
             {:else if bidLine !== null}
                 <div class="plaque">
                     <span>{bidLine}</span>

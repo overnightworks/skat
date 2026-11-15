@@ -1,20 +1,28 @@
+import type { Cue } from "#lib/cues.ts";
 import { declinableWord, keyWord } from "#lib/kontra.ts";
 import { handWaits, type SeatNotice } from "#lib/openChair.ts";
 import { gameInPlay } from "#lib/playView.ts";
 import { LEVEL_WORDS } from "#lib/result.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { MarkedPart } from "overnightworks-design";
-import { TABLE_GIVE_UP_SUFFIX, TABLE_PLAY_OPEN_SUFFIX, TABLE_SHORTEN_SUFFIX } from "#lib/wire.ts";
+import {
+    TABLE_GIVE_UP_AGREE_SUFFIX,
+    TABLE_GIVE_UP_DECLINE_SUFFIX,
+    TABLE_GIVE_UP_SUFFIX,
+    TABLE_PLAY_OPEN_SUFFIX,
+    TABLE_SHORTEN_SUFFIX,
+} from "#lib/wire.ts";
 import {
     post,
     type Chair,
     type GiveUp,
-    type GiveUpAnswer,
     type Outcome,
     type Playing,
     type Shortening,
     type Table,
 } from "../routes/(start)/tables.ts";
+
+export type GiveUpAnswer = "agree" | "decline";
 
 // What a chair carries about a question to the table: it said no or yes, has not answered yet, has tapped „Weiter“ or
 // not, or plays open with its cards on the felt.
@@ -219,8 +227,18 @@ function openPlayView(asked: Asked): GiveUpView {
     };
 }
 
+// What the others read once when an update ended a request without the table's yes: the first such cue, none when the
+// update brought none.
+export function requestEndedNotice(cues: readonly Cue[], chairs: readonly Chair[]): SeatNotice | null {
+    for (const cue of cues) {
+        if (cue.kind === "give-up-refused") return refusalNotice(chairs, cue.seats);
+        if (cue.kind === "shortening-refused" || cue.kind === "open-play-on") return playOnNotice(chairs, cue);
+    }
+    return null;
+}
+
 // The notice after the second no: the refusing seats play on, named in the page's list format.
-export function refusalNotice(chairs: readonly Chair[], seats: readonly number[]): SeatNotice {
+function refusalNotice(chairs: readonly Chair[], seats: readonly number[]): SeatNotice {
     const faces = seats.map((seat) => faceOf(chairs, seat));
     return {
         text: words["table.playingOn"]({ names: listFormat.format(faces.map((face) => face.name)) }),
@@ -232,7 +250,7 @@ export function refusalNotice(chairs: readonly Chair[], seats: readonly number[]
 
 // The notice after the one no that ends a shortening, and after the declarer plays on against a wrong open play: the
 // game goes on, with the cards of the seat named lying open.
-export function playOnNotice(
+function playOnNotice(
     chairs: readonly Chair[],
     cue: { kind: "shortening-refused" | "open-play-on"; seat: number },
 ): SeatNotice {
@@ -287,4 +305,14 @@ export function shorten(id: string, version: number, commandId: string): Promise
 // An opponent plays open: the table ends the game at once, or asks the declarer when the play was wrong.
 export function playOpen(id: string, version: number, commandId: string): Promise<Outcome> {
     return post(id, TABLE_PLAY_OPEN_SUFFIX, { command_id: commandId, version });
+}
+
+const GIVE_UP_ANSWER_SUFFIXES: Record<GiveUpAnswer, string> = {
+    agree: TABLE_GIVE_UP_AGREE_SUFFIX,
+    decline: TABLE_GIVE_UP_DECLINE_SUFFIX,
+};
+
+// The version is the one the page shows, so an answer to a request that has since gone is refused; there is no retry.
+export function answerGiveUp(id: string, version: number, commandId: string, answer: GiveUpAnswer): Promise<Outcome> {
+    return post(id, GIVE_UP_ANSWER_SUFFIXES[answer], { command_id: commandId, version });
 }

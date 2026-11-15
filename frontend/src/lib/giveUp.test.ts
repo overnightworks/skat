@@ -1,20 +1,28 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+    answerGiveUp,
     giveUp,
     giveUpAsk,
     giveUpKey,
     giveUpView,
     openCardsMark,
-    playOnNotice,
     playOpen,
     playOpenKey,
-    refusalNotice,
+    requestEndedNotice,
     shorten,
     shortenKey,
 } from "#lib/giveUp.ts";
+import type { Cue } from "#lib/cues.ts";
 import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { words } from "#lib/words.ts";
-import { TABLE_GIVE_UP_SUFFIX, TABLE_PLAY_OPEN_SUFFIX, TABLE_SHORTEN_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
+import {
+    TABLE_GIVE_UP_AGREE_SUFFIX,
+    TABLE_GIVE_UP_DECLINE_SUFFIX,
+    TABLE_GIVE_UP_SUFFIX,
+    TABLE_PLAY_OPEN_SUFFIX,
+    TABLE_SHORTEN_SUFFIX,
+    TABLES_PATH,
+} from "#lib/wire.ts";
 import type { GiveUp, Shortening } from "../routes/(start)/tables.ts";
 import { DECLARER, FIRST_OPPONENT, SECOND_OPPONENT, WATCHER, tableWith } from "#lib/giveUp.fixtures.ts";
 
@@ -204,7 +212,9 @@ describe("the give-up key on the table bar", () => {
 
 describe("the notice that the opponents play on", () => {
     it("names both opponents once, in one sentence, and draws both faces", () => {
-        expect(refusalNotice(tableWith(DECLARER, null).chairs, [FIRST_OPPONENT, SECOND_OPPONENT])).toEqual({
+        const cues: Cue[] = [{ kind: "give-up-refused", seats: [FIRST_OPPONENT, SECOND_OPPONENT] }];
+
+        expect(requestEndedNotice(cues, tableWith(DECLARER, null).chairs)).toEqual({
             text: words["table.playingOn"]({ names: "player 1 und player 3" }),
             initials: ["p", "p"],
             seat: null,
@@ -345,11 +355,15 @@ describe("the keys that shorten and play open", () => {
 });
 
 describe("the notice that the game goes on", () => {
+    it("is none when the update brought no end of a request", () => {
+        expect(requestEndedNotice([{ kind: "auction-ended" }], tableWith(DECLARER, null).chairs)).toBeNull();
+    });
+
     it.each([
         { kind: "shortening-refused", text: words["table.saidNoPlayingOn"]({ name: "player 3" }) },
         { kind: "open-play-on", text: words["table.playsOpenOn"]({ name: "player 3" }) },
     ] as const)("names the seat once with its face after $kind", ({ kind, text }) => {
-        expect(playOnNotice(tableWith(DECLARER, null).chairs, { kind, seat: SECOND_OPPONENT })).toEqual({
+        expect(requestEndedNotice([{ kind, seat: SECOND_OPPONENT }], tableWith(DECLARER, null).chairs)).toEqual({
             text,
             initials: ["p"],
             seat: null,
@@ -402,6 +416,20 @@ describe("the requests that end a game early", () => {
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(table)));
 
         expect(await ask(TABLE_ID, 7, "command-5")).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-5", version: 7 });
+    });
+
+    it.each([
+        { answer: "agree" as const, suffix: TABLE_GIVE_UP_AGREE_SUFFIX },
+        { answer: "decline" as const, suffix: TABLE_GIVE_UP_DECLINE_SUFFIX },
+    ])("sends the version shown and a command id to $answer a give-up", async ({ answer, suffix }) => {
+        const table = tableWith(DECLARER, null);
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(table)));
+
+        expect(await answerGiveUp(TABLE_ID, 7, "command-5", answer)).toEqual({ kind: "table", table });
 
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);

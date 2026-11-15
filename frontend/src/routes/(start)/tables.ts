@@ -40,8 +40,6 @@ import {
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
     TABLE_EVENTS_SUFFIX,
-    TABLE_GIVE_UP_AGREE_SUFFIX,
-    TABLE_GIVE_UP_DECLINE_SUFFIX,
     TABLE_KONTRA_SUFFIX,
     TABLE_NO_WORD_SUFFIX,
     TABLE_LIST_SUFFIX,
@@ -418,18 +416,6 @@ export function takePushingStep(id: string, version: number, commandId: string, 
 // The client names only the card: the seat that plays it comes from the session.
 export function playCard(id: string, version: number, commandId: string, card: Card): Promise<Outcome> {
     return post(id, TABLE_CARD_SUFFIX, { command_id: commandId, version, suit: card.suit, rank: card.rank });
-}
-
-export type GiveUpAnswer = "agree" | "decline";
-
-const GIVE_UP_ANSWER_SUFFIXES: Record<GiveUpAnswer, string> = {
-    agree: TABLE_GIVE_UP_AGREE_SUFFIX,
-    decline: TABLE_GIVE_UP_DECLINE_SUFFIX,
-};
-
-// The version is the one the page shows, so an answer to a request that has since gone is refused; there is no retry.
-export function answerGiveUp(id: string, version: number, commandId: string, answer: GiveUpAnswer): Promise<Outcome> {
-    return post(id, GIVE_UP_ANSWER_SUFFIXES[answer], { command_id: commandId, version });
 }
 
 export type AbortAnswer = "agree" | "refuse";
