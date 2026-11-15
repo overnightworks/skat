@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING
 
-from redis.exceptions import ConnectionError as RedisConnectionError
 from webauth.rate_limit import SingleProcessRateLimitBackend
 from webauth.single_process_stores import SingleProcessStores
 
@@ -17,23 +16,6 @@ def in_memory_stores(audit: AuditSink | None = None) -> SingleProcessStores:
 
 def in_process_rate_limits() -> SingleProcessRateLimitBackend:
     return SingleProcessRateLimitBackend()
-
-
-class RateLimitsThatCanFail:
-    """The limits of one process, which fail from the moment `fail` is called, as an unreachable Redis does."""
-
-    def __init__(self) -> None:
-        self._limits = in_process_rate_limits()
-        self._failing = False
-
-    def fail(self) -> None:
-        self._failing = True
-
-    def is_allowed(self, key: str, *, limit: int, window_seconds: int) -> bool:
-        if self._failing:
-            message = "the limits' Redis cannot be reached"
-            raise RedisConnectionError(message)
-        return self._limits.is_allowed(key, limit=limit, window_seconds=window_seconds)
 
 
 def single_pod(**overrides: object) -> dict[str, object]:

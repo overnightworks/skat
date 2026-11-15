@@ -18,7 +18,7 @@ class RelayMode(Enum):
 
 
 class DatabaseRelay:
-    """A TCP relay in front of a test database, which a test turns to the faults of a database's network.
+    """A TCP relay in front of a test Postgres or Redis, which a test turns to the faults of a server's network.
 
     `refuse` closes each new connection at once. `stall` lets each new connection start and then answers nothing on
     it, as a server does that stops responding after it accepted a client. `forward` lets everything through again;
@@ -52,6 +52,14 @@ class DatabaseRelay:
 
     def forward(self) -> None:
         self._mode = RelayMode.FORWARD
+
+    def sever(self) -> None:
+        """Ends every open connection and refuses the new ones, as a server that went away does."""
+        self._mode = RelayMode.REFUSE
+        with self._lock:
+            sockets = list(self._sockets)
+        for connection in sockets:
+            self._shut(connection)
 
     def serve_as(self, asked: str, served: str) -> None:
         """Sends the connections that ask for database `asked` to `served`; the names are of one length."""
