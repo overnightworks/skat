@@ -2,14 +2,7 @@
     import { onMount, untrack } from "svelte";
     import { page } from "$app/state";
     import type { PageProps } from "./$types";
-    import {
-        awayOnTurn,
-        chairMarks,
-        decidingMarks,
-        decidingPlaque,
-        PASSED_IN_MARKS,
-        passedInScene,
-    } from "#lib/auctionMarks.ts";
+    import { chairMarks, decidingMarks, decidingPlaque, PASSED_IN_MARKS, passedInScene } from "#lib/auctionMarks.ts";
     import { abortView } from "#lib/abort.ts";
     import { grumblingAt, ring, stopRinging } from "#lib/bell.svelte.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
@@ -86,6 +79,7 @@
     import StyleKey from "#lib/ui/StyleKey.svelte";
     import StyleScene from "#lib/ui/StyleScene.svelte";
     import TrickPile from "#lib/ui/TrickPile.svelte";
+    import WaitingPlaque from "#lib/ui/WaitingPlaque.svelte";
     import TrickStage from "#lib/ui/TrickStage.svelte";
     import TableBar from "#lib/ui/TableBar.svelte";
     import WeiterKey from "#lib/ui/WeiterKey.svelte";
@@ -515,36 +509,7 @@
                     </div>
                 {/if}
             {:else if !outcome.table.hand?.declaring}
-                {@const awayName = outcome.table.hand && awayOnTurn(outcome.table.hand.auction, outcome.table.chairs)}
-                <div
-                    class="plaque"
-                    class:hand-over={passedIn !== null}
-                    class:deciding={waits || outcome.table.aborted !== null}
-                >
-                    {#if passedIn !== null}
-                        <span class="verdict">{words["table.passedIn"]}</span>
-                        {#if passedIn.dealerLine !== null}
-                            <span class="gives">
-                                {passedIn.dealerLine}
-                                <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                            </span>
-                        {/if}
-                    {:else if outcome.table.aborted !== null}
-                        <span>{words["table.aborted"]}</span>
-                        {@render waitingLine()}
-                    {:else if outcome.table.hand === null}
-                        <span>{words["table.waitingForPlayers"]}</span>
-                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                    {:else if awayName && !waits}
-                        <span>{words["table.waitingFor"]({ names: awayName })}</span>
-                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                    {:else}
-                        <span>{words["table.bidding"]}</span>
-                        {#if waits}
-                            {@render waitingLine()}
-                        {/if}
-                    {/if}
-                </div>
+                <WaitingPlaque table={outcome.table} {passedIn} {waits} {waitingLine} />
             {/if}
             <div class="felt">
                 <StrandDecor {id} />
