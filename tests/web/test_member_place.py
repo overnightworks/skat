@@ -9,6 +9,7 @@ from datetime import timedelta
 import pytest
 from agents.member import LEASE_SECONDS, STANDING_URI, AcceptInvitationRefusal
 from starlette.concurrency import run_in_threadpool
+from structlog.testing import capture_logs
 
 from skat.table.member_place import MemberRefusal
 from skat.table.records import TableId
@@ -162,6 +163,17 @@ class TestAnInvitationIsAcceptedAtOnce:
         assert [(standing["state"], standing["invitation"]) for standing in seated] == [("active", None)]
         assert chairs_of(skat, table_id)[1] == ("Mozart", "agent")
 
+    def test_an_accept_that_names_the_voices_the_agent_would_speak_with_seats_it(
+        self, invite, skat, agent, owner, table_id
+    ):
+        offer = invite(agent, table_id, owner)
+
+        with at_the_table(skat, table_id, owner):
+            answer = agent.accept(table_id, offer, voices=["Mozart-voice", "Bach-voice"])
+
+        assert not answer.is_error, answer.text
+        assert chairs_of(skat, table_id)[1] == ("Mozart", "agent")
+
     def test_an_owner_who_only_watches_the_open_table_is_present(self, invite, skat, agent, owner, table_id):
         skat.stand(owner[0], table_id)
         offer = invite(agent, table_id, owner)
@@ -247,7 +259,6 @@ class TestAnAcceptThatIsStale:
             pytest.param({"invitation": "another-id"}, id="another-id"),
             pytest.param({"epoch": 1}, id="another-epoch"),
             pytest.param({"place": {"kind": "call", "id": "x"}}, id="another-place-kind"),
-            pytest.param({"epoch": -1}, id="malformed-arguments"),
         ],
     )
     def test_when_the_arguments_do_not_name_the_open_invitation(self, invite, skat, agent, owner, table_id, changes):
@@ -258,6 +269,30 @@ class TestAnAcceptThatIsStale:
             answer = agent.accept(table_id, offer, **changes)
 
         assert (answer.is_error, answer.json()) == (True, STALE)
+        assert stored(skat) == before
+        assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
+
+    @pytest.mark.parametrize(
+        "changes",
+        [
+            pytest.param({"epoch": -1}, id="a-negative-epoch"),
+            pytest.param({"voices": []}, id="no-voice-named"),
+            pytest.param({"voices": ["Mozart", "Mozart"]}, id="a-voice-twice"),
+            pytest.param({"voices": "Mozart"}, id="voices-that-are-no-list"),
+            pytest.param({"unknown": 1}, id="an-unknown-argument"),
+        ],
+    )
+    def test_not_as_stale_when_the_arguments_are_malformed_and_the_front_logs_it(
+        self, invite, skat, agent, owner, table_id, changes
+    ):
+        offer = invite(agent, table_id, owner)
+        before = stored(skat)
+
+        with at_the_table(skat, table_id, owner), capture_logs() as logs:
+            answer = agent.accept(table_id, offer, **changes)
+
+        assert (answer.is_error, "stale_invitation" in answer.text) == (True, False)
+        assert [entry["event"] for entry in logs if entry["log_level"] == "warning"] == ["accept_invitation_malformed"]
         assert stored(skat) == before
         assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
 
