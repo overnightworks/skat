@@ -442,6 +442,7 @@ export type Words = {
     readonly "rules.lockBadge": string;
     readonly "rules.lockInfo": string;
     readonly "rules.info": string;
+    readonly "rules.infoMark": string;
     readonly "rules.close": string;
     readonly "rules.chipOfficial": string;
     readonly "rules.chipPoints": string;
@@ -1029,6 +1030,7 @@ export const words: Words = {
     "rules.lockBadge": "Fest für diesen Tisch",
     "rules.lockInfo": "Andere Regeln heißen neuer Tisch.",
     "rules.info": "Info",
+    "rules.infoMark": "i",
     "rules.close": "Schließen",
     "rules.chipOfficial": "Offiziell",
     "rules.chipPoints": "Augen",
