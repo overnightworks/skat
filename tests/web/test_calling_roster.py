@@ -235,3 +235,23 @@ class TestAResyncReadsWhoListensAgain:
         )
 
         assert [entry.name for entry in roster.entries().values()] == ["Bach"]
+
+    def test_a_second_resync_while_the_store_answers_reads_again_and_keeps_the_turns_that_arrived_before_it(
+        self, roster
+    ):
+        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+
+        def no_turn_and_another_resync():
+            roster.listening_changed(NOVA, STANDING_URI, False)
+            roster.listening_resynced()
+
+        resynced_while_the_store_answers(roster, listeners=frozenset({NOVA}), meanwhile=no_turn_and_another_resync)
+
+        assert roster.entries() == {}
+
+    def test_a_resync_before_the_roster_follows_any_changes_reads_nothing(self, roster):
+        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+
+        roster.listening_resynced()
+
+        assert set(roster.entries()) == {NOVA.sub}

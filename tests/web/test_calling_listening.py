@@ -77,3 +77,16 @@ class TestTheControlReadsWhoListensAgainAtEveryResync(CallingTable):
             changes.store.unreachable = False
 
             assert names_of_rows(skat, felix, table_id) == ["Nova"]
+
+
+@pytest.mark.usefixtures("watching")
+class TestTheControlOffersNoAgentWhoseListenItCannotRead(CallingTable):
+    def test_a_store_that_does_not_answer_leaves_the_control_with_no_row_until_it_answers_again(
+        self, skat, issuer, changes, felix, table_id
+    ):
+        with listening(skat, issuer, felix, "Nova", NOVA):
+            changes.store.unreachable = True
+            rows_while_down = names_of_rows(skat, felix, table_id)
+            changes.store.unreachable = False
+
+            assert (rows_while_down, names_of_rows(skat, felix, table_id)) == ([], ["Nova"])
