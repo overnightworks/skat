@@ -14,12 +14,12 @@ from tests.e2e.support.early_end import (
     NOTICE_MILLISECONDS,
     OPEN_CARDS,
     OPEN_TAG,
-    OWN_CARDS,
     REQUEST,
     SHORTEN_KEY,
     expect_a_refused_tap_to_show_the_failure_note,
     expect_nothing_to_overflow,
     expect_the_hand_and_the_strip_on_the_first_screen,
+    expect_the_page_to_show_every_card_played,
     expect_the_stamp,
     mark_on,
     opponents,
@@ -54,7 +54,7 @@ def deal_a_shortening(deal_a_game: Callable[..., PlayingTable]) -> Callable[...,
         table = deal_a_game(form_factor, console=console)
         table.play_out(CARDS_AFTER_TWO_TRICKS)
         declarer = table.pages[table.declarer_seat]
-        expect(declarer.locator(OWN_CARDS)).to_have_count(8)
+        expect_the_page_to_show_every_card_played(declarer)
         expect(declarer.locator(SHORTEN_KEY)).to_be_enabled()
         declarer.locator(SHORTEN_KEY).click()
         for person in table.everyone:

@@ -21,6 +21,7 @@ from tests.e2e.support.early_end import (
     expect_a_refused_tap_to_show_the_failure_note,
     expect_nothing_to_overflow,
     expect_the_hand_and_the_strip_on_the_first_screen,
+    expect_the_page_to_show_every_card_played,
     expect_the_stamp,
     mark_on,
     opponents,
@@ -67,7 +68,7 @@ def deal_a_wrong_open_play(deal_a_game: Callable[..., PlayingTable]) -> Callable
         table = deal_a_game(form_factor)
         table.play_out(CARDS_AFTER_TWO_TRICKS)
         player = table.pages[opponents(table)[0]]
-        expect(player.locator(OWN_CARDS)).to_have_count(8)
+        expect_the_page_to_show_every_card_played(player)
         play_open_through_the_key(player)
         for person in table.everyone:
             expect(person.locator(REQUEST)).to_be_visible()
@@ -192,7 +193,7 @@ def test_a_reconnect_keeps_the_standing_request_for_a_watcher(
     table = deal_a_game(PHONE, console=False)
     table.play_out(CARDS_AFTER_TWO_TRICKS)
     player, _ = opponents(table)
-    expect(table.pages[player].locator(OWN_CARDS)).to_have_count(8)
+    expect_the_page_to_show_every_card_played(table.pages[player])
     play_open_through_the_key(table.pages[player])
     watcher = table.watcher
     expect(watcher.locator(REQUEST)).to_contain_text(plays_open(table.names[player]))
