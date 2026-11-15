@@ -65,6 +65,7 @@ from skat.web.ready import create_ready_router
 from skat.web.request_line import ClientAddressNoting, SignedInPersonNoting
 from skat.web.routes import create_router
 from skat.web.rule_sets import create_rule_sets_router
+from skat.web.run_line import RunLine
 from skat.web.seating import create_seating_router
 from skat.web.series_end import create_series_end_router
 from skat.web.sign_in import (
@@ -78,7 +79,6 @@ from skat.web.sign_in import (
 )
 from skat.web.streams import StreamSlots, StreamSource, create_streams_router
 from skat.web.style import create_style_router
-from skat.web.sweep_line import SweepCounts, SweepLine
 from skat.web.tables import create_tables_router
 from skat.web.wakes import SharedWakes, WakeList
 
@@ -386,7 +386,7 @@ def _sweep_tables(
     forget_expired_sessions: Callable[[], Awaitable[int]],
     period_seconds: float,
 ) -> None:
-    line = SweepLine()
+    line = RunLine("table_sweep.ended")
 
     async def sweep() -> None:
         step = line.run()
@@ -401,7 +401,11 @@ def _sweep_tables(
         forgotten_sessions = await _swept(
             forget_expired_sessions, lambda failure: log.error("expired_sessions_forget.failed", error_type=failure)
         )
-        counts = SweepCounts(ended or 0, forgotten_tables or 0, forgotten_sessions or 0)
+        counts = {
+            "ended_table_count": ended or 0,
+            "forgotten_table_count": forgotten_tables or 0,
+            "forgotten_session_count": forgotten_sessions or 0,
+        }
         line.written(step, counts, failed=None in (ended, forgotten_tables, forgotten_sessions))
         if not presence.stopped:
             scheduler.schedule(period_seconds, sweep)
