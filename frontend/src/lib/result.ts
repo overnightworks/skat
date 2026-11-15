@@ -6,6 +6,7 @@ import {
     isSuitGame,
     type Announcement,
     type Chair,
+    type GameEnding,
     type Level,
     type RamschResult,
     type RamschSeat,
@@ -32,8 +33,8 @@ export type Chip = { word: string; ticked: boolean };
 export type Equation = { multiplier: number | null; base: number | null; product: number | null };
 // What the game added to the declarer's side, step by step, and for a lost game what each opponent gets.
 export type ListLine = { side: string; steps: string[]; share: string | null };
-// The word stamped beside the game's name: „Aufgegeben“ carries the face of whoever gave up while they sit there,
-// „Überreizt“ has none.
+// The word stamped beside the game's name: „Aufgegeben“, „Abgekürzt“ and „Offen gespielt“ carry the face of whoever ended
+// the game while they sit there, „Überreizt“ has none.
 export type Stamp = { word: string; face: string | null };
 export type ResultView = {
     word: string;
@@ -204,11 +205,18 @@ export function resultIsGood(result: Result, chairs: readonly Chair[]): boolean 
     return own === undefined ? result.won : (result.gains.find((one) => one.seat === own.seat) as SeatGain).won;
 }
 
-// A give-up is the ending that decided the game, so its stamp stands where an overbid game's would.
+// The endings a seat decided: its word is stamped with its face where an overbid game's stamp would stand.
+const ENDING_STAMPS: Partial<Record<GameEnding, string>> = {
+    "given-up": words["result.givenUp"],
+    shortened: words["result.shortened"],
+    "played-open": words["result.playedOpen"],
+};
+
 function stampOf(result: Result, chairs: readonly Chair[]): Stamp | null {
-    if (result.ending === "given-up") {
-        const giver = nameOf(chairs, result.ended_by_seat as number);
-        return { word: words["result.givenUp"], face: giver === null ? null : giver.slice(0, 1) };
+    const ending = ENDING_STAMPS[result.ending];
+    if (ending !== undefined) {
+        const decider = nameOf(chairs, result.ended_by_seat as number);
+        return { word: ending, face: decider === null ? null : decider.slice(0, 1) };
     }
     return result.overbid ? { word: words["result.overbid"], face: null } : null;
 }
@@ -254,9 +262,16 @@ export function resultView(table: Table): ResultView {
         score: signed(result.score),
         list: listLineOf(result, sides),
         sides,
+        // A shortened game is settled by the agreement, which reads no points.
         points:
-            result.game === "null" ? null : { declarer: result.declarer_points, opponents: result.opponents_points },
-        snug: result.overbid || result.levels.length > SNUG_LEVELS || result.kontra !== null,
+            result.game === "null" || result.ending === "shortened"
+                ? null
+                : { declarer: result.declarer_points, opponents: result.opponents_points },
+        snug:
+            result.overbid ||
+            result.levels.length > SNUG_LEVELS ||
+            result.kontra !== null ||
+            result.ending === "played-open",
         rows: reckoningRows(chairs, result.gains),
     };
 }

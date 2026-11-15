@@ -1,4 +1,4 @@
-import type { Chair, GiveUp, Table, Word } from "../routes/(start)/tables.ts";
+import type { Chair, GiveUp, OpenHand, Shortening, Table, Word } from "../routes/(start)/tables.ts";
 
 export const DECLARER = 2;
 export const FIRST_OPPONENT = 1;
@@ -31,6 +31,10 @@ export function tableWith(
         kontraWord?: Word;
         grandHandInRamsch?: boolean;
         owedBy?: number;
+        shortening?: Shortening;
+        refusedBy?: number;
+        openPlayBy?: number;
+        openHands?: OpenHand[];
     } = {},
 ): Table {
     return {
@@ -87,6 +91,10 @@ export function tableWith(
                 legal_cards: [],
                 running_points: null,
                 give_up: request,
+                shortening: changes.shortening ?? null,
+                shortening_refused_seat: changes.refusedBy ?? null,
+                open_play_seat: changes.openPlayBy ?? null,
+                open_hands: changes.openHands ?? [],
                 kontra: changes.kontraWord
                     ? {
                           said: [],

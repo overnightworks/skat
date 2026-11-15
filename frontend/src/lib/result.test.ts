@@ -76,6 +76,17 @@ describe("the card's words and sides for each viewer", () => {
         expect(resultView(table(2, {})).points).toEqual({ declarer: 78, opponents: 42 });
     });
 
+    it("gives a shortened game no points bar, which its settlement does not read", () => {
+        expect(resultView(table(2, { ending: "shortened", ended_by_seat: 1 })).points).toBeNull();
+    });
+
+    it("keeps the points of a game an open play ended", () => {
+        expect(resultView(table(2, { ending: "played-open", ended_by_seat: 1 })).points).toEqual({
+            declarer: 78,
+            opponents: 42,
+        });
+    });
+
     it("gives a Null game no points bar", () => {
         expect(resultView(table(2, { game: "null" })).points).toBeNull();
     });
@@ -164,6 +175,15 @@ describe("the stamp under the result", () => {
         { game: "an overbid game", changes: givenUpBy(overbid) },
     ])("carries Aufgegeben with the face of whoever gave up in $game", ({ changes }) => {
         expect(resultView(table(2, changes, anna)).stamp).toEqual({ word: words["result.givenUp"], face: "A" });
+    });
+
+    it.each([
+        { ending: "shortened", word: words["result.shortened"] },
+        { ending: "played-open", word: words["result.playedOpen"] },
+    ] as const)("carries $word with the face of whoever ended a game $ending", ({ ending, word }) => {
+        const view = resultView(table(2, { ending, ended_by_seat: 1 }, anna));
+
+        expect(view.stamp).toEqual({ word, face: "A" });
     });
 
     it("carries Aufgegeben without a face once whoever gave up has left the chair", () => {

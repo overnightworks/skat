@@ -141,6 +141,14 @@ export function gameInPlay(table: Table): GameInPlay | null {
     };
 }
 
+// The cards a chair holds open to every viewer: the declarer's after an ouvert game or a no to his shortening, an
+// opponent's after the declarer played on against his open play. Never the skat or a hand the view does not carry.
+export function openCardsOf(table: Table, seat: number): readonly Card[] {
+    const { declaring, playing } = table.hand ?? {};
+    if (seat === declaring?.declarer_seat) return declaring.open_cards;
+    return playing?.open_hands.find((hand) => hand.seat === seat)?.cards ?? [];
+}
+
 // The bid line of a game that no bid or play word declared: the Grand Hand a seat declared instead of a Ramsch, at the
 // bid the table names for it. An auction-won game always carries a bid or play word.
 export function bidLineOfGameDeclaredInTheStage(table: Table): string | null {
