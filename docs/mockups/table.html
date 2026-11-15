@@ -849,6 +849,7 @@ const PB_BACK=backOf(PB);
 /* the way back: the back key at the top left of every solo table leads to the Lobby, the watchers and the ⋯ key at the top right; a call table has neither, there the ⋯ key stands in Skat's strip */
 I.back=sv('<path d="M14.5 5.5 8 12l6.5 6.5"/>',2.4);
 I.finish=sv('<path d="M5 21V4M5 5h12l-2.5 4 2.5 4H5"/>');
+I.rules=sv('<path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4 6.5h.01M4 12h.01M4 17.5h.01"/>',2);
 I.style=sv('<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 2-1 1.5-2.1-.5-1.2.2-2.4 1.6-2.4H17a3.5 3.5 0 0 0 3.5-3.5C20.5 6.9 16.7 3.5 12 3.5z"/><circle cx="7.8" cy="11.2" r="1" fill="currentColor" stroke="none"/><circle cx="10.6" cy="7.6" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="7.9" r="1" fill="currentColor" stroke="none"/>',2);
 let homeBadge=null;
 const withBadge=(draw,badge)=>(d)=>{const before=homeBadge;homeBadge=badge;try{return draw(d);}finally{homeBadge=before;}};
@@ -1094,7 +1095,7 @@ const IDEAS=[
   ['🔢','Serie','Eine ruhige Marke zählt „Spiel 8 von 36“; am Ende zeigt die Rangliste Platz, Stand sowie gewonnene und verlorene Spiele, und „Neue Serie“ setzt alle Bierdeckel auf null.','series-play, series-end, series-fresh'],
   ['🃏','Stiche eines Spiels','Ein Tipp auf eine Zeile der Liste öffnet das Spiel: Skat und Gedrücktes, die Augen gegen die 61, dann jeder Stich mit seinen drei Karten, dem Punkt dessen, der stach, und seinen Augen; ein Ramsch zeigt die Augen jedes Stuhls, ein früh beendetes Spiel, wie es endete. (#573)','game-tricks, game-ramsch, game-ended'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
-  ['⋯','Das Menü des Tisches','Unten liegt nur, was das Spiel jetzt fragt (Reizen, Halten, Weg, Kontra und Re, Abkürzen, Offen spielen, Weiter) und die Reaktion. Alles, was den Tisch betrifft, liegt oben hinter „⋯“: „Tisch“ mit Link kopieren, Agenten rufen, Stil, Aufstehen und „Tisch schließen“ für den, der ihn öffnete, dazu „Serie beenden“; „Spiel“ mit „Aufgeben“ und „Abbrechen“, die ein zweites Mal gefragt werden. Im Anruf, wo die obere Zeile dem Anruf gehört, steht die Menütaste in Skats Leiste.','agents-strip, agents-list, agents-leave, menu-armed, menu-call, menu-watch'],
+  ['⋯','Das Menü des Tisches','Unten liegt nur, was das Spiel jetzt fragt (Reizen, Halten, Weg, Kontra und Re, Abkürzen, Offen spielen, Weiter) und die Reaktion. Alles, was den Tisch betrifft, liegt oben hinter „⋯“: „Tisch“ mit Link kopieren, Agenten rufen, Stil, Regeln (öffnet das Regelblatt, die Marken bleiben in der oberen Zeile), Aufstehen und „Tisch schließen“ für den, der ihn öffnete, dazu „Serie beenden“; „Spiel“ mit „Aufgeben“ und „Abbrechen“, die ein zweites Mal gefragt werden. Im Anruf, wo die obere Zeile dem Anruf gehört, steht die Menütaste in Skats Leiste.','agents-strip, agents-list, agents-leave, menu-armed, menu-call, menu-watch'],
   ['🤖','Agenten rufen','Im Menü „⋯“ steht unter „Tisch“ die Liste des Kits: „Rufen“ setzt Nova auf den freien Stuhl, „Bitten zu gehen“ schickt sie weg; wer kein Recht an einem Agenten hat, sieht keine Zeile. (#315)','agents-strip, agents-list,agents-calling, agents-here, agents-refused, agents-empty, agents-framed, agents-leave'],
   ['🪑','Freier Platz im Spiel','Geht ein Agent mitten im Spiel, wird sein Stuhl frei, seine Karten warten daneben und niemand ist dran; wer sich setzt, übernimmt Karten und Zug, die anderen sehen „Lena spielt weiter“. (#314)','lobby-seat-open (start.html)'],
   ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet das Menü unter „Spiel“ „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
@@ -1649,12 +1650,12 @@ const centred=(d,html)=>d?html:html.replace('left:195px',`left:${PB.cx}px`);
 const turnGlow=(d)=>d?glow(640,640,640,170):glow(PB.cx,560,240,120);
 const novaGlow=(d)=>d?glow(980,270,220,260):glow(PB.cx+105,190,190,110);
 
-/* the table's matters behind ⋯, in two sections: Tisch (link, the agents, style, standing up in a call, closing for the opener, ending the series) and Spiel (Aufgeben and Abbrechen, asked a second time). The section a person has nothing in is not drawn.
+/* the table's matters behind ⋯, in two sections: Tisch (link, the agents, style, the rules sheet outside a call, standing up, closing for the opener, ending the series) and Spiel (Aufgeben and Abbrechen, asked a second time). The section a person has nothing in is not drawn.
    o.agents: the kit's list; o.armed: the row asking its second tap; o.above: in a call the list opens over the strip's ⋯ key */
 const menuRow=(icon,label,cls='')=>`<span class="row ${cls}" role="menuitem" tabindex="0">${icon}<span>${label}</span></span>`;
 const askRow=(icon,word)=>`<span class="row danger arm" role="menuitem" tabindex="0">${icon}<span>${word}</span><i class="run-out" aria-hidden="true"></i></span>`;
 const tableMenu=(d,o={})=>{
-  const tisch=[o.link===false?'':menuRow(I.link,'Link kopieren'),o.agents||'',o.style?menuRow(I.style,'Stil'):'',o.stand?menuRow(I.stand,'Aufstehen'):'',
+  const tisch=[o.link===false?'':menuRow(I.link,'Link kopieren'),o.agents||'',o.style?menuRow(I.style,'Stil'):'',o.link===false?'':menuRow(I.rules,'Regeln'),o.stand?menuRow(I.stand,'Aufstehen'):'',
     o.opener?menuRow(I.power,'Tisch schließen','danger'):'',o.series?(o.armed==='series'?askRow(I.finish,'Wirklich beenden?'):menuRow(I.finish,'Serie beenden')):''].join('');
   const spiel=[o.giveUp?(o.armed==='giveUp'?askRow(I.flag,'Wirklich aufgeben?'):menuRow(I.flag,'Aufgeben','danger')):'',o.abort?(o.armed==='abort'?askRow(I.stop,'Wirklich abbrechen?'):menuRow(I.stop,'Abbrechen','danger')):''].join('');
   return `<div class="menu-pop ${o.above?'above':''}" role="menu" aria-label="Mehr">${tisch?`<h4>Tisch</h4>${tisch}`:''}${spiel?`<h4>Spiel</h4>${spiel}`:''}</div>`;

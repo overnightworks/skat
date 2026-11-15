@@ -30,6 +30,7 @@
         seated,
         styleOffered,
         oncopy,
+        onrules,
         onstand,
         streamedVersion,
         seatedAgents,
@@ -44,6 +45,7 @@
         seated: boolean;
         styleOffered: boolean;
         oncopy: () => void;
+        onrules: () => void;
         onstand: () => void;
         streamedVersion: number | null;
         seatedAgents: string;
@@ -140,6 +142,30 @@
                 >
                     <PaletteMark />
                     <span class="label">{words["table.style"]}</span>
+                </button>
+            {/if}
+            {#if !callMode}
+                <button
+                    type="button"
+                    class="row rules"
+                    onclick={() => {
+                        close();
+                        onrules();
+                    }}
+                >
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                    >
+                        <path d="M9 6.5h11M9 12h11M9 17.5h11" />
+                        <path d="M4 6.5h.01M4 12h.01M4 17.5h.01" />
+                    </svg>
+                    <span class="label">{words["rules.title"]}</span>
                 </button>
             {/if}
             {#if standOffered}

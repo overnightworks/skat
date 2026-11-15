@@ -132,6 +132,7 @@
     const id = $derived(page.params.id as string);
     let outcome = $state<Outcome | null>(null);
     let note = $state("");
+    let rulesOpen = $state(false);
     let taken: string | null = $state(null);
     let connected = $state(true);
     let streamsFull = $state(false);
@@ -369,6 +370,9 @@
             {seated}
             styleOffered={seated && !resultOnStage(table) && keyWord(table) === null}
             oncopy={copy}
+            onrules={() => {
+                rulesOpen = true;
+            }}
             onstand={() => {
                 void seat(standUp(id, crypto.randomUUID()));
             }}
@@ -403,6 +407,7 @@
             {callMode}
             {attention}
             {connected}
+            bind:rulesOpen
             live={outcome?.kind === "table" && outcome.table.ended === null
                 ? {
                       id,

@@ -17,10 +17,12 @@
         connected,
         live,
         menu,
+        rulesOpen = $bindable(false),
     }: {
         callMode: boolean;
         attention: number;
         menu: Snippet;
+        rulesOpen?: boolean;
         connected: boolean;
         live: {
             id: string;
@@ -43,7 +45,7 @@
         {#if live.count !== null}
             <SeriesCount id={live.id} text={live.count} version={live.version} />
         {/if}
-        <TableRules options={live.options} bock={live.bock} />
+        <TableRules options={live.options} bock={live.bock} bind:open={rulesOpen} />
         {#if !callMode}
             <SoundButton place="bar" />
         {/if}
