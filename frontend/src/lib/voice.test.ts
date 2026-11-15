@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Cue } from "./cues.ts";
+import { cuesBetween, type Cue } from "./cues.ts";
+import { EVERY_HAND_DEALT, FOREHAND, MIDDLEHAND, REARHAND, table } from "./cues.fixtures.ts";
 import { everyRecording, grumbleOf, recordingOf, voiceKeyOf, type VoiceKey } from "./voice.ts";
 import { languages, loadWords, sourceLanguage } from "./words/index.ts";
 import { VALID_BIDS } from "./wire.ts";
+import type { AuctionWord } from "../routes/(start)/tables.ts";
 
 const SEAT = 1;
 const RECORDING_SUFFIX = ".mp3";
@@ -60,6 +62,25 @@ function said(action: "bid" | "hold", seat: number, value: number): Cue {
     return { kind: "bid-said", seat, word: { action, value } };
 }
 
+const TABLE_SEATS = [FOREHAND, MIDDLEHAND, REARHAND];
+
+// The word the voice says on each page of a table when `speaker` says `action` at `value`: the one server update
+// reaches every page, and each page is the table as its own chair sees it.
+function wordsHeardOnEveryPage(speaker: number, action: "bid" | "hold", value: number): (string | undefined)[] {
+    const spoken: AuctionWord[] = [{ seat: speaker, action, value }];
+    const asSeenFrom = (own: number, version: number, words: AuctionWord[]) => {
+        const seen = table(version, EVERY_HAND_DEALT, { declaring: null, spoken: words });
+        return { ...seen, chairs: seen.chairs.map((chair) => ({ ...chair, is_mine: chair.seat === own })) };
+    };
+
+    return TABLE_SEATS.map((own) => {
+        const heard = cuesBetween(asSeenFrom(own, 1, []), asSeenFrom(own, 2, spoken)).filter(
+            (cue) => cue.kind === "bid-said",
+        );
+        return heard.length === 1 ? voiceKeyOf(heard[0] as Cue) : undefined;
+    });
+}
+
 describe("the word the voice says for a hold", () => {
     it("is never a number but a confirmation of the catalog, whatever the value", async () => {
         const catalog = await loadWords(sourceLanguage);
@@ -74,9 +95,12 @@ describe("the word the voice says for a hold", () => {
     });
 
     it("is the same confirmation on every page for the same hold", () => {
-        for (const seat of SEATS) {
+        for (const speaker of TABLE_SEATS) {
             for (const value of HOLD_VALUES) {
-                expect(voiceKeyOf(said("hold", seat, value))).toBe(voiceKeyOf(said("hold", seat, value)));
+                const heard = wordsHeardOnEveryPage(speaker, "hold", value);
+
+                expect(heard[0]).toMatch(/^voice\.hold/);
+                expect(new Set(heard).size).toBe(1);
             }
         }
     });
@@ -96,7 +120,7 @@ describe("the word the voice says for a bid of 23", () => {
     });
 
     it("is the same word on every page for the same bid", () => {
-        expect(SEATS.map((seat) => voiceKeyOf(said("bid", seat, 23)))).toEqual(keys);
+        for (const speaker of TABLE_SEATS) expect(new Set(wordsHeardOnEveryPage(speaker, "bid", 23)).size).toBe(1);
     });
 
     it("is a key of the catalog either way", async () => {
