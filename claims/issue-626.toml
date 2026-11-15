@@ -1,0 +1,8 @@
+claim_id = "48e10081a5a54985aa91563afff88807"
+agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
+role = "builder"
+base = "403291f20e0d79f6de1b5aecd5ae4a59671bbfdb"
+branch = "claude/issue-626-skat-pins-agents-v0-47-0-and-answers-who"
+scope = ["docs/ARCHITECTURE.md", "pyproject.toml", "src/skat/host", "src/skat/store", "src/skat/table", "src/skat/web", "tests", "uv.lock"]
+opened_commit = "f671ed5f0db1698566e4223d4b08387ded106580"
+whole_reason = "One dependency bump (agents, tandem, logline) touches the host wiring, the web fronts, the table service's log line, the store's Redis client, their tests and the lock"
