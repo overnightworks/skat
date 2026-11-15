@@ -3,7 +3,6 @@ import { stampOf, type SaidWord, type Stamp } from "./kontra.ts";
 import { handWaits } from "./openChair.ts";
 import { declaredResult, resultIsGood } from "./result.ts";
 import {
-    seatsInTurnFrom,
     type AuctionAction,
     type AuctionWord,
     type Card,
@@ -15,6 +14,7 @@ import {
     type SeatedCard,
     type Table,
 } from "../routes/(start)/tables.ts";
+import { seatsInTurnFrom } from "./turnOrder.ts";
 import { nudgedChairs } from "../routes/(start)/nudge.ts";
 
 const SEATS_AT_A_TABLE = 3;

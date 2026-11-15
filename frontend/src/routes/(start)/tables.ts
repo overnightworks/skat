@@ -18,7 +18,7 @@ import {
     type KONTRA_DEADLINE_TOKENS,
     type KONTRA_REACH_TOKENS,
     type KONTRA_SAYER_TOKENS,
-    POSITION_TOKENS,
+    type POSITION_TOKENS,
     type PUSHING_RULE_TOKENS,
     type RAMSCH_OCCASION_TOKENS,
     type RAMSCH_SCORING_TOKENS,
@@ -623,17 +623,6 @@ export function seatedAgentsKey(previous: Table | undefined, table: Table): stri
 export function drawingOrder(chairs: Chair[]): Chair[] {
     const afterMine = chairs.findIndex((chair) => chair.is_mine || chair.is_mine_to_return) + 1;
     return [...chairs.slice(afterMine), ...chairs.slice(0, afterMine)];
-}
-
-// The turn goes forehand, middlehand, rearhand and round again; while a hand runs every chair holds a position.
-export function seatsInTurnFrom(chairs: readonly Chair[], leaderSeat: number): number[] {
-    const turnOf = new Map(
-        chairs.map((chair) => [chair.seat, POSITION_TOKENS.indexOf((chair.hand as ChairHand).position)]),
-    );
-    const lead = turnOf.get(leaderSeat) as number;
-    const turnsAfterLead = (seat: number): number =>
-        ((turnOf.get(seat) as number) - lead + POSITION_TOKENS.length) % POSITION_TOKENS.length;
-    return chairs.map((chair) => chair.seat).sort((first, second) => turnsAfterLead(first) - turnsAfterLead(second));
 }
 
 const POSITION_WORDS: Record<Position, string> = {

@@ -4,15 +4,17 @@ import { MOTION_SETS, type MotionSetId } from "./motionSets.ts";
 import type { Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundSetId } from "./soundSets.ts";
 import {
+    BID_EIGHTEEN,
     cardPlayedBy,
     earliest,
     FakePort,
     FUNKELN_VOICES,
+    KONTRA_SAID,
     loudest,
     OTHER_SEAT,
     OWN_SEAT,
+    PASS,
     RECORDING_OF,
-    RECORDING_SECONDS,
     soundAt,
     tableSeenFrom,
     THIRD_SEAT,
@@ -222,10 +224,7 @@ describe("cues without a sound", () => {
     });
 });
 
-const BID_EIGHTEEN: Cue = { kind: "bid-said", seat: OTHER_SEAT, word: { action: "bid", value: 18 } };
-const PASS: Cue = { kind: "bid-said", seat: OTHER_SEAT, word: { action: "pass", value: null } };
 const KNOCKS_OF_LEISE = 6;
-const KONTRA_SAID: Cue = { kind: "word-said", said: { seat: OTHER_SEAT, word: "kontra" } };
 
 describe("the sound of a bid", () => {
     it.each(Object.keys(SOUND_SETS) as SoundSetId[])("taps in the set %s", (soundSet) => {
@@ -380,41 +379,6 @@ describe("the voice", () => {
         soundAt(port, { voice: true }).forCues([cue], tableSeenFrom(OWN_SEAT));
 
         expect(port.spoken.map(({ url }) => url)).toEqual([RECORDING_OF(key)]);
-    });
-
-    it("says the words of one update one after another, each once the one before has ended", () => {
-        const port = new FakePort();
-
-        soundAt(port, { voice: true, motion: "verspielt" }).forCues(
-            [BID_EIGHTEEN, PASS, KONTRA_SAID],
-            tableSeenFrom(OWN_SEAT),
-        );
-
-        expect(port.spoken.map(({ url }) => url)).toEqual([
-            RECORDING_OF("voice.value18"),
-            RECORDING_OF("voice.pass"),
-            RECORDING_OF("voice.kontra"),
-        ]);
-        const starts = port.spoken.map(({ afterSeconds }) => afterSeconds);
-        expect(starts[1]).toBeGreaterThanOrEqual((starts[0] as number) + RECORDING_SECONDS);
-        expect(starts[2]).toBeGreaterThanOrEqual((starts[1] as number) + RECORDING_SECONDS);
-    });
-
-    it("says the announced game after the words of its update, word by word", () => {
-        const port = new FakePort();
-        const announced: Cue = {
-            kind: "game-announced",
-            game: "herz",
-            hand: true,
-            ouvert: false,
-            announcement: "schneider",
-        };
-
-        soundAt(port, { voice: true }).forCues([BID_EIGHTEEN, announced], tableSeenFrom(OWN_SEAT));
-
-        expect(port.spoken.map(({ url }) => url)).toEqual(
-            ["voice.value18", "voice.herz", "voice.hand", "voice.schneider"].map(RECORDING_OF),
-        );
     });
 
     it("says nothing while the voice is off, and the taps sound all the same", () => {

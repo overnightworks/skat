@@ -1,10 +1,10 @@
 import { firstCardWait } from "#lib/kontra.ts";
 import type { LastTrickMode, StageState } from "#lib/stage.ts";
+import { seatsInTurnFrom } from "#lib/turnOrder.ts";
 import { words } from "#lib/words.ts";
 import {
     drawingOrder,
     includesCard,
-    seatsInTurnFrom,
     type Card,
     type Chair,
     type Declaring,
