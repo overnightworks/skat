@@ -241,7 +241,7 @@ body.solo .frame{border-radius:0;border:0}
 /* a knock on the table: two rings on the felt */
 .knock{width:var(--ks,70px);aspect-ratio:1;translate:-50% -50%;border-radius:50%;pointer-events:none;
   box-shadow:0 0 0 2px rgba(251,248,240,.55),0 0 0 14px rgba(251,248,240,.08),0 0 0 16px rgba(251,248,240,.3)}
-/* reaction tray (phone: opened from the bar) and rail (desktop: always there) */
+/* reaction tray (phone: opened from the key in the top row, hanging below it) and rail (desktop: always there) */
 .tray{display:flex;gap:2px;padding:4px;border-radius:999px;background:rgba(23,27,32,.92);backdrop-filter:blur(14px);box-shadow:0 12px 26px -8px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.08)}
 .tray.rail{flex-direction:column;border-radius:26px}
 .tray span{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:24px;font-family:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif}
@@ -550,6 +550,10 @@ body.solo section.shot .rule{display:none}
 /* ---------- S3.7p: the lobby button on the table page; a round 40 px glass button inside a 44 px tap area, a pill with its word on the desktop; lighter than the other glass so it reads on the dark wood ---------- */
 .cb.home{position:absolute;left:10px;top:3px;width:40px;height:40px;cursor:pointer;background:rgba(244,246,248,.26);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3),0 4px 10px -4px rgba(0,0,0,.7)}
 .cb.home::after{content:"";position:absolute;inset:-2px}
+/* the reaction key of a phone: a round glass key in the top row like the Lobby button, after it (from 390 px) or left of the watchers (narrower); a desktop has no key, its tray stands always */
+.cb.react{position:absolute;width:40px;height:40px;background:rgba(244,246,248,.26);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3),0 4px 10px -4px rgba(0,0,0,.7)}
+.cb.react svg{width:22px;height:22px}
+.cb.react.on{background:var(--on-stage);color:var(--stage)}
 .cb.home svg{width:22px;height:22px}
 .cb.wide.glass.home{left:20px;top:9px;width:auto;height:40px;padding:0 16px 0 12px;font-size:14px;gap:8px}
 .cb.wide.glass.home svg{width:20px;height:20px}
@@ -835,8 +839,8 @@ function confetti(o){
 const people=(n,x,y)=>`<div class="tag-glass" style="${at({left:x,top:y})}">${I.people}<span>${n}</span></div>`;
 const callBar=(desk,o={})=>desk
   ?`<div class="cbar"><span class="cb">${I.mic}</span><span class="cb">${I.cam}</span><span class="cb">${I.screen}</span><span class="gap"></span><span class="cb">${I.invite}</span><span class="cb">${I.chat}</span><span class="cb">${I.more}</span><span class="gap"></span><span class="cb leave">${I.leave}</span></div>`
-  :`<div class="cbar"><span class="cb">${I.mic}</span><span class="cb">${I.cam}</span><span class="cb ${o.react?'on':''}">${I.smile}</span><span class="cb">${I.chat}</span><span class="cb">${I.more}</span><span class="cb leave">${I.leave}</span></div>`;
-const soloBar=()=>`<div class="sbar"><span class="cb">${I.smile}</span><span class="cb wide">${I.cam}Anruf</span><span class="cb">${I.more}</span></div>`;
+  :`<div class="cbar"><span class="cb">${I.mic}</span><span class="cb">${I.cam}</span><span class="cb">${I.chat}</span><span class="cb">${I.more}</span><span class="cb leave">${I.leave}</span></div>`;
+const soloBar=()=>`<div class="sbar"><span class="cb wide">${I.cam}Anruf</span><span class="cb">${I.more}</span></div>`;
 const FRAMES=[];
 const frame=(id,title,note,size,html,rules=[])=>FRAMES.push([id,`<section class="shot"><h2>${title}<small>${note}</small><button class="replay" type="button">Nochmal</button></h2><div class="frame ${size}" id="${id}">${html}</div>${rules.map(r=>`<p class="rule">${r}</p>`).join('')}</section>`]);
 /* the hands: Felix holds ten while bidding; one trick later eight are left, then seven */
@@ -864,12 +868,13 @@ const withBadge=(draw,badge)=>(d)=>{const before=homeBadge;homeBadge=badge;try{r
 const homeButton=(d,badge)=>{const mark=badge?`<span class="badge" aria-hidden="true">${badge}</span>`:'';
   return d?`<span class="cb wide glass home" role="button" tabindex="0" title="Lobby" aria-label="Lobby">${I.home}Lobby${mark}</span>`
           :`<span class="cb home" role="button" tabindex="0" title="Lobby" aria-label="Lobby">${I.home}${mark}</span>`;};
+const reactKey=(after,on)=>`<span class="cb react ${on?'on':''}" role="button" tabindex="0" title="Reaktionen" aria-label="Reaktionen" style="${at(PB.cx<195?{right:72,top:3}:{left:after,top:3})}">${I.smile}</span>`;
 /* Klassik's brass lamp stands on the table's rim at the lower right, as the page places it: 4% in from the right and 12% up from the bottom of the table, 46 px high on the phone and 64 px on the desktop, its foot a fifth of its height below that corner; it lies under every card and key. The Strandbar scenes draw the shell and the cocktail there instead. */
 const LAMP=`<svg viewBox="0 0 48 64" aria-hidden="true"><ellipse cx="24" cy="59" rx="15" ry="3.6" fill="#8c6a2f"/><ellipse cx="24" cy="57.6" rx="13" ry="2.6" fill="#c9a464"/><path d="M22.5 29h3v28h-3z" fill="#b08a45"/><path d="M5 32C5 16 13 6 24 6s19 10 19 26z" fill="#2f5d46"/><path d="M9 30C10 18 15 11 22 9" fill="none" stroke="#6fae8c" stroke-width="2" stroke-linecap="round"/><ellipse cx="24" cy="32" rx="19" ry="3" fill="#ffd9a0"/></svg>`;
 let klassikScene=true;
 const klassikLamp=(d)=>{if(!klassikScene)return '';const t=(d?DB:PB).table,h=d?64:46;
   return `<span class="decor lamp" style="${at({left:t.x+t.w*.96,top:t.y+t.h*.88+h*.2,'--h':h})}">${LAMP}</span>`;};
-const pbRoom=(o)=>table({...PB.table,thud:o.thud})+klassikLamp(false)+(o.glow||'')+(o.call===false?'':people(4,12,8)+watchers(296,4,[['ben',56,40]]))
+const pbRoom=(o)=>table({...PB.table,thud:o.thud})+klassikLamp(false)+(o.glow||'')+(o.call===false?'':people(4,12,8)+reactKey(82,o.react)+watchers(296,4,[['ben',56,40]]))
   +fan(o.left,{x:PB.fans[0],y:168,w:26,rot:150,spread:6,dim:o.annaOut,deal:o.deal&&150})+fan(o.left,{x:PB.fans[1],y:168,w:26,rot:210,spread:6,dim:o.novaOut,deal:o.deal&&150,d0:.1});
 const pbSeats=(o)=>seat('anna',{...PB.anna,video:o.video,marks:o.anna,out:o.annaOut})+seat('nova',{...PB.nova,marks:o.nova,win:o.novaWin,out:o.novaOut})
   +seat('felix',{...(o.layout||PB).you,video:o.video,marks:o.you,win:o.youWin,got:o.got})
@@ -1001,12 +1006,12 @@ const result=(x,y,w,pw)=>`<div class="result" style="${at({left:x,top:y,width:w}
 const annaKnock=(x,y,ks,es)=>knock(x,y,ks,.3)+emote('👊','anna',{x,y,ox:x,oy:y,lift:0,es,k:.95});
 
 frame('call-end-390','Gewonnen im Anruf','Handy 390 px','p390',
-  pbRoom({left:0})
+  pbRoom({left:0,react:true})
   +confetti({n:16,box:[8,60,382,640],origins:[[195,540],[320,96]],size:12,k:1.25,seed:11})
   +result(195,168,354,0)
   +pbSeats({video:true,anna:['decl'],youWin:true,novaWin:true,score:[26,102,95],layout:PB_BACK})
   +annaKnock(180,126,50,34)
-  +tray({left:54,top:668},{hot:'🍻'})+callBar(false,{react:true}));
+  +tray({right:14,top:51},{hot:'🍻'})+callBar(false));
 
 frame('call-end-1280','Gewonnen im Anruf','Desktop 1280 px','d1280',
   dbRoom({left:0})
@@ -1022,7 +1027,7 @@ frame('solo-play-390','Tisch ohne Anruf','Handy 390 px','p390',
   +plaque(195,176,gameLine('','Grand'))
   +stamp('Kontra!','felix',{x:195,y:350,sf:30,ss:230,k:.42})
   +pbSeats({video:false,anna:['decl'],nova:['turn','think'],score:[148,62,55]})
-  +hand(BID_HAND,PHONE_HAND)+soloBar()+homeButton(false));
+  +hand(BID_HAND,PHONE_HAND)+soloBar()+homeButton(false)+reactKey(56));
 
 frame('solo-play-1280','Tisch ohne Anruf','Desktop 1280 px','d1280',
   dbRoom({left:10,call:false,thud:'0s',glow:glow(980,270,220,260)})
@@ -1136,7 +1141,7 @@ const freeSeat=(pos,o={})=>`<div class="seat free ${pos.sm?'sm':''} ${o.idle?'id
   <div class="chair"><div class="tile">${o.idle?'':`<span class="sit">${I.plus}</span>`}</div></div><span class="plate"><b>Frei</b></span></div>`;
 /* the chair stays held: the nameplate keeps the name and says the player is not there */
 const awaySeat=(k,pos,marks=[])=>seat(k,{...pos,marks:[...marks,'away']}).replace('class="seat','class="seat away').replace('</b></span>','</b><small>nicht da</small></span>');
-const watching=(n,d)=>`${homeButton(d,homeBadge)}<div class="tag-glass" title="Zuschauer" style="${at(d?{right:20,top:14}:{right:12,top:8})}">${I.eye}<span>${n}</span></div>`;
+const watching=(n,d)=>`${homeButton(d,homeBadge)}${d?'':reactKey(56)}<div class="tag-glass" title="Zuschauer" style="${at(d?{right:20,top:14}:{right:12,top:8})}">${I.eye}<span>${n}</span></div>`;
 const waiting=(cx,y)=>plaque(cx,y,`<div class="game">Warte auf Mitspieler${waitDots()}</div>`);
 const notice=(text,k,x,y)=>`<div class="notice mo" role="status" style="${at({left:x,top:y,'--k':'.7s'})}">${[].concat(k).map(who=>`<span class="dot ${P[who].agent?'agent':''}" style="${dotStyle(P[who])}">${dotInner(P[who])}</span>`).join('')}${text}</div>`;
 const tableBar=(desk,o={})=>{
