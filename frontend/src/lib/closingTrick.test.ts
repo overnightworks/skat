@@ -2,48 +2,16 @@ import { describe, expect, it } from "vitest";
 import { closeHand } from "#lib/closingTrick.ts";
 import { closedHandOrdinal, cuesBetween } from "#lib/cues.ts";
 import { FOREHAND, MIDDLEHAND, REARHAND, table } from "#lib/cues.fixtures.ts";
+import {
+    afterTheLastCard,
+    beforeTheLastCard,
+    HERZ_NINE,
+    KREUZ_ACE,
+    KREUZ_KING,
+    sheetOfTheLastTrick,
+} from "#lib/closingTrick.fixtures.ts";
 import { LOST_GAME, ramschResult, table as tableWithResult } from "#lib/result.fixtures.ts";
-import type { Card, GameSheet, Table } from "../routes/(start)/tables.ts";
-
-const KREUZ_KING: Card = { suit: "kreuz", rank: "king" };
-const HERZ_NINE: Card = { suit: "herz", rank: "nine" };
-const KREUZ_ACE: Card = { suit: "kreuz", rank: "ace" };
-const LAST_CARD_ON_THE_FELT = [
-    { seat: FOREHAND, card: KREUZ_KING },
-    { seat: MIDDLEHAND, card: HERZ_NINE },
-];
-const IN_THE_LAST_TRICK = [...LAST_CARD_ON_THE_FELT, { seat: REARHAND, card: KREUZ_ACE }];
-const NINE_TRICKS_TAKEN = [3, 3, 3];
-
-function sheetOfTheLastTrick(taker: number | null, cards = IN_THE_LAST_TRICK): GameSheet {
-    const number = 3;
-    return {
-        number,
-        seat_names: [null, null, null],
-        count: { kind: "ramsch", seat_points: [0, 0, 0], durchmarsch_seat: null },
-        cards: {
-            hands: [],
-            skat: [],
-            laid_skat: [],
-            put_away: [],
-            skat_takers: [],
-            tricks: [
-                ...NINE_TRICKS_TAKEN.flatMap((count, index) =>
-                    Array.from({ length: count }, () => ({
-                        number,
-                        cards: [],
-                        taker_seat: index + 1,
-                        points: 0,
-                    })),
-                ),
-                { number, cards, taker_seat: taker, points: 14 },
-            ],
-        },
-    };
-}
-
-const beforeTheLastCard = table(8, [0, 0, 1], { current: LAST_CARD_ON_THE_FELT });
-const afterTheLastCard: Table = { ...tableWithResult(FOREHAND, { ordinal: 3 }), version: 9 };
+import type { Table } from "../routes/(start)/tables.ts";
 
 describe("the hand that the last card ends", () => {
     it.each([
@@ -85,6 +53,17 @@ describe("the last trick of a hand that the game sheet names", () => {
                 { seat: 3, tricks: 3 },
             ],
         });
+    });
+
+    it("keeps a chair that has no hand without one", () => {
+        const withEmptyChair: Table = {
+            ...beforeTheLastCard,
+            chairs: beforeTheLastCard.chairs.map((chair, index) => (index === 0 ? { ...chair, hand: null } : chair)),
+        };
+
+        const held = closeHand(withEmptyChair, afterTheLastCard, sheetOfTheLastTrick(MIDDLEHAND));
+
+        expect(held?.chairs.map((chair) => chair.hand?.card_count)).toEqual([undefined, 0, 0]);
     });
 
     it("tells the cards laid and then the trick taken, so the card lands before the trick rests", () => {

@@ -47,4 +47,21 @@ describe("the voice of one update", () => {
             ["voice.value18", "voice.herz", "voice.hand", "voice.schneider"].map(RECORDING_OF),
         );
     });
+
+    it("says the announced game as soon as the update arrives, motion or none", () => {
+        const announced: Cue = {
+            kind: "game-announced",
+            game: "herz",
+            hand: false,
+            ouvert: false,
+            announcement: "none",
+        };
+        const startsWith = (options: Parameters<typeof soundAt>[1]): number[] => {
+            const port = new FakePort();
+            soundAt(port, options).forCues([announced], tableSeenFrom(OWN_SEAT));
+            return port.spoken.map(({ afterSeconds }) => afterSeconds);
+        };
+
+        expect(startsWith({ voice: true, motion: "verspielt" })).toEqual(startsWith({ voice: true }));
+    });
 });

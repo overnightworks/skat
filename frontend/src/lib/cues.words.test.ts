@@ -54,6 +54,12 @@ describe("the bid a chair said between two versions of a table", () => {
             expect(said([], [PASS, BID_EIGHTEEN, BID_TWENTY])).toEqual(["2 bid", "1 pass", "3 bid"]);
         });
 
+        it("is the rearhand's pass after the words of the first pair", () => {
+            const rearhandPassed = { seat: REARHAND, action: "pass" as const, value: null };
+
+            expect(said([], [PASS, BID_EIGHTEEN, rearhandPassed])).toEqual(["2 bid", "1 pass", "3 pass"]);
+        });
+
         it("is the answer of the chair that won the first pair after the second pair's bid", () => {
             const lost = { ...BID_EIGHTEEN, action: "pass" as const, value: null };
             const held = { seat: FOREHAND, action: "hold" as const, value: 18 };
