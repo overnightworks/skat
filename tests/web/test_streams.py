@@ -429,6 +429,20 @@ class TestWatchTableAdmission:
         assert event["hand"] is None
         assert [chair["hand"] for chair in event["chairs"]] == [None, None, None]
 
+    def test_a_probe_of_a_table_stream_registers_no_presence(self, skat):
+        opener_headers, _ = skat.member()
+        table = skat.create(opener_headers).json()
+        watcher_headers, _ = skat.member()
+        skat.client.cookies.clear()
+
+        assert skat.client.head(self.events(table["id"]), headers=opener_headers).status_code == 200
+        with skat.client.stream("GET", self.events(table["id"]), headers=watcher_headers) as answer:
+            first = next(iter(unnamed_lines(answer.iter_lines())))
+            answer.close()
+
+        event = json.loads(first.removeprefix("data: "))
+        assert ([chair["is_away"] for chair in event["chairs"]], event["watchers"]) == ([True, False, False], 1)
+
     def test_the_first_event_marks_a_seated_member_without_a_stream_away_and_names_no_account(self, skat):
         opener_headers, opener = skat.member()
         table = skat.create(opener_headers).json()

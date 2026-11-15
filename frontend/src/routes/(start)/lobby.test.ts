@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ACCOUNT_PATH, LOBBY_EVENTS_PATH } from "#lib/wire.ts";
+import { LOBBY_EVENTS_PATH } from "#lib/wire.ts";
 import {
     cardOf,
     daysLeftWords,
@@ -432,7 +432,7 @@ describe("watchLobby", () => {
 
     it("opens the lobby stream and hands over the tables of each mine event", () => {
         const onMine = vi.fn();
-        watchLobby(onMine, vi.fn(), vi.fn());
+        watchLobby(onMine, vi.fn(), vi.fn(), vi.fn());
         const table = tableOf();
 
         FakeEventSource.opened[0]?.send("mine", JSON.stringify({ tables: [table] }));
@@ -443,7 +443,7 @@ describe("watchLobby", () => {
 
     it("hands over the tables of each open event", () => {
         const onOpen = vi.fn();
-        watchLobby(vi.fn(), onOpen, vi.fn());
+        watchLobby(vi.fn(), onOpen, vi.fn(), vi.fn());
         const table = openTableOf();
 
         FakeEventSource.opened[0]?.send("open", JSON.stringify({ tables: [table] }));
@@ -453,7 +453,7 @@ describe("watchLobby", () => {
 
     it("reports the line as there once an event arrived", () => {
         const onConnection = vi.fn();
-        watchLobby(vi.fn(), vi.fn(), onConnection);
+        watchLobby(vi.fn(), vi.fn(), onConnection, vi.fn());
 
         FakeEventSource.opened[0]?.send("mine", JSON.stringify({ tables: [] }));
 
@@ -463,21 +463,33 @@ describe("watchLobby", () => {
     it("reports the line as lost and opens a new stream by itself after a failure", async () => {
         const onConnection = vi.fn();
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200 }));
-        watchLobby(vi.fn(), vi.fn(), onConnection);
+        watchLobby(vi.fn(), vi.fn(), onConnection, vi.fn());
 
         FakeEventSource.opened[0]?.onerror?.();
         await vi.advanceTimersByTimeAsync(40_000);
 
         expect(onConnection).toHaveBeenCalledWith(false);
         expect(FakeEventSource.opened).toHaveLength(2);
-        expect(vi.mocked(fetch)).toHaveBeenCalledWith(ACCOUNT_PATH);
+        expect(vi.mocked(fetch).mock.calls[0]?.[0]).toBe(LOBBY_EVENTS_PATH);
+    });
+
+    it("tells the page that the account holds as many streams as it may, and opens a new stream by itself", async () => {
+        const onRefusal = vi.fn();
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 429 }));
+        watchLobby(vi.fn(), vi.fn(), vi.fn(), onRefusal);
+
+        FakeEventSource.opened[0]?.onerror?.();
+        await vi.advanceTimersByTimeAsync(40_000);
+
+        expect(onRefusal.mock.calls).toEqual([["tooMany"]]);
+        expect(FakeEventSource.opened).toHaveLength(2);
     });
 
     it("reloads the page when the session ended, to the sign-in", async () => {
         const reload = vi.fn();
         vi.stubGlobal("location", { reload });
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 401 }));
-        watchLobby(vi.fn(), vi.fn(), vi.fn());
+        watchLobby(vi.fn(), vi.fn(), vi.fn(), vi.fn());
 
         FakeEventSource.opened[0]?.onerror?.();
         await vi.advanceTimersByTimeAsync(0);

@@ -132,14 +132,14 @@ describe("watchTable after a stream error", () => {
         const reading = readTableAfresh(TABLE_ID);
         answer(0, 200);
         await reading;
-        watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn());
+        watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn(), vi.fn());
         fail();
         answer(1, 401);
         await settle();
     }
 
     it("signs in once when two errors overlap and both checks answer 401", async () => {
-        watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn());
+        watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn(), vi.fn());
         fail();
         fail();
         expect(answers).toHaveLength(1);
@@ -152,8 +152,23 @@ describe("watchTable after a stream error", () => {
         expect(reload).not.toHaveBeenCalled();
     });
 
+    it.each([
+        [404, "notFound"],
+        [429, "tooMany"],
+    ])("hands a %i refusal to the page as %s and signs nobody in", async (status, refusal) => {
+        const onRefusal = vi.fn();
+        watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn(), onRefusal);
+        fail();
+        answer(0, status);
+        await settle();
+
+        expect(onRefusal.mock.calls).toEqual([[refusal]]);
+        expect(assign).not.toHaveBeenCalled();
+        expect(reload).not.toHaveBeenCalled();
+    });
+
     it("checks again after a check that found only a lost connection", async () => {
-        watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn());
+        watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn(), vi.fn());
         fail();
         answer(0, 500);
         await settle();
@@ -166,7 +181,7 @@ describe("watchTable after a stream error", () => {
 
     it("treats a failed check as a lost connection", async () => {
         vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
-        const stop = watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn());
+        const stop = watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn(), vi.fn());
         fail();
         await settle();
 
@@ -178,7 +193,7 @@ describe("watchTable after a stream error", () => {
     it("closes the stream on an ended view, hands it on once and ignores a later error", async () => {
         const onTable = vi.fn();
         const onConnection = vi.fn();
-        watchTable(TABLE_ID, onTable, vi.fn(), onConnection);
+        watchTable(TABLE_ID, onTable, vi.fn(), onConnection, vi.fn());
         const ended = {
             id: TABLE_ID,
             ended: { reason: "empty", empty_seconds: 1800, unplayed_days: null, closed_by_name: null },
@@ -195,7 +210,7 @@ describe("watchTable after a stream error", () => {
     });
 
     it("ignores a check that answers after the page stopped watching", async () => {
-        const stop = watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn());
+        const stop = watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn(), vi.fn());
         fail();
         stop();
         answer(0, 401);
@@ -206,7 +221,7 @@ describe("watchTable after a stream error", () => {
     });
 
     it("ignores errors that come after the sign-in navigation started", async () => {
-        watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn());
+        watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn(), vi.fn());
         fail();
         answer(0, 401);
         await settle();
@@ -260,7 +275,7 @@ describe("watchTable after a stream error", () => {
         }
 
         async function refuse() {
-            watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn());
+            watchTable(TABLE_ID, vi.fn(), vi.fn(), vi.fn(), vi.fn());
             fail();
             answer(0, 401);
             await settle();
@@ -292,7 +307,7 @@ describe("watchTable after a stream error", () => {
     it("hands messages to the page and marks the connection", () => {
         const onTable = vi.fn();
         const onConnection = vi.fn();
-        watchTable(TABLE_ID, onTable, vi.fn(), onConnection);
+        watchTable(TABLE_ID, onTable, vi.fn(), onConnection, vi.fn());
         FakeEventSource.last.message(JSON.stringify({ id: TABLE_ID, ended: null }));
 
         expect(FakeEventSource.last.url).toContain(TABLES_PATH);

@@ -37,6 +37,7 @@
     let tables = $state<LobbyTable[] | null>(null);
     let openTables = $state<OpenTable[] | null>(null);
     let connected = $state(true);
+    let streamsFull = $state(false);
     // When each list came, by the page's stopwatch: a list's holds count down from there, and a newer list of the other
     // kind does not restart them.
     let mineReceivedAt = $state(0);
@@ -86,6 +87,10 @@
             },
             (line) => {
                 connected = line;
+                if (line) streamsFull = false;
+            },
+            (refusal) => {
+                streamsFull = refusal === "tooMany";
             },
         );
         const tick = setInterval(tickClocks, COUNTDOWN_MILLISECONDS);
@@ -311,6 +316,8 @@
         {/if}
     </div>
     {#if !connected}
-        <div class="reconnect" role="status"><span class="spin"></span>{words["app.reconnecting"]}</div>
+        <div class="reconnect" role="status">
+            <span class="spin"></span>{streamsFull ? words["app.tooManyStreams"] : words["app.reconnecting"]}
+        </div>
     {/if}
 {/if}

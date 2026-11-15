@@ -31,7 +31,7 @@ describe("the table stream's event attention", () => {
         const onTable = vi.fn();
         const onAttention = vi.fn();
         const onConnection = vi.fn();
-        watchTable("table-id", onTable, onAttention, onConnection);
+        watchTable("table-id", onTable, onAttention, onConnection, vi.fn());
 
         FakeEventSource.last.send("attention", "3");
 
