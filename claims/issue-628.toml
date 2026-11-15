@@ -1,8 +1,0 @@
-claim_id = "864538e50f80445ca3106347f248db03"
-agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
-role = "builder"
-base = "403291f20e0d79f6de1b5aecd5ae4a59671bbfdb"
-branch = "claude/issue-628-s2-skat-keeps-its-sign-in-limits-cross-p"
-scope = [".github/workflows", "Makefile", "README.md", "docs", "pyproject.toml", "scripts", "src/skat", "tests", "uv.lock"]
-opened_commit = "f168e57ee3a7ac2872040ab59e0fe9a9e24cd135"
-whole_reason = "skat's Redis touches settings, store, web wakes, host wiring, the test script, CI, README and ARCHITECTURE"
