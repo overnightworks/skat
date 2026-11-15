@@ -38,7 +38,7 @@ class Room:
 
     def thrown(self, who, reaction=Reaction.FIRE):
         answer = self.throw(who, reaction)
-        assert answer.status_code == 204, answer.text
+        assert answer.status_code == 200, answer.text
 
     def reaching(self, who, number):
         """The first message of the person's stream that carries the reaction of that number."""
@@ -142,13 +142,13 @@ class TestHowOften:
         refused = room.throw("anna")
         room.wait(REACTION_WINDOW_SECONDS)
 
-        assert (refused.status_code, refused.json()["reason"], room.throw("anna").status_code) == (429, "too-fast", 204)
+        assert (refused.status_code, refused.json()["reason"], room.throw("anna").status_code) == (429, "too-fast", 200)
 
     def test_the_limit_is_each_persons_own(self, room):
         for _ in range(REACTIONS_PER_WINDOW):
             room.thrown("anna")
 
-        assert room.throw("watcher").status_code == 204
+        assert room.throw("watcher").status_code == 200
 
     def test_a_refused_throw_shows_nothing(self, room):
         for _ in range(REACTIONS_PER_WINDOW):

@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict
 from starlette.concurrency import run_in_threadpool
 
 from skat.table.reacting import Reaction, ReactionRefusal, reaction_refusal, throwing_seat
-from skat.web.mcp import Exclusion, excluded
+from skat.web.mcp import THROW_REACTION_MARK
 from skat.web.tables import TABLES_PATH, RefusalAnswer, TableIdInPath, actor_of
 
 if TYPE_CHECKING:
@@ -42,17 +42,32 @@ class ReactionBody(BaseModel):
     reaction: Reaction
 
 
+class ReactionThrownAnswer(BaseModel):
+    """The throw's number at the table, as the table's `reactions` carry it."""
+
+    number: int
+
+
 def create_reacting_router(tables: TableService, presence: Presence) -> APIRouter:
     router = APIRouter()
 
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_REACTION_SUFFIX,
-        status_code=204,
+        response_model=ReactionThrownAnswer,
         responses=REACTION_RESPONSES,
-        openapi_extra=excluded(Exclusion.TABLE_GESTURE),
+        openapi_extra=THROW_REACTION_MARK,
     )
-    async def throw_reaction(table_id: TableIdInPath, body: ReactionBody, request: Request) -> Response:
-        """Throw a reaction at the table, for everyone at it to see and hear; it changes nothing at the table."""
+    async def throw_reaction(
+        table_id: TableIdInPath, body: ReactionBody, request: Request, response: Response
+    ) -> Response | ReactionThrownAnswer:
+        """Throw a reaction at the table, for everyone at it to see and hear; it changes nothing at the table.
+
+        Send the table's `table_id` and one `reaction` of the set: the emotes `clap`, `laugh`, `gasp`, `fire`, `cheers`
+        and `knock`, or a tap on an object of the table, `cocktail`, `shell`, `coaster` or `lamp`. You may throw it when
+        you sit at the table; the pages of everyone at it show and play it. A throw is refused with `too-fast` when you
+        threw too many lately, at any table, and with `not-at-the-table` when you do not sit at it.
+        """
+        response.headers["Cache-Control"] = "no-store"
         actor = actor_of(request)
         view = await run_in_threadpool(tables.view, actor, table_id, presence.connected(table_id))
         if view is None:
@@ -72,8 +87,8 @@ def create_reacting_router(tables: TableService, presence: Presence) -> APIRoute
                 status_code=_REFUSAL_STATUS[refusal],
                 headers={"Cache-Control": "no-store"},
             )
-        log.throw(table_id, actor.account_id, body.reaction, throwing_seat(view))
+        number = log.throw(table_id, actor.account_id, body.reaction, throwing_seat(view))
         presence.wake_table(table_id)
-        return Response(status_code=204, headers={"Cache-Control": "no-store"})
+        return ReactionThrownAnswer(number=number)
 
     return router

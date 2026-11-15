@@ -49,8 +49,11 @@ class ReactionLog:
         """When the account threw within the window, at whichever table."""
         return tuple(self._people.get(account_id, ()))
 
-    def throw(self, table_id: str, account_id: str, reaction: Reaction, by_seat: int | None) -> None:
-        """Records a throw the caller has judged allowed; it counts against the account and shows at the table."""
+    def throw(self, table_id: str, account_id: str, reaction: Reaction, by_seat: int | None) -> int:
+        """Records a throw the caller has judged allowed, which counts against the account and shows at the table.
+
+        Returns the throw's number at the table.
+        """
         now = self._clock()
         self._forget_old_throws(now)
         self._people.setdefault(account_id, deque(maxlen=REACTIONS_PER_WINDOW)).append(now)
@@ -58,6 +61,7 @@ class ReactionLog:
         self._numbers[table_id] = number
         shown = self._tables.setdefault(table_id, deque(maxlen=SHOWN_AT_MOST))
         shown.append(Thrown(number, reaction, by_seat, now))
+        return number
 
     def shown(self, table_id: str) -> tuple[Thrown, ...]:
         """The table's reactions that are still shown, the oldest first."""
