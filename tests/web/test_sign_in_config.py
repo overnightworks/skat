@@ -9,7 +9,7 @@ from skat.web.secret_files import StartRefusedError
 from skat.web.sign_in import SignInConfigurationError, build_sign_in_configs
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
-from tests.support.in_memory_stores import in_memory_stores
+from tests.support.in_memory_stores import in_memory_stores, in_process_rate_limits, single_pod
 from tests.support.page_build import fixture_page_build
 
 SECRET_FILE_SETTINGS = ["oidc_client_secret_file", "session_secret_file"]
@@ -42,7 +42,7 @@ class TestSecretFiles:
         corrupt_secret_file(settings, setting, state, sentinel)
 
         with pytest.raises(StartRefusedError, match=setting) as refusal:
-            build_sign_in_configs(settings)
+            build_sign_in_configs(settings, in_process_rate_limits())
 
         error = refusal.value
         assert error.__cause__ is None
@@ -57,20 +57,20 @@ class TestSecretFiles:
         settings = sign_in_settings().settings
         settings.session_secret_file.write_text(secrets.token_urlsafe(24)[:31])
         with pytest.raises(SignInConfigurationError, match="session_secret_file"):
-            build_sign_in_configs(settings)
+            build_sign_in_configs(settings, in_process_rate_limits())
 
     def test_a_session_secret_of_32_characters_is_accepted(self, sign_in_settings):
         settings = sign_in_settings().settings
         settings.session_secret_file.write_text(secrets.token_urlsafe(24)[:32])
-        build_sign_in_configs(settings)
+        build_sign_in_configs(settings, in_process_rate_limits())
 
     def test_the_client_asks_for_the_sign_in_scopes(self, sign_in_settings):
-        configs = build_sign_in_configs(sign_in_settings().settings)
+        configs = build_sign_in_configs(sign_in_settings().settings, in_process_rate_limits())
         assert configs.oidc_client.scopes == ("openid", "profile", "groups")
 
     def test_each_secret_loses_one_trailing_newline(self, sign_in_settings):
         sign_in = sign_in_settings()
-        configs = build_sign_in_configs(sign_in.settings)
+        configs = build_sign_in_configs(sign_in.settings, in_process_rate_limits())
         assert configs.oidc_client.client_secret.get_secret_value() == sign_in.client_secret
         assert configs.web_auth.session_secret.get_secret_value() == sign_in.session_secret
 
@@ -90,7 +90,7 @@ class TestSecretFiles:
         settings.oidc_client_secret_file.write_bytes((secret + ending).encode())
         settings.session_secret_file.write_bytes((secret + ending).encode())
 
-        configs = build_sign_in_configs(settings)
+        configs = build_sign_in_configs(settings, in_process_rate_limits())
 
         expected = secret + expected_ending
         assert configs.oidc_client.client_secret.get_secret_value() == expected
@@ -116,14 +116,14 @@ class TestRefusedUrls:
     def test_an_http_url_stops_the_start_naming_the_settings_and_not_the_value(self, sign_in_settings, setting, value):
         settings = sign_in_settings(**{setting: value}).settings
         with pytest.raises(SignInConfigurationError, match="oidc_issuer and public_origin") as refusal:
-            build_sign_in_configs(settings)
+            build_sign_in_configs(settings, in_process_rate_limits())
         assert value not in str(refusal.value)
 
 
 class TestBuiltConfigs:
     def test_the_client_registers_the_callback_and_the_post_logout_page_under_the_public_origin(self, sign_in_settings):
         sign_in = sign_in_settings()
-        client = build_sign_in_configs(sign_in.settings).oidc_client
+        client = build_sign_in_configs(sign_in.settings, in_process_rate_limits()).oidc_client
         origin = sign_in.settings.public_origin
         assert client.redirect_uri == f"{origin}/auth/callback"
         assert client.post_logout_redirect_uri == f"{origin}/login"
@@ -131,7 +131,7 @@ class TestBuiltConfigs:
 
     def test_the_client_endpoints_derive_from_the_issuer(self, sign_in_settings):
         sign_in = sign_in_settings()
-        client = build_sign_in_configs(sign_in.settings).oidc_client
+        client = build_sign_in_configs(sign_in.settings, in_process_rate_limits()).oidc_client
         issuer = sign_in.settings.oidc_issuer
         assert client.issuer == issuer
         assert client.authorization_endpoint == f"{issuer}/protocol/openid-connect/auth"
@@ -147,6 +147,7 @@ class TestBuiltConfigs:
                 tables=in_memory_tables(),
                 rule_sets=in_memory_rule_sets(),
                 stores=in_memory_stores(),
+                **single_pod(),
             )
         )
         assert web_auth.session_lifetime.idle_seconds == SESSION_LENGTH_SECONDS
@@ -163,6 +164,7 @@ class TestBuiltConfigs:
                 tables=in_memory_tables(),
                 rule_sets=in_memory_rule_sets(),
                 stores=in_memory_stores(),
+                **single_pod(),
             )
         )
         assert web_auth.allowed_hosts_exact == frozenset({"skat.test.invalid:8443"})

@@ -4,6 +4,7 @@ import socket
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -14,7 +15,7 @@ from tests.support.page_build import FIXTURE_DIRECTORY
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterable, Iterator, Mapping
     from typing import IO
 
 REPOSITORY = Path(__file__).parents[2]
@@ -34,6 +35,24 @@ def free_port() -> int:
     with socket.socket() as probe:
         probe.bind((LOOPBACK, 0))
         return int(probe.getsockname()[1])
+
+
+def _arriving_by(deadline: float, events: Iterator[str]) -> Iterator[str]:
+    for event in events:
+        assert time.monotonic() <= deadline, "an event arrived after the stream's deadline"
+        yield event
+
+
+def unnamed_event_data(lines: Iterable[str]) -> Iterator[str]:
+    """The data of the events of a stream that carry no name, one per event."""
+    named = False
+    for line in lines:
+        if line.startswith("event: "):
+            named = True
+        elif line.startswith("data: ") and not named:
+            yield line.removeprefix("data: ")
+        elif not line:
+            named = False
 
 
 class SkatProcess:
@@ -86,13 +105,31 @@ class SkatProcess:
             self._process.wait()
         self._close_log()
 
-    def request(self, method: str, path: str, **headers: str) -> httpx2.Response:
+    def request(self, method: str, path: str, *, json: object = None, **headers: str) -> httpx2.Response:
         return httpx2.request(
             method,
             f"http://{LOOPBACK}:{self.port}{path}",
-            headers={"host": TEST_PUBLIC_ORIGIN.removeprefix("https://"), **headers},
+            headers=self._headers(headers),
+            json=json,
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
+
+    @contextmanager
+    def event_stream(self, path: str, *, within_seconds: float, **headers: str) -> Iterator[Iterator[str]]:
+        """The data of the unnamed events of a stream, each of which must have arrived within `within_seconds` of the
+        stream's opening, whatever happened between two reads, or reading it fails.
+        """
+        timeout = httpx2.Timeout(within_seconds, connect=REQUEST_TIMEOUT_SECONDS)
+        with httpx2.stream(
+            "GET", f"http://{LOOPBACK}:{self.port}{path}", headers=self._headers(headers), timeout=timeout
+        ) as response:
+            opened = time.monotonic()
+            assert response.status_code == httpx2.codes.OK
+            yield _arriving_by(opened + within_seconds, unnamed_event_data(response.iter_lines()))
+
+    @staticmethod
+    def _headers(headers: Mapping[str, str]) -> dict[str, str]:
+        return {"host": TEST_PUBLIC_ORIGIN.removeprefix("https://"), **headers}
 
     def output(self) -> str:
         return self._log_path.read_text(errors="replace")

@@ -12,7 +12,6 @@ from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.presence import Presence
 from skat.web.streams import IDLE_HEARTBEAT
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
-from skat.web.wakes import WakeList
 from tests.support.fake_tables import FakeTableStore
 from tests.support.idle_presence import (
     idle_agent_lease,
@@ -20,6 +19,7 @@ from tests.support.idle_presence import (
     idle_hold,
     idle_next_deal,
     idle_presence,
+    idle_wakes,
 )
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in_text, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -141,7 +141,7 @@ class TestTableViews:
 
         async def scenario():
             presence = ConnectsAnotherRightAfterRegistering(
-                idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), WakeList()
+                idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), idle_wakes()
             )
             stream = stream_of(presence, service, VISITOR, table_id)
             first = await next_view(stream)

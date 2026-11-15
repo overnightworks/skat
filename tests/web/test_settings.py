@@ -22,6 +22,7 @@ REQUIRED_SIGN_IN_SETTINGS = [
     "session_secret_file",
     "database_url",
     "database_password_file",
+    "redis_url",
 ]
 
 
@@ -52,6 +53,7 @@ class TestServerSettings:
             "SKAT_PAUSED_TABLE_DAYS": "30",
             "SKAT_ENDED_TABLE_DAYS": "14",
             "SKAT_STREAMS_PER_ACCOUNT": "3",
+            "SKAT_REDIS_URL": "redis://redis.test.invalid:6380/3",
         }
         with patch.dict(os.environ, env):
             settings = ServerSettings()
@@ -65,6 +67,7 @@ class TestServerSettings:
             assert settings.paused_table_days == 30
             assert settings.ended_table_days == 14
             assert settings.streams_per_account == 3
+            assert settings.redis_url == "redis://redis.test.invalid:6380/3"
             assert settings.oidc_issuer == sign_in.settings.oidc_issuer
             assert settings.public_origin == sign_in.settings.public_origin
             assert settings.oidc_client_secret_file == sign_in.settings.oidc_client_secret_file
@@ -203,6 +206,39 @@ class TestServerSettings:
             sign_in_settings(database_url=url)
         assert url not in str(refusal.value)
         assert "pw-of-the-test_1" not in str(refusal.value)
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "redis://:pw-of-the-test_1@redis:6379/0",
+            "redis://cache:pw-of-the-test_1@redis:6379/0",
+            "redis://cache@redis:6379/0",
+            "rediss://:pw-of-the-test_1@redis/0",
+            "redis://redis:6379/0?password=pw-of-the-test_1",
+            "redis://redis:6379/0?socket_timeout=0",
+            "redis://redis:6379/zero",
+            "redis://redis:6379/0/extra",
+            "redis://redis:port/0",
+            "redis:///0",
+            "redis://",
+            "http://redis:6379/0",
+            "unix:///run/redis.sock",
+            "not-a-url-pw-of-the-test_1",
+        ],
+    )
+    def test_redis_url_with_credentials_or_query_or_not_naming_a_server_is_refused_by_name_only(
+        self, sign_in_settings, url
+    ):
+        with pytest.raises(ValidationError, match="redis_url") as refusal:
+            sign_in_settings(redis_url=url)
+        assert url not in str(refusal.value)
+        assert "pw-of-the-test_1" not in str(refusal.value)
+
+    @pytest.mark.parametrize(
+        "url", ["redis://redis", "redis://redis:6379", "redis://redis:6379/0", "rediss://redis.example:6380/15"]
+    )
+    def test_redis_url_naming_a_server_without_credentials_is_kept_verbatim(self, sign_in_settings, url):
+        assert sign_in_settings(redis_url=url).settings.redis_url == url
 
 
 @pytest.mark.parametrize("value", [0, -5, "abc", "nan", "inf"])

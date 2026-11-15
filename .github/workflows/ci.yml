@@ -18,7 +18,7 @@ jobs:
     name: Lint and test
     timeout-minutes: 10
     runs-on: ubuntu-latest
-    # The throwaway server of the Postgres tests; the digest is the image scripts/test_postgres.sh runs, so keep them equal.
+    # The throwaway server of the Postgres tests; the digest is the image scripts/test_stores.sh runs, so keep them equal.
     services:
       postgres:
         image: postgres:18.6-alpine3.24@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
@@ -28,6 +28,16 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready --username postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      # The throwaway server of the Redis tests; the digest is the image scripts/test_stores.sh runs, so keep them equal.
+      redis:
+        image: redis:7.4.12-alpine@sha256:338fbfc036dc5517ac0b04d6de21521085935336e565f223406180e9d84166e2
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
@@ -76,6 +86,7 @@ jobs:
         env:
           COVERAGE_FILE: .coverage.unit
           SKAT_TEST_POSTGRES_URL: postgresql+psycopg://postgres@localhost:5432/postgres
+          SKAT_TEST_REDIS_URL: redis://localhost:6379/0
         run: pytest -q -n auto -m "not e2e"
 
       - name: Upload the unit coverage data
@@ -102,7 +113,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    # The throwaway server of the Postgres tests; the digest is the image scripts/test_postgres.sh runs, so keep them equal.
+    # The throwaway server of the Postgres tests; the digest is the image scripts/test_stores.sh runs, so keep them equal.
     services:
       postgres:
         image: postgres:18.6-alpine3.24@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
