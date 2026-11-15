@@ -158,7 +158,7 @@ class TestReadinessLogging:
             asyncio.run(burst(readiness))
 
         assert [(entry["event"], entry["was"], entry["now"]) for entry in logs] == [
-            ("database_readiness_changed", "ready", "not_at_head")
+            ("database_readiness.changed", "ready", "not_at_head")
         ]
 
     def test_a_steady_verdict_logs_nothing(self, readiness, clock):

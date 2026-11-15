@@ -2,6 +2,7 @@ import asyncio
 import threading
 
 import pytest
+from logline import current_traceparent, unit_trace
 from structlog.testing import capture_logs
 
 from skat.web.presence import (
@@ -260,7 +261,7 @@ class TestChairHold:
 
         assert len(releases.calls) == 3
         assert wakes.counts["ben"] == woken_before + 1
-        assert [(log["log_level"], log["error"]) for log in logs] == [NAMED_FAILURE] * 2
+        assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE] * 2
         assert "anna" not in str(logs)
 
     def test_a_member_returning_while_the_freeing_waits_keeps_the_chair(self, holding, time, releases):
@@ -498,6 +499,26 @@ class TestLoopScheduler:
             await asyncio.wait_for(ran.wait(), 2)
 
         run(scenario())
+
+    def test_runs_each_action_in_a_trace_of_its_own_and_not_in_the_one_that_scheduled_it(self):
+        async def scenario():
+            ran = asyncio.Event()
+            traces = []
+
+            async def action():
+                traces.append(current_traceparent())
+                ran.set()
+
+            with unit_trace(None):
+                scheduled_in = current_traceparent()
+                LoopScheduler().schedule(0, action)
+            await asyncio.wait_for(ran.wait(), 2)
+            return scheduled_in, traces[0]
+
+        scheduled_in, ran_in = run(scenario())
+
+        assert ran_in is not None
+        assert ran_in.split("-")[1] != scheduled_in.split("-")[1]
 
     def test_cancelling_all_stops_every_pending_action_from_running(self):
         async def scenario():
