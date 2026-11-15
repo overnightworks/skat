@@ -288,18 +288,15 @@ class TestCreateApp:
     def test_does_not_start_without_its_sign_in_files(self, sign_in_settings):
         settings = sign_in_settings().settings
         settings.session_secret_file.unlink()
-        page_build = fixture_page_build()
-        tables = in_memory_tables()
-        rule_sets = in_memory_rule_sets()
+        arguments = {
+            "page_build": fixture_page_build(),
+            "tables": in_memory_tables(),
+            "rule_sets": in_memory_rule_sets(),
+            "stores": in_memory_stores(),
+            **single_pod(),
+        }
         with pytest.raises(StartRefusedError, match="session_secret_file"):
-            create_app(
-                settings,
-                page_build=page_build,
-                tables=tables,
-                rule_sets=rule_sets,
-                stores=in_memory_stores(),
-                **single_pod(),
-            )
+            create_app(settings, **arguments)
 
     def test_account_route_reads_the_sessions_the_sign_in_wrote(self, sign_in_settings):
         sign_in = sign_in_settings()
