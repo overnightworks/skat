@@ -56,6 +56,8 @@ class FakeNode {
     }
 }
 
+const RECORDING_SECONDS = 0.5;
+
 class FakeContext {
     static made: FakeContext[] = [];
     static resumeRejects = false;
@@ -110,10 +112,10 @@ class FakeContext {
         return this.track(this.filters);
     }
 
-    decodeAudioData(bytes: ArrayBuffer): Promise<{ decodedFrom: ArrayBuffer }> {
+    decodeAudioData(bytes: ArrayBuffer): Promise<{ decodedFrom: ArrayBuffer; duration: number }> {
         this.decodes.push(bytes);
         if (FakeContext.decodeRejects) return Promise.reject(new Error("undecodable"));
-        return Promise.resolve({ decodedFrom: bytes });
+        return Promise.resolve({ decodedFrom: bytes, duration: RECORDING_SECONDS });
     }
 
     createBuffer(_channels: number, length: number): { getChannelData: () => Float32Array } {
@@ -487,18 +489,21 @@ describe("recordings", () => {
         port.playRecording(ACHTZEHN, 0.25);
 
         const [source] = onlyContext().sources.slice(woken);
-        expect(source?.buffer).toEqual({ decodedFrom: onlyContext().decodes[0] });
+        expect(source?.buffer).toEqual({ decodedFrom: onlyContext().decodes[0], duration: RECORDING_SECONDS });
         expect(source?.startedAt).toBe(NOW + 0.25);
         expect(source?.connectedTo).toEqual([onlyContext().gains[0]]);
     });
 
-    it("that are not loaded play nothing", async () => {
+    it("say how long they last, and a recording that is not loaded plays nothing and lasts none", async () => {
         const port = await readyPort();
         const woken = onlyContext().sources.length;
 
-        port.playRecording(ACHTZEHN, 0);
-
+        expect(port.playRecording(ACHTZEHN, 0)).toBe(0);
         expect(onlyContext().sources).toHaveLength(woken);
+
+        await port.loadRecordings([ACHTZEHN]);
+
+        expect(port.playRecording(ACHTZEHN, 0)).toBe(RECORDING_SECONDS);
     });
 
     it.each([

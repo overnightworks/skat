@@ -164,11 +164,14 @@ export function createTableSound({
             const ticks = countVoices(cues, set, moving);
             if (voices.length + ticks.length > 0) sound.play([...voices, ...ticks]);
             if (!voiceOn()) return;
+            // The words of one update follow each other: a word starts once the word before it has been said.
+            let sayingEnds = 0;
             for (const { cue, lands } of landings) {
                 const key = voiceKeyOf(cue);
                 const url = key === undefined ? undefined : recording(key);
-                if (url !== undefined)
-                    sound.speak(url, lands + (cue.kind === "nudged" ? GRUMBLE_AFTER_THE_RING_SECONDS : 0));
+                if (url === undefined) continue;
+                const due = lands + (cue.kind === "nudged" ? GRUMBLE_AFTER_THE_RING_SECONDS : 0);
+                sayingEnds = sound.speak(url, Math.max(due, sayingEnds));
             }
         },
         forGlide() {

@@ -38,14 +38,17 @@ class FakePort implements AudioPort {
         return Promise.resolve();
     }
 
-    playRecording(url: string, afterSeconds: number): void {
+    playRecording(url: string, afterSeconds: number): number {
         this.spoken.push({ url, afterSeconds });
+        return RECORDING_SECONDS;
     }
 }
 
 function soundOver(port: FakePort, settings: SoundSettings = DEFAULT_SOUND_SETTINGS) {
     return createSound(port, () => settings);
 }
+
+const RECORDING_SECONDS = 0.5;
 
 describe("play", () => {
     it("starts nothing in a hidden window unless the sound was asked for there", () => {
@@ -144,6 +147,12 @@ describe("speak", () => {
         expect(port.spoken).toHaveLength(1);
         expect(port.spoken[0]?.url).toBe("/voice/achtzehn.mp3");
         expect(port.spoken[0]?.afterSeconds).toBeGreaterThan(0.5);
+    });
+
+    it("says when the recording ends, so the next can follow it", () => {
+        const port = new FakePort();
+
+        expect(soundOver(port).speak("/voice/achtzehn.mp3", 0.5)).toBe(0.5 + RECORDING_SECONDS);
     });
 
     it.each([

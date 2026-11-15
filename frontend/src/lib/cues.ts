@@ -4,6 +4,7 @@ import { handWaits } from "./openChair.ts";
 import { declaredResult, resultIsGood } from "./result.ts";
 import {
     type AuctionAction,
+    type AuctionWord,
     type Card,
     type Chair,
     type ChairHand,
@@ -13,6 +14,11 @@ import {
     type Table,
 } from "../routes/(start)/tables.ts";
 import { nudgedChairs } from "../routes/(start)/nudge.ts";
+
+const SEATS_AT_A_TABLE = 3;
+// The place of a seat in the auction, by its distance after the dealer.
+const PLACES = ["rearhand", "forehand", "middlehand"] as const;
+type Place = (typeof PLACES)[number];
 
 // What a chair said in the auction that the table shows: a bid or a hold with its value, or a pass.
 export type BidWord = { action: Exclude<AuctionAction, "play">; value: number | null };
@@ -65,8 +71,7 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     }
     const refusers = giveUpRefusedBetween(previous, next);
     if (refusers !== null) cues.push({ kind: "give-up-refused", seats: refusers });
-    const bid = bidSaidBetween(previous, next);
-    if (bid !== null) cues.push({ kind: "bid-said", ...bid });
+    for (const bid of bidsSaidBetween(previous, next)) cues.push({ kind: "bid-said", ...bid });
     const said = wordSaidBetween(previous, next);
     if (said !== null) cues.push({ kind: "word-said", said });
     if (turnCameBetween(previous, next)) cues.push({ kind: "turn-came" });
@@ -175,19 +180,33 @@ function wordSaidBetween(previous: Table | undefined, next: Table): SaidWord | n
 }
 
 // The auction keeps each chair's latest word in seat order, so a chair whose word is new or changed said it in this
-// update; the last of them when several did. A play shows nothing at the table, so it is no cue.
-function bidSaidBetween(previous: Table, next: Table): { seat: number; word: BidWord } | null {
+// update. The words come in the order of the auction's two pairs: the middlehand bids and the forehand answers, then the
+// rearhand bids and the winner of the first pair answers; the table does not keep when each was said. A play shows
+// nothing at the table, so it is no cue.
+function bidsSaidBetween(previous: Table, next: Table): { seat: number; word: BidWord }[] {
     const before = previous.hand?.auction.words ?? [];
-    const latest = (next.hand?.auction.words ?? []).findLast(
-        (word) =>
-            !sameJson(
-                before.find((each) => each.seat === word.seat),
-                word,
-            ),
-    );
-    return latest === undefined || latest.action === "play"
-        ? null
-        : { seat: latest.seat, word: { action: latest.action, value: latest.value } };
+    const spoken = next.hand?.auction.words ?? [];
+    const dealer = next.hand?.dealer_seat ?? 0;
+    const place = (seat: number): Place => PLACES[(seat - dealer + SEATS_AT_A_TABLE) % SEATS_AT_A_TABLE] as Place;
+    const pairTwoBegan = spoken.some((word) => place(word.seat) === "rearhand");
+    const middlehandPassed = spoken.some((word) => place(word.seat) === "middlehand" && word.action === "pass");
+    const firstPairWinner = middlehandPassed ? "forehand" : "middlehand";
+    const order = (word: AuctionWord): number => {
+        if (place(word.seat) === "rearhand") return word.action === "bid" ? 2 : 3;
+        if (word.action === "bid") return 0;
+        return pairTwoBegan && place(word.seat) === firstPairWinner ? 4 : 1;
+    };
+    return spoken
+        .filter(
+            (word) =>
+                word.action !== "play" &&
+                !sameJson(
+                    before.find((each) => each.seat === word.seat),
+                    word,
+                ),
+        )
+        .sort((first, second) => order(first) - order(second))
+        .map((word) => ({ seat: word.seat, word: { action: word.action as BidWord["action"], value: word.value } }));
 }
 
 // The second no clears the declarer's request that already carried the first no, while the game goes on with the same

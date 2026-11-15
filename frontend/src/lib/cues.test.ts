@@ -309,10 +309,31 @@ describe("the bid a chair said between two versions of a table", () => {
         },
     );
 
-    it("is the last chair's word when several chairs said theirs at once", () => {
-        const cues = cuesBetween(auctionTable(1, []), auctionTable(3, [PASS, BID_EIGHTEEN, HOLD_EIGHTEEN]));
+    describe("when several chairs said theirs at once", () => {
+        const BID_TWENTY: AuctionWord = { seat: REARHAND, action: "bid", value: 20 };
+        const said = (before: AuctionWord[], spoken: AuctionWord[]) =>
+            cuesBetween(auctionTable(1, before), auctionTable(3, spoken))
+                .filter((cue) => cue.kind === "bid-said")
+                .map((cue) => `${String(cue.seat)} ${cue.word.action}`);
 
-        expect(cues).toEqual([{ kind: "bid-said", seat: REARHAND, word: { action: "hold", value: 18 } }]);
+        it("is every new word, the bid before the answer it got", () => {
+            expect(said([], [PASS, BID_EIGHTEEN])).toEqual(["2 bid", "1 pass"]);
+        });
+
+        it("is the first pair's words before the second pair's bid", () => {
+            expect(said([], [PASS, BID_EIGHTEEN, BID_TWENTY])).toEqual(["2 bid", "1 pass", "3 bid"]);
+        });
+
+        it("is the answer of the chair that won the first pair after the second pair's bid", () => {
+            const lost = { ...BID_EIGHTEEN, action: "pass" as const, value: null };
+            const held = { seat: FOREHAND, action: "hold" as const, value: 18 };
+
+            expect(said([], [held, lost, BID_TWENTY])).toEqual(["2 pass", "3 bid", "1 hold"]);
+        });
+
+        it("is only the words that are new", () => {
+            expect(said([BID_EIGHTEEN], [HOLD_EIGHTEEN, BID_EIGHTEEN])).toEqual(["3 hold"]);
+        });
     });
 
     it.each([

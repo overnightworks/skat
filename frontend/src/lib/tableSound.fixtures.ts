@@ -12,6 +12,8 @@ const CARD: Card = { suit: "kreuz", rank: "king" };
 export const TRICK: LastTrick = { cards: [CARD, CARD, CARD], leader_seat: OWN_SEAT, taker_seat: OTHER_SEAT };
 const SETTINGS = { muted: false, volume: 70 };
 export const FUNKELN_VOICES = 3;
+// How long every recording of the stand-in port lasts.
+export const RECORDING_SECONDS = 0.5;
 // Waking the device plays one silent sample, which the stand-in counts as a start.
 export const WAKING_SAMPLE_STARTS = 1;
 
@@ -49,8 +51,9 @@ export class FakePort implements AudioPort {
         return Promise.resolve();
     }
 
-    playRecording(url: string, afterSeconds: number): void {
+    playRecording(url: string, afterSeconds: number): number {
         this.spoken.push({ url, afterSeconds });
+        return RECORDING_SECONDS;
     }
 }
 
