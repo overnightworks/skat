@@ -1,8 +1,0 @@
-claim_id = "f53e8b1df42d453bb06ab8a93a17c845"
-agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
-role = "builder"
-base = "3350ec39e3da98e140e84773ce6840439fa70a18"
-branch = "claude/issue-637-once-the-game-is-known-the-hand-sorts-by"
-scope = ["frontend/src"]
-opened_commit = "0e9d3c1f3712993e71584d2895a8c916cbfc7c67"
-whole_reason = "the order's callers sit in lib and lib/ui"
