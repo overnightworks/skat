@@ -1,5 +1,5 @@
 import { isChairCue, type ChairCue, type Cue } from "./cues.ts";
-import { MOTION_SETS } from "./motionSets.ts";
+import { MOTION_SETS, type MotionSet } from "./motionSets.ts";
 import { currentSettings, motionInForce } from "./settings.svelte.ts";
 import {
     advance,
@@ -97,10 +97,14 @@ function startDealing(): void {
     }, DEAL_MILLISECONDS);
 }
 
+function motionSetInForce(): MotionSet | undefined {
+    const motion = motionInForce();
+    return motion === undefined ? undefined : MOTION_SETS[motion];
+}
+
 /** Whether the stage moves a trick now: a hidden window and a device without motion show every table at once. */
 export function stageMoves(): boolean {
-    const motion = motionInForce();
-    return timingOf(motion === undefined ? undefined : MOTION_SETS[motion], document.hidden) !== null;
+    return timingOf(motionSetInForce(), document.hidden) !== null;
 }
 
 /**
@@ -114,8 +118,7 @@ export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[]
     }
     if (cues.some((cue) => cue.kind === "card-played")) looking = null;
     if (cues.some((cue) => cue.kind === "dealt")) startDealing();
-    const motion = motionInForce();
-    const motionSet = motion === undefined ? undefined : MOTION_SETS[motion];
+    const motionSet = motionSetInForce();
     stopChairs();
     const chairMilliseconds = chairMoveMilliseconds(cues, motionSet, document.hidden);
     if (chairMilliseconds > 0) {
