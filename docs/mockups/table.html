@@ -864,7 +864,12 @@ const withBadge=(draw,badge)=>(d)=>{const before=homeBadge;homeBadge=badge;try{r
 const homeButton=(d,badge)=>{const mark=badge?`<span class="badge" aria-hidden="true">${badge}</span>`:'';
   return d?`<span class="cb wide glass home" role="button" tabindex="0" title="Lobby" aria-label="Lobby">${I.home}Lobby${mark}</span>`
           :`<span class="cb home" role="button" tabindex="0" title="Lobby" aria-label="Lobby">${I.home}${mark}</span>`;};
-const pbRoom=(o)=>table({...PB.table,thud:o.thud})+(o.glow||'')+(o.call===false?'':people(4,12,8)+watchers(296,4,[['ben',56,40]]))
+/* Klassik's brass lamp stands on the table's rim at the lower right, as the page places it: 4% in from the right and 12% up from the bottom of the table, 46 px high on the phone and 64 px on the desktop, its foot a fifth of its height below that corner; it lies under every card and key. The Strandbar scenes draw the shell and the cocktail there instead. */
+const LAMP=`<svg viewBox="0 0 48 64" aria-hidden="true"><ellipse cx="24" cy="59" rx="15" ry="3.6" fill="#8c6a2f"/><ellipse cx="24" cy="57.6" rx="13" ry="2.6" fill="#c9a464"/><path d="M22.5 29h3v28h-3z" fill="#b08a45"/><path d="M5 32C5 16 13 6 24 6s19 10 19 26z" fill="#2f5d46"/><path d="M9 30C10 18 15 11 22 9" fill="none" stroke="#6fae8c" stroke-width="2" stroke-linecap="round"/><ellipse cx="24" cy="32" rx="19" ry="3" fill="#ffd9a0"/></svg>`;
+let klassikScene=true;
+const klassikLamp=(d)=>{if(!klassikScene)return '';const t=(d?DB:PB).table,h=d?64:46;
+  return `<span class="decor lamp" style="${at({left:t.x+t.w*.96,top:t.y+t.h*.88+h*.2,'--h':h})}">${LAMP}</span>`;};
+const pbRoom=(o)=>table({...PB.table,thud:o.thud})+klassikLamp(false)+(o.glow||'')+(o.call===false?'':people(4,12,8)+watchers(296,4,[['ben',56,40]]))
   +fan(o.left,{x:PB.fans[0],y:168,w:26,rot:150,spread:6,dim:o.annaOut,deal:o.deal&&150})+fan(o.left,{x:PB.fans[1],y:168,w:26,rot:210,spread:6,dim:o.novaOut,deal:o.deal&&150,d0:.1});
 const pbSeats=(o)=>seat('anna',{...PB.anna,video:o.video,marks:o.anna,out:o.annaOut})+seat('nova',{...PB.nova,marks:o.nova,win:o.novaWin,out:o.novaOut})
   +seat('felix',{...(o.layout||PB).you,video:o.video,marks:o.you,win:o.youWin,got:o.got})
@@ -911,7 +916,7 @@ const DB={
   anna:{x:22,y:180,w:236,h:178}, nova:{x:1022,y:180,w:236,h:178}, you:{x:92,y:560,w:190,h:144},
   coasters:[[230,330,50,-10],[1000,330,50,8],[34,612,50,-6]],
 };
-const dbRoom=(o)=>table({...DB.table,thud:o.thud})+(o.glow||'')+(o.call===false?'':people(4,16,14)+watchers(1086,10,[['ben',140,80]]))
+const dbRoom=(o)=>table({...DB.table,thud:o.thud})+klassikLamp(true)+(o.glow||'')+(o.call===false?'':people(4,16,14)+watchers(1086,10,[['ben',140,80]]))
   +fan(o.left,{x:268,y:282,w:42,rot:90,spread:6,dim:o.annaOut,deal:o.deal&&260})+fan(o.left,{x:1012,y:282,w:42,rot:270,spread:6,dim:o.novaOut,deal:o.deal&&260,d0:.1})
   +(o.call===false?'':tray({right:18,bottom:112},{rail:true}));
 const dbSeats=(o)=>seat('anna',{...DB.anna,video:o.video,marks:o.anna,out:o.annaOut})+seat('nova',{...DB.nova,marks:o.nova,win:o.novaWin,out:o.novaOut})
@@ -1155,8 +1160,8 @@ const S3={
             :pbRoom({left:0,call:false})+waiting(195,176)+awaySeat('anna',PB.anna)+freeSeat(PB.nova,{idle:true})+seat('felix',PB.you)+watching(1,false))+tableBar(d,{seated:true,opener:true}),
   taken:(d)=>(d?dbRoom({left:0,call:false})+seat('anna',DB.anna)+seat('ben',DB.nova)+seat('lena',{...DB.you,got:'.6s;--d:.25s'})+watching(4,true)+notice('Platz vergeben','lena',187,522)
              :pbRoom({left:0,call:false})+seat('anna',PB.anna)+seat('ben',PB.nova)+seat('lena',{...PB.you,got:'.6s;--d:.25s'})+watching(4,false)+notice('Platz vergeben','lena',195,462))+tableBar(d),
-  ended:(d,o)=>(d?emptyChair(DE.anna,'anna',-7)+emptyChair(DE.right,'ben',7)+emptyChair(DE.you,'felix',4)+table(DB.table)+panel({x:640,y:214,w:460,...o})
-               :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table)+panel({x:195,y:250,w:330,...o}))+homeButton(d,homeBadge),
+  ended:(d,o)=>(d?emptyChair(DE.anna,'anna',-7)+emptyChair(DE.right,'ben',7)+emptyChair(DE.you,'felix',4)+table(DB.table)+klassikLamp(true)+panel({x:640,y:214,w:460,...o})
+               :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table)+klassikLamp(false)+panel({x:195,y:250,w:330,...o}))+homeButton(d,homeBadge),
 };
 const S3_SCENES=[
   ['s3-watch','Zuschauen',(d)=>S3.watch(d)],
@@ -2461,8 +2466,8 @@ const strandDecor=(d,phoneAt)=>{const t=(d?DB:PB).table,cx=t.x+t.w/2,cy=t.y+t.h/
   const [gx,gy]=!d&&phoneAt?.glass||rim(d?38:36),[sx,sy]=!d&&phoneAt?.shell||rim(d?150:144);
   return `<span class="decor cocktail" style="${at({left:gx,top:gy,'--h':d?84:62})}">${COCKTAIL}</span><span class="decor shell" style="${at({left:sx,top:sy,'--h':d?44:34})}">${SHELL}</span>`;};
 /* a scene of Klassik drawn in the style: the beach behind, the style's card backs, the decoration at the rim */
-const strandView=(draw,phoneAt)=>(d,w)=>{const [fw,fh]=STRAND_SIZE[w];
-  return beach(fw,fh,d)+draw(d,w).replaceAll('href="#cardback"','href="#cardback-strand"')+strandDecor(d,phoneAt?.[w]??phoneAt);};
+const strandView=(draw,phoneAt)=>(d,w)=>{const [fw,fh]=STRAND_SIZE[w];klassikScene=false;
+  try{return beach(fw,fh,d)+draw(d,w).replaceAll('href="#cardback"','href="#cardback-strand"')+strandDecor(d,phoneAt?.[w]??phoneAt);}finally{klassikScene=true;}};
 const SEA_CAPTION='Dazu klingt das Meer: leises, gleichmäßiges Rauschen der Brandung unter dem Spiel, in der Lautstärke der Tafel und still bei „Ton aus“. Die Wellen am Strand rollen langsam ein und aus; bei der Bewegung „dezent“ und bei „Bewegung reduzieren“ stehen sie still, wie dieses Bild.';
 const LOOK_PREVIEW={
   Klassik:`<svg class="prev" viewBox="0 0 120 76" aria-hidden="true"><rect width="120" height="76" fill="#1b130d"/><rect x="8" y="10" width="104" height="56" rx="28" fill="#7a4c2a"/><rect x="12" y="14" width="96" height="48" rx="24" fill="#1d7a55"/><rect x="48" y="26" width="13" height="19" rx="2" fill="#22386a" stroke="#d6b46a" stroke-width=".8" transform="rotate(-8 54 36)"/><rect x="60" y="26" width="13" height="19" rx="2" fill="#22386a" stroke="#d6b46a" stroke-width=".8" transform="rotate(7 66 36)"/><rect x="2" y="30" width="16" height="14" rx="3" fill="#3a3a40"/><rect x="102" y="30" width="16" height="14" rx="3" fill="#2a3b5e"/></svg>`,
@@ -2873,6 +2878,7 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .decor{z-index:3;pointer-events:none;height:var(--h);transform:translate(-50%,-78%);filter:drop-shadow(0 6px 5px rgba(25,12,30,.5))}
 .decor svg{display:block;height:100%;width:auto}
 .decor.shell{transform:translate(-50%,-62%) rotate(-14deg)}
+.decor.lamp{z-index:auto;transform:translate(-50%,-100%)}
 /* the style row of the panel: two tiles, each with a small preview */
 .snd-look{flex:1 0 100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .snd-look span{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 6px 8px;border-radius:14px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(240,214,150,.22);font-size:14px;font-weight:600;cursor:pointer}
