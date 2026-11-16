@@ -1,12 +1,14 @@
 <script lang="ts">
+    import { page } from "$app/state";
     import { gameRows, type GameRow } from "#lib/series.ts";
     import GameRowFace from "#lib/ui/GameRowFace.svelte";
     import GameSheet from "#lib/ui/GameSheet.svelte";
     import { words } from "#lib/words.ts";
-    import { readSeriesList } from "../../tables.ts";
+    import { readSeriesList } from "../../seriesList.ts";
 
     // The games of the ended table's last series, newest first; a tap on a row opens its sheet as the live list does.
-    const { id }: { id: string } = $props();
+    // The route has an [id] segment, so the parameter is always present.
+    const id = $derived(page.params.id as string);
 
     let sheet: HTMLDialogElement | undefined = $state();
     let rows = $state<GameRow[] | null>(null);

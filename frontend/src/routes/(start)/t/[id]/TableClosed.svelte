@@ -13,7 +13,7 @@
     // shows its standings and games and names no reason; one that finished none says why it ended.
     const CHAIR_SEATS = Array.from({ length: CHAIRS_PER_TABLE }, (_, seat) => seat);
 
-    let { id, ended }: { id: string; ended: Ended | null } = $props();
+    let { ended }: { ended: Ended | null } = $props();
 
     // A closed table shows its closer's initial where the other faces draw their sign.
     const closer = $derived(ended?.reason === "closed" ? ended.closed_by_name : null);
@@ -34,7 +34,7 @@
 {/if}
 {#if standings !== null}
     <Standings view={standings} closed>
-        <ClosedGames {id} />
+        <ClosedGames />
         {#if !isFramedInCallMode()}
             <NewTableButton />
         {/if}

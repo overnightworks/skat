@@ -15,6 +15,7 @@ from skat.store.game_list import append_game_list
 from skat.store.schema import metadata, tables
 from skat.table.records import OccupantKind
 from skat.web.closing import TABLE_CLOSE_SUFFIX
+from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.settings import DEFAULT_ENDED_TABLE_DAYS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
@@ -54,6 +55,10 @@ RECONNECT_WINDOW_MILLISECONDS = 6_000
 CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
 UNPLAYED_HEADING = text(SOURCE_LANGUAGE, "closed.unplayedDays", count=UNPLAYED_DAYS)
 NOT_FOUND_HEADING = "Tisch nicht gefunden"
+GAME_LIST = ".game-list"
+SHEET_BACK = text(SOURCE_LANGUAGE, "table.sheetBack")
+# A point of the room outside the centred panel, where a tap lands on the backdrop of the game sheet.
+BESIDE_THE_PANEL = (4, 4)
 TOO_MANY_STREAMS = text(SOURCE_LANGUAGE, "table.tooManyStreams")
 UNKNOWN_ID = "0" * 32
 
@@ -479,3 +484,61 @@ def test_a_game_of_the_closed_link_opens_its_sheet(
     person.locator(".gamesbox .grow").first.click()
 
     expect(person.get_by_role("group", name=text(SOURCE_LANGUAGE, "table.sheetTitle", number="3"))).to_be_visible()
+
+
+def test_the_sheet_of_a_game_of_the_closed_link_closes_by_its_way_back_by_escape_and_by_a_tap_beside_it(
+    open_person: Callable[..., Page], page_errors: list[str], closed_with_games: tuple[RunningServer, str, str]
+) -> None:
+    server, path, _ = closed_with_games
+    person = record_page_errors(open_person(username="anna", server=server, **PHONE), page_errors)
+    person.goto(f"{server.base_url}{path}")
+    first_game = person.locator(".gamesbox .grow").first
+    sheet = person.locator(GAME_LIST)
+
+    first_game.click()
+    person.get_by_role("button", name=SHEET_BACK).click()
+    expect(sheet).not_to_be_visible()
+
+    first_game.click()
+    person.locator(f"{GAME_LIST} .game-sheet").click()
+    expect(sheet).to_be_visible()
+    person.mouse.click(*BESIDE_THE_PANEL)
+    expect(sheet).not_to_be_visible()
+
+    first_game.click()
+    person.keyboard.press("Escape")
+    expect(sheet).not_to_be_visible()
+    assert page_errors == []
+
+
+def test_a_list_of_the_closed_link_the_server_cannot_read_says_so(
+    open_person: Callable[..., Page], page_errors: list[str], closed_with_games: tuple[RunningServer, str, str]
+) -> None:
+    server, path, _ = closed_with_games
+    # The browser logs the refused read as a console error; that refusal is the point of this test.
+    person = record_page_errors(open_person(username="anna", server=server, **PHONE), page_errors, console=False)
+    person.route(
+        f"**{TABLES_PATH}/*{TABLE_LIST_SUFFIX}",
+        lambda route: route.fulfill(status=HTTPStatus.CONFLICT, content_type="application/json", body="{}"),
+    )
+
+    person.goto(f"{server.base_url}{path}")
+
+    expect(person.locator(".gamesbox [role=alert]")).to_have_text(text(SOURCE_LANGUAGE, "table.seriesListFailed"))
+    expect(person.locator(".gamesbox .grow")).to_have_count(0)
+    assert page_errors == []
+
+
+def test_a_new_table_opens_from_the_closed_link_with_games(
+    open_person: Callable[..., Page], page_errors: list[str], closed_with_games: tuple[RunningServer, str, str]
+) -> None:
+    server, path, _ = closed_with_games
+    person = record_page_errors(open_person(username="anna", server=server, **PHONE), page_errors)
+    person.goto(f"{server.base_url}{path}")
+    expect(person.locator(".gamesbox .grow")).to_have_count(len(GAME_SEATS))
+
+    click_new_table(person)
+
+    expect(person.get_by_text(text(SOURCE_LANGUAGE, "table.waitingForPlayers"))).to_be_visible()
+    assert urlsplit(person.url).path != path
+    assert page_errors == []
