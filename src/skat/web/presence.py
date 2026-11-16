@@ -721,7 +721,7 @@ class Presence:
     ) -> Generator[frozenset[str] | None]:
         committing = asyncio.Event()
         connected_before = None
-        if not self._stopped and is_due():
+        if is_due():
             connected_before = read_connected()
         with self._state:
             due = connected_before is not None and not self._stopped and is_due()

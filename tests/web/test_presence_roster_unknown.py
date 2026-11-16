@@ -176,6 +176,13 @@ class TestAStalledRoster:
 
         assert releases.outcomes == [False]
 
+    def test_a_presence_stopped_before_a_deal_reads_no_roster_and_the_guard_yields_nobody(self, holding, leases, deals):
+        holding.stop()
+
+        run(holding.deal_now(TABLE))
+
+        assert (deals.calls, leases.live_read_count) == ([(TABLE, None)], 0)
+
     def test_a_roster_read_for_a_worker_is_made_on_the_event_loop_which_a_waiting_worker_leaves_free(
         self, holding, leases, time, deals
     ):
@@ -187,6 +194,15 @@ class TestAStalledRoster:
         loop_thread = run(scenario())
 
         assert (deals.calls, set(leases.read_threads)) == ([(TABLE, frozenset())], {loop_thread})
+
+
+class TestAStoppedPresence:
+    def test_starts_no_hold_for_the_chairs_it_is_given(self, holding, time):
+        holding.stop()
+
+        holding.hold_chairs([(TABLE, "anna")])
+
+        assert (holding.hold_seconds_left([TABLE]), time.pending) == ({}, 0)
 
 
 class TestTheCloseOfAStream:
