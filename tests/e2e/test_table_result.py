@@ -728,7 +728,7 @@ def test_the_own_seat_is_a_slim_bar_centred_over_the_hand_and_a_lifted_card_stan
 
 # Each desktop scene's own seat, found by its class, against everything else the scene draws, except the cards sweeping
 # to it and the list of games laid over the whole table.
-OWN_SEATS_OF_THE_SCENES = """() => {
+OWN_SEATS_OF_THE_SCENES = """(maxHeight) => {
     const apart = [];
     const crossings = [];
     const crossing = (a, b) =>
@@ -740,20 +740,27 @@ OWN_SEATS_OF_THE_SCENES = """() => {
         if (frame.querySelector('.hand') && own.length === 0) apart.push(`${frame.id}: a hand and no own seat`);
         for (const seat of own) {
             const box = seat.getBoundingClientRect();
-            if (!seat.classList.contains('bar') || box.height > %(height)d) apart.push(`${frame.id}: the own seat is a tile`);
-            if (Math.abs(box.left + box.width / 2 - origin.left - origin.width / 2) > 1) apart.push(`${frame.id}: off centre`);
+            if (!seat.classList.contains('bar') || box.height > maxHeight) {
+                apart.push(`${frame.id}: the own seat is a tile`);
+            }
+            if (Math.abs(box.left + box.width / 2 - origin.left - origin.width / 2) > 1) {
+                apart.push(`${frame.id}: off centre`);
+            }
             for (const thing of frame.querySelectorAll(
-                '.hand .card, .swipe, .play, .tag, .ghost, .plaque, .lastshow, .fan, .bubble, .notice, .result, .coaster, .pile, .stamp'
+                '.hand .card, .swipe, .play, .tag, .ghost, .plaque, .lastshow, .fan, .bubble, .notice, .result, '
+                + '.coaster, .pile, .stamp'
             )) {
                 if (seat.contains(thing) || thing.matches('.sweep, .gamelist')) continue;
-                if (crossing(box, thing.getBoundingClientRect())) crossings.push(`${frame.id}: the own seat over ${thing.className}`);
+                if (crossing(box, thing.getBoundingClientRect())) {
+                    crossings.push(`${frame.id}: the own seat over ${thing.className}`);
+                }
             }
         }
     }
     return { apart, crossings };
-}""" % {"height": OWN_BAR_HEIGHT}
+}"""
 
 
 def test_every_desktop_scene_draws_the_own_seat_as_a_slim_bar_that_overlaps_nothing(page: Page) -> None:
     page.goto(TABLE_SCENES.as_uri())
-    assert page.evaluate(OWN_SEATS_OF_THE_SCENES) == {"apart": [], "crossings": []}
+    assert page.evaluate(OWN_SEATS_OF_THE_SCENES, OWN_BAR_HEIGHT) == {"apart": [], "crossings": []}
