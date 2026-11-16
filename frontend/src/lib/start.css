@@ -4244,6 +4244,11 @@ body {
         margin-top: 12px;
     }
 
+    /* At the result the near chair's stool stands on the floor below it, clear of the bar's keys. */
+    .room .stage:has(> .result) .controls {
+        margin-top: 26px;
+    }
+
     /* A card lifted in the hand stops short of the chair above it. */
     .room .stage:has(> .trick) .controls {
         margin-top: calc(22px + var(--chair-drop));

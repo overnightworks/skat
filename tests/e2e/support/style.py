@@ -20,7 +20,7 @@ DECORATIONS = 2
 # The cocktail and the shell lie under everything the people at the table read and touch: no sampled point of a card,
 # tag, key, chair, plaque or the result is painted by one of them (their pointer events are switched on so the page
 # can say what it paints there), and the page gains no sideways scroll from the rim round the felt. A chair's stool is
-# drawn behind its chair and the cards, as the scenes draw it, and covers nothing.
+# drawn behind its chair and the cards, as the scenes draw it, and on a desktop crosses no key of the bar.
 FURNITURE_CLEAR = """() => {
     const all = (selector) => [...document.querySelectorAll(selector)];
     const decor = all('.decor');
@@ -39,6 +39,25 @@ FURNITURE_CLEAR = """() => {
             .map((found) => `${found.classList[1]} covers ${element.className}`);
     });
     for (const element of decor) element.style.pointerEvents = '';
+    const stands = document.querySelector('.room').dataset.style === 'strandbar' && window.innerWidth >= 900;
+    const keys = all('.actions > *');
+    for (const chair of stands ? all('.chair') : []) {
+        const box = chair.getBoundingClientRect();
+        const leg = getComputedStyle(chair, '::after');
+        const stool = {
+            left: box.left + parseFloat(leg.left),
+            right: box.left + parseFloat(leg.left) + parseFloat(leg.width),
+            top: box.top + parseFloat(leg.top),
+            bottom: box.top + parseFloat(leg.top) + parseFloat(leg.height),
+        };
+        for (const key of keys) {
+            const at = key.getBoundingClientRect();
+            if (Math.min(at.right, stool.right) > Math.max(at.left, stool.left) &&
+                Math.min(at.bottom, stool.bottom) > Math.max(at.top, stool.top)) {
+                covered.push(`the stool of chair ${chair.dataset.seat} crosses a key of the bar`);
+            }
+        }
+    }
     if (document.documentElement.scrollWidth > window.innerWidth) covered.push('the page scrolls sideways');
     return [...new Set(covered)];
 }"""
