@@ -12,13 +12,16 @@ import psycopg
 import structlog
 from alembic import command
 from alembic.config import Config
-from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy import Connection, Engine, create_engine, text
+from sqlalchemy import Connection, Engine, create_engine, delete, insert, inspect, text
 from sqlalchemy.engine import make_url
 
+from skat.store.schema import serving_revisions
+
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Collection
+
+    from alembic.runtime.migration import MigrationInfo
 
 MIGRATIONS_DIRECTORY: Final = Path(__file__).parent / "migrations"
 # Serialises concurrent `skat migrate` runs; any constant shared by all of them does.
@@ -43,31 +46,31 @@ READINESS_PATIENCE_SECONDS: Final = 0.5
 log = structlog.get_logger()
 
 
-class DatabaseNotAtHeadError(Exception):
-    """The database is not at the newest migration; the message says which revision it holds."""
+class RevisionNotServedError(Exception):
+    """The database does not list this process's revision as served; the message says which revisions it lists."""
 
 
 class ReadinessVerdict(StrEnum):
     READY = "ready"
     UNREACHABLE = "unreachable"
-    NOT_AT_HEAD = "not_at_head"
+    REVISION_NOT_SERVED = "revision_not_served"
     SLOW = "slow"
 
 
 @dataclass(frozen=True)
 class DatabaseHealth:
     serves_queries: bool
-    at_head: bool
+    revision_served: bool
 
     @property
     def ready(self) -> bool:
-        return self.serves_queries and self.at_head
+        return self.serves_queries and self.revision_served
 
     @property
     def verdict(self) -> ReadinessVerdict:
         if not self.serves_queries:
             return ReadinessVerdict.UNREACHABLE
-        return ReadinessVerdict.READY if self.at_head else ReadinessVerdict.NOT_AT_HEAD
+        return ReadinessVerdict.READY if self.revision_served else ReadinessVerdict.REVISION_NOT_SERVED
 
 
 def create_store_engine(database_url: str) -> Engine:
@@ -112,21 +115,73 @@ def _head_revision() -> str | None:
     return ScriptDirectory.from_config(_alembic_config()).get_current_head()
 
 
-def _current_revisions(connection: Connection) -> tuple[str, ...]:
-    return MigrationContext.configure(connection).get_current_heads()
+@dataclass(frozen=True)
+class AppliedStep:
+    revision: str
+    down_revision: str | None
+    contracts: bool
 
 
-def _at_head(current: Sequence[str]) -> bool:
-    return tuple(current) == (_head_revision(),)
+class ServingWindow:
+    """The revisions a `skat migrate` leaves served, which it works out from the steps it applies in its one
+    transaction (`step_applied` sees each) and writes in that same transaction (`record`), so that a step that fails
+    leaves them as they were.
+
+    Steps that only expand keep the revision the database was at beside the new one, because code of that revision
+    still reads the schema; that window of one release back is the most a release may rely on. A step that declares
+    `CONTRACTS = True` is exempt from the check that migrations only expand, and drops only what the release before
+    it no longer reads. A contraction that is not the first step of the run skips a release: the database then
+    serves the new revision alone, and processes two releases old turn unready. A fresh database serves its head, and
+    a run that applies no step changes nothing.
+    """
+
+    def __init__(self) -> None:
+        self._revision_before: str | None = None
+        self._steps: list[AppliedStep] = []
+
+    def begins_at(self, heads: Collection[str]) -> None:
+        self._revision_before = next(iter(heads), None)
+
+    def step_applied(self, *, step: MigrationInfo, **_: object) -> None:
+        """Alembic's `on_version_apply` hook, which it calls by keyword."""
+        if step.is_upgrade:
+            script = step.up_revision
+            self._steps.append(
+                AppliedStep(
+                    revision=step.up_revision_ids[0],
+                    down_revision=step.down_revision_ids[0] if step.down_revision_ids else None,
+                    contracts=bool(getattr(getattr(script, "module", None), "CONTRACTS", False)),
+                )
+            )
+
+    def _served(self) -> frozenset[str] | None:
+        """The revisions to serve after the run, or None when it applied no step."""
+        if not self._steps:
+            return None
+        newest = self._steps[-1].revision
+        skipped_past_a_contraction = any(
+            step.contracts and step.down_revision != self._revision_before for step in self._steps
+        )
+        if self._revision_before is None or skipped_past_a_contraction:
+            return frozenset({newest})
+        return frozenset({self._revision_before, newest})
+
+    def record(self, connection: Connection) -> None:
+        """Writes the window once the table exists; a run that stops below the revision that creates it writes none."""
+        served = self._served()
+        if served is None or not inspect(connection).has_table(serving_revisions.name):
+            return
+        connection.execute(delete(serving_revisions))
+        connection.execute(insert(serving_revisions), [{"revision": revision} for revision in sorted(served)])
 
 
-def require_head(engine: Engine) -> None:
+def require_served_revision(engine: Engine) -> None:
     head = _head_revision()
-    with engine.connect() as connection:
-        current = _current_revisions(connection)
-    if not _at_head(current):
-        raise DatabaseNotAtHeadError(
-            f"The database is at revision {', '.join(current) or 'none'} but Skat needs {head}; run skat migrate first"
+    served = _run_within_deadline(engine)
+    if head not in served:
+        raise RevisionNotServedError(
+            f"The database serves {', '.join(sorted(served)) or 'no revision'} but Skat is at {head}; run skat migrate"
+            " if the database is behind, and start the release the database serves if it is ahead"
         )
 
 
@@ -140,8 +195,8 @@ def _hang_up(connection: psycopg.AsyncConnection) -> None:
         duplicate.shutdown(socket.SHUT_RDWR)
 
 
-async def _read_current_revisions(engine: Engine) -> tuple[str, ...]:
-    """The revisions the database holds, none while it is unmigrated, within the health deadline.
+async def _read_served_revisions(engine: Engine) -> frozenset[str]:
+    """The revisions the database lists as served, none while it is unmigrated, within the health deadline.
 
     The connection is closed, not rolled back, because a rollback would wait on the server again; closing ends the
     session and so its transaction.
@@ -157,16 +212,16 @@ async def _read_current_revisions(engine: Engine) -> tuple[str, ...]:
         )
     hang_up = loop.call_at(deadline, _hang_up, connection)
     try:
-        cursor = await connection.execute("SELECT version_num FROM alembic_version")
-        return tuple(version for (version,) in await cursor.fetchall())
+        cursor = await connection.execute("SELECT revision FROM serving_revisions")
+        return frozenset(revision for (revision,) in await cursor.fetchall())
     except psycopg.errors.UndefinedTable:
-        return ()
+        return frozenset()
     finally:
         hang_up.cancel()
         await connection.close()
 
 
-def _run_within_deadline(engine: Engine) -> tuple[str, ...]:
+def _run_within_deadline(engine: Engine) -> frozenset[str]:
     """Runs the probe on a loop of its own and closes the loop without waiting for the resolver thread.
 
     A hostname lookup runs in the loop's executor, and no cancellation reaches a lookup already running; the
@@ -175,25 +230,25 @@ def _run_within_deadline(engine: Engine) -> tuple[str, ...]:
     """
     loop = asyncio.new_event_loop()
     try:
-        return loop.run_until_complete(_read_current_revisions(engine))
+        return loop.run_until_complete(_read_served_revisions(engine))
     finally:
         loop.close()
 
 
 def database_health(engine: Engine) -> DatabaseHealth:
-    """Whether the database serves a query and is at the newest migration; it raises on neither and returns within
-    the health deadline.
+    """Whether the database serves a query and lists this process's revision as served; it raises on neither and
+    returns within the health deadline.
 
     The probe opens a connection of its own, so that neither the engine's pool (its pre-ping, a checkout waiting for
-    a free connection) nor a hung server can hold it past the deadline. The database's revision is read on every
-    ask, because a rollout moves it while Skat runs; the newest revision is not, because it cannot change in the
-    process.
+    a free connection) nor a hung server can hold it past the deadline. The revisions served are read on every
+    ask, because a rollout moves the revisions served while Skat runs; the process's own revision is not, because it
+    cannot change in the process.
     """
     try:
-        current = _run_within_deadline(engine)
+        served = _run_within_deadline(engine)
     except psycopg.Error, TimeoutError:
-        return DatabaseHealth(serves_queries=False, at_head=False)
-    return DatabaseHealth(serves_queries=True, at_head=_at_head(current))
+        return DatabaseHealth(serves_queries=False, revision_served=False)
+    return DatabaseHealth(serves_queries=True, revision_served=_head_revision() in served)
 
 
 class ReadinessProbe:
@@ -208,7 +263,7 @@ class ReadinessProbe:
     verdict that differs from the previous one is logged once with its cause; a probe that answers ready after the
     patience stays slow, as its askers were told, and a stalled probe turns only a ready verdict to slow, so that a
     slow database logs one verdict and not one per probe. The first probe is compared with ready, which
-    `require_head` established before Skat served.
+    `require_served_revision` established before Skat served.
     """
 
     def __init__(self, probe: Callable[[], DatabaseHealth], *, clock: Callable[[], float] = time.monotonic) -> None:

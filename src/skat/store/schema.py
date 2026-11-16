@@ -486,3 +486,11 @@ sessions = Table(
     Index("sessions_account_created_at", "account_id", "created_at"),
     Index("sessions_expires_at", "expires_at"),
 )
+
+# The revisions whose code may run on this database: `skat migrate` writes them in the transaction of its steps, and a
+# process starts and stays ready only while its own revision is listed.
+serving_revisions = Table(
+    "serving_revisions",
+    metadata,
+    Column("revision", Text, primary_key=True),
+)

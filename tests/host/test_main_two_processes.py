@@ -44,8 +44,7 @@ SIGTERM_EXIT = -signal.SIGTERM
 
 
 def lines_of(process: SkatProcess, event: str) -> list[dict]:
-    lines = [json.loads(line) for line in process.output().splitlines() if line.startswith("{")]
-    return [line for line in lines if line.get("event") == event]
+    return process.log_lines(event)
 
 
 class Pods:

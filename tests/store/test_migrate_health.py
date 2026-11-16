@@ -7,75 +7,78 @@ from sqlalchemy import text
 
 from skat.store import migrate as migrate_module
 from skat.store.migrate import (
-    DatabaseNotAtHeadError,
+    RevisionNotServedError,
     create_store_engine,
     database_health,
     migrate,
-    require_head,
+    require_served_revision,
 )
+from tests.support.migrations import head_revision, serve_only
 
 pytestmark = pytest.mark.postgres
 
 WELL_PAST_THE_DEADLINE_SECONDS = 30
 
 
-class TestRequireHead:
-    def test_accepts_a_database_at_head(self, unmigrated_engine):
+class TestRequireServedRevision:
+    def test_accepts_a_database_that_serves_the_head(self, unmigrated_engine):
         migrate(unmigrated_engine)
 
-        require_head(unmigrated_engine)
+        require_served_revision(unmigrated_engine)
+
+    def test_accepts_a_database_that_serves_the_head_beside_another_revision(self, unmigrated_engine):
+        migrate(unmigrated_engine)
+        serve_only(unmigrated_engine, head_revision(), "newer")
+
+        require_served_revision(unmigrated_engine)
 
     def test_refuses_an_unmigrated_database_and_says_which_command_fixes_it(self, unmigrated_engine):
-        with pytest.raises(DatabaseNotAtHeadError, match="skat migrate"):
-            require_head(unmigrated_engine)
+        with pytest.raises(RevisionNotServedError, match="skat migrate"):
+            require_served_revision(unmigrated_engine)
 
-    def test_refuses_a_database_at_an_older_revision(self, unmigrated_engine):
+    def test_refuses_a_database_that_serves_other_revisions_and_names_them(self, unmigrated_engine):
         migrate(unmigrated_engine)
-        with unmigrated_engine.begin() as connection:
-            connection.execute(text("UPDATE alembic_version SET version_num = 'older'"))
+        serve_only(unmigrated_engine, "older", "newer")
 
-        with pytest.raises(DatabaseNotAtHeadError, match="older"):
-            require_head(unmigrated_engine)
+        with pytest.raises(RevisionNotServedError, match="newer, older"):
+            require_served_revision(unmigrated_engine)
 
-    def test_refuses_a_database_that_holds_a_second_revision_besides_the_newest(self, unmigrated_engine):
+    def test_refuses_a_database_that_serves_no_revision(self, unmigrated_engine):
         migrate(unmigrated_engine)
-        with unmigrated_engine.begin() as connection:
-            connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('older')"))
+        serve_only(unmigrated_engine)
 
-        with pytest.raises(DatabaseNotAtHeadError, match="older"):
-            require_head(unmigrated_engine)
+        with pytest.raises(RevisionNotServedError, match="no revision"):
+            require_served_revision(unmigrated_engine)
 
 
 class TestDatabaseHealth:
-    def test_a_database_at_head_serves_and_is_ready(self, unmigrated_engine):
+    def test_a_database_that_serves_the_head_serves_and_is_ready(self, unmigrated_engine):
         migrate(unmigrated_engine)
 
         health = database_health(unmigrated_engine)
 
-        assert (health.serves_queries, health.at_head, health.ready) == (True, True, True)
+        assert (health.serves_queries, health.revision_served, health.ready) == (True, True, True)
 
-    def test_an_unmigrated_database_serves_but_is_not_at_head(self, unmigrated_engine):
+    def test_an_unmigrated_database_serves_queries_but_not_the_revision(self, unmigrated_engine):
         health = database_health(unmigrated_engine)
 
-        assert (health.serves_queries, health.at_head, health.ready) == (True, False, False)
+        assert (health.serves_queries, health.revision_served, health.ready) == (True, False, False)
 
-    def test_a_database_at_an_older_revision_is_not_at_head(self, unmigrated_engine):
+    def test_a_database_that_serves_other_revisions_is_not_ready(self, unmigrated_engine):
         migrate(unmigrated_engine)
-        with unmigrated_engine.begin() as connection:
-            connection.execute(text("UPDATE alembic_version SET version_num = 'older'"))
+        serve_only(unmigrated_engine, "older")
 
         assert database_health(unmigrated_engine).ready is False
 
-    def test_a_database_that_holds_a_second_revision_besides_the_newest_is_not_at_head_and_raises_nothing(
+    def test_a_database_that_serves_the_head_beside_another_revision_is_ready_and_raises_nothing(
         self, unmigrated_engine
     ):
         migrate(unmigrated_engine)
-        with unmigrated_engine.begin() as connection:
-            connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('older')"))
+        serve_only(unmigrated_engine, head_revision(), "newer")
 
         health = database_health(unmigrated_engine)
 
-        assert (health.serves_queries, health.at_head, health.ready) == (True, False, False)
+        assert (health.serves_queries, health.revision_served, health.ready) == (True, True, True)
 
     def test_the_answer_follows_the_database_as_it_is_migrated_between_two_asks(self, unmigrated_engine):
         before = database_health(unmigrated_engine)
@@ -93,7 +96,7 @@ class TestDatabaseHealth:
         health = database_health(engine)
 
         engine.dispose()
-        assert (health.serves_queries, health.at_head, health.ready) == (False, False, False)
+        assert (health.serves_queries, health.revision_served, health.ready) == (False, False, False)
 
     def test_a_database_that_accepts_and_never_answers_gives_up_instead_of_hanging(self, monkeypatch):
         monkeypatch.setattr(migrate_module, "STORE_CONNECT_TIMEOUT_SECONDS", 2)
@@ -144,7 +147,7 @@ class TestDatabaseHealth:
         migrate(unmigrated_engine)
         monkeypatch.setattr(migrate_module, "HEALTH_STATEMENT_TIMEOUT_MILLISECONDS", 300)
         with unmigrated_engine.connect() as locker:
-            locker.execute(text("LOCK TABLE alembic_version IN ACCESS EXCLUSIVE MODE"))
+            locker.execute(text("LOCK TABLE serving_revisions IN ACCESS EXCLUSIVE MODE"))
 
             health = database_health(unmigrated_engine)
 

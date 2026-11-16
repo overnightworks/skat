@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import socket
@@ -133,6 +134,24 @@ class SkatProcess:
 
     def output(self) -> str:
         return self._log_path.read_text(errors="replace")
+
+    def log_lines(self, event: str) -> list[dict]:
+        """The JSON lines of this event that the process has written so far."""
+        lines = [json.loads(line) for line in self.output().splitlines() if line.startswith("{")]
+        return [line for line in lines if line.get("event") == event]
+
+    def becomes_unready_within(self, seconds: float) -> bool:
+        """Whether the readiness probe turns unready within `seconds`."""
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            if not self._answers_readiness():
+                return True
+            time.sleep(POLL_SECONDS)
+        return False
+
+    def stays_ready_for(self, seconds: float) -> bool:
+        """Whether every readiness probe within `seconds` is answered ready."""
+        return not self.becomes_unready_within(seconds)
 
     def _answers_readiness(self) -> bool:
         try:
