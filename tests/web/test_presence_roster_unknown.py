@@ -119,14 +119,16 @@ class TestTheNextDeal:
 
         assert deals.calls == [(TABLE, frozenset())]
 
-    def test_does_not_try_again_once_the_presence_has_stopped(self, holding, leases, time, deals):
-        leases.reading_fails = [UNREACHABLE]
+    def test_does_not_try_again_when_the_presence_stops_while_the_failing_deal_is_in_flight(self, holding, time, deals):
+        async def stop_then_fail():
+            holding.stop()
+            raise UNREACHABLE
+
+        deals.meanwhile = stop_then_fail
+
         run(holding.deal_now(TABLE))
-        holding.stop()
 
-        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
-
-        assert deals.calls == []
+        assert time.pending == 0
 
 
 class TestAStalledRoster:

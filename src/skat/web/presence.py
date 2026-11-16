@@ -581,7 +581,8 @@ class Presence:
     async def deal_now(self, table_id: str) -> None:
         """Ask for a table's next deal with no pause; the table's own rule decides under its row lock.
 
-        A failure is logged and changes nothing, so the next request asks again.
+        A failure of any kind, not only a failed roster read, is logged and the deal is asked for again after
+        `CHAIR_RELEASE_RETRY_SECONDS` while the presence runs, as `_note_presence` and `_end_if_empty` do.
         """
         run = self._timer_runs.start(PresenceTimer.NEXT_DEAL, table_id, table_id=table_id)
         try:
