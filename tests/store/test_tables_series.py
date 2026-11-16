@@ -551,7 +551,7 @@ class TestTheSeriesRow:
             transaction.save_table(replace(record, series=Series(6, 3)), played_at=None)
 
     def test_an_ended_table_reads_the_last_series_with_games_under_the_options_it_was_played_with(
-        self, transactions, stored, first_series
+        self, service, transactions, stored, first_series
     ):
         with transactions.begin() as transaction:
             transaction.save_table(
@@ -564,6 +564,12 @@ class TestTheSeriesRow:
         last = stored(transactions, first_series).last_series
 
         assert (last.number, last.options, len(last.game_list)) == (1, FIRST_SERIES_OPTIONS, 1)
+        ended = service.view(OPENER, first_series, frozenset()).ended
+        assert [(each.account_id, each.total, each.place) for each in ended.standings] == [
+            (OPENER.account_id, 136, 1),
+            (VISITOR.account_id, 0, 2),
+            (THIRD_PLAYER.account_id, 0, 2),
+        ]
 
     def test_an_ended_table_that_finished_no_game_has_no_last_series(self, service, transactions, stored, table_id):
         with transactions.begin() as transaction:
