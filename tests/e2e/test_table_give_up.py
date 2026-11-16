@@ -319,10 +319,10 @@ OWN_CARDS = ".own-hand .card"
 TRICK_CARDS = ".trick .face"
 
 
-def expect_the_cards_played_to_have_reached(declarer: Page, played: int) -> None:
-    """The declarer's page shows the last card played, so no newer version is left to put the armed key back."""
-    expect(declarer.locator(OWN_CARDS)).to_have_count(10 - played // CARDS_AFTER_ONE_TRICK)
-    expect(declarer.locator(TRICK_CARDS)).to_have_count(0)
+def expect_the_cards_played_to_have_reached(person: Page, played: int) -> None:
+    """The person's page shows the last card played, so no newer version is left to put the armed key back."""
+    expect(person.locator(OWN_CARDS)).to_have_count(10 - played // CARDS_AFTER_ONE_TRICK)
+    expect(person.locator(TRICK_CARDS)).to_have_count(0)
 
 
 def gives_up(opponent: str) -> str:
@@ -567,7 +567,7 @@ def test_an_opponents_second_tap_gives_up_for_the_side_and_the_declarer_answers_
     table = deal_a_game(PHONE)
     table.play_out(CARDS_AFTER_TWO_TRICKS)
     asker = opponents(table)[0]
-    expect(table.pages[asker].locator(OWN_CARDS)).to_have_count(10 - CARDS_AFTER_TWO_TRICKS // 3)
+    expect_the_cards_played_to_have_reached(table.pages[asker], CARDS_AFTER_TWO_TRICKS)
 
     give_up_key(table.pages[asker]).click()
     give_up_key(table.pages[asker]).click()
