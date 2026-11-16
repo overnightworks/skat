@@ -3546,9 +3546,14 @@ body {
         --lie: 9deg;
     }
 
+    /* The near card's tag ends clear of the position label on the near chair's top edge: the tags hang 4px higher and the near card lies 8px higher, which still leaves it below the trick's middle, the point the cards lie away from toward their chairs. */
     .room .laid.near,
     .room .lead-slot {
-        top: 55%;
+        top: calc(55% - 8px);
+    }
+
+    .room .laid .tag {
+        bottom: calc(var(--card-width) * -0.12 + 4px);
     }
 
     .room .points {
