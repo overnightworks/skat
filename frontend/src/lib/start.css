@@ -4179,9 +4179,23 @@ body {
         margin-bottom: 0;
     }
 
-    /* The far chairs stand at the felt's rim, the near one centred over the hand, as the scenes draw them. */
+    /* The far chairs stand at the felt's rim, the near one centred over the hand, as the scenes draw them. The near one is a 16:9 tile that keeps the place of its top edge, so its plate and marks end above the lifted cards of the hand. */
     .room .chair:nth-child(3) {
         --chair-width: var(--near-chair-width);
+        --near-chair-rest: calc(var(--near-chair-width) * 0.1875);
+
+        aspect-ratio: 16 / 9;
+        margin-bottom: var(--near-chair-rest);
+    }
+
+    /* The tapped card lifts as high as on a phone, so it stands clear of the near chair's plate. */
+    .room .own-hand .card.touch {
+        --lift: calc(var(--card-width) * -0.3);
+    }
+
+    /* The arrow stands on the tapped card, so the near chair above it covers nothing of it. */
+    .room .own-hand .swipe {
+        top: 10px;
     }
 
     .room .stage {
@@ -4223,7 +4237,7 @@ body {
     .room .stage:has(> .trick) .chair:nth-child(3) {
         grid-row: 3;
         align-self: end;
-        margin-bottom: calc(var(--chair-drop) * -1);
+        margin-bottom: calc(var(--near-chair-rest) - var(--chair-drop));
     }
 
     .room .controls {
@@ -4357,6 +4371,22 @@ body {
         height: 22px;
         padding: 0 8px;
         font-size: 11.5px;
+    }
+
+    .room .chair:nth-child(3) .mark:is(.declarer, .declined, .unanswered) {
+        top: 16px;
+        left: 6px;
+        height: 26px;
+    }
+
+    .room .chair:nth-child(3) .mark.declarer {
+        width: 26px;
+        padding: 0;
+        font-size: 0;
+    }
+
+    .room .chair:nth-child(3) .mark.declined {
+        width: 26px;
     }
 
     .room .chair:nth-child(3) .mark.dealer {

@@ -159,12 +159,16 @@ body.solo .frame{border-radius:0;border:0}
 .hand .card.ok{--lift:calc(var(--w) * -.18)}
 .hand .card.ok svg{border-radius:calc(var(--w) * .075);box-shadow:0 0 0 2.5px var(--accent-stage),0 0 18px rgba(122,167,240,.5)}
 .hand .card.touch{--lift:calc(var(--w) * -.5)}
+/* on the desktop the tapped card lifts as high as on a phone, so it stands clear of the near chair's plate */
+.d1280 .hand .card.touch{--lift:calc(var(--w) * -.3)}
 .hand .card.touch svg{border-radius:calc(var(--w) * .075);box-shadow:0 0 0 3px var(--accent-stage),0 0 26px rgba(122,167,240,.8)}
 .hand .card.no{filter:brightness(.5) saturate(.55) drop-shadow(0 6px 8px rgba(0,0,0,.35))}
 /* swipe hint above the lifted card */
 .swipe{position:absolute;left:50%;top:calc(var(--w) * -.36);transform:translateX(-50%);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
   background:var(--accent-stage);color:var(--stage);box-shadow:0 4px 12px rgba(0,0,0,.6)}
 .swipe svg{width:18px;height:18px}
+/* on the desktop the arrow stands on the tapped card, so the near chair above it covers nothing of it */
+.d1280 .swipe{top:10px}
 /* opponents' backs: a small fan pointing at the owner */
 .fan{width:0;height:0}
 .fan .card{position:absolute;left:calc(var(--w) * -.5);top:calc(var(--w) * -1.4);transform-origin:50% 115%;transform:rotate(var(--rot))}
@@ -911,10 +915,11 @@ frame('call-trick-390','Stich geht an dich','Handy 390 px','p390',
   +hand(AFTER_HAND,PHONE_HAND)+callBar(false));
 
 /* ===== desktop: Anna at the left chair, Nova at the right chair, you at the near edge ===== */
+/* the own chair is a 16:9 tile, so its plate, marks and coaster end above the lifted cards of the hand */
 const DB={
   table:{x:170,y:66,w:940,h:566,tr:283,rim:18,line:22,ry:'47%',rs:240},
-  anna:{x:22,y:180,w:236,h:178}, nova:{x:1022,y:180,w:236,h:178}, you:{x:580,y:474,w:120,h:90,sm:true},
-  coasters:[[230,330,50,-10],[1000,330,50,8],[528,516,50,-6]],
+  anna:{x:22,y:180,w:236,h:178}, nova:{x:1022,y:180,w:236,h:178}, you:{x:580,y:474,w:120,h:68,sm:true},
+  coasters:[[230,330,50,-10],[1000,330,50,8],[528,500,50,-6]],
 };
 /* the trick's cards lie at these heights: the far two above, the own card below them (8px higher than the middle's 55%, so its tag ends above the own chair's position pill), clear of the own chair under it */
 const FAR_Y=254, NEAR_Y=390;
