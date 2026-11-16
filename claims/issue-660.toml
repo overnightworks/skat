@@ -3,6 +3,6 @@ agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
 role = "builder"
 base = "a04437afd3e053d3a810216f284f5cdb5021189a"
 branch = "claude/issue-660-giving-up-follows-the-skatordnung-with-t"
-scope = ["docs/ARCHITECTURE.md", "docs/mockups", "frontend/src", "src/skat", "tests"]
+scope = ["docs/ARCHITECTURE.md", "docs/mockups", "frontend/src", "quality/baseline.toml", "src/skat", "tests"]
 opened_commit = "941786816bc2dd61ee710e6121d1cde3d099a31f"
 whole_reason = "the give-up rule spans engine, table options, page, mockup and tests; one lane by the operator's cut-larger ruling"
