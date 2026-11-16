@@ -64,8 +64,8 @@ def table_row(table_id, **changed):
         **changed,
     }
     return text(
-        f"INSERT INTO tables ({', '.join(columns)}) VALUES ({', '.join(str(each) for each in columns.values())})"
-    )  # noqa: S608 - only a test's fixed literals reach this text
+        f"INSERT INTO tables ({', '.join(columns)}) VALUES ({', '.join(str(each) for each in columns.values())})"  # noqa: S608 - only a test's fixed literals reach this text
+    )
 
 
 def seated(table_id):
@@ -127,7 +127,7 @@ STATES_AT_0047 = (
     ),
     table_row(GONE_WITH_GAMES, dealer="NULL", last_played_at="NULL", series_deals=LENGTH),
     text(
-        "UPDATE tables SET ended_at = now(), end_reason = 'closed', closed_by_name = 'Anna'"
+        "UPDATE tables SET ended_at = now(), end_reason = 'closed', closed_by_name = 'Anna'"  # noqa: S608 - only a test's fixed literals reach this text
         f" WHERE id = '{GONE_WITH_GAMES}'"
     ),
     played(GONE_WITH_GAMES, 1),
@@ -148,8 +148,8 @@ def series_row(engine, table_id, number):
     return only_row(
         engine,
         text(
-            "SELECT length, deals, ended_early, end_proposer, end_accepter, bock_rounds, ramsch_round_games,"
-            f" {SETTING_COLUMNS} FROM series WHERE table_id = '{table_id}' AND number = {number}"  # noqa: S608 - only a test's fixed literals reach this text
+            "SELECT length, deals, ended_early, end_proposer, end_accepter, bock_rounds, ramsch_round_games,"  # noqa: S608 - only a test's fixed literals reach this text
+            f" {SETTING_COLUMNS} FROM series WHERE table_id = '{table_id}' AND number = {number}"
         ),
     )
 
