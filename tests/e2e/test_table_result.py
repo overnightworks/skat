@@ -694,6 +694,16 @@ def test_a_picked_card_lifts_clear_of_the_near_chair_and_the_bar_stays_on_the_sc
 OWN_BAR_HEIGHT = 56
 # Where the dashed slot stands before the viewer's card lies, and the card once it lies, there.
 TRICK_THINGS = ".trick .face, .trick .tag, .trick .lead-slot"
+# The bar's own ring marks the turn, so the avatar in it carries no ring, and no stool stands under the bar.
+OWN_BAR_ON_TURN = """() => {
+    const chair = document.querySelector('.chair.mine');
+    const tile = getComputedStyle(chair.querySelector('.tile'));
+    const stool = getComputedStyle(chair, '::after');
+    return {
+        avatarRing: tile.boxShadow,
+        stool: stool.display !== 'none' && stool.content !== 'none',
+    };
+}"""
 LIFT_ONLY_THE_CARD_AT = """(index) => {
     const cards = [...document.querySelectorAll('.own-hand .card')];
     cards.forEach((card, at) => card.classList.toggle('touch', at === index));
@@ -719,6 +729,8 @@ def test_the_own_seat_is_a_slim_bar_centred_over_the_hand_and_a_lifted_card_stan
     assert bar is not None
     assert bar["height"] <= OWN_BAR_HEIGHT, "the own seat is a tile of the felt"
     assert abs(bar["x"] + bar["width"] / 2 - middlehand.evaluate("window.innerWidth / 2")) <= 1
+    expect(middlehand.locator(".chair.mine.turn")).to_have_count(1)
+    assert middlehand.evaluate(OWN_BAR_ON_TURN) == {"avatarRing": "none", "stool": False}
     for index in range(CARDS_IN_A_HAND):
         middlehand.evaluate(LIFT_ONLY_THE_CARD_AT, index)
         expect_no_crossing(middlehand, f"{OWN_HAND_CARD}.touch", ".chair.mine")

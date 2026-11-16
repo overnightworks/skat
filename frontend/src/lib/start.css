@@ -8216,13 +8216,23 @@ body {
             inset 0 0 0 1px rgba(255, 255, 255, 0.1);
     }
 
-    .room .chair.mine .tile {
+    .room .chair.mine .tile,
+    .room .chair.mine.turn .tile {
         position: static;
         flex: none;
         width: 34px;
         height: 34px;
         border-radius: 50%;
         box-shadow: none;
+    }
+
+    /* The bar's own ring marks the turn and holds still, so the avatar in it neither breathes nor wears a ring. */
+    .room[data-motion] .chair.mine.turn:not(.shaken) .tile {
+        animation: none;
+    }
+
+    .room[data-motion] .chair.mine.turn.shaken .tile {
+        animation: chair-shake 0.6s linear 0.5s; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
     }
 
     .room .chair.mine .initial {
