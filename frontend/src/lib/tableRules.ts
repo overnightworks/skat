@@ -17,9 +17,10 @@ import { listFormat, words } from "#lib/words.ts";
 
 type Token<Tokens extends readonly string[]> = Tokens[number];
 
-export type RuleId = "points" | "kontra" | "ramsch" | "pushing" | "bock";
-// A chip stands for one rule that is on; the table without any carries the one chip of the official rules.
-export type ChipId = Exclude<RuleId, "pushing"> | "official";
+export type RuleId = "points" | "kontra" | "ramsch" | "pushing" | "bock" | "giveUpPartner" | "giveUpAnyTime";
+// A chip stands for one rule that is on, one „Aufgeben“ chip for both special rules of giving up; the table without
+// any carries the one chip of the official rules.
+export type ChipId = Exclude<RuleId, "pushing" | "giveUpPartner" | "giveUpAnyTime"> | "giveUp" | "official";
 // The Bock chip counts the games still to come, the running one included, and stands alone while none is pending.
 export type RuleChip = { id: ChipId; word: string; count: { number: string; label: string } | null };
 // A rule's settings are separate short texts, never one sentence.
@@ -90,12 +91,23 @@ const CHIP_WORDS: Record<ChipId, string> = {
     kontra: words["rules.chipKontra"],
     ramsch: words["rules.chipRamsch"],
     bock: words["rules.chipBock"],
+    giveUp: words["rules.chipGiveUp"],
     official: words["rules.chipOfficial"],
+};
+// The rows a chip stands for; Schieberamsch is part of the Ramsch chip.
+const CHIP_OF_ROW: Record<RuleId, Exclude<ChipId, "official"> | null> = {
+    points: "points",
+    kontra: "kontra",
+    ramsch: "ramsch",
+    pushing: null,
+    bock: "bock",
+    giveUpPartner: "giveUp",
+    giveUpAnyTime: "giveUp",
 };
 
 // The rules that are on, in the order the picture draws them.
 function rulesOf(options: Options): RuleRow[] {
-    const { kontra, ramsch, bock } = options;
+    const { kontra, ramsch, bock, give_up: giveUp } = options;
     const rules: (RuleRow | null)[] = [
         options.show_running_points
             ? { id: "points", name: words["rules.namePoints"], settings: [words["rules.pointsFromTricks"]] }
@@ -144,6 +156,16 @@ function rulesOf(options: Options): RuleRow[] {
                       BOCK_OVERLAP_WORDS[bock.overlap],
                   ],
               },
+        giveUp.partner_agrees
+            ? {
+                  id: "giveUpPartner",
+                  name: words["rules.nameGiveUpPartner"],
+                  settings: [words["rules.giveUpPartnerAgrees"]],
+              }
+            : null,
+        giveUp.any_time
+            ? { id: "giveUpAnyTime", name: words["rules.nameGiveUpAnyTime"], settings: [words["rules.giveUpAnyTime"]] }
+            : null,
     ];
     return rules.filter((rule) => rule !== null);
 }
@@ -156,7 +178,7 @@ function countOf(id: ChipId, bock: Bock | null): RuleChip["count"] {
 // What every viewer reads of a table's rules: the chips on the felt and the rows of the sheet behind them.
 export function tableRules(options: Options, bock: Bock | null): TableRules {
     const rows = rulesOf(options);
-    const chipIds = rows.map((row) => row.id).filter((id) => id !== "pushing");
+    const chipIds = [...new Set(rows.map((row) => CHIP_OF_ROW[row.id]).filter((id) => id !== null))];
     return {
         chips: (chipIds.length === 0 ? (["official"] as const) : chipIds).map((id) => ({
             id,

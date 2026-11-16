@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Final
 from skat.engine.deal import seats_from
 from skat.engine.kontra import KontraDeadline, KontraRefusal, Word, WordSaid, bidders_of, decline, say
 from skat.table.hand_state import (
+    an_opponents_request_stands,
     doubling_of,
-    game_waits_for_the_declarers_answer,
     playing_of,
     positions_the_first_card_waits_on,
 )
@@ -90,7 +90,7 @@ def decide_kontra(table: TableRecord, actor: Actor, command: KontraCommand) -> D
     state, doubling = playing_of(table), doubling_of(table)
     if state is None or doubling is None:
         return Decision(table, Refusal.WRONG_PHASE)
-    if game_waits_for_the_declarers_answer(state, table.progress.give_up):
+    if an_opponents_request_stands(state, table.progress.give_up):
         return Decision(table, Refusal.REQUEST_PENDING)
     bidders = bidders_of(table.progress.auction)
     if command.word is None and options.deadline is KontraDeadline.FIRST_CARD:
@@ -149,7 +149,7 @@ def kontra_view_of(
 
     The viewer's own chair gets the word it may say now: the next word, if the engine accepts it from that position.
     A watcher has no chair, so no word; the caller passes no viewer position while the hand waits for a sitter or the
-    game for the declarer's answer to an opponent's give-up.
+    game for the answer to an opponent's request.
     """
     options, doubling = table.options.kontra, doubling_of(table)
     if options is None or doubling is None:

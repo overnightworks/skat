@@ -665,9 +665,9 @@ class TestWhileAnOpponentsGiveUpWaits:
 
         assert (decision.refusal, decision.table) == (Refusal.REQUEST_PENDING, table)
 
-    def test_the_word_is_open_again_for_the_opponent_and_the_table_waits_for_it_after_the_declarers_no(self):
+    def test_the_partner_is_awaited_for_his_answer_and_his_word_is_open_again_after_his_no(self):
         table = asked_by_an_opponent(FOREHAND, options_of())
-        assert waking_view(table, REARHAND) == (None, False, False)
+        assert waking_view(table, REARHAND) == (None, False, True)
         playing_on = replace(table, progress=replace(table.progress, give_up=None))
 
         assert waking_view(playing_on, REARHAND) == (KONTRA, False, True)

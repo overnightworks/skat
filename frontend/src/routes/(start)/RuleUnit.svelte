@@ -34,6 +34,8 @@
         ramsch: { name: words["start.ruleRamsch"], line: words["start.ruleRamschLine"] },
         pushing: { name: words["start.rulePushing"], line: words["start.rulePushingLine"] },
         bock: { name: words["start.ruleBock"], line: words["start.ruleBockLine"] },
+        giveUpPartner: { name: words["start.ruleGiveUpPartner"], line: words["start.ruleGiveUpPartnerLine"] },
+        giveUpAnyTime: { name: words["start.ruleGiveUpAnyTime"], line: words["start.ruleGiveUpAnyTimeLine"] },
     };
     const { name, line } = $derived(NAMES[row]);
     const on = $derived(isOn(sheet, row));

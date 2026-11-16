@@ -131,7 +131,7 @@ def _add_play_card(router: APIRouter, tables: TableService, presence: Presence) 
 
         The card comes from the legal cards of read_table or your table's view. Refused: a stale version, a card that is
         not legal, not the caller's turn, a first card that waits for a Kontra word or its decline, an opponent's
-        give-up waiting for the declarer.
+        request waiting for its answer.
         """
         command = PlayCardCommand(
             command_id=body.command_id, table_id=table_id, version=body.version, card=card_of(body)
@@ -156,15 +156,16 @@ def _add_give_up(router: APIRouter, tables: TableService, presence: Presence) ->
     ) -> Response | TableAnswer:
         """Give up the game for the caller's side, as the declarer or as an opponent; this cannot be undone.
 
-        As the declarer: while the caller's chair holds nine or more cards the game is lost at once, valued as declared.
-        With fewer, the opponents are asked: `hand.playing.give_up` in read_table names the asking seat and an
-        opponent's seat that said no. The game ends once one opponent agrees, lost as declared, or won as it stands if
-        the caller's tricks and the skat already win it. A card played, or a no from both, ends the request and play
-        goes on. From an opponent's chair it gives up your side's defence at any moment: the game waits for the
-        declarer, who accepts the end or demands play on; meanwhile no card is taken. Use it once a declared game is
-        played (`hand.declaring.declaration` is set in the answer of read_table or the state of your table's view), from
-        any chair of the table that is marked `is_mine`, on anyone's turn. Refused: a stale version, another request
-        waiting.
+        As the declarer: while the caller's chair holds nine or more cards, or at any time where the table's
+        `options.give_up.any_time` is true, the game is lost at once, valued as declared. With fewer, the opponents are
+        asked: `hand.playing.give_up` in read_table names the asking seat and an opponent's seat that said no. The game
+        ends once one opponent agrees, lost as declared, or won as it stands if the caller's tricks and the skat already
+        win it. A card played, or a no from both, ends the request and play goes on. From an opponent's chair it gives
+        up your side's defence at any moment and binds your partner: the game ends at once, won for the declarer. Where
+        the table's `options.give_up.partner_agrees` is true it waits for your partner instead, who agrees or keeps the
+        game going; meanwhile no card is taken. Use it once a declared game is played (`hand.declaring.declaration` is
+        set in the answer of read_table or the state of your table's view), from any chair of the table that is marked
+        `is_mine`, on anyone's turn. Refused: a stale version, another request waiting.
         """
         command = GiveUpCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(
@@ -267,17 +268,19 @@ def _add_agree_to_give_up(router: APIRouter, tables: TableService, presence: Pre
     async def agree_to_give_up(
         table_id: TableIdInPath, body: AgreeToGiveUpRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
-        """Agree to the other side's give-up or shortening: from an opponent's chair that the declarer gives up or
-        shortens, from the declarer's chair that the opponents give up; the game ends at once and joins the list.
+        """Agree to a give-up or shortening: from an opponent's chair that the declarer gives up or shortens or that
+        the partner gives up for both, from the declarer's chair to an opponent's wrong open play; the game ends at
+        once and joins the list.
 
         When the declarer gave up it is lost for him as declared, or won as it stands if his tricks and the skat already
-        win it; one opponent's yes is enough, also after saying no. When the opponents gave up it is won for him as
-        declared plus the level the bid forces, unless the game was already decided; the declarer's yes to an opponent's
-        wrong open play (`hand.playing.open_play_seat`) ends it the same way. This cannot be undone. Use it while
-        `hand.playing.give_up`, `hand.playing.shortening` or `hand.playing.open_play_seat` is set in the answer of
+        win it; one opponent's yes is enough, also after saying no. When the partner gave up it is won for the declarer
+        as declared plus the level the bid forces, unless the game was already decided; the declarer's yes to an
+        opponent's wrong open play (`hand.playing.open_play_seat`) ends it the same way. This cannot be undone. Use it
+        while `hand.playing.give_up`, `hand.playing.shortening` or `hand.playing.open_play_seat` is set in the answer of
         read_table or the state of your table's view. The declarer's shortening needs the yes of both opponents: the
         first is kept in `hand.playing.shortening`, a second yes of the same opponent is refused as already answered.
-        Refused: a stale version, nothing asked, the asking side's own chair, not seated.
+        Refused: a stale version, nothing asked, the asking chair, the declarer's chair to the partner's give-up, not
+        seated.
         """
         command = AgreeToGiveUpCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(
@@ -298,12 +301,11 @@ def _add_decline_give_up(router: APIRouter, tables: TableService, presence: Pres
     async def decline_give_up(
         table_id: TableIdInPath, body: DeclineGiveUpRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
-        """Say no to the other side's give-up or shortening: from an opponent's chair to the declarer's request, from
-        the declarer's chair to the opponents' give-up, which demands play on; play goes on and the request counts as
-        not made.
+        """Say no to a give-up or shortening: from an opponent's chair to the declarer's request or to the partner's
+        give-up, which keeps the game going; play goes on and the request counts as not made.
 
         Once both opponents said no to the declarer's give-up it ends, and a second no from the same chair changes
-        nothing; the declarer's no ends the opponents' give-up at once. One opponent's no ends the declarer's shortening
+        nothing; the partner's no ends his partner's give-up at once. One opponent's no ends the declarer's shortening
         at once and opens the declarer's remaining cards to every viewer. The declarer's no to an opponent's wrong open
         play demands play on and opens that opponent's remaining cards to every viewer (`hand.playing.open_hands`). Use
         it while `hand.playing.give_up`, `hand.playing.shortening` or `hand.playing.open_play_seat` is set in the answer
@@ -334,7 +336,7 @@ def _add_throw_down(router: APIRouter, tables: TableService, presence: Presence)
         included, counts for the other side, and the skat for the declarer. No card is shown. Use it from the caller's
         chair once a declared game is played (`hand.declaring.declaration` is set in the answer of read_table or the
         state of your table's view), on anyone's turn, as declarer or as opponent. Refused: a stale version, no game in
-        play, not seated, an opponent's give-up waiting for the declarer.
+        play, not seated, an opponent's request waiting for its answer.
         """
         command = ThrowDownCommand(command_id=body.command_id, table_id=table_id, version=body.version)
         return await command_answer(

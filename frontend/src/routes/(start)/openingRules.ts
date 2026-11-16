@@ -7,7 +7,13 @@ import type { Options, OptionsRequest } from "./tables.ts";
 export type RuleRow = RuleId;
 type Trigger = (typeof BOCK_TRIGGER_TOKENS)[number];
 
-export const OFFICIAL: Options = { show_running_points: false, kontra: null, bock: null, ramsch: null };
+export const OFFICIAL: Options = {
+    show_running_points: false,
+    kontra: null,
+    bock: null,
+    ramsch: null,
+    give_up: { partner_agrees: false, any_time: false },
+};
 
 // The values a rule starts with where the picked set does not hold it, from the one owner in Python.
 const START: { [Rule in "kontra" | "bock" | "ramsch"]: NonNullable<Options[Rule]> } = {
@@ -24,6 +30,10 @@ export function isOn(sheet: Options, row: RuleRow): boolean {
             return sheet.show_running_points;
         case "pushing":
             return (sheet.ramsch?.pushing ?? null) !== null;
+        case "giveUpPartner":
+            return sheet.give_up.partner_agrees;
+        case "giveUpAnyTime":
+            return sheet.give_up.any_time;
         default:
             return sheet[row] !== null;
     }
@@ -65,6 +75,10 @@ export function switchRule(sheet: Options, row: RuleRow, on: boolean, picked: Op
                 ...ramsch,
                 pushing: on ? (picked.ramsch?.pushing ?? START.ramsch.pushing) : null,
             }));
+        case "giveUpPartner":
+            return { ...sheet, give_up: { ...sheet.give_up, partner_agrees: on } };
+        case "giveUpAnyTime":
+            return { ...sheet, give_up: { ...sheet.give_up, any_time: on } };
     }
 }
 
@@ -216,6 +230,7 @@ export function requestOf(sheet: Options): OptionsRequest | undefined {
         ...(sheet.kontra === null ? {} : { kontra: sheet.kontra }),
         ...(sheet.bock === null ? {} : { bock: sheet.bock }),
         ...(sheet.ramsch === null ? {} : { ramsch: sheet.ramsch }),
+        ...(sheet.give_up.partner_agrees || sheet.give_up.any_time ? { give_up: sheet.give_up } : {}),
     };
     return Object.keys(request).length === 0 ? undefined : request;
 }
@@ -226,7 +241,14 @@ export function differs(sheet: Options, picked: Options): boolean {
 }
 
 function held(options: Options, rule: Exclude<ChipId, "official">): unknown {
-    return rule === "points" ? options.show_running_points : options[rule];
+    switch (rule) {
+        case "points":
+            return options.show_running_points;
+        case "giveUp":
+            return options.give_up;
+        default:
+            return options[rule];
+    }
 }
 
 // The picked set's name with the rules that are on and changed after it; a sheet that only switched rules off is

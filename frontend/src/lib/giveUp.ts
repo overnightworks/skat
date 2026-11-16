@@ -1,5 +1,4 @@
 import type { Cue } from "#lib/cues.ts";
-import { keyWord } from "#lib/kontra.ts";
 import { handWaits, type SeatNotice } from "#lib/openChair.ts";
 import { gameInPlay } from "#lib/playView.ts";
 import { LEVEL_WORDS } from "#lib/result.ts";
@@ -65,9 +64,8 @@ export type GiveUpView = {
     cardsHeld: boolean;
 };
 
-// What the strip beside „Aufgeben“ offers a seated person: the declarer's „Abkürzen“ and an opponent's „Offen spielen“,
-// each while a declared game is played, no chair is open, no request stands and no Kontra word is offered, whose key
-// leaves the strip no room for a second one on a phone.
+// The menu row a seated person has beside „Aufgeben“: the declarer's „Abkürzen“ and an opponent's „Offen spielen“,
+// each while a declared game is played, no chair is open and no request stands.
 export function shortenKey(table: Table): boolean {
     return requestKeyHolder(table) === "declarer";
 }
@@ -79,14 +77,7 @@ export function playOpenKey(table: Table): boolean {
 function requestKeyHolder(table: Table): "declarer" | "opponent" | null {
     const inPlay = gameInPlay(table);
     const viewerSeat = table.chairs.find((chair) => chair.is_mine)?.seat;
-    const offeredAKontraWord = keyWord(table) !== null;
-    if (
-        inPlay === null ||
-        viewerSeat === undefined ||
-        handWaits(table.hand) ||
-        offeredAKontraWord ||
-        requestStands(inPlay.playing)
-    )
+    if (inPlay === null || viewerSeat === undefined || handWaits(table.hand) || requestStands(inPlay.playing))
         return null;
     return viewerSeat === inPlay.declarerSeat ? "declarer" : "opponent";
 }
@@ -116,11 +107,10 @@ type Asked = {
     chairs: readonly Chair[];
 };
 
-function whoIsAsked(table: Table, declarerSeat: number, askerSeat: number): Asked {
-    const seats = table.chairs.map((chair) => chair.seat);
+function whoIsAsked(table: Table, askerSeat: number, answererSeats: number[]): Asked {
     return {
         askerSeat,
-        answererSeats: askerSeat === declarerSeat ? seats.filter((seat) => seat !== declarerSeat) : [declarerSeat],
+        answererSeats,
         viewerSeat: table.chairs.find((chair) => chair.is_mine)?.seat,
         chairs: table.chairs,
     };
@@ -128,20 +118,26 @@ function whoIsAsked(table: Table, declarerSeat: number, askerSeat: number): Aske
 
 const NO_DEMAND = { demand: null, waitsFor: null } as const;
 
-// The answerers are the side that did not ask; while a chair is open the request is not the plaque's to show.
+// The opponents answer the declarer's request, the partner an opponent's give-up and the declarer an opponent's wrong
+// open play; while a chair is open the request is not the plaque's to show.
 export function giveUpView(table: Table): GiveUpView | null {
     const inPlay = gameInPlay(table);
     if (inPlay === null || handWaits(table.hand)) return null;
     const { playing, declarerSeat } = inPlay;
-    if (playing.give_up)
-        return giveUpRequestView(
-            whoIsAsked(table, declarerSeat, playing.give_up.asking_seat),
-            playing.give_up,
-            declarerSeat,
-        );
+    const seats = table.chairs.map((chair) => chair.seat);
+    const othersThan = (...asking: number[]) => seats.filter((seat) => !asking.includes(seat));
+    if (playing.give_up) {
+        const askerSeat = playing.give_up.asking_seat;
+        const answererSeats =
+            askerSeat === declarerSeat ? othersThan(declarerSeat) : othersThan(askerSeat, declarerSeat);
+        return giveUpRequestView(whoIsAsked(table, askerSeat, answererSeats), playing.give_up, declarerSeat);
+    }
     if (playing.shortening)
-        return shorteningView(whoIsAsked(table, declarerSeat, playing.shortening.asking_seat), playing.shortening);
-    if (playing.open_play_seat !== null) return openPlayView(whoIsAsked(table, declarerSeat, playing.open_play_seat));
+        return shorteningView(
+            whoIsAsked(table, playing.shortening.asking_seat, othersThan(declarerSeat)),
+            playing.shortening,
+        );
+    if (playing.open_play_seat !== null) return openPlayView(whoIsAsked(table, playing.open_play_seat, [declarerSeat]));
     return null;
 }
 

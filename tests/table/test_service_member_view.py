@@ -22,11 +22,13 @@ from skat.table.records import (
     EndedTable,
     Ending,
     EndProposal,
+    GiveUpOptions,
     HandProgress,
     OccupantKind,
     SitDown,
     StandUp,
     TableId,
+    TableOptions,
 )
 from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
@@ -251,7 +253,7 @@ class TestTheAcceptedActsNoFlowDrivesRaiseTheRevision:
                 asked_by_the_declarer(), Position.REARHAND, agree_to_give_up, True, id="4-agree-then-the-result"
             ),
             pytest.param(
-                table_in(declared_herz_hand()), Position.FOREHAND, give_up, False, id="8-an-opponents-give-up"
+                table_in(declared_herz_hand()), Position.FOREHAND, give_up, True, id="8-give-up-then-the-result"
             ),
             pytest.param(
                 between_games(1, 2, 3, proposal=EndProposal(1)), Position.REARHAND, refuse_to_end, False, id="7-refuse"
@@ -270,13 +272,13 @@ class TestTheAcceptedActsNoFlowDrivesRaiseTheRevision:
         assert after.view.version > before.view.version
         assert after.awaits_you is awaits_after
 
-    def test_after_an_opponents_give_up_the_declarer_is_awaited_and_no_other_seat(self):
-        scene = Scene().put(table_in(declared_herz_hand()))
+    def test_after_an_opponents_give_up_his_partner_is_awaited_and_no_other_seat_where_the_partner_must_agree(self):
+        scene = Scene().put(table_in(declared_herz_hand(), TableOptions(give_up=GiveUpOptions(partner_agrees=True))))
         give_up(scene.service, an_actor(Position.FOREHAND), scene.table_id, scene.table.version)
 
         awaiting = {position for position in Position if scene.view_of(an_actor(position).account_id).awaits_you}
 
-        assert awaiting == {Position.MIDDLEHAND}
+        assert awaiting == {Position.REARHAND}
 
     def test_the_same_act_again_raises_nothing(self):
         scene = Scene().put(between_games(2, 3))

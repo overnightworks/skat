@@ -24,6 +24,7 @@ describe("the Bock chip", () => {
                     kontra: null,
                     ramsch: null,
                     bock: { triggers: ["sixty-sixty"], overlap: "append" },
+                    give_up: { partner_agrees: false, any_time: false },
                 },
                 bock: { games_left: GAMES_LEFT, factor: 2 },
             },

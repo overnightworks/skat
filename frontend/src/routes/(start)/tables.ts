@@ -279,9 +279,11 @@ export type Options = {
         durchmarsch: (typeof DURCHMARSCH_TOKENS)[number];
         pushing: { rule: (typeof PUSHING_RULE_TOKENS)[number]; grand_hand: (typeof GRAND_HAND_TOKENS)[number] } | null;
     } | null;
+    // The two special rules of giving up, each off where the table plays the ISkO.
+    give_up: { partner_agrees: boolean; any_time: boolean };
 };
-// What an opener sends: a rule that is off is left out, and the running points only when they are on.
-export type OptionsRequest = { show_running_points?: true } & {
+// What an opener sends: a rule that is off is left out, the running points and the give-up rules only when on.
+export type OptionsRequest = { show_running_points?: true; give_up?: Options["give_up"] } & {
     [Rule in "kontra" | "bock" | "ramsch"]?: NonNullable<Options[Rule]>;
 };
 // The Bock games still to come, the running one included, and what the running or next game's list score is multiplied

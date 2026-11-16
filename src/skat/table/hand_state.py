@@ -119,9 +119,10 @@ def game_of(table: TableRecord) -> Playing | RamschPlaying | None:
     return ramsch_after(start_ramsch(stage.deal), table.progress.plays)
 
 
-def game_waits_for_the_declarers_answer(state: Playing | RamschPlaying | None, asked: GiveUpAsked | None) -> bool:
-    """True when an opponent's give-up stands: the game is over by ISkO 4.4.3 unless the declarer demands play on, so
-    no card, throw-down, Kontra word or give-up is taken until he answers. A Ramsch and a game not played have none.
+def an_opponents_request_stands(state: Playing | RamschPlaying | None, asked: GiveUpAsked | None) -> bool:
+    """True when an opponent's request stands: his give-up waiting for his partner's yes at a table whose special rule
+    wants it, or his wrong open play waiting for the declarer. No card, throw-down, Kontra word or give-up is taken
+    until it is answered. A Ramsch and a game not played have none.
     """
     return isinstance(state, Playing) and asked is not None and asked.asker is not state.declared.declarer
 

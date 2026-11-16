@@ -41,7 +41,7 @@
     const offered = $derived(differs(sheet, pickedOptions));
     const name = $derived(typedName ?? suggestedName(picked?.name ?? words["start.setOfficial"], sheet, pickedOptions));
     const rows = $derived(
-        (["points", "kontra", "ramsch", "pushing", "bock"] as const).filter(
+        (["points", "kontra", "ramsch", "pushing", "bock", "giveUpPartner", "giveUpAnyTime"] as const).filter(
             (row) => row !== "pushing" || isOn(sheet, "ramsch"),
         ),
     );

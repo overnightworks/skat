@@ -115,10 +115,10 @@ class TestTheWaitingCase:
             pytest.param(asked_by_the_declarer(None), REARHAND, WaitingCase.GIVE_UP, id="an-unanswered-give-up"),
             pytest.param(asked_by_the_declarer(None), FOREHAND, WaitingCase.TURN, id="the-turn-before-the-give-up"),
             pytest.param(
-                asked_by_an_opponent(), MIDDLEHAND, WaitingCase.GIVE_UP, id="the-declarer-on-an-opponents-give-up"
+                asked_by_an_opponent(), REARHAND, WaitingCase.GIVE_UP, id="the-partner-on-an-opponents-give-up"
             ),
             pytest.param(
-                asked_by_an_opponent(), FOREHAND, None, id="nothing-for-the-seat-on-turn-while-the-declarer-is-asked"
+                asked_by_an_opponent(), MIDDLEHAND, None, id="nothing-for-the-seat-on-turn-while-the-partner-is-asked"
             ),
             pytest.param(
                 asked_by_an_opponent(open_play=True),
@@ -255,14 +255,21 @@ class TestAShorteningQuestion:
 
 
 class TestAnOpponentsGiveUp:
-    @pytest.mark.parametrize("opponent", [Position.FOREHAND, Position.REARHAND], ids=lambda opponent: opponent.name)
-    def test_the_declarer_alone_is_awaited_not_the_seat_on_turn_nor_the_asker_nor_the_other_opponent(self, opponent):
-        assert waiting_for(asked_by_an_opponent(opponent)) == {MIDDLEHAND}
+    @pytest.mark.parametrize(
+        ("opponent", "partner"),
+        [(Position.FOREHAND, REARHAND), (Position.REARHAND, FOREHAND)],
+        ids=["forehand-asks", "rearhand-asks"],
+    )
+    def test_his_partner_alone_is_awaited_not_the_seat_on_turn_nor_the_asker_nor_the_declarer(self, opponent, partner):
+        assert waiting_for(asked_by_an_opponent(opponent)) == {partner}
 
-    def test_an_opponent_with_a_kontra_word_open_is_not_awaited(self):
+    def test_the_declarer_alone_is_awaited_on_an_opponents_wrong_open_play(self):
+        assert waiting_for(asked_by_an_opponent(open_play=True)) == {MIDDLEHAND}
+
+    def test_the_kontra_word_the_asker_has_open_is_not_awaited(self):
         assert waiting_for(kontra_hand()) == {FOREHAND, REARHAND}
 
-        assert waiting_for(asked_by_an_opponent(options=KONTRA_OPTIONS)) == {MIDDLEHAND}
+        assert waiting_for(asked_by_an_opponent(options=KONTRA_OPTIONS)) == {REARHAND}
 
     def test_the_seat_on_turn_is_awaited_again_once_the_give_up_is_gone(self):
         asked = asked_by_an_opponent()
@@ -358,7 +365,7 @@ class TestTheAwaitedSeats:
                 asked_by_the_declarer(Position.REARHAND), {3}, id="a-declarers-give-up-the-opponent-unanswered"
             ),
             pytest.param(asked_by_the_declarer(None), {2, 3}, id="a-declarers-give-up-both-opponents"),
-            pytest.param(asked_by_an_opponent(), {1}, id="an-opponents-give-up-the-declarer-alone"),
+            pytest.param(asked_by_an_opponent(), {2}, id="an-opponents-give-up-his-partner-alone"),
             pytest.param(
                 asked_by_an_opponent(open_play=True), {1}, id="an-opponents-wrong-open-play-the-declarer-alone"
             ),

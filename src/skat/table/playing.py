@@ -11,9 +11,9 @@ from skat.table.bock import bock_after
 from skat.table.game_cards import SeatedCard, game_cards_of
 from skat.table.game_list import GameEnding, list_entry_of, ramsch_entry_of
 from skat.table.hand_state import (
+    an_opponents_request_stands,
     doubling_of,
     game_of,
-    game_waits_for_the_declarers_answer,
     playing_of,
     positions_the_first_card_waits_on,
 )
@@ -187,7 +187,7 @@ def decide_card(table: TableRecord, actor: Actor, command: PlayCardCommand) -> D
     state = game_of(table)
     if state is None:
         return Decision(table, Refusal.WRONG_PHASE)
-    if game_waits_for_the_declarers_answer(state, table.progress.give_up):
+    if an_opponents_request_stands(state, table.progress.give_up):
         return Decision(table, Refusal.REQUEST_PENDING)
     if positions_the_first_card_waits_on(table):
         return Decision(table, KontraRefusal.WORDS_DUE)
@@ -223,10 +223,12 @@ def give_up_payload(command: GiveUpCommand) -> str:
 def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> Decision:
     """The caller gives up for his side: no hand, no chair, a stale version, the wrong phase, another request waiting.
 
-    The declarer's give-up is decided last by the engine, which says whether the game ends at once. Where it asks for
-    consent, the request is stored and the opponents are asked; a request already standing changes nothing. An
-    opponent's give-up is stored at any moment and the declarer is asked; the other opponent's changes nothing. While
-    an opponent's wrong open play waits for the declarer, every give-up is refused as pending.
+    The declarer's give-up is decided last by the engine, which says whether the game ends at once, freely at any
+    time at a table whose special rule says so. Where it asks for consent, the request is stored and the opponents are
+    asked; a request already standing changes nothing. An opponent's give-up ends the game at once and binds his
+    partner (ISkO 4.4.3); at a table whose special rule wants the partner's yes it is stored and the partner is asked,
+    and while it stands either opponent's give-up changes nothing. While an opponent's wrong open play waits for the
+    declarer, every give-up is refused as pending.
     """
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
@@ -235,16 +237,22 @@ def decide_give_up(table: TableRecord, actor: Actor, command: GiveUpCommand) -> 
     if state is None:
         return Decision(table, Refusal.WRONG_PHASE)
     asked = table.progress.give_up
-    waits = game_waits_for_the_declarers_answer(state, asked)
+    waits = an_opponents_request_stands(state, asked)
     if position is state.declared.declarer:
         return Decision(table, Refusal.REQUEST_PENDING) if waits else _declarer_gives_up(table, state, asked)
     if asked is None:
-        return _with_request(table, GiveUpAsked(position))
+        return _opponent_gives_up(table, state, position)
     return Decision(table) if waits and not asked.open_play else Decision(table, Refusal.REQUEST_PENDING)
 
 
+def _opponent_gives_up(table: TableRecord, state: Playing, position: Position) -> Decision:
+    if table.options.give_up.partner_agrees:
+        return _with_request(table, GiveUpAsked(position))
+    return _end_of(table, opponent_gives_up(state), GameEnding.GIVEN_UP, position)
+
+
 def _declarer_gives_up(table: TableRecord, state: Playing, asked: GiveUpAsked | None) -> Decision:
-    outcome = give_up(state)
+    outcome = give_up(state, any_time=table.options.give_up.any_time)
     if outcome.refusal is not PlayRefusal.NEEDS_CONSENT:
         return _end_of(table, outcome, GameEnding.GIVEN_UP, state.declared.declarer)
     if asked is not None:
@@ -286,7 +294,7 @@ def decide_shorten(table: TableRecord, actor: Actor, command: ShortenCommand) ->
     if position is not state.declared.declarer:
         return Decision(table, Refusal.NOT_DECLARER)
     asked = table.progress.give_up
-    if asked is not None and (game_waits_for_the_declarers_answer(state, asked) or asked.claim != command.claim):
+    if asked is not None and (an_opponents_request_stands(state, asked) or asked.claim != command.claim):
         return Decision(table, Refusal.REQUEST_PENDING)
     outcome = shorten(state, claim=command.claim)
     if outcome.refusal is PlayRefusal.CLAIM_OUT_OF_REACH:
@@ -336,8 +344,9 @@ def decline_give_up_payload(command: DeclineGiveUpCommand) -> str:
 def _answerer(
     table: TableRecord, actor: Actor, version: int
 ) -> tuple[Playing, GiveUpAsked, Position] | Refusal | PlayRefusal:
-    """Who may answer a request: no hand, no chair, a stale version, the wrong phase, nothing asked, then the other
-    side than the one that asked: an opponent for the declarer's request, the declarer for an opponent's.
+    """Who may answer a request: no hand, no chair, a stale version, the wrong phase, nothing asked, then an opponent
+    for the declarer's request, the partner for an opponent's give-up and the declarer for an opponent's wrong open
+    play.
     """
     position = acting_position(table, actor, version)
     if isinstance(position, Refusal):
@@ -348,16 +357,19 @@ def _answerer(
     asked = table.progress.give_up
     if asked is None:
         return Refusal.NO_REQUEST
-    if game_waits_for_the_declarers_answer(state, asked):
+    if an_opponents_request_stands(state, asked) and asked.open_play:
         return (state, asked, position) if position is state.declared.declarer else Refusal.NOT_DECLARER
     if position is state.declared.declarer:
         return PlayRefusal.NOT_AN_OPPONENT
+    if position is asked.asker:
+        return Refusal.ALREADY_ANSWERED
     return state, asked, position
 
 
 def decide_agree_to_give_up(table: TableRecord, actor: Actor, command: AgreeToGiveUpCommand) -> Decision:
-    """The other side says yes: the game ends as the engine settles the give-up, by the seat that asked; the declarer's
-    yes to an opponent's wrong open play settles it the same way and writes it as played open. The declarer's
+    """The other side says yes: the game ends as the engine settles the give-up, by the seat that asked; the partner's
+    yes to an opponent's give-up and the declarer's yes to an opponent's wrong open play settle it as the opponents'
+    give-up, written as given up or played open. The declarer's
     shortening needs both opponents' yes: the first is kept, the same opponent's again is refused as already
     answered, and the other's ends the game as the engine settles the shortening.
     """
@@ -365,7 +377,7 @@ def decide_agree_to_give_up(table: TableRecord, actor: Actor, command: AgreeToGi
     if not isinstance(answering, tuple):
         return Decision(table, answering)
     state, asked, position = answering
-    if game_waits_for_the_declarers_answer(state, asked):
+    if an_opponents_request_stands(state, asked):
         ending = GameEnding.PLAYED_OPEN if asked.open_play else GameEnding.GIVEN_UP
         return _end_of(table, opponent_gives_up(state), ending, asked.asker)
     if asked.claim is not None:
@@ -384,17 +396,17 @@ def _agree_to_shortening(
 
 
 def decide_decline_give_up(table: TableRecord, actor: Actor, command: DeclineGiveUpCommand) -> Decision:
-    """The other side says no. The declarer's no to an opponent's give-up demands play on: the request ends; to an
-    opponent's wrong open play it ends the request too and leaves that opponent's cards open for the rest of the
-    hand. An opponent's no to the declarer's give-up keeps the request for the other opponent, whose no ends it; a
-    second no of the same opponent changes nothing. An opponent's no to the declarer's shortening ends it at once, and
-    the game goes on scored by its play alone, with the declarer's cards open for the rest of the hand.
+    """The other side says no. The partner's no to an opponent's give-up keeps the game going: the request ends. The
+    declarer's no to an opponent's wrong open play ends the request too and leaves that opponent's cards open for the
+    rest of the hand. An opponent's no to the declarer's give-up keeps the request for the other opponent, whose no
+    ends it; a second no of the same opponent changes nothing. An opponent's no to the declarer's shortening ends it at
+    once, and the game goes on scored by its play alone, with the declarer's cards open for the rest of the hand.
     """
     answering = _answerer(table, actor, command.version)
     if not isinstance(answering, tuple):
         return Decision(table, answering)
     state, asked, position = answering
-    if game_waits_for_the_declarers_answer(state, asked):
+    if an_opponents_request_stands(state, asked):
         return _with_the_open_hand(table, asked.asker) if asked.open_play else _with_request(table, None)
     if asked.claim is not None:
         return _with_the_cards_open(table, position)
@@ -420,7 +432,7 @@ def decide_throw_down(table: TableRecord, actor: Actor, command: ThrowDownComman
     state = playing_of(table)
     if state is None:
         return Decision(table, Refusal.WRONG_PHASE)
-    if game_waits_for_the_declarers_answer(state, table.progress.give_up):
+    if an_opponents_request_stands(state, table.progress.give_up):
         return Decision(table, Refusal.REQUEST_PENDING)
     return _end_of(table, throw_down(state, position), GameEnding.THROWN_DOWN, position)
 
@@ -493,7 +505,7 @@ def playing_view_of(
 
     Everyone sees the turn, the trick in progress, the last completed trick and how many tricks each seat has taken.
     Only the seated player on turn gets the cards they may play, and nobody while the hand waits for a sitter or the
-    game for the declarer's answer to an opponent's give-up, which the caller says by passing no viewer position.
+    game for the answer to an opponent's request, which the caller says by passing no viewer position.
     A table that shows the running points gives everyone the card points of the completed tricks, which leave out
     the skat; a Null game and a Ramsch have none. The words said are the caller's `kontra` view.
     A give-up, a shortening or a wrong open play waiting for the other side's answer, the opponent whose no to a

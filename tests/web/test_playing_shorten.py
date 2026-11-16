@@ -398,10 +398,12 @@ class TestWhatTheDeclarerMayAsk:
         assert ended.act(TABLE_THROW_DOWN_SUFFIX, ended.at[MIDDLEHAND]).status_code == 200
         ended.refused_act(TABLE_SHORTEN_SUFFIX, ended.at[MIDDLEHAND], Refusal.NO_HAND)
 
-    def test_a_shortening_while_an_opponents_give_up_waits_for_the_declarer_is_pending(self, herz_hand):
-        assert herz_hand.act(TABLE_GIVE_UP_SUFFIX, herz_hand.at[FOREHAND]).status_code == 200
+    def test_a_shortening_while_an_opponents_give_up_waits_for_his_partner_is_pending(self, skat):
+        partner_table = Table(skat, options={"give_up": {"partner_agrees": True}})
+        partner_table.declared_hand_game()
+        assert partner_table.act(TABLE_GIVE_UP_SUFFIX, partner_table.at[FOREHAND]).status_code == 200
 
-        herz_hand.refused_act(TABLE_SHORTEN_SUFFIX, herz_hand.at[MIDDLEHAND], Refusal.REQUEST_PENDING)
+        partner_table.refused_act(TABLE_SHORTEN_SUFFIX, partner_table.at[MIDDLEHAND], Refusal.REQUEST_PENDING)
 
     def test_a_shortening_while_the_declarers_own_give_up_stands_is_pending_and_so_is_the_give_up_the_other_way(
         self, herz_hand
