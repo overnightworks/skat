@@ -64,15 +64,14 @@ from skat.table.game_list import RamschResultView, ResultView
 from skat.table.member_place import Acceptance, MembershipState
 from skat.table.nudging import own_nudges
 from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS
-from skat.web.mcp import ToolRefusal, token_carries_agent_facts, tool_step
+from skat.web.mcp import token_carries_agent_facts
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, actor_for, answer_of
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Collection, Iterable
+    from collections.abc import Awaitable, Callable, Collection, Coroutine, Iterable
 
     from agents.mcp_server import MemberResources
     from agents.tools import JsonObject
-    from logline import StepTimer
 
     from skat.table.member_place import TableStanding
     from skat.table.member_view import MemberActs, MemberView, ViewSignal
@@ -107,8 +106,7 @@ refusal codes have none for it, so no code stands in its place.
 """
 
 
-def _refused(refusal: AcceptInvitationRefusal, step: StepTimer) -> ToolOutcome:
-    step.refuse(refusal.value)
+def _refused(refusal: AcceptInvitationRefusal) -> ToolOutcome:
     return ToolOutcome(AcceptInvitationRefused(refused=refusal).model_dump_json(), is_error=True)
 
 
@@ -298,7 +296,7 @@ class MemberStandings:
         if not self._asks.is_current(table_id, version):
             return
         try:
-            self._changes.changed(principal, uri)
+            await self._changes.changed(principal, uri)
         except Exception as failure:
             logger.error(SIGNAL_FAILED_EVENT, error_type=type(failure).__name__)
 
@@ -317,17 +315,12 @@ def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTo
     """
 
     async def handler(request: PersonRequest, arguments: JsonObject) -> ToolOutcome:
-        async with tool_step(ACCEPT_INVITATION_TOOL) as step:
-            return await take(request, arguments, step)
-
-    async def take(request: PersonRequest, arguments: JsonObject, step: StepTimer) -> ToolOutcome:
         try:
             accepted = AcceptInvitationArguments.model_validate_json(json.dumps(arguments))
         except ValidationError:
-            step.refuse(ToolRefusal.MALFORMED_ARGUMENTS)
             return ToolOutcome(_MALFORMED_ACCEPT_TEXT, is_error=True)
         if accepted.place.kind != TABLE_PLACE_KIND:
-            return _refused(AcceptInvitationRefusal.STALE_INVITATION, step)
+            return _refused(AcceptInvitationRefusal.STALE_INVITATION)
         table_id = accepted.place.id
         user = resource_person(HTTPConnection(request.scope))
         acceptance = Acceptance(table_id, accepted.invitation, accepted.epoch)
@@ -336,7 +329,7 @@ def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTo
             partial(tables.accept_invitation, actor_for(user), owner_account, acceptance, presence.connected(table_id))
         )
         if result.refusal is not None:
-            return _refused(AcceptInvitationRefusal(result.refusal.value), step)
+            return _refused(AcceptInvitationRefusal(result.refusal.value))
         presence.wake_table(table_id)
         presence.chair_taken(table_id)
         if result.result_pending:
@@ -347,14 +340,16 @@ def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTo
     return PersonTool(ACCEPT_INVITATION_DECLARATION, handler)
 
 
-def _pulse(issuer: str, accounts: frozenset[str], change: Callable[[Principal], None]) -> None:
+def _pulse(
+    issuer: str, accounts: frozenset[str], change: Callable[[Principal], Coroutine[object, object, None]]
+) -> None:
     """Hands each account's `change` to the front's event loop, where `ResourceChanges` lives, from a worker thread.
     The change has committed, so a failure is logged by its type and never turns the command into an error; the
     listener's next listen reads today's truth.
     """
     for account in accounts:
         try:
-            anyio.from_thread.run_sync(change, Principal(iss=issuer, sub=account))
+            anyio.from_thread.run(change, Principal(iss=issuer, sub=account))
         except Exception as failure:
             logger.error(SIGNAL_FAILED_EVENT, error_type=type(failure).__name__)
 
@@ -384,16 +379,16 @@ def tools_signal(changes: ResourceChanges, issuer: str) -> Callable[[frozenset[s
     return tell
 
 
-def nudge_signal(changes: ResourceChanges, issuer: str) -> Callable[[str, str], None]:
+def nudge_signal(changes: ResourceChanges, issuer: str) -> Callable[[str, str], Awaitable[None]]:
     """The signal of a nudge that reached an agent's seat: the agent is told at once on its view's URI. It runs on the
     event loop's thread, where `ResourceChanges` lives, and a failure is logged by its type: the agent's next read
     shows the nudge.
     """
 
-    def tell(table_id: str, account_id: str) -> None:
+    async def tell(table_id: str, account_id: str) -> None:
         place = PlaceRef(kind=TABLE_PLACE_KIND, id=table_id)
         try:
-            changes.changed(Principal(iss=issuer, sub=account_id), place_view_uri(place))
+            await changes.changed(Principal(iss=issuer, sub=account_id), place_view_uri(place))
         except Exception as failure:
             logger.error(SIGNAL_FAILED_EVENT, error_type=type(failure).__name__)
 

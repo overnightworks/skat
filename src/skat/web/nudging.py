@@ -18,7 +18,7 @@ from skat.web.mcp import NUDGE_SEAT_MARK
 from skat.web.tables import TABLES_PATH, RefusalAnswer, TableAnswer, actor_of, answer_of
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
     from skat.table.service import TableService
     from skat.web.presence import Presence
@@ -43,7 +43,7 @@ class NudgeBody(BaseModel):
 
 
 def create_nudging_router(
-    tables: TableService, presence: Presence, tell_agent: Callable[[str, str], None]
+    tables: TableService, presence: Presence, tell_agent: Callable[[str, str], Awaitable[None]]
 ) -> APIRouter:
     """The nudge route; `tell_agent(table_id, account_id)` tells an agent its view changed, on the event loop."""
     router = APIRouter()
@@ -93,7 +93,7 @@ def create_nudging_router(
         if made:
             agent = await run_in_threadpool(tables.agent_in_chair, table_id, body.seat)
             if agent is not None:
-                tell_agent(table_id, agent)
+                await tell_agent(table_id, agent)
         return answer
 
     return router
