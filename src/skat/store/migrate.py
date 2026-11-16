@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Collection
 
     from alembic.runtime.migration import MigrationInfo
-    from alembic.script import Script
+    from alembic.script.revision import Revision
 
 MIGRATIONS_DIRECTORY: Final = Path(__file__).parent / "migrations"
 # Serialises concurrent `skat migrate` runs; any constant shared by all of them does.
@@ -116,11 +116,12 @@ def _head_revision() -> str | None:
     return ScriptDirectory.from_config(_alembic_config()).get_current_head()
 
 
-def declares_contraction(script: Script) -> bool:
+def declares_contraction(script: Revision | None) -> bool:
     """Whether the revision's file declares `CONTRACTS = True`, which exempts it from the check that migrations only
-    expand and makes `ServingWindow` count it as a contraction.
+    expand and makes `ServingWindow` count it as a contraction. Alembic types a step's revision as a bare `Revision`,
+    which carries no file; the one it hands in is a `Script`, which does.
     """
-    return bool(getattr(script.module, "CONTRACTS", False))
+    return bool(getattr(getattr(script, "module", None), "CONTRACTS", False))
 
 
 @dataclass(frozen=True)
