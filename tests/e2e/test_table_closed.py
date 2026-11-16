@@ -54,7 +54,6 @@ RECONNECT_WINDOW_MILLISECONDS = 6_000
 CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
 UNPLAYED_HEADING = text(SOURCE_LANGUAGE, "closed.unplayedDays", count=UNPLAYED_DAYS)
 NOT_FOUND_HEADING = "Tisch nicht gefunden"
-NAMELESS_CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.closed")
 TOO_MANY_STREAMS = text(SOURCE_LANGUAGE, "table.tooManyStreams")
 UNKNOWN_ID = "0" * 32
 
@@ -369,8 +368,8 @@ def test_a_dealt_table_nobody_played_at_for_the_days_shows_its_end_to_every_open
 
 @pytest.fixture(scope="module")
 def retained_table(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[RunningServer, str, str]]:
-    """A Skat with the link of a closed table that finished no game and ended longer ago than the days, as it stands
-    after the start's sweep, and the name its closer had.
+    """A Skat with the link of a closed table that has a game and ended longer ago than the days, as it stands after
+    the start's sweep, and the name its closer had.
     """
     with skat_on_new_database(tmp_path_factory) as server:
         opener = RawSession(
@@ -381,6 +380,7 @@ def retained_table(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[R
         ]
         opener.post(f"{TABLES_PATH}/{table_id}{TABLE_CLOSE_SUFFIX}", {"command_id": "retained-close-0001"})
         with server.engine.begin() as connection:
+            append_game_list(connection, table_id, 1, (an_entry(),), datetime.now(UTC))
             connection.execute(
                 update(tables)
                 .where(tables.c.id == table_id)
@@ -399,7 +399,7 @@ def retained_table(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[R
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_old_link_of_a_closed_table_without_games_shows_it_closed_without_the_closers_name_once_the_days_are_up(
+def test_the_old_link_of_a_closed_table_with_games_shows_it_closed_without_the_closers_name_once_the_days_are_up(
     open_person: Callable[..., Page],
     page_errors: list[str],
     retained_table: tuple[RunningServer, str, str],
@@ -410,9 +410,8 @@ def test_the_old_link_of_a_closed_table_without_games_shows_it_closed_without_th
 
     person.goto(f"{server.base_url}{path}")
 
-    expect(person.get_by_role("heading", name=NAMELESS_CLOSED_HEADING, exact=True)).to_be_visible()
+    expect(person.get_by_role("heading", name=text(SOURCE_LANGUAGE, "closed.seriesEnded"))).to_be_visible()
     expect(person.get_by_text(closer)).to_have_count(0)
-    expect(person.locator(".closed .glyph.by")).to_have_count(0)
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
     expect_the_panel_inside_the_viewport(person)
 
