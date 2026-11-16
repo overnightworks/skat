@@ -74,12 +74,20 @@ class LeadingFirstCardTable(LeadingTable):
     kontra_options: ClassVar[dict[str, str]] = FIRST_CARD_OPTIONS
 
 
+# The stamp leaves the felt by itself, so the parts are listed and measured in one page evaluation: a part cannot
+# detach between the list and its measure.
+MEASURE_PARTS = """selector => [...document.querySelectorAll(selector)].map(part => {
+    if (part.getClientRects().length === 0) return null
+    const { x, width } = part.getBoundingClientRect()
+    return { x, width }
+})"""
+
+
 def expect_nothing_to_overflow(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     viewport = person.viewport_size
     assert viewport is not None
-    for part in person.locator(f"{KEY}, {STAMP}, .actions > :not(.anchored-overlay)").all():
-        box = part.bounding_box()
+    for box in person.evaluate(MEASURE_PARTS, f"{KEY}, {STAMP}, .actions > :not(.anchored-overlay)"):
         assert box is not None
         assert box["x"] >= 0, box
         assert box["x"] + box["width"] <= viewport["width"], box
