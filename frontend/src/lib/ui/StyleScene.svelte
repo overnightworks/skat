@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { TableStyle } from "../../routes/(start)/tables.ts";
     import { showTableStyle, tableStyle } from "#lib/tableStyle.svelte.ts";
-    import Sea from "./Sea.svelte";
+    import Ambience from "./Ambience.svelte";
     import StrandScene from "./StrandScene.svelte";
 
     // What stands behind the table in a style: the page hands over the style of the table it shows, and this part tells
@@ -16,4 +16,7 @@
 {#if tableStyle() === "strandbar"}
     <StrandScene />
 {/if}
-<Sea />
+<!-- A table that has ended has no style and no ambience. -->
+{#if style !== null}
+    <Ambience />
+{/if}

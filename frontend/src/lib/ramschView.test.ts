@@ -60,6 +60,7 @@ function ramsch(mine: number, changes: Partial<Hand>): Table {
         chairs: chairs(mine),
         watchers: 0,
         opened_by_me: false,
+        reactions: [],
         result: null,
         passed_in: null,
         series: null,

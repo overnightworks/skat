@@ -16,6 +16,7 @@ from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field ty
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.nudging import NudgeRefusal  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.pushing import PushAction  # noqa: TC001 - pydantic reads the field type at runtime
+from skat.table.reacting import Reaction, ReactionRefusal  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import Actor, CommandRefusal, EndReason, OccupantKind, TableStyle
 from skat.table.service import CommandIdReusedError
 from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS, AnnouncementToken, GameToken
@@ -27,7 +28,7 @@ from skat.web.series_answer import SeriesAnswer, series_answer_of
 from skat.web.table_options import OptionsAnswer, options_answer_of
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Mapping, Sequence
 
     from webauth.config import WebAuthConfig
     from webauth.ports import AuthenticatedUser, SessionRecordStore
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
     from skat.table.views import AbortedView, ChairHand, CommandResult, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
+    from skat.web.reaction_log import Thrown
 
 TABLES_PATH: Final = "/api/tables"
 TABLE_PAGE_PREFIX: Final = "/t/"
@@ -75,9 +77,9 @@ class CommandRequest(BaseModel):
 
 
 class RefusalAnswer(BaseModel):
-    """A command or a nudge that changed nothing; `holder_name` names who sits in a chair that was taken."""
+    """A command, a nudge or a reaction that changed nothing; `holder_name` names who sits in a chair that was taken."""
 
-    reason: CommandRefusal | NudgeRefusal
+    reason: CommandRefusal | NudgeRefusal | ReactionRefusal
     holder_name: str | None
 
 
@@ -316,6 +318,17 @@ class NudgeAnswer(BaseModel):
     by_name: str | None
 
 
+class ReactionAnswer(BaseModel):
+    """A reaction thrown at the table lately: `number` counts them at the table, so a page plays each one once. A
+    watcher's reaction has no seat and no name; a seat that was vacated since has no name.
+    """
+
+    number: int
+    reaction: Reaction
+    by_seat: int | None
+    by_name: str | None
+
+
 class ChairAnswer(BaseModel):
     seat: int
     occupant_name: str | None
@@ -365,6 +378,7 @@ class TableAnswer(BaseModel):
     bock: BockAnswer | None
     ended: EndedAnswer | None
     opened_by_me: bool
+    reactions: list[ReactionAnswer]
 
 
 class CardChoice(CardAnswer):
@@ -522,7 +536,13 @@ def nudge_answer_of(view: TableView, state: NudgeState | None) -> NudgeAnswer | 
     return NudgeAnswer(nudges=state.nudges, may_nudge=state.may_nudge, by_name=by_name)
 
 
-def answer_of(view: TableView, nudges: Mapping[int, NudgeState]) -> TableAnswer:
+def reaction_answer_of(view: TableView, thrown: Thrown) -> ReactionAnswer:
+    seat = thrown.by_seat
+    by_name = None if seat is None else view.chairs[seat - 1].occupant_name
+    return ReactionAnswer(number=thrown.number, reaction=thrown.reaction, by_seat=seat, by_name=by_name)
+
+
+def answer_of(view: TableView, nudges: Mapping[int, NudgeState], reactions: Sequence[Thrown] = ()) -> TableAnswer:
     return TableAnswer(
         id=view.id,
         version=view.version,
@@ -560,6 +580,7 @@ def answer_of(view: TableView, nudges: Mapping[int, NudgeState]) -> TableAnswer:
             closed_by_name=view.ended.closed_by_name,
         ),
         opened_by_me=view.opened_by_me,
+        reactions=[reaction_answer_of(view, thrown) for thrown in reactions],
     )
 
 
@@ -608,7 +629,7 @@ async def command_answer(
         presence.wake_table(table_id)
         if result.seated_when_hand_ended:
             presence.restart_deal_pause(table_id)
-        return answer_of(result.view, presence.waits.nudges_of(result.view))
+        return answer_of(result.view, presence.waits.nudges_of(result.view), presence.reactions.shown(table_id))
 
 
 def _create_page_router(page_build: PageBuild, sessions: SessionRecordStore, web_auth: WebAuthConfig) -> APIRouter:
@@ -674,7 +695,7 @@ def create_tables_router(
             if view is None:
                 logger.info(TABLE_READ_REFUSED_EVENT, reason=TableReadRefusal.NO_TABLE)
                 raise HTTPException(status_code=404, detail="table not found")
-            return answer_of(view, presence.waits.nudges_of(view))
+            return answer_of(view, presence.waits.nudges_of(view), presence.reactions.shown(table_id))
 
     router.include_router(_create_page_router(page_build, sessions, web_auth))
 

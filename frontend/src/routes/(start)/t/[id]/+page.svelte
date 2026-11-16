@@ -2,14 +2,7 @@
     import { onMount, untrack } from "svelte";
     import { page } from "$app/state";
     import type { PageProps } from "./$types";
-    import {
-        awayOnTurn,
-        chairMarks,
-        decidingMarks,
-        decidingPlaque,
-        PASSED_IN_MARKS,
-        passedInScene,
-    } from "#lib/auctionMarks.ts";
+    import { chairMarks, decidingMarks, decidingPlaque, PASSED_IN_MARKS, passedInScene } from "#lib/auctionMarks.ts";
     import { abortView } from "#lib/abort.ts";
     import { grumblingAt, ring, stopRinging } from "#lib/bell.svelte.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
@@ -80,10 +73,13 @@
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import StandKey from "#lib/ui/StandKey.svelte";
+    import KlassikDecor from "#lib/ui/KlassikDecor.svelte";
     import StrandDecor from "#lib/ui/StrandDecor.svelte";
+    import ThrownEmotes from "#lib/ui/ThrownEmotes.svelte";
     import StyleKey from "#lib/ui/StyleKey.svelte";
     import StyleScene from "#lib/ui/StyleScene.svelte";
     import TrickPile from "#lib/ui/TrickPile.svelte";
+    import WaitingPlaque from "#lib/ui/WaitingPlaque.svelte";
     import TrickStage from "#lib/ui/TrickStage.svelte";
     import TableBar from "#lib/ui/TableBar.svelte";
     import WeiterKey from "#lib/ui/WeiterKey.svelte";
@@ -99,6 +95,7 @@
         sweepingTo,
         trickIsMoving,
     } from "#lib/stage.svelte.ts";
+    import { beatOf, receiveReactions, resetReactions } from "#lib/tableReactions.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
     import { words } from "#lib/words.ts";
@@ -132,6 +129,7 @@
         type Table,
     } from "../../tables.ts";
     import { nudgedNote } from "../../nudge.ts";
+    import { reactionName, reactionsBetween, throwReaction } from "../../reaction.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
@@ -193,6 +191,7 @@
         if (previous === undefined || cues.some((cue) => cue.kind === "dealt")) playedThisHand = [];
         stamp = stampBetween(previous, table) ?? stamp;
         soundForCues(cues, table);
+        receiveReactions(reactionsBetween(previous, table));
         for (const cue of cues) {
             if (cue.kind === "card-played") {
                 playedThisHand = [...playedThisHand, cue.card];
@@ -232,6 +231,7 @@
         bidSaid = null;
         resetStage();
         stopRinging();
+        resetReactions();
         let current = true;
         let stopWatching = (): void => {};
         void readTable(id).then((answer) => {
@@ -274,6 +274,7 @@
             tables.end();
             resetStage();
             stopRinging();
+            resetReactions();
         };
     });
 
@@ -508,38 +509,13 @@
                     </div>
                 {/if}
             {:else if !outcome.table.hand?.declaring}
-                {@const awayName = outcome.table.hand && awayOnTurn(outcome.table.hand.auction, outcome.table.chairs)}
-                <div
-                    class="plaque"
-                    class:hand-over={passedIn !== null}
-                    class:deciding={waits || outcome.table.aborted !== null}
-                >
-                    {#if passedIn !== null}
-                        <span class="verdict">{words["table.passedIn"]}</span>
-                        {#if passedIn.dealerLine !== null}
-                            <span class="gives">
-                                {passedIn.dealerLine}
-                                <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                            </span>
-                        {/if}
-                    {:else if outcome.table.aborted !== null}
-                        <span>{words["table.aborted"]}</span>
-                        {@render waitingLine()}
-                    {:else if outcome.table.hand === null}
-                        <span>{words["table.waitingForPlayers"]}</span>
-                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                    {:else if awayName && !waits}
-                        <span>{words["table.waitingFor"]({ names: awayName })}</span>
-                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                    {:else}
-                        <span>{words["table.bidding"]}</span>
-                        {#if waits}
-                            {@render waitingLine()}
-                        {/if}
-                    {/if}
-                </div>
+                <WaitingPlaque table={outcome.table} {passedIn} {waits} {waitingLine} />
             {/if}
-            <div class="felt" aria-hidden="true"><StrandDecor /></div>
+            <div class="felt">
+                <StrandDecor {id} />
+                <KlassikDecor {id} />
+                <ThrownEmotes chairs={outcome.table.chairs} />
+            </div>
             {#if standing !== null}
                 <Standings view={standing} />
             {:else if view !== null}
@@ -674,7 +650,17 @@
                                 >{/if}</span
                         >
                         {#if chair.total !== null}
-                            <span class="coaster">{withMinus(chair.total)}</span>
+                            <button
+                                type="button"
+                                class="coaster"
+                                data-beat={beatOf("coaster")}
+                                aria-label={`${words[reactionName("coaster")]} ${withMinus(chair.total)}`}
+                                onclick={() => {
+                                    void throwReaction(id, "coaster");
+                                }}
+                            >
+                                {withMinus(chair.total)}
+                            </button>
                         {/if}
                         {#if chair.hand !== null}
                             {#if openCards.length > 0}

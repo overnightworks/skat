@@ -2068,3 +2068,75 @@ msgstr "Beach bar"
 msgctxt "table.styleNote"
 msgid "Gilt für alle am Tisch, auch für die Zuschauer."
 msgstr "Applies to everyone at the table, watchers included."
+
+msgctxt "table.reactions"
+msgid "Reaktion senden"
+msgstr "Send a reaction"
+
+msgctxt "table.reactionTray"
+msgid "Reaktionen"
+msgstr "Reactions"
+
+msgctxt "table.reactionClap"
+msgid "Applaus"
+msgstr "Applause"
+
+msgctxt "table.reactionClapMark"
+msgid "👏"
+msgstr "👏"
+
+msgctxt "table.reactionLaugh"
+msgid "Lachen"
+msgstr "Laughter"
+
+msgctxt "table.reactionLaughMark"
+msgid "😂"
+msgstr "😂"
+
+msgctxt "table.reactionGasp"
+msgid "Staunen"
+msgstr "Astonishment"
+
+msgctxt "table.reactionGaspMark"
+msgid "😮"
+msgstr "😮"
+
+msgctxt "table.reactionFire"
+msgid "Feuer"
+msgstr "Fire"
+
+msgctxt "table.reactionFireMark"
+msgid "🔥"
+msgstr "🔥"
+
+msgctxt "table.reactionCheers"
+msgid "Prost"
+msgstr "Cheers"
+
+msgctxt "table.reactionCheersMark"
+msgid "🍻"
+msgstr "🍻"
+
+msgctxt "table.reactionKnock"
+msgid "Klopfen"
+msgstr "Knock"
+
+msgctxt "table.reactionKnockMark"
+msgid "👊"
+msgstr "👊"
+
+msgctxt "table.objectCocktail"
+msgid "Cocktail"
+msgstr "Cocktail"
+
+msgctxt "table.objectShell"
+msgid "Muschel"
+msgstr "Shell"
+
+msgctxt "table.objectCoaster"
+msgid "Untersetzer"
+msgstr "Coaster"
+
+msgctxt "table.objectLamp"
+msgid "Lampe"
+msgstr "Lamp"

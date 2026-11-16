@@ -7,9 +7,9 @@ describe("the sea under the table", () => {
         const port = new FakePort();
         const sound = soundAt(port);
 
-        sound.sea(true);
+        sound.ambience("sea");
         const running = port.sea.at(-1) as number;
-        sound.sea(false);
+        sound.ambience(undefined);
 
         expect([running > 0, port.sea.at(-1)]).toEqual([true, 0]);
     });
@@ -26,24 +26,36 @@ describe("the page's sea", () => {
 
     it("starts the sea of the page once the first tap woke the sound and the table wants it", async () => {
         const { started, listeners } = stubBrowser({ reducedMotion: true });
-        const { armSound, runSea } = await import("./tableSound.ts");
+        const { armSound, runAmbience } = await import("./tableSound.ts");
         armSound();
         listeners.get("pointerup")?.();
         const woken = started.length;
 
-        runSea(true);
+        runAmbience("sea");
+
+        expect(started.length).toBeGreaterThan(woken);
+    });
+
+    it("starts the pub's murmur once the first tap woke the sound and the table wants it", async () => {
+        const { started, listeners } = stubBrowser({ reducedMotion: true });
+        const { armSound, runAmbience } = await import("./tableSound.ts");
+        armSound();
+        listeners.get("pointerup")?.();
+        const woken = started.length;
+
+        runAmbience("pub");
 
         expect(started.length).toBeGreaterThan(woken);
     });
 
     it("starts no sea on a muted device", async () => {
         const { started, listeners } = stubBrowser({ reducedMotion: true, stored: JSON.stringify({ muted: true }) });
-        const { armSound, runSea } = await import("./tableSound.ts");
+        const { armSound, runAmbience } = await import("./tableSound.ts");
         armSound();
         listeners.get("pointerup")?.();
         const woken = started.length;
 
-        runSea(true);
+        runAmbience("sea");
 
         expect(started).toHaveLength(woken);
     });

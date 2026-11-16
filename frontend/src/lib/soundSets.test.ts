@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundMoment } from "./soundSets.ts";
+import { REACTION_TOKENS } from "./wire.ts";
 import { MOTION_SETS } from "./motionSets.ts";
 import voiceLevel from "./voice/level.json";
 import {
@@ -31,6 +32,7 @@ const LONGEST_SWEEP_SECONDS = 0.4;
 /** A cue, a turn, a result or a single card of the deal sounds under 400 ms; the deal's shuffle and the count run longer. */
 const SHORT_MOMENTS: SoundMoment[] = ["turn-came", "result-won", "result-lost"];
 const LONGEST_SHORT_SECONDS = 0.4;
+const LONGEST_REACTION_SECONDS = 0.7;
 const LONGEST_DEAL_SECONDS = 1.5;
 /** The most a moment may stray from the target and still sound as loud as the others. */
 const TOLERANCE_DECIBELS = 1.5;
@@ -234,6 +236,15 @@ describe.each(Object.values(SOUND_SETS))("the set $id", (set) => {
         expect(loudest(1)).toBeGreaterThan(loudest(0.5));
     });
 
+    it.each(REACTION_TOKENS)("sounds the reaction %s briefly, and louder at a higher gain", (reaction) => {
+        const voices = set.reactions[reaction](1);
+        const loudest = (gain: number): number => Math.max(...set.reactions[reaction](gain).map((voice) => voice.gain));
+
+        expect(voices.length).toBeGreaterThan(0);
+        for (const voice of voices) expect(voice.at + voice.seconds).toBeLessThan(LONGEST_REACTION_SECONDS);
+        expect(loudest(1)).toBeGreaterThan(loudest(0.5));
+    });
+
     it("counts louder at a higher gain", () => {
         const loudest = (gain: number): number => Math.max(...set.counts(gain, 1).map((voice) => voice.gain));
 
@@ -256,6 +267,25 @@ describe("the sets together", () => {
 
     it.each(MEASURES)("sound $moment of $set below the limiter's threshold at the full volume", ({ peak }) => {
         expect(peak).toBeLessThanOrEqual(LIMITER_CEILING);
+    });
+
+    it("sound every reaction below the limiter's threshold and no louder than the cues", () => {
+        const cueMean = MEASURES.reduce((sum, measure) => sum + measure.decibels, 0) / MEASURES.length;
+        const reactions = Object.values(SOUND_SETS).flatMap((set) =>
+            REACTION_TOKENS.map((reaction) => {
+                const draws = renderDraws(set.reactions[reaction](1));
+                const decibels = draws.map(loudnessDecibels);
+                return {
+                    decibels: decibels.reduce((sum, each) => sum + each, 0) / decibels.length,
+                    peak: Math.max(...draws.map(peakOf)),
+                };
+            }),
+        );
+
+        for (const { decibels, peak } of reactions) {
+            expect(peak).toBeLessThanOrEqual(LIMITER_CEILING);
+            expect(decibels).toBeLessThanOrEqual(cueMean);
+        }
     });
 
     it("use the headroom the limiter leaves", () => {

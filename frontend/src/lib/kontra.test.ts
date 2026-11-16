@@ -90,6 +90,7 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
         chairs: chairs(),
         watchers: 0,
         opened_by_me: false,
+        reactions: [],
         hand: playingKontra === "no hand" ? null : hand,
         result: null,
         passed_in: null,

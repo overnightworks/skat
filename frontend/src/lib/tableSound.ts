@@ -2,10 +2,11 @@ import type { Cue } from "./cues.ts";
 import { watchDeviceMotion } from "./deviceMotion.svelte.ts";
 import { MOTION_SETS, type MotionSet } from "./motionSets.ts";
 import { currentSettings, loadSettings, motionInForce, soundSettings } from "./settings.svelte.ts";
-import { createSound, type AudioPort, type SoundSettings, type Voice } from "./sound.ts";
+import { createSound, type Ambience, type AudioPort, type SoundSettings, type Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundMoment, type SoundSet } from "./soundSets.ts";
 import { everyRecording, recordingOf, voiceKeysOf, type VoiceKey } from "./voice.ts";
 import { createWebAudioPort } from "./webAudio.ts";
+import { isTableObject, type Reaction } from "../routes/(start)/reaction.ts";
 import type { Table } from "../routes/(start)/tables.ts";
 
 /** A card another player lays sounds quieter than the player's own. */
@@ -43,6 +44,8 @@ export interface TableSound {
     /** Wakes the sound at every tap and key on the target; the returned function stops it. */
     arm(target: Pick<EventTarget, "addEventListener" | "removeEventListener">): () => void;
     forCues(cues: readonly Cue[], table: Table): void;
+    /** Sounds a reaction thrown at the table once the emote has landed or the object has made its first move. */
+    forReaction(reaction: Reaction): void;
     /** Sounds the swept trick at the moment it begins to glide, when it has gathered. */
     forGlide(): void;
     /** Sounds and vibrates „Du bist dran“ for the viewer once the table shows it, after the moves of `cues` have landed. */
@@ -51,8 +54,8 @@ export interface TableSound {
     preview(): Promise<void>;
     /** Fetches the recordings while the voice is on, so a word is said the moment its cue comes. */
     prepareVoice(): Promise<void>;
-    /** Runs the sea under the table while it is wanted, or lets it fade; it sounds only after a tap and follows the device's volume and mute. */
-    sea(wanted: boolean): void;
+    /** Runs the ambience under the table while it is wanted, or lets it fade; it sounds only after a tap and follows the device's volume and mute. */
+    ambience(wanted: Ambience | undefined): void;
 }
 
 interface Moment {
@@ -179,6 +182,16 @@ export function createTableSound({
                 }
             }
         },
+        forReaction(reaction) {
+            const moving = motion();
+            const movesSeconds = isTableObject(reaction) ? moving?.objectMovesSeconds : moving?.emoteLandsSeconds;
+            const lands = movesSeconds ?? 0;
+            sound.play(
+                soundSet()
+                    .reactions[reaction](1)
+                    .map((voice) => ({ ...voice, at: voice.at + lands })),
+            );
+        },
         forGlide() {
             const gathers = motion()?.trickGatherSeconds ?? 0;
             sound.play(
@@ -203,8 +216,8 @@ export function createTableSound({
             sound.play(soundSet().voices["card-played"](OWN_CARD_GAIN));
         },
         prepareVoice,
-        sea: (wanted) => {
-            sound.sea(wanted);
+        ambience: (wanted) => {
+            sound.ambience(wanted);
         },
     };
 }
@@ -248,6 +261,11 @@ export function soundForCues(cues: readonly Cue[], table: Table): void {
     pageSound().forCues(cues, table);
 }
 
+/** Sounds a reaction thrown at the table. */
+export function soundForReaction(reaction: Reaction): void {
+    pageSound().forReaction(reaction);
+}
+
 /** Sounds the trick that begins to glide to its taker's pile. */
 export function soundForGlide(): void {
     pageSound().forGlide();
@@ -263,9 +281,9 @@ export function previewSound(): Promise<void> {
     return pageSound().preview();
 }
 
-/** Runs the sea under the table while `wanted`; every call re-reads the device's volume and mute. */
-export function runSea(wanted: boolean): void {
-    pageSound().sea(wanted);
+/** Runs the ambience the table `wanted`, none for undefined; every call re-reads the device's volume and mute. */
+export function runAmbience(wanted: Ambience | undefined): void {
+    pageSound().ambience(wanted);
 }
 
 /** Fetches the recordings of the voice once the player has switched it on. */

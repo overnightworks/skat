@@ -26,6 +26,7 @@ from skat.table.asking import ASK_AGAIN_AFTER  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
 from skat.table.awaiting import WaitingCase  # noqa: E402
 from skat.table.game_list import GameEnding  # noqa: E402
+from skat.table.reacting import Reaction  # noqa: E402
 from skat.table.records import (  # noqa: E402
     SERIES_LENGTH_DEFAULT,
     SERIES_LENGTH_MAX,
@@ -87,6 +88,7 @@ from skat.web.pushing import (  # noqa: E402
     TABLE_PUSHING_PUT_BACK_SUFFIX,
     TABLE_PUSHING_TAKE_SUFFIX,
 )
+from skat.web.reacting import TABLE_REACTION_SUFFIX  # noqa: E402
 from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX  # noqa: E402
 from skat.web.rule_sets import RULE_SETS_PATH  # noqa: E402
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX, TABLE_SERIES_END_REFUSE_SUFFIX  # noqa: E402
@@ -141,6 +143,7 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "WORD_TOKENS": Word,
     "VISIBILITY_TOKENS": Visibility,
     "TABLE_STYLE_TOKENS": TableStyle,
+    "REACTION_TOKENS": Reaction,
 }
 
 
@@ -226,6 +229,7 @@ def path_constants() -> dict[str, str]:
         "TABLE_ABORT_AGREE_SUFFIX": TABLE_ABORT_AGREE_SUFFIX,
         "TABLE_ABORT_REFUSE_SUFFIX": TABLE_ABORT_REFUSE_SUFFIX,
         "TABLE_NUDGE_SUFFIX": TABLE_NUDGE_SUFFIX,
+        "TABLE_REACTION_SUFFIX": TABLE_REACTION_SUFFIX,
     }
 
 

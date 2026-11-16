@@ -109,6 +109,7 @@ export function table(
         chairs: chairsWithCards(cards),
         watchers: 0,
         opened_by_me: false,
+        reactions: [],
         hand: {
             dealer_seat: REARHAND,
             own_cards: [],
