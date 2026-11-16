@@ -754,22 +754,9 @@ class TestRunningPoints:
             results.append(message_body(read(each, each.watcher)))
 
         assert results[0]["result"] == results[1]["result"]
-        assert [body["options"] for body in results] == [
-            {
-                "show_running_points": False,
-                "kontra": None,
-                "bock": None,
-                "ramsch": None,
-                "give_up": {"partner_agrees": False, "any_time": False},
-            },
-            {
-                "show_running_points": True,
-                "kontra": None,
-                "bock": None,
-                "ramsch": None,
-                "give_up": {"partner_agrees": False, "any_time": False},
-            },
-        ]
+        hidden: dict[str, object] = {"show_running_points": False, "kontra": None, "bock": None, "ramsch": None}
+        hidden["give_up"] = {"partner_agrees": False, "any_time": False}
+        assert [body["options"] for body in results] == [hidden, {**hidden, "show_running_points": True}]
 
 
 class TestEveryViewersResult:
