@@ -146,6 +146,20 @@ body.solo .frame{border-radius:0;border:0}
 /* a winning seat wears a gold rim */
 .seat.win .chair{box-shadow:0 0 0 3px #f3cf7a,0 0 34px 6px rgba(243,207,122,.45),0 18px 30px -12px rgba(0,0,0,.9)}
 
+/* the own seat on a desktop is no tile on the felt: a slim bar over the hand carries the name, the marks and the points */
+.seat.bar{position:absolute;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:8px;height:44px;box-sizing:border-box;padding:0 14px 0 5px;border-radius:999px;
+  background:var(--glass-dark);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 10px 22px -8px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.1)}
+.seat.bar .dot{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,var(--c1),var(--c2));color:#111;font-family:var(--font-mark);font-weight:700;font-size:16px}
+.seat.bar .nm{font-size:14px;font-weight:600;color:var(--on-stage);white-space:nowrap}
+.seat.bar .mark{position:static;flex:none;height:26px}
+.seat.bar .mark.turn{width:26px}
+.seat.bar .mark:is(.decl,.pass,.think,.dealer,.declined){width:26px;padding:0;justify-content:center;font-size:0;gap:0}
+.seat.bar .mark.pos{height:24px;padding:0 9px;font-size:12px;background:rgba(255,255,255,.12)}
+.seat.bar .coaster{position:static;flex:none;--cs:34px}
+.seat.bar.turn{box-shadow:0 0 0 2px var(--accent-stage),0 0 18px rgba(122,167,240,.5),inset 0 0 0 1px rgba(255,255,255,.1)}
+.seat.bar.win{box-shadow:0 0 0 2px #f3cf7a,0 0 20px rgba(243,207,122,.5),inset 0 0 0 1px rgba(255,255,255,.1)}
+.seat.bar.out{filter:saturate(.45) brightness(.8)}
+.strand .seat.bar::before{display:none}
 /* ---------- cards ---------- */
 .card{width:var(--w);aspect-ratio:100/140;border-radius:calc(var(--w) * .075);flex:none;position:relative;
   filter:drop-shadow(0 1px 1px rgba(0,0,0,.45)) drop-shadow(0 6px 8px rgba(0,0,0,.35))}
@@ -159,15 +173,13 @@ body.solo .frame{border-radius:0;border:0}
 .hand .card.ok{--lift:calc(var(--w) * -.18)}
 .hand .card.ok svg{border-radius:calc(var(--w) * .075);box-shadow:0 0 0 2.5px var(--accent-stage),0 0 18px rgba(122,167,240,.5)}
 .hand .card.touch{--lift:calc(var(--w) * -.5)}
-/* on the desktop the tapped card lifts as high as on a phone, so it stands clear of the near chair's plate */
-.d1280 .hand .card.touch{--lift:calc(var(--w) * -.3)}
 .hand .card.touch svg{border-radius:calc(var(--w) * .075);box-shadow:0 0 0 3px var(--accent-stage),0 0 26px rgba(122,167,240,.8)}
 .hand .card.no{filter:brightness(.5) saturate(.55) drop-shadow(0 6px 8px rgba(0,0,0,.35))}
 /* swipe hint above the lifted card */
 .swipe{position:absolute;left:50%;top:calc(var(--w) * -.36);transform:translateX(-50%);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
   background:var(--accent-stage);color:var(--stage);box-shadow:0 4px 12px rgba(0,0,0,.6)}
 .swipe svg{width:18px;height:18px}
-/* on the desktop the arrow stands on the tapped card, so the near chair above it covers nothing of it */
+/* on the desktop the arrow stands on the tapped card, so the own bar above the hand covers nothing of it */
 .d1280 .swipe{top:10px}
 /* opponents' backs: a small fan pointing at the owner */
 .fan{width:0;height:0}
@@ -178,8 +190,6 @@ body.solo .frame{border-radius:0;border:0}
 /* ---------- trick: each card lies toward its player and carries a name tag ---------- */
 .play{position:absolute;transform:translate(-50%,-50%) rotate(var(--rot,0deg))}
 .play .tag{position:absolute;left:50%;bottom:calc(var(--w) * -.12);transform:translateX(-50%) rotate(calc(var(--rot,0deg) * -1));z-index:2}
-/* on the desktop the tags hang 4px higher, so the near card's tag ends above the position pill on the own chair's top edge */
-.d1280 .play .tag{bottom:calc(var(--w) * -.12 + 4px)}
 .tag{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px 0 4px;border-radius:999px;background:rgba(10,12,14,.78);
   font-size:12px;font-weight:600;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4)}
 .tag .dot,.mark.waits .dot{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,var(--c1),var(--c2));color:#111;font-size:9px;font-weight:700}
@@ -723,7 +733,7 @@ const I={
 /* the kit's AiMark: no words, always „AI“ */
 const aiMark=()=>'<span class="ai-mark">AI</span>';
 const P={
-  felix:{n:'Du',i:'F',c:['#6fd3bd','#2f8f7d'],v:['#2c4646','#172326'],l:['#2a5a52','#13302b'],hair:'short',glasses:true},
+  felix:{n:'Du',own:true,i:'F',c:['#6fd3bd','#2f8f7d'],v:['#2c4646','#172326'],l:['#2a5a52','#13302b'],hair:'short',glasses:true},
   anna:{n:'Anna',i:'A',c:['#c2a8f5','#7c5cd6'],v:['#3a3350','#1d1a29'],l:['#553a6e','#2a1b38'],hair:'long'},
   nova:{n:'Nova',agent:true,l:['#2a3b5e','#141d31']},
   ben:{n:'Ben',i:'B',c:['#e8c895','#b08a55'],v:['#3c3832','#1f1c18'],l:['#5e4a30','#2e2416'],hair:'cap'},
@@ -773,7 +783,8 @@ const MARK={
 /* a seat: chair + video (call), avatar (solo) or the agent's orb; marks; brass nameplate */
 function seat(k,o){
   const p=P[k],marks=o.marks||[];
-  const cls=['seat',o.sm&&'sm',marks.includes('turn')&&'turn',marks.includes('think')&&'thinking',o.win&&'win',o.got&&'got',o.out&&'out'].filter(Boolean).join(' ');
+  if(o.own&&p.own) return ownBar(k,o);
+  const cls=['seat',p.own&&'own',o.sm&&'sm',marks.includes('turn')&&'turn',marks.includes('think')&&'thinking',o.win&&'win',o.got&&'got',o.out&&'out'].filter(Boolean).join(' ');
   let inner;
   if(p.agent) inner=`<div class="vid"></div><div class="orb">${I.spark}<span class="think ${marks.includes('think')?'mo':''}"><i></i><i style="top:auto;bottom:-3px"></i></span></div>`;
   else if(o.video) inner=`<div class="vid" style="--v1:${p.v[0]};--v2:${p.v[1]}">${silhouette(p)}</div>`;
@@ -782,8 +793,18 @@ function seat(k,o){
   return `<div class="${cls}" style="${at({left:o.x,top:o.y,width:o.w,height:o.h,position:o.inline?'relative':undefined,'--l1':p.l[0],'--l2':p.l[1]})}">
     <div class="chair ${o.got?'mo':''}" style="${o.got?`--k:${o.got}`:''}"><div class="tile ${p.agent?'agent':''}">${inner}</div></div>${marks.map(m=>MARK[m]).join('')}${o.plate===false?'':plate}</div>`;
 }
+/* the own seat on the desktop; its points ride inside the bar, set where the frame is assembled */
+let ownBarDrawn=false,ownBarPoints='';
+function ownBar(k,o){
+  const p=P[k],marks=o.marks||[];
+  const cls=['seat own bar',marks.includes('turn')&&'turn',o.win&&'win',o.out&&'out'].filter(Boolean).join(' ');
+  ownBarDrawn=true;
+  return `<div class="${cls}" style="${at({left:o.own.x,top:o.own.y})}"><span class="dot" style="${dotStyle(p)}">${p.i}</span><b class="nm">${p.n}</b>${marks.map(m=>MARK[m]).join('')}<!--bar-points--></div>`;
+}
 const coaster=(v,x,y,cs,cr=-8)=>`<span class="coaster" title="Punkte" style="${at({left:x,top:y,'--cs':cs,'--cr':`${cr}deg`})}">${v}</span>`;
-const chairCoasters=(layout,score)=>layout.coasters.map(([x,y,cs,cr],i)=>coaster(score[i],x,y,cs,cr)).join('');
+const chairCoasters=(layout,score)=>layout.coasters.map(([x,y,cs,cr],i)=>{
+  if(i===2&&ownBarDrawn){ownBarPoints=`<span class="coaster" title="Punkte" style="--cr:-6deg">${score[2]}</span>`;return '';}
+  return coaster(score[i],x,y,cs,cr);}).join('');
 const watchers=(x,y,list,eye=true)=>`<div class="watchers" style="${at({left:x,top:y})}">${eye?`<span class="eye" title="Zuschauer">${I.eye}</span>`:''}${list.map(([k,w,h])=>seat(k,{w,h,sm:true,video:true,inline:true,plate:false,marks:[]})).join('')}</div>`;
 /* backs in a fan; rot turns the fan so the tops point to the table centre; deal flies them in from there */
 function fan(n,o){
@@ -848,16 +869,16 @@ const callBar=(desk,o={})=>desk
   :`<div class="cbar"><span class="cb">${I.mic}</span><span class="cb">${I.cam}</span><span class="cb">${I.chat}</span><span class="cb">${I.more}</span><span class="cb leave">${I.leave}</span></div>`;
 const soloBar=()=>`<div class="sbar"><span class="cb wide">${I.cam}Anruf</span><span class="cb">${I.more}</span></div>`;
 const FRAMES=[];
-const frame=(id,title,note,size,html,rules=[])=>FRAMES.push([id,`<section class="shot"><h2>${title}<small>${note}</small><button class="replay" type="button">Nochmal</button></h2><div class="frame ${size}" id="${id}">${html}</div>${rules.map(r=>`<p class="rule">${r}</p>`).join('')}</section>`]);
+const seatBarPoints=(html)=>{const done=html.replace('<!--bar-points-->',ownBarPoints);ownBarDrawn=false;ownBarPoints='';return done;};
+const frame=(id,title,note,size,html,rules=[])=>FRAMES.push([id,`<section class="shot"><h2>${title}<small>${note}</small><button class="replay" type="button">Nochmal</button></h2><div class="frame ${size}" id="${id}">${seatBarPoints(html)}</div>${rules.map(r=>`<p class="rule">${r}</p>`).join('')}</section>`]);
 /* the hands: Felix holds ten while bidding; one trick later eight are left, then seven */
 const BID_HAND=[['B','h'],['10','c'],['D','c'],['7','c'],['A','s'],['9','s'],['A','h'],['10','h'],['K','d'],['8','d']];
 const PLAY_HAND=[['B','h','no'],['D','c','no'],['7','c','no'],['A','s','touch'],['9','s','ok'],['10','h','no'],['K','d','no'],['8','d','no']];
 const AFTER_HAND=[['B','h'],['D','c'],['7','c'],['9','s'],['10','h'],['K','d'],['8','d']];
 const PHONE_HAND={w:64,rot:1.5,arc:.8,bottom:106,cx:195,strip:{base:32,no:32,ok:56,touch:56}};
-const DESK_HAND={w:96,rot:1.2,arc:.7,bottom:80,cx:640,strip:{base:58,no:50,ok:78,touch:78}};
-
-/* in a call the strip above the bar lifts the hand, and the near chair with it */
-const HAND_RAISE=90;
+const DESK_HAND={w:96,rot:1.2,arc:.7,bottom:98,cx:640,strip:{base:58,no:50,ok:78,touch:78}};
+/* in a call the strip above the bar lifts the hand, and the own bar with it */
+const HAND_RAISE=72;
 
 /* ===== phone: Anna top left, Nova top right, you at the near edge, the watcher strip above ===== */
 const PB={
@@ -867,7 +888,7 @@ const PB={
 };
 /* on the phone the near chair steps back to leave the card room for the reckoning */
 const BACK=72;
-const backOf=(layout,by=BACK)=>({...layout,you:{...layout.you,y:layout.you.y+by},coasters:[layout.coasters[0],layout.coasters[1],[layout.coasters[2][0],layout.coasters[2][1]+by,...layout.coasters[2].slice(2)]]});
+const backOf=(phone)=>({...phone,you:{...phone.you,y:phone.you.y+BACK},coasters:[phone.coasters[0],phone.coasters[1],[phone.coasters[2][0],phone.coasters[2][1]+BACK,...phone.coasters[2].slice(2)]]});
 const PB_BACK=backOf(PB);
 
 /* the way home: the lobby button at the top left of every solo table, the watchers at the top right; a call table has neither */
@@ -925,22 +946,24 @@ frame('call-trick-390','Stich geht an dich','Handy 390 px','p390',
   +hand(AFTER_HAND,PHONE_HAND)+callBar(false));
 
 /* ===== desktop: Anna at the left chair, Nova at the right chair, you at the near edge ===== */
-/* the own chair is a 16:9 tile, so its plate, marks and coaster end above the lifted cards of the hand */
 const DB={
   table:{x:170,y:66,w:940,h:566,tr:283,rim:18,line:22,ry:'47%',rs:240},
-  anna:{x:22,y:180,w:236,h:178}, nova:{x:1022,y:180,w:236,h:178}, you:{x:580,y:474,w:120,h:68,sm:true},
-  coasters:[[230,330,50,-10],[1000,330,50,8],[528,500,50,-6]],
+  anna:{x:22,y:180,w:236,h:178}, nova:{x:1022,y:180,w:236,h:178}, you:{x:92,y:560,w:190,h:144,own:{x:640,y:472}},
+  coasters:[[230,330,50,-10],[1000,330,50,8],[34,612,50,-6]],
 };
-/* the trick's cards lie at these heights: the far two above, the own card below them (8px higher than the middle's 55%, so its tag ends above the own chair's position pill), clear of the own chair under it */
+/* the trick's cards lie at these heights: the far two above, the own card below them, so the near card and its tag end above the own bar */
 const FAR_Y=254, NEAR_Y=390;
-/* the own chair stands centred over the hand; where a glow, a sweep or a burst aims at it, it aims at this point */
-const YOU_AT=[DB.you.x+DB.you.w/2,DB.you.y+DB.you.h/2];
-/* the reckoning's panel ends at 566 px, so the near chair steps down below it, as on the phone */
-const END_DROP=116;
+/* a card waiting for its player drops with a taller plaque only as far as the own bar below it leaves room */
+const NEAR_SLACK=14;
+/* the own bar's middle; where a glow, a sweep or a burst aims at the own seat, it aims at this point */
+const YOU_AT=[DB.you.own.x,DB.you.own.y+22];
+/* the reckoning's card ends at 638 px at the longest, so the own bar steps down below it, as on the phone */
+const END_DROP=180;
 const dbRoom=(o)=>table({...DB.table,thud:o.thud})+klassikLamp(true)+(o.glow||'')+(o.call===false?'':people(4,16,14)+watchers(1086,10,[['ben',140,80]]))
   +fan(o.left,{x:268,y:282,w:42,rot:90,spread:6,dim:o.annaOut,deal:o.deal&&260})+fan(o.left,{x:1012,y:282,w:42,rot:270,spread:6,dim:o.novaOut,deal:o.deal&&260,d0:.1})
   +(o.call===false?'':tray({right:18,bottom:112},{rail:true}));
-const dbSeats=(o)=>{const L=o.drop?backOf(DB,o.drop):DB;
+const dropOwn=(layout,by)=>({...layout,you:{...layout.you,own:{...layout.you.own,y:layout.you.own.y+by}}});
+const dbSeats=(o)=>{const L=o.drop?dropOwn(DB,o.drop):DB;
   return seat('anna',{...L.anna,video:o.video,marks:o.anna,out:o.annaOut})+seat('nova',{...L.nova,marks:o.nova,win:o.novaWin,out:o.novaOut})
   +seat('felix',{...L.you,video:o.video,marks:o.you,win:o.youWin,got:o.got})
   +chairCoasters(L,o.score);};
@@ -974,7 +997,7 @@ frame('call-trick-1280','Stich geht an dich','Desktop 1280 px','d1280',
   +played('A','s','felix',{x:640,y:NEAR_Y,w:96,rot:0,notag:true,blank:true,sweep:sweepTo(640,NEAR_Y,640,330,...YOU_AT,.685,{op:.4})})
   +played('A','s','felix',{x:640,y:NEAR_Y,w:96,rot:0,sweep:sweepTo(640,NEAR_Y,640,330,...YOU_AT,.72)})
   +dbSeats({video:true,anna:['decl'],score:[148,62,55],got:'.63s;--d:.45s'})
-  +pop(`${I.check}Stich`,YOU_AT[0],DB.you.y-20,.3)
+  +pop(`${I.check}Stich`,YOU_AT[0],DB.you.own.y-20,.3)
   +hand(AFTER_HAND,DESK_HAND)+callBar(true));
 /* ===== end of hand: Anna's Kreuz game falls Schneider; you and Nova win, Anna knocks the table ===== */
 /* ===== the reckoning of a game: its steps, its value, what the list adds ===== */
@@ -1172,7 +1195,7 @@ const panel=(o)=>`<div class="result closed" role="${o.role||'status'}" style="$
 const NEW_TABLE=`<span class="button button-stage">${I.plus}Neuer Tisch</span>`;
 const emptyChair=(pos,k,cr)=>`<div class="chair empty" style="${at({left:pos.x,top:pos.y,width:pos.w,height:pos.h,'--l1':P[k].l[0],'--l2':P[k].l[1],'--cr':`${cr}deg`})}"></div>`;
 const PE={anna:{x:14,y:46,w:112,h:86},right:{x:264,y:46,w:112,h:86},you:{x:145,y:594,w:100,h:78}};
-const DE={anna:{x:60,y:190,w:200,h:150},right:{x:1020,y:190,w:200,h:150},you:{x:560,y:460,w:160,h:120}};
+const DE={anna:{x:60,y:190,w:200,h:150},right:{x:1020,y:190,w:200,h:150},you:{x:150,y:560,w:160,h:120}};
 
 /* the two views every S3 scene starts from: watching Anna's table, and sitting at your own */
 const S3={
@@ -1180,7 +1203,7 @@ const S3={
              :pbRoom({left:0,call:false})+waiting(195,176)+seat('anna',PB.anna)+seat('ben',PB.nova)+freeSeat(PB.you)+watching(3,false))+tableBar(d),
   mine:(d)=>(d?dbRoom({left:0,call:false})+waiting(640,98)+awaySeat('anna',DB.anna)+freeSeat(DB.nova,{idle:true})+seat('felix',DB.you)+watching(1,true)
             :pbRoom({left:0,call:false})+waiting(195,176)+awaySeat('anna',PB.anna)+freeSeat(PB.nova,{idle:true})+seat('felix',PB.you)+watching(1,false))+tableBar(d,{seated:true,opener:true}),
-  taken:(d)=>(d?dbRoom({left:0,call:false})+seat('anna',DB.anna)+seat('ben',DB.nova)+seat('lena',{...DB.you,got:'.6s;--d:.25s'})+watching(4,true)+notice('Platz vergeben','lena',YOU_AT[0],DB.you.y-38)
+  taken:(d)=>(d?dbRoom({left:0,call:false})+seat('anna',DB.anna)+seat('ben',DB.nova)+seat('lena',{...DB.you,got:'.6s;--d:.25s'})+watching(4,true)+notice('Platz vergeben','lena',187,522)
              :pbRoom({left:0,call:false})+seat('anna',PB.anna)+seat('ben',PB.nova)+seat('lena',{...PB.you,got:'.6s;--d:.25s'})+watching(4,false)+notice('Platz vergeben','lena',195,462))+tableBar(d),
   ended:(d,o)=>(d?emptyChair(DE.anna,'anna',-7)+emptyChair(DE.right,'ben',7)+emptyChair(DE.you,'felix',4)+table(DB.table)+klassikLamp(true)+panel({x:640,y:214,w:460,...o})
                :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table)+klassikLamp(false)+panel({x:195,y:250,w:330,...o}))+homeButton(d,homeBadge),
@@ -1212,10 +1235,6 @@ const deck=(d)=>{const [x,y,w]=d?[640,330,80]:[195,330,52];return `<div class="s
 const tableSkat=(d)=>d?skat(584,190,80):skat(154,240,52);
 const dealtSkat=(d)=>tableSkat(d).replaceAll('class="card"','class="card deal"');
 const cardCount=(x,y)=>`<div class="tag-glass" title="Karten" style="${at({left:x,top:y})}">${I.cards}<span>10</span></div>`;
-const cardsAt=(n,x,y)=>cardCount(x,y).replace('<span>10</span>',`<span>${n}</span>`);
-/* the near chair's fan stands right of the centred chair, its count beneath the fan */
-const nearFan=(d,n,o={})=>d?fan(n,{x:800,y:560,w:42,rot:-45,spread:6,...o}):fan(n,{x:PB.cx,y:PB.you.y-20,w:26,rot:0,spread:6,...o});
-const underCount=(d,n)=>d?cardsAt(n,850,570):cardsAt(n,PB.cx+55,PB.you.y-40);
 /* the three chairs: Anna left, Ben right, the near one is yours or, for a watcher, Lena's */
 function dealSeats(d,o){
   const L=d?DB:PB,place={left:L.anna,right:L.nova,near:L.you},who={left:'anna',right:'ben',near:o.near};
@@ -1237,8 +1256,8 @@ const DEAL_SCENES=[
   ['deal-mine','Karten da',(d)=>dealRoom(d,{left:10,deal:true,watchers:1})+tablePlaque(d,'Reizen folgt')+dealtSkat(d)
     +dealSeats(d,{near:'felix',dealer:'right'})+ownHand(d,BID_HAND,{deal:d?470:420})+tableBar(d)],
   ['deal-watch','Zuschauen beim Geben',(d)=>dealRoom(d,{left:10,deal:true,watchers:3})+tablePlaque(d,'Reizen folgt')+dealtSkat(d)
-    +nearFan(d,10,{deal:d?260:150,d0:.2})
-    +(d?cardCount(268,340)+cardCount(952,340):cardCount(26,200)+cardCount(310,200))+underCount(d,10)
+    +(d?fan(10,{x:370,y:590,w:42,rot:45,spread:6,deal:260,d0:.2}):fan(10,{x:195,y:476,w:26,rot:0,spread:6,deal:150,d0:.2}))
+    +(d?cardCount(268,340)+cardCount(952,340)+cardCount(420,600):cardCount(26,200)+cardCount(310,200)+cardCount(250,456))
     +dealSeats(d,{near:'lena',dealer:'right'})+tableBar(d)],
   ['deal-away','Nicht da',(d)=>dealRoom(d,{left:10,watchers:1,away:'anna'})+tablePlaque(d,`Warte auf Anna${waitDots()}`,356)+tableSkat(d)
     +dealSeats(d,{near:'felix',dealer:'right',away:'anna'})+ownHand(d,BID_HAND)+tableBar(d),
@@ -1251,6 +1270,8 @@ const annaTurn=(d)=>d?glow(300,270,220,260):glow(90,190,190,110);
 const nearTurn=(d)=>d?glow(...YOU_AT,300,200):yourTurn(d);
 const sideFans=(d,left,right,o={})=>(d?fan(left,{x:268,y:282,w:42,rot:90,spread:6,dim:o.dim})+fan(right,{x:1012,y:282,w:42,rot:270,spread:6,dim:o.dimRight})
   :fan(left,{x:PB.fans[0],y:168,w:26,rot:150,spread:6,dim:o.dim})+fan(right,{x:PB.fans[1],y:168,w:26,rot:210,spread:6,dim:o.dimRight}));
+const nearFan=(d,n)=>d?fan(n,{x:370,y:590,w:42,rot:45,spread:6}):fan(n,{x:PB.cx,y:PB.you.y-20,w:26,rot:0,spread:6});
+const cardsAt=(n,x,y)=>cardCount(x,y).replace('<span>10</span>',`<span>${n}</span>`);
 const leftCount=(d,n)=>d?cardsAt(n,268,340):cardsAt(n,26,200);
 const skatStep=(d,word)=>plaque(d?640:195,d?98:176,`<div class="game">Reizwert 20</div><div class="game">Anna ${word}${waitDots()}</div>`);
 const annaDecides=(d)=>seats(d,{video:true,anna:['decl','turn'],score:[148,62,55]})+ownHand(d,OPPONENT_HAND)+callBar(d);
@@ -1259,7 +1280,7 @@ const SKAT_OTHER_SCENES=[
   ['skat-taken','Anna drückt',(d)=>room(d,{left:0,glow:annaTurn(d)})+sideFans(d,12,10)+skatStep(d,'drückt')+leftCount(d,12)+annaDecides(d)],
   ['skat-watch','Zuschauen beim Skat',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:annaTurn(d)})+watching(3,d)
     +sideFans(d,12,10)+nearFan(d,10)+skatStep(d,'drückt')
-    +leftCount(d,12)+(d?cardCount(952,340):cardCount(310,200))+underCount(d,10)
+    +leftCount(d,12)+(d?cardCount(952,340)+cardCount(420,600):cardCount(310,200)+cardCount(250,456))
     +seat('anna',{...L.anna,marks:['decl','turn']})+seat('ben',L.nova)+seat('lena',L.you)+tableBar(d);}],
 ];
 scenes(SKAT_OTHER_SCENES);
@@ -1289,7 +1310,7 @@ MARK.ready=`<span class="mark ready" title="Weiter getippt">${I.check}</span>`;
 MARK.notTapped=`<span class="mark waits" title="noch nicht getippt">${waitDots()}</span>`;
 const TOTALS_BEFORE=[148,62,55];
 const added=(n)=>n>0?`<span class="dl count" style="--to:${n}"></span>`:`<span class="dl minus">${withMinus(n)}</span>`;
-const endLayout=(d)=>backOf(d?DB:PB,d?END_DROP:BACK);
+const endLayout=(d)=>d?dropOwn(DB,END_DROP):backOf(PB);
 const chairsOf=(d,near)=>{const L=endLayout(d);return [['anna',L.anna],['ben',L.nova],[near,L.you]];};
 const endSeats=(d,o)=>chairsOf(d,o.near).map(([k,pos])=>seat(k,{...pos,marks:[...(k===o.declarer?['decl']:[]),o.ready.includes(k)?'ready':'notTapped'],win:o.winners.includes(k)})).join('')
   +chairCoasters(endLayout(d),o.adds.map((n,i)=>withMinus(TOTALS_BEFORE[i]+n)));
@@ -1371,10 +1392,10 @@ const BID_SCENES=[
   ['bid-passed','Eingepasst',(d)=>room(d,{left:0})
     +plaque(d?640:195,d?98:176,`<div class="game">Eingepasst</div><div class="game">Nova gibt${waitDots()}</div>`)+deck(d)
     +seats(d,{video:true,anna:['pass'],nova:['drawn','pass'],you:['pass'],score:[148,62,55]})+callBar(d)],
-  ['bid-watch','Zuschauen beim Reizen',(d)=>{const L=d?DB:PB;return room(d,{left:10,call:false,annaOut:true,glow:d?glow(...YOU_AT,300,200):yourTurn(d)})+watching(3,d)+auction(d)
-    +nearFan(d,10)
+  ['bid-watch','Zuschauen beim Reizen',(d)=>{const L=d?DB:PB;return room(d,{left:10,call:false,annaOut:true,glow:d?glow(187,632,300,200):yourTurn(d)})+watching(3,d)+auction(d)
+    +(d?fan(10,{x:370,y:590,w:42,rot:45,spread:6}):fan(10,{x:195,y:476,w:26,rot:0,spread:6}))
     +bubble('ben','23',d?{x:1062,y:392,tail:'50%'}:{x:250,y:228,tail:'72%'})
-    +bubble('lena',`${I.check}22`,d?{x:598,y:430,tail:'50%',bottom:true,quiet:true}:{x:52,y:456,tail:'92%',bottom:true,quiet:true})
+    +bubble('lena',`${I.check}22`,d?{x:110,y:496,tail:'40%',bottom:true,quiet:true}:{x:52,y:456,tail:'92%',bottom:true,quiet:true})
     +seat('anna',{...L.anna,marks:['Mittelhand','pass'],out:true})+seat('ben',{...L.nova,marks:['Hinterhand']})+seat('lena',{...L.you,marks:['Vorhand','turn']})
     +tableBar(d);}],
 ];
@@ -1642,7 +1663,7 @@ const rulePlay=(d,o)=>{const L=d?DB:PBR;
     +ownHand(d,RULE_HAND)+tableBar(d);};
 const runningPoints=(d)=>points(28,41,d?190:150);
 /* Lena looks on: the chairs are Anna's, Nova's and Felix's, and the points read Anna against the others */
-P.felixSeen={...P.felix,n:'Felix'};
+P.felixSeen={...P.felix,n:'Felix',own:false};
 const ruleWatch=(d)=>{const L=d?DB:PBR;
   return ruleRoom(d,nearTurn(d))+watching(2,d)+ruleTop(d,ANNAS_RULES)+nearFan(d,7)
     +plaque(d?640:195,d?98:176,gameLine('c','Kreuz')+pointsNamed([28,41],['Anna','Gegner'],d?190:150))+announcedTrick(d).replace(d?ghost(640,NEAR_Y,96):ghost(195,440,70),'')
@@ -1670,7 +1691,7 @@ ORDER.push(...RULES_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 Object.assign(I,{
   stop:sv('<rect x="6" y="6" width="12" height="12" rx="3" fill="currentColor"/>',2),
 });
-P.annaSelf={...P.anna,n:'Du'};
+P.annaSelf={...P.anna,n:'Du',own:true};
 
 /* the 360 frame: the phone's geometry narrowed by 30 px and shortened by 64, so the strip's crowding is drawn at its real width */
 const PHONE_360={PB:{table:{...PB.table,w:344,h:428},nova:{...PB.nova,x:230},you:{...PB.you,x:127,y:PB.you.y-64},
@@ -1764,7 +1785,7 @@ const AGENT_SCENES=[
     ['Felix rief: „Wird gerufen…“ in seiner Liste, ohne Zählung; der Stuhl zeigt noch nichts, und kein anderer am Tisch sieht den Ruf.']],
   ['agents-here','Agenten: Nova setzt sich',[390,1280],(d)=>{const L=seatsOf(d);
     return tableOf(d)+plaque(mid(d),plaqueY(d),`<div class="game">Karten kommen${waitDots()}</div>`)+deck(d)+seat('anna',L.anna)+seat('nova',{...L.nova,got:'.6s;--d:.25s'})+seat('felix',L.you)
-      +notice('Nova setzt sich','nova',mid(d),d?522:462)+callerBar(d,agentPill(d));},
+      +notice('Nova setzt sich','nova',mid(d),d?DB.you.own.y-40:462)+callerBar(d,agentPill(d));},
     ['Nova setzt sich: die Kugel, „Nova AI“ und der Hinweis „Nova setzt sich“; danach kommen die Karten.']],
   ['agents-refused','Agenten: abgelehnt',[390],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentPanel(NOVA_CALLABLE,{refusal:'try-again'})}))),
     ['Der Ruf ging fehl: das Banner des Kits „Das hat nicht geklappt. Versuch es noch einmal.“ über der Zeile, die wieder „Rufen“ sagt; die anderen vier Gründe sehen genauso aus, mit ihrem eigenen Satz.']],
@@ -1837,6 +1858,7 @@ const restingHand=(d)=>ownHand(d,BID_HAND,d||!narrow()?{}:{w:56,strip:{base:28}}
 const twelveStrip=(d)=>d?{strip:{base:48,no:48,touch:70}}:narrow()?{w:54,rot:.6,strip:{base:23,no:23,touch:35}}:{w:58,strip:{base:25,no:25,touch:38}};
 const JACKS_DARK=TAKEN_HAND.map(([r,s,c])=>r==='B'?[r,s,'no']:[r,s,c]);
 const sideCount=(d,n)=>d?cardsAt(n,952,340):cardsAt(n,PB.cx+(narrow()?94:115),200);
+const underCount=(d,n)=>d?cardsAt(n,420,600):cardsAt(n,PB.cx+55,PB.you.y-40);
 /* the table of every stage scene: chairs, fans, plaque and the skat, the viewer's hand and strip are the scene's */
 const pushTable=(d,o)=>{const L=seatsOf(d),m=o.marks||{};
   return tableOf(d,{fans:0,count:true,glow:o.glow,watchers:o.watchers})+sideFans(d,o.left??10,o.right??10)
@@ -2144,7 +2166,7 @@ const kontraKey=(word)=>`<span class="cb wide kontra" role="button">${narrow()?'
 const kontraStrip=(d,word)=>stripOf(d,{lead:word?kontraKey(word)+(d?GIVE_UP+STAND_WORD:ROUND_GIVE_UP+STAND_ROUND):standLead(d),pill:agentPill(d)});
 const kontraLine=(word)=>`<div class="game pushes">${word} <b>×${kontraFactor(word)}</b></div>`;
 /* the stamp lands on the felt below the trick, where the next card goes; Felix's own card lies there when he led, so it lands higher then */
-const kontraStamp=(d,word,who,high)=>stamp(`${word}!`,who,{x:mid(d),y:high?(d?330:350):d?430:narrow()?396:440,sf:d?50:30,ss:d?380:230,k:.42});
+const kontraStamp=(d,word,who,high)=>stamp(`${word}!`,who,{x:mid(d),y:high?(d?330:350):d?NEAR_Y:narrow()?396:440,sf:d?50:30,ss:d?380:230,k:.42});
 /* o.word: the last word said, which the plaque carries; o.stamp: [word, sayer] */
 const kontraTable=(d,o={})=>{const L=seatsOf(d),declares=o.cast==='declarer',two=o.word,drop=!d&&two?DROP_TRICK:0,right=TRICK_SLOT.right(d);
   const trick=declares?trickAt(d,'felix','near'):lead(d,'anna','left',drop)+played('7','s','nova',slotAt(d,{...right,y:right.y+(d?0:drop)}));
@@ -2234,9 +2256,9 @@ const SHORTEN_LEVEL='Schneider';
 const demandLine=(level)=>level?`<div class="game pushes">Fordert <b>${level}</b></div>`:'';
 /* the request keeps the plaque's place; on the phone the trick below it steps down by what the plaque grew */
 const requestPlaque=(d,line,below)=>centred(d,askPlaque(d,line,below));
-const trickDrop=(d,level,answering)=>(d?0:answering?16:0)+(level&&(answering||!d)?PLAQUE_LINE:0);
+const trickDrop=(d,level,answering)=>(answering?d?NEAR_SLACK:16:0)+(level&&(answering||!d)?PLAQUE_LINE:0);
 /* Felix's own card has no room on the 360 felt, which is 64 px shorter */
-const cardWaits=(d,drop=0)=>narrow()?'':d?ghost(640,NEAR_Y+drop,96):centred(d,yourCard(d));
+const cardWaits=(d,drop=0)=>narrow()?'':d?ghost(640,NEAR_Y+Math.min(drop,NEAR_SLACK),96):centred(d,yourCard(d));
 const earlierAt=(d,drop=0)=>{const lowered_=(slot)=>slotAt(d,{...slot,y:slot.y+drop});
   return played('K','s','anna',lowered_(TRICK_SLOT.left(d)))+played('7','s','ben',lowered_(TRICK_SLOT.right(d)));};
 /* Anna declares and asks to shorten; Felix, an opponent, answers while the trick stays his to play */
@@ -2404,7 +2426,7 @@ soundScenes(SOUND_SCENES);
 /* Felix's table in game 8 of 36, the third trick: Anna leads the ♠ king, Nova adds the 7, Felix takes it with the ace. Anna won the second trick, Felix the first */
 const PILE_W=(d)=>d?50:32;
 /* each pile lies on the felt beside its chair, clear of the fans, the coaster and the own hand */
-const PILE_AT={felix:(d)=>d?{x:338,y:556}:{x:PB.you.x-46,y:PB.you.y+46},anna:(d)=>d?{x:322,y:190}:{x:62,y:232}};
+const PILE_AT={felix:(d)=>d?{x:DB.you.own.x-140,y:DB.you.own.y+8}:{x:PB.you.x-46,y:PB.you.y+46},anna:(d)=>d?{x:322,y:190}:{x:62,y:232}};
 /* a pile: one back per trick, crossed every other trick as players stack them; the last trick lies crossed on top with a brass rim, and only that pile is a button */
 const pile=(d,who,tricks,o={})=>{const p=PILE_AT[who](d),w=PILE_W(d);
   const cards=Array.from({length:tricks},(_,i)=>{const top=i===tricks-1,rot=i%2?84+(i*7)%9-4:(i*5)%9-4;
@@ -2429,9 +2451,9 @@ const sweepTrail=(d,w)=>{const g=gatherAt(d),p=PILE_AT.felix(d),W=w,H=d?800:w===
   return `<svg class="trail mo" style="${at({width:W,height:H,'--d':'.9s','--k':'.6s'})}" viewBox="0 0 ${W} ${H}"><path d="M${pts}"/></svg>`;};
 /* the last trick shown again: it rises out of the pile, face up, in the order it was played, each card with its player's tag (on a phone only the face, the names do not fit under three cards); the card that took it wears the pile's rim */
 const faceTag=(k)=>`<span class="tag face ${P[k].agent?'agent':''}">${faceDot(k)}</span>`;
-const lastShown=(d)=>{const p=PILE_AT.felix(d),cx=d?492:PB.cx-20,w=d?84:58;
+const lastShown=(d)=>{const p=PILE_AT.felix(d),cx=d?500:PB.cx-20,w=d?84:58;
   const cards=THIRD_TRICK.map(([r,s,k],i)=>`<div class="lt-card ${k==='felix'?'took':''}" style="${at({'--rot':`${(i-1)*5}deg`})}">${card(r,s,'',at({'--w':w}))}${d?tag(k):faceTag(k)}</div>`).join('');
-  return `<div class="lastshow" role="dialog" aria-label="Letzter Stich" style="${at({left:cx,top:d?DB.you.y-6:PB.you.y-12,'--caret':`${p.x-cx}px`})}"><div class="lt-head">Letzter Stich</div><div class="lt-cards">${cards}</div></div>`;};
+  return `<div class="lastshow" role="dialog" aria-label="Letzter Stich" style="${at({left:cx,top:d?p.y-50:PB.you.y-12,'--caret':`${p.x-cx}px`})}"><div class="lt-head">Letzter Stich</div><div class="lt-cards">${cards}</div></div>`;};
 const trickTable=(d,w,o)=>{const L=seatsOf(d);
   return tableOf(d,{fans:7,count:true,glow:o.glow})+kreuz(d)+(o.felt||'')+pile(d,'anna',1,{last:o.annaLast})+pile(d,'felix',o.felixTricks,{last:!o.annaLast,landing:o.landing})
     +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:o.turn?['turn']:[],got:o.got})+chairCoasters(L,TOTALS_BEFORE)
@@ -2539,11 +2561,11 @@ const BELL_SCENES=[
       +cowbell(d,L.anna)+(d?grumble(d,'anna',44,392,'50%'):grumble(d,'anna',14,228,'30%'))
       +ownCards(d)+stripOf(d,{pill:agentPill(d)});},
     [BELL_WATCH]],
-  ['bell-nudged','Glocke: Anna wird angestupst',[360,390,1280],(d)=>{const L=seatsOf(d);const w=GRUMBLE_W,cx=L.you.x+L.you.w/2,x=d?100:rightEdge(d,w);
+  ['bell-nudged','Glocke: Anna wird angestupst',[360,390,1280],(d)=>{const L=seatsOf(d);const w=GRUMBLE_W,cx=d?DB.you.own.x:L.you.x+L.you.w/2,x=d?cx-w/2:rightEdge(d,w);
     return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)
       +seat('nova',L.anna)+seat('felixSeen',L.nova)+shaken(seat('annaSelf',{...L.you,marks:['turn']}))
       +chairCoasters(L,[TOTALS_BEFORE[1],TOTALS_BEFORE[2],TOTALS_BEFORE[0]])
-      +cowbell(d,L.you)+grumble(d,'annaSelf',x,L.you.y-(d?52:46),`${Math.round((cx-x)/w*100)}%`,true)
+      +cowbell(d,d?{x:DB.you.own.x-125,y:DB.you.own.y+14,w:0}:L.you)+grumble(d,'annaSelf',x,d?DB.you.own.y-48:L.you.y-46,`${Math.round((cx-x)/w*100)}%`,true)
       +notice('Felix stupst dich an','felix',mid(d),d?170:298)+ownCards(d,SPARE_HAND)+stripOf(d,{pill:agentPill(d)});},
     ['Annas Seite: ihr eigener Stuhl schwingt die Kuhglocke und rüttelt, ihre Blase hängt über dem Stuhl, und die Zeile „Felix stupst dich an“ steht wie bisher auf dem Filz. Sie hört die Glocke und ihre eigene Zeile; der Tisch sieht nichts anderes als bei Felix.']],
   ['bell-watcher','Glocke: ein Zuschauer',[360,390,1280],(d)=>{const L=seatsOf(d);
@@ -2590,7 +2612,7 @@ const setChoice=(picked)=>`<div class="sets" role="radiogroup" aria-label="Regel
 const lengthChoice=(length)=>`<div class="stepper" role="group" aria-label="Länge der Serie"><span class="step" role="button" tabindex="0" aria-label="3 Spiele weniger">−</span><span class="stepvalue" role="spinbutton" tabindex="0" aria-valuemin="3" aria-valuemax="99" aria-valuenow="${length}" aria-label="Spiele">${length}<small>Spiele</small></span><span class="step" role="button" tabindex="0" aria-label="3 Spiele mehr">${I.plus}</span></div>`;
 Object.assign(P,{
   mozart:{...P.nova,n:'Mozart'},
-  benSelf:{...P.ben,n:'Du'},
+  benSelf:{...P.ben,n:'Du',own:true},
 });
 /* the three chairs, seen from the near one: clockwise near, left, right */
 const SEATING={ben:{near:'benSelf',left:'anna',right:'mozart'},anna:{near:'annaSelf',left:'mozart',right:'ben'}};
@@ -2912,7 +2934,7 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .gather{width:0;height:0;z-index:20}
 .lastshow{z-index:40;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 14px 16px;border-radius:18px;
   background:var(--glass-dark);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:inset 0 0 0 1px rgba(240,214,150,.3),0 18px 36px -12px rgba(0,0,0,.9)}
-.lastshow::after{content:"";position:absolute;bottom:-7px;left:clamp(24px,calc(50% + var(--caret) - 7px),calc(100% - 38px));width:14px;height:14px;rotate:45deg;background:inherit;box-shadow:inset -1px -1px 0 rgba(240,214,150,.3)}
+.lastshow::after{content:"";position:absolute;bottom:-7px;left:calc(50% + var(--caret) - 7px);width:14px;height:14px;rotate:45deg;background:inherit;box-shadow:inset -1px -1px 0 rgba(240,214,150,.3)}
 .lt-head{font-size:13px;font-weight:600;color:var(--on-stage-soft)}
 .lt-cards{display:flex;gap:10px}
 .d1280 .lt-cards{gap:16px}

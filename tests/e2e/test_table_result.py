@@ -689,16 +689,17 @@ def test_a_picked_card_lifts_clear_of_the_near_chair_and_the_bar_stays_on_the_sc
     assert bar["y"] + bar["height"] <= declarer.evaluate("window.innerHeight")
 
 
-# Lifts the hand's card at the index as a tap does and leaves the others at rest, wherever the legal cards lie.
+# On a desktop the own seat is a slim bar centred over the hand, never a tile of the felt's size, so no card the finger
+# holds up, no trick card or tag lies under it.
+OWN_BAR_HEIGHT = 56
 LIFT_ONLY_THE_CARD_AT = """(index) => {
     const cards = [...document.querySelectorAll('.own-hand .card')];
     cards.forEach((card, at) => card.classList.toggle('touch', at === index));
 }"""
-NEAR_CHAIR_PARTS = (".tile", ".mark", ".plate", ".coaster")
 
 
 @pytest.mark.parametrize("table_style", STYLES)
-def test_a_card_lifted_anywhere_in_the_hand_stands_clear_of_the_near_chair_on_a_desktop(
+def test_the_own_seat_is_a_slim_bar_centred_over_the_hand_and_a_lifted_card_stands_clear_of_it_on_a_desktop(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -707,60 +708,52 @@ def test_a_card_lifted_anywhere_in_the_hand_stands_clear_of_the_near_chair_on_a_
 ) -> None:
     table = deal_playing_table(open_person, e2e_server, member_of, page_errors, DESKTOP, joiners=FULL_LENGTH_NAMES)
     give_the_table_its_style(table.pages[table.declarer_seat], table.everyone, table_style)
-    middlehand_seat = table.seat_at["middlehand"]
     table.play_through_the_api(sorted(table.legal_cards(table.seat_at["forehand"]))[0])
-    middlehand = table.pages[middlehand_seat]
+    middlehand = table.pages[table.seat_at["middlehand"]]
     legal_cards = middlehand.locator(f"{OWN_HAND_CARD}.ok")
-    expect(legal_cards).to_have_count(len(table.legal_cards(middlehand_seat)))
+    expect(legal_cards).to_have_count(len(table.legal_cards(table.seat_at["middlehand"])))
 
-    legal_cards.first.locator("button").click(position=INSIDE_THE_VISIBLE_STRIP)
-    expect(middlehand.locator(f"{OWN_HAND_CARD}.touch .swipe")).to_have_count(1)
-    for part in NEAR_CHAIR_PARTS:
-        expect_no_crossing(middlehand, f"{OWN_HAND_CARD}:is(.ok, .touch), .own-hand .swipe", f".chair.mine {part}")
+    bar = middlehand.locator(".chair.mine").bounding_box()
+    assert bar is not None
+    assert bar["height"] <= OWN_BAR_HEIGHT, "the own seat is a tile of the felt"
+    assert abs(bar["x"] + bar["width"] / 2 - middlehand.evaluate("window.innerWidth / 2")) <= 1
     for index in range(CARDS_IN_A_HAND):
         middlehand.evaluate(LIFT_ONLY_THE_CARD_AT, index)
-        for part in NEAR_CHAIR_PARTS:
-            expect_no_crossing(middlehand, f"{OWN_HAND_CARD}.touch", f".chair.mine {part}")
+        expect_no_crossing(middlehand, f"{OWN_HAND_CARD}.touch", ".chair.mine")
+    legal_cards.first.locator("button").click(position=INSIDE_THE_VISIBLE_STRIP)
+    expect(middlehand.locator(f"{OWN_HAND_CARD}.touch .swipe")).to_have_count(1)
+    expect_no_crossing(middlehand, f"{OWN_HAND_CARD}:is(.ok, .touch), .own-hand .swipe", ".chair.mine")
+    expect_no_crossing(middlehand, ".trick .face, .trick .tag", ".chair.mine")
 
 
-# Each desktop scene's own chair, found by standing centred over its hand, against the lifted cards of that hand. A
-# scene with a lifted card and no such chair is reported as unchecked, so a layout that moves the chair off the hand's
-# centre fails instead of passing on an empty check.
-NEAR_CHAIRS_OVER_LIFTED_CARDS = """() => {
-    const unchecked = [];
-    const crossings = [...document.querySelectorAll('.frame.d1280')].flatMap((frame) => {
-        const lifted = [...frame.querySelectorAll('.hand .card.ok, .hand .card.touch, .hand .swipe')];
-        if (lifted.length === 0) return [];
-        const middle = (box) => (box.left + box.right) / 2;
-        const handMiddle = middle(frame.querySelector('.hand').getBoundingClientRect());
-        const chair = [...frame.querySelectorAll('.seat .chair')].find(
-            (candidate) => Math.abs(middle(candidate.getBoundingClientRect()) - handMiddle) < 1
-        );
-        if (!chair) {
-            unchecked.push(frame.id);
-            return [];
+# Each desktop scene's own seat, found by its class, against everything else the scene draws, except the cards sweeping
+# to it and the list of games laid over the whole table.
+OWN_SEATS_OF_THE_SCENES = """() => {
+    const apart = [];
+    const crossings = [];
+    const crossing = (a, b) =>
+        Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+        Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
+    for (const frame of document.querySelectorAll('.frame.d1280')) {
+        const origin = frame.getBoundingClientRect();
+        const own = [...frame.querySelectorAll('.seat.own')].filter((seat) => !seat.closest('.watchers'));
+        if (frame.querySelector('.hand') && own.length === 0) apart.push(`${frame.id}: a hand and no own seat`);
+        for (const seat of own) {
+            const box = seat.getBoundingClientRect();
+            if (!seat.classList.contains('bar') || box.height > %(height)d) apart.push(`${frame.id}: the own seat is a tile`);
+            if (Math.abs(box.left + box.width / 2 - origin.left - origin.width / 2) > 1) apart.push(`${frame.id}: off centre`);
+            for (const thing of frame.querySelectorAll(
+                '.hand .card, .swipe, .play, .tag, .ghost, .plaque, .lastshow, .fan, .bubble, .notice, .result, .coaster, .pile, .stamp'
+            )) {
+                if (seat.contains(thing) || thing.matches('.sweep, .gamelist')) continue;
+                if (crossing(box, thing.getBoundingClientRect())) crossings.push(`${frame.id}: the own seat over ${thing.className}`);
+            }
         }
-        const seat = chair.closest('.seat');
-        const own = [...seat.querySelectorAll('.chair, .mark, .plate')];
-        const box = chair.getBoundingClientRect();
-        own.push(...[...frame.querySelectorAll('.coaster')].filter((coaster) => {
-            const at = coaster.getBoundingClientRect();
-            const apart = Math.abs((at.top + at.bottom) / 2 - (box.top + box.bottom) / 2);
-            return middle(at) < box.left && apart < box.height;
-        }));
-        const crossing = (a, b) =>
-            Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
-            Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
-        return own.flatMap((part) =>
-            lifted
-                .filter((card) => crossing(part.getBoundingClientRect(), card.getBoundingClientRect()))
-                .map((card) => `${frame.id}: ${part.className} over ${card.className}`)
-        );
-    });
-    return { unchecked, crossings };
-}"""
+    }
+    return { apart, crossings };
+}""" % {"height": OWN_BAR_HEIGHT}
 
 
-def test_every_desktop_scene_draws_the_near_chair_clear_of_the_lifted_cards(page: Page) -> None:
+def test_every_desktop_scene_draws_the_own_seat_as_a_slim_bar_that_overlaps_nothing(page: Page) -> None:
     page.goto(TABLE_SCENES.as_uri())
-    assert page.evaluate(NEAR_CHAIRS_OVER_LIFTED_CARDS) == {"unchecked": [], "crossings": []}
+    assert page.evaluate(OWN_SEATS_OF_THE_SCENES) == {"apart": [], "crossings": []}

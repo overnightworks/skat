@@ -261,6 +261,8 @@
     }
 
     .room .felt .decor.shell {
+        left: 68%;
+        bottom: 2%;
         height: 44px;
     }
 }

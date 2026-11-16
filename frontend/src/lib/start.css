@@ -3546,14 +3546,8 @@ body {
         --lie: 9deg;
     }
 
-    /* The near card's tag ends clear of the position label on the near chair's top edge: the tags hang 4px higher and the near card lies 8px higher, which still leaves it below the trick's middle, the point the cards lie away from toward their chairs. */
-    .room .laid.near,
-    .room .lead-slot {
-        top: calc(55% - 8px);
-    }
-
-    .room .laid .tag {
-        bottom: calc(var(--card-width) * -0.12 + 4px);
+    .room .laid.near {
+        top: 64%;
     }
 
     .room .points {
@@ -3949,18 +3943,12 @@ body {
     .room .own-hand.picking {
         --card-width: 96px;
         --strip: 48px;
-
-        /* The hand steps down by the lift, so a picked card stays clear of the near chair above it. */
-        margin-top: calc(var(--card-width) * 0.3 + 12px);
-    }
-
-    .room .own-hand .pick.picked {
-        translate: 0 calc(var(--card-width) * -0.3);
     }
 
     .room .declare {
         flex-direction: row;
-        margin-bottom: calc(var(--near-chair-width) * 0.75 + 12px);
+        place-self: center;
+        margin-bottom: 0;
     }
 
     .room .declare.choosing {
@@ -3969,11 +3957,12 @@ body {
         margin-left: 76px;
     }
 
-    /* The stage's two keys stand centred over the near chair. */
+    /* The stage's two keys stand centred under the skat, whose cards are 80px wide here. */
     .room .declare.pushing.choosing {
         grid-column: 1 / 3;
         justify-self: center;
         margin-left: 0;
+        translate: 0 106px;
     }
 
     /* The drop slots stand over their button. */
@@ -4179,95 +4168,36 @@ body {
         margin-bottom: 0;
     }
 
-    /* The far chairs stand at the felt's rim, the near one centred over the hand, as the scenes draw them. The near one is a 16:9 tile that keeps the place of its top edge, so its plate and marks end above the lifted cards of the hand. */
-    .room .chair:nth-child(3) {
-        --chair-width: var(--near-chair-width);
-        --near-chair-rest: calc(var(--near-chair-width) * 0.1875);
-
-        aspect-ratio: 16 / 9;
-        margin-bottom: var(--near-chair-rest);
-    }
-
-    /* The tapped card lifts as high as on a phone, so it stands clear of the near chair's plate. */
-    .room .own-hand .card.touch {
-        --lift: calc(var(--card-width) * -0.3);
-    }
-
-    /* The arrow stands on the tapped card, so the near chair above it covers nothing of it. */
-    .room .own-hand .swipe {
-        top: 10px;
-    }
-
+    /* The far chairs stand at the felt's rim, the near one at its lower left, as bid-watch draws them. */
     .room .stage {
         width: min(100%, 1180px);
         grid-template-rows: auto minmax(165px, 1fr) minmax(165px, 1fr) auto;
         --chair-width: 160px;
-        --near-chair-width: 128px;
         padding-bottom: 8px;
     }
     .room .felt {
         margin-inline: 120px;
     }
 
-    /* While a hand is played the near chair stands on the felt's lower rim, just below the place where the own card lands and above the hand, and the hand steps down by as much as the chair sticks out. */
-    .room .stage:has(> .trick) {
-        --chair-drop: 66px;
-        --trick-rise: 80px;
-    }
-
-    /* The trick lies up among the far chairs' row, where the felt is wide and nothing else stands, and the felt keeps its height below it, so the near chair, the hand and the bar still fit the screen. */
-    .room .stage:has(> .trick) .trick {
-        margin-top: calc(var(--trick-rise) * -1);
-    }
-
-    .room .stage:has(> .trick) .felt {
-        margin-bottom: calc(36px - var(--trick-rise));
-    }
-
-    /* The stamp lands relative to the trick, so it rises with it. */
-    .room .stage:has(> .trick) .callout-spot {
-        margin-top: calc(var(--trick-rise) * -1);
-    }
-
-    /* The notice about a chair stands above the raised trick, which reaches up into the far chairs' row. */
-    .room .stage:has(> .trick) .notice.seat {
-        margin-top: 6px;
-    }
-
+    /* While a hand is played the near chair lies beside the trick, so the hand and the bar stay on the screen. */
     .room .stage:has(> .trick) .chair:nth-child(3) {
         grid-row: 3;
         align-self: end;
-        margin-bottom: calc(var(--near-chair-rest) - var(--chair-drop));
     }
 
     .room .controls {
         margin-top: 12px;
     }
-
-    /* At the result the near chair's stool stands on the floor below it, clear of the bar's keys. */
-    .room .stage:has(> .result) .controls {
-        margin-top: 26px;
-    }
-
-    /* A card lifted in the hand stops short of the chair above it. */
-    .room .stage:has(> .trick) .controls {
-        margin-top: calc(22px + var(--chair-drop));
-    }
-
-    /* The near chair's plate grows by the away note, so the controls step down by as much. */
-    .room .stage:has(.chair:nth-child(3) .away-note) .controls {
-        margin-top: 26px;
-    }
-
-    .room .stage:has(> .trick):has(.chair:nth-child(3) .away-note) .controls {
-        margin-top: calc(36px + var(--chair-drop));
-    }
-
     .room .chair:nth-child(1) {
         justify-self: start;
     }
     .room .chair:nth-child(2) {
         justify-self: end;
+    }
+    .room .chair:nth-child(3) {
+        grid-column: 1;
+        justify-self: start;
+        margin-left: 40px;
     }
 
     .room .coaster {
@@ -4367,75 +4297,6 @@ body {
         width: auto;
         padding: 0 9px 0 7px;
         font-size: 12.5px;
-    }
-
-    /* The near chair is as small as a phone chair, so its marks are the phone chair's: the position on the top edge, the dealer badge as the icon alone, and the turn, pass and away marks at the top right, clear of the position. */
-    .room .chair:nth-child(3) .mark.pos {
-        top: -11px;
-        right: -4px;
-        height: 22px;
-        padding: 0 8px;
-        font-size: 11.5px;
-    }
-
-    .room .chair:nth-child(3) .mark:is(.declarer, .declined, .unanswered) {
-        top: 16px;
-        left: 6px;
-        height: 26px;
-    }
-
-    .room .chair:nth-child(3) .mark.declarer {
-        width: 26px;
-        padding: 0;
-        font-size: 0;
-    }
-
-    .room .chair:nth-child(3) .mark.declined {
-        width: 26px;
-    }
-
-    .room .chair:nth-child(3) .mark.dealer {
-        top: -12px;
-        left: -6px;
-        width: 26px;
-        padding: 0;
-        font-size: 0;
-        gap: 0;
-    }
-
-    .room .chair:nth-child(3) .mark:is(.turn, .pass, .waits, .ready, .think, .away),
-    .room .chair:nth-child(3) .mark.dealer ~ .mark:is(.turn, .pass, .waits, .ready, .think) {
-        top: 11px;
-        right: 11px;
-        left: auto;
-        height: 26px;
-    }
-
-    .room .chair:nth-child(3) .mark:is(.turn, .pass, .think) {
-        width: 26px;
-        padding: 0;
-        font-size: 0;
-    }
-
-    .room .chair:nth-child(3) .mark.away {
-        width: 28px;
-        height: 28px;
-    }
-
-    .room .chair:nth-child(3) .mark.waits {
-        padding: 0 7px 0 5px;
-    }
-
-    .room .chair:nth-child(3) .mark.waits .dot {
-        width: 16px;
-        height: 16px;
-        font-size: 9px;
-    }
-
-    /* The away mark beside another mark stands below it. */
-    .room .chair:nth-child(3) .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away,
-    .room .chair:nth-child(3) .mark.dealer ~ .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away {
-        top: 41px;
     }
 }
 
@@ -4739,15 +4600,24 @@ body {
     }
 }
 
-/* On a short desktop the far chairs stand beside the card, as the scene draws them, so the near chair below it and the bar stay on the screen. */
+/* On a short desktop the near chair stands beside the card, as the scene draws it, so the bar stays on the screen. */
 @media (min-width: 900px) and (max-height: 860px) {
     .room .result {
         gap: 6px;
     }
 
-    .room .stage:has(> .result) .chair:is(:nth-child(1), :nth-child(2)) {
+    .room .stage:has(> .result) .felt {
+        grid-row: 2 / 4;
+    }
+
+    .room .stage:has(> .result) .chair:nth-child(3) {
         grid-row: 3;
-        align-self: start;
+        justify-self: start;
+        align-self: end;
+    }
+
+    .room .stage:has(> .result) .controls {
+        grid-row: 4;
     }
 }
 

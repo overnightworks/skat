@@ -218,8 +218,7 @@ def test_an_agent_on_turn_wears_denkt_over_the_turn_mark_for_everyone(
             "const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2); "
             "return top?.closest('.mark') === think }"
         )
-        stands_near = chair.evaluate("chair => chair.matches('.chair:nth-child(3)')")
-        if form_factor is DESKTOP and not stands_near:
+        if form_factor is DESKTOP:
             expect(thinks).to_contain_text(THINKS)
             assert thinks.evaluate("mark => getComputedStyle(mark).fontSize") != "0px"
     table.expect_nothing_to_overflow()
