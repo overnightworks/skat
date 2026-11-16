@@ -7,7 +7,8 @@
 
     // The end of the series: the winner on top, the same for every viewer, and it shows no card. Each dot wears the
     // colour of the seat its account last held; an agent's shows the sparkle and its name the AI mark. The closed
-    // table's page sets what it adds below the ranks as the children, and the panel then wears its own class.
+    // table's page sets what it adds below the ranks as the children, and the panel then wears its own class and
+    // draws its ranks without the record line.
     const {
         view,
         closed = false,
@@ -43,7 +44,7 @@
                         >{row.name}{#if row.agent}<AiMark />{/if}{#if row.gone}<em>{words["table.seriesGone"]}</em
                             >{/if}</b
                     >
-                    <small>{row.record}</small>
+                    {#if !closed}<small>{row.record}</small>{/if}
                 </span>
                 <span class="sum">{row.total}</span>
             </li>

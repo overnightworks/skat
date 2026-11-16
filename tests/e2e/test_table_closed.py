@@ -468,6 +468,7 @@ def test_the_old_link_of_a_closed_table_with_games_shows_the_standings_and_the_g
         rank = ranks.filter(has_text=name)
         expect(rank.locator(".dot")).to_have_class(re.compile(rf"\bseat-{seat}\b"))
         expect(rank.locator(".ai-mark")).to_have_count(1 if name == AGENT_NAME else 0)
+        expect(rank.locator("small")).to_have_count(0)
     expect(person.locator(".gamesbox .grow")).to_have_count(len(GAME_SEATS))
     expect(person.get_by_text(closer)).to_have_count(0)
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
