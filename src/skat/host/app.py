@@ -96,7 +96,7 @@ if TYPE_CHECKING:
     from skat.table.rule_sets import RuleSetService
     from skat.table.service import TableService
     from skat.web.page_build import PageBuild
-    from skat.web.presence import StreamLeases
+    from skat.web.presence_roster import StreamLeases
     from skat.web.settings import ServerSettings
     from skat.web.sign_in import ExpirableSessions
     from skat.web.wakes import WakeChannel

@@ -13,6 +13,7 @@ import structlog
 from logline import unit_trace
 
 from skat.web.presence_line import PresenceTimer, TimerRuns
+from skat.web.presence_roster import PresenceUnknownError, Present, StreamLeases
 from skat.web.reaction_log import ReactionLog
 from skat.web.stream_holder import StreamHolder
 from skat.web.waits import AskClock
@@ -21,9 +22,9 @@ from skat.web.wakes import Registration, TableTopic, WakeList
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine, Generator, Iterable, Mapping
     from concurrent.futures import Future
-    from contextlib import AbstractAsyncContextManager, AbstractContextManager
+    from contextlib import AbstractContextManager
 
-    from tandem import Hold, Lapse, Roster
+    from tandem import Lapse
 
 CHAIR_RELEASE_RETRY_SECONDS: Final = 15
 # Long enough to read „Eingepasst“.
@@ -38,10 +39,6 @@ ROSTER_READ_TIMEOUT_SECONDS: Final = 3
 log = structlog.get_logger()
 
 
-class PresenceUnknownError(Exception):
-    """Who is present could not be read, or cannot yet vouch for an absence: nothing is freed, ended or noted on it."""
-
-
 @dataclass(frozen=True, eq=False)
 class Subscription:
     """One open stream: its account is connected at the table, its wake-list registration wakes it and its lease
@@ -52,42 +49,6 @@ class Subscription:
     account_id: str
     registration: Registration
     lease: AsyncExitStack
-
-
-class StreamLeases(Protocol):  # pragma: no cover - a port's method bodies are signatures; tandem's `Leases` runs
-    """The presence leases the pods share: tandem's `Leases` is its adapter."""
-
-    def kept(self, holder: str, *, every: timedelta) -> AbstractAsyncContextManager[Hold]: ...
-
-    async def live(self) -> Roster: ...
-
-    async def serve_lapses(
-        self,
-        handle: Callable[[Lapse], Awaitable[None]],  # noqa: V107 the port's parameter names are tandem's
-        *,
-        claimer: str,  # noqa: V107 the port's parameter names are tandem's
-        every: timedelta,
-    ) -> NoReturn: ...
-
-
-@dataclass(frozen=True)
-class Present:
-    """Who streams at which tables on any pod, from one read of the shared leases; `settled` says whether a person
-    missing from it is gone and not lost with a restart of the store.
-    """
-
-    by_table: Mapping[str, frozenset[str]]
-    settled: bool
-
-    def at(self, table_id: str) -> frozenset[str]:
-        return self.by_table.get(table_id, frozenset())
-
-    @classmethod
-    def of(cls, roster: Roster) -> Present:
-        by_table: dict[str, set[str]] = {}
-        for holder in map(StreamHolder.parse, roster.holders):
-            by_table.setdefault(holder.table_id, set()).add(holder.account_id)
-        return cls({table_id: frozenset(accounts) for table_id, accounts in by_table.items()}, roster.settled)
 
 
 async def _finished_despite_cancellation(work: Coroutine[object, object, None]) -> None:
