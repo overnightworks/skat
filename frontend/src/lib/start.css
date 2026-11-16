@@ -8293,6 +8293,19 @@ body {
         margin-bottom: 18px;
     }
 
+    /* The notice about a chair stands between the plaque and the raised cards, so the trick and the bar below it step down by the room it takes. */
+    .room .stage:has(> .trick):has(> .notice.seat) {
+        --trick-rise: 126px;
+    }
+
+    .room .stage:has(> .trick) > .notice.seat {
+        margin-top: -18px;
+    }
+
+    .room .stage:has(> .trick):has(> .notice.seat) .chair.mine {
+        margin-bottom: -4px;
+    }
+
     /* The felt reaches up with the trick, so the raised cards still lie on it. */
     .room .stage:has(> .trick) .felt {
         margin-top: 6px;
