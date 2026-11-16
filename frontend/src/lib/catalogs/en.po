@@ -1023,9 +1023,45 @@ msgctxt "voice.hirsch"
 msgid "Hirsch"
 msgstr "Hirsch"
 
+msgctxt "voice.kreuz"
+msgid "Kreuz"
+msgstr "Clubs"
+
+msgctxt "voice.pik"
+msgid "Pik"
+msgstr "Spades"
+
+msgctxt "voice.herz"
+msgid "Herz"
+msgstr "Hearts"
+
+msgctxt "voice.karo"
+msgid "Karo"
+msgstr "Diamonds"
+
+msgctxt "voice.grand"
+msgid "Grand"
+msgstr "Grand"
+
 msgctxt "voice.null"
 msgid "Null"
 msgstr "Null"
+
+msgctxt "voice.hand"
+msgid "Hand"
+msgstr "Hand"
+
+msgctxt "voice.ouvert"
+msgid "Ouvert"
+msgstr "Ouvert"
+
+msgctxt "voice.schneider"
+msgid "Schneider angesagt"
+msgstr "Schneider declared"
+
+msgctxt "voice.schwarz"
+msgid "Schwarz angesagt"
+msgstr "Schwarz declared"
 
 msgctxt "voice.grumbleComing"
 msgid "Jaja, ich komm ja schon!"

@@ -181,6 +181,46 @@ const OTHER_SEAT = 1;
 const SIT_MILLISECONDS = MOTION_SETS.verspielt.chairSitsSeconds * 1000;
 const EMPTY_MILLISECONDS = MOTION_SETS.verspielt.chairEmptiesSeconds * 1000;
 
+describe("the result of the hand the last trick closes on the page's stage", () => {
+    it("is shown once the last trick has rested and swept, and not before", async () => {
+        const { stage } = await stageOnAPage(MOVING);
+        const showResult = vi.fn();
+
+        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN], showResult);
+        vi.advanceTimersByTime(REST_MILLISECONDS);
+        expect(showResult).not.toHaveBeenCalled();
+
+        vi.advanceTimersByTime(GLIDE_MILLISECONDS);
+
+        expect(showResult).toHaveBeenCalledTimes(1);
+    });
+
+    it("is shown at once when the device asks for reduced motion", async () => {
+        const { stage } = await stageOnAPage({});
+        const showResult = vi.fn();
+
+        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN], showResult);
+
+        expect(showResult).toHaveBeenCalledTimes(1);
+    });
+
+    it("is shown when the window turns hidden while the last trick rests", async () => {
+        const { stage } = await stageOnAPage(MOVING);
+        const showResult = vi.fn();
+
+        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN], showResult);
+        stage.jumpStage();
+
+        expect(showResult).toHaveBeenCalledTimes(1);
+    });
+
+    it("moves only on a page whose stage has a budget", async () => {
+        expect((await stageOnAPage(MOVING)).stage.stageMoves()).toBe(true);
+        expect((await stageOnAPage({})).stage.stageMoves()).toBe(false);
+        expect((await stageOnAPage(MOVING, { hidden: true })).stage.stageMoves()).toBe(false);
+    });
+});
+
 describe("a chair that changes hands on the page's stage", () => {
     it("moves from the update until the set's time is over, and no other chair moves", async () => {
         const { stage } = await stageOnAPage(MOVING);

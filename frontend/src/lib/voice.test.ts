@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { cuesBetween, type Cue } from "./cues.ts";
 import { EVERY_HAND_DEALT, FOREHAND, MIDDLEHAND, REARHAND, table } from "./cues.fixtures.ts";
-import { everyRecording, grumbleOf, recordingOf, voiceKeyOf, type VoiceKey } from "./voice.ts";
+import { everyRecording, grumbleOf, recordingOf, voiceKeysOf, type VoiceKey } from "./voice.ts";
 import { languages, loadWords, sourceLanguage } from "./words/index.ts";
 import { VALID_BIDS } from "./wire.ts";
 import type { AuctionWord } from "../routes/(start)/tables.ts";
@@ -26,20 +26,58 @@ describe("the word the voice says for a cue", () => {
         { name: "Supra", cue: { kind: "word-said", said: { seat: SEAT, word: "supra" } }, key: "voice.supra" },
         { name: "Hirsch", cue: { kind: "word-said", said: { seat: SEAT, word: "hirsch" } }, key: "voice.hirsch" },
     ] satisfies { name: string; cue: Cue; key: VoiceKey }[])("is the key of $name", ({ cue, key }) => {
-        expect(voiceKeyOf(cue)).toBe(key);
+        expect(voiceKeysOf(cue)).toEqual([key]);
     });
+
+    it.each([
+        {
+            name: "a suit game",
+            game: { game: "karo", hand: false, ouvert: false, announcement: "none" },
+            keys: ["karo"],
+        },
+        {
+            name: "a Hand game with Schneider announced",
+            game: { game: "herz", hand: true, ouvert: false, announcement: "schneider" },
+            keys: ["herz", "hand", "schneider"],
+        },
+        {
+            name: "Grand with Schwarz announced",
+            game: { game: "grand", hand: false, ouvert: false, announcement: "schwarz" },
+            keys: ["grand", "schwarz"],
+        },
+        {
+            name: "a Null ouvert game",
+            game: { game: "null", hand: false, ouvert: true, announcement: "none" },
+            keys: ["null", "ouvert"],
+        },
+        {
+            name: "a Null ouvert Hand game",
+            game: { game: "null", hand: true, ouvert: true, announcement: "none" },
+            keys: ["null", "ouvert", "hand"],
+        },
+        {
+            name: "a Pik ouvert game, which includes Hand",
+            game: { game: "pik", hand: true, ouvert: true, announcement: "none" },
+            keys: ["pik", "ouvert"],
+        },
+    ] satisfies { name: string; game: Omit<Extract<Cue, { kind: "game-announced" }>, "kind">; keys: string[] }[])(
+        "are the words of $name in the order the table reads it",
+        ({ game, keys }) => {
+            expect(voiceKeysOf({ kind: "game-announced", ...game })).toEqual(keys.map((key) => `voice.${key}`));
+        },
+    );
 
     it.each([
         { name: "a card", cue: { kind: "card-played", seat: SEAT, card: { suit: "kreuz", rank: "king" } } },
         { name: "the end of the auction", cue: { kind: "auction-ended" } },
         { name: "a refused give-up", cue: { kind: "give-up-refused", seats: [SEAT] } },
     ] satisfies { name: string; cue: Cue }[])("is nothing for $name", ({ cue }) => {
-        expect(voiceKeyOf(cue)).toBeUndefined();
+        expect(voiceKeysOf(cue)).toEqual([]);
     });
 
     it("is one of the grumbles for a nudged chair, whichever the pick", async () => {
         const catalog = await loadWords(sourceLanguage);
-        const keys = [0, 1, 2, 3, 4, 5, 6].map((pick) => voiceKeyOf({ kind: "nudged", seat: SEAT, pick }));
+        const keys = [0, 1, 2, 3, 4, 5, 6].flatMap((pick) => voiceKeysOf({ kind: "nudged", seat: SEAT, pick }));
 
         expect(new Set(keys).size).toBeGreaterThan(1);
         for (const key of keys) expect(Object.hasOwn(catalog, key as string)).toBe(true);
@@ -50,13 +88,18 @@ describe("the word the voice says for a cue", () => {
 
         for (const value of VALID_BIDS) {
             const cue: Cue = { kind: "bid-said", seat: SEAT, word: { action: "bid", value } };
-            expect(Object.hasOwn(catalog, voiceKeyOf(cue) as string)).toBe(true);
+            expect(voiceKeysOf(cue).every((key) => Object.hasOwn(catalog, key))).toBe(true);
         }
     });
 });
 
 const HOLD_VALUES = [18, 20, 22, 23, 24, 27, 264];
 const SEATS = [0, 1, 2];
+
+// The first word of a cue, which is its only one for a bid, a hold and a pass.
+function voiceKeyOf(cue: Cue): VoiceKey | undefined {
+    return voiceKeysOf(cue)[0];
+}
 
 function said(action: "bid" | "hold", seat: number, value: number): Cue {
     return { kind: "bid-said", seat, word: { action, value } };
