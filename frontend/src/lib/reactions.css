@@ -345,6 +345,9 @@
 }
 
 .room button.coaster {
+    --turn: 360deg;
+    --hop: -6px;
+
     font-family: inherit;
 }
 
@@ -368,11 +371,6 @@
 .room .felt .decor.shell {
     --swing: 14deg;
     --hop: -4px;
-}
-
-.room button.coaster {
-    --turn: 360deg;
-    --hop: -6px;
 }
 
 @media (min-width: 900px) {
