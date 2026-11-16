@@ -288,8 +288,8 @@ def test_no_key_while_the_declarer_still_declares_or_a_chair_is_open_or_a_reques
 def test_a_shortening_with_a_demanded_level_names_the_level_under_the_line_on_every_page(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
+    # The table deals a random hand; before the first card no completed trick has put the level out of reach.
     table = deal_a_game(PHONE)
-    table.play_out(CARDS_AFTER_TWO_TRICKS)
 
     table.declaring.step(table.declarer_seat, TABLE_SHORTEN_SUFFIX, claim="schneider")
 
