@@ -205,22 +205,19 @@ class TableService(LobbyReads, GameListReads):
         return clone
 
     def create(self, actor: Actor, command: CreateTable) -> TableView:
-        table_id = self._table_id_of_create(actor, command)
-        with command_step(CREATE_TABLE_COMMAND, table_id.value):
-            return retried_on_duplicate_receipt(lambda: self._create_once(actor, command, table_id))
+        with command_step(CREATE_TABLE_COMMAND) as step:
+            opened = retried_on_duplicate_receipt(lambda: self._create_once(actor, command))
+            step.add(table_id=opened.id)
+            return opened
 
-    def _table_id_of_create(self, actor: Actor, command: CreateTable) -> TableId:
-        """The id the request's table gets, or the id of the table its command id made before."""
-        with self._transactions.begin() as transaction:
-            replay = transaction.replay(actor.account_id, command.command_id)
-        return self._new_table_id() if replay is None else replay.table.id
-
-    def _create_once(self, actor: Actor, command: CreateTable, table_id: TableId) -> TableView:
+    def _create_once(self, actor: Actor, command: CreateTable) -> TableView:
         with self._transactions.begin() as transaction:
             replay = transaction.replay(actor.account_id, command.command_id)
             if replay is not None:
                 return view_of(replayed_table(replay, command), actor.account_id, frozenset(), actor.account_id)
-            table = decide_create(actor, table_id, command.series_length, command.options, command.visibility)
+            table = decide_create(
+                actor, self._new_table_id(), command.series_length, command.options, command.visibility
+            )
             transaction.add_table(table, actor.display_name)
             transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))
@@ -565,8 +562,8 @@ class TableService(LobbyReads, GameListReads):
         self._tell_seats(members)
         return True
 
-    def forget_ended_tables(self, days: int) -> None:
-        forget_ended_tables(self._transactions, days, self._now())
+    def forget_ended_tables(self, days: int) -> int:
+        return forget_ended_tables(self._transactions, days, self._now())
 
     def close(self, actor: Actor, command: CloseTable) -> CommandResult | None:
         """Close the table for everyone if the actor opened it, the ended table as the answer, else the refusal

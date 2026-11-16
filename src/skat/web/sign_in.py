@@ -182,6 +182,7 @@ def _timed_token_request(post: TokenRequestPost) -> TokenRequestPost:
     def timed(request: TokenRequest) -> TokenEndpointAnswer:
         with StepTimer("token_exchange.ended", _STEP_LOGGER) as step:
             answer = post(request)
+            step.add(status=answer.status)
             if answer.status >= HTTPStatus.BAD_REQUEST:
                 step.refuse(IssuerRefusal.ERROR_STATUS)
         return answer

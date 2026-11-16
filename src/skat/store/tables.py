@@ -450,19 +450,20 @@ class _PostgresTableTransaction:
             ).scalars()
         )
 
-    def forget_ended_before(self, cutoff: datetime) -> None:
+    def forget_ended_before(self, cutoff: datetime) -> int:
         gameless = (
             select(tables.c.id)
             .where(tables.c.ended_at <= cutoff, ~exists().where(game_list.c.table_id == tables.c.id))
             .scalar_subquery()
         )
         self._connection.execute(delete(receipts).where(receipts.c.table_id.in_(gameless)))
-        self._connection.execute(delete(tables).where(tables.c.id.in_(gameless)))
+        deleted = self._connection.execute(delete(tables).where(tables.c.id.in_(gameless))).rowcount
         self._connection.execute(
             update(tables)
             .where(tables.c.ended_at <= cutoff, tables.c.closed_by_name.is_not(None))
             .values(closed_by_name=None)
         )
+        return deleted
 
     def empty_since(self, table_id: TableId) -> datetime | None:
         return self._connection.execute(select(tables.c.empty_since).where(tables.c.id == table_id.value)).scalar_one()

@@ -1,7 +1,10 @@
-"""The clients of the Redis every pod shares: the limits webauth spends and the channel tandem wakes the pods on."""
+"""The clients of the Redis every pod shares: the limits webauth spends, the channel tandem wakes the pods on and the
+place store agents keeps its listen record in.
+"""
 
 from typing import Final
 
+from agents.mcp_server.redis_place_store import RedisPlaceStore
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
 from redis.asyncio.retry import Retry as AsyncRetry
@@ -34,14 +37,25 @@ def shared_rate_limits(redis_url: str) -> RedisRateLimitBackend:
     return RedisRateLimitBackend(client, key_prefix=RATE_LIMIT_KEY_PREFIX)
 
 
-def shared_wake_channel(redis_url: str) -> WakeChannel:
-    """The channel on which the pods tell one another what changed. The client's timeouts let a publish fail on a
-    Redis that stays silent, and its retry lets a pod's re-read at a resubscribe survive a Redis restart.
+def _shared_async_client(redis_url: str) -> AsyncRedis:
+    """The client of the wake channel and the place store. Its timeouts let a publish fail on a Redis that stays
+    silent, and its retry lets a pod's re-read at a resubscribe survive a Redis restart.
     """
-    client = AsyncRedis.from_url(  # pyright: ignore[reportUnknownMemberType]
+    return AsyncRedis.from_url(  # pyright: ignore[reportUnknownMemberType]
         redis_url,
         socket_timeout=_WAKE_TIMEOUT_SECONDS,
         socket_connect_timeout=_WAKE_TIMEOUT_SECONDS,
         retry=AsyncRetry(ExponentialBackoff(), _WAKE_RETRIES),
     )
-    return WakeChannel(client, key_prefix=WAKE_KEY_PREFIX)
+
+
+def shared_wake_channel(redis_url: str) -> WakeChannel:
+    """The channel on which the pods tell one another what changed."""
+    return WakeChannel(_shared_async_client(redis_url), key_prefix=WAKE_KEY_PREFIX)
+
+
+def shared_place_store(redis_url: str) -> RedisPlaceStore:
+    """The store that tells every pod which agents listen and what changed for them; agents keeps its keys and wakes
+    under `<WAKE_KEY_PREFIX>-agents`, apart from the pods' own.
+    """
+    return RedisPlaceStore(_shared_async_client(redis_url), key_prefix=WAKE_KEY_PREFIX)

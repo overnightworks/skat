@@ -134,8 +134,9 @@ class FakeTableStore:
             if receipt.table_id != table_id or receipt.command == CREATE_TABLE_COMMAND
         }
 
-    def forget_ended_before(self, cutoff: datetime) -> None:
+    def forget_ended_before(self, cutoff: datetime) -> int:
         due = {table_id for table_id, at in self.ended_at.items() if at <= cutoff}
+        deleted = len(due - self.with_games)
         for table_id in due - self.with_games:
             del self.tables[table_id], self.ended_at[table_id]
             self.receipts = {
@@ -144,6 +145,7 @@ class FakeTableStore:
         for table_id in due & self.with_games:
             ended = self.tables[table_id]
             self.tables[table_id] = EndedTable(ended.id, ended.version, replace(ended.ending, closed_by_name=None))
+        return deleted
 
     def empty_since(self, table_id: TableId) -> datetime | None:
         return self.empty_since_by_table.get(table_id.value)

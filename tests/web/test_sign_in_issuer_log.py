@@ -29,7 +29,7 @@ class TestTokenExchangeLine:
             answer = timed_issuer_calls(issuer_answering(status)).post_token_request(REQUEST)
 
         (line,) = lines_of(lines, "token_exchange.ended")
-        assert (answer.status, line["outcome"], line.get("reason")) == (status, outcome, reason)
+        assert (answer.status, line["outcome"], line.get("reason"), line["status"]) == (status, outcome, reason, status)
         assert line["duration_ms"] >= 0
         assert "secret" not in str(line)
 
