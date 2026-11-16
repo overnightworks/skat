@@ -6,12 +6,14 @@ from playwright.sync_api import Page, Route, expect
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.playing import TABLE_GIVE_UP_AGREE_SUFFIX, TABLE_GIVE_UP_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.declaring import button_of, reload_and_wait
+from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
 from tests.e2e.support.early_end import THREE_SECONDS_MILLISECONDS, expect_a_refused_tap_to_show_the_failure_note
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
+from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.result_card import CARD, listed, waiting_for
 from tests.e2e.support.table_menu import GIVE_UP_ROW, MENU, close_table_menu, menu_button, open_table_menu
+from tests.e2e.support.tables import open_table_with_options
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -328,6 +330,23 @@ def gives_up(opponent: str) -> str:
     return text(SOURCE_LANGUAGE, "table.givesUp", name=opponent)
 
 
+class PartnerAgreesTable(DeclaringTable):
+    """A table opened through the API whose special rule wants the partner's yes to an opponent's give-up."""
+
+    def _open_table(
+        self, opener: Page, server: RunningServer, member_of: Callable[[Page], SeededMember], *, running_points: bool
+    ) -> str:
+        assert not running_points
+        return open_table_with_options(
+            opener, server, RawSession(server, member_of(opener)), {"give_up": {"partner_agrees": True}}
+        )
+
+
+def partner_of(table: PlayingTable, opponent: int) -> int:
+    (partner,) = (seat for seat in opponents(table) if seat != opponent)
+    return partner
+
+
 @pytest.fixture
 def deal_an_opponents_give_up(
     open_person: Callable[..., Page],
@@ -335,45 +354,50 @@ def deal_an_opponents_give_up(
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
 ) -> Callable[..., PlayingTable]:
-    """A declared game after two tricks at which an opponent gave up through the API; the declarer's page, which
-    plays through the page only, shows the request.
+    """A declared game after two tricks at a table whose partner must agree, at which an opponent gave up through the
+    API; his partner's page, which plays through the page only, shows the request.
     """
 
     def deal(form_factor: dict[str, Any]) -> PlayingTable:
-        table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor)
+        table = deal_playing_table(
+            open_person, e2e_server, member_of, page_errors, form_factor, declaring=PartnerAgreesTable
+        )
         table.play_out(CARDS_AFTER_TWO_TRICKS)
         table.declaring.step(opponents(table)[0], TABLE_GIVE_UP_SUFFIX)
-        expect(table.pages[table.declarer_seat].locator(REQUEST)).to_be_visible()
+        expect(table.pages[partner_of(table, opponents(table)[0])].locator(REQUEST)).to_be_visible()
         return table
 
     return deal
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_an_opponents_give_up_shows_the_declarer_his_cards_held_and_the_two_answers(
+def test_an_opponents_give_up_shows_his_partner_the_cards_held_and_the_two_answers_and_the_declarer_none(
     deal_an_opponents_give_up: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_an_opponents_give_up(form_factor)
     asker = opponents(table)[0]
+    partner = table.pages[partner_of(table, asker)]
     declarer = table.pages[table.declarer_seat]
 
+    expect(partner.locator(REQUEST)).to_contain_text(gives_up(table.names[asker]))
+    expect(button_of(partner, ACCEPT)).to_be_visible()
+    expect(button_of(partner, PLAY_ON)).to_be_visible()
+    expect(partner.locator(HELD_CARDS)).to_be_visible()
     expect(declarer.locator(REQUEST)).to_contain_text(gives_up(table.names[asker]))
-    expect(button_of(declarer, ACCEPT)).to_be_visible()
-    expect(button_of(declarer, PLAY_ON)).to_be_visible()
-    expect(declarer.locator(HELD_CARDS)).to_be_visible()
-    expect_nothing_to_overflow(declarer)
+    expect(declarer.locator(f"{REQUEST} button")).to_have_count(0)
+    expect_nothing_to_overflow(partner)
     assert page_errors == []
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_declarers_yes_ends_the_game_on_every_page_with_the_result_and_no_request_and_no_card(
+def test_the_partners_yes_ends_the_game_on_every_page_with_the_result_and_no_request_and_no_card(
     deal_an_opponents_give_up: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_an_opponents_give_up(form_factor)
-    declarer = table.pages[table.declarer_seat]
-    expect(declarer.locator(OWN_CARDS).first).to_be_visible()
+    partner = table.pages[partner_of(table, opponents(table)[0])]
+    expect(partner.locator(OWN_CARDS).first).to_be_visible()
 
-    button_of(declarer, ACCEPT).click()
+    button_of(partner, ACCEPT).click()
 
     for person in table.everyone:
         expect(person.locator(CARD)).to_be_visible()
@@ -383,17 +407,17 @@ def test_the_declarers_yes_ends_the_game_on_every_page_with_the_result_and_no_re
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_declarers_no_lets_the_hand_go_on_with_his_cards_lit_again(
+def test_the_partners_no_keeps_the_game_going_with_his_cards_lit_again(
     deal_an_opponents_give_up: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_an_opponents_give_up(form_factor)
-    declarer = table.pages[table.declarer_seat]
+    partner = table.pages[partner_of(table, opponents(table)[0])]
 
-    button_of(declarer, PLAY_ON).click()
+    button_of(partner, PLAY_ON).click()
 
     expect_the_game_again(table)
-    expect(declarer.locator(HELD_CARDS)).to_have_count(0)
-    expect(declarer.locator(OWN_CARDS).first).to_be_visible()
+    expect(partner.locator(HELD_CARDS)).to_have_count(0)
+    expect(partner.locator(OWN_CARDS).first).to_be_visible()
     for person in table.everyone:
         expect(person.locator(CARD)).to_have_count(0)
     assert page_errors == []
@@ -404,9 +428,8 @@ def test_after_a_yes_the_given_up_card_takes_the_next_hand_with_weiter(
 ) -> None:
     table = deal_an_opponents_give_up(PHONE)
     asker = opponents(table)[0]
-    declarer = table.pages[table.declarer_seat]
 
-    button_of(declarer, ACCEPT).click()
+    button_of(table.pages[partner_of(table, asker)], ACCEPT).click()
 
     expect_the_given_up_stamp(table, asker)
     for person in table.pages.values():
@@ -498,12 +521,11 @@ def test_the_armed_key_runs_out_after_three_seconds_and_sends_nothing(
     assert page_errors == []
 
 
-def test_a_tap_elsewhere_a_reload_a_card_and_a_newer_version_each_put_the_armed_key_back(
+def test_a_tap_elsewhere_a_reload_and_a_newer_version_each_put_the_armed_key_back(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
     table = deal_a_game(PHONE)
     person = table.pages[table.declarer_seat]
-    opponent = opponents(table)[0]
 
     give_up_key(person).click()
     person.mouse.click(*BESIDE_THE_MENU)
@@ -516,11 +538,6 @@ def test_a_tap_elsewhere_a_reload_a_card_and_a_newer_version_each_put_the_armed_
     give_up_key(person).click()
     table.play_out(1)
     expect(person.locator(".chair.turn")).not_to_have_attribute("data-seat", str(table.seat_at["forehand"]))
-    expect(give_up_key(person)).to_have_attribute("title", GIVE_UP)
-
-    give_up_key(person).click()
-    table.declaring.step(opponent, TABLE_GIVE_UP_SUFFIX)
-    expect(table.pages[table.declarer_seat].locator(REQUEST)).to_be_visible()
     expect(give_up_key(person)).to_have_attribute("title", GIVE_UP)
     assert page_errors == []
 
@@ -561,7 +578,7 @@ def test_the_declarers_second_tap_with_fewer_cards_asks_the_opponents_with_the_r
     assert page_errors == []
 
 
-def test_an_opponents_second_tap_gives_up_for_the_side_and_the_declarer_answers_it(
+def test_an_opponents_second_tap_ends_the_game_at_once_for_his_side_on_every_page_and_asks_nobody(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
     table = deal_a_game(PHONE)
@@ -572,9 +589,10 @@ def test_an_opponents_second_tap_gives_up_for_the_side_and_the_declarer_answers_
     give_up_key(table.pages[asker]).click()
     give_up_key(table.pages[asker]).click()
 
-    declarer = table.pages[table.declarer_seat]
-    expect(declarer.locator(REQUEST)).to_contain_text(gives_up(table.names[asker]))
-    expect(button_of(declarer, ACCEPT)).to_be_visible()
+    for person in table.everyone:
+        expect(person.locator(CARD)).to_be_visible()
+        expect(person.locator(REQUEST)).to_have_count(0)
+    expect_the_given_up_stamp(table, asker)
     assert page_errors == []
 
 

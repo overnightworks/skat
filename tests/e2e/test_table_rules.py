@@ -155,6 +155,23 @@ def test_every_chip_of_a_table_with_every_rule_fits_the_row(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
+def test_both_special_rules_of_giving_up_show_one_chip_and_a_row_each(
+    looks_at: Callable[..., Page], form_factor: dict[str, Any]
+) -> None:
+    person = looks_at(form_factor, {"give_up": {"partner_agrees": True, "any_time": True}})
+
+    expect(chips_of(person).locator(".chip")).to_have_text([word("rules.chipGiveUp")])
+    chips_of(person).click()
+    expect(sheet_of(person).locator(".rrow b")).to_have_text(
+        [word("rules.nameGiveUpPartner"), word("rules.nameGiveUpAnyTime")]
+    )
+    expect(sheet_of(person).locator(".rrow small span")).to_have_text(
+        [word("rules.giveUpPartnerAgrees"), word("rules.giveUpAnyTime")]
+    )
+    assert_inside_the_screen(sheet_of(person), form_factor)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_table_without_options_shows_the_chip_official_and_no_rows(
     looks_at: Callable[..., Page], form_factor: dict[str, Any]
 ) -> None:
