@@ -476,8 +476,9 @@ class Presence:
         """End a stream: drop it here at once, then run to the end, even when the caller is cancelled, what awaits.
 
         The lease ends first; then, when the account has no stream left on any pod, its chair's hold starts and the
-        table's streams are woken. A roster that cannot be read starts the hold all the same: freeing the chair reads
-        it again under the row lock.
+        table's streams are woken. A roster that cannot vouch for the account's absence, or that still lists the
+        account while this stream's lease could not be ended, starts no hold: the roster is read again after
+        `CHAIR_RELEASE_RETRY_SECONDS`, so a hold never starts while the account may still stream on another pod.
         """
         if self.unsubscribe(subscription):
             await _finished_despite_cancellation(self._finish_close(subscription))
@@ -486,17 +487,38 @@ class Presence:
         table_id, account_id = subscription.table_id, subscription.account_id
         try:
             await subscription.lease.aclose()
-            account_remains = account_id in await self.connected(table_id)
+            lease_ended = True
         except Exception as failure:
             # The failure's message may carry the account id, so only its type is logged.
             log.error("stream_close.failed", table_id=table_id, error_type=type(failure).__name__)
-            account_remains = False
-        if not account_remains:
-            self._start_hold(table_id, account_id)
-            self._wakes.wake(TableTopic(table_id))
+            lease_ended = False
+        await self._hold_if_absent(table_id, account_id, lease_ended=lease_ended)
         if table_id not in self._subscriptions:
             self._start_empty_wait(table_id)
             self._note_soon(table_id)
+
+    async def _hold_if_absent(self, table_id: str, account_id: str, *, lease_ended: bool) -> None:
+        """Start the account's hold and wake the table when the settled roster shows no stream of it there; when the
+        roster cannot show that, ask again later. Its own lease listed is no stream of another pod while the lease is
+        not known to be ended.
+        """
+        if self._stopped:
+            return
+        try:
+            present = await self._read_present()
+        except Exception as failure:
+            log.error("stream_close.failed", table_id=table_id, error_type=type(failure).__name__)
+            present = None
+        if present is not None and lease_ended and account_id in present.at(table_id):
+            return
+        if present is not None and present.settled and account_id not in present.at(table_id):
+            self._start_hold(table_id, account_id)
+            self._wakes.wake(TableTopic(table_id))
+        else:
+            self._hold.scheduler.schedule(
+                CHAIR_RELEASE_RETRY_SECONDS,
+                partial(self._hold_if_absent, table_id, account_id, lease_ended=lease_ended),
+            )
 
     def watch_empty_table(self, table_id: str, seconds_left: float | None = None) -> None:
         """Start a table's wait if nobody is connected and none is pending: a create retry neither restarts nor

@@ -206,22 +206,51 @@ class TestTheCloseOfAStream:
         assert leases.holders == []
         assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": HOLD_SECONDS}}
 
-    def test_starts_the_hold_though_the_roster_cannot_be_read(self, holding, leases):
+    def test_starts_no_hold_while_the_roster_cannot_be_read_and_starts_it_on_the_retry(self, holding, leases, time):
         subscription = connect(holding, TABLE, "anna", lambda: None)
         leases.reading_fails = [UNREACHABLE]
 
         with capture_logs() as logs:
             run(holding.close(subscription))
-
-        assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": HOLD_SECONDS}}
+        assert holding.hold_seconds_left([TABLE]) == {}
         assert logged_failures(logs) == [("stream_close.failed", "ConnectionError")]
 
-    def test_starts_the_hold_though_its_lease_could_not_be_ended(self, holding, leases):
+        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+        assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": HOLD_SECONDS}}
+
+    def test_starts_no_hold_while_the_roster_is_unsettled_and_does_not_list_the_account(self, holding, leases, time):
+        subscription = connect(holding, TABLE, "anna", lambda: None)
+        leases.settled = False
+
+        run(holding.close(subscription))
+        assert holding.hold_seconds_left([TABLE]) == {}
+
+        leases.settled = True
+        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+        assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": HOLD_SECONDS}}
+
+    def test_starts_no_hold_when_the_account_streams_on_another_pod_once_the_roster_can_be_read(
+        self, holding, elsewhere, leases, time
+    ):
+        connect(elsewhere, TABLE, "anna", lambda: None)
+        subscription = connect(holding, TABLE, "anna", lambda: None)
+        leases.reading_fails = [UNREACHABLE]
+
+        run(holding.close(subscription))
+        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+
+        assert holding.hold_seconds_left([TABLE]) == {}
+
+    def test_starts_the_hold_once_a_lease_that_could_not_be_ended_has_left_the_roster(self, holding, leases, time):
         subscription = connect(holding, TABLE, "anna", lambda: None)
         leases.ending_fails = [UNREACHABLE]
 
         run(holding.close(subscription))
+        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+        assert holding.hold_seconds_left([TABLE]) == {}
 
+        leases.holders.clear()
+        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
         assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": HOLD_SECONDS}}
 
     def test_closing_twice_changes_nothing_the_second_time(self, holding, wakes, time):
