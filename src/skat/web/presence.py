@@ -54,15 +54,15 @@ class Subscription:
 async def _finished_despite_cancellation(work: Coroutine[object, object, None]) -> None:
     """Run `work` to its end however often the caller is cancelled, then propagate the cancellation."""
     task = asyncio.ensure_future(work)
-    cancelled = False
+    cancellation: asyncio.CancelledError | None = None
     while not task.done():
         try:
             await asyncio.wait((task,))
-        except asyncio.CancelledError:
-            cancelled = True
+        except asyncio.CancelledError as cancelled:  # NOSONAR(S7497) re-raised once the work ends
+            cancellation = cancelled
     task.result()
-    if cancelled:
-        raise asyncio.CancelledError
+    if cancellation is not None:
+        raise cancellation
 
 
 class Scheduler(Protocol):  # pragma: no cover - a port's method bodies are signatures; the adapters run
