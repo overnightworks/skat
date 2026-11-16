@@ -57,6 +57,17 @@ class TestConnectedAccounts:
 
         assert run(presence.connected(OTHER_TABLE)) == frozenset()
 
+    def test_the_lobby_reads_every_table_from_one_read_of_the_roster(self, leases):
+        presence = idle_presence(leases=leases)
+        connect(presence, TABLE, "anna", lambda: None)
+        connect(presence, OTHER_TABLE, "ben", lambda: None)
+        before = leases.live_read_count
+
+        connected = run(presence.connected_at([TABLE, OTHER_TABLE, "no-table"]))
+
+        assert connected == {TABLE: {"anna"}, OTHER_TABLE: {"ben"}, "no-table": frozenset()}
+        assert leases.live_read_count == before + 1
+
     def test_unsubscribing_twice_changes_nothing(self, presence, wakes):
         subscription = connect(presence, TABLE, "anna", wakes.callback("anna"))
         connect(presence, TABLE, "ben", wakes.callback("ben"))
