@@ -174,6 +174,8 @@ body.solo .frame{border-radius:0;border:0}
 /* ---------- trick: each card lies toward its player and carries a name tag ---------- */
 .play{position:absolute;transform:translate(-50%,-50%) rotate(var(--rot,0deg))}
 .play .tag{position:absolute;left:50%;bottom:calc(var(--w) * -.12);transform:translateX(-50%) rotate(calc(var(--rot,0deg) * -1));z-index:2}
+/* on the desktop the tags hang 4px higher, so the near card's tag ends above the position pill on the own chair's top edge */
+.d1280 .play .tag{bottom:calc(var(--w) * -.12 + 4px)}
 .tag{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px 0 4px;border-radius:999px;background:rgba(10,12,14,.78);
   font-size:12px;font-weight:600;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4)}
 .tag .dot,.mark.waits .dot{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,var(--c1),var(--c2));color:#111;font-size:9px;font-weight:700}
@@ -914,8 +916,8 @@ const DB={
   anna:{x:22,y:180,w:236,h:178}, nova:{x:1022,y:180,w:236,h:178}, you:{x:580,y:474,w:120,h:90,sm:true},
   coasters:[[230,330,50,-10],[1000,330,50,8],[528,516,50,-6]],
 };
-/* the trick's cards lie at these heights: the far two above, the own card below them, clear of the own chair under it */
-const FAR_Y=254, NEAR_Y=398;
+/* the trick's cards lie at these heights: the far two above, the own card below them (8px higher than the middle's 55%, so its tag ends above the own chair's position pill), clear of the own chair under it */
+const FAR_Y=254, NEAR_Y=390;
 /* the own chair stands centred over the hand; where a glow, a sweep or a burst aims at it, it aims at this point */
 const YOU_AT=[DB.you.x+DB.you.w/2,DB.you.y+DB.you.h/2];
 /* the reckoning's panel ends at 566 px, so the near chair steps down below it, as on the phone */
