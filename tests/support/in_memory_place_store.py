@@ -2,7 +2,7 @@ import asyncio
 import time
 from typing import TYPE_CHECKING
 
-from agents.mcp_server.place_store import ListeningTurn, PlaceSignal, PlaceStoreError, Resubscribed
+from agents.mcp_server.place_store import LapseRun, ListeningTurn, PlaceSignal, PlaceStoreError, Resubscribed
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Collection
@@ -96,14 +96,19 @@ class InMemoryPlaceStore:
         finally:
             self._listeners_read.set()
 
-    async def lapse_due(self, claimer: str) -> None:
+    async def lapse_due(self, claimer: str) -> LapseRun:
         self._reachable()
         lapsed = {stream: held for stream, held in self._streams.items() if held[2] <= self._clock()}
         for stream in lapsed:
             del self._streams[stream]
-        for principal, uris, _ in lapsed.values():
-            for uri in uris - self._honored_by(principal):
-                self._queue().put_nowait(ListeningTurn(principal, uri, listens=False))
+        turns = tuple(
+            ListeningTurn(principal, uri, listens=False)
+            for principal, uris, _ in lapsed.values()
+            for uri in uris - self._honored_by(principal)
+        )
+        for turn in turns:
+            self._queue().put_nowait(turn)
+        return LapseRun(turns=turns, stream_count=len(lapsed))
 
     def record_without_turn(
         self, stream: str, principal: Principal, uris: Collection[str], holds_for: timedelta
