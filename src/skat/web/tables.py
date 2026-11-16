@@ -24,7 +24,7 @@ from skat.web.languages import LANGUAGE_VARY, language_of_request
 from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
 from skat.web.result_answer import RamschResultAnswer, ResultAnswer, result_answer_of
 from skat.web.routes import READ_METHODS, built_page_response
-from skat.web.series_answer import SeriesAnswer, series_answer_of
+from skat.web.series_answer import SeriesAnswer, StandingAnswer, series_answer_of, standing_answer_of
 from skat.web.table_options import OptionsAnswer, options_answer_of
 
 if TYPE_CHECKING:
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from skat.table.playing import PlayingView
     from skat.table.pushing import PushingView
     from skat.table.service import TableService
-    from skat.table.views import AbortedView, ChairHand, CommandResult, HandView, PassedInView, TableView
+    from skat.table.views import AbortedView, ChairHand, CommandResult, EndedView, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
     from skat.web.reaction_log import Thrown
@@ -356,6 +356,8 @@ class EndedAnswer(BaseModel):
     empty_seconds: int | None
     unplayed_days: int | None
     closed_by_name: str | None
+    standings: list[StandingAnswer] | None
+    game_count: int | None
 
 
 class BockAnswer(BaseModel):
@@ -536,6 +538,20 @@ def nudge_answer_of(view: TableView, state: NudgeState | None) -> NudgeAnswer | 
     return NudgeAnswer(nudges=state.nudges, may_nudge=state.may_nudge, by_name=by_name)
 
 
+def ended_answer_of(ended: EndedView | None) -> EndedAnswer | None:
+    if ended is None:
+        return None
+    standings = None if ended.standings is None else [standing_answer_of(each) for each in ended.standings]
+    return EndedAnswer(
+        reason=ended.reason,
+        empty_seconds=ended.empty_seconds,
+        unplayed_days=ended.unplayed_days,
+        closed_by_name=ended.closed_by_name,
+        standings=standings,
+        game_count=ended.game_count,
+    )
+
+
 def reaction_answer_of(view: TableView, thrown: Thrown) -> ReactionAnswer:
     seat = thrown.by_seat
     by_name = None if seat is None else view.chairs[seat - 1].occupant_name
@@ -571,14 +587,7 @@ def answer_of(view: TableView, nudges: Mapping[int, NudgeState], reactions: Sequ
         options=None if view.options is None else options_answer_of(view.options),
         style=view.style,
         bock=None if view.bock is None else BockAnswer(games_left=view.bock.games_left, factor=view.bock.factor),
-        ended=None
-        if view.ended is None
-        else EndedAnswer(
-            reason=view.ended.reason,
-            empty_seconds=view.ended.empty_seconds,
-            unplayed_days=view.ended.unplayed_days,
-            closed_by_name=view.ended.closed_by_name,
-        ),
+        ended=ended_answer_of(view.ended),
         opened_by_me=view.opened_by_me,
         reactions=[reaction_answer_of(view, thrown) for thrown in reactions],
     )
@@ -684,7 +693,9 @@ def create_tables_router(
         says why: `reason` is `empty` (nobody was there while no hand was dealt; `empty_seconds` is the wait),
         `unplayed` (no hand was dealt or played at for `unplayed_days` days) or `closed` (its opener closed it, and
         `closed_by_name` is the opener's name, which the sweep at the start and every hour clears once
-        `SKAT_ENDED_TABLE_DAYS` days have passed, so it stays until that next sweep).
+        `SKAT_ENDED_TABLE_DAYS` days have passed, so it stays until that next sweep). A table that finished a game, of
+        whichever reason, carries `game_count` and the `standings` of its last series with that series' own rules, and
+        names nobody in `closed_by_name`; one that finished none carries both as null.
         A game can also end shortened or played-open, each with the seat that did it.
         A 404 means no table has this id.
         """

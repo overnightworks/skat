@@ -879,6 +879,10 @@ msgctxt "closed.closedBy"
 msgid "{name} hat den Tisch geschlossen"
 msgstr "{name} closed the table"
 
+msgctxt "closed.seriesEnded"
+msgid "Serie beendet"
+msgstr "Series ended"
+
 msgctxt "declare.commandFailed"
 msgid "Das hat nicht geklappt"
 msgstr "That did not work"

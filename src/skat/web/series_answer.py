@@ -2,6 +2,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
+from skat.table.records import OccupantKind  # noqa: TC001 - pydantic reads the field type at runtime
+
 if TYPE_CHECKING:
     from skat.table.game_list import Standing
     from skat.table.views import SeriesView
@@ -9,6 +11,8 @@ if TYPE_CHECKING:
 
 class StandingAnswer(BaseModel):
     display_name: str | None
+    seat: int
+    kind: OccupantKind | None
     total: int
     won: int
     lost: int
@@ -32,6 +36,8 @@ class SeriesAnswer(BaseModel):
 def standing_answer_of(standing: Standing) -> StandingAnswer:
     return StandingAnswer(
         display_name=standing.display_name,
+        seat=standing.seat,
+        kind=standing.kind,
         total=standing.total,
         won=standing.won,
         lost=standing.lost,

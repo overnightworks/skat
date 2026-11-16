@@ -1,4 +1,5 @@
-import type { Card, Chair, GameSheet, Series, SeriesEntry, Table } from "../routes/(start)/tables.ts";
+import type { SeriesEntry } from "../routes/(start)/seriesList.ts";
+import type { Card, Chair, GameSheet, Series, Table } from "../routes/(start)/tables.ts";
 
 export const WATCHER = 0;
 
@@ -48,6 +49,8 @@ export const DECLARED_ENTRY: Extract<SeriesEntry, { kind: "declared" }> = {
     kind: "declared",
     number: 4,
     declarer_name: "player 2",
+    declarer_seat: 2,
+    declarer_kind: "person",
     game: "grand",
     hand: true,
     ouvert: false,
@@ -74,9 +77,9 @@ export const RAMSCH_ENTRY: SeriesEntry = {
     kind: "ramsch",
     number: 7,
     seats: [
-        { name: "player 1", score: 0 },
-        { name: "player 2", score: -40 },
-        { name: null, score: 0 },
+        { name: "player 1", kind: "person", score: 0 },
+        { name: "player 2", kind: "agent", score: -40 },
+        { name: null, kind: null, score: 0 },
     ],
     durchmarsch: false,
     jungfrau: false,

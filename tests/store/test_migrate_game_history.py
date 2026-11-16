@@ -71,6 +71,10 @@ class TestFromTablesInTheirFirstAndThirdSeriesAtRevisionTwentySeven:
             assert compare_metadata(MigrationContext.configure(connection), metadata) == []
 
     def test_accepts_ordinal_one_again_in_the_next_series_of_a_table(self, migrated):
+        run_in_transaction(
+            migrated,
+            text("INSERT INTO series (table_id, number, length, deals) VALUES ('first', 2, 12, 0)"),
+        )
         run_in_transaction(migrated, text(list_row(table_id="'first'", series_number=2)))
 
         rows = stored_rows(migrated, "table_id, series_number, ordinal")

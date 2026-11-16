@@ -36,13 +36,8 @@ class TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen:
         with migrated.connect() as connection:
             assert connection.execute(text("SELECT series_number FROM tables WHERE id = 'series'")).scalar_one() == 2
 
-    @pytest.mark.parametrize(
-        ("table_id", "number"),
-        [("series", 0), ("plain", 2)],
-        ids=["a series numbered below one", "a later number without a series"],
-    )
-    def test_refuses_a_number_the_table_cannot_hold(self, migrated, table_id, number):
-        update = text("UPDATE tables SET series_number = :number WHERE id = :id").bindparams(number=number, id=table_id)
+    def test_refuses_a_series_numbered_below_one(self, migrated):
+        update = text("UPDATE tables SET series_number = 0 WHERE id = 'series'")
 
         with pytest.raises(IntegrityError):
             run_in_transaction(migrated, update)

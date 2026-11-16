@@ -12,13 +12,12 @@ from skat.table.game_list import (
     RamschSeriesSeat,
     SeriesEntryView,
     result_view_of,
-    series_list_view_of,
     standings_of,
     total_of,
 )
-from skat.table.records import HandProgress, RamschOccasion, RamschSetting, TableOptions
+from skat.table.records import HandProgress, OccupantKind, RamschOccasion, RamschSetting, TableOptions
 from skat.table.rules import result_pending
-from tests.support.played_game import ANNA_BEN_CLEO, a_ramsch_entry, an_entry, table_in
+from tests.support.played_game import ANNA_BEN_CLEO, a_ramsch_entry, an_entry, list_rows_of, table_in
 
 REACH = KontraReach.KONTRA_RE
 ANNA, BEN, CLEO = ANNA_BEN_CLEO
@@ -108,12 +107,16 @@ class TestTheSeriesRows:
     def test_a_ramsch_row_names_each_seat_s_stored_name_and_score_and_a_declared_row_its_declarer(self):
         table = replace(table_in(HandProgress()), hand=None, game_list=DECLARED_THEN_RAMSCH)
 
-        declared, ramsch = series_list_view_of(table)
+        declared, ramsch = list_rows_of(table)
 
         assert isinstance(declared, SeriesEntryView)
         assert ramsch == RamschSeriesEntryView(
             number=2,
-            seats=(RamschSeriesSeat("Anna", -47), RamschSeriesSeat("Ben", 0), RamschSeriesSeat("Cleo", 0)),
+            seats=(
+                RamschSeriesSeat("Anna", OccupantKind.PERSON, -47),
+                RamschSeriesSeat("Ben", OccupantKind.PERSON, 0),
+                RamschSeriesSeat("Cleo", OccupantKind.PERSON, 0),
+            ),
             durchmarsch=False,
             jungfrau=False,
             bock_factor=1,
@@ -126,6 +129,6 @@ class TestTheSeriesRows:
         entry = replace(a_ramsch_entry(), durchmarsch_seat=durchmarsch_seat, jungfrau=jungfrau)
         table = replace(table_in(HandProgress()), hand=None, game_list=(entry,))
 
-        (row,) = series_list_view_of(table)
+        (row,) = list_rows_of(table)
 
         assert (row.durchmarsch, row.jungfrau) == (durchmarsch_seat is not None, jungfrau)

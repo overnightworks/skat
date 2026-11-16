@@ -6,13 +6,13 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
-    ForeignKey,
     ForeignKeyConstraint,
     Index,
     Integer,
     SmallInteger,
     Table,
     Text,
+    func,
     insert,
     select,
     text,
@@ -37,11 +37,12 @@ from skat.store.schema import (
     SUIT_TEXT,
     metadata,
     one_of,
-    tables,
+    series,
     unstored_steps,
 )
 from skat.table.game_cards import GameCards, SeatedCard, in_deck_order, put_away_in_order
 from skat.table.game_list import GameEnding, GameEntry, ListEntry, RamschEntry
+from skat.table.records import OccupantKind
 from skat.table.rules import CHAIRS_PER_TABLE
 
 if TYPE_CHECKING:
@@ -86,7 +87,7 @@ _RAMSCH_COLUMN_LIST: Final = ", ".join(_RAMSCH_COLUMNS)
 game_list = Table(
     "game_list",
     metadata,
-    Column("table_id", Text, ForeignKey(tables.c.id), primary_key=True),
+    Column("table_id", Text, primary_key=True),
     Column("series_number", SmallInteger, primary_key=True),
     Column("ordinal", SmallInteger, primary_key=True),
     Column("finished_at", DateTime(timezone=True)),
@@ -96,6 +97,9 @@ game_list = Table(
     Column("seat_1_name", Text),
     Column("seat_2_name", Text),
     Column("seat_3_name", Text),
+    Column("seat_1_kind", Text),
+    Column("seat_2_kind", Text),
+    Column("seat_3_kind", Text),
     Column("declarer_seat", SmallInteger),
     Column("game", Text),
     Column("hand", Boolean),
@@ -125,7 +129,15 @@ game_list = Table(
     Column("ending", Text, nullable=False, server_default=text(f"'{GameEnding.PLAYED_OUT.value}'")),
     Column("ended_by_seat", SmallInteger),
     Column("pushes", SmallInteger, nullable=False, server_default=text("0")),
+    ForeignKeyConstraint(["table_id", "series_number"], [series.c.table_id, series.c.number]),
     CheckConstraint("series_number >= 1", name="game_list_series_number_counts_from_one"),
+    CheckConstraint(
+        "num_nonnulls(seat_1_kind, seat_2_kind, seat_3_kind) IN (0, 3)", name="game_list_kinds_are_all_or_nothing"
+    ),
+    *(
+        one_of(f"seat_{seat}_kind", (kind.value for kind in OccupantKind), f"game_list_seat_{seat}_kind_is_a_kind")
+        for seat in SEATS
+    ),
     CheckConstraint("ordinal >= 1", name="game_list_ordinal_counts_from_one"),
     CheckConstraint(f"declarer_seat BETWEEN 1 AND {CHAIRS_PER_TABLE}", name="game_list_declarer_seat_is_a_seat"),
     one_of("game", GAME_TEXT.values(), "game_list_game_is_a_game"),
@@ -276,10 +288,15 @@ game_cards = Table(
 )
 
 
+def _kind_of(text: str | None) -> OccupantKind | None:
+    return None if text is None else OccupantKind(text)
+
+
 def _ramsch_entry_of(row: Row[tuple[object, ...]]) -> RamschEntry:
     return RamschEntry(
         seat_accounts=(row.seat_1_account, row.seat_2_account, row.seat_3_account),
         seat_names=(row.seat_1_name, row.seat_2_name, row.seat_3_name),
+        seat_kinds=(_kind_of(row.seat_1_kind), _kind_of(row.seat_2_kind), _kind_of(row.seat_3_kind)),
         seat_points=(row.seat_1_points, row.seat_2_points, row.seat_3_points),
         seat_scores=(row.seat_1_score, row.seat_2_score, row.seat_3_score),
         durchmarsch_seat=row.durchmarsch_seat,
@@ -295,6 +312,7 @@ def _entry_of(row: Row[tuple[object, ...]]) -> GameEntry:
     return ListEntry(
         seat_accounts=(row.seat_1_account, row.seat_2_account, row.seat_3_account),
         seat_names=(row.seat_1_name, row.seat_2_name, row.seat_3_name),
+        seat_kinds=(_kind_of(row.seat_1_kind), _kind_of(row.seat_2_kind), _kind_of(row.seat_3_kind)),
         declarer_seat=row.declarer_seat,
         declaration=Declaration(
             GAME_OF_TEXT[row.game],
@@ -321,6 +339,7 @@ def _entry_of(row: Row[tuple[object, ...]]) -> GameEntry:
 def _seats_columns_of(entry: GameEntry) -> dict[str, object]:
     first, second, third = entry.seat_accounts
     first_name, second_name, third_name = entry.seat_names
+    first_kind, second_kind, third_kind = (None if kind is None else kind.value for kind in entry.seat_kinds)
     return {
         "seat_1_account": first,
         "seat_2_account": second,
@@ -328,6 +347,9 @@ def _seats_columns_of(entry: GameEntry) -> dict[str, object]:
         "seat_1_name": first_name,
         "seat_2_name": second_name,
         "seat_3_name": third_name,
+        "seat_1_kind": first_kind,
+        "seat_2_kind": second_kind,
+        "seat_3_kind": third_kind,
     }
 
 
@@ -373,15 +395,17 @@ def _columns_of(entry: GameEntry) -> dict[str, object]:
     }
 
 
-def read_game_list(connection: Connection, table_id: str) -> tuple[GameEntry, ...]:
-    """The games of the table's current series, the series number its row holds."""
-    current_series = select(tables.c.series_number).where(tables.c.id == table_id).scalar_subquery()
-    rows = connection.execute(
-        select(game_list)
-        .where(game_list.c.table_id == table_id, game_list.c.series_number == current_series)
-        .order_by(game_list.c.ordinal)
-    )
-    return tuple(_entry_of(row) for row in rows)
+def read_game_list(connection: Connection, table_id: str, series_number: int) -> tuple[GameEntry, ...]:
+    """The games of the table's series `series_number` in the order played."""
+    in_series = (game_list.c.table_id == table_id) & (game_list.c.series_number == series_number)
+    return tuple(map(_entry_of, connection.execute(select(game_list).where(in_series).order_by(game_list.c.ordinal))))
+
+
+def last_series_with_games(connection: Connection, table_id: str) -> int | None:
+    """The highest series number of the table that has a game; None for a table that finished none."""
+    return connection.execute(
+        select(func.max(game_list.c.series_number)).where(game_list.c.table_id == table_id)
+    ).scalar_one()
 
 
 def _card_row(
@@ -441,13 +465,14 @@ def _cards_of(rows: Iterable[Row[tuple[object, ...]]]) -> GameCards:
     )
 
 
-def read_game_cards(connection: Connection, table_id: str, number: int) -> GameCards | None:
-    """The cards of the `number`th game of the table's current series; None for a game stored without them."""
-    current_series = select(tables.c.series_number).where(tables.c.id == table_id).scalar_subquery()
+def read_game_cards(connection: Connection, table_id: str, series_number: int, number: int) -> GameCards | None:
+    """The cards of the `number`th game of the table's series `series_number`; None for a game stored without
+    them.
+    """
     rows = connection.execute(
         select(game_cards).where(
             game_cards.c.table_id == table_id,
-            game_cards.c.series_number == current_series,
+            game_cards.c.series_number == series_number,
             game_cards.c.ordinal == number,
         )
     ).all()
@@ -461,10 +486,10 @@ def append_game_list(
     entries: tuple[GameEntry, ...],
     finished_at: datetime | None,
 ) -> None:
-    """Store the entries of the current series not yet stored, each as finished at `finished_at` with the cards it
-    carries; a stored list that is no prefix of `entries` raises.
+    """Store the entries of the series `series_number` not yet stored, each as finished at `finished_at` with the cards
+    it carries; a stored list that is no prefix of `entries` raises.
     """
-    stored = read_game_list(connection, table_id)
+    stored = read_game_list(connection, table_id, series_number)
     fresh = unstored_steps(table_id, stored, entries)
     for ordinal, entry in enumerate(fresh, start=len(stored) + 1):
         key = {"table_id": table_id, "series_number": series_number, "ordinal": ordinal}

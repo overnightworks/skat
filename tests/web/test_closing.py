@@ -2,8 +2,10 @@ import pytest
 
 from skat.table.records import EndReason, TableRecord
 from skat.web.closing import TABLE_CLOSE_SUFFIX
+from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.web.support.series import headers_of, play_a_series
 from tests.web.support.skat import FETCH, UNKNOWN_ID, streams_of
 
 CLOSE_COMMAND_ID = "command-close"
@@ -39,6 +41,8 @@ class TestClose:
             "empty_seconds": None,
             "unplayed_days": None,
             "closed_by_name": owner.username,
+            "standings": None,
+            "game_count": None,
         }
         assert not isinstance(skat.store.tables[table_id], TableRecord)
 
@@ -103,3 +107,29 @@ class TestClose:
 
         assert close(skat, FETCH, table_id).status_code == 401
         assert before == (skat.store.tables, skat.store.receipts)
+
+
+class TestClosingATableThatFinishedGames:
+    @pytest.fixture
+    def closed(self, skat):
+        """A played series of three games whose opener closed it."""
+        table, _ = play_a_series(skat)
+        opener = headers_of(table)[0]
+        assert close(skat, opener, table.table_id).status_code == 200
+        return table
+
+    def test_the_old_link_answers_the_games_played_and_the_standings_and_names_nobody(self, skat, closed):
+        answer = skat.client.get(f"{TABLES_PATH}/{closed.table_id}", headers=closed.watcher)
+
+        ended = answer.json()["ended"]
+        assert (ended["reason"], ended["closed_by_name"], ended["game_count"]) == ("closed", None, 3)
+        assert sorted(standing["seat"] for standing in ended["standings"]) == [1, 2, 3]
+        assert {standing["kind"] for standing in ended["standings"]} == {"person"}
+        assert ended["standings"][0]["place"] == 1
+
+    def test_the_list_and_a_game_of_the_closed_table_are_those_of_its_last_series(self, skat, closed):
+        listed = skat.client.get(f"{TABLES_PATH}/{closed.table_id}{TABLE_LIST_SUFFIX}", headers=closed.watcher)
+        sheet = skat.client.get(f"{TABLES_PATH}/{closed.table_id}{TABLE_LIST_SUFFIX}/2", headers=closed.watcher)
+
+        assert [entry["number"] for entry in listed.json()["entries"]] == [1, 2, 3]
+        assert (sheet.status_code, sheet.json()["number"]) == (200, 2)

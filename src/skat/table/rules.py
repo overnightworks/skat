@@ -12,6 +12,7 @@ from skat.table.records import (
     Chair,
     CreateTable,
     Decision,
+    EndedTable,
     EndProposal,
     FormerHolder,
     GiveUpAsked,
@@ -19,6 +20,7 @@ from skat.table.records import (
     NewHand,
     NoWordSaid,
     Occupant,
+    PlayedSeries,
     Receipt,
     Refusal,
     Replay,
@@ -40,7 +42,7 @@ if TYPE_CHECKING:
     from skat.engine.bock import BockOptions
     from skat.engine.cards import Card
     from skat.engine.deal import Position
-    from skat.table.records import EndedTable, RamschSetting, TableOptions
+    from skat.table.records import RamschSetting, TableOptions
 
 CHAIRS_PER_TABLE: Final = 3
 FIRST_VERSION: Final = 1
@@ -353,6 +355,15 @@ def series_games_left(table: TableRecord) -> int | None:
 def series_number_of(table: TableRecord) -> int:
     """The number of the table's series, 1 for the first and for a table with no series."""
     return 1 if table.series is None else table.series.number
+
+
+def played_series_of(table: TableRecord | EndedTable) -> PlayedSeries | None:
+    """The series whose games a table's list and game sheets read, with the options it was played under: a live table's
+    current one, an ended table's last that has games; None for an ended table that finished no game.
+    """
+    if isinstance(table, EndedTable):
+        return table.last_series
+    return PlayedSeries(series_number_of(table), table.options, table.game_list)
 
 
 def series_over(table: TableRecord) -> bool:

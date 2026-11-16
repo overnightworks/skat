@@ -1,12 +1,22 @@
 <script lang="ts">
+    import type { Snippet } from "svelte";
+    import { AiMark } from "overnightworks-design";
     import type { StandingsView } from "#lib/series.ts";
+    import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import { words } from "#lib/words.ts";
 
-    // The end of the series: the winner on top, the same for every viewer, and it shows no card.
-    const { view }: { view: StandingsView } = $props();
+    // The end of the series: the winner on top, the same for every viewer, and it shows no card. Each dot wears the
+    // colour of the seat its account last held; an agent's shows the sparkle and its name the AI mark. The closed
+    // table's page sets what it adds below the ranks as the children, and the panel then wears its own class and
+    // draws its ranks without the record line.
+    const {
+        view,
+        closed = false,
+        children,
+    }: { view: Pick<StandingsView, "heading" | "sub" | "rows">; closed?: boolean; children?: Snippet } = $props();
 </script>
 
-<div class="result standing" role="status">
+<div class="result standing" class:closedseries={closed} role="status">
     <h3>
         <svg
             viewBox="0 0 24 24"
@@ -26,15 +36,19 @@
         {#each view.rows as row, index (index)}
             <li class="rank" class:win={row.winner} class:gone={row.gone}>
                 <span class="place">{row.place}</span>
-                <span class="dot" aria-hidden="true">{row.initial}</span>
+                <span class={["dot", `seat-${String(row.seat)}`, row.agent && "agent"]} aria-hidden="true">
+                    {#if row.agent}<AgentSparkle />{:else}{row.initial}{/if}
+                </span>
                 <span class="txt">
                     <b
-                        >{row.name}{#if row.gone}<em>{words["table.seriesGone"]}</em>{/if}</b
+                        >{row.name}{#if row.agent}<AiMark />{/if}{#if row.gone}<em>{words["table.seriesGone"]}</em
+                            >{/if}</b
                     >
-                    <small>{row.record}</small>
+                    {#if !closed}<small>{row.record}</small>{/if}
                 </span>
                 <span class="sum">{row.total}</span>
             </li>
         {/each}
     </ol>
+    {@render children?.()}
 </div>

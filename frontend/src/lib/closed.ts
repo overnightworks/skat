@@ -1,3 +1,4 @@
+import { standingRow, type StandingsView } from "#lib/series.ts";
 import { words } from "#lib/words.ts";
 import type { Ended } from "../routes/(start)/tables.ts";
 
@@ -23,4 +24,14 @@ export function closedWords(ended: Ended): string {
                 ? words["closed.closed"]
                 : words["closed.closedBy"]({ name: ended.closed_by_name });
     }
+}
+
+// An ended table that finished a game shows its last series' standings whatever the reason, and none that finished no game.
+export function closedStandings(ended: Ended): Pick<StandingsView, "heading" | "sub" | "rows"> | null {
+    if (ended.standings === null) return null;
+    return {
+        heading: words["closed.seriesEnded"],
+        sub: words["table.seriesGames"](ended.game_count),
+        rows: ended.standings.map((standing) => standingRow(standing, null)),
+    };
 }

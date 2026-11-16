@@ -11,51 +11,41 @@ from skat.engine.deal import Position, positions_from
 from skat.store.schema import tables
 from skat.table.playing import PlayCardCommand
 from skat.table.records import (
-    Actor,
     CloseTable,
     CreateTable,
     EndedTable,
     Ending,
     EndReason,
     GiveUpAsked,
-    SitDown,
-    TableId,
+    OccupantKind,
     TableRecord,
 )
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.service import TableService
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.faulty_tables import HANG_DEADLINE_SECONDS, FaultyTableTransactions
-from tests.support.played_game import a_whole_game, after_the_first_game, before_the_last_card, declared_herz_hand
+from tests.support.played_game import (
+    a_whole_game,
+    after_the_first_game,
+    before_the_last_card,
+    declared_herz_hand,
+    with_agents,
+)
+from tests.support.seated_tables import (
+    NOBODY_CONNECTED,
+    OPENER,
+    SEATED,
+    ended_at,
+    listed_game,
+    save,
+    seated_table,
+    undealt_table,
+)
 from tests.support.table_rows import WorkInAThread, rows_of, wait_until_a_session_waits_for_a_lock
 
 pytestmark = pytest.mark.postgres
 
-NOBODY_CONNECTED = frozenset[str]()
 HAND_TABLES = ("hand_cards", "auction_actions", "declaring_steps", "played_cards")
-OPENER = Actor(account_id="account-anna", display_name="Anna")
-SEATED = (
-    OPENER,
-    Actor(account_id="account-ben", display_name="Ben"),
-    Actor(account_id="account-cleo", display_name="Cleo"),
-)
-
-
-def seated_table(service, name, seats=3, series_length=None):
-    """A table with the opener and the next `seats - 1` people seated; the third sitting deals the first hand."""
-    table_id = service.create(OPENER, CreateTable(command_id=f"open-{name}", series_length=series_length)).id
-    for seat, actor in enumerate(SEATED[1:seats], start=2):
-        service.sit(actor, SitDown(f"sit-{name}-{seat}", table_id, seat), NOBODY_CONNECTED)
-    return TableId(table_id)
-
-
-def undealt_table(service, name):
-    return seated_table(service, name, seats=2)
-
-
-def save(transactions, record):
-    with transactions.begin() as transaction:
-        transaction.save_table(record, played_at=None)
 
 
 def played_hand(service, transactions, stored, name):
@@ -63,12 +53,6 @@ def played_hand(service, transactions, stored, name):
     table_id = seated_table(service, name)
     running, _ = before_the_last_card(stored(transactions, table_id.value))
     save(transactions, running)
-    return table_id
-
-
-def listed_game(service, transactions, stored, name):
-    table_id = seated_table(service, name)
-    save(transactions, after_the_first_game(stored(transactions, table_id.value)))
     return table_id
 
 
@@ -106,7 +90,7 @@ def test_the_end_step_deletes_the_chairs_hand_and_steps_of_a_running_hand_and_ke
 
     after = rows_of(engine, table_id.value)
     kept = {name for name, rows in after.items() if rows}
-    assert kept == {"tables", "receipts"}
+    assert kept == {"tables", "series", "receipts"}
     assert len(after["tables"]) == 1
 
 
@@ -407,7 +391,7 @@ def test_the_unplayed_end_keeps_the_game_list_and_every_other_row_goes_and_store
     )
 
     after = rows_of(engine, table_id.value)
-    assert {name for name, rows in after.items() if rows} == {"tables", "receipts", "game_list"}
+    assert {name for name, rows in after.items() if rows} == {"tables", "series", "receipts", "game_list"}
     assert after["game_list"] == games
     assert [row[2] for row in after["receipts"]] == [CREATE_TABLE_COMMAND]
     with engine.connect() as connection:
@@ -423,7 +407,9 @@ def test_the_unplayed_end_keeps_the_game_list_and_every_other_row_goes_and_store
             ).where(tables.c.id == table_id.value)
         ).one()
     assert tuple(row) == (UNPLAYED_AT, EndReason.UNPLAYED.value, None, UNPLAYED_DAYS, None, None, None)
-    assert stored(transactions, table_id.value) == EndedTable(table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
+    assert replace(stored(transactions, table_id.value), last_series=None) == EndedTable(
+        table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS)
+    )
 
 
 CLOSED_AT = datetime(2026, 11, 13, 9, 0, tzinfo=UTC)
@@ -440,7 +426,7 @@ def test_the_close_keeps_the_game_list_and_the_create_and_close_receipts_and_sto
 
     assert result.refusal is None
     after = rows_of(engine, table_id.value)
-    assert {name for name, rows in after.items() if rows} == {"tables", "receipts", "game_list"}
+    assert {name for name, rows in after.items() if rows} == {"tables", "series", "receipts", "game_list"}
     assert after["game_list"] == games
     assert sorted(row[:3] for row in after["receipts"]) == [
         (OPENER.account_id, "close-one", "close-table"),
@@ -453,7 +439,9 @@ def test_the_close_keeps_the_game_list_and_the_create_and_close_receipts_and_sto
             )
         ).one()
     assert tuple(row) == (CLOSED_AT, EndReason.CLOSED.value, OPENER.display_name, None)
-    assert stored(transactions, table_id.value) == EndedTable(table_id, version + 1, Ending.closed("Anna"))
+    assert replace(stored(transactions, table_id.value), last_series=None) == EndedTable(
+        table_id, version + 1, Ending.closed("Anna")
+    )
 
 
 def test_the_close_deletes_the_rows_of_a_running_hand(service, transactions, stored, engine):
@@ -462,7 +450,7 @@ def test_the_close_deletes_the_rows_of_a_running_hand(service, transactions, sto
     service.close(OPENER, CloseTable("close-one", table_id.value))
 
     after = rows_of(engine, table_id.value)
-    assert {name for name, rows in after.items() if rows} == {"tables", "receipts"}
+    assert {name for name, rows in after.items() if rows} == {"tables", "series", "receipts"}
 
 
 def test_a_close_retry_after_the_commit_answers_the_ended_table_and_a_refusal_writes_no_receipt(
@@ -502,7 +490,7 @@ def test_the_unplayed_end_deletes_the_rows_of_a_running_hand(service, transactio
     unplayed_service(transactions).end_unplayed_table(table_id, UNPLAYED_DAYS, nullcontext(NOBODY_CONNECTED))
 
     after = rows_of(engine, table_id.value)
-    assert {name for name, rows in after.items() if rows} == {"tables", "receipts"}
+    assert {name for name, rows in after.items() if rows} == {"tables", "series", "receipts"}
 
 
 def test_the_unplayed_end_clears_an_outstanding_give_up_request(service, transactions, stored, engine):
@@ -664,9 +652,12 @@ def test_a_play_that_meets_the_expiry_holding_the_row_finds_the_table_ended_and_
     expired, played = rivals.settle(rivals.expire(rivals.first_hold), rivals.play())
 
     assert (expired, played) == ([True], [None])
-    assert rivals.stored() == EndedTable(rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
+    assert replace(rivals.stored(), last_series=None) == EndedTable(
+        rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS)
+    )
     assert {name for name, rows in rows_of(rivals.engine, rivals.table_id.value).items() if rows} == {
         "tables",
+        "series",
         "receipts",
         "game_list",
     }
@@ -677,106 +668,46 @@ def test_two_expiries_that_meet_end_the_table_once(rivals):
     first, second = rivals.settle(rivals.expire(rivals.first_hold), rivals.expire())
 
     assert (first, second) == ([True], [False])
-    assert rivals.stored() == EndedTable(rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS))
+    assert replace(rivals.stored(), last_series=None) == EndedTable(
+        rivals.table_id, version + 1, Ending.unplayed(UNPLAYED_DAYS)
+    )
 
 
-ENDED_TABLE_DAYS = 7
-ENDED_AT = datetime(2026, 11, 3, 12, 0, tzinfo=UTC)
-FORGOTTEN_AT = ENDED_AT + timedelta(days=ENDED_TABLE_DAYS)
+ENDINGS = (
+    pytest.param(Ending.closed("Anna"), id="closed"),
+    pytest.param(Ending.unplayed(UNPLAYED_DAYS), id="unplayed"),
+    pytest.param(Ending.empty(DEFAULT_EMPTY_TABLE_SECONDS), id="empty"),
+)
 
 
-def forgetting_service(transactions, now=FORGOTTEN_AT):
-    return TableService(transactions, now=lambda: now)
+class TestAnEndedTableThatFinishedAGame:
+    @pytest.fixture
+    def agent_game(self, service, transactions, stored):
+        """A listed game whose middle seat was an agent."""
+        table_id = seated_table(service, "one")
+        save(transactions, after_the_first_game(with_agents(stored(transactions, table_id.value), 2)))
+        return table_id
 
+    @pytest.mark.parametrize("ending", ENDINGS)
+    def test_reads_the_standings_of_its_last_series_with_each_seat_and_kind_and_names_no_closer(
+        self, ending, agent_game, transactions, service
+    ):
+        ended_at(transactions, agent_game, ending)
 
-def ended_at(transactions, table_id, ending=None):
-    with transactions.begin() as transaction:
-        assert transaction.locked_table(table_id) is not None
-        transaction.end_table(table_id, ENDED_AT, ending or Ending.empty(DEFAULT_EMPTY_TABLE_SECONDS))
+        ended = service.view(OPENER, agent_game.value, NOBODY_CONNECTED).ended
 
+        assert ended.game_count == 1
+        assert ended.closed_by_name is None
+        assert [(each.display_name, each.seat, each.kind, each.place) for each in ended.standings] == [
+            ("Anna", 1, OccupantKind.PERSON, 1),
+            ("Ben", 2, OccupantKind.AGENT, 2),
+            ("Cleo", 3, OccupantKind.PERSON, 2),
+        ]
 
-def closed_with_games(service, transactions, stored, engine, name):
-    table_id = listed_game(service, transactions, stored, name)
-    service.close(OPENER, CloseTable(f"close-{name}", table_id.value))
-    with engine.begin() as connection:
-        connection.execute(update(tables).where(tables.c.id == table_id.value).values(ended_at=ENDED_AT))
-    return table_id
+    def test_a_table_that_finished_no_game_keeps_its_closers_name_and_has_no_standings(self, service, transactions):
+        table_id = undealt_table(service, "one")
+        ended_at(transactions, table_id, Ending.closed("Anna"))
 
+        ended = service.view(OPENER, table_id.value, NOBODY_CONNECTED).ended
 
-def test_forgetting_deletes_an_ended_table_with_no_game_with_its_receipts_once_the_days_are_up(
-    service, transactions, stored, engine
-):
-    table_id = undealt_table(service, "one")
-    ended_at(transactions, table_id)
-    assert rows_of(engine, table_id.value)["receipts"]
-
-    forgetting_service(transactions).forget_ended_tables(ENDED_TABLE_DAYS)
-
-    assert {name for name, rows in rows_of(engine, table_id.value).items() if rows} == set()
-    assert stored(transactions, table_id.value) is None
-
-
-def test_forgetting_keeps_a_live_table_and_an_ended_table_within_its_days_and_deletes_a_due_one(
-    service, transactions, engine
-):
-    live = undealt_table(service, "live")
-    recent = undealt_table(service, "recent")
-    due = undealt_table(service, "due")
-    ended_at(transactions, recent)
-    ended_at(transactions, due)
-    with engine.begin() as connection:
-        connection.execute(
-            update(tables).where(tables.c.id == recent.value).values(ended_at=FORGOTTEN_AT - timedelta(seconds=1))
-        )
-    live_before = rows_of(engine, live.value)
-    recent_before = rows_of(engine, recent.value)
-
-    forgetting_service(transactions).forget_ended_tables(ENDED_TABLE_DAYS)
-
-    assert rows_of(engine, live.value) == live_before
-    assert rows_of(engine, recent.value) == recent_before
-    assert not any(rows_of(engine, due.value).values())
-
-
-def test_forgetting_keeps_an_ended_table_with_games_and_clears_only_its_closers_name(
-    service, transactions, stored, engine
-):
-    table_id = closed_with_games(service, transactions, stored, engine, "one")
-    before = rows_of(engine, table_id.value)
-    version = stored(transactions, table_id.value).version
-
-    forgetting_service(transactions).forget_ended_tables(ENDED_TABLE_DAYS)
-
-    after = rows_of(engine, table_id.value)
-    assert {name for name, rows in after.items() if rows} == {"tables", "receipts", "game_list"}
-    assert after["game_list"] == before["game_list"]
-    assert after["receipts"] == before["receipts"]
-    assert stored(transactions, table_id.value) == EndedTable(table_id, version, Ending(EndReason.CLOSED))
-
-
-def test_forgetting_keeps_the_closers_name_of_a_table_with_games_until_the_days_are_up(
-    service, transactions, stored, engine
-):
-    table_id = closed_with_games(service, transactions, stored, engine, "one")
-    before = stored(transactions, table_id.value)
-
-    forgetting_service(transactions, FORGOTTEN_AT - timedelta(seconds=1)).forget_ended_tables(ENDED_TABLE_DAYS)
-
-    assert stored(transactions, table_id.value) == before
-
-
-def test_a_create_retry_that_reads_its_receipt_as_the_forgetting_deletes_the_table_makes_a_new_table(
-    service, transactions, engine
-):
-    forgotten = undealt_table(service, "one")
-    ended_at(transactions, forgotten)
-
-    with transactions.begin() as forgetting:
-        forgetting.forget_ended_before(FORGOTTEN_AT)
-        retry = WorkInAThread(lambda: service.create(OPENER, CreateTable(command_id="open-one")))
-        retry.start()
-        wait_until_a_session_waits_for_a_lock(engine, retry)
-
-    retry.join()
-    assert retry.outcome[0].id != forgotten.value
-    assert not any(rows_of(engine, forgotten.value).values())
+        assert (ended.closed_by_name, ended.standings, ended.game_count) == ("Anna", None, None)

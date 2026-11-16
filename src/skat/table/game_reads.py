@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from skat.table.game_list import series_list_view_of
 from skat.table.game_sheet import game_sheet_of
 from skat.table.records import EndedTable, TableId, TableRecord
+from skat.table.rules import played_series_of
 
 if TYPE_CHECKING:
     from skat.table.game_list import RamschSeriesEntryView, SeriesEntryView
@@ -27,21 +28,25 @@ class GameListReads:
             return transaction.table(identifier)
 
     def series_list(self, table_id: str) -> tuple[SeriesEntryView | RamschSeriesEntryView, ...] | None:
-        """The table's list of finished games; None for no table, empty once it ended."""
+        """The list of finished games of the table's current series, or of an ended table's last series that has games;
+        None for no table, empty for an ended table that finished no game.
+        """
         table = self._table_read(table_id)
         if table is None:
             return None
-        return () if isinstance(table, EndedTable) else series_list_view_of(table)
+        played = played_series_of(table)
+        return () if played is None else series_list_view_of(played)
 
     def game_sheet(self, table_id: str, number: int) -> GameSheetView | None:
-        """The `number`th game of the table's current series with the cards it stored, read in one transaction; None for
-        no table, an ended table and a number no game has.
+        """The `number`th game of the series the list shows with the cards it stored, read in one transaction; None for
+        no table, a table that finished no game and a number no game has.
         """
         identifier = TableId.parse(table_id)
         if identifier is None:
             return None
         with self._transactions.begin() as transaction:
             table = transaction.table(identifier)
-            if not isinstance(table, TableRecord) or not 1 <= number <= len(table.game_list):
+            played = None if table is None else played_series_of(table)
+            if played is None or not 1 <= number <= len(played.game_list):
                 return None
-            return game_sheet_of(table, number, transaction.game_cards(identifier, number))
+            return game_sheet_of(played, number, transaction.game_cards(identifier, played.number, number))

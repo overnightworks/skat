@@ -26,7 +26,7 @@ from skat.table.declaring import DeclaringCommand
 from skat.table.game_list import GameEnding, ListEntry, RamschEntry, standings_of
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
-from skat.table.records import Actor, CreateTable, SitDown
+from skat.table.records import Actor, CreateTable, OccupantKind, SitDown
 from skat.table.service import TableService
 from tests.support.played_game import a_game_cards
 
@@ -95,6 +95,7 @@ def an_entry(declaration, **numbers):
     fields = {
         "seat_accounts": tuple(actor.account_id for actor in SEATED),
         "seat_names": tuple(actor.display_name for actor in SEATED),
+        "seat_kinds": (OccupantKind.PERSON, OccupantKind.AGENT, OccupantKind.PERSON),
         "declarer_seat": 2,
         "schneider": False,
         "schwarz": False,
@@ -150,6 +151,7 @@ def a_ramsch_entry(**numbers):
     fields = {
         "seat_accounts": tuple(actor.account_id for actor in SEATED),
         "seat_names": tuple(actor.display_name for actor in SEATED),
+        "seat_kinds": (OccupantKind.PERSON, OccupantKind.AGENT, OccupantKind.PERSON),
         "seat_points": (12, 40, 68),
         "seat_scores": (-12, -40, -68),
         "durchmarsch_seat": None,
@@ -306,7 +308,7 @@ class TestTheThirtiethCard:
 
 def stored_cards(engine, table_id, number=1):
     with engine.connect() as connection:
-        return read_game_cards(connection, table_id, number)
+        return read_game_cards(connection, table_id, 1, number)
 
 
 class TestTheCardsOfTheGame:
