@@ -173,10 +173,12 @@ export type Hand = {
     // A chair of the hand is open, so the seated players may vote to abort it.
     abortable: boolean;
 };
+// The kind of occupant a chair holds.
+export type OccupantKind = "person" | "agent";
 export type Chair = {
     seat: number;
     occupant_name: string | null;
-    occupant_kind: "person" | "agent" | null;
+    occupant_kind: OccupantKind | null;
     is_mine: boolean;
     is_away: boolean;
     ready: boolean;
@@ -246,11 +248,21 @@ export type Result = {
 export type PassedIn = { next_dealer_seat: number | null };
 export type EndReason = (typeof END_REASON_TOKENS)[number];
 // Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, the days nobody played,
-// or the name its opener had when closing it, which is null once the days of the link's reason have passed.
-export type Ended =
-    | { reason: Extract<EndReason, "empty">; empty_seconds: number; unplayed_days: null; closed_by_name: null }
-    | { reason: Extract<EndReason, "unplayed">; empty_seconds: null; unplayed_days: number; closed_by_name: null }
-    | { reason: Extract<EndReason, "closed">; empty_seconds: null; unplayed_days: null; closed_by_name: string | null };
+// or the name its opener had when closing it, which is null once the days of the link's reason have passed and for a
+// table that finished a game. Such a table carries the games its last series played and their standings, whatever the
+// reason; one that finished none carries neither.
+type EndedPlayed = { standings: Standing[]; game_count: number } | { standings: null; game_count: null };
+export type Ended = EndedPlayed &
+    (
+        | { reason: Extract<EndReason, "empty">; empty_seconds: number; unplayed_days: null; closed_by_name: null }
+        | { reason: Extract<EndReason, "unplayed">; empty_seconds: null; unplayed_days: number; closed_by_name: null }
+        | {
+              reason: Extract<EndReason, "closed">;
+              empty_seconds: null;
+              unplayed_days: null;
+              closed_by_name: string | null;
+          }
+    );
 // The rules a table was opened with, answered to every viewer; a rule that is off is null.
 export type Options = {
     show_running_points: boolean;
@@ -275,8 +287,17 @@ export type OptionsRequest = { show_running_points?: true } & {
 // The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
 // by; the same for every viewer. A table without Bock has none.
 export type Bock = { games_left: number; factor: number };
-// One account's place at the end of a series; a name stored with no name is null.
-export type Standing = { display_name: string | null; total: number; won: number; lost: number; place: number };
+// One account's place at the end of a series; a name stored with no name is null. `seat` and `kind` are the chair and
+// the kind of occupant the series' list last seated the account as; a game stored before kinds were kept has no kind.
+export type Standing = {
+    display_name: string | null;
+    seat: number;
+    kind: OccupantKind | null;
+    total: number;
+    won: number;
+    lost: number;
+    place: number;
+};
 // The seat that proposed ending the series early and the one that has said yes so far.
 export type EndProposal = { proposer_seat: number; accepter_seat: number | null };
 // Which series of the table this is, 1 for the first, which of its games runs (0 before the first deal) and whether it
@@ -476,45 +497,6 @@ const SERIES_END_ANSWER_SUFFIXES: Record<SeriesEndAnswer, string> = {
 // on the table as it is.
 export function answerSeriesEnd(id: string, commandId: string, answer: SeriesEndAnswer): Promise<Outcome> {
     return post(id, SERIES_END_ANSWER_SUFFIXES[answer], { command_id: commandId });
-}
-
-// A finished game of the series' list as the server projects it, the same for every viewer.
-export type SeriesEntry =
-    | {
-          kind: "declared";
-          number: number;
-          declarer_name: string | null;
-          game: Game;
-          hand: boolean;
-          ouvert: boolean;
-          announcement: Announcement;
-          levels: Level[];
-          settled_value: number;
-          score: number;
-          declarer_points: number;
-          kontra_word: Word | null;
-          bock_factor: number;
-      }
-    | {
-          kind: "ramsch";
-          number: number;
-          seats: { name: string | null; score: number }[];
-          durchmarsch: boolean;
-          jungfrau: boolean;
-          bock_factor: number;
-          pushes: number;
-          push_factor: number;
-      };
-
-// The games in the order played; null when the list cannot be read.
-export async function readSeriesList(id: string): Promise<SeriesEntry[] | null> {
-    const answer = await fetchSigningInAgain(`${TABLES_PATH}/${encodeURIComponent(id)}${TABLE_LIST_SUFFIX}`);
-    if (answer?.ok !== true) return null;
-    try {
-        return ((await answer.json()) as { entries: SeriesEntry[] }).entries;
-    } catch {
-        return null;
-    }
 }
 
 const AUCTION_STEP_SUFFIXES: Record<AuctionAction, string> = {

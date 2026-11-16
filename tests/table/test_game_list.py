@@ -20,7 +20,6 @@ from skat.table.game_list import (
     Standing,
     list_entry_of,
     result_view_of,
-    series_list_view_of,
     standings_of,
     total_of,
 )
@@ -35,6 +34,7 @@ from skat.table.records import (
     TableStyle,
     Visibility,
 )
+from tests.support.played_game import list_rows_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KARO, KREUZ, NULL = GameKind.KARO, GameKind.KREUZ, GameKind.NULL
@@ -418,18 +418,20 @@ class TestTheStandings:
 
         assert {each.display_name for each in standings_of((nameless,), REACH)} == {None}
 
-    def test_a_standing_is_its_account_name_total_record_and_place(self):
-        assert standings_of((game_for(1, won=True, score=36),), REACH)[0] == Standing(ANNA, "Anna", 86, 1, 0, 1)
+    def test_a_standing_is_its_account_name_seat_kind_total_record_and_place(self):
+        entry = replace(game_for(1, won=True, score=36), seat_kinds=(OccupantKind.AGENT, None, None))
+
+        assert standings_of((entry,), REACH)[0] == Standing(ANNA, "Anna", 1, OccupantKind.AGENT, 86, 1, 0, 1)
 
 
 class TestTheSeriesList:
     def test_a_table_without_a_finished_game_has_an_empty_list(self):
-        assert series_list_view_of(seated_table()) == ()
+        assert list_rows_of(seated_table()) == ()
 
     def test_every_game_is_a_row_numbered_from_one_with_the_declarer_s_stored_name(self):
         table = pending_result(played(KREUZ, MIT_TWO, (30, 30, 18)), played(KREUZ, MIT_TWO, (30, 24)), played(NULL))
 
-        rows = series_list_view_of(table)
+        rows = list_rows_of(table)
 
         assert [row.number for row in rows] == [1, 2, 3]
         assert {row.declarer_name for row in rows} == {"Account-Anna"}
@@ -441,7 +443,7 @@ class TestTheSeriesList:
             played(KARO, MIT_ONE, (30, 30, 10), bid=20),
         )
 
-        rows = series_list_view_of(pending_result(won, lost, overbid))
+        rows = list_rows_of(pending_result(won, lost, overbid))
 
         assert [(row.declaration, row.levels, row.settled_value, row.score) for row in rows] == [
             (Declaration(KREUZ, hand=False, ouvert=False, announcement=NONE), (Level.SPIEL, Level.SCHNEIDER), 48, 48),
@@ -452,13 +454,13 @@ class TestTheSeriesList:
     def test_the_levels_are_those_the_result_of_the_same_game_shows(self):
         table = pending_result(played(KREUZ, MIT_TWO, (30, 30, 30, 5)))
 
-        assert series_list_view_of(table)[0].levels == result_view_of(table).levels
+        assert list_rows_of(table)[0].levels == result_view_of(table).levels
 
     def test_a_row_stored_before_names_were_kept_has_no_declarer_name(self):
         table = pending_result(played(KREUZ, MIT_TWO, (30, 30, 18)))
         nameless = replace(table.game_list[0], seat_names=(None, None, None))
 
-        rows = series_list_view_of(replace(table, game_list=(nameless,)))
+        rows = list_rows_of(replace(table, game_list=(nameless,)))
 
         assert rows[0].declarer_name is None
         assert not any(account in repr(rows) for account in SEAT_ACCOUNTS)
@@ -467,7 +469,7 @@ class TestTheSeriesList:
         table = pending_result(played(KREUZ, MIT_TWO, (30, 30, 18)))
         replaced = replace(table.chairs[0], occupant=Occupant("account-dora", "Dora", OccupantKind.PERSON))
 
-        rows = series_list_view_of(replace(table, chairs=(replaced, *table.chairs[1:])))
+        rows = list_rows_of(replace(table, chairs=(replaced, *table.chairs[1:])))
 
         assert [row.declarer_name for row in rows] == ["Account-Anna"]
 
@@ -476,7 +478,16 @@ class TestTheSeriesList:
         names = ("Anna", "Ben", "Cleo")
         table = replace(seated_table(), game_list=(game_for(seat, won=True, score=48, names=names),))
 
-        assert [row.declarer_name for row in series_list_view_of(table)] == [names[seat - 1]]
+        assert [row.declarer_name for row in list_rows_of(table)] == [names[seat - 1]]
+
+    @pytest.mark.parametrize("seat", [1, 2, 3])
+    def test_a_row_carries_the_seat_and_the_kind_stored_for_its_declarer(self, seat):
+        kinds = (OccupantKind.PERSON, OccupantKind.AGENT, None)
+        entry = replace(game_for(seat, won=True, score=48), seat_kinds=kinds)
+
+        row = list_rows_of(replace(seated_table(), game_list=(entry,)))[0]
+
+        assert (row.declarer_seat, row.declarer_kind) == (seat, kinds[seat - 1])
 
 
 def doubled_table(entry, word, reach):
@@ -539,6 +550,6 @@ class TestTheDoubledGame:
         assert standings_of((entry,), standings)[0].total == 172
 
     def test_a_row_of_the_series_list_names_the_last_word_and_the_doubled_score(self):
-        row = series_list_view_of(doubled_table(self.WON, RE, REACH))[0]
+        row = list_rows_of(doubled_table(self.WON, RE, REACH))[0]
 
         assert (row.kontra_word, row.score) == (RE, 72)

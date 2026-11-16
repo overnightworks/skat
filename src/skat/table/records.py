@@ -133,7 +133,7 @@ class RamschSetting:
 
 @dataclass(frozen=True)
 class TableOptions:
-    """The rule options a table is opened with; they stay fixed for its life and the default is the official rules.
+    """The rule options a series is played with; they stay fixed for that series and the default is the official rules.
 
     `show_running_points` shows everyone the card points each side has taken in completed tricks while a suit or
     Grand game is played. `kontra` makes the table play the words Kontra and Re up to its reach; None plays without.
@@ -453,12 +453,26 @@ class Ending:
 
 
 @dataclass(frozen=True)
+class PlayedSeries:
+    """One series' games with the options the series was played under, so what reads them never reads the table's
+    present options.
+    """
+
+    number: int
+    options: TableOptions
+    game_list: tuple[GameEntry, ...]
+
+
+@dataclass(frozen=True)
 class EndedTable:
-    """What stays of an ended table: its id, version and how it ended."""
+    """What stays of an ended table: its id, version and how it ended, and the last series that has games, None for a
+    table that finished no game.
+    """
 
     id: TableId
     version: int
     ending: Ending
+    last_series: PlayedSeries | None = None
 
 
 @dataclass(frozen=True)

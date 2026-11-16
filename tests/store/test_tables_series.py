@@ -2,24 +2,39 @@ import random
 import threading
 from contextlib import nullcontext
 from dataclasses import replace
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 
 from skat.engine.deal import Position, deal, positions_from
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word
 from skat.store.game_list import game_list
 from skat.store.migrate import create_store_engine
-from skat.store.schema import StepLogRewrittenError, hand_cards
+from skat.store.schema import StepLogRewrittenError, hand_cards, options_of, series, tables
+from skat.store.series import SeriesSettingsChangedError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.ready import NewSeriesCommand
-from skat.table.records import Actor, CreateTable, EndProposal, HandProgress, Refusal, Series, SitDown, StandUp, TableId
+from skat.table.records import (
+    Actor,
+    CreateTable,
+    Ending,
+    EndProposal,
+    HandProgress,
+    Refusal,
+    Series,
+    SitDown,
+    StandUp,
+    TableId,
+    TableOptions,
+)
 from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.migrations import run_in_transaction
-from tests.support.played_game import after_the_first_game
+from tests.support.played_game import after_a_game, after_the_first_game, an_entry
 
 pytestmark = pytest.mark.postgres
 
@@ -372,18 +387,16 @@ class TestEndingEarly:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param("UPDATE tables SET series_end_proposer = 4", id="a-proposer-beyond-the-seats"),
-            pytest.param("UPDATE tables SET series_end_proposer = 0", id="a-proposer-below-the-seats"),
+            pytest.param("UPDATE series SET end_proposer = 4", id="a-proposer-beyond-the-seats"),
+            pytest.param("UPDATE series SET end_proposer = 0", id="a-proposer-below-the-seats"),
+            pytest.param("UPDATE series SET end_proposer = 1, end_accepter = 4", id="an-accepter-beyond-the-seats"),
+            pytest.param("UPDATE series SET end_accepter = 2", id="an-accepter-without-a-proposer"),
             pytest.param(
-                "UPDATE tables SET series_end_proposer = 1, series_end_accepter = 4", id="an-accepter-beyond-the-seats"
-            ),
-            pytest.param("UPDATE tables SET series_end_accepter = 2", id="an-accepter-without-a-proposer"),
-            pytest.param(
-                "UPDATE tables SET series_end_proposer = 2, series_end_accepter = 2",
+                "UPDATE series SET end_proposer = 2, end_accepter = 2",
                 id="an-accepter-equal-to-the-proposer",
             ),
             pytest.param(
-                "UPDATE tables SET series_ended_early = true, series_end_proposer = 1",
+                "UPDATE series SET ended_early = true, end_proposer = 1",
                 id="an-ended-series-with-a-proposal",
             ),
         ],
@@ -395,13 +408,14 @@ class TestEndingEarly:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param("UPDATE tables SET series_end_proposer = 1 WHERE id = 'plain'", id="a-proposal"),
-            pytest.param("UPDATE tables SET series_ended_early = true WHERE id = 'plain'", id="an-early-end"),
+            pytest.param("UPDATE series SET end_proposer = 1 WHERE table_id = 'plain'", id="a-proposal"),
+            pytest.param("UPDATE series SET ended_early = true WHERE table_id = 'plain'", id="an-early-end"),
         ],
     )
     def test_the_checks_refuse_a_proposal_or_an_early_end_on_a_table_without_a_series(self, engine, statement):
         with engine.begin() as connection:
             connection.execute(text("INSERT INTO tables (id, version) VALUES ('plain', 1)"))
+            connection.execute(text("INSERT INTO series (table_id, number) VALUES ('plain', 1)"))
 
         with pytest.raises(IntegrityError):
             run_in_transaction(engine, text(statement))
@@ -451,3 +465,115 @@ class TestEndingEarly:
         assert read(transactions, between_games).series == Series(3, 1, number=2)
         assert read(transactions, between_games).game_list == ()
         assert rows_of(engine, game_list) == 1
+
+
+def kontra_options(reach):
+    return TableOptions(kontra=KontraOptions(KontraSayer.ANY_OPPONENT, reach, KontraDeadline.OWN_CARD))
+
+
+FIRST_SERIES_OPTIONS = kontra_options(KontraReach.KONTRA_RE_STANDINGS)
+SECOND_SERIES_OPTIONS = kontra_options(KontraReach.KONTRA_RE)
+
+
+def series_rows(engine, table_id):
+    with engine.connect() as connection:
+        return connection.execute(select(series).where(series.c.table_id == table_id).order_by(series.c.number)).all()
+
+
+class TestTheSeriesRow:
+    @pytest.fixture
+    def first_series(self, service, transactions):
+        """A table of three games opened with `FIRST_SERIES_OPTIONS`, seated, its first game played and its last
+        game over: one list row with a Kontra word, no hand.
+        """
+        table_id = service.create(
+            OPENER, CreateTable(command_id="command-open", series_length=3, options=FIRST_SERIES_OPTIONS)
+        ).id
+        service.sit(VISITOR, SitDown("command-visitor", table_id, 2), frozenset())
+        service.sit(THIRD_PLAYER, SitDown("command-third", table_id, 3), frozenset())
+        record = read(transactions, table_id)
+        played = after_a_game(replace(record, game_list=()), replace(an_entry(), kontra_word=Word.KONTRA))
+        with transactions.begin() as transaction:
+            transaction.save_table(replace(played, series=Series(3, 3)), played_at=None)
+        return table_id
+
+    def second_series(self, transactions, table_id, options):
+        record = read(transactions, table_id)
+        return replace(record, series=Series(3, 1, number=2), options=options, game_list=())
+
+    def test_a_new_table_stores_its_length_options_and_counters_on_series_one_and_a_deal_counts_there(
+        self, service, transactions, engine, table_id
+    ):
+        pass_the_hand_in(service, transactions, table_id)
+        service.deal_next(TableId(table_id), nullcontext(ALL_THREE))
+
+        (first,) = series_rows(engine, table_id)
+
+        assert (first.number, first.length, first.deals, first.ended_early) == (1, 3, 2, False)
+        assert options_of(first) == TableOptions()
+
+    def test_the_next_series_adds_a_row_with_its_own_options_and_leaves_the_earlier_row_as_it_was(
+        self, transactions, engine, first_series
+    ):
+        before = series_rows(engine, first_series)
+
+        with transactions.begin() as transaction:
+            transaction.save_table(
+                self.second_series(transactions, first_series, SECOND_SERIES_OPTIONS), played_at=None
+            )
+
+        first, second = series_rows(engine, first_series)
+        assert first == before[0]
+        assert (first.deals, options_of(first)) == (3, FIRST_SERIES_OPTIONS)
+        assert (second.number, second.length, second.deals, options_of(second)) == (2, 3, 1, SECOND_SERIES_OPTIONS)
+        with engine.connect() as connection:
+            assert (
+                connection.execute(select(tables.c.series_number).where(tables.c.id == first_series)).scalar_one() == 2
+            )
+
+    def test_a_save_that_changes_the_options_of_a_stored_series_raises_and_writes_nothing(
+        self, transactions, engine, first_series
+    ):
+        record = read(transactions, first_series)
+        before = (series_rows(engine, first_series), record)
+
+        with pytest.raises(SeriesSettingsChangedError), transactions.begin() as transaction:
+            transaction.save_table(
+                replace(record, version=record.version + 1, options=SECOND_SERIES_OPTIONS), played_at=None
+            )
+
+        after = (series_rows(engine, first_series), read(transactions, first_series))
+        assert after == before
+
+    def test_a_save_that_changes_the_length_of_a_stored_series_raises(self, transactions, first_series):
+        record = read(transactions, first_series)
+
+        with pytest.raises(SeriesSettingsChangedError), transactions.begin() as transaction:
+            transaction.save_table(replace(record, series=Series(6, 3)), played_at=None)
+
+    def test_an_ended_table_reads_the_last_series_with_games_under_the_options_it_was_played_with(
+        self, service, transactions, stored, first_series
+    ):
+        with transactions.begin() as transaction:
+            transaction.save_table(
+                self.second_series(transactions, first_series, SECOND_SERIES_OPTIONS), played_at=None
+            )
+            transaction.end_table(
+                TableId(first_series), datetime(2026, 11, 9, 12, 0, tzinfo=UTC), Ending.closed("Anna")
+            )
+
+        last = stored(transactions, first_series).last_series
+
+        assert (last.number, last.options, len(last.game_list)) == (1, FIRST_SERIES_OPTIONS, 1)
+        ended = service.view(OPENER, first_series, frozenset()).ended
+        assert [(each.account_id, each.total, each.place) for each in ended.standings] == [
+            (OPENER.account_id, 136, 1),
+            (VISITOR.account_id, 0, 2),
+            (THIRD_PLAYER.account_id, 0, 2),
+        ]
+
+    def test_an_ended_table_that_finished_no_game_has_no_last_series(self, service, transactions, stored, table_id):
+        with transactions.begin() as transaction:
+            transaction.end_table(TableId(table_id), datetime(2026, 11, 9, 12, 0, tzinfo=UTC), Ending.closed("Anna"))
+
+        assert stored(transactions, table_id).last_series is None

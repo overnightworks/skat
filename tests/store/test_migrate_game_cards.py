@@ -45,7 +45,7 @@ class TestFromAGameListedAtTheRevisionBefore:
     def test_the_game_stays_and_says_it_has_no_cards(self, migrated):
         with migrated.connect() as connection:
             games = connection.execute(text("SELECT count(*) FROM game_list")).scalar_one()
-            cards = read_game_cards(connection, "t", 1)
+            cards = read_game_cards(connection, "t", 1, 1)
 
         assert (games, cards) == (1, None)
 

@@ -2,6 +2,7 @@
     import { gameSheetView, hasEleventhRow, type GameSheetView, type SheetSeat } from "#lib/gameSheet.ts";
     import type { GameRow } from "#lib/series.ts";
     import CardFace from "#lib/ui/CardFace.svelte";
+    import GameRowFace from "#lib/ui/GameRowFace.svelte";
     import PointsBar from "#lib/ui/PointsBar.svelte";
     import { words } from "#lib/words.ts";
     import type { Card } from "../../routes/(start)/tables.ts";
@@ -13,9 +14,6 @@
 
     let view = $state<GameSheetView | null>(null);
     let failed = $state(false);
-    // The head's dot wears the colour of the seat its row names, as the dots below do: a Ramsch row carries that seat, a
-    // declared game's sheet names the declarer, so that dot is plain until the sheet is read.
-    const headSeat = $derived(row.subjectSeat ?? (view?.count.kind === "declared" ? view.count.declarer.seat : null));
 
     $effect(() => {
         let current = true;
@@ -62,16 +60,7 @@
             >
         </button>
         <span class="grow">
-            <span class="nr">{row.number}</span>
-            <span class={["dot", headSeat !== null && `seat-${String(headSeat)}`]} aria-hidden="true"
-                >{row.initial}</span
-            >
-            <span class="txt">
-                <b>{row.name}</b>
-                {#if row.line !== null}<small>{row.line}</small>{/if}
-            </span>
-            <span class="val">{row.value}</span>
-            <span class="gain" class:minus={row.lost}>{row.gain}</span>
+            <GameRowFace {row} />
         </span>
     </div>
     {#if failed}

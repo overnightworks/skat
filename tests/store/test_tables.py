@@ -83,6 +83,7 @@ def test_a_table_stored_without_a_switch_reads_it_off(service, engine):
     old_id = "a" * 32
     with engine.begin() as connection:
         connection.execute(text("INSERT INTO tables (id, version) VALUES (:id, 1)"), {"id": old_id})
+        connection.execute(text("INSERT INTO series (table_id, number) VALUES (:id, 1)"), {"id": old_id})
         connection.execute(
             text("INSERT INTO chairs (table_id, seat) SELECT :id, seat FROM generate_series(1, 3) AS seat"),
             {"id": old_id},

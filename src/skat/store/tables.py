@@ -5,7 +5,6 @@ from sqlalchemy import delete, exists, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from skat.engine.bidding import PassedIn
-from skat.engine.bock import BockRounds
 from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
 from skat.store.auction import append_steps, auction_actions, delete_steps, read_steps
@@ -26,17 +25,17 @@ from skat.store.schema import (
     chairs,
     hand_cards,
     metadata,
-    option_values,
     options_of,
     receipts,
+    series,
     tables,
 )
+from skat.store.series import bock_of, insert_series, last_played_series, save_series, series_of, series_row
 from skat.table.hand_state import auction_of
 from skat.table.records import (
     Chair,
     EndedTable,
     Ending,
-    EndProposal,
     EndReason,
     FormerHolder,
     GiveUpAsked,
@@ -46,7 +45,6 @@ from skat.table.records import (
     Receipt,
     Replay,
     SeatHeld,
-    Series,
     TableId,
     TableRecord,
     TableStyle,
@@ -113,31 +111,6 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
     )
 
 
-def _series_end_columns(series: Series | None) -> dict[str, bool | int | None]:
-    """The columns the early end and the standing proposal live in, written absolutely with the series' deals."""
-    proposal = None if series is None else series.end_proposal
-    return {
-        "series_ended_early": series is not None and series.ended_early,
-        "series_end_proposer": None if proposal is None else proposal.proposer,
-        "series_end_accepter": None if proposal is None else proposal.accepter,
-    }
-
-
-def _series_of(table: Row[Any]) -> Series | None:
-    if table.series_length is None:
-        return None
-    end_proposal = None
-    if table.series_end_proposer is not None:
-        end_proposal = EndProposal(table.series_end_proposer, table.series_end_accepter)
-    return Series(
-        table.series_length,
-        table.series_deals,
-        number=table.series_number,
-        ended_early=table.series_ended_early,
-        end_proposal=end_proposal,
-    )
-
-
 def _chair_of(seat: Row[*tuple[Any, ...]]) -> Chair:
     occupant = (
         None
@@ -178,8 +151,10 @@ def _table_record(
             TableId(table_id),
             table.version,
             Ending(EndReason(table.end_reason), table.empty_seconds, table.unplayed_days, table.closed_by_name),
+            last_played_series(connection, table_id),
         )
     seats = _read_seats(connection, table_id)
+    current = series_row(connection, table_id, table.series_number)
     return TableRecord(
         id=TableId(table_id),
         version=table.version,
@@ -205,10 +180,10 @@ def _table_record(
                 if seat.former_holder_name is not None
             ),
         ),
-        game_list=read_game_list(connection, table_id),
-        series=_series_of(table),
-        options=options_of(table),
-        bock=BockRounds(tuple(table.bock_rounds), table.ramsch_round_games),
+        game_list=read_game_list(connection, table_id, table.series_number),
+        series=series_of(current),
+        options=options_of(current),
+        bock=bock_of(current),
         visibility=Visibility(table.visibility),
         style=TableStyle(table.style),
     )
@@ -291,9 +266,8 @@ class _PostgresTableTransaction:
         return table if isinstance(table, TableRecord) else None
 
     def _write_table_row(self, table: TableRecord, played_at: datetime | None) -> None:
-        """The row's changing columns: the series length, the options, the visibility and the opener's name are written
-        by `add_table`
-        and never here; no time leaves the last played time as it is.
+        """The row's changing columns: the visibility and the opener's name are written by `add_table` and never here,
+        the series' columns by `save_series`; no time leaves the last played time as it is.
         """
         asked = table.progress.give_up
         played = {} if played_at is None else {"last_played_at": played_at}
@@ -305,11 +279,7 @@ class _PostgresTableTransaction:
                 dealer=table.dealer,
                 style=table.style.value,
                 **played,
-                series_deals=None if table.series is None else table.series.deals,
                 series_number=series_number_of(table),
-                **_series_end_columns(table.series),
-                bock_rounds=list(table.bock.remaining),
-                ramsch_round_games=table.bock.ramsch_games,
                 abort_yes_seats=sorted(table.progress.abort_yes),
                 hand_aborted=table.progress.aborted,
                 give_up_asked_by=None if asked is None else POSITION_TEXT[asked.asker],
@@ -341,15 +311,18 @@ class _PostgresTableTransaction:
                 )
             )
 
-    def game_cards(self, table_id: TableId, number: int) -> GameCards | None:
-        return read_game_cards(self._connection, table_id.value, number)
+    def game_cards(self, table_id: TableId, series_number: int, number: int) -> GameCards | None:
+        return read_game_cards(self._connection, table_id.value, series_number, number)
 
     def save_table(self, table: TableRecord, *, played_at: datetime | None) -> None:
         dealt = _read_hand(self._connection, table.id.value)
         ended = dealt is not None and table.hand is None
         aborted = ended and table.progress.aborted
         passed_in = ended and isinstance(auction_of(table).result, PassedIn)
-        played_out = ended and len(table.game_list) > len(read_game_list(self._connection, table.id.value))
+        series_number = series_number_of(table)
+        played_out = ended and len(table.game_list) > len(
+            read_game_list(self._connection, table.id.value, series_number)
+        )
         if (
             dealt is not None
             and table.hand != dealt
@@ -359,11 +332,12 @@ class _PostgresTableTransaction:
             message = f"the hand saved for table {table.id.value} differs from the one dealt"
             raise DealtHandRewrittenError(message)
         self._write_table_row(table, played_at)
+        save_series(self._connection, table)
         if passed_in:
             self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
         if played_out or aborted:
             _forget_played_hand(self._connection, table.id.value)
-        append_game_list(self._connection, table.id.value, series_number_of(table), table.game_list, played_at)
+        append_game_list(self._connection, table.id.value, series_number, table.game_list, played_at)
         if table.hand is not None and dealt is None:
             delete_steps(self._connection, table.id.value)
             self._connection.execute(insert(hand_cards), _hand_rows(table.id.value, table.hand))
@@ -381,13 +355,11 @@ class _PostgresTableTransaction:
                 id=table.id.value,
                 version=table.version,
                 opener_name=opener_name,
-                series_length=None if table.series is None else table.series.length,
-                series_deals=None if table.series is None else table.series.deals,
                 series_number=series_number_of(table),
                 visibility=table.visibility.value,
-                **option_values(table.options),
             )
         )
+        insert_series(self._connection, table)
         self._connection.execute(
             insert(chairs),
             [
@@ -457,6 +429,7 @@ class _PostgresTableTransaction:
             .scalar_subquery()
         )
         self._connection.execute(delete(receipts).where(receipts.c.table_id.in_(gameless)))
+        self._connection.execute(delete(series).where(series.c.table_id.in_(gameless)))
         deleted = self._connection.execute(delete(tables).where(tables.c.id.in_(gameless))).rowcount
         self._connection.execute(
             update(tables)

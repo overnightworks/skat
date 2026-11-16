@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from skat.engine.ramsch import RamschScoring
     from skat.table.game_cards import GameCards, SeatedCard
     from skat.table.game_list import GameEntry, ListEntry
-    from skat.table.records import TableRecord
+    from skat.table.records import PlayedSeries, TableOptions
 
 # A Ramsch's tricks name seats, and the engine's Ramsch rules name positions: any one-to-one pairing of the two
 # answers the same question, which seats the skat counts for.
@@ -167,7 +167,7 @@ def _count_of(entry: GameEntry, cards: SheetCards | None) -> DeclaredCount | Ram
     return _declared_count_of(entry, cards)
 
 
-def _sheet_cards_of(table: TableRecord, entry: GameEntry, cards: GameCards) -> SheetCards:
+def _sheet_cards_of(options: TableOptions, entry: GameEntry, cards: GameCards) -> SheetCards:
     kind = GameKind.GRAND if isinstance(entry, RamschEntry) else entry.declaration.kind
     tricks = tuple(
         SheetTrick(
@@ -180,10 +180,10 @@ def _sheet_cards_of(table: TableRecord, entry: GameEntry, cards: GameCards) -> S
     )
     played = {(each.seat, each.card) for trick in cards.tricks for each in trick}
     put_away = {(each.seat, each.card) for each in cards.put_away}
-    ramsch = table.options.ramsch
+    ramsch = options.ramsch
     # A Ramsch is stored only at a table that plays one, and its options never change.
     if isinstance(entry, RamschEntry) and ramsch is None:  # pragma: no cover
-        message = f"table {table.id.value} lists a Ramsch without playing one"
+        message = "a series lists a Ramsch without playing one"
         raise RuntimeError(message)
     takers = (
         _skat_takers_of(tricks, cards.laid_skat or cards.skat, ramsch.reckoning.scoring)
@@ -200,12 +200,12 @@ def _sheet_cards_of(table: TableRecord, entry: GameEntry, cards: GameCards) -> S
     )
 
 
-def game_sheet_of(table: TableRecord, number: int, cards: GameCards | None) -> GameSheetView:
-    """The `number`th game of the table's list with its stored `cards`; each trick's taker comes from the engine's rule
+def game_sheet_of(played: PlayedSeries, number: int, cards: GameCards | None) -> GameSheetView:
+    """The `number`th game of the series' list with its stored `cards`; each trick's taker comes from the engine's rule
     for the game's kind, a Ramsch's as Grand.
     """
-    entry = table.game_list[number - 1]
-    sheet_cards = None if cards is None else _sheet_cards_of(table, entry, cards)
+    entry = played.game_list[number - 1]
+    sheet_cards = None if cards is None else _sheet_cards_of(played.options, entry, cards)
     return GameSheetView(
         number=number, seat_names=entry.seat_names, count=_count_of(entry, sheet_cards), cards=sheet_cards
     )

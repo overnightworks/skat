@@ -42,7 +42,7 @@ class TestFromATableWithPushingAtRevisionThirtyTwo:
         migrate(unmigrated_engine)
         return unmigrated_engine
 
-    @pytest.mark.parametrize("table", ["tables", "rule_sets"])
+    @pytest.mark.parametrize("table", ["series", "rule_sets"])
     def test_every_old_table_and_set_reads_no_grand_hand_choice(self, migrated, table):
         select = text(f"SELECT ramsch_grand_hand FROM {table}")  # noqa: S608 - only the test's fixed literals reach this text
         with migrated.connect() as connection:
@@ -59,12 +59,12 @@ class TestFromATableWithPushingAtRevisionThirtyTwo:
 
     @pytest.mark.parametrize("value", ["allowed", "off"])
     def test_accepts_a_grand_hand_choice_on_a_table_with_pushing(self, migrated, value):
-        run_in_transaction(migrated, text(f"UPDATE tables SET ramsch_grand_hand = '{value}'"))  # noqa: S608 - a fixed literal
+        run_in_transaction(migrated, text(f"UPDATE series SET ramsch_grand_hand = '{value}'"))  # noqa: S608 - a fixed literal
 
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param("UPDATE tables SET ramsch_grand_hand = 'always'", id="a-choice-outside-the-two"),
+            pytest.param("UPDATE series SET ramsch_grand_hand = 'always'", id="a-choice-outside-the-two"),
             pytest.param(
                 "UPDATE rule_sets SET ramsch_pushing = NULL, ramsch_grand_hand = 'allowed'",
                 id="a-set-with-a-choice-and-no-pushing",
