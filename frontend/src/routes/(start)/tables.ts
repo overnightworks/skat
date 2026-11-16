@@ -172,10 +172,12 @@ export type Hand = {
     // A chair of the hand is open, so the seated players may vote to abort it.
     abortable: boolean;
 };
+// The kind of occupant a chair holds.
+export type OccupantKind = "person" | "agent";
 export type Chair = {
     seat: number;
     occupant_name: string | null;
-    occupant_kind: "person" | "agent" | null;
+    occupant_kind: OccupantKind | null;
     is_mine: boolean;
     is_away: boolean;
     ready: boolean;
@@ -289,7 +291,7 @@ export type Bock = { games_left: number; factor: number };
 export type Standing = {
     display_name: string | null;
     seat: number;
-    kind: "person" | "agent" | null;
+    kind: OccupantKind | null;
     total: number;
     won: number;
     lost: number;
@@ -501,7 +503,7 @@ export type SeriesEntry =
           number: number;
           declarer_name: string | null;
           declarer_seat: number;
-          declarer_kind: "person" | "agent" | null;
+          declarer_kind: OccupantKind | null;
           game: Game;
           hand: boolean;
           ouvert: boolean;
@@ -516,7 +518,7 @@ export type SeriesEntry =
     | {
           kind: "ramsch";
           number: number;
-          seats: { name: string | null; kind: "person" | "agent" | null; score: number }[];
+          seats: { name: string | null; kind: OccupantKind | null; score: number }[];
           durchmarsch: boolean;
           jungfrau: boolean;
           bock_factor: number;

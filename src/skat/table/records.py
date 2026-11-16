@@ -133,7 +133,7 @@ class RamschSetting:
 
 @dataclass(frozen=True)
 class TableOptions:
-    """The rule options a table is opened with; they stay fixed for its life and the default is the official rules.
+    """The rule options a series is played with; they stay fixed for that series and the default is the official rules.
 
     `show_running_points` shows everyone the card points each side has taken in completed tricks while a suit or
     Grand game is played. `kontra` makes the table play the words Kontra and Re up to its reach; None plays without.
