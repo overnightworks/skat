@@ -184,7 +184,7 @@ class SharedWakes:
                     subscribed.set()
                     wakes.wake_all()
                 elif (topic := _topic_of(event.address)) is not None:
-                    # The sender's trace, so that what the woken streams write joins the request that changed the table.
+                    # The wake's own handling runs under the sender's trace; the woken streams keep their own traces.
                     with unit_trace(event.traceparent):
                         wakes.wake_locally(topic)
         except StoreError as failure:
