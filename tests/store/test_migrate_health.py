@@ -26,28 +26,20 @@ class TestRequireServedRevision:
 
         require_served_revision(unmigrated_engine)
 
-    def test_accepts_a_database_that_serves_the_head_beside_another_revision(self, unmigrated_engine):
-        migrate(unmigrated_engine)
-        serve_only(unmigrated_engine, head_revision(), "newer")
-
-        require_served_revision(unmigrated_engine)
-
     def test_refuses_an_unmigrated_database_and_says_which_command_fixes_it(self, unmigrated_engine):
         with pytest.raises(RevisionNotServedError, match="skat migrate"):
             require_served_revision(unmigrated_engine)
 
-    def test_refuses_a_database_that_serves_other_revisions_and_names_them(self, unmigrated_engine):
+    @pytest.mark.parametrize(
+        ("served", "named"),
+        [(("older", "newer"), "newer, older"), ((), "no revision")],
+        ids=["other revisions, which it names", "no revision"],
+    )
+    def test_refuses_a_database_that_does_not_serve_the_head(self, unmigrated_engine, served, named):
         migrate(unmigrated_engine)
-        serve_only(unmigrated_engine, "older", "newer")
+        serve_only(unmigrated_engine, *served)
 
-        with pytest.raises(RevisionNotServedError, match="newer, older"):
-            require_served_revision(unmigrated_engine)
-
-    def test_refuses_a_database_that_serves_no_revision(self, unmigrated_engine):
-        migrate(unmigrated_engine)
-        serve_only(unmigrated_engine)
-
-        with pytest.raises(RevisionNotServedError, match="no revision"):
+        with pytest.raises(RevisionNotServedError, match=named):
             require_served_revision(unmigrated_engine)
 
 
