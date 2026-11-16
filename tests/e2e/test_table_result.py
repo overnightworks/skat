@@ -36,6 +36,7 @@ from tests.e2e.support.result_card import (
 )
 from tests.e2e.support.style import (
     STYLES,
+    TABLE_SCENES,
     expect_painted_as_the_scene,
     expect_the_furniture_clear,
     give_the_table_its_style,
@@ -681,3 +682,107 @@ def test_a_picked_card_lifts_clear_of_the_near_chair_and_the_bar_stays_on_the_sc
     bar = declarer.locator(".actions").bounding_box()
     assert bar is not None
     assert bar["y"] + bar["height"] <= declarer.evaluate("window.innerHeight")
+
+
+# On a desktop the own seat is a slim bar centred over the hand, never a tile of the felt's size, so no card the finger
+# holds up, no trick card or tag lies under it.
+OWN_BAR_HEIGHT = 56
+# Where the dashed slot stands before the viewer's card lies, and the card once it lies, there.
+TRICK_THINGS = ".trick .face, .trick .tag, .trick .lead-slot"
+# The bar's own ring marks the turn, so the avatar in it carries no ring, no stool stands under the bar and the name
+# is plain text on it, with no plate of its own.
+OWN_BAR_ON_TURN = """() => {
+    const chair = document.querySelector('.chair.mine');
+    const tile = getComputedStyle(chair.querySelector('.tile'));
+    const plate = getComputedStyle(chair.querySelector('.plate'));
+    const stool = getComputedStyle(chair, '::after');
+    return {
+        avatarRing: tile.boxShadow,
+        plateRing: plate.boxShadow,
+        plateBackground: plate.backgroundImage,
+        stool: stool.display !== 'none' && stool.content !== 'none',
+    };
+}"""
+LIFT_ONLY_THE_CARD_AT = """(index) => {
+    const cards = [...document.querySelectorAll('.own-hand .card')];
+    cards.forEach((card, at) => card.classList.toggle('touch', at === index));
+}"""
+
+
+@pytest.mark.parametrize("table_style", STYLES)
+def test_the_own_seat_is_a_slim_bar_centred_over_the_hand_and_a_lifted_card_stands_clear_of_it_on_a_desktop(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    table_style: TableStyle,
+) -> None:
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, DESKTOP, joiners=FULL_LENGTH_NAMES)
+    give_the_table_its_style(table.pages[table.declarer_seat], table.everyone, table_style)
+    table.play_through_the_api(sorted(table.legal_cards(table.seat_at["forehand"]))[0])
+    middlehand = table.pages[table.seat_at["middlehand"]]
+    legal_cards = middlehand.locator(f"{OWN_HAND_CARD}.ok")
+    expect(legal_cards).to_have_count(len(table.legal_cards(table.seat_at["middlehand"])))
+
+    bar = middlehand.locator(".chair.mine").bounding_box()
+    assert bar is not None
+    assert bar["height"] <= OWN_BAR_HEIGHT, "the own seat is a tile of the felt"
+    assert abs(bar["x"] + bar["width"] / 2 - middlehand.evaluate("window.innerWidth / 2")) <= 1
+    expect(middlehand.locator(".chair.mine.turn")).to_have_count(1)
+    assert middlehand.evaluate(OWN_BAR_ON_TURN) == {
+        "avatarRing": "none",
+        "plateRing": "none",
+        "plateBackground": "none",
+        "stool": False,
+    }
+    for index in range(CARDS_IN_A_HAND):
+        middlehand.evaluate(LIFT_ONLY_THE_CARD_AT, index)
+        expect_no_crossing(middlehand, f"{OWN_HAND_CARD}.touch", ".chair.mine")
+    legal_cards.first.locator("button").click(position=INSIDE_THE_VISIBLE_STRIP)
+    expect(middlehand.locator(f"{OWN_HAND_CARD}.touch .swipe")).to_have_count(1)
+    expect_no_crossing(middlehand, f"{OWN_HAND_CARD}:is(.ok, .touch), .own-hand .swipe", ".chair.mine")
+    expect_no_crossing(middlehand, TRICK_THINGS, ".chair.mine")
+    table.play_through_the_api(sorted(table.legal_cards(table.seat_at["middlehand"]))[0])
+    expect(middlehand.locator(".trick .laid.near")).to_have_count(1)
+    expect(middlehand.locator(".trick .lead-slot")).to_have_count(0)
+    expect_no_crossing(middlehand, TRICK_THINGS, ".chair.mine")
+
+
+# Each desktop scene's own seat, found by its class, against everything else the scene draws, except the cards sweeping
+# to it and the list of games laid over the whole table.
+OWN_SEATS_OF_THE_SCENES = """(maxHeight) => {
+    const apart = [];
+    const crossings = [];
+    const crossing = (a, b) =>
+        Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+        Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
+    for (const frame of document.querySelectorAll('.frame.d1280')) {
+        const origin = frame.getBoundingClientRect();
+        const own = [...frame.querySelectorAll('.seat.own')].filter((seat) => !seat.closest('.watchers'));
+        if (frame.querySelector('.hand') && own.length === 0) apart.push(`${frame.id}: a hand and no own seat`);
+        for (const seat of own) {
+            const box = seat.getBoundingClientRect();
+            if (!seat.classList.contains('bar') || box.height > maxHeight) {
+                apart.push(`${frame.id}: the own seat is a tile`);
+            }
+            if (Math.abs(box.left + box.width / 2 - origin.left - origin.width / 2) > 1) {
+                apart.push(`${frame.id}: off centre`);
+            }
+            for (const thing of frame.querySelectorAll(
+                '.hand .card, .swipe, .play, .tag, .ghost, .plaque, .lastshow, .fan, .bubble, .notice, .result, '
+                + '.coaster, .pile, .stamp'
+            )) {
+                if (seat.contains(thing) || thing.matches('.sweep, .gamelist')) continue;
+                if (crossing(box, thing.getBoundingClientRect())) {
+                    crossings.push(`${frame.id}: the own seat over ${thing.className}`);
+                }
+            }
+        }
+    }
+    return { apart, crossings };
+}"""
+
+
+def test_every_desktop_scene_draws_the_own_seat_as_a_slim_bar_that_overlaps_nothing(page: Page) -> None:
+    page.goto(TABLE_SCENES.as_uri())
+    assert page.evaluate(OWN_SEATS_OF_THE_SCENES, OWN_BAR_HEIGHT) == {"apart": [], "crossings": []}
