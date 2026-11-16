@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from skat.table.playing import PlayingView
     from skat.table.pushing import PushingView
     from skat.table.service import TableService
-    from skat.table.views import AbortedView, ChairHand, CommandResult, HandView, PassedInView, TableView
+    from skat.table.views import AbortedView, ChairHand, CommandResult, EndedView, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
 
@@ -524,6 +524,20 @@ def nudge_answer_of(view: TableView, state: NudgeState | None) -> NudgeAnswer | 
     return NudgeAnswer(nudges=state.nudges, may_nudge=state.may_nudge, by_name=by_name)
 
 
+def ended_answer_of(ended: EndedView | None) -> EndedAnswer | None:
+    if ended is None:
+        return None
+    standings = None if ended.standings is None else [standing_answer_of(each) for each in ended.standings]
+    return EndedAnswer(
+        reason=ended.reason,
+        empty_seconds=ended.empty_seconds,
+        unplayed_days=ended.unplayed_days,
+        closed_by_name=ended.closed_by_name,
+        standings=standings,
+        game_count=ended.game_count,
+    )
+
+
 def answer_of(view: TableView, nudges: Mapping[int, NudgeState]) -> TableAnswer:
     return TableAnswer(
         id=view.id,
@@ -553,18 +567,7 @@ def answer_of(view: TableView, nudges: Mapping[int, NudgeState]) -> TableAnswer:
         options=None if view.options is None else options_answer_of(view.options),
         style=view.style,
         bock=None if view.bock is None else BockAnswer(games_left=view.bock.games_left, factor=view.bock.factor),
-        ended=None
-        if view.ended is None
-        else EndedAnswer(
-            reason=view.ended.reason,
-            empty_seconds=view.ended.empty_seconds,
-            unplayed_days=view.ended.unplayed_days,
-            closed_by_name=view.ended.closed_by_name,
-            standings=None
-            if view.ended.standings is None
-            else [standing_answer_of(each) for each in view.ended.standings],
-            game_count=view.ended.game_count,
-        ),
+        ended=ended_answer_of(view.ended),
         opened_by_me=view.opened_by_me,
     )
 

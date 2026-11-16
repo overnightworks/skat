@@ -542,7 +542,8 @@ class TestTheSeriesRow:
                 replace(record, version=record.version + 1, options=SECOND_SERIES_OPTIONS), played_at=None
             )
 
-        assert (series_rows(engine, first_series), read(transactions, first_series)) == before
+        after = (series_rows(engine, first_series), read(transactions, first_series))
+        assert after == before
 
     def test_a_save_that_changes_the_length_of_a_stored_series_raises(self, transactions, first_series):
         record = read(transactions, first_series)

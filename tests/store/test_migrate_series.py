@@ -250,8 +250,10 @@ class TestFromTablesAtTheRevisionBefore:
         ]
 
     def test_a_game_without_its_series_row_is_refused(self, migrated):
+        game_without_series = played("first", 2)
+
         with pytest.raises(IntegrityError):
-            run_in_transaction(migrated, played("first", 2))
+            run_in_transaction(migrated, game_without_series)
 
     def test_the_moved_checks_guard_the_series_row_and_leave_the_tables_row(self, migrated):
         with pytest.raises(IntegrityError):
