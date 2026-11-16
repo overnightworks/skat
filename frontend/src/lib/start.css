@@ -4210,6 +4210,11 @@ body {
         margin-bottom: calc(36px - var(--trick-rise));
     }
 
+    /* The stamp lands relative to the trick, so it rises with it. */
+    .room .stage:has(> .trick) .callout-spot {
+        margin-top: calc(var(--trick-rise) * -1);
+    }
+
     .room .stage:has(> .trick) .chair:nth-child(3) {
         grid-row: 3;
         align-self: end;
