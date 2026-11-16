@@ -23,6 +23,7 @@ from tests.e2e.support.call_frame import (
 )
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.table_menu import MENU, MENU_KEY, menu_button
 from tests.e2e.support.tables import open_new_table
 
 if TYPE_CHECKING:
@@ -41,7 +42,6 @@ BAR = ".bar"
 WORDMARK = ".bar .wordmark"
 APP_NAME = text(SOURCE_LANGUAGE, "app.name")
 COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
-CLOSE_KEY = text(SOURCE_LANGUAGE, "table.close")
 NEW_TABLE = text(SOURCE_LANGUAGE, "start.newTable")
 LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
@@ -50,7 +50,6 @@ SOUND_ON_NAME = text(SOURCE_LANGUAGE, "sound.panelName")
 SOUND_OFF_NAME = text(SOURCE_LANGUAGE, "sound.muted")
 TONE = text(SOURCE_LANGUAGE, "sound.tone")
 SPEAKER = ".actions .sound-button"
-AGENTS_PILL = text(SOURCE_LANGUAGE, "agents.pill")
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 CARDS_IN_A_TRICK = 3
 
@@ -104,7 +103,7 @@ def test_a_framed_call_mode_table_shows_its_wordmark_as_text_and_offers_no_copy_
 
         expect(table.locator(WORDMARK)).to_have_text(APP_NAME)
         expect(table.locator(f"{BAR} a")).to_have_count(0)
-        expect(table.get_by_role("button", name=COPY_LINK)).to_have_count(0)
+        expect(table.locator(".row.link")).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -121,7 +120,7 @@ def test_a_framed_call_mode_table_offers_its_opener_the_speaker_and_no_close_key
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
 
         expect(table.locator(SPEAKER)).to_be_visible()
-        expect(table.get_by_role("button", name=CLOSE_KEY, exact=True)).to_have_count(0)
+        expect(table.locator(".row.close")).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -161,7 +160,7 @@ def test_a_top_level_call_mode_table_offers_the_lobby_button_and_its_copy_link(
 
     expect(visitor.locator(CHAIR)).to_have_count(THREE_CHAIRS)
     expect(visitor.get_by_role("link", name=LOBBY)).to_be_visible()
-    expect(visitor.get_by_role("button", name=COPY_LINK)).to_be_visible()
+    expect(menu_button(visitor, COPY_LINK)).to_be_visible()
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -195,7 +194,7 @@ def test_a_top_level_call_mode_address_of_a_missing_table_offers_a_new_table(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_framed_table_holds_the_speaker_in_its_strip_beside_the_stand_up_button_and_opens_the_panel_above_it(
+def test_a_framed_table_holds_the_speaker_in_its_strip_beside_the_menu_key_and_opens_the_panel_above_it(
     open_person: Callable[..., Page],
     browser_coverage: BrowserCoverage,
     framing_server: RunningServer,
@@ -215,17 +214,21 @@ def test_a_framed_table_holds_the_speaker_in_its_strip_beside_the_stand_up_butto
         expect(speaker).to_be_visible()
 
         expect(table.locator(f"{BAR} .sound-button")).to_have_count(0)
-        stand_up = table.get_by_role("button", name=STAND_UP).bounding_box()
+        menu_key = table.locator(f".actions {MENU_KEY}").bounding_box()
         beside = speaker.bounding_box()
-        assert stand_up is not None
+        assert menu_key is not None
         assert beside is not None
-        assert beside["x"] >= stand_up["x"] + stand_up["width"]
+        assert beside["x"] + beside["width"] <= menu_key["x"]
         assert (
             table.locator(".actions > :not([popover])").evaluate_all(
                 "tags => new Set(tags.map(tag => tag.offsetTop)).size"
             )
             == 1
         )
+
+        expect(menu_button(table, STAND_UP)).to_be_visible()
+        visitor.keyboard.press("Escape")
+        expect(table.locator(MENU)).to_be_hidden()
 
         face = speaker.locator(".sound-face")
         glass = face.evaluate("face => getComputedStyle(face).backgroundColor")
@@ -269,7 +272,7 @@ def test_a_choice_made_in_a_call_holds_after_a_reload(
 
 @pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_result_bar_in_a_call_holds_weiter_stand_up_the_agents_pill_and_the_speaker_in_one_row(
+def test_the_result_bar_in_a_call_holds_weiter_the_speaker_and_the_menu_key_in_one_row_and_the_menu_the_rest(
     open_person: Callable[..., Page],
     member_of: Callable[[Page], SeededMember],
     browser_coverage: BrowserCoverage,
@@ -294,9 +297,8 @@ def test_the_result_bar_in_a_call_holds_weiter_stand_up_the_agents_pill_and_the_
     with in_the_call_frame(seated, browser_coverage, table_url(framing_server, path), filling_the_screen=True) as call:
         bar = call.locator(".actions")
         expect(bar.get_by_role("button", name=WEITER)).to_be_visible()
-        expect(bar.get_by_role("button", name=STAND_UP)).to_be_visible()
-        expect(bar.get_by_role("button", name=AGENTS_PILL)).to_be_visible()
         expect(bar.locator(".sound-button")).to_be_visible()
+        expect(bar.locator(MENU_KEY)).to_be_visible()
 
         assert (
             bar.locator("> :not([popover])").evaluate_all("tags => new Set(tags.map(tag => tag.offsetTop)).size") == 1
@@ -304,6 +306,9 @@ def test_the_result_bar_in_a_call_holds_weiter_stand_up_the_agents_pill_and_the_
         last = bar.locator("> :not([popover])").last.bounding_box()
         assert last is not None
         assert last["x"] + last["width"] <= viewport["width"]
+
+        expect(menu_button(call, STAND_UP)).to_be_visible()
+        expect(call.locator(".agents-list")).to_be_visible()
     assert page_errors == []
 
 

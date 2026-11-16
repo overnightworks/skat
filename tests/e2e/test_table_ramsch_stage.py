@@ -4,9 +4,9 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.early_end import PLAY_OPEN_KEY, SHORTEN_KEY
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS, McpAgent
 from tests.e2e.support.ramsch_stage import AGENT_SEAT, BIDDING, BUBBLE, PLAQUE, TURN_CHAIR, RamschStageTable, deal
+from tests.e2e.support.table_menu import PLAY_OPEN_ROW, SHORTEN_ROW
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -229,7 +229,7 @@ def test_an_agent_on_turn_wears_denkt_over_the_turn_mark_for_everyone(
         expect(table.chair(person, agent_position).locator(".mark.think")).to_be_visible()
 
 
-def test_no_key_to_play_open_or_to_shorten_in_a_ramsch(
+def test_no_row_to_play_open_or_to_shorten_in_a_ramsch(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -241,6 +241,6 @@ def test_no_key_to_play_open_or_to_shorten_in_a_ramsch(
 
     for person in table.everyone:
         expect(person.locator(LAID_CARDS)).to_have_count(1)
-        expect(person.locator(PLAY_OPEN_KEY)).to_have_count(0)
-        expect(person.locator(SHORTEN_KEY)).to_have_count(0)
+        expect(person.locator(PLAY_OPEN_ROW)).to_have_count(0)
+        expect(person.locator(SHORTEN_ROW)).to_have_count(0)
     assert page_errors == []

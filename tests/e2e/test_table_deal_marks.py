@@ -11,6 +11,7 @@ from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
+from tests.e2e.support.table_menu import close_table_menu, menu_button
 from tests.e2e.support.tables import open_new_table, table_id_of
 
 if TYPE_CHECKING:
@@ -81,8 +82,10 @@ def chair_of(person: Page, seat: int) -> Locator:
     return person.locator(f".chair[data-seat='{seat}']")
 
 
-def stand_up_of(person: Page) -> Locator:
-    return person.get_by_role("button", name=STAND_UP)
+def expect_the_stand_up_row(person: Page) -> None:
+    """The menu offers standing up; the menu is closed again, so that the table can be touched."""
+    expect(menu_button(person, STAND_UP)).to_be_visible()
+    close_table_menu(person)
 
 
 def table_with_two_seated(
@@ -99,7 +102,7 @@ def table_with_two_seated(
     ben = person("ben", console=False)
     watch(ben, server, path)
     sit_in(ben, 2)
-    expect(stand_up_of(ben)).to_be_visible()
+    expect_the_stand_up_row(ben)
     cleo = person("cleo")
     watcher = person("dora")
     for looker in (cleo, watcher):
@@ -279,20 +282,20 @@ def test_the_stand_up_shows_before_during_and_after_a_hand_for_every_seated_play
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     players = table_with_two_seated(open_person, e2e_server, page_errors, form_factor)
-    expect(stand_up_of(players.anna)).to_be_visible()
+    expect_the_stand_up_row(players.anna)
     for person in (players.anna, players.watcher):
         assert_no_hand_is_drawn(person)
 
     deal_the_hand(players)
 
-    expect(stand_up_of(players.anna)).to_be_visible()
-    expect(stand_up_of(players.ben)).to_be_visible()
-    expect(stand_up_of(players.watcher)).to_have_count(0)
+    expect_the_stand_up_row(players.anna)
+    expect_the_stand_up_row(players.ben)
+    expect(players.watcher.locator(".row.stand")).to_have_count(0)
 
     end_the_hand(e2e_server, players.table_id)
     players.ben.reload()
 
-    expect(stand_up_of(players.ben)).to_be_visible()
+    expect_the_stand_up_row(players.ben)
     assert_no_hand_is_drawn(players.ben)
 
 

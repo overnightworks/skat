@@ -57,8 +57,8 @@ FUNKELN_KINDS = ["tone", "noise", "tone"]
 TAP_TARGET_PIXELS = 44
 # The desktop layout starts at this width, where the speaker carries its word.
 DESKTOP_FROM_PIXELS = 900
-# From this width the speaker stands left of the watchers; below it, right after the Lobby button.
-LEFT_OF_WATCHERS_FROM_PIXELS = 390
+# From this width the speaker stands left of the watchers; below it, right after the reaction key.
+LEFT_OF_WATCHERS_FROM_PIXELS = DESKTOP_FROM_PIXELS
 # The pixels between the glass of the speaker and the glass of the button or pill beside it.
 SPEAKER_GAP_PIXELS = 8
 BROKEN_STORAGE = {
@@ -87,9 +87,9 @@ PANEL_ON_ITS_BUTTON = """() => {
 # The tap targets are wider than the round glass inside them, so the gap is measured between the glass.
 GLASS_GAP = """neighbour => {
     const speaker = document.querySelector('.sound-face').getBoundingClientRect();
-    const watchers = document.querySelector('.watchers').getBoundingClientRect();
-    const lobby = document.querySelector('.lobby-face').getBoundingClientRect();
-    return neighbour === 'watchers' ? watchers.left - speaker.right : speaker.left - lobby.right;
+    const selector = neighbour === 'watchers' ? '.watchers' : '.reaction-key';
+    const beside = document.querySelector(selector).getBoundingClientRect();
+    return neighbour === 'watchers' ? beside.left - speaker.right : speaker.left - beside.right;
 }"""
 
 
@@ -136,7 +136,7 @@ def horizontal_scroll(page: Page) -> bool:
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_speaker_stands_clear_of_the_lobby_button_and_the_watchers(
+def test_the_speaker_stands_clear_of_the_lobby_button_the_reaction_key_and_the_watchers(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     person = record_page_errors(open_person(**form_factor), page_errors)
@@ -154,7 +154,7 @@ def test_the_speaker_stands_clear_of_the_lobby_button_and_the_watchers(
     assert lobby["x"] + lobby["width"] <= speaker["x"]
     assert speaker["x"] + speaker["width"] <= watchers["x"]
     assert (TONE in speaker_of(person).inner_text()) == (width >= DESKTOP_FROM_PIXELS)
-    neighbour = "watchers" if width >= LEFT_OF_WATCHERS_FROM_PIXELS else "lobby"
+    neighbour = "watchers" if width >= LEFT_OF_WATCHERS_FROM_PIXELS else "reaction"
     assert glass_gap(person, neighbour) == SPEAKER_GAP_PIXELS
     assert not horizontal_scroll(person)
 
@@ -211,13 +211,20 @@ def test_a_reload_keeps_the_choice(
 
 
 def uncovered_card_point(page: Page) -> tuple[float, float]:
-    """A point on a card of the own hand, beside the open panel and outside of it."""
+    """A point on a card of the own hand, beside the open panel and outside of it.
+
+    The fan shows each card's left strip and the last card whole, so the points are the strips and the last card's
+    right edge.
+    """
     panel = panel_of(page).bounding_box()
     assert panel is not None
-    for card in page.locator(".own-hand .play").all():
-        box = card.bounding_box()
-        assert box is not None
-        x, y = box["x"] + CARD_EDGE_INSET, box["y"] + box["height"] / 2
+    boxes = [card.bounding_box() for card in page.locator(".own-hand .play").all()]
+    assert None not in boxes
+    cards = [box for box in boxes if box]
+    points = [(box["x"] + CARD_EDGE_INSET, box["y"] + box["height"] / 2) for box in cards]
+    last = cards[-1]
+    points.append((last["x"] + last["width"] - CARD_EDGE_INSET, last["y"] + last["height"] / 2))
+    for x, y in points:
         if not (panel["x"] <= x <= panel["x"] + panel["width"] and panel["y"] <= y <= panel["y"] + panel["height"]):
             return x, y
     raise AssertionError("the open panel covers every card")

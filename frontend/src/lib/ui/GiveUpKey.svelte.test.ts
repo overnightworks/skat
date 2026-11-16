@@ -103,13 +103,6 @@ describe("the give-up key", () => {
         expect([props.note, key()?.disabled]).toEqual([words["table.commandFailed"], false]);
     });
 
-    it("is round while Kontra is offered", () => {
-        props.table = tableWith(DECLARER, null, { kontraWord: "kontra" });
-        flushSync();
-
-        expect(key()?.classList.contains("round")).toBe(true);
-    });
-
     it.each([
         { name: "a watcher looks on", table: tableWith(WATCHER, null) },
         { name: "a chair is open", table: tableWith(FIRST_OPPONENT, null, { waiting: 3 }) },

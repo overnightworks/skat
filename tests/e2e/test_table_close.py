@@ -11,6 +11,7 @@ from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
+from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import (
     click_new_table,
     mark_page,
@@ -35,15 +36,19 @@ CLOSE_KEY = text(SOURCE_LANGUAGE, "table.close")
 QUESTION = text(SOURCE_LANGUAGE, "table.closeQuestion")
 CONFIRM = text(SOURCE_LANGUAGE, "table.closeConfirm")
 CANCEL = text(SOURCE_LANGUAGE, "table.closeCancel")
-DESKTOP_WIDTH = 900
-ROUND_KEY_PIXELS = 52
 OWN_HAND = ".own-hand"
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 REFUSED = 409
 
 
+def close_row(person: Page):
+    """The opener's close row, wherever the menu stands: it exists or it does not."""
+    return person.locator(".row.close")
+
+
 def close_key(person: Page):
-    return person.locator(".actions").get_by_role("button", name=CLOSE_KEY, exact=True)
+    """The menu's close row, with the menu opened first."""
+    return menu_button(person, CLOSE_KEY)
 
 
 def dialog_of(person: Page):
@@ -63,7 +68,7 @@ def expect_the_closed_face(person: Page, name: str) -> None:
     expect(person.get_by_role("heading", name=heading)).to_be_visible()
     expect(person.locator(".closed .glyph.by")).to_have_text(name[0])
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
-    expect(close_key(person)).to_have_count(0)
+    expect(close_row(person)).to_have_count(0)
 
 
 def seat_the_table(
@@ -98,12 +103,8 @@ def test_the_opener_closes_the_table_after_the_question_and_every_page_names_the
     for person in (anna, ben, dora):
         expect(watchers_of(person)).to_be_visible()
         mark_page(person)
-    expect(close_key(ben)).to_have_count(0)
-    expect(close_key(dora)).to_have_count(0)
-    wide = form_factor["viewport"]["width"] >= DESKTOP_WIDTH
-    key = close_key(anna).bounding_box()
-    assert key is not None
-    assert (key["width"] > ROUND_KEY_PIXELS) is wide
+    expect(close_row(ben)).to_have_count(0)
+    expect(close_row(dora)).to_have_count(0)
 
     close_key(anna).click()
     expect(dialog_of(anna)).to_be_visible()

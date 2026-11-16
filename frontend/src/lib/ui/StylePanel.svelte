@@ -1,14 +1,23 @@
 <script lang="ts">
+    import type { PanelSide } from "#lib/panelPlace.ts";
     import { TABLE_STYLE_TOKENS } from "#lib/wire.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
     import { words } from "#lib/words.ts";
     import { chooseStyle, type TableStyle } from "../../routes/(start)/tables.ts";
     import AnchoredPanel from "./AnchoredPanel.svelte";
+    import PaletteMark from "./PaletteMark.svelte";
     import StylePreview from "./StylePreview.svelte";
 
-    // A seated person's key: it opens the panel that gives the whole table its style. The stream brings the change to
-    // every page, this one included; until it does, the panel shows the choice, and a refusal gives the table's style back.
-    let { id, note = $bindable() }: { id: string; note: string } = $props();
+    // The panel that gives the whole table its style, which a seated person opens from the table menu. The stream brings
+    // the change to every page, this one included; until it does, the panel shows the choice, and a refusal gives the
+    // table's style back. It hangs on `anchor`, the menu's key.
+    let {
+        id,
+        note = $bindable(),
+        anchor,
+        side,
+        open = $bindable(),
+    }: { id: string; note: string; anchor: HTMLElement | undefined; side: PanelSide; open: boolean } = $props();
     const instanceId = $props.id();
     const labelId = `${instanceId}-style-label`;
 
@@ -22,8 +31,6 @@
         strandbar: "table.styleStrandbar",
     };
 
-    let button: HTMLButtonElement | undefined = $state();
-    let open = $state(false);
     let viewportWidth = $state(0);
     let shown = $derived(tableStyle());
 
@@ -38,50 +45,15 @@
 
 <svelte:window bind:innerWidth={viewportWidth} />
 
-{#snippet palette()}
-    <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-    >
-        <path
-            d="M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 2-1 1.5-2.1-.5-1.2.2-2.4 1.6-2.4H17a3.5 3.5 0 0 0 3.5-3.5C20.5 6.9 16.7 3.5 12 3.5z"
-        />
-        <circle cx="7.8" cy="11.2" r="1" fill="currentColor" stroke="none" />
-        <circle cx="10.6" cy="7.6" r="1" fill="currentColor" stroke="none" />
-        <circle cx="15" cy="7.9" r="1" fill="currentColor" stroke="none" />
-    </svg>
-{/snippet}
-
-<button
-    bind:this={button}
-    type="button"
-    class="copy style-key"
-    class:on={open}
-    aria-haspopup="dialog"
-    aria-expanded={open}
-    aria-label={words["table.styleName"]}
-    title={words["table.styleName"]}
-    onclick={() => {
-        open = true;
-    }}
->
-    {@render palette()}
-    <span class="word">{words["table.style"]}</span>
-</button>
 <AnchoredPanel
-    anchor={button}
+    {anchor}
     bind:open
-    side="above"
+    {side}
     width={viewportWidth >= DESKTOP_FROM ? DESKTOP_PANEL_WIDTH : PHONE_PANEL_WIDTH}
     title={words["table.styleName"]}
 >
     <div class="sound-head">
-        {@render palette()}
+        <PaletteMark />
         {words["table.styleName"]}
     </div>
     <div class="style-body">

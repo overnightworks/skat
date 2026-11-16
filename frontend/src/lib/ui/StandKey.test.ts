@@ -39,21 +39,21 @@ describe("the stand-up key", () => {
         flushSync();
     }
 
-    it("stands up with one tap between hands and keeps its word without being round", () => {
+    it("stands up with one tap between hands", () => {
         const key = show(false);
 
         tap(key);
 
-        expect([stood, key.title, key.classList.contains("round")]).toEqual([1, words["table.standUp"], false]);
+        expect([stood, key.title, key.classList.contains("arm")]).toEqual([1, words["table.standUp"], false]);
     });
 
-    it("is round and names itself Aufstehen while a hand runs", () => {
+    it("names itself Aufstehen while a hand runs and waits for a second tap", () => {
         const key = show(true);
 
-        expect([key.classList.contains("round"), key.title, key.querySelector(".label")?.textContent]).toEqual([
-            true,
+        expect([key.title, key.querySelector(".label")?.textContent, stood]).toEqual([
             words["table.standUp"],
             words["table.standUp"],
+            0,
         ]);
     });
 

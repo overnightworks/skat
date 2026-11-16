@@ -22,6 +22,7 @@ from skat.web.tables import TABLE_SIT_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
 from tests.e2e.support.people import DESKTOP, WIDTHS
+from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import (
     TABLE_URL,
     assert_never_reloaded,
@@ -264,9 +265,9 @@ def test_the_list_follows_create_sit_stand_and_close_without_a_reload(
     sit_in(sitter, 2)
     expect(plates_of(card)).to_have_text([owner_name, "Sven", SEAT_FREE])
     expect(sit_buttons_of(card)).to_have_count(1)
-    sitter.get_by_role("button", name=STAND_UP).click()
+    menu_button(sitter, STAND_UP).click()
     expect(plates_of(card)).to_have_text([owner_name, SEAT_FREE, SEAT_FREE])
-    owner.locator(".actions").get_by_role("button", name=CLOSE_KEY, exact=True).click()
+    menu_button(owner, CLOSE_KEY).click()
     owner.get_by_role("button", name=CLOSE_CONFIRM, exact=True).click()
     expect(card).to_have_count(0)
     assert_never_reloaded(watcher)

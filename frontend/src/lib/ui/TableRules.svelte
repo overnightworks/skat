@@ -5,17 +5,20 @@
 
     import type { Bock, Options } from "../../routes/(start)/tables.ts";
 
-    let { options, bock }: { options: Options; bock: Bock | null } = $props();
+    // `open` shows the sheet; the chips and the table's menu both set it.
+    let { options, bock, open = $bindable(false) }: { options: Options; bock: Bock | null; open?: boolean } = $props();
 
     const rules = $derived(tableRules(options, bock));
     let chips: HTMLButtonElement | undefined = $state();
     let sheet: HTMLDialogElement | undefined = $state();
     let lockInfoShown = $state(false);
 
-    function open(): void {
-        lockInfoShown = false;
-        sheet?.showModal();
-    }
+    $effect(() => {
+        if (open && sheet !== undefined && !sheet.open) {
+            lockInfoShown = false;
+            sheet.showModal();
+        }
+    });
 </script>
 
 <div class="rules-slot">
@@ -25,7 +28,9 @@
         class="rulepill"
         aria-haspopup="dialog"
         aria-label={words["rules.button"]}
-        onclick={open}
+        onclick={() => {
+            open = true;
+        }}
     >
         <span class="chips">
             {#each rules.chips as chip (chip.id)}
@@ -44,6 +49,7 @@
     class="rules-sheet"
     aria-label={words["rules.title"]}
     onclose={() => {
+        open = false;
         chips?.focus();
     }}
 >

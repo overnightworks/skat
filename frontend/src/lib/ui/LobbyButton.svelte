@@ -18,13 +18,12 @@
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            stroke-width="2"
+            stroke-width="2.4"
             stroke-linecap="round"
             stroke-linejoin="round"
             aria-hidden="true"
         >
-            <path d="M4 11.5 12 5l8 6.5" />
-            <path d="M6.5 10v9h11v-9" />
+            <path d="M14.5 5.5 8 12l6.5 6.5" />
         </svg>
         <span class="lobby-word">{words["table.lobby"]}</span>
         {#if attention > 0}

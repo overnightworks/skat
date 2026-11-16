@@ -14,6 +14,7 @@ from tests.e2e.support.audio import tap, voices_started
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
+from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import SIT_DOWN, open_new_table, plate_of, sit_in
 
 if TYPE_CHECKING:
@@ -122,7 +123,7 @@ def test_a_person_sits_and_stands_between_hands_and_the_chair_moves_and_knocks_i
     onlooker.clock.run_for(100)
     expect(chair_of(onlooker, 2)).not_to_have_attribute("data-moving", SITTING)
 
-    sitter.get_by_role("button", name=STAND_UP).click()
+    menu_button(sitter, STAND_UP).click()
 
     expect(chair_of(onlooker, 2)).to_have_attribute("data-moving", STANDING)
     expect(plate_of(onlooker, 2)).to_have_text(text(SOURCE_LANGUAGE, "table.seatFree"))

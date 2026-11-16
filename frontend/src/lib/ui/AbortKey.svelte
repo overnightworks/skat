@@ -4,7 +4,13 @@
     import { words } from "#lib/words.ts";
     import { answerAbort, type Table } from "../../routes/(start)/tables.ts";
 
-    let { id, table, note = $bindable() }: { id: string; table: Table; note: string } = $props();
+    // `onsent` is told when the second tap sends the yes, so the menu that holds the row can close.
+    let {
+        id,
+        table,
+        note = $bindable(),
+        onsent,
+    }: { id: string; table: Table; note: string; onsent?: () => void } = $props();
 
     const offered = $derived(abortView(table).offered);
     // The yes is under way from the second tap until the stream brings a newer version; only a refusal ends it sooner.
@@ -24,12 +30,13 @@
 
 {#if offered}
     <ArmedKey
-        class="copy abort"
+        class="row abort"
         idle={words["table.abort"]}
         armedWord={words["table.abortSure"]}
         disarmOnOtherTap={false}
         disabled={busy}
         onconfirm={() => {
+            onsent?.();
             void agree();
         }}
     >
