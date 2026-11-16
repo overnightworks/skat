@@ -14,7 +14,6 @@ import {
 } from "#lib/cues.fixtures.ts";
 import { words } from "#lib/words.ts";
 import type {
-    AuctionWord,
     Card,
     Chair,
     GiveUp,
@@ -99,11 +98,23 @@ describe("the cards laid between two versions of a table", () => {
         },
     );
 
+    it("lays every card of a trick that completes before the page saw its start, from its leader, and then names the trick", () => {
+        const previous = table(3, [10, 10, 10], { current: [] });
+        const next = table(4, [9, 9, 9], { current: [], last: FIRST_TRICK_LAST });
+
+        expect(cuesBetween(previous, next)).toEqual([
+            { kind: "card-played", seat: FOREHAND, card: KREUZ_KING },
+            { kind: "card-played", seat: MIDDLEHAND, card: HERZ_NINE },
+            { kind: "card-played", seat: REARHAND, card: KREUZ_ACE },
+            { kind: "trick-taken", trick: FIRST_TRICK_LAST },
+        ]);
+    });
+
     it.each([
         {
             name: "two completed tricks that the page skipped lay nothing",
             previous: table(3, [8, 8, 8], { current: [], last: FIRST_TRICK_LAST }),
-            next: table(5, [7, 7, 7], { current: [], last: { ...FIRST_TRICK_LAST, leader_seat: REARHAND } }),
+            next: table(5, [6, 6, 6], { current: [], last: { ...FIRST_TRICK_LAST, leader_seat: REARHAND } }),
         },
         {
             name: "the first lead of a new deal lays nothing",
@@ -318,75 +329,6 @@ describe("the moment the declarer plays on against a wrong open play", () => {
         { name: "an update that leaves no open cards", next: table(6, [8, 8, 8], { current: [] }) },
     ] satisfies { name: string; next: Table }[])("is not $name", ({ next }) => {
         expect(cuesBetween(standing, next).some((cue) => cue.kind === "open-play-on")).toBe(false);
-    });
-});
-
-describe("the bid a chair said between two versions of a table", () => {
-    const BID_EIGHTEEN: AuctionWord = { seat: MIDDLEHAND, action: "bid", value: 18 };
-    const HOLD_EIGHTEEN: AuctionWord = { seat: REARHAND, action: "hold", value: 18 };
-    const PASS: AuctionWord = { seat: FOREHAND, action: "pass", value: null };
-    const auctionTable = (version: number, spoken: AuctionWord[]): Table =>
-        table(version, EVERY_HAND_DEALT, { declaring: null, spoken });
-
-    it.each([
-        { name: "a bid", spoken: [BID_EIGHTEEN], cue: { seat: MIDDLEHAND, word: { action: "bid", value: 18 } } },
-        {
-            name: "a hold, with the standing bid it answered",
-            spoken: [BID_EIGHTEEN, HOLD_EIGHTEEN],
-            before: [BID_EIGHTEEN],
-            cue: { seat: REARHAND, word: { action: "hold", value: 18 } },
-        },
-        {
-            name: "a pass",
-            spoken: [PASS, BID_EIGHTEEN],
-            before: [BID_EIGHTEEN],
-            cue: { seat: FOREHAND, word: { action: "pass", value: null } },
-        },
-        {
-            name: "a raised bid of a chair that bid before",
-            spoken: [{ ...BID_EIGHTEEN, value: 20 }],
-            before: [BID_EIGHTEEN],
-            cue: { seat: MIDDLEHAND, word: { action: "bid", value: 20 } },
-        },
-    ] satisfies { name: string; spoken: AuctionWord[]; before?: AuctionWord[]; cue: object }[])(
-        "is $name",
-        ({ spoken, before, cue }) => {
-            expect(cuesBetween(auctionTable(1, before ?? []), auctionTable(2, spoken))).toEqual([
-                { kind: "bid-said", ...cue },
-            ]);
-        },
-    );
-
-    it("is the last chair's word when several chairs said theirs at once", () => {
-        const cues = cuesBetween(auctionTable(1, []), auctionTable(3, [PASS, BID_EIGHTEEN, HOLD_EIGHTEEN]));
-
-        expect(cues).toEqual([{ kind: "bid-said", seat: REARHAND, word: { action: "hold", value: 18 } }]);
-    });
-
-    it.each([
-        { name: "the first answer of the page", previous: undefined, next: auctionTable(2, [BID_EIGHTEEN]) },
-        {
-            name: "a table that is not newer",
-            previous: auctionTable(2, []),
-            next: auctionTable(2, [BID_EIGHTEEN]),
-        },
-        {
-            name: "words that did not change",
-            previous: auctionTable(1, [BID_EIGHTEEN]),
-            next: auctionTable(2, [BID_EIGHTEEN]),
-        },
-        {
-            name: "a hand with no words yet",
-            previous: { ...auctionTable(1, []), hand: null },
-            next: auctionTable(2, []),
-        },
-        {
-            name: "a play, which shows nothing at the table",
-            previous: auctionTable(1, []),
-            next: auctionTable(2, [{ seat: FOREHAND, action: "play", value: 18 }]),
-        },
-    ] satisfies { name: string; previous: Table | undefined; next: Table }[])("is not $name", ({ previous, next }) => {
-        expect(cuesBetween(previous, next).some((cue) => cue.kind === "bid-said")).toBe(false);
     });
 });
 

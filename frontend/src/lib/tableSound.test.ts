@@ -4,13 +4,16 @@ import { MOTION_SETS, type MotionSetId } from "./motionSets.ts";
 import type { Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundSetId } from "./soundSets.ts";
 import {
+    BID_EIGHTEEN,
     cardPlayedBy,
     earliest,
     FakePort,
     FUNKELN_VOICES,
+    KONTRA_SAID,
     loudest,
     OTHER_SEAT,
     OWN_SEAT,
+    PASS,
     RECORDING_OF,
     soundAt,
     tableSeenFrom,
@@ -221,10 +224,7 @@ describe("cues without a sound", () => {
     });
 });
 
-const BID_EIGHTEEN: Cue = { kind: "bid-said", seat: OTHER_SEAT, word: { action: "bid", value: 18 } };
-const PASS: Cue = { kind: "bid-said", seat: OTHER_SEAT, word: { action: "pass", value: null } };
 const KNOCKS_OF_LEISE = 6;
-const KONTRA_SAID: Cue = { kind: "word-said", said: { seat: OTHER_SEAT, word: "kontra" } };
 
 describe("the sound of a bid", () => {
     it.each(Object.keys(SOUND_SETS) as SoundSetId[])("taps in the set %s", (soundSet) => {

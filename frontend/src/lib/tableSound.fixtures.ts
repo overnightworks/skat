@@ -8,10 +8,15 @@ import type { Card, Chair, LastTrick, Table } from "../routes/(start)/tables.ts"
 export const OWN_SEAT = 1;
 export const OTHER_SEAT = 2;
 export const THIRD_SEAT = 3;
+export const BID_EIGHTEEN: Cue = { kind: "bid-said", seat: OTHER_SEAT, word: { action: "bid", value: 18 } };
+export const PASS: Cue = { kind: "bid-said", seat: OTHER_SEAT, word: { action: "pass", value: null } };
+export const KONTRA_SAID: Cue = { kind: "word-said", said: { seat: OTHER_SEAT, word: "kontra" } };
 const CARD: Card = { suit: "kreuz", rank: "king" };
 export const TRICK: LastTrick = { cards: [CARD, CARD, CARD], leader_seat: OWN_SEAT, taker_seat: OTHER_SEAT };
 const SETTINGS = { muted: false, volume: 70 };
 export const FUNKELN_VOICES = 3;
+// How long every recording of the stand-in port lasts.
+export const RECORDING_SECONDS = 0.5;
 // Waking the device plays one silent sample, which the stand-in counts as a start.
 export const WAKING_SAMPLE_STARTS = 1;
 
@@ -49,8 +54,9 @@ export class FakePort implements AudioPort {
         return Promise.resolve();
     }
 
-    playRecording(url: string, afterSeconds: number): void {
+    playRecording(url: string, afterSeconds: number): number {
         this.spoken.push({ url, afterSeconds });
+        return RECORDING_SECONDS;
     }
 
     // The levels the sea was set to.

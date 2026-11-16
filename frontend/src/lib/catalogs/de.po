@@ -1023,8 +1023,44 @@ msgctxt "voice.hirsch"
 msgid "Hirsch"
 msgstr ""
 
+msgctxt "voice.kreuz"
+msgid "Kreuz"
+msgstr ""
+
+msgctxt "voice.pik"
+msgid "Pik"
+msgstr ""
+
+msgctxt "voice.herz"
+msgid "Herz"
+msgstr ""
+
+msgctxt "voice.karo"
+msgid "Karo"
+msgstr ""
+
+msgctxt "voice.grand"
+msgid "Grand"
+msgstr ""
+
 msgctxt "voice.null"
 msgid "Null"
+msgstr ""
+
+msgctxt "voice.hand"
+msgid "Hand"
+msgstr ""
+
+msgctxt "voice.ouvert"
+msgid "Ouvert"
+msgstr ""
+
+msgctxt "voice.schneider"
+msgid "Schneider angesagt"
+msgstr ""
+
+msgctxt "voice.schwarz"
+msgid "Schwarz angesagt"
 msgstr ""
 
 msgctxt "voice.grumbleComing"
