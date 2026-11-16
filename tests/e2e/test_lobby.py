@@ -17,7 +17,7 @@ from skat.web.lobby import (
     OpenChairAnswer,
     OpenTableAnswer,
 )
-from skat.web.table_options import KontraOptionsAnswer, OptionsAnswer
+from skat.web.table_options import GiveUpOptionsAnswer, KontraOptionsAnswer, OptionsAnswer
 from skat.web.tables import TABLE_SIT_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
@@ -145,7 +145,14 @@ def open_table_answer(
         title_name=opener,
         game_number=0,
         game_count=SERIES_LENGTH_DEFAULT,
-        options=options or OptionsAnswer(show_running_points=False, kontra=None, bock=None, ramsch=None),
+        options=options
+        or OptionsAnswer(
+            show_running_points=False,
+            kontra=None,
+            bock=None,
+            ramsch=None,
+            give_up=GiveUpOptionsAnswer(partner_agrees=False, any_time=False),
+        ),
         watchers=0,
         free_chairs=sum(name is None for name in names),
         dealt=ends_at is not None or waiting_seat is not None,
