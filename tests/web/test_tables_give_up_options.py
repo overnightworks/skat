@@ -36,6 +36,30 @@ class TestOpeningATable:
         assert opened.json()["options"]["give_up"] == {"partner_agrees": False, "any_time": False}
 
     @pytest.mark.parametrize(
+        "retry",
+        [{"partner_agrees": True}, {"partner_agrees": True, "any_time": False}],
+        ids=["same-switch-on", "switch-given-off"],
+    )
+    def test_a_retry_with_the_same_special_rules_is_the_same_table(self, skat, retry):
+        headers, _ = skat.member()
+        opened = skat.create(headers, options={"give_up": {"partner_agrees": True}}).json()
+
+        assert skat.create(headers, options={"give_up": retry}).json() == opened
+        assert len(skat.store.tables) == 1
+
+    @pytest.mark.parametrize(
+        "retry",
+        [{}, {"options": {"give_up": {"any_time": True}}}],
+        ids=["without-special-rules", "other-special-rule"],
+    )
+    def test_other_special_rules_under_the_same_command_id_are_a_reused_id(self, skat, retry):
+        headers, _ = skat.member()
+        skat.create(headers, options={"give_up": {"partner_agrees": True}})
+
+        assert skat.create(headers, **retry).status_code == 409
+        assert len(skat.store.tables) == 1
+
+    @pytest.mark.parametrize(
         "give_up",
         [{"partner_agrees": "yes"}, {"any_time": 1}, {"any_time": None}, {"other": True}, True, None],
     )
