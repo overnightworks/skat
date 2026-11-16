@@ -47,9 +47,16 @@ OBJECTS = [
     pytest.param(TableStyle.STRANDBAR, ".decor.shell", id="shell"),
     pytest.param(TableStyle.KLASSIK, ".decor.lamp", id="lamp"),
 ]
-# Whether the element plays one of the two moves of an object of the table now.
-MAKES_ITS_MOVE = """selector => document.querySelector(selector)?.getAnimations()
-    .some(animation => animation.animationName.startsWith('object-beat')) === true"""
+# The moves of the objects of the table last under a second, so a page is watched from before the tap: every move one
+# starts is kept, and the check reads what was kept instead of racing the move's end.
+WATCH_OBJECT_MOVES = """() => {
+    window.objectMoves = [];
+    document.addEventListener('animationstart', event => {
+        if (event.animationName.startsWith('object-beat')) window.objectMoves.push(event.target);
+    }, true);
+}"""
+# Whether one of the two moves of an object of the table has started on the element since the page was watched.
+MAKES_ITS_MOVE = "selector => window.objectMoves.some(element => element.matches(selector))"
 # The dotted trail of the flight is painted at some moment of it.
 TRAIL_SHOWN = "() => Number(getComputedStyle(document.querySelector('.thrown .emote-trail')).opacity) > 0"
 # Where the element's own place lies in the box of the layer that carries the emotes, before its motion moves it.
@@ -110,6 +117,11 @@ def ready_to_hear(table: PlayingTable) -> dict[Page, int]:
     for person in table.everyone:
         tap(person)
     return {person: len(voices_started(person)) for person in table.everyone}
+
+
+def watch_object_moves(table: PlayingTable) -> None:
+    for person in table.everyone:
+        person.evaluate(WATCH_OBJECT_MOVES)
 
 
 def expect_played_by_every_page(heard_before: dict[Page, int]) -> None:
@@ -226,6 +238,7 @@ def test_a_tap_on_an_object_of_the_table_makes_it_move_and_sound_on_every_page(
     table = deal_a_game({**form_factor, **MOTION_ALLOWED})
     give_the_table_its_style(table.pages[table.seat_at["forehand"]], table.everyone, style)
     heard_before = ready_to_hear(table)
+    watch_object_moves(table)
     for person in table.everyone:
         assert person.evaluate(MAKES_ITS_MOVE, object_selector) is False
 
@@ -245,6 +258,7 @@ def test_a_tap_on_a_coaster_makes_every_coaster_move_and_sound_on_every_page(
     for person in table.everyone:
         expect(person.locator(COASTER)).to_have_count(len(table.names))
     heard_before = ready_to_hear(table)
+    watch_object_moves(table)
     coaster = table.watcher.locator(COASTER).first
     assert min(coaster.evaluate("element => [element.offsetWidth, element.offsetHeight]")) >= MINIMUM_TAP_AREA_PIXELS
 
