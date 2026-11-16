@@ -142,6 +142,7 @@ class TestOptions:
             "kontra": None,
             "bock": None,
             "ramsch": None,
+            "give_up": {"partner_agrees": False, "any_time": False},
         }
 
     @pytest.mark.parametrize("extra", [{}, {"options": {}}, {"options": {"show_running_points": False}}])
@@ -153,6 +154,7 @@ class TestOptions:
             "kontra": None,
             "bock": None,
             "ramsch": None,
+            "give_up": {"partner_agrees": False, "any_time": False},
         }
 
     def test_a_read_and_a_watcher_see_the_options_the_table_was_opened_with(self, skat):
@@ -165,6 +167,7 @@ class TestOptions:
             "kontra": None,
             "bock": None,
             "ramsch": None,
+            "give_up": {"partner_agrees": False, "any_time": False},
         }
 
     @pytest.mark.parametrize(

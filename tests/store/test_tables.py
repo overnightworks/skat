@@ -19,6 +19,7 @@ from skat.table.records import (
     Actor,
     CloseTable,
     CreateTable,
+    GiveUpOptions,
     HandProgress,
     Refusal,
     SeatHeld,
@@ -70,12 +71,18 @@ def test_a_created_table_reads_back_the_same_after_a_reload(service):
     assert [(chair.seat, chair.occupant_name) for chair in created.chairs] == [(1, "Anna"), (2, None), (3, None)]
 
 
-def test_a_table_opened_with_the_switch_on_reads_it_back_after_a_reload(service):
-    created = service.create(
-        OPENER, CreateTable(command_id="command-1", options=TableOptions(show_running_points=True))
-    )
+@pytest.mark.parametrize(
+    "options",
+    [
+        pytest.param(TableOptions(show_running_points=True), id="running-points"),
+        pytest.param(TableOptions(give_up=GiveUpOptions(partner_agrees=True)), id="partner-agrees"),
+        pytest.param(TableOptions(give_up=GiveUpOptions(any_time=True)), id="give-up-any-time"),
+    ],
+)
+def test_a_table_opened_with_a_switch_on_reads_it_back_after_a_reload(service, options):
+    created = service.create(OPENER, CreateTable(command_id="command-1", options=options))
 
-    assert created.options == TableOptions(show_running_points=True)
+    assert created.options == options
     assert service.view(OPENER, created.id, frozenset()).options == created.options
 
 
@@ -89,7 +96,9 @@ def test_a_table_stored_without_a_switch_reads_it_off(service, engine):
             {"id": old_id},
         )
 
-    assert service.view(OPENER, old_id, frozenset()).options == TableOptions(show_running_points=False)
+    assert service.view(OPENER, old_id, frozenset()).options == TableOptions(
+        show_running_points=False, give_up=GiveUpOptions(partner_agrees=False, any_time=False)
+    )
 
 
 def test_a_table_opened_private_is_listed_to_nobody_and_an_open_one_is_after_a_reload(service):

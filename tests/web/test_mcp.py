@@ -210,7 +210,13 @@ class TestReadTable:
 
         view = agent.read(table_id).json()
 
-        assert view["options"] == {"show_running_points": True, "kontra": None, "bock": None, "ramsch": None}
+        assert view["options"] == {
+            "show_running_points": True,
+            "kontra": None,
+            "bock": None,
+            "ramsch": None,
+            "give_up": {"partner_agrees": False, "any_time": False},
+        }
         assert view == skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
 
     def test_the_standings_of_a_played_series_read_at_the_tool_as_the_route_gives_them(self, skat, agent):

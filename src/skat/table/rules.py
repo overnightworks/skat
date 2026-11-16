@@ -16,6 +16,7 @@ from skat.table.records import (
     EndProposal,
     FormerHolder,
     GiveUpAsked,
+    GiveUpOptions,
     HandProgress,
     NewHand,
     NoWordSaid,
@@ -104,8 +105,8 @@ def _pushing_member(ramsch: RamschSetting) -> str:
 
 def create_payload(command: CreateTable) -> str:
     """The receipt's payload: a table with no length and every option off keeps the text it always had, so older
-    receipts replay; an option that is on adds its own member, the Grand Hand a stage allows among them, and so does a
-    private table, while an open one adds none.
+    receipts replay; an option that is on adds its own member, the Grand Hand a stage allows and each special rule of
+    giving up among them, and so does a private table, while an open one adds none.
     """
     members = [] if command.series_length is None else [f'"series_length":{command.series_length}']
     if command.options.show_running_points:
@@ -127,6 +128,10 @@ def create_payload(command: CreateTable) -> str:
             f'"jungfrau":"{ramsch.reckoning.jungfrau.value}","occasion":"{ramsch.occasion.value}",'
             f'{_pushing_member(ramsch)}"scoring":"{ramsch.reckoning.scoring.value}"}}'
         )
+    give_up = command.options.give_up
+    if give_up != GiveUpOptions():
+        switched_on = (("any_time", give_up.any_time), ("partner_agrees", give_up.partner_agrees))
+        members.append(f'"give_up":{{{",".join(f'"{name}":true' for name, on in switched_on if on)}}}')
     if command.visibility is Visibility.PRIVATE:
         members.append(f'"visibility":"{Visibility.PRIVATE.value}"')
     return "{" + ",".join(members) + "}"

@@ -7,7 +7,7 @@ from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
 from skat.store.rule_sets import PostgresRuleSets
-from skat.table.records import Actor, RamschOccasion, RamschSetting, RuleSetId, TableOptions
+from skat.table.records import Actor, GiveUpOptions, RamschOccasion, RamschSetting, RuleSetId, TableOptions
 from skat.table.rule_sets import DuplicateRuleSetError, RuleSet, RuleSetRefusal, RuleSetService
 
 pytestmark = pytest.mark.postgres
@@ -52,6 +52,8 @@ class TestStoredOptions:
             TableOptions(True, FELIX.kontra, BOCK.bock),
             RAMSCH,
             TableOptions(True, FELIX.kontra, ramsch=RAMSCH.ramsch),
+            TableOptions(give_up=GiveUpOptions(partner_agrees=True)),
+            TableOptions(give_up=GiveUpOptions(any_time=True)),
         ],
     )
     def test_the_options_of_a_set_read_back_as_saved(self, service, options):

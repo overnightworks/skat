@@ -755,8 +755,20 @@ class TestRunningPoints:
 
         assert results[0]["result"] == results[1]["result"]
         assert [body["options"] for body in results] == [
-            {"show_running_points": False, "kontra": None, "bock": None, "ramsch": None},
-            {"show_running_points": True, "kontra": None, "bock": None, "ramsch": None},
+            {
+                "show_running_points": False,
+                "kontra": None,
+                "bock": None,
+                "ramsch": None,
+                "give_up": {"partner_agrees": False, "any_time": False},
+            },
+            {
+                "show_running_points": True,
+                "kontra": None,
+                "bock": None,
+                "ramsch": None,
+                "give_up": {"partner_agrees": False, "any_time": False},
+            },
         ]
 
 

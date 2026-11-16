@@ -48,7 +48,8 @@ def give_up(state: Playing, *, consented: bool = False, any_time: bool = False) 
     """
     if state.result is not None:
         return PlayOutcome(state, PlayRefusal.OVER)
-    if not (consented or any_time) and len(state.hands[state.declared.declarer]) < _CARDS_HELD_AT_THE_SECOND_TRICK_START:
+    holds_nine = len(state.hands[state.declared.declarer]) >= _CARDS_HELD_AT_THE_SECOND_TRICK_START
+    if not (consented or any_time or holds_nine):
         return PlayOutcome(state, PlayRefusal.NEEDS_CONSENT)
     if _already_won(state):
         return PlayOutcome(replace(state, result=_ended(state, Ending.DECIDED_WON)))

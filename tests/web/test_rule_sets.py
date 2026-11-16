@@ -8,12 +8,36 @@ from tests.web.support.skat import FETCH
 
 EVENING = {"show_running_points": True}
 FELIX = {"kontra": {"sayer": "bidders-only", "reach": "up-to-hirsch", "deadline": "own-card"}}
-OFFICIAL = {"show_running_points": False, "kontra": None, "bock": None, "ramsch": None}
-EVENING_ANSWER = {"show_running_points": True, "kontra": None, "bock": None, "ramsch": None}
-FELIX_ANSWER = {"show_running_points": False, "bock": None, "ramsch": None, **FELIX}
+OFFICIAL = {
+    "show_running_points": False,
+    "kontra": None,
+    "bock": None,
+    "ramsch": None,
+    "give_up": {"partner_agrees": False, "any_time": False},
+}
+EVENING_ANSWER = {
+    "show_running_points": True,
+    "kontra": None,
+    "bock": None,
+    "ramsch": None,
+    "give_up": {"partner_agrees": False, "any_time": False},
+}
+FELIX_ANSWER = {
+    "show_running_points": False,
+    "bock": None,
+    "ramsch": None,
+    "give_up": {"partner_agrees": False, "any_time": False},
+    **FELIX,
+}
 BOCK = {"bock": {"triggers": ["re", "schwarz"], "overlap": "multiply"}}
 RAMSCH = {"ramsch": {"occasion": "passed-in", "scoring": "points", "jungfrau": "off", "durchmarsch": "wins-120-flat"}}
-BOCK_ANSWER = {"show_running_points": False, "kontra": None, "ramsch": None, **BOCK}
+BOCK_ANSWER = {
+    "show_running_points": False,
+    "kontra": None,
+    "ramsch": None,
+    "give_up": {"partner_agrees": False, "any_time": False},
+    **BOCK,
+}
 SAME_ORIGIN = {"origin": TEST_PUBLIC_ORIGIN}
 
 
