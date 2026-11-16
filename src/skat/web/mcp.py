@@ -9,7 +9,6 @@ route's body; the front also serves the agent's standing as a resource.
 """
 
 import json
-import logging
 import warnings
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -20,7 +19,7 @@ from agents.mcp_server import McpPersonFront, OfferedTools, PersonTool, route_to
 from agents.mcp_wire import MCP_ENDPOINT_PATH
 from agents.member import ACCEPT_INVITATION_TOOL
 from agents.tools import Principal, ToolEffect, ToolOutcome, agent_tool, not_an_agent_tool
-from logline import StepTimer, set_route
+from logline import set_route
 from pydantic import BaseModel
 from starlette.requests import HTTPConnection
 from starlette.routing import Route
@@ -94,8 +93,6 @@ SAVE_RULE_SET_TOOL: Final = "save_rule_set"
 NUDGE_SEAT_TOOL: Final = "nudge_seat"
 THROW_REACTION_TOOL: Final = "throw_reaction"
 
-_LOGGER: Final = logging.getLogger(__name__)
-
 
 class Exclusion(StrEnum):
     """Why a route is no tool; one wording per class, read by whoever reviews what an agent reaches."""
@@ -109,20 +106,6 @@ class Exclusion(StrEnum):
     PERSON_ACT = "calling an agent is a person's act, no agent's tool"
     TABLE_LOOK = "a table's look is for the people who sit at it; an agent plays without seeing it"
     GAME_SHEET = "the page's sheet of one finished game; an agent reads the list of the games"
-
-
-class ToolRefusal(StrEnum):
-    """Why a tool call ended refused, beside the codes the agents library gives the accept: the one set of `reason`s of
-    the tool call's log line.
-    """
-
-    ROUTE_ERROR = "route_error"
-    MALFORMED_ARGUMENTS = "malformed_arguments"
-
-
-def tool_step(tool: str) -> StepTimer:
-    """The timer of one tool call's log line, for the route's tools and the accept alike."""
-    return StepTimer("tool_call.ended", _LOGGER, tool=tool)
 
 
 def excluded(reason: Exclusion) -> dict[str, object]:
@@ -279,19 +262,6 @@ def _done_answering(tool: PersonTool) -> PersonTool:
     return PersonTool(tool.declaration, handler)
 
 
-def _timed(tool: PersonTool) -> PersonTool:
-    """The tool, with each call written as one log line; a route that answers an error ended it refused."""
-
-    async def handler(request: PersonRequest, arguments: JsonObject) -> ToolOutcome:
-        async with tool_step(tool.declaration.name) as step:
-            outcome = await tool.handler(request, arguments)
-            if outcome.is_error:
-                step.refuse(ToolRefusal.ROUTE_ERROR)
-        return outcome
-
-    return PersonTool(tool.declaration, handler)
-
-
 # The agent facts the admitted call's token carries, None for a person's token; the port that lists and reads resources
 # is given only the account, and a stored agent's account also holds a token without them, which is a person's.
 token_carries_agent_facts: Final[ContextVar[AgentFacts | None]] = ContextVar("token_carries_agent_facts", default=None)
@@ -377,7 +347,7 @@ def mount_mcp(
     def resolve_person(scope: Scope) -> Principal:
         return Principal(iss=issuer, sub=resource_person(HTTPConnection(scope)).id)
 
-    served_tools = (*(_timed(_done_answering(each)) for each in tools.tools), member.tool)
+    served_tools = (*(_done_answering(each) for each in tools.tools), member.tool)
     front = McpPersonFront(
         served_tools,
         resolve_person=resolve_person,

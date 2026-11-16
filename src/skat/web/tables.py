@@ -1,6 +1,7 @@
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Final
 
+import structlog
 from fastapi import APIRouter, HTTPException, Path, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -80,6 +81,17 @@ class RefusalAnswer(BaseModel):
 
     reason: CommandRefusal | NudgeRefusal | ReactionRefusal
     holder_name: str | None
+
+
+TABLE_READ_REFUSED_EVENT: Final = "table_read.refused"
+
+logger = structlog.get_logger()
+
+
+class TableReadRefusal(StrEnum):
+    """Why a read of a table was refused: the one set of `reason`s of its log line."""
+
+    NO_TABLE = "no-table"
 
 
 class SuitToken(StrEnum):
@@ -681,6 +693,7 @@ def create_tables_router(
         with presence.waits.reading(table_id):
             view = await run_in_threadpool(tables.view, actor_of(request), table_id, presence.connected(table_id))
             if view is None:
+                logger.info(TABLE_READ_REFUSED_EVENT, reason=TableReadRefusal.NO_TABLE)
                 raise HTTPException(status_code=404, detail="table not found")
             return answer_of(view, presence.waits.nudges_of(view), presence.reactions.shown(table_id))
 

@@ -78,6 +78,25 @@ class Deals:
         return self.dealt
 
 
+class Notes:
+    """The note command as the presence calls it: who was connected when each write held the row."""
+
+    def __init__(self):
+        self.calls = []
+        self.failures = []
+        self.ended = False
+        self.meanwhile = None
+
+    async def note(self, table_id, connected_accounts):
+        if self.meanwhile is not None:
+            await self.meanwhile()
+        if self.failures:
+            raise self.failures.pop(0)
+        with connected_accounts as connected:
+            self.calls.append((table_id, connected))
+        return self.ended
+
+
 def run(scenario):
     return asyncio.run(scenario)
 

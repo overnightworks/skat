@@ -13,6 +13,7 @@ from skat.table.records import Actor, CloseTable, CreateTable, Refusal, SitDown,
 from skat.table.rules import CREATE_TABLE_COMMAND, SIT_DOWN_COMMAND
 from skat.table.service import TableService
 from tests.support.fake_tables import FakeTableStore
+from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.log_lines import lines_of, logged
 
 OPENER = Actor(account_id="account-opener", display_name="Anna")
@@ -74,6 +75,21 @@ class TestTableCommandLine:
 
         (line,) = lines_of(lines, EVENT)
         assert (line["table_id"], line["outcome"]) == (opened.id, Outcome.OK)
+
+    def test_opening_a_table_whose_first_commit_the_first_read_did_not_see_writes_the_id_of_the_table_that_commit_made(
+        self, capsys
+    ):
+        store = FakeTableStore()
+        numbers = itertools.count(1)
+        new_table_id = lambda: TableId(f"{next(numbers):032x}")  # noqa: E731 - one id per table of this test
+        made = TableService(store, new_table_id=new_table_id).create(OPENER, CreateTable(command_id="command-open"))
+        blind = TableService(FaultyTableTransactions(store, blind_first_replay=True), new_table_id=new_table_id)
+
+        with logged(capsys) as lines:
+            replayed = blind.create(OPENER, CreateTable(command_id="command-open"))
+
+        (line,) = lines_of(lines, EVENT)
+        assert (replayed.id, line["table_id"], line["outcome"]) == (made.id, made.id, Outcome.OK)
 
     @pytest.mark.parametrize(
         ("closer", "outcome", "reason"),

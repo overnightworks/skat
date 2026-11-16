@@ -32,7 +32,7 @@ from skat.web.abort import create_abort_router
 from skat.web.account import create_account_router
 from skat.web.auction import create_auction_router
 from skat.web.call import create_call_router
-from skat.web.calling import AgentRoster, CallerMembership, ListeningChanged, create_calling_router
+from skat.web.calling import AgentRoster, CallerMembership, create_calling_router
 from skat.web.closing import create_closing_router
 from skat.web.constants import (
     HEALTH_PATH,
@@ -66,6 +66,7 @@ from skat.web.ready import create_ready_router
 from skat.web.request_line import ClientAddressNoting, SignedInPersonNoting
 from skat.web.routes import create_router
 from skat.web.rule_sets import create_rule_sets_router
+from skat.web.run_line import RunLine
 from skat.web.seating import create_seating_router
 from skat.web.series_end import create_series_end_router
 from skat.web.sign_in import (
@@ -86,6 +87,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
     from contextlib import AbstractAsyncContextManager, AbstractContextManager
 
+    from agents.mcp_server import PlaceStore
     from webauth.config import WebAuthConfig
     from webauth.oidc import OidcRelyingParty
     from webauth.ports import AgentFacts, RateLimitBackend, SessionRecordStore
@@ -115,11 +117,13 @@ def end_with_sigterm() -> None:
 @dataclass(frozen=True, kw_only=True)
 class PodLinks:
     """What the pods of one deployment share: the counts of their sign-in limits, the channel that carries their
-    wakes, and how a pod stops itself when that channel cannot be heard.
+    wakes, the place store that tells them which agents listen and what changed for them, and how a pod stops itself
+    when the wake channel cannot be heard.
     """
 
     rate_limits: RateLimitBackend
     wake_channel: WakeChannel
+    place_store: PlaceStore
     end_process: Callable[[], None] = end_with_sigterm
 
 
@@ -193,11 +197,20 @@ def _caller_membership(
     return CallerMembership(groups, sign_in_configs.web_auth, relying_party.issuer, clock)
 
 
+def _agent_changes(store: PlaceStore, roster: AgentRoster) -> ResourceChanges:
+    """The changes the pods tell their listening agents through `store`, and the roster that follows who listens."""
+    return ResourceChanges(
+        store, listening_changed=roster.listening_changed, listening_resynced=roster.listening_resynced
+    )
+
+
 def _roster_and_changes(
-    resource_changes: Callable[[ListeningChanged], ResourceChanges],
+    store: PlaceStore, resource_changes: Callable[[PlaceStore, AgentRoster], ResourceChanges]
 ) -> tuple[AgentRoster, ResourceChanges]:
     roster = AgentRoster()
-    return roster, resource_changes(roster.listening_changed)
+    changes = resource_changes(store, roster)
+    roster.follow(changes)
+    return roster, changes
 
 
 def _telling_agents(
@@ -318,11 +331,13 @@ def _refuse_invalid_request(_request: Request, refusal: Exception) -> JSONRespon
 
 async def _end_unplayed_tables(
     settings: ServerSettings, tables: TableService, presence: Presence, *, at_start: bool
-) -> None:
-    """End every table whose days without a deal or step of play are up and wake its streams. A table that fails is
-    skipped and retried by the next run, except at the start, where the failure stops the server.
+) -> int:
+    """End every table whose days without a deal or step of play are up and wake its streams, and return how many
+    ended. A table that fails is skipped and retried by the next run, except at the start, where the failure stops the
+    server.
     """
     days = settings.paused_table_days
+    ended_count = 0
     for table_id in await run_in_threadpool(tables.unplayed_tables, days):
         try:
             ended = await run_in_threadpool(tables.end_unplayed_table, table_id, days, presence.writing(table_id.value))
@@ -334,28 +349,35 @@ async def _end_unplayed_tables(
             continue
         if ended:
             presence.table_ended(table_id.value)
+            ended_count += 1
+    return ended_count
 
 
-async def _forget_ended_tables(settings: ServerSettings, tables: TableService) -> None:
-    await run_in_threadpool(tables.forget_ended_tables, settings.ended_table_days)
+async def _forget_ended_tables(settings: ServerSettings, tables: TableService) -> int:
+    return await run_in_threadpool(tables.forget_ended_tables, settings.ended_table_days)
 
 
-def _session_forgetter(app: FastAPI, sessions: ExpirableSessions) -> Callable[[], Awaitable[None]]:
-    """The call that deletes the sessions expired by webauth's clock; every pod runs it, and a repeat deletes none."""
+def _session_forgetter(app: FastAPI, sessions: ExpirableSessions) -> Callable[[], Awaitable[int]]:
+    """The call that deletes the sessions expired by webauth's clock and returns how many went; every pod runs it, and
+    a repeat deletes none.
+    """
 
-    async def forget() -> None:
+    async def forget() -> int:
         now = datetime.fromtimestamp(installed_web_auth_config(app).wall_clock(), UTC)
-        await run_in_threadpool(sessions.delete_expired, now)
+        return await run_in_threadpool(sessions.delete_expired, now)
 
     return forget
 
 
-async def _swept(step: Callable[[], Awaitable[None]], log_failure: Callable[[str], None]) -> None:
-    """Run one step of a sweep; a failure is logged by its type, and the next step and the next sweep still run."""
+async def _swept(step: Callable[[], Awaitable[int]], log_failure: Callable[[str], None]) -> int | None:
+    """Run one step of a sweep and return its count; a failure is logged by its type and counts nothing, and the next
+    step and the next sweep still run.
+    """
     try:
-        await step()
+        return await step()
     except Exception as failure:
         log_failure(type(failure).__name__)
+        return None
 
 
 def _sweep_tables(
@@ -363,21 +385,30 @@ def _sweep_tables(
     tables: TableService,
     presence: Presence,
     scheduler: Scheduler,
-    forget_expired_sessions: Callable[[], Awaitable[None]],
+    forget_expired_sessions: Callable[[], Awaitable[int]],
     period_seconds: float,
 ) -> None:
+    line = RunLine("table_sweep.ended")
+
     async def sweep() -> None:
-        await _swept(
+        step = line.run()
+        ended = await _swept(
             lambda: _end_unplayed_tables(settings, tables, presence, at_start=False),
             lambda failure: log.error("unplayed_tables_read.failed", error_type=failure),
         )
-        await _swept(
+        forgotten_tables = await _swept(
             lambda: _forget_ended_tables(settings, tables),
             lambda failure: log.error("ended_tables_forget.failed", error_type=failure),
         )
-        await _swept(
+        forgotten_sessions = await _swept(
             forget_expired_sessions, lambda failure: log.error("expired_sessions_forget.failed", error_type=failure)
         )
+        counts = {
+            "ended_table_count": ended or 0,
+            "forgotten_table_count": forgotten_tables or 0,
+            "forgotten_session_count": forgotten_sessions or 0,
+        }
+        line.written(step, counts, failed=None in (ended, forgotten_tables, forgotten_sessions))
         if not presence.stopped:
             scheduler.schedule(period_seconds, sweep)
 
@@ -440,14 +471,14 @@ def create_app(
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
     unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
-    resource_changes: Callable[[ListeningChanged], ResourceChanges] = ResourceChanges,
+    resource_changes: Callable[[PlaceStore, AgentRoster], ResourceChanges] = _agent_changes,
     database_ready: Callable[[], Awaitable[bool]] = _always_ready,
 ) -> FastAPI:
     sign_in_configs = build_sign_in_configs(settings, pods.rate_limits)
 
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
-    roster, changes = _roster_and_changes(resource_changes)
+    roster, changes = _roster_and_changes(pods.place_store, resource_changes)
     # Wrapped first, so the timers' commands capture the service that counts leases and tells agents.
     tables = _telling_agents(tables, lambda: presence.live_leases(), changes, relying_party.issuer)
     # One scheduler and one clock of waits serve the presence and the member front, so stopping the presence cancels
