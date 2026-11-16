@@ -153,15 +153,14 @@ class ServingWindow:
         self._revision_before = next(iter(heads), None)
 
     def step_applied(self, *, step: MigrationInfo, **_: object) -> None:
-        """Alembic's `on_version_apply` hook, which it calls by keyword."""
-        if step.is_upgrade:
-            self._steps.append(
-                AppliedStep(
-                    revision=step.up_revision_ids[0],
-                    down_revision=step.down_revision_ids[0] if step.down_revision_ids else None,
-                    contracts=declares_contraction(step.up_revision),
-                )
+        """Alembic's `on_version_apply` hook, which it calls by keyword; `skat migrate` only upgrades."""
+        self._steps.append(
+            AppliedStep(
+                revision=step.up_revision_ids[0],
+                down_revision=step.down_revision_ids[0] if step.down_revision_ids else None,
+                contracts=declares_contraction(step.up_revision),
             )
+        )
 
     def _served(self) -> frozenset[str] | None:
         """The revisions to serve after the run, or None when it applied no step."""
