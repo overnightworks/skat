@@ -33,6 +33,7 @@ from skat.table.records import (
     SERIES_LENGTH_MIN,
     SERIES_LENGTH_STEP,
     EndReason,
+    GiveUpOptions,
     OccupantKind,
     RamschOccasion,
     RamschSetting,
@@ -123,6 +124,8 @@ def option_columns(table_name: str) -> tuple[Column[Any] | CheckConstraint, ...]
         Column("kontra_deadline", Text),
         Column("bock_triggers", ARRAY(Text)),
         Column("bock_overlap", Text),
+        Column("give_up_partner_agrees", Boolean, nullable=False, server_default=false()),
+        Column("give_up_any_time", Boolean, nullable=False, server_default=false()),
         CheckConstraint(
             "num_nonnulls(kontra_sayer, kontra_reach, kontra_deadline) IN (0, 3)",
             name=f"{table_name}_kontra_is_all_or_nothing",
@@ -171,7 +174,13 @@ def options_of(row: Row[Any]) -> TableOptions:
             None if row.ramsch_pushing is None else PushingRule(row.ramsch_pushing),
             GrandHandRule.OFF if row.ramsch_grand_hand is None else GrandHandRule(row.ramsch_grand_hand),
         )
-    return TableOptions(show_running_points=row.show_running_points, kontra=kontra, bock=bock, ramsch=ramsch)
+    return TableOptions(
+        show_running_points=row.show_running_points,
+        kontra=kontra,
+        bock=bock,
+        ramsch=ramsch,
+        give_up=GiveUpOptions(partner_agrees=row.give_up_partner_agrees, any_time=row.give_up_any_time),
+    )
 
 
 def option_values(options: TableOptions) -> dict[str, object]:
@@ -193,6 +202,8 @@ def option_values(options: TableOptions) -> dict[str, object]:
         "ramsch_durchmarsch": None if ramsch is None else ramsch.reckoning.durchmarsch.value,
         "ramsch_pushing": None if ramsch is None or ramsch.pushing is None else ramsch.pushing.value,
         "ramsch_grand_hand": None if ramsch is None or ramsch.pushing is None else ramsch.grand_hand.value,
+        "give_up_partner_agrees": options.give_up.partner_agrees,
+        "give_up_any_time": options.give_up.any_time,
     }
 
 
