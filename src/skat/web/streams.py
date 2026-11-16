@@ -3,6 +3,7 @@ import hashlib
 import logging
 import weakref
 from collections import Counter
+from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import partial
@@ -209,15 +210,10 @@ async def _changed_messages(
 
 
 async def _closed_all(opened: Sequence[StreamSource]) -> None:
-    """Close every opened source, though one's close is cancelled or fails; the first such exception then propagates."""
-    first: BaseException | None = None
-    for source in opened:
-        try:
-            await source.close()
-        except BaseException as failure:
-            first = first or failure
-    if first is not None:
-        raise first
+    """Close every opened source, though one's close is cancelled or fails; such an exception then propagates."""
+    async with AsyncExitStack() as closing:
+        for source in opened:
+            closing.push_async_callback(source.close)
 
 
 async def stream_messages(

@@ -295,9 +295,10 @@ class TestAnArrival:
 
     def test_fails_when_its_lease_cannot_start_and_leaves_nothing_registered(self, holding, leases, wakes):
         leases.starting_fails = [UNREACHABLE]
+        wake_anna = wakes.callback("anna")
 
         with pytest.raises(ConnectionError):
-            connect(holding, TABLE, "anna", wakes.callback("anna"))
+            connect(holding, TABLE, "anna", wake_anna)
 
         holding.wake_table(TABLE)
         assert wakes.counts == {"anna": 0}

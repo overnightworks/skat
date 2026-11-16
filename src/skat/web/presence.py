@@ -280,7 +280,7 @@ class Presence:
         """
         await self._stream_leases.serve_lapses(self._wake_lapsed, claimer=self._claimer, every=LAPSE_SWEEP_EVERY)
 
-    async def _wake_lapsed(self, lapse: Lapse) -> None:
+    async def _wake_lapsed(self, lapse: Lapse) -> None:  # NOSONAR(S7503) tandem awaits its lapse handler
         self.wake_table(StreamHolder.parse(lapse.holder).table_id)
 
     def live_leases(self) -> frozenset[str]:
