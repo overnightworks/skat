@@ -1,0 +1,8 @@
+claim_id = "52cb4c1e3be148f69ab227cb9f4ca40f"
+agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
+role = "builder"
+base = "4574b51a91a5348fb9ea58c3a66ea1e90064aebe"
+branch = "claude/issue-655-skat-pins-agents-v0-50-0-and-tandem-v0-8"
+scope = ["docs/ARCHITECTURE.md", "pyproject.toml", "src/skat/host", "src/skat/store", "src/skat/web", "tests", "uv.lock"]
+opened_commit = "efc9db96c97f730e9fd2c1d929ce727234f215be"
+whole_reason = "a pin bump touches host, web, store and tests together"
