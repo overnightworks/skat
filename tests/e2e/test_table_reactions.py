@@ -55,6 +55,12 @@ WATCH_OBJECT_MOVES = """() => {
         if (event.animationName.startsWith('object-beat')) window.objectMoves.push(event.target);
     }, true);
 }"""
+# A page that is still moving a deal or a result renders slowly on a loaded machine, so a tap waits for it to rest; the
+# endless animations of the scene are no motion that ends.
+NO_FINITE_ANIMATION_RUNNING = """() => document.getAnimations().every(
+    animation => animation.playState !== 'running' || animation.effect.getComputedTiming().iterations === Infinity
+)"""
+POLLING_MILLISECONDS = 100
 # Whether one of the two moves of an object of the table has started on the element since the page was watched.
 MAKES_ITS_MOVE = "selector => window.objectMoves.some(element => element.matches(selector))"
 # The dotted trail of the flight is painted at some moment of it.
@@ -110,6 +116,12 @@ def throwing_tray(person: Page) -> None:
     assert box["x"] + box["width"] <= viewport["width"]
     assert box["y"] >= 0
     assert box["y"] + box["height"] <= viewport["height"]
+
+
+def wait_until_still(table: PlayingTable) -> None:
+    """The table has come to rest on every page: a deal that flies in or a result that counts up has ended."""
+    for person in table.everyone:
+        person.wait_for_function(NO_FINITE_ANIMATION_RUNNING, polling=POLLING_MILLISECONDS)
 
 
 def ready_to_hear(table: PlayingTable) -> dict[Page, int]:
@@ -237,6 +249,7 @@ def test_a_tap_on_an_object_of_the_table_makes_it_move_and_sound_on_every_page(
 ) -> None:
     table = deal_a_game({**form_factor, **MOTION_ALLOWED})
     give_the_table_its_style(table.pages[table.seat_at["forehand"]], table.everyone, style)
+    wait_until_still(table)
     heard_before = ready_to_hear(table)
     watch_object_moves(table)
     for person in table.everyone:
@@ -257,6 +270,7 @@ def test_a_tap_on_a_coaster_makes_every_coaster_move_and_sound_on_every_page(
     table.play_out(CARDS_IN_A_GAME)
     for person in table.everyone:
         expect(person.locator(COASTER)).to_have_count(len(table.names))
+    wait_until_still(table)
     heard_before = ready_to_hear(table)
     watch_object_moves(table)
     coaster = table.watcher.locator(COASTER).first
