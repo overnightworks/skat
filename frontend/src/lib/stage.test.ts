@@ -15,7 +15,7 @@ import {
 import type { LastTrick, Playing } from "../routes/(start)/tables.ts";
 
 const NOW = 10_000;
-const TIMING: Timing = { restMilliseconds: 800, glideMilliseconds: 1000 };
+const TIMING: Timing = timingOf(MOTION_SETS.verspielt, false) as Timing;
 const TRICK: LastTrick = {
     cards: [
         { suit: "kreuz", rank: "king" },
@@ -32,10 +32,10 @@ const TAKEN: Cue = { kind: "trick-taken", trick: TRICK };
 const TURN: Cue = { kind: "turn-came" };
 
 function received(changes: Partial<Received>): Received {
-    return { cues: [], before: BEFORE, timing: TIMING, mode: "sweep", now: NOW, ...changes };
+    return { cues: [], before: BEFORE, timing: TIMING, mode: "sweep", closing: false, now: NOW, ...changes };
 }
 
-function resting(glideMilliseconds = TIMING.glideMilliseconds, turnPending = false): StageState {
+function resting(glideMilliseconds = TIMING.glideMilliseconds, turnPending = false, resultPending = false): StageState {
     return {
         phase: "resting",
         until: NOW + TIMING.restMilliseconds,
@@ -43,12 +43,16 @@ function resting(glideMilliseconds = TIMING.glideMilliseconds, turnPending = fal
         before: BEFORE,
         glideMilliseconds,
         turnPending,
+        resultPending,
     };
 }
 
 describe("the budget of a table", () => {
     it("is the set's rest and the time from gathering to landing", () => {
-        expect(timingOf(MOTION_SETS.verspielt, false)).toEqual({ restMilliseconds: 800, glideMilliseconds: 1000 });
+        expect(timingOf(MOTION_SETS.verspielt, false)).toMatchObject({
+            restMilliseconds: 800,
+            glideMilliseconds: 1000,
+        });
     });
 
     it.each([
@@ -68,7 +72,7 @@ describe("the time chairs move", () => {
     it.each(Object.values(MOTION_SETS).map((set) => ({ set, name: set.id })))(
         "is the set's time for a chair that is taken in the set $name",
         ({ set }) => {
-            expect(chairMoveMilliseconds([TAKEN_CHAIR], set, false)).toBe(set.chairSitsSeconds * 1000);
+            expect(chairMoveMilliseconds([TAKEN_CHAIR], timingOf(set, false))).toBe(set.chairSitsSeconds * 1000);
         },
     );
 
@@ -77,13 +81,13 @@ describe("the time chairs move", () => {
             [STOOD_CHAIR, OPENED_CHAIR].map((cue) => ({ set, cue, name: `${cue.kind} in ${set.id}` })),
         ),
     )("is the set's time for a chair that empties: $name", ({ set, cue }) => {
-        expect(chairMoveMilliseconds([cue], set, false)).toBe(set.chairEmptiesSeconds * 1000);
+        expect(chairMoveMilliseconds([cue], timingOf(set, false))).toBe(set.chairEmptiesSeconds * 1000);
     });
 
     it("is the longest of the chairs that move in one update", () => {
         const set = MOTION_SETS.verspielt;
 
-        expect(chairMoveMilliseconds([OPENED_CHAIR, TAKEN_CHAIR], set, false)).toBe(
+        expect(chairMoveMilliseconds([OPENED_CHAIR, TAKEN_CHAIR], timingOf(set, false))).toBe(
             Math.max(set.chairSitsSeconds, set.chairEmptiesSeconds) * 1000,
         );
     });
@@ -93,7 +97,7 @@ describe("the time chairs move", () => {
         { name: "no motion set is in force", motion: undefined, hidden: false, cues: [TAKEN_CHAIR] },
         { name: "no chair changed hands", motion: MOTION_SETS.verspielt, hidden: false, cues: [TAKEN] },
     ])("is zero when $name", ({ motion, hidden, cues }) => {
-        expect(chairMoveMilliseconds(cues, motion, hidden)).toBe(0);
+        expect(chairMoveMilliseconds(cues, timingOf(motion, hidden))).toBe(0);
     });
 });
 
@@ -232,5 +236,48 @@ describe("the turn that came to the viewer", () => {
 
     it("is not shown again once it has been", () => {
         expect(advance(SETTLED, NOW)).toEqual({ stage: SETTLED, beats: [] });
+    });
+});
+
+describe("the result of the hand the last trick ends", () => {
+    const closing = { cues: [COMPLETING, TAKEN], closing: true };
+
+    it("waits for the last trick to rest and glide before it is shown", () => {
+        const received_ = receive(SETTLED, received(closing));
+        const gliding = advance(received_.stage, NOW + TIMING.restMilliseconds);
+        const settled = advance(gliding.stage, NOW + TIMING.restMilliseconds + TIMING.glideMilliseconds);
+
+        expect(received_).toEqual({ stage: resting(TIMING.glideMilliseconds, false, true), beats: [] });
+        expect(gliding.beats).toEqual(["glide-started"]);
+        expect(settled).toEqual({ stage: SETTLED, beats: ["result-shown"] });
+    });
+
+    it("is shown at once with a budget of zero, the sweep still sounding", () => {
+        const step = receive(SETTLED, received({ ...closing, timing: null }));
+
+        expect(step).toEqual({ stage: SETTLED, beats: ["glide-started", "result-shown"] });
+    });
+
+    it("is shown when the window turns hidden while the last trick rests", () => {
+        expect(jump(resting(TIMING.glideMilliseconds, false, true))).toEqual({
+            stage: SETTLED,
+            beats: ["glide-started", "result-shown"],
+        });
+    });
+
+    it("is shown after the rest of a last trick that stays on the felt", () => {
+        const step = receive(SETTLED, received({ ...closing, mode: "stay" }));
+
+        expect(step).toEqual({ stage: resting(0, false, true), beats: [] });
+        expect(advance(step.stage, NOW + TIMING.restMilliseconds)).toEqual({
+            stage: SETTLED,
+            beats: ["result-shown"],
+        });
+    });
+
+    it("is shown at once with a budget of zero when the last trick stays on the felt", () => {
+        const step = receive(SETTLED, received({ ...closing, mode: "stay", timing: null }));
+
+        expect(step).toEqual({ stage: SETTLED, beats: ["result-shown"] });
     });
 });

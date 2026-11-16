@@ -141,12 +141,13 @@ export function createWebAudioPort(environment: AudioEnvironment): AudioPort {
         },
         playRecording(url, afterSeconds) {
             const buffer = decoded.get(url);
-            if (buffer === undefined) return;
+            if (buffer === undefined) return 0;
             const { context, master } = graph as Graph;
             const source = context.createBufferSource();
             source.buffer = buffer;
             source.connect(master);
             source.start(context.currentTime + afterSeconds);
+            return buffer.duration;
         },
         playVoice(voice, afterSeconds) {
             const current = graph as Graph;
