@@ -37,6 +37,8 @@ SETTINGS = {
     "ramsch_scoring": "'points'",
     "ramsch_jungfrau": "'off'",
     "ramsch_durchmarsch": "'off'",
+    "ramsch_pushing": "'jacks-may-go'",
+    "ramsch_grand_hand": "'allowed'",
 }
 SETTING_COLUMNS = ", ".join(SETTINGS)
 LENGTH = 12
@@ -182,6 +184,8 @@ class TestFromTablesAtTheRevisionBefore:
             "points",
             "off",
             "off",
+            "jacks-may-go",
+            "allowed",
         ]
 
     def test_a_table_in_its_second_series_gets_row_one_with_every_deal_played_and_row_two_with_its_counters(
