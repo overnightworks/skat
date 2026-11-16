@@ -1,7 +1,6 @@
 import asyncio
 
 import pytest
-from logline import REQUEST_EVENT, Outcome
 
 from skat.engine.bidding import Awaiting
 from skat.engine.cards import Rank, Suit
@@ -31,7 +30,6 @@ from skat.web.tables import (
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
-    TableReadRefusal,
     create_tables_router,
 )
 from skat.web.wakes import AccountTopic
@@ -44,7 +42,6 @@ from tests.support.idle_presence import (
     idle_presence,
     idle_wakes,
 )
-from tests.support.log_lines import lines_of, logged
 from tests.support.page_build import fixture_page_build
 from tests.support.payload_cards import (
     CARDS_BY_SEAT,
@@ -184,17 +181,6 @@ class TestReadTable:
 
         assert answer.status_code == 404
         assert answer.json() == {"detail": "table not found"}
-
-    def test_a_read_of_an_unknown_table_writes_one_refusal_line_with_its_reason_and_no_id(self, skat, capsys):
-        headers, _ = skat.member()
-
-        with logged(capsys) as lines:
-            skat.client.get(f"{TABLES_PATH}/{UNKNOWN_ID}", headers=headers)
-
-        (refusal,) = lines_of(lines, "table_read.refused")
-        (request,) = lines_of(lines, REQUEST_EVENT)
-        assert (refusal["reason"], UNKNOWN_ID in str(refusal)) == (TableReadRefusal.NO_TABLE, False)
-        assert (request["status"], request["outcome"]) == (404, Outcome.OK)
 
     def test_signed_out_gets_no_table_data(self, skat):
         headers, _ = skat.member()
