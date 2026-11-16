@@ -97,7 +97,7 @@ def test_an_undealt_table_left_by_its_only_stream_ends_and_a_dealt_one_pauses_be
         }
         assert (answer["chairs"], answer["hand"], answer["watchers"]) == ([], None, 0)
         left = rows_of(e2e_server.engine, left_id)
-        assert {name for name, rows in left.items() if rows} == {"tables", "receipts"}
+        assert {name for name, rows in left.items() if rows} == {"tables", "series", "receipts"}
         assert [row[:3] for row in left["receipts"]] == [
             (anna.member.account.id, "end-create-0001", CREATE_TABLE_COMMAND)
         ]
