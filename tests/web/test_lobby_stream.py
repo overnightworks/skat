@@ -204,7 +204,7 @@ class TestTheWakes:
             scene.presence.wake_table(other)
             unrelated = len(woken)
             scene.presence.wake_table(held)
-            source.close()
+            await source.close()
             return unrelated, len(woken)
 
         assert run_on_a_loop_of_its_own(scenario()) == (0, 1)
@@ -217,7 +217,7 @@ class TestTheWakes:
             source = scene.open_source(BEN)
             await source.open(lambda: woken.append(1))
             scene.open_table(ANNA)
-            source.close()
+            await source.close()
             return len(woken)
 
         assert run_on_a_loop_of_its_own(scenario()) == 1
@@ -234,7 +234,7 @@ class TestTheWakes:
             scene.service.end_empty_table(TableId(table_id), nullcontext(frozenset()), 0)
             await source.read(ANNA)
             scene.presence.wake_table(table_id)
-            source.close()
+            await source.close()
             return len(woken)
 
         assert run_on_a_loop_of_its_own(scenario()) == 0
@@ -261,7 +261,7 @@ class TestTheWakes:
             scene.presence.wake_table(tables[7])
             woken_by_the_commit = {account for account, count in woken.items() if count}
             for source in sources:
-                source.close()
+                await source.close()
             scene.wakes.wake_all()
             return woken_by_the_commit, sum(woken.values())
 
@@ -276,9 +276,9 @@ class TestTheWakes:
         async def scenario():
             stream = scene.stream(ANNA)
             await next_mine(stream)
-            during = scene.presence.connected(table_id)
+            during = await scene.presence.connected(table_id)
             await stream.aclose()
-            return during, scene.presence.connected(table_id)
+            return during, await scene.presence.connected(table_id)
 
         assert run_on_a_loop_of_its_own(scenario()) == (frozenset(), frozenset())
 
@@ -297,7 +297,7 @@ class TestWhoIsAwayReachesAnOpenLobby:
             nobody = (await next_mine(stream))[0]
             subscription = await scene.presence.subscribe(table_id, BEN.account_id, lambda: None)
             returned = (await next_mine(stream))[0]
-            scene.presence.unsubscribe(subscription)
+            await scene.presence.close(subscription)
             left = (await next_mine(stream))[0]
             await stream.aclose()
             return nobody, returned, left

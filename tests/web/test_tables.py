@@ -42,6 +42,7 @@ from tests.support.idle_presence import (
     idle_presence,
     idle_wakes,
 )
+from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.page_build import fixture_page_build
 from tests.support.payload_cards import (
     CARDS_BY_SEAT,
@@ -142,37 +143,6 @@ class TestReadTable:
 
         assert skat.client.get(f"{TABLES_PATH}/{created['id']}", headers=headers).json() == created
 
-    def test_reads_who_is_connected_on_the_event_loop_that_owns_the_presence(self, skat):
-        headers, _ = skat.member()
-        table_id = skat.create(headers).json()["id"]
-        threads_with_a_loop = []
-
-        class ProbingPresence(Presence):
-            def connected(self, read_table_id):
-                try:
-                    asyncio.get_running_loop()
-                except RuntimeError:
-                    threads_with_a_loop.append(False)
-                else:
-                    threads_with_a_loop.append(True)
-                return super().connected(read_table_id)
-
-        skat.app.include_router(
-            create_tables_router(
-                TableService(skat.store),
-                fixture_page_build(),
-                ProbingPresence(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), idle_wakes()),
-                skat.stores.sessions,
-                skat.config,
-            )
-        )
-        # The probing router goes first so that it, not the composed one, answers the read.
-        skat.app.router.routes.insert(0, skat.app.router.routes.pop())
-
-        skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
-
-        assert threads_with_a_loop == [True]
-
     @pytest.mark.parametrize("table_id", [UNKNOWN_ID, "not-an-id", "%27%3B--", "A" * 32])
     def test_an_unknown_or_malformed_id_is_not_found_without_a_database_message(self, skat, table_id):
         headers, _ = skat.member()
@@ -243,7 +213,9 @@ def stand_after_sitting(skat, headers, table_id):
 
 class RecordingPresence(Presence):
     def __init__(self):
-        super().__init__(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), idle_wakes())
+        super().__init__(
+            idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), idle_wakes(), InMemoryLeases()
+        )
         self.woken = []
 
     def wake_table(self, table_id):

@@ -243,7 +243,7 @@ class MemberStandings:
         # Presence belongs to the event loop's thread; only the store read leaves it.
         with self._asks.reading(place.id):
             member = await run_in_threadpool(
-                self._tables.member_view, principal.sub, place.id, self._presence.connected(place.id)
+                self._tables.member_view, principal.sub, place.id, await self._presence.connected(place.id)
             )
             if member is None:
                 return None
@@ -289,7 +289,7 @@ class MemberStandings:
         if not self._asks.is_current(table_id, version):
             return
         member = await run_in_threadpool(
-            self._tables.member_view, principal.sub, table_id, self._presence.connected(table_id)
+            self._tables.member_view, principal.sub, table_id, await self._presence.connected(table_id)
         )
         if member is None or not member.awaits_you or member.view.version != version:
             return
@@ -326,7 +326,9 @@ def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTo
         acceptance = Acceptance(table_id, accepted.invitation, accepted.epoch)
         owner_account = None if user.agent is None else user.agent.owner
         result = await run_in_threadpool(
-            partial(tables.accept_invitation, actor_for(user), owner_account, acceptance, presence.connected(table_id))
+            partial(
+                tables.accept_invitation, actor_for(user), owner_account, acceptance, await presence.connected(table_id)
+            )
         )
         if result.refusal is not None:
             return _refused(AcceptInvitationRefusal(result.refusal.value))

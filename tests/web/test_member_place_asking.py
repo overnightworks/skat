@@ -28,6 +28,7 @@ from skat.web.tables import TABLES_PATH
 from skat.web.waits import AskClock
 from tests.support.calls import call_facts
 from tests.support.idle_presence import free_no_chair, idle_agent_lease, idle_next_deal, idle_wakes
+from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -506,6 +507,7 @@ class TestAnEndedTablesWaitIsDropped:
             EmptyTable(60, ending.answer, ending.answer),
             idle_agent_lease(),
             idle_wakes(),
+            InMemoryLeases(),
         )
         presence.waits.see(TABLE, 6)
 
@@ -516,7 +518,7 @@ class TestAnEndedTablesWaitIsDropped:
             elif closing == "the last leave":
                 subscription = await presence.subscribe(TABLE, ACCOUNT, lambda: None)
                 ending.ended = ended
-                presence.unsubscribe(subscription)
+                await presence.close(subscription)
                 await time.advance(0)
             else:
                 ending.ended = ended
@@ -526,6 +528,10 @@ class TestAnEndedTablesWaitIsDropped:
         asyncio.run(close())
 
         assert presence.waits.is_current(TABLE, 6) is not ended
+
+
+async def nobody_is_connected(_table_id):
+    return frozenset()
 
 
 class _OvertakenDuringTheRead:
@@ -557,7 +563,7 @@ class TestAViewReadWhileTheTableEnds:
         version = middlehand_auction.record.version
         asks = AskClock(Moments())
         scheduler = FakeTime()
-        presence = SimpleNamespace(connected=lambda _table_id: frozenset())
+        presence = SimpleNamespace(connected=nobody_is_connected)
 
         async def read():
             tables = _OvertakenDuringTheRead(skat.tables, asyncio.get_running_loop(), partial(asks.drop, table_id))
@@ -584,7 +590,7 @@ class TestAPulseOvertakenDuringItsRead:
         }
         armed = []
         changes = RecordedChanges()
-        presence = SimpleNamespace(connected=lambda _table_id: frozenset())
+        presence = SimpleNamespace(connected=nobody_is_connected)
 
         async def read_then_wait_past_the_deadline():
             tables = _OvertakenDuringTheRead(

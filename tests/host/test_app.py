@@ -21,7 +21,9 @@ from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import FakeTableStore, in_memory_tables
 from tests.support.idle_presence import IdleScheduler
+from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.in_memory_stores import in_memory_stores, single_pod
+from tests.support.log_lines import lines_of, logged
 from tests.support.page_build import (
     CALL_PAGE_SCRIPT_HASHES,
     FIXTURE_SCRIPT_HASH,
@@ -219,6 +221,23 @@ class TestCreateApp:
 
         with pytest.raises(ConnectionError), TestClient(app):
             pass
+
+    def test_a_pod_whose_lapse_serving_fails_logs_it_and_keeps_serving(self, sign_in_settings, capsys):
+        leases = InMemoryLeases()
+        leases.serving_fails = [ConnectionError("redis is unreachable")]
+        app = create_app(
+            sign_in_settings().settings,
+            page_build=fixture_page_build(),
+            tables=in_memory_tables(),
+            rule_sets=in_memory_rule_sets(),
+            stores=in_memory_stores(),
+            **single_pod(stream_leases=leases),
+        )
+
+        with logged(capsys) as lines, TestClient(app):
+            pass
+
+        assert [line["error_type"] for line in lines_of(lines, "stream_lapses.stopped")] == ["ConnectionError"]
 
     def test_a_dealt_table_is_kept_and_gets_no_wait_when_the_server_starts(self, sign_in_settings):
         store = FakeTableStore()

@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from skat.table.records import CloseTable, CreateTable, SitDown
@@ -116,7 +118,7 @@ class TestStreamLoop:
                 await next_item(stream)
             return presence
 
-        assert run_on_a_loop_of_its_own(scenario()).connected(table_id) == frozenset()
+        assert run_on_a_loop_of_its_own(run_on_a_loop_of_its_own(scenario()).connected(table_id)) == frozenset()
 
     def test_a_source_that_fails_ends_only_its_own_stream(self, service, table_id):
         async def scenario():
@@ -139,14 +141,14 @@ class TestStreamLoop:
             with pytest.raises(RuntimeError, match="store down"):
                 await next_view(failing)
             still_watching = await next_view(kept)
-            presence.unsubscribe(guest)
+            await presence.close(guest)
             await kept.aclose()
             return still_watching, presence
 
         still_watching, presence = run_on_a_loop_of_its_own(scenario())
 
         assert still_watching.watchers == 2
-        assert presence.connected(table_id) == frozenset()
+        assert run_on_a_loop_of_its_own(presence.connected(table_id)) == frozenset()
 
 
 async def sat_down(service, presence, table_id):
@@ -203,7 +205,7 @@ class TestTheTableSourceMoves:
             await source.read(OPENER)
             await happens(service, presence, table_id)
             answer = await source.moved(OPENER)
-            source.close()
+            await source.close()
             return answer
 
         assert run_on_a_loop_of_its_own(scenario()) is moved
@@ -212,10 +214,11 @@ class TestTheTableSourceMoves:
 class WholeNumberSource:
     """A source whose state is one number, read as the named event; `wake` is what the loop gave it to call."""
 
-    def __init__(self, event, number=0, fails_to_open=False):
+    def __init__(self, event, number=0, fails_to_open=False, close_failure=None):
         self.event = event
         self.number = number
         self.fails_to_open = fails_to_open
+        self.close_failure = close_failure
         self.reads = 0
         self.checks = 0
         self.read_number = None
@@ -238,8 +241,10 @@ class WholeNumberSource:
         self.checks += 1
         return self.number != self.read_number
 
-    def close(self):
+    async def close(self):
         self.is_open = False
+        if self.close_failure is not None:
+            raise self.close_failure
 
 
 def stream_of_numbers(*sources, heartbeat_seconds=NO_HEARTBEAT_SECONDS, stopped=lambda: False):
@@ -359,3 +364,23 @@ class TestSeveralSources:
             return [source.is_open for source in sources]
 
         assert run_on_a_loop_of_its_own(scenario()) == [False, False]
+
+    @pytest.mark.parametrize("failure", [RuntimeError("cannot close"), asyncio.CancelledError()])
+    def test_a_source_whose_close_is_cancelled_or_fails_leaves_the_others_closed_and_its_exception_propagates(
+        self, failure
+    ):
+        async def scenario():
+            sources = [
+                WholeNumberSource(StreamEvent.MINE),
+                WholeNumberSource(StreamEvent.ATTENTION, close_failure=failure),
+                WholeNumberSource(StreamEvent.MINE),
+            ]
+            stream = stream_of_numbers(*sources)
+            await next_numbers(stream, 3)
+            with pytest.raises(type(failure)) as raised:
+                await stream.aclose()
+            return raised.value, [source.is_open for source in sources]
+
+        raised, still_open = run_on_a_loop_of_its_own(scenario())
+
+        assert (raised, still_open) == (failure, [False, False, False])

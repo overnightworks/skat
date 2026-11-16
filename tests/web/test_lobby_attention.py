@@ -139,7 +139,7 @@ class TestTheWakes:
             scene.presence.wake_table(own)
             at_its_own_table = len(woken)
             scene.presence.wake_table(other)
-            source.close()
+            await source.close()
             return at_its_own_table, len(woken)
 
         assert run_on_a_loop_of_its_own(scenario()) == (0, 1)
@@ -153,7 +153,7 @@ class TestTheWakes:
             await source.open(lambda: woken.append(1))
             await source.read(ANNA)
             scene.wakes.wake(AccountTopic(ANNA.account_id))
-            source.close()
+            await source.close()
             return len(woken)
 
         assert run_on_a_loop_of_its_own(scenario()) == 1
@@ -167,7 +167,7 @@ class TestTheWakes:
             source = scene.attention_source(ANNA, own)
             await source.open(lambda: woken.append(1))
             await source.read(ANNA)
-            source.close()
+            await source.close()
             scene.wakes.wake(AccountTopic(ANNA.account_id))
             scene.wakes.wake(TableTopic(other))
             return len(woken)

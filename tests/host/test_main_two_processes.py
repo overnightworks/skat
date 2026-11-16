@@ -3,37 +3,27 @@ and ended for both, and it outlives the stop of one; they spend one sign-in budg
 streams of the other."""
 
 import json
-import secrets
 import signal
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
-from sqlalchemy.engine import make_url
 from webauth.policies import RateLimitPolicy
 
-from skat.store.migrate import create_store_engine
-from skat.store.sign_in import PostgresSignInStores
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import Actor, SitDown
 from skat.table.service import TableService
-from skat.web.constants import ACCOUNT_PATH, AUTH_START_PATH, LOGOUT_PATH
-from skat.web.sign_in import LoggingAuditSink, build_sign_in_configs
+from skat.web.constants import AUTH_START_PATH, LOGOUT_PATH
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
-from tests.support.in_memory_stores import in_process_rate_limits
-from tests.support.postgres import created_database
+from tests.support.pods import SAME_ORIGIN, Pods, new_command_id, running_pods
 from tests.support.redis import end_subscriptions, fresh_database_url
-from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN, build_sign_in_settings
-from tests.support.signed_in import cookie_header, seed_member
-from tests.support.skat_process import SkatProcess
+from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
 pytestmark = [pytest.mark.postgres, pytest.mark.redis]
 
-FETCH = {"accept": "application/json"}
-SAME_ORIGIN = {"origin": TEST_PUBLIC_ORIGIN}
 FORM_POST = {"content-type": "application/x-www-form-urlencoded", "origin": TEST_PUBLIC_ORIGIN}
 BEHIND_THE_SEED = timedelta(hours=1)
 SIGN_IN_BUDGET_REQUESTS = RateLimitPolicy().sign_in.max_requests
@@ -43,73 +33,10 @@ CLEAN_EXIT = 0
 SIGTERM_EXIT = -signal.SIGTERM
 
 
-class Pods:
-    """Two processes of Skat on one database, and the adapter that seeds the sessions they share."""
-
-    def __init__(
-        self, first: SkatProcess, second: SkatProcess, stores: PostgresSignInStores, engine, config, redis_url: str
-    ) -> None:
-        self.first = first
-        self.second = second
-        self.redis_url = redis_url
-        self.stores = stores
-        self.engine = engine
-        self._config = config
-
-    def account_status(self, process: SkatProcess, cookie: str) -> int:
-        return process.request("GET", ACCOUNT_PATH, cookie=cookie, **FETCH).status_code
-
-    def member(self) -> tuple[str, str]:
-        """The cookie header of a new member, and the member's account id."""
-        member = seed_member(self.stores, self._config)
-        return cookie_header(member.set_cookie_headers), member.account.id
-
-    def table_opened_by(self, process: SkatProcess, cookie: str) -> str:
-        opened = process.request(
-            "POST", TABLES_PATH, cookie=cookie, json={"command_id": new_command_id(), "series_length": 3}, **SAME_ORIGIN
-        )
-        return opened.json()["id"]
-
-    def seeded_cookie(self, *, expires_in: timedelta | None = None) -> tuple[str, str]:
-        """The cookie header of a session seeded through Skat's adapter, and the session's id."""
-        member = seed_member(self.stores, self._config, expires_in=expires_in)
-        return cookie_header(member.set_cookie_headers), member.session.id
-
-    def expiry_of(self, session_id: str) -> object:
-        session = self.stores.sessions.load(session_id)
-        return None if session is None else session.expires_at
-
-
-def new_command_id() -> str:
-    return secrets.token_hex(8)
-
-
-def without_password(database_url: str) -> str:
-    return make_url(database_url).set(drivername="postgresql", password=None).render_as_string()
-
-
 @pytest.fixture(scope="module")
 def pods(postgres_template, tmp_path_factory) -> Iterator[Pods]:
-    directory = tmp_path_factory.mktemp("pods")
-    with created_database(postgres_template) as database_url:
-        redis_url = fresh_database_url()
-        sign_in = build_sign_in_settings(directory, database_url=without_password(database_url), redis_url=redis_url)
-        engine = create_store_engine(database_url)
-        processes = [SkatProcess(sign_in.environment, directory / f"pod-{name}.log") for name in ("first", "second")]
-        try:
-            for process in processes:
-                process.start()
-            yield Pods(
-                *processes,
-                PostgresSignInStores(engine, audit=LoggingAuditSink()),
-                engine,
-                build_sign_in_configs(sign_in.settings, in_process_rate_limits()).web_auth,
-                redis_url,
-            )
-        finally:
-            for process in processes:
-                process.kill()
-            engine.dispose()
+    with running_pods(postgres_template, tmp_path_factory.mktemp("pods")) as running:
+        yield running
 
 
 @pytest.fixture(autouse=True)
@@ -228,3 +155,52 @@ class TestAChangeAtOneProcess:
             after = json.loads(next(events))
 
         assert after["version"] > before["version"]
+
+
+class TestWhoWatchesAcrossPods:
+    def watching(self, pods, process, table_id: str, cookie: str):
+        return process.event_stream(
+            f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}", within_seconds=BEFORE_THE_HEARTBEAT_SECONDS, cookie=cookie
+        )
+
+    def test_a_watcher_on_the_first_process_is_counted_by_the_second(self, pods):
+        opener_cookie, _ = pods.member()
+        watcher_cookie, _ = pods.member()
+        table_id = pods.table_opened_by(pods.first, opener_cookie)
+
+        with self.watching(pods, pods.first, table_id, watcher_cookie) as events:
+            next(events)
+            counted = pods.watchers_at(pods.second, table_id, opener_cookie)
+
+        assert counted == 1
+
+    def test_one_account_with_a_stream_on_each_process_is_one_watcher_on_both(self, pods):
+        opener_cookie, _ = pods.member()
+        watcher_cookie, _ = pods.member()
+        table_id = pods.table_opened_by(pods.first, opener_cookie)
+
+        with (
+            self.watching(pods, pods.first, table_id, watcher_cookie) as on_the_first,
+            self.watching(pods, pods.second, table_id, watcher_cookie) as on_the_second,
+        ):
+            next(on_the_first)
+            next(on_the_second)
+            counted = [pods.watchers_at(process, table_id, opener_cookie) for process in (pods.first, pods.second)]
+
+        assert counted == [1, 1]
+
+    def test_a_watcher_arriving_and_leaving_on_the_first_process_reaches_a_stream_on_the_second_before_its_heartbeat(
+        self, pods
+    ):
+        opener_cookie, _ = pods.member()
+        watcher_cookie, _ = pods.member()
+        table_id = pods.table_opened_by(pods.first, opener_cookie)
+
+        with self.watching(pods, pods.second, table_id, opener_cookie) as observer:
+            before = json.loads(next(observer))
+            with self.watching(pods, pods.first, table_id, watcher_cookie) as events:
+                next(events)
+                arrived = json.loads(next(observer))
+            left = json.loads(next(observer))
+
+        assert [before["watchers"], arrived["watchers"], left["watchers"]] == [0, 1, 0]
