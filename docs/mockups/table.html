@@ -1195,6 +1195,10 @@ const deck=(d)=>{const [x,y,w]=d?[640,330,80]:[195,330,52];return `<div class="s
 const tableSkat=(d)=>d?skat(584,190,80):skat(154,240,52);
 const dealtSkat=(d)=>tableSkat(d).replaceAll('class="card"','class="card deal"');
 const cardCount=(x,y)=>`<div class="tag-glass" title="Karten" style="${at({left:x,top:y})}">${I.cards}<span>10</span></div>`;
+const cardsAt=(n,x,y)=>cardCount(x,y).replace('<span>10</span>',`<span>${n}</span>`);
+/* the near chair's fan stands right of the centred chair, its count beneath the fan */
+const nearFan=(d,n,o={})=>d?fan(n,{x:800,y:560,w:42,rot:-45,spread:6,...o}):fan(n,{x:PB.cx,y:PB.you.y-20,w:26,rot:0,spread:6,...o});
+const underCount=(d,n)=>d?cardsAt(n,850,570):cardsAt(n,PB.cx+55,PB.you.y-40);
 /* the three chairs: Anna left, Ben right, the near one is yours or, for a watcher, Lena's */
 function dealSeats(d,o){
   const L=d?DB:PB,place={left:L.anna,right:L.nova,near:L.you},who={left:'anna',right:'ben',near:o.near};
@@ -1216,8 +1220,8 @@ const DEAL_SCENES=[
   ['deal-mine','Karten da',(d)=>dealRoom(d,{left:10,deal:true,watchers:1})+tablePlaque(d,'Reizen folgt')+dealtSkat(d)
     +dealSeats(d,{near:'felix',dealer:'right'})+ownHand(d,BID_HAND,{deal:d?470:420})+tableBar(d)],
   ['deal-watch','Zuschauen beim Geben',(d)=>dealRoom(d,{left:10,deal:true,watchers:3})+tablePlaque(d,'Reizen folgt')+dealtSkat(d)
-    +(d?fan(10,{x:370,y:590,w:42,rot:45,spread:6,deal:260,d0:.2}):fan(10,{x:195,y:476,w:26,rot:0,spread:6,deal:150,d0:.2}))
-    +(d?cardCount(268,340)+cardCount(952,340)+cardCount(420,600):cardCount(26,200)+cardCount(310,200)+cardCount(250,456))
+    +nearFan(d,10,{deal:d?260:150,d0:.2})
+    +(d?cardCount(268,340)+cardCount(952,340):cardCount(26,200)+cardCount(310,200))+underCount(d,10)
     +dealSeats(d,{near:'lena',dealer:'right'})+tableBar(d)],
   ['deal-away','Nicht da',(d)=>dealRoom(d,{left:10,watchers:1,away:'anna'})+tablePlaque(d,`Warte auf Anna${waitDots()}`,356)+tableSkat(d)
     +dealSeats(d,{near:'felix',dealer:'right',away:'anna'})+ownHand(d,BID_HAND)+tableBar(d),
@@ -1230,8 +1234,6 @@ const annaTurn=(d)=>d?glow(300,270,220,260):glow(90,190,190,110);
 const nearTurn=(d)=>d?glow(...YOU_AT,300,200):yourTurn(d);
 const sideFans=(d,left,right,o={})=>(d?fan(left,{x:268,y:282,w:42,rot:90,spread:6,dim:o.dim})+fan(right,{x:1012,y:282,w:42,rot:270,spread:6,dim:o.dimRight})
   :fan(left,{x:PB.fans[0],y:168,w:26,rot:150,spread:6,dim:o.dim})+fan(right,{x:PB.fans[1],y:168,w:26,rot:210,spread:6,dim:o.dimRight}));
-const nearFan=(d,n)=>d?fan(n,{x:800,y:560,w:42,rot:-45,spread:6}):fan(n,{x:PB.cx,y:PB.you.y-20,w:26,rot:0,spread:6});
-const cardsAt=(n,x,y)=>cardCount(x,y).replace('<span>10</span>',`<span>${n}</span>`);
 const leftCount=(d,n)=>d?cardsAt(n,268,340):cardsAt(n,26,200);
 const skatStep=(d,word)=>plaque(d?640:195,d?98:176,`<div class="game">Reizwert 20</div><div class="game">Anna ${word}${waitDots()}</div>`);
 const annaDecides=(d)=>seats(d,{video:true,anna:['decl','turn'],score:[148,62,55]})+ownHand(d,OPPONENT_HAND)+callBar(d);
@@ -1240,7 +1242,7 @@ const SKAT_OTHER_SCENES=[
   ['skat-taken','Anna drückt',(d)=>room(d,{left:0,glow:annaTurn(d)})+sideFans(d,12,10)+skatStep(d,'drückt')+leftCount(d,12)+annaDecides(d)],
   ['skat-watch','Zuschauen beim Skat',(d)=>{const L=d?DB:PB;return room(d,{left:0,call:false,glow:annaTurn(d)})+watching(3,d)
     +sideFans(d,12,10)+nearFan(d,10)+skatStep(d,'drückt')
-    +leftCount(d,12)+(d?cardCount(952,340)+cardCount(420,600):cardCount(310,200)+cardCount(250,456))
+    +leftCount(d,12)+(d?cardCount(952,340):cardCount(310,200))+underCount(d,10)
     +seat('anna',{...L.anna,marks:['decl','turn']})+seat('ben',L.nova)+seat('lena',L.you)+tableBar(d);}],
 ];
 scenes(SKAT_OTHER_SCENES);
@@ -1353,9 +1355,9 @@ const BID_SCENES=[
     +plaque(d?640:195,d?98:176,`<div class="game">Eingepasst</div><div class="game">Nova gibt${waitDots()}</div>`)+deck(d)
     +seats(d,{video:true,anna:['pass'],nova:['drawn','pass'],you:['pass'],score:[148,62,55]})+callBar(d)],
   ['bid-watch','Zuschauen beim Reizen',(d)=>{const L=d?DB:PB;return room(d,{left:10,call:false,annaOut:true,glow:d?glow(...YOU_AT,300,200):yourTurn(d)})+watching(3,d)+auction(d)
-    +(d?fan(10,{x:370,y:590,w:42,rot:45,spread:6}):fan(10,{x:195,y:476,w:26,rot:0,spread:6}))
+    +nearFan(d,10)
     +bubble('ben','23',d?{x:1062,y:392,tail:'50%'}:{x:250,y:228,tail:'72%'})
-    +bubble('lena',`${I.check}22`,d?{x:110,y:496,tail:'40%',bottom:true,quiet:true}:{x:52,y:456,tail:'92%',bottom:true,quiet:true})
+    +bubble('lena',`${I.check}22`,d?{x:598,y:430,tail:'50%',bottom:true,quiet:true}:{x:52,y:456,tail:'92%',bottom:true,quiet:true})
     +seat('anna',{...L.anna,marks:['Mittelhand','pass'],out:true})+seat('ben',{...L.nova,marks:['Hinterhand']})+seat('lena',{...L.you,marks:['Vorhand','turn']})
     +tableBar(d);}],
 ];
@@ -1818,7 +1820,6 @@ const restingHand=(d)=>ownHand(d,BID_HAND,d||!narrow()?{}:{w:56,strip:{base:28}}
 const twelveStrip=(d)=>d?{strip:{base:48,no:48,touch:70}}:narrow()?{w:54,rot:.6,strip:{base:23,no:23,touch:35}}:{w:58,strip:{base:25,no:25,touch:38}};
 const JACKS_DARK=TAKEN_HAND.map(([r,s,c])=>r==='B'?[r,s,'no']:[r,s,c]);
 const sideCount=(d,n)=>d?cardsAt(n,952,340):cardsAt(n,PB.cx+(narrow()?94:115),200);
-const underCount=(d,n)=>d?cardsAt(n,850,570):cardsAt(n,PB.cx+55,PB.you.y-40);
 /* the table of every stage scene: chairs, fans, plaque and the skat, the viewer's hand and strip are the scene's */
 const pushTable=(d,o)=>{const L=seatsOf(d),m=o.marks||{};
   return tableOf(d,{fans:0,count:true,glow:o.glow,watchers:o.watchers})+sideFans(d,o.left??10,o.right??10)
