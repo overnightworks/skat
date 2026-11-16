@@ -100,27 +100,27 @@ describe("a give-up request on the table", () => {
         });
     });
 
-    it("lets the declarer answer an opponent's request and holds every card meanwhile", () => {
-        expect(giveUpView(tableWith(DECLARER, OPPONENT_ASKS))).toMatchObject({
+    it("lets the partner answer an opponent's request and holds every card meanwhile", () => {
+        expect(giveUpView(tableWith(SECOND_OPPONENT, OPPONENT_ASKS))).toMatchObject({
             line: "gives-up",
-            text: words["table.givesUp"]({ name: "player 1" }),
+            text: words["table.wantsToGiveUp"]({ name: "player 1" }),
             answers: ["agree", "decline"],
             cardsHeld: true,
         });
     });
 
-    it("makes the opponent who asked wait for the declarer", () => {
+    it("makes the opponent who asked wait for his partner", () => {
         expect(giveUpView(tableWith(FIRST_OPPONENT, OPPONENT_ASKS))).toMatchObject({
             line: "waits",
-            text: words["table.waitingFor"]({ names: "player 2" }),
+            text: words["table.waitingFor"]({ names: "player 3" }),
             answers: [],
-            marks: new Map([[DECLARER, "unanswered"]]),
+            marks: new Map([[SECOND_OPPONENT, "unanswered"]]),
             cardsHeld: true,
         });
     });
 
-    it("offers the other opponent no answer to an opponent's request", () => {
-        expect(giveUpView(tableWith(SECOND_OPPONENT, OPPONENT_ASKS))?.answers).toEqual([]);
+    it("offers the declarer no answer to an opponent's request", () => {
+        expect(giveUpView(tableWith(DECLARER, OPPONENT_ASKS))).toMatchObject({ line: "gives-up", answers: [] });
     });
 
     it.each([
@@ -330,13 +330,12 @@ describe("the keys that shorten and play open", () => {
         { name: "a give-up stands", table: tableWith(DECLARER, OPPONENT_ASKS) },
         { name: "a shortening stands", table: tableWith(DECLARER, null, { shortening: SHORTENS }) },
         { name: "an open play waits", table: tableWith(FIRST_OPPONENT, null, { openPlayBy: SECOND_OPPONENT }) },
-        { name: "a Kontra word is offered", table: tableWith(FIRST_OPPONENT, null, { kontraWord: "kontra" }) },
-        {
-            name: "the viewer owes the Kontra word before the first card",
-            table: tableWith(FIRST_OPPONENT, null, { kontraWord: "kontra", owedBy: FIRST_OPPONENT }),
-        },
     ])("are both missing when $name", ({ table }) => {
         expect([shortenKey(table), playOpenKey(table)]).toEqual([false, false]);
+    });
+
+    it("offers Offen spielen while a Kontra word is offered, the rows living in the menu beside it", () => {
+        expect(playOpenKey(tableWith(FIRST_OPPONENT, null, { kontraWord: "kontra" }))).toBe(true);
     });
 });
 

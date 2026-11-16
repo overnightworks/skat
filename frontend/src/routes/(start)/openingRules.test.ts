@@ -18,7 +18,7 @@ import type { Options } from "./tables.ts";
 
 type Ramsch = NonNullable<Options["ramsch"]>;
 
-const ROWS: readonly RuleRow[] = ["points", "kontra", "ramsch", "pushing", "bock"];
+const ROWS: readonly RuleRow[] = ["points", "kontra", "ramsch", "pushing", "bock", "giveUpPartner", "giveUpAnyTime"];
 
 // Every rule on with values that differ from the start values in each variant.
 const OTHER_PUSHING = { rule: "no-doubling", grand_hand: "allowed" } as const;
@@ -33,30 +33,39 @@ const OTHER: Options = {
         pushing: OTHER_PUSHING,
     },
     bock: { triggers: ["re", "schneider", "schwarz"], overlap: "multiply" },
+    give_up: { partner_agrees: true, any_time: true },
 };
 const RAMSCH_ALONE: Options = { ...OFFICIAL, ramsch: { ...(OTHER.ramsch as Ramsch), pushing: null } };
 const POINTS_ONLY: Options = { ...OFFICIAL, show_running_points: true };
 const KONTRA_ONLY: Options = { ...OFFICIAL, kontra: OTHER.kontra };
+const PARTNER_AGREES_ONLY: Options = { ...OFFICIAL, give_up: { partner_agrees: true, any_time: false } };
+const NONE_ON = { points: false, kontra: false, ramsch: false, pushing: false, bock: false };
+const GIVE_UP_OFF = { giveUpPartner: false, giveUpAnyTime: false };
 
 // The sheet of a set holds its rules and the variants as the set answers them.
 const SETS: [string, Options, Record<RuleRow, boolean>][] = [
-    ["a set holding no rule", OFFICIAL, { points: false, kontra: false, ramsch: false, pushing: false, bock: false }],
+    ["a set holding no rule", OFFICIAL, { ...NONE_ON, ...GIVE_UP_OFF }],
+    ["a set holding the points only", POINTS_ONLY, { ...NONE_ON, ...GIVE_UP_OFF, points: true }],
+    ["a set holding Kontra only", KONTRA_ONLY, { ...NONE_ON, ...GIVE_UP_OFF, kontra: true }],
+    ["a set holding Ramsch without Schieberamsch", RAMSCH_ALONE, { ...NONE_ON, ...GIVE_UP_OFF, ramsch: true }],
     [
-        "a set holding the points only",
-        POINTS_ONLY,
-        { points: true, kontra: false, ramsch: false, pushing: false, bock: false },
+        "a set holding only that the partner must agree",
+        PARTNER_AGREES_ONLY,
+        { ...NONE_ON, ...GIVE_UP_OFF, giveUpPartner: true },
     ],
     [
-        "a set holding Kontra only",
-        KONTRA_ONLY,
-        { points: false, kontra: true, ramsch: false, pushing: false, bock: false },
+        "a set holding every rule",
+        OTHER,
+        {
+            points: true,
+            kontra: true,
+            ramsch: true,
+            pushing: true,
+            bock: true,
+            giveUpPartner: true,
+            giveUpAnyTime: true,
+        },
     ],
-    [
-        "a set holding Ramsch without Schieberamsch",
-        RAMSCH_ALONE,
-        { points: false, kontra: false, ramsch: true, pushing: false, bock: false },
-    ],
-    ["a set holding every rule", OTHER, { points: true, kontra: true, ramsch: true, pushing: true, bock: true }],
 ];
 
 const START = SWITCH_ON_OPTIONS;
@@ -64,7 +73,7 @@ const startSheet: Options = { ...START, bock: { ...START.bock, triggers: [...STA
 
 describe("the official rules", () => {
     it("have every rule off and open with no options", () => {
-        expect(ROWS.map((row) => isOn(OFFICIAL, row))).toEqual([false, false, false, false, false]);
+        expect(ROWS.map((row) => isOn(OFFICIAL, row))).toEqual(ROWS.map(() => false));
         expect(requestOf(OFFICIAL)).toBeUndefined();
     });
 
@@ -84,6 +93,11 @@ describe("a set picked and left unchanged", () => {
         ["a set holding no rule", OFFICIAL, undefined],
         ["a set holding the points only", POINTS_ONLY, { show_running_points: true }],
         ["a set holding Kontra only", KONTRA_ONLY, { kontra: OTHER.kontra }],
+        [
+            "a set holding only that the partner must agree",
+            PARTNER_AGREES_ONLY,
+            { give_up: { partner_agrees: true, any_time: false } },
+        ],
         ["a set holding every rule", OTHER, OTHER],
     ])("opens with the options of %s as it answers them", (_name, options, request) => {
         expect(requestOf(options)).toEqual(request);
@@ -103,6 +117,8 @@ describe("switching a rule on", () => {
         bock: (sheet) => sheet.bock,
         ramsch: (sheet) => sheet.ramsch,
         pushing: (sheet) => sheet.ramsch?.pushing,
+        giveUpPartner: (sheet) => sheet.give_up.partner_agrees,
+        giveUpAnyTime: (sheet) => sheet.give_up.any_time,
     };
     const started: Record<RuleRow, unknown> = {
         points: true,
@@ -110,11 +126,15 @@ describe("switching a rule on", () => {
         bock: START.bock,
         ramsch: { ...START.ramsch, pushing: null },
         pushing: START.ramsch.pushing,
+        giveUpPartner: true,
+        giveUpAnyTime: true,
     };
     // A set holding every rule but this one.
     const without = (row: RuleRow): Options => {
         if (row === "points") return { ...OTHER, show_running_points: false };
         if (row === "pushing") return RAMSCH_ALONE;
+        if (row === "giveUpPartner") return { ...OTHER, give_up: { ...OTHER.give_up, partner_agrees: false } };
+        if (row === "giveUpAnyTime") return { ...OTHER, give_up: { ...OTHER.give_up, any_time: false } };
         return { ...OTHER, [row]: null };
     };
     // The sheet this rule is switched on in: Schieberamsch needs a Ramsch beneath it.
@@ -163,6 +183,18 @@ describe("switching a rule off", () => {
         const request = requestOf(switchRule(OTHER, row, false, OTHER));
 
         expect(request).not.toHaveProperty(row === "points" ? "show_running_points" : row);
+    });
+
+    it("leaves the give-up rules out of the request once both are off", () => {
+        const sheet = switchRule(switchRule(OTHER, "giveUpPartner", false, OTHER), "giveUpAnyTime", false, OTHER);
+
+        expect(requestOf(sheet)).not.toHaveProperty("give_up");
+    });
+
+    it("keeps the other give-up rule when one goes", () => {
+        const sheet = switchRule(OTHER, "giveUpPartner", false, OTHER);
+
+        expect(requestOf(sheet)?.give_up).toEqual({ partner_agrees: false, any_time: true });
     });
 
     it("takes Schieberamsch with Ramsch", () => {
@@ -342,11 +374,12 @@ describe("the name suggested for a sheet", () => {
             "Offiziell, mit Kontra und Ramsch",
         ],
         ["one rule switched on", "Offiziell", OFFICIAL, POINTS_ONLY, "Offiziell, mit Augen"],
+        ["a give-up rule switched on", "Offiziell", OFFICIAL, PARTNER_AGREES_ONLY, "Offiziell, mit Aufgeben"],
         [
             "four rules switched on",
             "Alt",
             OFFICIAL,
-            { ...OTHER, ramsch: RAMSCH_ALONE.ramsch },
+            { ...OTHER, ramsch: RAMSCH_ALONE.ramsch, give_up: OFFICIAL.give_up },
             "Alt, mit Augen, Kontra, Ramsch und Bock",
         ],
         [

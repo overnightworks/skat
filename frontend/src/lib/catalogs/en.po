@@ -307,10 +307,6 @@ msgctxt "table.wantsToGiveUp"
 msgid "{name} will aufgeben"
 msgstr "{name} wants to give up"
 
-msgctxt "table.givesUp"
-msgid "{name} gibt auf"
-msgstr "{name} gives up"
-
 msgctxt "table.giveUp"
 msgid "Aufgeben"
 msgstr "Give up"
@@ -798,6 +794,10 @@ msgstr "Bock {#factor}×{factor}{/factor}"
 msgctxt "rules.chipBock"
 msgid "Bock"
 msgstr "Bock"
+
+msgctxt "rules.chipGiveUp"
+msgid "Aufgeben"
+msgstr "Giving up"
 
 msgctxt "rules.bockLeft"
 msgid "noch {count}"
@@ -1705,6 +1705,22 @@ msgctxt "start.ruleBockLine"
 msgid "Manche Spiele zählen doppelt"
 msgstr "Some games count double"
 
+msgctxt "start.ruleGiveUpPartner"
+msgid "Partner muss zustimmen"
+msgstr "Partner must agree"
+
+msgctxt "start.ruleGiveUpPartnerLine"
+msgid "Ein Gegner gibt nur mit Ja des Partners auf"
+msgstr "A defender gives up only with his partner's yes"
+
+msgctxt "start.ruleGiveUpAnyTime"
+msgid "Aufgeben immer"
+msgstr "Give up any time"
+
+msgctxt "start.ruleGiveUpAnyTimeLine"
+msgid "Der Alleinspieler gibt jederzeit auf"
+msgstr "The declarer gives up at any time"
+
 msgctxt "start.askKontraSayer"
 msgid "Wer darf Kontra sagen?"
 msgstr "Who may say Kontra?"
@@ -1921,6 +1937,14 @@ msgctxt "rules.nameBock"
 msgid "Bockrunden"
 msgstr "Bock rounds"
 
+msgctxt "rules.nameGiveUpPartner"
+msgid "Partner muss zustimmen"
+msgstr "Partner must agree"
+
+msgctxt "rules.nameGiveUpAnyTime"
+msgid "Aufgeben immer"
+msgstr "Give up any time"
+
 msgctxt "rules.pointsFromTricks"
 msgid "Aus fertigen Stichen, nie in einer Null"
 msgstr "From finished tricks, never in a Null"
@@ -2049,6 +2073,14 @@ msgctxt "rules.bockOverlapIgnore"
 msgid "neue Runden zählen nicht"
 msgstr "new rounds do not count"
 
+msgctxt "rules.giveUpPartnerAgrees"
+msgid "Ein Gegner gibt nur mit Ja seines Partners auf"
+msgstr "a defender gives up only with his partner's yes"
+
+msgctxt "rules.giveUpAnyTime"
+msgid "Der Alleinspieler gibt jederzeit ohne Ja auf"
+msgstr "the declarer gives up at any time without a yes"
+
 msgctxt "table.style"
 msgid "Stil"
 msgstr "Style"
@@ -2152,3 +2184,4 @@ msgstr "Coaster"
 msgctxt "table.objectLamp"
 msgid "Lampe"
 msgstr "Lamp"
+

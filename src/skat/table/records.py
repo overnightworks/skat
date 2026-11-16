@@ -132,6 +132,19 @@ class RamschSetting:
 
 
 @dataclass(frozen=True)
+class GiveUpOptions:
+    """The special rules of giving up a table may play instead of ISkO 4.4; both off is the ISkO.
+
+    `partner_agrees` lets a defender's give-up end the game only with his partner's yes, where the ISkO ends it at once.
+    `any_time` lets the declarer give up freely whatever cards he holds, where the ISkO wants an opponent's yes once he
+    holds fewer than nine.
+    """
+
+    partner_agrees: bool = False
+    any_time: bool = False
+
+
+@dataclass(frozen=True)
 class TableOptions:
     """The rule options a series is played with; they stay fixed for that series and the default is the official rules.
 
@@ -139,13 +152,14 @@ class TableOptions:
     Grand game is played. `kontra` makes the table play the words Kontra and Re up to its reach; None plays without.
     `bock` makes the table deal Bock rounds as its triggers and overlap say; None plays without.
     `ramsch` makes the table play a Ramsch where its occasion says, a hand all three pass instead of passing it in;
-    None plays the International Skat Order, which has no Ramsch.
+    None plays the International Skat Order, which has no Ramsch. `give_up` holds the special rules of giving up.
     """
 
     show_running_points: bool = False
     kontra: KontraOptions | None = None
     bock: BockOptions | None = None
     ramsch: RamschSetting | None = None
+    give_up: GiveUpOptions = GiveUpOptions()
 
 
 @dataclass(frozen=True)

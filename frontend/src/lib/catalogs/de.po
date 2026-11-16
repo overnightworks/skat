@@ -307,10 +307,6 @@ msgctxt "table.wantsToGiveUp"
 msgid "{name} will aufgeben"
 msgstr ""
 
-msgctxt "table.givesUp"
-msgid "{name} gibt auf"
-msgstr ""
-
 msgctxt "table.giveUp"
 msgid "Aufgeben"
 msgstr ""
@@ -797,6 +793,10 @@ msgstr ""
 
 msgctxt "rules.chipBock"
 msgid "Bock"
+msgstr ""
+
+msgctxt "rules.chipGiveUp"
+msgid "Aufgeben"
 msgstr ""
 
 msgctxt "rules.bockLeft"
@@ -1703,6 +1703,22 @@ msgctxt "start.ruleBockLine"
 msgid "Manche Spiele zählen doppelt"
 msgstr ""
 
+msgctxt "start.ruleGiveUpPartner"
+msgid "Partner muss zustimmen"
+msgstr ""
+
+msgctxt "start.ruleGiveUpPartnerLine"
+msgid "Ein Gegner gibt nur mit Ja des Partners auf"
+msgstr ""
+
+msgctxt "start.ruleGiveUpAnyTime"
+msgid "Aufgeben immer"
+msgstr ""
+
+msgctxt "start.ruleGiveUpAnyTimeLine"
+msgid "Der Alleinspieler gibt jederzeit auf"
+msgstr ""
+
 msgctxt "start.askKontraSayer"
 msgid "Wer darf Kontra sagen?"
 msgstr ""
@@ -1919,6 +1935,14 @@ msgctxt "rules.nameBock"
 msgid "Bockrunden"
 msgstr ""
 
+msgctxt "rules.nameGiveUpPartner"
+msgid "Partner muss zustimmen"
+msgstr ""
+
+msgctxt "rules.nameGiveUpAnyTime"
+msgid "Aufgeben immer"
+msgstr ""
+
 msgctxt "rules.pointsFromTricks"
 msgid "Aus fertigen Stichen, nie in einer Null"
 msgstr ""
@@ -2045,6 +2069,14 @@ msgstr ""
 
 msgctxt "rules.bockOverlapIgnore"
 msgid "neue Runden zählen nicht"
+msgstr ""
+
+msgctxt "rules.giveUpPartnerAgrees"
+msgid "Ein Gegner gibt nur mit Ja seines Partners auf"
+msgstr ""
+
+msgctxt "rules.giveUpAnyTime"
+msgid "Der Alleinspieler gibt jederzeit ohne Ja auf"
 msgstr ""
 
 msgctxt "table.style"

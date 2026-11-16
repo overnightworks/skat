@@ -143,4 +143,8 @@ export const SWITCH_ON_OPTIONS = {
             grand_hand: "off",
         },
     },
+    give_up: {
+        partner_agrees: false,
+        any_time: false,
+    },
 } as const;

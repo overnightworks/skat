@@ -27,6 +27,8 @@ KONTRA = text(SOURCE_LANGUAGE, "start.ruleKontra")
 RAMSCH = text(SOURCE_LANGUAGE, "start.ruleRamsch")
 PUSHING = text(SOURCE_LANGUAGE, "start.rulePushing")
 BOCK = text(SOURCE_LANGUAGE, "start.ruleBock")
+GIVE_UP_PARTNER = text(SOURCE_LANGUAGE, "start.ruleGiveUpPartner")
+GIVE_UP_ANY_TIME = text(SOURCE_LANGUAGE, "start.ruleGiveUpAnyTime")
 CANCEL = text(SOURCE_LANGUAGE, "start.cancelNewTable")
 SAVE = text(SOURCE_LANGUAGE, "start.saveRules")
 SAVE_NAME = text(SOURCE_LANGUAGE, "start.saveName")
@@ -165,7 +167,7 @@ def test_a_person_sees_the_official_rules_picked_and_their_own_sets_and_nobody_e
     expect(person.get_by_role("radiogroup", name=RULES).get_by_role("radio")).to_have_count(3)
     expect(set_pill(person, OFFICIAL)).to_be_checked()
     expect(set_pill(person, EVENING_SET)).not_to_be_checked()
-    expect(person.get_by_role("switch")).to_have_count(4)
+    expect(person.get_by_role("switch")).to_have_count(6)
     expect(set_pill(other, OFFICIAL)).to_be_checked()
     expect(other.get_by_role("radiogroup", name=RULES).get_by_role("radio")).to_have_count(1)
 
@@ -246,6 +248,33 @@ def test_bock_switched_on_shows_the_house_triggers_and_a_trigger_turned_on_opens
     switch(person, word("start.flagSchneider")).click()
     person.get_by_role("button", name=OPEN_TABLE).click()
     assert "schneider" in opened_options(person, e2e_server)["bock"]["triggers"]
+
+
+@pytest.mark.parametrize(
+    ("switched_on", "opened"),
+    [
+        ((), {"partner_agrees": False, "any_time": False}),
+        ((GIVE_UP_PARTNER,), {"partner_agrees": True, "any_time": False}),
+        ((GIVE_UP_ANY_TIME,), {"partner_agrees": False, "any_time": True}),
+    ],
+    ids=["neither", "partner-agrees", "any-time"],
+)
+def test_each_special_rule_of_giving_up_starts_off_and_a_switch_turned_on_opens_the_table_with_it(
+    person_with_sets: Callable[..., Page],
+    e2e_server: RunningServer,
+    switched_on: tuple[str, ...],
+    opened: dict[str, bool],
+) -> None:
+    person = person_with_sets(DESKTOP, sets=False)
+    sheet_of(person, e2e_server)
+    for rule in (GIVE_UP_PARTNER, GIVE_UP_ANY_TIME):
+        expect(switch(person, rule)).to_have_attribute("aria-checked", "false")
+
+    for rule in switched_on:
+        switch(person, rule).click()
+    person.get_by_role("button", name=OPEN_TABLE).click()
+
+    assert opened_options(person, e2e_server)["give_up"] == opened
 
 
 def test_ramsch_unfolds_into_schieberamsch_that_goes_with_it(

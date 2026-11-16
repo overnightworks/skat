@@ -261,7 +261,7 @@ class TestTheEndingTheEntryRecords:
         table = after_two_tricks(GiveUpAsked(FOREHAND))
         command = AgreeToGiveUpCommand("command-1", table_id(), TABLE_VERSION)
 
-        entry = decide_agree_to_give_up(table, actor("account-middlehand"), command).table.game_list[0]
+        entry = decide_agree_to_give_up(table, actor("account-rearhand"), command).table.game_list[0]
 
         assert (entry.ending, entry.ended_by_seat) == (GameEnding.GIVEN_UP, FOREHAND_SEAT)
 
@@ -329,30 +329,30 @@ class TestAnOpponentsGiveUpAndAChairThatOpens:
             assert (decision.refusal, decision.table) == (Refusal.SEAT_OPEN, freed)
 
     @OPENINGS
-    def test_the_sitter_in_the_declarers_chair_is_asked_and_answers_while_the_one_who_left_is_not_asked(self, opening):
+    def test_the_sitter_in_the_partners_chair_is_asked_and_answers_while_the_one_who_left_is_not_asked(self, opening):
         table = asked_by_an_opponent(FOREHAND)
-        leaver, sitter = actor_at(table, MIDDLEHAND_SEAT), newcomer()
-        taken = sat(opened(table, MIDDLEHAND_SEAT, opening), sitter, MIDDLEHAND_SEAT)
+        leaver, sitter = actor_at(table, REARHAND_SEAT), newcomer()
+        taken = sat(opened(table, REARHAND_SEAT, opening), sitter, REARHAND_SEAT)
 
         assert awaits_you(view_of(taken, sitter.account_id, NOBODY))
         assert not awaits_you(view_of(taken, leaver.account_id, NOBODY))
         assert decline_as(taken, sitter).progress.give_up is None
 
     @OPENINGS
-    def test_the_other_opponents_chair_leaves_the_request_standing_for_the_declarer(self, opening):
+    def test_the_declarers_chair_leaves_the_request_standing_for_the_partner(self, opening):
         table = asked_by_an_opponent(FOREHAND)
 
-        taken = sat(opened(table, REARHAND_SEAT, opening), newcomer(), REARHAND_SEAT)
+        taken = sat(opened(table, MIDDLEHAND_SEAT, opening), newcomer(), MIDDLEHAND_SEAT)
 
         assert taken.progress.give_up == GiveUpAsked(FOREHAND)
-        assert awaits_you(view_of(taken, actor_at(taken, MIDDLEHAND_SEAT).account_id, NOBODY))
+        assert awaits_you(view_of(taken, actor_at(taken, REARHAND_SEAT).account_id, NOBODY))
         assert not awaits_you(view_of(taken, actor_at(taken, FOREHAND_SEAT).account_id, NOBODY))
 
-    def test_a_person_declarer_who_stood_up_answers_the_request_after_sitting_in_his_held_chair(self):
+    def test_a_person_partner_who_stood_up_answers_the_request_after_sitting_in_his_held_chair(self):
         table = with_agents(asked_by_an_opponent(FOREHAND), FOREHAND_SEAT)
-        declarer = actor_at(table, MIDDLEHAND_SEAT)
+        partner = actor_at(table, REARHAND_SEAT)
 
-        back = sat(opened(table, MIDDLEHAND_SEAT, "stand-up"), declarer, MIDDLEHAND_SEAT)
+        back = sat(opened(table, REARHAND_SEAT, "stand-up"), partner, REARHAND_SEAT)
 
         assert back.progress.give_up == GiveUpAsked(FOREHAND)
-        assert decline_as(back, declarer).progress.give_up is None
+        assert decline_as(back, partner).progress.give_up is None

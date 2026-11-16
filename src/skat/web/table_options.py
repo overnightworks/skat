@@ -6,7 +6,7 @@ from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
 from skat.engine.schieberamsch import GrandHandRule, PushingRule
-from skat.table.records import RamschOccasion, RamschSetting, TableOptions
+from skat.table.records import GiveUpOptions, RamschOccasion, RamschSetting, TableOptions
 
 
 class KontraOptionsRequest(BaseModel):
@@ -64,6 +64,15 @@ class RamschOptionsRequest(BaseModel):
     pushing: PushingOptionsRequest | None = None
 
 
+class GiveUpOptionsRequest(BaseModel):
+    """The special rules of giving up, each a switch; left out, a rule is off and the table gives up by ISkO 4.4."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    partner_agrees: Annotated[bool, Field(strict=True)] = GiveUpOptions().partner_agrees
+    any_time: Annotated[bool, Field(strict=True)] = GiveUpOptions().any_time
+
+
 class OptionsRequest(BaseModel):
     """The rule options an opener sets; every later option joins this record."""
 
@@ -73,6 +82,7 @@ class OptionsRequest(BaseModel):
     kontra: KontraOptionsRequest | None = None
     bock: BockOptionsRequest | None = None
     ramsch: RamschOptionsRequest | None = None
+    give_up: GiveUpOptionsRequest = GiveUpOptionsRequest()
 
     @model_validator(mode="after")
     def _bock_rounds_need_bock(self) -> Self:
@@ -106,11 +116,17 @@ class RamschOptionsAnswer(BaseModel):
     pushing: PushingOptionsAnswer | None
 
 
+class GiveUpOptionsAnswer(BaseModel):
+    partner_agrees: bool
+    any_time: bool
+
+
 class OptionsAnswer(BaseModel):
     show_running_points: bool
     kontra: KontraOptionsAnswer | None
     bock: BockOptionsAnswer | None
     ramsch: RamschOptionsAnswer | None
+    give_up: GiveUpOptionsAnswer
 
 
 def ramsch_answer_of(ramsch: RamschSetting) -> RamschOptionsAnswer:
@@ -139,6 +155,7 @@ def options_answer_of(options: TableOptions) -> OptionsAnswer:
             triggers=[trigger for trigger in BockTrigger if trigger in bock.triggers], overlap=bock.overlap
         ),
         ramsch=None if ramsch is None else ramsch_answer_of(ramsch),
+        give_up=GiveUpOptionsAnswer(partner_agrees=options.give_up.partner_agrees, any_time=options.give_up.any_time),
     )
 
 
@@ -161,4 +178,5 @@ def table_options_of(requested: OptionsRequest | None) -> TableOptions:
         kontra=None if kontra is None else KontraOptions(kontra.sayer, kontra.reach, kontra.deadline),
         bock=None if bock is None else BockOptions(frozenset(bock.triggers), bock.overlap),
         ramsch=None if ramsch is None else ramsch_setting_of(ramsch),
+        give_up=GiveUpOptions(partner_agrees=requested.give_up.partner_agrees, any_time=requested.give_up.any_time),
     )

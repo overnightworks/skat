@@ -170,9 +170,12 @@ def asked_to_shorten(agreed_by: Position | None = None) -> TableRecord:
 def asked_by_an_opponent(
     opponent: Position = Position.FOREHAND, options: TableOptions | None = None, *, open_play: bool = False
 ) -> TableRecord:
-    """The declared Herz Hand game where `opponent` gave up, or played open wrongly, and the declarer has not
-    answered.
+    """The declared Herz Hand game where `opponent` gave up at a table whose partner must agree, and his partner has
+    not answered, or where he played open wrongly and the declarer has not answered.
     """
+    options = options or TableOptions()
+    if not open_play:
+        options = replace(options, give_up=replace(options.give_up, partner_agrees=True))
     table = table_in(declared_herz_hand(), options)
     return replace(table, progress=replace(table.progress, give_up=GiveUpAsked(opponent, open_play=open_play)))
 

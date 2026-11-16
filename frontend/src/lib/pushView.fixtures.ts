@@ -65,6 +65,7 @@ export function table(
                           durchmarsch: "wins-120",
                           pushing: { rule: "jacks-stay", grand_hand: grandHand },
                       },
+            give_up: { partner_agrees: false, any_time: false },
         },
         hand: {
             dealer_seat: 3,

@@ -38,8 +38,9 @@ def _out_of_reach(state: Playing, claim: Announcement) -> bool:
     return not announcement_reached(claim, _ended(state, Ending.OPPONENTS_THREW_DOWN))
 
 
-def give_up(state: Playing, *, consented: bool = False) -> PlayOutcome:
-    """The declarer gives up his game: freely while he holds nine or ten cards, later only when an opponent agreed.
+def give_up(state: Playing, *, consented: bool = False, any_time: bool = False) -> PlayOutcome:
+    """The declarer gives up his game: freely while he holds nine or ten cards, later only when an opponent agreed
+    (ISkO 4.4.1 and 4.4.2), or freely at any time at a table whose special rule `any_time` says so.
 
     A game his tricks and the skat already win ends as won when it is given up with consent. Consent is asked first,
     so that a refusal without it never tells a declarer who did not see the skat whether his tricks and the skat
@@ -47,7 +48,8 @@ def give_up(state: Playing, *, consented: bool = False) -> PlayOutcome:
     """
     if state.result is not None:
         return PlayOutcome(state, PlayRefusal.OVER)
-    if not consented and len(state.hands[state.declared.declarer]) < _CARDS_HELD_AT_THE_SECOND_TRICK_START:
+    holds_nine = len(state.hands[state.declared.declarer]) >= _CARDS_HELD_AT_THE_SECOND_TRICK_START
+    if not (consented or any_time or holds_nine):
         return PlayOutcome(state, PlayRefusal.NEEDS_CONSENT)
     if _already_won(state):
         return PlayOutcome(replace(state, result=_ended(state, Ending.DECIDED_WON)))
@@ -63,8 +65,8 @@ def throw_down(state: Playing, position: Position) -> PlayOutcome:
 
 
 def opponent_gives_up(state: Playing) -> PlayOutcome:
-    """An opponent gives up his side's defence: the game ends at once and the engine asks no consent; the table has
-    asked the declarer first, whose yes it is (ISkO 4.4.3 with 4.1.3 to 4.1.5).
+    """An opponent gives up his side's defence: the game ends at once and binds his partner too (ISkO 4.4.3 with 4.1.3
+    to 4.1.5); the engine asks no consent, a table whose special rule wants the partner's yes asks it first.
 
     A game already won for the declarer ends with his real result, one already lost for him with the opponents' points
     so far, and an undecided one is won by its declaration and bid.

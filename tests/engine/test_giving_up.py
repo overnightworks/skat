@@ -99,6 +99,12 @@ def test_with_an_opponents_consent_the_declarer_holding_eight_cards_gives_up_los
     assert settle(result, 20) == Settlement(won=False, value=27, score=-54)
 
 
+def test_at_a_table_that_lets_him_give_up_at_any_time_the_declarer_holding_eight_cards_gives_up_lost_at_27() -> None:
+    outcome = give_up(declarer_holding_eight_cards(), any_time=True)
+    assert outcome.state.result is not None
+    assert settle(outcome.state.result, 20) == Settlement(won=False, value=27, score=-54)
+
+
 def test_a_bid_of_30_overbid_after_pick_up_is_given_up_at_once_as_lost_at_30() -> None:
     result = given_up(started(HERZ, 30))
     assert settle(result, 30) == Settlement(won=False, value=30, score=-60)

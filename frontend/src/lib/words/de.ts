@@ -73,7 +73,6 @@ export type Words = {
     readonly "table.pass": string;
     readonly "table.waitingFor": (gaps: { readonly names: string }) => string;
     readonly "table.wantsToGiveUp": (gaps: { readonly name: string }) => string;
-    readonly "table.givesUp": (gaps: { readonly name: string }) => string;
     readonly "table.giveUp": string;
     readonly "table.giveUpSure": string;
     readonly "table.accept": string;
@@ -193,6 +192,7 @@ export type Words = {
     readonly "bock.factor": (gaps: { readonly factor: string }) => string;
     readonly "bock.plaque": (gaps: { readonly factor: string }) => readonly (string | { readonly marker: "factor"; readonly text: string })[];
     readonly "rules.chipBock": string;
+    readonly "rules.chipGiveUp": string;
     readonly "rules.bockLeft": (gaps: { readonly count: number }) => string;
     readonly "result.sidePoints": (gaps: { readonly points: string; readonly side: string }) => readonly (string | { readonly marker: "side" | "tally"; readonly text: string })[];
     readonly "result.eyes": (gaps: { readonly points: string }) => string;
@@ -416,6 +416,10 @@ export type Words = {
     readonly "start.rulePushingLine": string;
     readonly "start.ruleBock": string;
     readonly "start.ruleBockLine": string;
+    readonly "start.ruleGiveUpPartner": string;
+    readonly "start.ruleGiveUpPartnerLine": string;
+    readonly "start.ruleGiveUpAnyTime": string;
+    readonly "start.ruleGiveUpAnyTimeLine": string;
     readonly "start.askKontraSayer": string;
     readonly "start.pillAnyOpponent": string;
     readonly "start.pillBiddersOnly": string;
@@ -470,6 +474,8 @@ export type Words = {
     readonly "rules.nameRamschPassedInAndBockRounds": string;
     readonly "rules.namePushing": string;
     readonly "rules.nameBock": string;
+    readonly "rules.nameGiveUpPartner": string;
+    readonly "rules.nameGiveUpAnyTime": string;
     readonly "rules.pointsFromTricks": string;
     readonly "rules.kontraSayerAnyOpponent": string;
     readonly "rules.kontraSayerBiddersOnly": string;
@@ -502,6 +508,8 @@ export type Words = {
     readonly "rules.bockOverlapAppend": string;
     readonly "rules.bockOverlapMultiply": string;
     readonly "rules.bockOverlapIgnore": string;
+    readonly "rules.giveUpPartnerAgrees": string;
+    readonly "rules.giveUpAnyTime": string;
     readonly "table.style": string;
     readonly "table.styleName": string;
     readonly "table.styleKlassik": string;
@@ -655,7 +663,6 @@ export const words: Words = {
     "table.pass": "Weg",
     "table.waitingFor": (gaps: { readonly names: string }) => "Warte auf " + gaps.names,
     "table.wantsToGiveUp": (gaps: { readonly name: string }) => gaps.name + " will aufgeben",
-    "table.givesUp": (gaps: { readonly name: string }) => gaps.name + " gibt auf",
     "table.giveUp": "Aufgeben",
     "table.giveUpSure": "Wirklich aufgeben?",
     "table.accept": "Annehmen",
@@ -796,6 +803,7 @@ export const words: Words = {
     "bock.factor": (gaps: { readonly factor: string }) => "Bock ×" + gaps.factor,
     "bock.plaque": (gaps: { readonly factor: string }): readonly (string | { readonly marker: "factor"; readonly text: string })[] => ["Bock ", { marker: "factor", text: "×" + gaps.factor }],
     "rules.chipBock": "Bock",
+    "rules.chipGiveUp": "Aufgeben",
     "rules.bockLeft": (gaps: { readonly count: number }) => "noch " + numberFormat.format(gaps.count),
     "result.sidePoints": (gaps: { readonly points: string; readonly side: string }): readonly (string | { readonly marker: "side" | "tally"; readonly text: string })[] => [{ marker: "side", text: gaps.side }, " ", { marker: "tally", text: gaps.points }],
     "result.eyes": (gaps: { readonly points: string }) => gaps.points + " Augen",
@@ -1040,6 +1048,10 @@ export const words: Words = {
     "start.rulePushingLine": "Den Skat weiterschieben",
     "start.ruleBock": "Bockrunden",
     "start.ruleBockLine": "Manche Spiele zählen doppelt",
+    "start.ruleGiveUpPartner": "Partner muss zustimmen",
+    "start.ruleGiveUpPartnerLine": "Ein Gegner gibt nur mit Ja des Partners auf",
+    "start.ruleGiveUpAnyTime": "Aufgeben immer",
+    "start.ruleGiveUpAnyTimeLine": "Der Alleinspieler gibt jederzeit auf",
     "start.askKontraSayer": "Wer darf Kontra sagen?",
     "start.pillAnyOpponent": "Jeder Gegner",
     "start.pillBiddersOnly": "Nur wer gereizt hat",
@@ -1094,6 +1106,8 @@ export const words: Words = {
     "rules.nameRamschPassedInAndBockRounds": "Ramsch beim Einpassen und Ramschrunde nach jeder Bockrunde",
     "rules.namePushing": "Schieberamsch",
     "rules.nameBock": "Bockrunden",
+    "rules.nameGiveUpPartner": "Partner muss zustimmen",
+    "rules.nameGiveUpAnyTime": "Aufgeben immer",
     "rules.pointsFromTricks": "Aus fertigen Stichen, nie in einer Null",
     "rules.kontraSayerAnyOpponent": "Jeder Gegner",
     "rules.kontraSayerBiddersOnly": "Nur wer gereizt hat",
@@ -1126,6 +1140,8 @@ export const words: Words = {
     "rules.bockOverlapAppend": "neue Runden hängen sich an",
     "rules.bockOverlapMultiply": "neue Runden multiplizieren sich",
     "rules.bockOverlapIgnore": "neue Runden zählen nicht",
+    "rules.giveUpPartnerAgrees": "Ein Gegner gibt nur mit Ja seines Partners auf",
+    "rules.giveUpAnyTime": "Der Alleinspieler gibt jederzeit ohne Ja auf",
     "table.style": "Stil",
     "table.styleName": "Stil des Tisches",
     "table.styleKlassik": "Klassik",

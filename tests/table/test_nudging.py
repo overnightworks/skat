@@ -90,11 +90,14 @@ class TestWhoMayNudgeWhichSeatWhen:
         assert refusal_for(MIDDLEHAND, request(SECOND), table=table) is NudgeRefusal.NOT_WAITING
         assert refusal_for(MIDDLEHAND, request(THIRD), table=table) is None
 
-    def test_an_opponents_give_up_waits_for_the_declarer_and_both_opponents_may_nudge_him(self):
+    def test_an_opponents_give_up_waits_for_his_partner_and_the_declarer_and_the_asker_may_nudge_him(self):
         table = asked_by_an_opponent()
 
-        assert [refusal_for(account, request(), table=table) for account in (REARHAND, FOREHAND)] == [None, None]
-        assert refusal_for(REARHAND, request(THIRD), table=table) is NudgeRefusal.NOT_WAITING
+        assert [refusal_for(account, request(SECOND), table=table) for account in (MIDDLEHAND, FOREHAND)] == [
+            None,
+            None,
+        ]
+        assert refusal_for(REARHAND, request(), table=table) is NudgeRefusal.NOT_WAITING
 
     @pytest.mark.parametrize(
         "table", [asked_by_the_declarer(None), between_games()], ids=["a-give-up-question", "a-result"]
@@ -224,8 +227,8 @@ class TestWhatEachViewerIsShown:
         assert states_for(MIDDLEHAND, table=table) == {SECOND: awaiting, THIRD: awaiting}
         assert states_for(REARHAND, table=table) == {THIRD: awaiting}
 
-    def test_an_opponents_give_up_shows_the_declarers_chair_alone(self):
-        assert list(states_for(REARHAND, table=asked_by_an_opponent())) == [ON_TURN]
+    def test_an_opponents_give_up_shows_his_partners_chair_alone(self):
+        assert list(states_for(MIDDLEHAND, table=asked_by_an_opponent())) == [SECOND]
 
     def test_a_seat_with_only_a_kontra_word_open_shows_no_state_to_anyone(self):
         table = kontra_hand()

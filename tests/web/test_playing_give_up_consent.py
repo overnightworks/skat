@@ -173,6 +173,18 @@ class TestTheDeclarerAsks:
 
         assert herz_hand.record.hand is None
 
+    @pytest.mark.parametrize("played_before", [EIGHT_CARDS, SEVEN_TRICKS], ids=["eight-cards", "three-cards"])
+    def test_at_a_table_that_lets_him_give_up_at_any_time_the_game_is_lost_at_once(self, skat, played_before):
+        table = Table(skat, options={"give_up": {"any_time": True}})
+        table.declared_hand_game()
+        table.played_out(played_before)
+
+        answer = ask(table)
+
+        assert (answer.json()["result"]["ending"], answer.json()["result"]["ended_by_seat"]) == ("given-up", 1)
+        assert table.record.hand is None
+        assert len(table.record.game_list) == 1
+
     def test_asking_again_while_the_request_stands_changes_nothing(self, asked):
         before = asked.record
 

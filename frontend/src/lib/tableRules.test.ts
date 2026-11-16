@@ -16,7 +16,13 @@ import { bockLine, tableRules } from "#lib/tableRules.ts";
 import { words } from "#lib/words.ts";
 import type { Options } from "../routes/(start)/tables.ts";
 
-const NOTHING: Options = { show_running_points: false, kontra: null, bock: null, ramsch: null };
+const NOTHING: Options = {
+    show_running_points: false,
+    kontra: null,
+    bock: null,
+    ramsch: null,
+    give_up: { partner_agrees: false, any_time: false },
+};
 const KONTRA: NonNullable<Options["kontra"]> = {
     sayer: "bidders-only",
     reach: "up-to-hirsch",
@@ -37,6 +43,7 @@ const EVERYTHING: Options = {
     kontra: KONTRA,
     ramsch: { ...RAMSCH, pushing: { rule: "jacks-stay", grand_hand: "off" } },
     bock: { triggers: ["sixty-sixty", "schneider", "schwarz"], overlap: "append" },
+    give_up: { partner_agrees: true, any_time: true },
 };
 
 const chipWords = (options: Options): string[] => tableRules(options, null).chips.map((chip) => chip.word);
@@ -61,8 +68,8 @@ describe("the chips", () => {
         expect(tableRules(NOTHING, null).rows).toEqual([]);
     });
 
-    it("lists each rule that is on in the order Augen, Kontra, Ramsch, Bock", () => {
-        expect(chipWords(EVERYTHING)).toEqual(["Augen", "Kontra", "Ramsch", "Bock"]);
+    it("lists each rule that is on in the order Augen, Kontra, Ramsch, Bock, Aufgeben", () => {
+        expect(chipWords(EVERYTHING)).toEqual(["Augen", "Kontra", "Ramsch", "Bock", "Aufgeben"]);
         expect(chipWords({ ...NOTHING, bock: BOCK, show_running_points: true })).toEqual(["Augen", "Bock"]);
     });
 
@@ -74,6 +81,17 @@ describe("the chips", () => {
             "Ramsch beim Einpassen",
             "Schieberamsch",
         ]);
+    });
+
+    it.each([
+        ["that the partner must agree", { partner_agrees: true, any_time: false }, ["Partner muss zustimmen"]],
+        ["giving up at any time", { partner_agrees: false, any_time: true }, ["Aufgeben immer"]],
+        ["both special rules", { partner_agrees: true, any_time: true }, ["Partner muss zustimmen", "Aufgeben immer"]],
+    ])("gives %s one Aufgeben chip and a row each", (_name, giveUp, rowNames) => {
+        const withGiveUp: Options = { ...NOTHING, give_up: giveUp };
+
+        expect(chipWords(withGiveUp)).toEqual(["Aufgeben"]);
+        expect(tableRules(withGiveUp, null).rows.map((row) => row.name)).toEqual(rowNames);
     });
 });
 
@@ -112,6 +130,8 @@ describe("the rows", () => {
             ["Ramsch beim Einpassen", ["Meiste Augen minus", "Jungfrau ×2", "Durchmarsch +120"]],
             ["Schieberamsch", ["Ohne Buben, je doppelt"]],
             ["Bockrunden", ["Bei 60 zu 60, Schneider und Schwarz", "neue Runden hängen sich an"]],
+            ["Partner muss zustimmen", ["Ein Gegner gibt nur mit Ja seines Partners auf"]],
+            ["Aufgeben immer", ["Der Alleinspieler gibt jederzeit ohne Ja auf"]],
         ]);
     });
 
