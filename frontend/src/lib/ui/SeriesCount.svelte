@@ -4,7 +4,7 @@
     import GameSheet from "#lib/ui/GameSheet.svelte";
     import { words } from "#lib/words.ts";
 
-    import { readSeriesList } from "../../routes/(start)/tables.ts";
+    import { readSeriesList } from "../../routes/(start)/seriesList.ts";
 
     // The quiet mark on the felt; a tap opens the list of every game of the series, which reads again whenever the table
     // moves on while it is open.

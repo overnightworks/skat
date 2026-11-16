@@ -1,14 +1,8 @@
 import { faceOf, type AskButton, type AskView } from "#lib/giveUp.ts";
 import { LEVEL_WORDS, withMinus } from "#lib/result.ts";
 import { listFormat, words } from "#lib/words.ts";
-import {
-    gameLabel,
-    type Game,
-    type SeriesEndAnswer,
-    type SeriesEntry,
-    type Standing,
-    type Table,
-} from "../routes/(start)/tables.ts";
+import type { SeriesEntry } from "../routes/(start)/seriesList.ts";
+import { gameLabel, type Game, type SeriesEndAnswer, type Standing, type Table } from "../routes/(start)/tables.ts";
 
 // The series as the table answers it: the page counts, asks and ranks what the server decided and decides no rule.
 export function seriesOver(table: Table): boolean {

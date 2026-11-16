@@ -1,4 +1,5 @@
-import type { Card, Chair, GameSheet, Series, SeriesEntry, Table } from "../routes/(start)/tables.ts";
+import type { SeriesEntry } from "../routes/(start)/seriesList.ts";
+import type { Card, Chair, GameSheet, Series, Table } from "../routes/(start)/tables.ts";
 
 export const WATCHER = 0;
 

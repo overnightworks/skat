@@ -38,7 +38,6 @@ import {
     markReady,
     playCard,
     readGameSheet,
-    readSeriesList,
     readTable,
     seriesNumberOf,
     chooseStyle,
@@ -50,6 +49,7 @@ import {
     takePushingStep,
     takeAuctionStep,
 } from "./tables.ts";
+import { readSeriesList } from "./seriesList.ts";
 
 class FakeEventSource {
     static last: FakeEventSource;
