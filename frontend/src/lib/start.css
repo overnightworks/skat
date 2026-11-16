@@ -4215,6 +4215,11 @@ body {
         margin-top: calc(var(--trick-rise) * -1);
     }
 
+    /* The notice about a chair stands above the raised trick, which reaches up into the far chairs' row. */
+    .room .stage:has(> .trick) .notice.seat {
+        margin-top: 6px;
+    }
+
     .room .stage:has(> .trick) .chair:nth-child(3) {
         grid-row: 3;
         align-self: end;
