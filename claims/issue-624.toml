@@ -1,8 +1,0 @@
-claim_id = "2d4f633c7d5643759b3470436341ce9c"
-agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
-role = "builder"
-base = "d66ed44e88d452598b7f7434ea859b44c0d3f0a1"
-branch = "claude/issue-624-the-table-closed-tests-read-the-not-foun"
-scope = [".github/workflows/ci.yml", ".github/workflows/code-scanning.yml", ".github/workflows/release.yml", "tests/e2e/test_table_closed.py"]
-opened_commit = "5d859c84d5bd03783ba269c8943d9abee2616531"
-whole_reason = "One pin raise across the three workflows that carry quality's pin, plus the one test the new pin's locator-text rule finds; splitting it would leave a workflow on the old pin."
