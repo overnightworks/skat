@@ -258,7 +258,6 @@ play = [["tests/web/test_tables_bock.py", "played_with_words"]]
 "TestRetries.test_a_refused_retry_returns_the_same_refusal" = [["tests/web/test_playing_give_up_consent.py", "TestRetries.test_a_refused_retry_returns_the_same_refusal"]]
 
 [clones."tests/web/test_playing_give_up_consent.py"]
-kontra_table = [["tests/web/test_playing_opponents_give_up.py", "kontra_table"]]
 say = [["tests/web/test_tables_bock.py", "say"]]
 
 [clones."tests/web/test_presence_empty_table.py"]
