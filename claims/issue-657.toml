@@ -1,0 +1,8 @@
+claim_id = "d567564fe6834d93b5627a1aa1d0bf90"
+agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
+role = "builder"
+base = "4574b51a91a5348fb9ea58c3a66ea1e90064aebe"
+branch = "claude/issue-657-skat-s-old-pod-keeps-serving-on-a-schema"
+scope = [".github/workflows", "Makefile", "docs/ARCHITECTURE.md", "scripts", "src/skat/host", "src/skat/store", "tests"]
+opened_commit = "29defe1e0a6cee109e50e3181b4c30cc71782ac0"
+whole_reason = "S3 of #592 on the operator's word"
