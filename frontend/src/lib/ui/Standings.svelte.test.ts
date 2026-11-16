@@ -20,20 +20,14 @@ describe("the ranks of the series' end", () => {
         document.body.replaceChildren();
     });
 
-    function show(closed: boolean): void {
-        mounted = mount(Standings, { target: document.body, props: { view, closed } });
+    function show(): void {
+        mounted = mount(Standings, { target: document.body, props: { view } });
         flushSync();
     }
 
     it("tell each account's won and lost games on the live table", () => {
-        show(false);
+        show();
 
         expect(document.querySelector(".rank small")?.textContent).toBe(view.rows[0]?.record);
-    });
-
-    it("draw the place, the name and the total only on the closed link", () => {
-        show(true);
-
-        expect(document.querySelector(".rank small")).toBeNull();
     });
 });
