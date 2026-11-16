@@ -16,7 +16,8 @@ concurrency:
 jobs:
   ci:
     name: Lint and test
-    timeout-minutes: 10
+    # The unit tests take 5.5 to 9.5 minutes on a shared runner, so a 10-minute cap cancels green runs at 99 %.
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     # The throwaway server of the Postgres tests; the digest is the image scripts/test_stores.sh runs, so keep them equal.
     services:
