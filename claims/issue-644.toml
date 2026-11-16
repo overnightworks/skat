@@ -3,6 +3,6 @@ agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
 role = "builder"
 base = "e94d6d580bdc572c5408bb82f73e77075f4eab52"
 branch = "claude/issue-644-a-series-keeps-the-settings-it-started-w"
-scope = ["docs/ARCHITECTURE.md", "docs/mockups/table.html", "frontend/src", "src/skat/store", "src/skat/table", "src/skat/web", "tests"]
+scope = [".github/workflows/ci.yml", "docs/ARCHITECTURE.md", "docs/mockups/table.html", "frontend/src", "frontend/vite.config.ts", "src/skat/store", "src/skat/table", "src/skat/web", "tests"]
 opened_commit = "9844d78ed661f107d129096f91806858c835ceea"
 whole_reason = "A series' settings travel from the store through the read model to the closed table's page"
