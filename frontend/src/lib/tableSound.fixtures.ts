@@ -1,6 +1,6 @@
 import type { Cue } from "./cues.ts";
 import { MOTION_SETS, type MotionSetId } from "./motionSets.ts";
-import type { AudioPort, Voice } from "./sound.ts";
+import type { Ambience, AudioPort, Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundSetId } from "./soundSets.ts";
 import { createTableSound, type TableSound } from "./tableSound.ts";
 import type { Card, Chair, LastTrick, Table } from "../routes/(start)/tables.ts";
@@ -59,11 +59,15 @@ export class FakePort implements AudioPort {
         return RECORDING_SECONDS;
     }
 
-    // The levels the sea was set to.
-    sea: number[] = [];
+    // The levels each ambience was set to.
+    ambience: Record<Ambience, number[]> = { sea: [], pub: [] };
 
-    setSea(level: number): void {
-        this.sea.push(level);
+    get sea(): number[] {
+        return this.ambience.sea;
+    }
+
+    setAmbience(ambience: Ambience, level: number): void {
+        this.ambience[ambience].push(level);
     }
 }
 
@@ -91,6 +95,7 @@ export function tableSeenFrom(ownSeat: number): Table {
         chairs,
         watchers: 0,
         opened_by_me: false,
+        reactions: [],
         hand: null,
         result: null,
         passed_in: null,

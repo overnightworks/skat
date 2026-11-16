@@ -61,6 +61,7 @@ from skat.web.presence import (
     Scheduler,
 )
 from skat.web.pushing import create_pushing_router
+from skat.web.reacting import create_reacting_router
 from skat.web.ready import create_ready_router
 from skat.web.request_line import ClientAddressNoting, SignedInPersonNoting
 from skat.web.routes import create_router
@@ -316,6 +317,7 @@ def _include_table_sub_routers(
     app.include_router(create_series_end_router(tables, presence))
     app.include_router(create_abort_router(tables, presence))
     app.include_router(create_style_router(tables, presence))
+    app.include_router(create_reacting_router(tables, presence))
     app.include_router(create_game_list_router(tables))
     app.include_router(create_paused_router(tables, settings.paused_table_days))
 

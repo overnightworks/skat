@@ -507,6 +507,24 @@ export type Words = {
     readonly "table.styleKlassik": string;
     readonly "table.styleStrandbar": string;
     readonly "table.styleNote": string;
+    readonly "table.reactions": string;
+    readonly "table.reactionTray": string;
+    readonly "table.reactionClap": string;
+    readonly "table.reactionClapMark": string;
+    readonly "table.reactionLaugh": string;
+    readonly "table.reactionLaughMark": string;
+    readonly "table.reactionGasp": string;
+    readonly "table.reactionGaspMark": string;
+    readonly "table.reactionFire": string;
+    readonly "table.reactionFireMark": string;
+    readonly "table.reactionCheers": string;
+    readonly "table.reactionCheersMark": string;
+    readonly "table.reactionKnock": string;
+    readonly "table.reactionKnockMark": string;
+    readonly "table.objectCocktail": string;
+    readonly "table.objectShell": string;
+    readonly "table.objectCoaster": string;
+    readonly "table.objectLamp": string;
 };
 // prettier-ignore
 export const words: Words = {
@@ -1110,5 +1128,23 @@ export const words: Words = {
     "table.styleKlassik": "Klassik",
     "table.styleStrandbar": "Strandbar",
     "table.styleNote": "Gilt für alle am Tisch, auch für die Zuschauer.",
+    "table.reactions": "Reaktion senden",
+    "table.reactionTray": "Reaktionen",
+    "table.reactionClap": "Applaus",
+    "table.reactionClapMark": "👏",
+    "table.reactionLaugh": "Lachen",
+    "table.reactionLaughMark": "😂",
+    "table.reactionGasp": "Staunen",
+    "table.reactionGaspMark": "😮",
+    "table.reactionFire": "Feuer",
+    "table.reactionFireMark": "🔥",
+    "table.reactionCheers": "Prost",
+    "table.reactionCheersMark": "🍻",
+    "table.reactionKnock": "Klopfen",
+    "table.reactionKnockMark": "👊",
+    "table.objectCocktail": "Cocktail",
+    "table.objectShell": "Muschel",
+    "table.objectCoaster": "Untersetzer",
+    "table.objectLamp": "Lampe",
 };
 export type Key = keyof Words;

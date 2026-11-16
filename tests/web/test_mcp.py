@@ -49,6 +49,7 @@ from skat.web.mcp import (
     START_NEW_SERIES_TOOL,
     TAKE_SKAT_TOOL,
     THROW_DOWN_CARDS_TOOL,
+    THROW_REACTION_TOOL,
 )
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.tables import (
@@ -116,6 +117,7 @@ class TestTools:
                 SAVE_RULE_SET_TOOL,
                 START_NEW_SERIES_TOOL,
                 NUDGE_SEAT_TOOL,
+                THROW_REACTION_TOOL,
             }
             | STEP_TOOLS
         )

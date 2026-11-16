@@ -10,6 +10,7 @@ import structlog
 from logline import unit_trace
 
 from skat.web.presence_line import PresenceTimer, TimerRuns
+from skat.web.reaction_log import ReactionLog
 from skat.web.waits import AskClock
 from skat.web.wakes import Registration, TableTopic, WakeList
 
@@ -166,8 +167,8 @@ class Presence:
     whose wait is up), and the server's start seeds each table's wait with what is left of it, so a restart never
     gives a table a fresh wait it had already begun.
 
-    `waits` is the one `AskClock` of the process, on the chair hold's clock; the presence drops a table's entry where
-    its end or note answers that the table ended.
+    `waits` is the one `AskClock` of the process and `reactions` the one `ReactionLog`, both on the chair hold's clock;
+    the presence drops a table's entries where its end or note answers that the table ended.
     """
 
     def __init__(
@@ -175,6 +176,7 @@ class Presence:
     ) -> None:
         self._lease = lease
         self.waits = AskClock(hold.clock)
+        self.reactions = ReactionLog(hold.clock)
         self._lease_ends: dict[str, float] = {}
         self._subscriptions: dict[str, list[Subscription]] = {}
         self._wakes = wakes
@@ -480,8 +482,11 @@ class Presence:
             self.table_ended(table_id)
 
     def table_ended(self, table_id: str) -> None:
-        """Drop the table's ask clock entry and wake its streams; call it once the table's end is committed."""
+        """Drop the table's ask clock entry and reactions and wake its streams; call it once the table's end is
+        committed.
+        """
         self.waits.drop(table_id)
+        self.reactions.drop(table_id)
         self.wake_table(table_id)
 
     def _is_latest_wait(self, table_id: str, wait: object) -> bool:

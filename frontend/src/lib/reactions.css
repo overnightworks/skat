@@ -1,0 +1,440 @@
+/* What the people at the table throw and tap: the tray, the emotes that fly onto the felt and the objects of the table
+   that move when tapped. Every move is drawn only where `data-motion` is set, which the device and the player allow. */
+
+.room .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.room .felt {
+    position: relative;
+}
+
+/* The key: a round glass button in the table's top row, as the Lobby button and the speaker are. From 390 px it stands right after the Lobby button; on the narrowest phones the speaker takes that place and the key stands left of the watchers. */
+.room .reaction-key {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin: 2px auto 2px 6px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--on-stage);
+    background: rgba(244, 246, 248, 0.26);
+    backdrop-filter: blur(14px);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+        0 4px 10px -4px rgba(0, 0, 0, 0.7);
+    cursor: pointer;
+}
+
+@media (max-width: 389px) {
+    .room .reaction-key {
+        order: 1;
+        margin: 2px 6px 2px 0;
+    }
+
+    .room .bar .watchers {
+        order: 2;
+    }
+}
+
+.room .reaction-key.on {
+    color: var(--stage-ink, #0c0e11);
+    background: var(--on-stage);
+}
+
+.room .reaction-key svg {
+    width: 22px;
+    height: 22px;
+}
+
+/* The tray: a phone opens it from its key, and the script sets --tray-top, so that it hangs below the key; a wide screen shows it as a rail at the edge. */
+.room .tray {
+    position: fixed;
+    top: var(--tray-top, 64px);
+    right: 14px;
+    z-index: 20;
+    display: none;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(23, 27, 32, 0.92);
+    backdrop-filter: blur(14px);
+    box-shadow:
+        0 12px 26px -8px rgba(0, 0, 0, 0.9),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.room .tray.open {
+    display: flex;
+}
+
+.room .tray button {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.room .tray button:is(:hover, :focus-visible) {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+@media (min-width: 900px) {
+    .room .tray {
+        top: auto;
+        right: 18px;
+        bottom: 112px;
+        display: flex;
+        flex-direction: column;
+        border-radius: 26px;
+    }
+}
+
+/* A thrown emote lands on the felt, its thrower's initial at its corner. */
+.room .thrown {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    container-type: size;
+    pointer-events: none;
+}
+
+.room .emote {
+    --fx: calc((var(--ox) - var(--lx)) * 1cqw);
+    --fy: calc((var(--oy) - var(--ly)) * 1cqh);
+
+    position: absolute;
+    top: calc(var(--ly) * 1%);
+    left: calc(var(--lx) * 1%);
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+    font-size: 32px;
+    line-height: 1;
+    filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.55));
+    transform: translate(-50%, -50%);
+}
+
+.room .emote .from {
+    position: absolute;
+    right: -8px;
+    bottom: -6px;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: linear-gradient(150deg, var(--c1, #9fd0f2), var(--c2, #4b8fc4));
+    box-shadow: 0 0 0 2px #10241b;
+    color: #111;
+    font-family: "Open Sans", Arial, sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+/* The dotted trail the thrown emote leaves on its way down, drawn on the felt's own scale and shown only while it flies. */
+.room .emote-trail {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.room .emote-trail path {
+    fill: none;
+    stroke: rgba(251, 248, 240, 0.6);
+    stroke-width: 2.5;
+    stroke-dasharray: 1 8;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+}
+
+/* A knock lands where it is, smaller than a flung emote, and two rings spread from the fist over the felt. */
+.room .emote.knocked {
+    width: 34px;
+    height: 34px;
+    font-size: 24px;
+}
+
+.room .knock-ring {
+    position: absolute;
+    top: calc(var(--ly) * 1%);
+    left: calc(var(--lx) * 1%);
+    width: 50px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    box-shadow:
+        0 0 0 2px rgba(251, 248, 240, 0.55),
+        0 0 0 14px rgba(251, 248, 240, 0.08),
+        0 0 0 16px rgba(251, 248, 240, 0.3);
+    pointer-events: none;
+    translate: -50% -50%;
+}
+
+@media (min-width: 900px) {
+    .room .emote {
+        width: 56px;
+        height: 56px;
+        font-size: 40px;
+    }
+
+    .room .emote.knocked {
+        width: 48px;
+        height: 48px;
+        font-size: 34px;
+    }
+
+    .room .knock-ring {
+        width: 76px;
+    }
+}
+
+/* The playful set throws the emote from its chair: it flies, bounces on the felt, rests and fades; the calm set lets it
+   pop up where it lands. Both keep the time of their motion set. */
+.room[data-motion="verspielt"] .emote {
+    animation: emote-throw 3.23s cubic-bezier(0.3, 0.7, 0.4, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room[data-motion="verspielt"] .emote-trail {
+    animation: emote-trail 3.23s ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room[data-motion="dezent"] .emote {
+    animation: emote-pop 2.1s ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+/* The rings knock twice, in both sets: they swell from the fist and fade. */
+.room[data-motion] .knock-ring {
+    animation: knock-ring 0.7s ease-out 2 both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes emote-throw {
+    0% {
+        translate: var(--fx) var(--fy);
+        scale: 0.4;
+        opacity: 0;
+    }
+
+    5% {
+        opacity: 1;
+    }
+
+    16% {
+        translate: calc(var(--fx) * 0.3) calc(var(--fy) * 0.3 - 46px);
+        scale: 1.25;
+    }
+
+    26% {
+        translate: 0 0;
+        scale: 1.18 0.82;
+    }
+
+    32% {
+        translate: 0 -10px;
+        scale: 0.95 1.06;
+    }
+
+    38% {
+        translate: 0 0;
+        scale: 1;
+    }
+
+    88% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        scale: 0.9;
+    }
+}
+
+@keyframes emote-trail {
+    0%,
+    4% {
+        opacity: 0;
+    }
+
+    14%,
+    24% {
+        opacity: 1;
+    }
+
+    45%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes knock-ring {
+    from {
+        scale: 0.35;
+        opacity: 1;
+    }
+
+    to {
+        scale: 1.35;
+        opacity: 0;
+    }
+}
+
+@keyframes emote-pop {
+    0% {
+        scale: 0.5;
+        opacity: 0;
+    }
+
+    14% {
+        scale: 1.15;
+        opacity: 1;
+    }
+
+    24% {
+        scale: 1;
+    }
+
+    85% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
+/* The objects of the table are buttons: a tap on one is seen and heard at every page of the table. Each makes its move
+   (a sway, a hop, a half turn) when its beat changes; the two beats are the same move under two names, so that a new tap
+   starts it anew while the button stays where it is. */
+.room .felt button.decor,
+.room button.coaster {
+    padding: 0;
+    border: 0;
+    cursor: pointer;
+}
+
+.room .felt button.decor {
+    background: none;
+    pointer-events: auto;
+}
+
+.room .felt button.decor:focus-visible,
+.room button.coaster:focus-visible {
+    outline: 2px solid var(--brass-hi);
+    outline-offset: 4px;
+}
+
+.room button.coaster {
+    --turn: 360deg;
+    --hop: -6px;
+
+    font-family: inherit;
+}
+
+.room .felt .decor.lamp {
+    --swing: 6deg;
+
+    right: 4%;
+    bottom: 12%;
+    height: 46px;
+    transform: translate(50%, 20%);
+    transform-origin: 50% 100%;
+    --beat-glow: drop-shadow(0 0 16px rgba(255, 205, 130, 0.95));
+}
+
+.room .felt .decor.cocktail {
+    --swing: 9deg;
+
+    transform-origin: 50% 100%;
+}
+
+.room .felt .decor.shell {
+    --swing: 14deg;
+    --hop: -4px;
+}
+
+@media (min-width: 900px) {
+    .room .felt .decor.lamp {
+        height: 64px;
+    }
+}
+
+.room[data-motion] :is(.decor, button.coaster) {
+    --amp: 1;
+    --beat-seconds: 0.9s;
+}
+
+.room[data-motion="dezent"] :is(.decor, button.coaster) {
+    --amp: 0.5;
+    --beat-seconds: 0.5s;
+}
+
+.room[data-motion] :is(.decor, button.coaster)[data-beat="odd"] {
+    animation: object-beat-odd var(--beat-seconds) ease-in-out; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room[data-motion] :is(.decor, button.coaster)[data-beat="even"] {
+    animation: object-beat-even var(--beat-seconds) ease-in-out; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes object-beat-odd {
+    20% {
+        rotate: calc(var(--swing, 0deg) * -1 * var(--amp));
+        translate: 0 var(--hop, 0);
+        scale: 1.08;
+        filter: var(--beat-glow, drop-shadow(0 6px 5px rgba(25, 12, 30, 0.5)));
+    }
+
+    50% {
+        rotate: calc(var(--swing, 0deg) * var(--amp));
+    }
+
+    80% {
+        rotate: calc(var(--swing, 0deg) * -0.4 * var(--amp));
+    }
+
+    100% {
+        rotate: var(--turn, 0deg);
+    }
+}
+
+@keyframes object-beat-even {
+    20% {
+        rotate: calc(var(--swing, 0deg) * -1 * var(--amp));
+        translate: 0 var(--hop, 0);
+        scale: 1.08;
+        filter: var(--beat-glow, drop-shadow(0 6px 5px rgba(25, 12, 30, 0.5)));
+    }
+
+    50% {
+        rotate: calc(var(--swing, 0deg) * var(--amp));
+    }
+
+    80% {
+        rotate: calc(var(--swing, 0deg) * -0.4 * var(--amp));
+    }
+
+    100% {
+        rotate: var(--turn, 0deg);
+    }
+}
