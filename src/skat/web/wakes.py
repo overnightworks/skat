@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final, Protocol
 
 import structlog
+from logline import unit_trace
 from tandem import Resubscribed, StoreError, Wake
 
 from skat.web.secret_files import StartRefusedError
@@ -183,7 +184,9 @@ class SharedWakes:
                     subscribed.set()
                     wakes.wake_all()
                 elif (topic := _topic_of(event.address)) is not None:
-                    wakes.wake_locally(topic)
+                    # The wake's own handling runs under the sender's trace; the woken streams keep their own traces.
+                    with unit_trace(event.traceparent):
+                        wakes.wake_locally(topic)
         except StoreError as failure:
             # The failure's message may carry an address, so only its type is logged.
             log.error("wake_channel.failed", error_type=type(failure).__name__)
