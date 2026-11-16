@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 
 import pytest
+from agents.mcp_server import listen
 from agents.mcp_server.listen import ResourceChanges
 from agents.member import LISTEN_ALLOWANCE_SECONDS, STANDING_URI, PlaceRef, place_view_uri
 from agents.tools import Principal
@@ -12,7 +13,7 @@ from webauth.ports import AgentFacts
 
 from skat.web.calling import AgentRoster
 from skat.web.mcp import token_carries_agent_facts
-from tests.support.in_memory_place_store import InMemoryPlaceStore
+from tests.support.in_memory_place_store import READ_WITHIN_SECONDS, InMemoryPlaceStore
 
 NOVA = Principal(iss="an-issuer", sub="agent-nova")
 BACH = Principal(iss="an-issuer", sub="agent-bach")
@@ -146,6 +147,36 @@ class TestAnEntryOutlivesTheEndOfItsListenByTheLibrarysAllowance:
         )
 
         assert (held_at_the_end, roster.entries()) == ([{NOVA.sub}], {})
+
+    def test_the_librarys_own_lapse_task_keeps_dropping_entries_as_listens_end_one_after_another(
+        self, roster, monkeypatch
+    ):
+        monkeypatch.setattr(listen, "LAPSE_POLL_SECONDS", 0.01)
+        dropped = asyncio.Queue()
+
+        def dropped_when_no(principal, uri, listens):
+            roster.listening_changed(principal, uri, listens)
+            if not listens:
+                dropped.put_nowait(principal)
+
+        async def listens_and_closes_then_is_dropped(changes, clock, principal):
+            async with changes.opened(principal) as stream:
+                with token_of(AgentFacts(owner="owner-felix", name=principal.sub)):
+                    await changes.acknowledged(principal, stream, [STANDING_URI], tools=False)
+            clock.now += LISTEN_ALLOWANCE_SECONDS
+            async with asyncio.timeout(READ_WITHIN_SECONDS):
+                return await dropped.get()
+
+        async def two_listens_one_after_the_other():
+            clock = Clock()
+            changes = ResourceChanges(InMemoryPlaceStore(clock), listening_changed=dropped_when_no)
+            async with changes.following():
+                first = await listens_and_closes_then_is_dropped(changes, clock, NOVA)
+                second = await listens_and_closes_then_is_dropped(changes, clock, BACH)
+            return first, second
+
+        assert asyncio.run(two_listens_one_after_the_other()) == (NOVA, BACH)
+        assert roster.entries() == {}
 
     def test_two_agents_of_one_owner_with_one_name_hold_one_entry_each(self, roster):
         facts = AgentFacts(owner="owner-felix", name="Mozart")
