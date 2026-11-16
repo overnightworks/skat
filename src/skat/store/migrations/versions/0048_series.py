@@ -72,18 +72,19 @@ CHECK_NAME_OF = {
 KINDS = ("person", "agent")
 
 
-def _one_of(column: str, values: tuple[str, ...]) -> str:
-    return f"{column} IN ({', '.join(f"'{value}'" for value in values)})"
+def _quoted(values: tuple[str, ...]) -> str:
+    return ", ".join(f"'{value}'" for value in values)
+
+
+def _named_check(name: str, column: str, values: tuple[str, ...]) -> str:
+    return f"CONSTRAINT {name} CHECK ({column} IN ({_quoted(values)}))"
 
 
 def _option_checks() -> list[str]:
-    return [
-        f"CONSTRAINT {CHECK_NAME_OF[column]} CHECK ({_one_of(column, values)})" for column, values in ONE_OF.items()
-    ]
+    return [_named_check(CHECK_NAME_OF[column], column, values) for column, values in ONE_OF.items()]
 
 
 def _create_series() -> None:
-    triggers = ", ".join(f"'{trigger}'" for trigger in BOCK_TRIGGERS)
     columns = [
         "table_id text NOT NULL REFERENCES tables (id)",
         "number smallint NOT NULL",
@@ -121,7 +122,7 @@ def _create_series() -> None:
         " CHECK (num_nonnulls(kontra_sayer, kontra_reach, kontra_deadline) IN (0, 3))",
         "CONSTRAINT series_bock_is_all_or_nothing CHECK ((bock_triggers IS NULL) = (bock_overlap IS NULL))",
         "CONSTRAINT series_bock_triggers_are_triggers"
-        f" CHECK (cardinality(bock_triggers) >= 1 AND bock_triggers <@ ARRAY[{triggers}]::text[])",
+        f" CHECK (cardinality(bock_triggers) >= 1 AND bock_triggers <@ ARRAY[{_quoted(BOCK_TRIGGERS)}]::text[])",
         "CONSTRAINT series_ramsch_is_all_or_nothing CHECK"
         " (num_nonnulls(ramsch_occasion, ramsch_scoring, ramsch_jungfrau, ramsch_durchmarsch) IN (0, 4))",
         "CONSTRAINT series_ramsch_pushing_needs_a_ramsch CHECK (ramsch_pushing IS NULL OR ramsch_occasion IS NOT NULL)",
@@ -143,13 +144,13 @@ def _backfill_series() -> None:
     """
     from_tables = ", ".join(f"t.{column}" for column in OPTION_COLUMNS)
     op.execute(
-        "INSERT INTO series (table_id, number, length, deals, ended_early, end_proposer, end_accepter,"
+        "INSERT INTO series (table_id, number, length, deals, ended_early, end_proposer, end_accepter,"  # noqa: S608 - only this revision's fixed column names reach this text
         f" {OPTIONS}, bock_rounds, ramsch_round_games)"
         " SELECT t.id, t.series_number, t.series_length, t.series_deals, t.series_ended_early, t.series_end_proposer,"
         f" t.series_end_accepter, {from_tables}, t.bock_rounds, t.ramsch_round_games FROM tables t"
     )
     op.execute(
-        f"INSERT INTO series (table_id, number, length, deals, {OPTIONS})"
+        f"INSERT INTO series (table_id, number, length, deals, {OPTIONS})"  # noqa: S608 - only this revision's fixed column names reach this text
         f" SELECT t.id, played.series_number, t.series_length, t.series_length, {from_tables}"
         " FROM tables t JOIN (SELECT DISTINCT table_id, series_number FROM game_list) played ON played.table_id = t.id"
         " WHERE NOT EXISTS (SELECT 1 FROM series s WHERE s.table_id = t.id AND s.number = played.series_number)"
@@ -165,7 +166,7 @@ def _guard_games_by_their_series() -> None:
         " FOREIGN KEY (table_id, series_number) REFERENCES series (table_id, number),"
         + ", ".join(f"ADD COLUMN {kind} text" for kind in kinds)
         + f", ADD CONSTRAINT game_list_kinds_are_all_or_nothing CHECK (num_nonnulls({', '.join(kinds)}) IN (0, 3)), "
-        + ", ".join(f"ADD CONSTRAINT game_list_{kind}_is_a_kind CHECK ({_one_of(kind, KINDS)})" for kind in kinds)
+        + ", ".join(f"ADD {_named_check(f'game_list_{kind}_is_a_kind', kind, KINDS)}" for kind in kinds)
     )
 
 
