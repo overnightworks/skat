@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import socket
@@ -19,22 +20,44 @@ if TYPE_CHECKING:
     from typing import IO
 
 REPOSITORY = Path(__file__).parents[2]
+# The source tree of this checkout's release; a process of another release runs on a copy that ships other migrations.
+CHECKOUT_SOURCE = REPOSITORY / "src"
 LOOPBACK = "127.0.0.1"
 START_DEADLINE_SECONDS = 60
 STOP_DEADLINE_SECONDS = 30
 POLL_SECONDS = 0.1
+MIGRATE_DEADLINE_SECONDS = 60
 REQUEST_TIMEOUT_SECONDS = 10
 # What `skat serve` runs, on the tests' page build instead of the frontend's.
 SERVE = (
     "import sys; from pathlib import Path; from skat.host.main import main; "
     "main(['serve'], build_directory=Path(sys.argv[1]))"
 )
+MIGRATE = "from skat.host.main import main; main(['migrate'])"
 
 
 def free_port() -> int:
     with socket.socket() as probe:
         probe.bind((LOOPBACK, 0))
         return int(probe.getsockname()[1])
+
+
+def _process_environment(environment: Mapping[str, str], source: Path) -> dict[str, str]:
+    return {"PATH": os.environ["PATH"], "PYTHONPATH": str(source), **environment}
+
+
+def migrate_as_release(environment: Mapping[str, str], source: Path) -> None:
+    """Runs `skat migrate` of the release whose source tree is `source`, as a rollout's migration step does."""
+    finished = subprocess.run(  # noqa: S603 - the interpreter and the fixed program text are the test's own
+        [sys.executable, "-c", MIGRATE],
+        env=_process_environment(environment, source),
+        cwd=REPOSITORY,
+        capture_output=True,
+        text=True,
+        timeout=MIGRATE_DEADLINE_SECONDS,
+        check=False,
+    )
+    assert finished.returncode == 0, f"skat migrate failed:\n{finished.stdout}{finished.stderr}"
 
 
 def _arriving_by(deadline: float, events: Iterator[str]) -> Iterator[str]:
@@ -58,16 +81,15 @@ def unnamed_event_data(lines: Iterable[str]) -> Iterator[str]:
 class SkatProcess:
     """One `skat serve` process on a loopback port, reached with the Host header of Skat's public origin.
 
-    Its settings come from `environment`; `start` waits until the process answers its readiness probe and `stop`
-    ends it with SIGTERM, as an orchestrator does.
+    It runs the release whose source tree is `source`, this checkout's unless another is given. Its settings come
+    from `environment`; `start` waits until the process answers its readiness probe and `stop` ends it with SIGTERM,
+    as an orchestrator does.
     """
 
-    def __init__(self, environment: Mapping[str, str], log: Path) -> None:
+    def __init__(self, environment: Mapping[str, str], log: Path, source: Path = CHECKOUT_SOURCE) -> None:
         self.port = free_port()
         self._environment = {
-            "PATH": os.environ["PATH"],
-            "PYTHONPATH": str(REPOSITORY / "src"),
-            **environment,
+            **_process_environment(environment, source),
             "SKAT_HOST": LOOPBACK,
             "SKAT_PORT": str(self.port),
         }
@@ -133,6 +155,24 @@ class SkatProcess:
 
     def output(self) -> str:
         return self._log_path.read_text(errors="replace")
+
+    def log_lines(self, event: str) -> list[dict]:
+        """The JSON lines of this event that the process has written so far."""
+        lines = [json.loads(line) for line in self.output().splitlines() if line.startswith("{")]
+        return [line for line in lines if line.get("event") == event]
+
+    def becomes_unready_within(self, seconds: float) -> bool:
+        """Whether the readiness probe turns unready within `seconds`."""
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            if not self._answers_readiness():
+                return True
+            time.sleep(POLL_SECONDS)
+        return False
+
+    def stays_ready_for(self, seconds: float) -> bool:
+        """Whether every readiness probe within `seconds` is answered ready."""
+        return not self.becomes_unready_within(seconds)
 
     def _answers_readiness(self) -> bool:
         try:

@@ -9,18 +9,18 @@ import pytest
 from fastapi.testclient import TestClient
 from logline import Outcome
 from pydantic import ValidationError
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect
 from sqlalchemy.engine import make_url
 
 from skat.host.main import create_database_engine, main, uvicorn_options
 from skat.store import migrate as migrate_module
-from skat.store.migrate import DatabaseNotAtHeadError, create_store_engine, migrate
+from skat.store.migrate import RevisionNotServedError, create_store_engine, migrate
 from skat.store.rule_sets import PostgresRuleSets
 from skat.web.constants import LOGIN_PATH
 from skat.web.secret_files import StartRefusedError
 from skat.web.settings import DatabaseSettings
 from tests.e2e.support.server import SERVER_STOP_TIMEOUT_SECONDS
-from tests.support.migrations import revision_before_head, upgrade_to
+from tests.support.migrations import head_revision, revision_before_head, serve_only, upgrade_to
 from tests.support.page_build import FIXTURE_DIRECTORY
 
 
@@ -138,7 +138,7 @@ class TestMain:
 
         assert server.runs == []
 
-    def test_the_served_app_answers_its_health_probe_from_the_database_it_serves(
+    def test_the_served_app_answers_its_health_probe_from_the_revisions_the_database_serves(
         self, server, configured_environment, database_url
     ):
         configured_environment(database_url)
@@ -147,16 +147,13 @@ class TestMain:
         engine = create_store_engine(database_url)
         before = probe.get("/health").status_code
 
-        with engine.begin() as connection:
-            head = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            connection.execute(text("UPDATE alembic_version SET version_num = 'older'"))
+        serve_only(engine, "older")
         stale = probe.get("/health").status_code
-        with engine.begin() as connection:
-            connection.execute(text("UPDATE alembic_version SET version_num = :head"), {"head": head})
-        after = probe.get("/health").status_code
+        serve_only(engine, "older", head_revision())
+        beside_another = probe.get("/health").status_code
 
         engine.dispose()
-        assert (before, stale, after) == (200, 503, 200)
+        assert (before, stale, beside_another) == (200, 503, 200)
 
     @pytest.mark.parametrize("fault", ["refuses", "stalls"])
     def test_the_served_app_answers_503_while_the_database_cannot_be_reached_and_200_when_it_can_again(
@@ -195,12 +192,12 @@ class TestMain:
         engine_one_behind.dispose()
         assert (before, behind, migrated) == (200, 503, 200)
 
-    def test_refuses_to_serve_a_database_that_is_not_at_head_and_starts_nothing(
+    def test_refuses_to_serve_a_database_that_does_not_serve_its_revision_and_starts_nothing(
         self, server, configured_environment, unmigrated_database_url
     ):
         configured_environment(unmigrated_database_url)
 
-        with pytest.raises(DatabaseNotAtHeadError, match="skat migrate"):
+        with pytest.raises(RevisionNotServedError, match="skat migrate"):
             main(["serve"], run_server=server, build_directory=FIXTURE_DIRECTORY)
 
         assert server.runs == []

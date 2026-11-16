@@ -14,7 +14,7 @@ Today a signed-in member reaches Skat's start page and opens a table with „Neu
 
 ## Quick start
 
-You need Python 3.14+, [uv](https://docs.astral.sh/uv/), Node 24 or 26 and pnpm. `make install` installs the Python side, and `make run` builds the page (`make frontend`) and starts `skat serve`. The server refuses to start without the page build, without the settings below and against a database that is not at the newest migration; `skat migrate` brings it there and needs only `SKAT_DATABASE_URL` and `SKAT_DATABASE_PASSWORD_FILE` and reads `SKAT_OPERATOR_ACCOUNT_ID` when set.
+You need Python 3.14+, [uv](https://docs.astral.sh/uv/), Node 24 or 26 and pnpm. `make install` installs the Python side, and `make run` builds the page (`make frontend`) and starts `skat serve`. The server refuses to start without the page build, without the settings below and against a database that does not list its revision as served; `skat migrate` brings the database there, keeps the release before it listed as served for a rollout, and needs only `SKAT_DATABASE_URL` and `SKAT_DATABASE_PASSWORD_FILE` and reads `SKAT_OPERATOR_ACCOUNT_ID` when set.
 
 Sign-in returns the person to `SKAT_PUBLIC_ORIGIN`, which must be https, so open Skat at that origin (behind a TLS-terminating proxy), not at the plain listen address. The issuer needs a client whose redirect URI is `SKAT_PUBLIC_ORIGIN` + `/auth/callback` and that sends the groups claim.
 

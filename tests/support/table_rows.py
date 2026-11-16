@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 from sqlalchemy import select, text
 
-from skat.store.schema import accounts, metadata, rule_sets, sessions, tables
+from skat.store.schema import accounts, metadata, rule_sets, serving_revisions, sessions, tables
 from tests.support.faulty_tables import HANG_DEADLINE_SECONDS
 
 if TYPE_CHECKING:
@@ -46,7 +46,7 @@ def rows_of(engine, table_id: str) -> dict[str, list[tuple[object, ...]]]:
                 )
             ]
             for each in metadata.sorted_tables
-            if each not in {rule_sets, accounts, sessions}
+            if each not in {rule_sets, accounts, sessions, serving_revisions}
         }
 
 
