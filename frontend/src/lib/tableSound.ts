@@ -184,12 +184,8 @@ export function createTableSound({
         },
         forReaction(reaction) {
             const moving = motion();
-            const lands =
-                moving === undefined
-                    ? 0
-                    : isTableObject(reaction)
-                      ? moving.objectMovesSeconds
-                      : moving.emoteLandsSeconds;
+            const movesSeconds = isTableObject(reaction) ? moving?.objectMovesSeconds : moving?.emoteLandsSeconds;
+            const lands = movesSeconds ?? 0;
             sound.play(
                 soundSet()
                     .reactions[reaction](1)
