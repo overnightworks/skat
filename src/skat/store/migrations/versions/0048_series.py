@@ -157,7 +157,7 @@ def _backfill_series() -> None:
 
 
 def _guard_games_by_their_series() -> None:
-    """The foreign key's creation fails loud on a game whose series the backfill missed, before any column is dropped."""
+    """The foreign key fails loud on a game whose series the backfill missed, before any column is dropped."""
     kinds = [f"seat_{seat}_kind" for seat in (1, 2, 3)]
     op.execute(
         "ALTER TABLE game_list DROP CONSTRAINT game_list_table_id_fkey,"
