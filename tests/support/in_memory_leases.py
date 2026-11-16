@@ -36,9 +36,9 @@ class InMemoryLeases:
     """The stream leases of the pods that share this object, as tandem's `Leases` answers them: a holder is live from
     the entry of `kept` to its exit, and `live` lists them all. `settled` is what the roster answers.
 
-    The failures to come are listed in `reading_fails`, `starting_fails` and `ending_fails`; `reading_hangs` never
-    answers a read and `ending_gate` holds every ending until it is set. `read_threads` names the thread of each read
-    and `read_started` is set by the first.
+    The failures to come are listed in `reading_fails`, `starting_fails`, `ending_fails` and `serving_fails`;
+    `reading_hangs` never answers a read and `ending_gate` holds every ending until it is set. `read_threads` names
+    the thread of each read and `read_started` is set by the first.
     """
 
     def __init__(self) -> None:
@@ -49,6 +49,7 @@ class InMemoryLeases:
         self.ending_fails: list[BaseException] = []
         self.ending_gate: asyncio.Event | None = None
         self.starting_fails: list[BaseException] = []
+        self.serving_fails: list[BaseException] = []
         self.read_threads: list[int] = []
         self.read_started = asyncio.Event()
         self.live_read_count = 0
@@ -73,4 +74,6 @@ class InMemoryLeases:
         claimer: str,
         every: timedelta,
     ) -> None:
+        if self.serving_fails:
+            raise self.serving_fails.pop(0)
         await asyncio.Event().wait()
