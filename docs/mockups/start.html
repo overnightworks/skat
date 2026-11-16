@@ -423,6 +423,7 @@ I.points=sv('<path d="M18 5H6l6 7-6 7h12"/>',2.2);
 I.kontra=sv('<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',2);
 I.ramsch=sv('<path d="M12 4v10M7 10l5 5 5-5M5 20h14"/>',2.2);
 I.schieben=sv('<path d="M4 12h14M13 6l6 6-6 6"/>',2.2);
+I.flag=sv('<path d="M5 21V3.5"/><path d="M5 4.5c4-2 7 2 11.5 0v8.5c-4.5 2-7.5-2-11.5 0z" fill="currentColor"/>',1.8);
 I.bock=sv('<rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.2" fill="currentColor" stroke="none"/>',1.8);
 /* the kit's AiMark: no words, always „AI“ */
 const aiMark=()=>'<span class="ai-mark">AI</span>';
@@ -591,7 +592,12 @@ const HOUSE_RULES=[
   {id:'bock',ic:I.bock,name:'Bockrunden',line:'Manche Spiele zählen doppelt',chip:'Bock',vars:[
     {q:'Bock gibt es nach',flags:[['60 zu 60',1],['Grand Hand gewonnen',1],['Verloren nach Kontra',1],['Re',1],['Alle gepasst',0],['Schneider',0]]},
     {q:'Neuer Auslöser im Bock',pick:['Runden dazu','Nochmal doppelt','Zählt nicht'],at:0}]},
+  /* the two special rules of giving up; both off is the ISkO's give-up, and both share one chip */
+  {id:'partner',ic:I.people,chipIc:I.flag,name:'Partner muss zustimmen',line:'Ein Gegner gibt nur mit Ja des Partners auf',chip:'Aufgeben'},
+  {id:'immer',ic:I.flag,name:'Aufgeben immer',line:'Der Alleinspieler gibt jederzeit auf',chip:'Aufgeben'},
 ];
+/* a chip once, however many of its rules are on */
+const chipsOf=(rules)=>rules.filter((r,i)=>r.chip&&rules.findIndex(o=>o.chip===r.chip)===i);
 const ruleRow=(r,on,sub)=>`<div class="rule ${sub?'sub':''} ${on.includes(r.id)?'on':''}" role="group" aria-label="${r.name}"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${r.line}</small></span>
   <span class="sw ${on.includes(r.id)?'on':''}" role="switch" tabindex="0" aria-checked="${on.includes(r.id)}" aria-label="${r.name}"><i>${I.check}</i></span></div>`;
 /* a rule's variants start with the values of the picked set; „Offiziell“ holds none, so a rule switched on there starts with Felix's */
@@ -610,7 +616,7 @@ const setChoice=(picked)=>`<div class="sets" role="radiogroup" aria-label="Regel
 const lengthChoice=(length)=>`<div class="stepper" role="group" aria-label="Länge der Serie"><span class="step" role="button" tabindex="0" aria-label="3 Spiele weniger">−</span><span class="value" role="spinbutton" tabindex="0" aria-valuemin="3" aria-valuemax="99" aria-valuenow="${length}" aria-label="Spiele">${length}<small>Spiele</small></span><span class="step" role="button" tabindex="0" aria-label="3 Spiele mehr">${I.plus}</span></div>`;
 const saveOffer=(name)=>`<div class="save" role="group" aria-label="Als eigene Regeln speichern"><span class="ic">${I.plus}</span><span class="txt"><b>Als eigene Regeln speichern</b><span class="name" aria-label="Name">${name}</span></span></div>`;
 /* a switch changed away from the picked set offers to save the result as the person's own rules */
-const savedName=(picked,on)=>{const set=RULE_SETS.find(t=>t.id===picked),added=HOUSE_RULES.filter(r=>r.chip&&on.includes(r.id)&&!set.on.includes(r.id)).map(r=>r.chip);
+const savedName=(picked,on)=>{const set=RULE_SETS.find(t=>t.id===picked),added=chipsOf(HOUSE_RULES.filter(r=>on.includes(r.id)&&!set.on.includes(r.id))).map(r=>r.chip);
   return on.length===set.on.length&&on.every(id=>set.on.includes(id))?'':`${set.name}, mit ${added.join(' und ')}`};
 const newTable=(x,y,w,on=[],picked='official',length=36,o={})=>`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Neuer Tisch" style="${at({left:x,top:y,width:w,'max-height':o.h})}"><h3>Neuer Tisch</h3>
   <span class="info" role="button" tabindex="0" title="Offen: steht in der Lobby. Privat: nur mit dem Link." aria-label="Info">i</span>
@@ -621,7 +627,7 @@ const newTable=(x,y,w,on=[],picked='official',length=36,o={})=>`<div class="scri
   <div class="sheet-body"${o.scroll!==undefined?` data-scroll="${o.scroll}"`:''}>${rulesPart(on)}</div>${savedName(picked,on)?saveOffer(savedName(picked,on)):''}
   <div class="btns"><span class="button button-stage">${I.check}Aufmachen</span><span class="button button-glass">Abbrechen</span></div></div>`;
 /* a listed table names its house rules under its name; a table without plays the official rules */
-const ruleChips=(on)=>`<span class="chips">${on.length?HOUSE_RULES.filter(r=>on.includes(r.id)&&r.chip).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
+const ruleChips=(on)=>`<span class="chips">${on.length?chipsOf(HOUSE_RULES.filter(r=>on.includes(r.id))).map(r=>`<span class="chip">${r.chipIc||r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
 
 frame('s3-empty-390','Niemand spielt','Handy 390 px','p390',
   wordmark(195,112,{ws:84,ps:26,rule:44,wg:12})
@@ -738,6 +744,7 @@ const rulesScene=(id,title,on,picked,scroll,notes=UNFOLD_NOTES)=>[360,390,1280].
 rulesScene('rules-on','Neuer Tisch mit Hausregeln',['kontra','ramsch'],'official','0:end',[...UNFOLD_NOTES,DEADLINE_NOTE]);
 rulesScene('rules-set','Neuer Tisch mit eigenem Regelsatz',['points','kontra','ramsch','schieben','bock'],'felix',1);
 rulesScene('rules-detail','Neuer Tisch mit Bockrunden',['bock'],'official','end');
+rulesScene('rules-give-up','Neuer Tisch mit Sonderregeln zum Aufgeben',['partner','immer'],'official','end',[...LENGTH_NOTE,'Zuletzt stehen die zwei Sonderregeln zum Aufgeben, beide aus: Ohne sie gibt der Alleinspieler mit neun Karten frei auf, mit weniger nur mit dem Ja eines Gegners, und das Aufgeben eines Gegners beendet das Spiel sofort für beide (ISkO 4.4). „Partner muss zustimmen“ lässt das Spiel erst mit dem Ja des Partners enden, „Aufgeben immer“ den Alleinspieler jederzeit ohne Ja aufgeben. Sie haben keine Varianten und gelten für die ganze Serie.']);
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
