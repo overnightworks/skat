@@ -157,6 +157,24 @@ class TestAStalledRoster:
 
         assert deals.calls == [(TABLE, None)]
 
+    def test_a_stop_ends_a_read_in_flight_and_the_freeing_is_not_due(
+        self, holding, leases, time, releases, monkeypatch
+    ):
+        monkeypatch.setattr(presence_module, "ROSTER_READ_TIMEOUT_SECONDS", 30)
+        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
+        leases.reading_hangs = True
+        leases.read_started.clear()
+
+        async def scenario():
+            advancing = asyncio.create_task(time.advance(HOLD_SECONDS))
+            await leases.read_started.wait()
+            holding.stop()
+            await asyncio.wait_for(advancing, 5)
+
+        run(scenario())
+
+        assert releases.outcomes == [False]
+
     def test_a_roster_read_for_a_worker_is_made_on_the_event_loop_which_a_waiting_worker_leaves_free(
         self, holding, leases, time, deals
     ):
@@ -218,6 +236,15 @@ class TestTheCloseOfAStream:
 
 
 class TestAnArrival:
+    def test_wakes_the_other_streams_though_the_roster_cannot_be_read(self, holding, leases, wakes):
+        connect(holding, TABLE, "ben", wakes.callback("ben"))
+        before = wakes.counts["ben"]
+        leases.reading_fails = [UNREACHABLE]
+
+        connect(holding, TABLE, "anna", wakes.callback("anna"))
+
+        assert wakes.counts["ben"] == before + 1
+
     def test_fails_when_its_lease_cannot_start_and_leaves_nothing_registered(self, holding, leases, wakes):
         leases.starting_fails = [UNREACHABLE]
 
