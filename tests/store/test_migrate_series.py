@@ -42,6 +42,7 @@ SETTING_COLUMNS = ", ".join(SETTINGS)
 LENGTH = 12
 # The service reads only ids of the shape it hands out.
 PROPOSED = "b0" * 16
+BOCKED_WITHOUT_SERIES = "b4" * 16
 BOCKED = "b1" * 16
 EARLY = "b2" * 16
 GONE_WITH_GAMES = "b3" * 16
@@ -94,6 +95,14 @@ STATES_AT_0047 = (
         series_deals="NULL",
         **{**dict.fromkeys(SETTINGS, "NULL"), "show_running_points": "false"},
     ),
+    table_row(
+        BOCKED_WITHOUT_SERIES,
+        series_length="NULL",
+        series_deals="NULL",
+        bock_rounds="ARRAY[2]",
+        ramsch_round_games=1,
+    ),
+    seated(BOCKED_WITHOUT_SERIES),
     table_row(PROPOSED, series_end_proposer=1, series_end_accepter=2),
     seated(PROPOSED),
     played(PROPOSED, 1),
@@ -189,6 +198,10 @@ class TestFromTablesAtTheRevisionBefore:
     def test_a_table_without_a_series_reads_as_series_one_with_no_length(self, migrated):
         assert numbers_of(migrated, "plain") == [1]
         assert series_row(migrated, "plain", 1)[:2] == (None, None)
+
+    def test_a_table_without_a_series_keeps_its_pending_bock_round(self, migrated):
+        assert series_row(migrated, BOCKED_WITHOUT_SERIES, 1)[:7] == (None, None, False, None, None, [2], 1)
+        assert record_of(migrated, BOCKED_WITHOUT_SERIES).bock == BockRounds((2,), 1)
 
     def test_an_ended_table_keeps_the_series_of_its_games_and_a_gameless_one_its_pointed_series(self, migrated):
         assert numbers_of(migrated, "gone-gameless") == [1]
