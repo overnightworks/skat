@@ -3,6 +3,6 @@ agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
 role = "builder"
 base = "4574b51a91a5348fb9ea58c3a66ea1e90064aebe"
 branch = "claude/issue-658-skat-counts-who-is-present-across-pods"
-scope = ["docs/ARCHITECTURE.md", "src/skat/store", "src/skat/table", "src/skat/web", "tests"]
+scope = ["docs/ARCHITECTURE.md", "src/skat/host", "src/skat/store", "src/skat/table", "src/skat/web", "tests"]
 opened_commit = "7201eb7bb57b11640b0fecda804d594d2ac6b37c"
 whole_reason = "S4 of #592 on the operator's word"
