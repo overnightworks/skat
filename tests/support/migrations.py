@@ -43,10 +43,6 @@ def revisions_from(first: str):
     return list(reversed(newest_first[: [each.revision for each in newest_first].index(first) + 1]))
 
 
-def declares_contraction(script) -> bool:
-    return getattr(script.module, "CONTRACTS", False)
-
-
 def upgrade_to(engine, revision, operator_account_id=None, *, extra_versions: Path | None = None):
     """Applies the steps up to `revision` through the real `env.py`; `extra_versions` names a directory of further
     revision files, which `write_revisions` fills, that extend the real ones.

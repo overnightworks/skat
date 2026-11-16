@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Collection
 
     from alembic.runtime.migration import MigrationInfo
+    from alembic.script import Script
 
 MIGRATIONS_DIRECTORY: Final = Path(__file__).parent / "migrations"
 # Serialises concurrent `skat migrate` runs; any constant shared by all of them does.
@@ -115,6 +116,13 @@ def _head_revision() -> str | None:
     return ScriptDirectory.from_config(_alembic_config()).get_current_head()
 
 
+def declares_contraction(script: Script) -> bool:
+    """Whether the revision's file declares `CONTRACTS = True`, which exempts it from the check that migrations only
+    expand and makes `ServingWindow` count it as a contraction.
+    """
+    return bool(getattr(script.module, "CONTRACTS", False))
+
+
 @dataclass(frozen=True)
 class AppliedStep:
     revision: str
@@ -146,12 +154,11 @@ class ServingWindow:
     def step_applied(self, *, step: MigrationInfo, **_: object) -> None:
         """Alembic's `on_version_apply` hook, which it calls by keyword."""
         if step.is_upgrade:
-            script = step.up_revision
             self._steps.append(
                 AppliedStep(
                     revision=step.up_revision_ids[0],
                     down_revision=step.down_revision_ids[0] if step.down_revision_ids else None,
-                    contracts=bool(getattr(getattr(script, "module", None), "CONTRACTS", False)),
+                    contracts=declares_contraction(step.up_revision),
                 )
             )
 

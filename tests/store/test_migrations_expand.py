@@ -1,6 +1,7 @@
 import pytest
 
-from tests.support.migrations import FixtureRevision, declares_contraction, revisions_from, upgrade_to, write_revisions
+from skat.store.migrate import declares_contraction
+from tests.support.migrations import FixtureRevision, revisions_from, upgrade_to, write_revisions
 from tests.support.schema_contractions import contractions, schema_facts
 
 pytestmark = pytest.mark.postgres
