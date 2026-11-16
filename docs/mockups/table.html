@@ -2412,9 +2412,9 @@ const sweepTrail=(d,w)=>{const g=gatherAt(d),p=PILE_AT.felix(d),W=w,H=d?800:w===
   return `<svg class="trail mo" style="${at({width:W,height:H,'--d':'.9s','--k':'.6s'})}" viewBox="0 0 ${W} ${H}"><path d="M${pts}"/></svg>`;};
 /* the last trick shown again: it rises out of the pile, face up, in the order it was played, each card with its player's tag (on a phone only the face, the names do not fit under three cards); the card that took it wears the pile's rim */
 const faceTag=(k)=>`<span class="tag face ${P[k].agent?'agent':''}">${faceDot(k)}</span>`;
-const lastShown=(d)=>{const p=PILE_AT.felix(d),cx=d?432:PB.cx-20,w=d?84:58;
+const lastShown=(d)=>{const p=PILE_AT.felix(d),cx=d?492:PB.cx-20,w=d?84:58;
   const cards=THIRD_TRICK.map(([r,s,k],i)=>`<div class="lt-card ${k==='felix'?'took':''}" style="${at({'--rot':`${(i-1)*5}deg`})}">${card(r,s,'',at({'--w':w}))}${d?tag(k):faceTag(k)}</div>`).join('');
-  return `<div class="lastshow" role="dialog" aria-label="Letzter Stich" style="${at({left:cx,top:d?p.y-100:PB.you.y-12,'--caret':`${p.x-cx}px`})}"><div class="lt-head">Letzter Stich</div><div class="lt-cards">${cards}</div></div>`;};
+  return `<div class="lastshow" role="dialog" aria-label="Letzter Stich" style="${at({left:cx,top:d?DB.you.y-6:PB.you.y-12,'--caret':`${p.x-cx}px`})}"><div class="lt-head">Letzter Stich</div><div class="lt-cards">${cards}</div></div>`;};
 const trickTable=(d,w,o)=>{const L=seatsOf(d);
   return tableOf(d,{fans:7,count:true,glow:o.glow})+kreuz(d)+(o.felt||'')+pile(d,'anna',1,{last:o.annaLast})+pile(d,'felix',o.felixTricks,{last:!o.annaLast,landing:o.landing})
     +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:o.turn?['turn']:[],got:o.got})+chairCoasters(L,TOTALS_BEFORE)
@@ -2776,7 +2776,7 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .gather{width:0;height:0;z-index:20}
 .lastshow{z-index:40;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 14px 16px;border-radius:18px;
   background:var(--glass-dark);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:inset 0 0 0 1px rgba(240,214,150,.3),0 18px 36px -12px rgba(0,0,0,.9)}
-.lastshow::after{content:"";position:absolute;bottom:-7px;left:calc(50% + var(--caret) - 7px);width:14px;height:14px;rotate:45deg;background:inherit;box-shadow:inset -1px -1px 0 rgba(240,214,150,.3)}
+.lastshow::after{content:"";position:absolute;bottom:-7px;left:clamp(24px,calc(50% + var(--caret) - 7px),calc(100% - 38px));width:14px;height:14px;rotate:45deg;background:inherit;box-shadow:inset -1px -1px 0 rgba(240,214,150,.3)}
 .lt-head{font-size:13px;font-weight:600;color:var(--on-stage-soft)}
 .lt-cards{display:flex;gap:10px}
 .d1280 .lt-cards{gap:16px}
