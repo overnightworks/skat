@@ -46,6 +46,8 @@ WAITS_FOR_YOU = text(SOURCE_LANGUAGE, "table.waitsForYou")
 PASSED_IN = text(SOURCE_LANGUAGE, "table.passedIn")
 YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 LOWEST_BID = 18
+# A read on a connection the server closed for idling meets a reset; Playwright retries only that error.
+RESET_RETRIES = 3
 SKAT_CARD = ".skat-card"
 LADDER = ".ladder"
 HELD = ".ladder .held"
@@ -117,11 +119,11 @@ class Scene:
 
 
 def answer_of(person: Page, table: Table) -> dict[str, Any]:
-    return person.request.get(f"{table.server.base_url}{TABLES_PATH}/{table.id}").json()
+    return person.request.get(f"{table.server.base_url}{TABLES_PATH}/{table.id}", max_retries=RESET_RETRIES).json()
 
 
 def position_of(person: Page, server: RunningServer, table_id: str) -> str:
-    answer = person.request.get(f"{server.base_url}{TABLES_PATH}/{table_id}").json()
+    answer = person.request.get(f"{server.base_url}{TABLES_PATH}/{table_id}", max_retries=RESET_RETRIES).json()
     return next(chair["hand"]["position"] for chair in answer["chairs"] if chair["is_mine"])
 
 
