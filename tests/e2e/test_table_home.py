@@ -13,6 +13,7 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.server import skat_on_new_database
+from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import RECONNECT_MILLISECONDS, assert_never_reloaded, mark_page, open_new_table
 from tests.e2e.support.waiting_tables import deal_a_table_that_waits_for
 from tests.support.signed_in import new_account, seed_member
@@ -130,7 +131,7 @@ def test_the_lobby_button_takes_the_seated_person_home_and_keeps_the_seat(
     person.go_back()
 
     expect(person).to_have_url(f"{e2e_server.base_url}{path}")
-    expect(person.get_by_role("button", name=STAND_UP)).to_be_visible()
+    expect(menu_button(person, STAND_UP)).to_be_visible()
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

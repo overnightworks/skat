@@ -10,6 +10,7 @@ from tests.e2e.support.audio import tap
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.style import ROOM, STYLE_KEY, choose_style, expect_painted_as_the_scene
+from tests.e2e.support.table_menu import close_table_menu, menu_button, open_table_menu
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -26,26 +27,26 @@ SOUND_PANEL = text(SOURCE_LANGUAGE, "sound.panelName")
 TONE = text(SOURCE_LANGUAGE, "sound.tone")
 BEACH = ".beach"
 STYLE_TILES = ".style-tile"
-STRIP = ".actions"
 SCENE_STYLE_ROW = ".snd-row.look"
 PAGE_STYLE_ROW = ".style-row"
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 REFUSED = 409
 
 
-def expect_the_key_in_the_strip(person: Page) -> None:
-    """The style key is visible in the play strip and lies within the strip's box."""
-    strip = person.locator(STRIP)
-    key = strip.get_by_role("button", name=STYLE_KEY)
-    expect(key).to_be_visible()
-    key_box = key.bounding_box()
-    strip_box = strip.bounding_box()
-    assert key_box is not None
-    assert strip_box is not None
-    assert key_box["x"] >= strip_box["x"]
-    assert key_box["x"] + key_box["width"] <= strip_box["x"] + strip_box["width"]
-    assert key_box["y"] >= strip_box["y"]
-    assert key_box["y"] + key_box["height"] <= strip_box["y"] + strip_box["height"]
+def expect_the_row_in_the_menu(person: Page) -> None:
+    """The style row is visible in the table's menu and lies within the menu's box."""
+    menu = open_table_menu(person)
+    row = menu_button(person, STYLE_KEY)
+    expect(row).to_be_visible()
+    row_box = row.bounding_box()
+    menu_box = menu.bounding_box()
+    assert row_box is not None
+    assert menu_box is not None
+    assert row_box["x"] >= menu_box["x"]
+    assert row_box["x"] + row_box["width"] <= menu_box["x"] + menu_box["width"]
+    assert row_box["y"] >= menu_box["y"]
+    assert row_box["y"] + row_box["height"] <= menu_box["y"] + menu_box["height"]
+    close_table_menu(person)
 
 
 def sea_levels(page: Page) -> list[float]:
@@ -79,8 +80,8 @@ def test_a_seated_person_changes_the_style_for_every_page_at_the_table_and_it_st
 
 
 def test_a_watcher_has_no_key_for_the_style(table: PlayingTable) -> None:
-    expect(table.watcher.get_by_role("button", name=STYLE_KEY)).to_have_count(0)
-    expect(table.pages[table.seat_at["forehand"]].get_by_role("button", name=STYLE_KEY)).to_be_visible()
+    expect(table.watcher.locator(".row.style")).to_have_count(0)
+    expect_the_row_in_the_menu(table.pages[table.seat_at["forehand"]])
 
 
 def test_the_sea_runs_under_the_tables_style_after_a_tap_and_follows_the_mute(table: PlayingTable) -> None:
@@ -116,7 +117,7 @@ def test_a_refused_style_shows_the_failure_and_leaves_the_tables_style_marked(
         route.fulfill(status=REFUSED, content_type="application/json", body="{}")
 
     chooser.route(f"**{table.declaring.api_path}{TABLE_STYLE_SUFFIX}", refuse)
-    chooser.get_by_role("button", name=STYLE_KEY).click()
+    menu_button(chooser, STYLE_KEY).click()
     chooser.locator(f"{STYLE_TILES}.style-strandbar").click()
 
     expect(chooser.locator(".note")).to_have_text(COMMAND_FAILED)
@@ -135,8 +136,8 @@ def test_the_style_panel_opens_inside_the_page_and_changes_the_table_at_every_wi
     table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, game="kreuz")
     chooser = table.pages[table.seat_at["forehand"]]
 
-    expect_the_key_in_the_strip(chooser)
-    chooser.get_by_role("button", name=STYLE_KEY).click()
+    expect_the_row_in_the_menu(chooser)
+    menu_button(chooser, STYLE_KEY).click()
 
     expect(chooser.locator(STYLE_TILES)).to_have_count(len(TableStyle))
     expect_painted_as_the_scene(
@@ -154,5 +155,5 @@ def test_the_style_panel_opens_inside_the_page_and_changes_the_table_at_every_wi
     for person in table.everyone:
         expect(person.locator(ROOM)).to_have_attribute("data-style", "strandbar")
     chooser.keyboard.press("Escape")
-    expect_the_key_in_the_strip(chooser)
+    expect_the_row_in_the_menu(chooser)
     assert page_errors == []

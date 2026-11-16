@@ -1,5 +1,5 @@
 import { faceOf, type AskButton, type AskView } from "#lib/giveUp.ts";
-import { LEVEL_WORDS, withMinus } from "#lib/result.ts";
+import { declaredResult, LEVEL_WORDS, ramschResultView, withMinus } from "#lib/result.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { SeriesEntry } from "../routes/(start)/seriesList.ts";
 import { gameLabel, type Game, type SeriesEndAnswer, type Standing, type Table } from "../routes/(start)/tables.ts";
@@ -107,6 +107,11 @@ export function standingsView(table: Table): StandingsView | null {
         rows,
         winnerSeats,
     };
+}
+
+// A result, the standings or a Ramsch's reckoning stands on the table.
+export function resultOnStage(table: Table): boolean {
+    return standingsView(table) !== null || declaredResult(table) !== null || ramschResultView(table) !== null;
 }
 
 export type GameRow = {

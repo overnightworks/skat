@@ -1182,6 +1182,126 @@ body {
     }
 }
 
+/* The table menu's key: 40px of glass in a 44px tap target at the top row's end, as the back key stands at its start; in a call's strip it is a 52px round key like the speaker's. */
+.room .menu-key {
+    position: relative;
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    margin-left: 8px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--on-stage);
+    background: rgba(244, 246, 248, 0.26);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+        0 4px 10px -4px rgba(0, 0, 0, 0.7);
+    cursor: pointer;
+}
+
+.room .menu-key::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+}
+
+.room .menu-key svg {
+    width: 22px;
+    height: 22px;
+}
+
+.room .menu-key.strip {
+    width: 52px;
+    height: 52px;
+    margin-left: 0;
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: none;
+}
+
+.room .menu-key.strip svg {
+    width: 24px;
+    height: 24px;
+}
+
+.room .menu-key.on {
+    color: var(--stage-ink, #0c0e11);
+    background: var(--on-stage);
+}
+
+.room .menu-key:focus-visible {
+    outline: 2px solid var(--on-stage);
+    outline-offset: 2px;
+}
+
+/* The menu: sections of 48px rows on the dark glass of the anchored panel; the rows that end something are in a soft red, and a row that asks its second tap is the leave red. */
+.room .menu {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0 6px;
+    overflow-y: auto;
+}
+
+.room .menu-section {
+    margin: 0;
+    padding: 12px 16px 4px;
+    color: var(--on-stage-soft);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.room .menu-section:not(:first-child) {
+    margin-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.room .menu .row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    padding: 0 16px;
+    border: 0;
+    color: var(--on-stage);
+    background: none;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.room .menu .row:hover:not(:disabled, .arm),
+.room .menu .row:focus-visible:not(.arm) {
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+}
+
+.room .menu .row:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.room .menu .row svg {
+    flex: none;
+    width: 20px;
+    height: 20px;
+}
+
+.room .menu .row:is(.close, .give-up, .abort) {
+    color: #ff8a8f;
+}
+
+.room .menu .row .run-out {
+    right: 16px;
+    left: 48px;
+}
+
 /* The table moves up when the call's greeting drops the bar; a tap aimed at the old place must not reach a control that moved under it. The animation moves nothing, so it stays outside prefers-reduced-motion. */
 .room .stage.after-drop {
     animation: stage-untouchable 1s;
@@ -3546,8 +3666,8 @@ body {
         --lie: 9deg;
     }
 
-    .room .laid.near {
-        top: 64%;
+    .room :is(.laid.near, .lead-slot) {
+        top: 52%;
     }
 
     .room .points {
@@ -4927,33 +5047,8 @@ body {
     cursor: default;
 }
 
-/* The pill that opens the agents' list: the AI mark with its word at 900 px and wider, the mark alone round on a phone. */
-.room .pill-anchor {
-    position: relative;
-    display: inline-flex;
-}
-
-.room .copy.agents.on {
-    color: var(--stage-ink, #0c0e11);
-    background: var(--on-stage);
-}
-
-@media (max-width: 899px) {
-    .room .copy.agents,
-    .room .actions.on-result .copy.agents {
-        box-sizing: border-box;
-        justify-content: center;
-        width: 52px;
-        padding: 0;
-    }
-
-    .room .copy.agents .word {
-        display: none;
-    }
-}
-
-/* The list hangs on its pill as dark glass, its caret over the pill's middle; the kit's tokens inside are the dark ones. */
-.room .agents-pop {
+/* The kit's list inside the table menu: its tokens are the dark ones, as the menu is dark glass. */
+.room .agents-list {
     --text: #e0e0e0;
     --text-muted: #888;
     --border: #333;
@@ -4961,38 +5056,13 @@ body {
     --fail: #f44;
     --fail-soft: #3a1a1a;
 
-    position: absolute;
-    z-index: 60;
-    bottom: calc(100% + 10px);
-    box-sizing: border-box;
-    padding: 6px 0 2px;
-    border-radius: 12px;
-    background: rgba(17, 17, 17, 0.94);
-    backdrop-filter: blur(14px);
-    box-shadow:
-        inset 0 0 0 1px rgba(255, 255, 255, 0.14),
-        0 18px 36px -10px rgba(0, 0, 0, 0.9);
     font-size: 14px;
     font-weight: 400;
     text-align: left;
     white-space: normal;
 }
 
-.room .agents-pop::after {
-    content: "";
-    position: absolute;
-    left: var(--caret, 50%);
-    bottom: -6px;
-    width: 10px;
-    height: 10px;
-    margin-left: -5px;
-    rotate: 45deg;
-    background: rgb(17, 17, 17);
-    border-right: 1px solid rgba(255, 255, 255, 0.14);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-/* The result's bar is one row unless the agents' pill joins it: on a phone the link is its icon alone and the buttons close up. */
+/* The result's bar is one row on a phone: Weiter or the wait for the others, and in a call the speaker and the menu key beside them. */
 @media (max-width: 899px) {
     .room .actions.on-result {
         flex-wrap: nowrap;
@@ -5007,7 +5077,7 @@ body {
         gap: 8px;
     }
 
-    /* The pill stays as tall as its neighbours and holds its words centred: up to three lines of its type fit the 52px,
+    /* The wait stays as tall as its neighbours and holds its words centred: up to three lines of its type fit the 52px,
        and longer names end in an ellipsis. The hopping dots are left out on a phone, as the frozen scene leaves them out. */
     .room .actions.on-result .copy.wait {
         flex: 0 1 auto;
@@ -5028,110 +5098,8 @@ body {
     .room .actions.on-result .copy.wait .dots {
         display: none;
     }
-
-    /* The link keeps its word where it stands alone, as the watcher's bar draws it. */
-    .room .actions:has(> .copy:not(.link)) .copy.link {
-        justify-content: center;
-        align-self: center;
-        width: 52px;
-        height: 52px;
-        padding: 0;
-    }
-
-    .room .actions:has(> .copy:not(.link)) .copy.link .label {
-        display: none;
-    }
-
-    /* With the agents' pill a fourth button joins the row; where it does not fit, the bar wraps. */
-    .room .actions.on-result:has(.pill-anchor):not(:has(.sound-strip)) {
-        flex-wrap: wrap;
-    }
-
-    /* In a call the speaker is the fourth button and the bar stays one row, as it does with the key that proposes the end, during a hand the strip has no room for two words,
-       and the opener's close key is one more button beside the link: the stand-up keeps its mark alone and its word for assistive technology. */
-    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy:is(.stand, .give-up),
-    .room .actions.on-result:has(.end-series) .copy:is(.stand, .give-up),
-    .room .actions.on-result:has(.copy.close) .copy.stand,
-    .room .copy.round {
-        position: relative;
-        box-sizing: border-box;
-        justify-content: center;
-        width: 52px;
-        padding: 0;
-    }
-
-    .room .actions.on-result:has(.pill-anchor):has(.sound-strip) .copy:is(.stand, .give-up) .label,
-    .room .actions.on-result:has(.end-series) .copy:is(.stand, .give-up) .label,
-    .room .actions.on-result:has(.copy.close) .copy.stand .label,
-    .room .copy.round .label {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
-    }
 }
 
-/* During a hand a phone's strip holds the give-up, the round stand-up, the agents' pill and the link in one row: the link keeps its mark alone, and the armed give-up drops its mark and sets its question in a smaller type so the row still fits 360 px. */
-@media (max-width: 899px) {
-    .room .actions:has(.give-up) {
-        flex-wrap: nowrap;
-        gap: 8px;
-    }
-
-    .room .actions:has(.give-up) .copy {
-        flex-shrink: 0;
-        padding: 0 16px;
-        gap: 8px;
-    }
-
-    .room .actions:has(.give-up) .copy.round {
-        padding: 0;
-    }
-
-    .room .actions:has(.give-up) .copy.link {
-        justify-content: center;
-        width: 52px;
-        padding: 0;
-    }
-
-    .room .actions:has(.give-up) .copy.link .label {
-        display: none;
-    }
-
-    .room .copy:is(.give-up, .play-open).arm {
-        padding: 0 12px;
-        font-size: 14px;
-    }
-
-    .room .copy:is(.give-up, .play-open).arm svg {
-        display: none;
-    }
-
-    /* The keys that shorten and play open are longer than the strip has room for beside four round keys and the close key, and the armed open play asks a longer question still, so they give way, the open play in two lines, rather than push a key off the screen. */
-    .room .actions:has(.give-up) .copy:is(.shorten, .play-open) {
-        flex-shrink: 1;
-        min-width: 0;
-    }
-
-    .room .copy.play-open .label {
-        white-space: normal;
-        text-align: center;
-        line-height: 1.15;
-    }
-
-    /* The word „Offen spielen“ is the longest key beside four round ones, so its padding and the strip's gaps give way to keep the row inside the screen. */
-    .room .actions:has(.copy.play-open) {
-        gap: 4px;
-    }
-
-    .room .actions:has(.give-up) .copy.play-open:not(.arm) {
-        padding-inline: 10px;
-    }
-}
-
-/* The smallest phones keep the stand-up's word beside the pill, which sets its names in a smaller padding. */
 @media (max-width: 379px) {
     .room .actions.on-result .copy.wait {
         padding-inline: 8px;
@@ -5144,6 +5112,7 @@ body {
 }
 
 .room .copy.armed-key.arm,
+.room .row.armed-key.arm,
 .room .declare .step.armed-key.arm {
     color: #fff;
     background: var(--leave);
@@ -5166,14 +5135,6 @@ body {
     left: 22px;
 }
 
-@media (max-width: 899px) {
-    .room .copy.round .run-out {
-        right: 14px;
-        bottom: 7px;
-        left: 14px;
-    }
-}
-
 @media (prefers-reduced-motion: no-preference) {
     .room .armed-key .run-out {
         animation: run-out 3s linear both;
@@ -5183,64 +5144,6 @@ body {
         to {
             transform: scaleX(0);
         }
-    }
-}
-
-/* The opener's close key: the leave red, dark enough for white text, with its word at 900 px and wider and the mark alone, round, on a phone. */
-.room .copy.close {
-    color: #fff;
-    background: #cf3238;
-    backdrop-filter: none;
-}
-
-@media (max-width: 899px) {
-    .room .actions .copy.close {
-        position: relative;
-        box-sizing: border-box;
-        justify-content: center;
-        width: 52px;
-        padding: 0;
-    }
-
-    .room .copy.close .label {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
-    }
-}
-
-/* During a hand the opener's strip holds the give-up or Kontra, the stand-up, the agents' pill, the link and the close key: on a phone Kontra keeps its word alone, and the gaps and the give-up's padding give way too, so the row stays inside the screen. */
-@media (max-width: 899px) {
-    .room .actions:has(.copy.close) > .copy:is(.kontra, .shorten, .play-open) svg {
-        display: none;
-    }
-
-    .room .actions:has(.give-up):has(.copy.close) {
-        gap: 4px;
-    }
-
-    .room .actions:has(.give-up):has(.copy.close) .copy.give-up:not(.round),
-    .room .actions:has(.give-up):has(.copy.close) .copy:is(.shorten, .play-open) {
-        padding-inline: 10px;
-    }
-}
-
-/* The keys that shorten and play open show their word alone on the narrowest phones, as Kontra does; beside the close key their word is set smaller in less padding, as the row has no more room. */
-@media (max-width: 379px) {
-    .room .copy:is(.shorten, .play-open) svg {
-        display: none;
-    }
-
-    .room .actions:has(.give-up):has(.copy.close) {
-        gap: 3px;
-    }
-
-    .room .actions:has(.give-up):has(.copy.close) .copy:is(.shorten, .play-open) {
-        padding-inline: 3px;
-        font-size: 14px;
     }
 }
 
@@ -5453,20 +5356,13 @@ body {
     outline-offset: 2px;
 }
 
-/* 8 px between the glass of the speaker and the glass beside it. The speaker's and the Lobby button's tap targets are 4 px wider than their glass, the watchers' pill has no such margin: left of the watchers, 6 px; where the Lobby button and the watchers leave no room for it, right after the Lobby button, 4 px. */
+/* 8 px between the glass of the speaker and the glass beside it. The speaker's, the back key's and the menu key's tap targets are 4 px wider than their glass, the watchers' pill has no such margin: the speaker stands right after the reaction key on a phone and left of the watchers from 900 px. */
 .room .sound-button.sound-bar {
-    margin-left: auto;
-    margin-right: 6px;
+    margin-left: 6px;
+    margin-right: auto;
 }
 
-@media (max-width: 389px) {
-    .room .sound-button.sound-bar {
-        margin-left: 4px;
-        margin-right: auto;
-    }
-}
-
-/* In the strip it stands where the link stands outside a call, as tall as its neighbours. */
+/* In the strip of a call it stands before the menu key, as tall as its neighbours. */
 .room .sound-button.sound-strip {
     width: 52px;
     height: 52px;
@@ -5493,6 +5389,7 @@ body {
 @media (min-width: 900px) {
     .room .sound-button.sound-bar {
         width: auto;
+        margin-left: auto;
         margin-right: 8px;
     }
 
@@ -6906,29 +6803,6 @@ body {
     }
 }
 
-/* A phone's strip keeps one row while a hand runs, as the scenes draw it: the abort key shows its flag alone (its word stays for assistive technology) until a first tap arms it. */
-@media (max-width: 899px) {
-    .room .actions:not(.on-result) {
-        width: calc(100% + 20px);
-    }
-
-    .room .copy.abort:not(.arm) {
-        box-sizing: border-box;
-        justify-content: center;
-        width: 52px;
-        padding: 0;
-    }
-
-    .room .copy.abort:not(.arm) .label {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
-    }
-}
-
 @media (min-width: 900px) {
     .room .callout-spot {
         height: calc(var(--card-width) * 2.6);
@@ -6983,9 +6857,18 @@ body {
     outline-offset: 2px;
 }
 
-@media (max-width: 389px) {
+/* A phone has no room for the count in the first row between the back key, the reaction key, the speaker, the watchers and the menu key, which closes the row; the count stands in the second row beside the rules' chips. */
+@media (max-width: 899px) {
     .room .series-count {
-        top: 9px;
+        position: relative;
+        top: auto;
+        left: auto;
+        order: 3;
+        transform: none;
+    }
+
+    .room .rules-slot {
+        flex: 1 1 auto;
     }
 }
 
@@ -8177,5 +8060,147 @@ body {
             translate: 0 24px;
             scale: 0.8;
         }
+    }
+}
+
+/* On a desktop the own seat is no tile on the felt: a slim bar centred over the hand carries the name, the marks and the points. */
+@media (min-width: 900px) {
+    .room .chair.mine {
+        grid-column: 1 / 3;
+        justify-self: center;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-sizing: border-box;
+        width: auto;
+        height: 44px;
+        margin: 0;
+        padding: 0 14px 0 5px;
+        aspect-ratio: auto;
+        border-radius: 999px;
+        background: rgba(12, 14, 17, 0.72);
+        backdrop-filter: blur(12px);
+        box-shadow:
+            0 10px 22px -8px rgba(0, 0, 0, 0.7),
+            inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .room .chair.mine.turn {
+        box-shadow:
+            0 0 0 2px var(--accent-stage, #7aa7f0),
+            0 0 18px rgba(122, 167, 240, 0.5),
+            inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .room .chair.mine.win {
+        box-shadow:
+            0 0 0 2px #f3cf7a,
+            0 0 20px rgba(243, 207, 122, 0.5),
+            inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .room .chair.mine .tile,
+    .room .chair.mine.turn .tile {
+        position: static;
+        flex: none;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        box-shadow: none;
+    }
+
+    /* The bar's own ring marks the turn and holds still, so the avatar in it neither breathes nor wears a ring. */
+    .room[data-motion] .chair.mine.turn:not(.shaken) .tile {
+        animation: none;
+    }
+
+    .room[data-motion] .chair.mine.turn.shaken .tile {
+        animation: chair-shake 0.6s linear 0.5s; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+    }
+
+    .room .chair.mine .initial {
+        font-size: 16px;
+    }
+
+    .room .chair.mine .plate {
+        position: static;
+        order: 1;
+        max-width: none;
+        padding: 0;
+        overflow: visible;
+        transform: none;
+        color: var(--on-stage);
+        background: none;
+        font-size: 14px;
+    }
+
+    .room .chair.mine .mark {
+        position: static;
+        order: 2;
+        flex: none;
+        height: 26px;
+    }
+
+    .room .chair.mine .mark:is(.declarer, .dealer, .pass, .think, .declined) {
+        justify-content: center;
+        gap: 0;
+        width: 26px;
+        padding: 0;
+        font-size: 0;
+    }
+
+    .room .chair.mine .coaster {
+        --coaster-size: 34px;
+
+        position: static;
+        order: 3;
+        flex: none;
+    }
+
+    /* The arrow stands on the tapped card, so the bar above it covers nothing of it. */
+    .room .own-hand .swipe {
+        top: 10px;
+    }
+
+    /* While a hand is played the trick rises among the far chairs' row and the bar stands over the hand, so the dashed slot and the laid cards with their tags end above the bar and a lifted card stands clear of it. */
+    .room .stage:has(> .trick) {
+        --trick-rise: 152px;
+    }
+
+    .room .stage:has(> .trick) .trick,
+    .room .stage:has(> .trick) .callout-spot {
+        margin-top: calc(var(--trick-rise) * -1);
+    }
+
+    .room .stage:has(> .trick) .chair.mine {
+        margin-bottom: 18px;
+    }
+
+    /* The notice about a chair stands between the plaque and the raised cards, so the trick and the bar below it step down by the room it takes. */
+    .room .stage:has(> .trick):has(> .notice.seat) {
+        --trick-rise: 126px;
+    }
+
+    .room .stage:has(> .trick) > .notice.seat {
+        margin-top: -18px;
+    }
+
+    .room .stage:has(> .trick):has(> .notice.seat) .chair.mine {
+        margin-bottom: -4px;
+    }
+
+    /* The felt reaches up with the trick, so the raised cards still lie on it. */
+    .room .stage:has(> .trick) .felt {
+        margin-top: 6px;
+    }
+
+    /* At the result the card rises, so the bar stands under it, clear of the keys. */
+    .room .stage:has(> .result) .chair.mine {
+        grid-column: 1 / 3;
+        justify-self: center;
+    }
+
+    .room .stage:has(> .result) .result {
+        translate: 0 -80px;
     }
 }

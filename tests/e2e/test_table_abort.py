@@ -13,6 +13,7 @@ from tests.e2e.support.declaring import button_of
 from tests.e2e.support.early_end import expect_nothing_to_overflow
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE, WIDTHS
+from tests.e2e.support.table_menu import close_table_menu, menu_button, open_table_menu
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -32,7 +33,7 @@ COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 REFUSED = 409
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-KEY = ".copy.abort"
+KEY = ".row.abort"
 ASK = ".plaque.ask"
 ABORT_PARTS = f"{KEY}, {ASK}, {ASK} button"
 ARMED_RUN_OUT_SECONDS = 3
@@ -59,7 +60,8 @@ def deal_a_waiting_hand(
         proposer_seat, answerer_seat = (seat for seat in table.pages if seat != leaver_seat)
         proposer, answerer = table.pages[proposer_seat], table.pages[answerer_seat]
         for person in (proposer, answerer):
-            expect(person.locator(KEY)).to_be_visible()
+            expect(open_table_menu(person).locator(KEY)).to_be_visible()
+            close_table_menu(person)
         return table, proposer, answerer
 
     return deal
@@ -75,6 +77,7 @@ def test_a_person_taps_the_key_twice_the_other_agrees_and_the_hand_ends_aborted(
     proposer_name = table.names[table.seat_of(proposer)]
     answerer_seat = table.seat_of(answerer)
     answerer_name = table.names[answerer_seat]
+    open_table_menu(proposer)
     expect_nothing_to_overflow(proposer, ABORT_PARTS)
     expect(table.watcher.locator(KEY)).to_have_count(0)
 
@@ -108,7 +111,7 @@ def test_a_person_taps_the_key_twice_the_other_agrees_and_the_hand_ends_aborted(
         expect(person.locator(KEY)).to_have_count(0)
         expect(person.locator(".fan-spot")).to_have_count(0)
     for person in (proposer, answerer):
-        expect(button_of(person, STAND_UP)).to_be_visible()
+        expect(menu_button(person, STAND_UP)).to_be_visible()
     view = table.view(answerer_seat)
     assert view["hand"] is None
     assert view["aborted"] == {"next_dealer_seat": None}
@@ -120,6 +123,7 @@ def test_a_no_takes_the_proposal_away_and_the_key_is_offered_again(
     deal_a_waiting_hand: Callable[..., tuple[PlayingTable, Page, Page]], page_errors: list[str]
 ) -> None:
     table, proposer, answerer = deal_a_waiting_hand(PHONE)
+    open_table_menu(proposer)
     proposer.locator(KEY).click()
     proposer.locator(KEY).click()
     expect(answerer.locator(ASK)).to_be_visible()
@@ -138,6 +142,7 @@ def test_the_armed_key_runs_out_after_three_seconds_and_sends_nothing(
 ) -> None:
     table, proposer, answerer = deal_a_waiting_hand(PHONE)
 
+    open_table_menu(proposer)
     proposer.locator(KEY).click()
 
     expect(proposer.locator(KEY)).to_contain_text(ABORT_SURE)
@@ -158,6 +163,7 @@ def test_a_refused_yes_shows_the_failure_and_offers_the_key_again(
         route.fulfill(status=REFUSED, content_type="application/json", body="{}")
 
     proposer.route(f"**{table.declaring.api_path}{TABLE_ABORT_AGREE_SUFFIX}", refuse)
+    open_table_menu(proposer)
     proposer.locator(KEY).click()
     proposer.locator(KEY).click()
 

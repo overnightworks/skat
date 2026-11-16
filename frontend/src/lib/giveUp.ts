@@ -1,5 +1,5 @@
 import type { Cue } from "#lib/cues.ts";
-import { declinableWord, keyWord } from "#lib/kontra.ts";
+import { keyWord } from "#lib/kontra.ts";
 import { handWaits, type SeatNotice } from "#lib/openChair.ts";
 import { gameInPlay } from "#lib/playView.ts";
 import { LEVEL_WORDS } from "#lib/result.ts";
@@ -95,15 +95,11 @@ function requestStands(playing: Playing): boolean {
     return playing.give_up !== null || playing.shortening !== null || playing.open_play_seat !== null;
 }
 
-// The key „Aufgeben“ on the bar of every seated person while a declared game is played, a Grand Hand declared in a
-// Ramsch's stage included; it goes round on a phone while the strip carries another key beside it, but keeps its word
-// when the pair „Kontra“ and „Kein Kontra“ stands in a bar of its own above.
-export function giveUpKey(table: Table): { round: boolean } | null {
+// The row „Aufgeben“ in the menu of every seated person while a declared game is played, a Grand Hand declared in a
+// Ramsch's stage included.
+export function giveUpOffered(table: Table): boolean {
     const seated = table.chairs.some((chair) => chair.is_mine);
-    if (!seated || gameInPlay(table) === null || handWaits(table.hand)) return null;
-    const beside =
-        (keyWord(table) !== null && declinableWord(table) === null) || shortenKey(table) || playOpenKey(table);
-    return { round: beside };
+    return seated && gameInPlay(table) !== null && !handWaits(table.hand);
 }
 
 export function faceOf(chairs: readonly Chair[], seat: number): AskFace {

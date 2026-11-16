@@ -23,6 +23,7 @@ from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.server import skat_on_new_database
+from tests.e2e.support.table_menu import MENU_KEY
 from tests.e2e.support.tables import (
     assert_never_reloaded,
     click_new_table,
@@ -141,11 +142,10 @@ def test_the_old_link_of_an_ended_table_shows_the_wait_and_offers_no_seat_and_op
     expect(person.locator(".chair")).to_have_count(3)
     for absent in (
         text(SOURCE_LANGUAGE, "table.sitDown"),
-        text(SOURCE_LANGUAGE, "table.standUp"),
-        text(SOURCE_LANGUAGE, "table.copyLink"),
         text(SOURCE_LANGUAGE, "table.reconnecting"),
     ):
         expect(person.get_by_text(absent)).to_be_hidden()
+    expect(person.locator(MENU_KEY)).to_have_count(0)
     expect(person.locator(".watchers")).to_have_count(0)
     expect_the_panel_inside_the_viewport(person)
     assert requests == []

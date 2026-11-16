@@ -3,7 +3,13 @@
     import { words } from "#lib/words.ts";
     import type { Table } from "../../routes/(start)/tables.ts";
 
-    let { id, table, note = $bindable() }: { id: string; table: Table; note: string } = $props();
+    // `onsent` is told when the tap sends the request, so the menu that holds the row can close.
+    let {
+        id,
+        table,
+        note = $bindable(),
+        onsent,
+    }: { id: string; table: Table; note: string; onsent?: () => void } = $props();
 
     // The request is under way from the tap until the stream brings a newer version; only a refusal ends it sooner.
     let sentAtVersion = $state<number | null>(null);
@@ -23,10 +29,11 @@
 {#if shortenKey(table)}
     <button
         type="button"
-        class="copy shorten"
+        class="row shorten"
         title={words["table.shorten"]}
         disabled={busy}
         onclick={() => {
+            onsent?.();
             void send();
         }}
     >

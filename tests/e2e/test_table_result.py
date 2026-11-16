@@ -35,12 +35,13 @@ from tests.e2e.support.result_card import (
     waiting_for,
 )
 from tests.e2e.support.style import (
-    STYLE_KEY,
     STYLES,
+    TABLE_SCENES,
     expect_painted_as_the_scene,
     expect_the_furniture_clear,
     give_the_table_its_style,
 )
+from tests.e2e.support.table_menu import MENU, close_table_menu, menu_button, open_table_menu
 from tests.e2e.support.tables import SIT_DOWN
 
 if TYPE_CHECKING:
@@ -55,13 +56,11 @@ SEAT_TILE_PAINT = ["backgroundImage", "backgroundColor", "color", "boxShadow"]
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
-AGENTS_PILL = text(SOURCE_LANGUAGE, "agents.pill")
+CLOSE_KEY = text(SOURCE_LANGUAGE, "table.close")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 SEAT_AWAY = text(SOURCE_LANGUAGE, "table.seatAway")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 READY_MARK = ".mark.ready"
-ROUND_KEY_PIXELS = 52
-PHONE_BREAKPOINT = 900
 OWN_HAND_CARD = ".own-hand .card"
 CARDS_IN_A_HAND = 10
 LONG_NAMES = ("Bartholom\u00e4us-Maximilian-Ferdinand", "Maximiliane-Bartholom\u00e4a-Ferdinande")
@@ -79,11 +78,11 @@ FRAMES_AFTER_THE_CARD = 90
 # Every frame from now on, the open list's distance to each edge of the screen the person's device has (not of the
 # layout width a widened page reports); after the card stands, `framesAfterTheCard` counts the frames.
 WATCH_THE_OPEN_LIST = """
-    ([screenWidth, margin]) => {
+    ([screenWidth, margin, menu]) => {
         window.listOutside = [];
         window.framesAfterTheCard = 0;
         const watch = () => {
-            const list = document.querySelector(".agents-pop")?.getBoundingClientRect();
+            const list = document.querySelector(menu)?.getBoundingClientRect();
             if (list !== undefined && (list.left < margin - 0.5 || list.right > screenWidth - margin + 0.5)) {
                 window.listOutside.push([list.left, list.right, innerWidth]);
             }
@@ -94,10 +93,7 @@ WATCH_THE_OPEN_LIST = """
     }
 """
 
-PILL_HEIGHTS = (
-    "bar => [...bar.children].filter(child => !child.matches('.link'))"
-    ".map(child => child.getBoundingClientRect().height)"
-)
+PILL_HEIGHTS = "bar => [...bar.children].map(child => child.getBoundingClientRect().height)"
 
 
 class ModestBidTable(DeclaringTable):
@@ -256,19 +252,25 @@ def expect_the_marks(table: PlayingTable, ready: set[int]) -> None:
 
 
 def expect_the_buttons(table: PlayingTable, ready: set[int]) -> None:
-    """The seated viewers' bars: „Weiter“ until they have tapped, then who is awaited; the watcher's has neither."""
+    """The seated viewers' bars: „Weiter“ until they have tapped, then who is awaited; the watcher's has neither.
+
+    Standing up and the link lie in the menu, not in the bar.
+    """
     for seat, person in table.pages.items():
         bar = person.locator(".actions")
         assert bar.evaluate("bar => new Set([...bar.children].map(child => child.offsetTop)).size") == 1
-        expect(bar.get_by_role("button", name=STAND_UP)).to_be_visible()
-        expect(bar.get_by_role("button", name=COPY_LINK)).to_be_visible()
+        expect(bar.get_by_role("button", name=STAND_UP)).to_have_count(0)
+        expect(bar.get_by_role("button", name=COPY_LINK)).to_have_count(0)
+        expect(menu_button(person, STAND_UP)).to_be_visible()
+        expect(menu_button(person, COPY_LINK)).to_be_visible()
+        close_table_menu(person)
         if seat in ready:
             expect(bar.get_by_role("button", name=WEITER)).to_have_count(0)
             expect(bar.get_by_role("status")).to_have_text(waiting_for(awaited(table, ready)))
         else:
             expect(bar.get_by_role("button", name=WEITER)).to_be_visible()
-    for name in (WEITER, STAND_UP):
-        expect(table.watcher.locator(".actions").get_by_role("button", name=name)).to_have_count(0)
+    expect(table.watcher.locator(".actions").get_by_role("button", name=WEITER)).to_have_count(0)
+    expect(table.watcher.locator(".row.stand")).to_have_count(0)
 
 
 def reload_everyone(table: PlayingTable) -> None:
@@ -299,7 +301,7 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
                 person, "strand-result", ".result .reck:not(.win)", ".reck:not(.win)", SEAT_TILE_PAINT
             )
     for person in table.everyone:
-        expect(person.get_by_role("button", name=STYLE_KEY)).to_have_count(0)
+        expect(person.locator(".row.style")).to_have_count(0)
     expect_the_marks(table, set())
     expect_the_buttons(table, set())
 
@@ -323,12 +325,14 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
 
 @pytest.mark.usefixtures("realm_reusing_refresh_tokens")
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_result_bar_stays_inside_the_page_with_the_agents_pill(
+def test_the_result_bar_stays_inside_the_page_with_the_agents_in_the_menu(
     deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_finished_hand({**form_factor, "groups": (AGENT_ADDERS_GROUP,)})
     for person in table.everyone:
-        expect(person.locator(".actions").get_by_role("button", name=AGENTS_PILL)).to_be_visible()
+        open_table_menu(person)
+        expect(person.locator(".agents-list")).to_be_visible()
+        close_table_menu(person)
     expect_the_bars_inside_the_pages(table)
 
 
@@ -345,16 +349,16 @@ def test_the_list_left_open_stays_inside_the_margin_as_the_result_slides_in_and_
         open_person, e2e_server, member_of, page_errors, {**form_factor, "groups": (AGENT_ADDERS_GROUP,)}
     )
     person = table.pages[table.declarer_seat]
-    person.get_by_role("button", name=AGENTS_PILL).click()
-    expect(person.locator(".agents-pop")).to_be_visible()
-    person.evaluate(WATCH_THE_OPEN_LIST, [form_factor["viewport"]["width"], EDGE_MARGIN])
+    open_table_menu(person)
+    expect(person.locator(".agents-list")).to_be_visible()
+    person.evaluate(WATCH_THE_OPEN_LIST, [form_factor["viewport"]["width"], EDGE_MARGIN, MENU])
 
     table.play_out(CARDS_IN_A_GAME)
     expect(person.locator(CARD)).to_have_count(1)
     person.wait_for_function("frames => window.framesAfterTheCard >= frames", arg=FRAMES_AFTER_THE_CARD)
 
     assert person.evaluate("window.listOutside") == []
-    expect(person.locator(".agents-pop")).to_be_visible()
+    expect(person.locator(".agents-list")).to_be_visible()
     bar = person.locator(".actions").bounding_box()
     card = person.locator(CARD).bounding_box()
     assert bar is not None
@@ -374,60 +378,52 @@ def test_a_very_long_name_leaves_every_pill_of_the_result_bar_whole(
     bar = person.locator(".actions")
     bar.get_by_role("button", name=WEITER).click()
     expect(bar.get_by_role("status")).to_contain_text(waiting_for(awaited(table, {table.declarer_seat})))
-    heights = bar.evaluate(PILL_HEIGHTS)
-    link = bar.locator(".copy.link").bounding_box()
-    assert link is not None
-    assert link["width"] >= link["height"]
-    assert len(set(heights)) == 1
+    assert len(set(bar.evaluate(PILL_HEIGHTS))) == 1
     expect_the_bars_inside_the_pages(table)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_wait_pill_stays_as_tall_as_the_link_button_with_two_25_character_names(
+def test_the_wait_pill_stays_as_tall_as_the_weiter_key_with_two_25_character_names(
     deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_finished_hand(form_factor, joiners=FULL_LENGTH_NAMES, opener_name=FULL_LENGTH_OPENER)
     bar = table.pages[table.declarer_seat].locator(".actions")
-    bar.get_by_role("button", name=WEITER).click()
+    weiter = bar.get_by_role("button", name=WEITER)
+    weiter_box = weiter.bounding_box()
+    assert weiter_box is not None
+    weiter.click()
     pill = bar.get_by_role("status")
     expect(pill).to_be_visible()
-    link = bar.locator(".copy.link").bounding_box()
-    assert link is not None
-    assert max(bar.evaluate(PILL_HEIGHTS)) <= link["height"] + 1
+    assert max(bar.evaluate(PILL_HEIGHTS)) <= weiter_box["height"] + 1
     expect_the_bars_inside_the_pages(table)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_bar_of_the_opener_with_weiter_and_its_close_key_stays_inside_the_page(
+def test_the_bar_of_the_opener_with_weiter_stays_inside_the_page_and_its_close_row_lies_in_the_menu(
     deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_finished_hand(form_factor, joiners=FULL_LENGTH_NAMES, opener_name=FULL_LENGTH_OPENER)
-    opener = next(person for person in table.pages.values() if person.locator(".copy.close").count() == 1)
+    opener = next(person for person in table.pages.values() if person.locator(".row.close").count() == 1)
 
     expect(opener.locator(".actions").get_by_role("button", name=WEITER)).to_be_visible()
+    expect(opener.locator(".actions").get_by_role("button", name=CLOSE_KEY)).to_have_count(0)
+    expect(menu_button(opener, CLOSE_KEY)).to_be_visible()
+    close_table_menu(opener)
 
     expect_the_bars_inside_the_pages(table)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_stand_up_button_keeps_its_word_while_the_bar_waits(
+def test_the_stand_up_row_keeps_its_word_while_the_bar_waits(
     deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_finished_hand(form_factor)
-    bar = next(person for person in table.pages.values() if person.locator(".copy.close").count() == 0).locator(
-        ".actions"
-    )
+    person = next(person for person in table.pages.values() if person.locator(".row.close").count() == 0)
+    bar = person.locator(".actions")
     bar.get_by_role("button", name=WEITER).click()
     expect(bar.get_by_role("status")).to_be_visible()
-    key = bar.get_by_role("button", name=STAND_UP)
-    box = key.bounding_box()
-    assert box is not None
-    if form_factor["viewport"]["width"] < PHONE_BREAKPOINT:
-        # Beside the key that proposes the end the phone's stand-up keeps its mark alone.
-        assert box["width"] <= ROUND_KEY_PIXELS
-    else:
-        label = key.locator(".label")
-        assert label.evaluate("label => Math.ceil(label.getBoundingClientRect().width) >= label.scrollWidth")
+    label = menu_button(person, STAND_UP).locator(".label")
+    assert label.evaluate("label => Math.ceil(label.getBoundingClientRect().width) >= label.scrollWidth")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -439,7 +435,7 @@ def test_a_member_who_stands_up_leaves_a_free_chair_and_the_card_stays(
     table.ready_through_the_api(leaver)
     expect_the_marks(table, {leaver})
 
-    table.pages[leaver].locator(".actions").get_by_role("button", name=STAND_UP).click()
+    menu_button(table.pages[leaver], STAND_UP).click()
 
     for person in (table.pages[table.declarer_seat], table.pages[other], table.watcher):
         expect(person.locator(f".chair[data-seat='{leaver}'] .plate")).to_have_text(SEAT_FREE)
@@ -686,3 +682,107 @@ def test_a_picked_card_lifts_clear_of_the_near_chair_and_the_bar_stays_on_the_sc
     bar = declarer.locator(".actions").bounding_box()
     assert bar is not None
     assert bar["y"] + bar["height"] <= declarer.evaluate("window.innerHeight")
+
+
+# On a desktop the own seat is a slim bar centred over the hand, never a tile of the felt's size, so no card the finger
+# holds up, no trick card or tag lies under it.
+OWN_BAR_HEIGHT = 56
+# Where the dashed slot stands before the viewer's card lies, and the card once it lies, there.
+TRICK_THINGS = ".trick .face, .trick .tag, .trick .lead-slot"
+# The bar's own ring marks the turn, so the avatar in it carries no ring, no stool stands under the bar and the name
+# is plain text on it, with no plate of its own.
+OWN_BAR_ON_TURN = """() => {
+    const chair = document.querySelector('.chair.mine');
+    const tile = getComputedStyle(chair.querySelector('.tile'));
+    const plate = getComputedStyle(chair.querySelector('.plate'));
+    const stool = getComputedStyle(chair, '::after');
+    return {
+        avatarRing: tile.boxShadow,
+        plateRing: plate.boxShadow,
+        plateBackground: plate.backgroundImage,
+        stool: stool.display !== 'none' && stool.content !== 'none',
+    };
+}"""
+LIFT_ONLY_THE_CARD_AT = """(index) => {
+    const cards = [...document.querySelectorAll('.own-hand .card')];
+    cards.forEach((card, at) => card.classList.toggle('touch', at === index));
+}"""
+
+
+@pytest.mark.parametrize("table_style", STYLES)
+def test_the_own_seat_is_a_slim_bar_centred_over_the_hand_and_a_lifted_card_stands_clear_of_it_on_a_desktop(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    table_style: TableStyle,
+) -> None:
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, DESKTOP, joiners=FULL_LENGTH_NAMES)
+    give_the_table_its_style(table.pages[table.declarer_seat], table.everyone, table_style)
+    table.play_through_the_api(sorted(table.legal_cards(table.seat_at["forehand"]))[0])
+    middlehand = table.pages[table.seat_at["middlehand"]]
+    legal_cards = middlehand.locator(f"{OWN_HAND_CARD}.ok")
+    expect(legal_cards).to_have_count(len(table.legal_cards(table.seat_at["middlehand"])))
+
+    bar = middlehand.locator(".chair.mine").bounding_box()
+    assert bar is not None
+    assert bar["height"] <= OWN_BAR_HEIGHT, "the own seat is a tile of the felt"
+    assert abs(bar["x"] + bar["width"] / 2 - middlehand.evaluate("window.innerWidth / 2")) <= 1
+    expect(middlehand.locator(".chair.mine.turn")).to_have_count(1)
+    assert middlehand.evaluate(OWN_BAR_ON_TURN) == {
+        "avatarRing": "none",
+        "plateRing": "none",
+        "plateBackground": "none",
+        "stool": False,
+    }
+    for index in range(CARDS_IN_A_HAND):
+        middlehand.evaluate(LIFT_ONLY_THE_CARD_AT, index)
+        expect_no_crossing(middlehand, f"{OWN_HAND_CARD}.touch", ".chair.mine")
+    legal_cards.first.locator("button").click(position=INSIDE_THE_VISIBLE_STRIP)
+    expect(middlehand.locator(f"{OWN_HAND_CARD}.touch .swipe")).to_have_count(1)
+    expect_no_crossing(middlehand, f"{OWN_HAND_CARD}:is(.ok, .touch), .own-hand .swipe", ".chair.mine")
+    expect_no_crossing(middlehand, TRICK_THINGS, ".chair.mine")
+    table.play_through_the_api(sorted(table.legal_cards(table.seat_at["middlehand"]))[0])
+    expect(middlehand.locator(".trick .laid.near")).to_have_count(1)
+    expect(middlehand.locator(".trick .lead-slot")).to_have_count(0)
+    expect_no_crossing(middlehand, TRICK_THINGS, ".chair.mine")
+
+
+# Each desktop scene's own seat, found by its class, against everything else the scene draws, except the cards sweeping
+# to it and the list of games laid over the whole table.
+OWN_SEATS_OF_THE_SCENES = """(maxHeight) => {
+    const apart = [];
+    const crossings = [];
+    const crossing = (a, b) =>
+        Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+        Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
+    for (const frame of document.querySelectorAll('.frame.d1280')) {
+        const origin = frame.getBoundingClientRect();
+        const own = [...frame.querySelectorAll('.seat.own')].filter((seat) => !seat.closest('.watchers'));
+        if (frame.querySelector('.hand') && own.length === 0) apart.push(`${frame.id}: a hand and no own seat`);
+        for (const seat of own) {
+            const box = seat.getBoundingClientRect();
+            if (!seat.classList.contains('bar') || box.height > maxHeight) {
+                apart.push(`${frame.id}: the own seat is a tile`);
+            }
+            if (Math.abs(box.left + box.width / 2 - origin.left - origin.width / 2) > 1) {
+                apart.push(`${frame.id}: off centre`);
+            }
+            for (const thing of frame.querySelectorAll(
+                '.hand .card, .swipe, .play, .tag, .ghost, .plaque, .lastshow, .fan, .bubble, .notice, .result, '
+                + '.coaster, .pile, .stamp'
+            )) {
+                if (seat.contains(thing) || thing.matches('.sweep, .gamelist')) continue;
+                if (crossing(box, thing.getBoundingClientRect())) {
+                    crossings.push(`${frame.id}: the own seat over ${thing.className}`);
+                }
+            }
+        }
+    }
+    return { apart, crossings };
+}"""
+
+
+def test_every_desktop_scene_draws_the_own_seat_as_a_slim_bar_that_overlaps_nothing(page: Page) -> None:
+    page.goto(TABLE_SCENES.as_uri())
+    assert page.evaluate(OWN_SEATS_OF_THE_SCENES, OWN_BAR_HEIGHT) == {"apart": [], "crossings": []}

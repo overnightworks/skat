@@ -14,7 +14,7 @@
     position: relative;
 }
 
-/* The key: a round glass button in the table's top row, as the Lobby button and the speaker are. From 390 px it stands right after the Lobby button; on the narrowest phones the speaker takes that place and the key stands left of the watchers. */
+/* The key: a round glass button in the table's top row, as the Lobby button and the speaker are; it stands right after the Lobby button and the speaker after it. */
 .room .reaction-key {
     flex: none;
     display: inline-flex;
@@ -22,7 +22,7 @@
     justify-content: center;
     width: 40px;
     height: 40px;
-    margin: 2px auto 2px 6px;
+    margin: 2px 0 2px 6px;
     padding: 0;
     border: 0;
     border-radius: 50%;
@@ -33,17 +33,6 @@
         inset 0 0 0 1px rgba(255, 255, 255, 0.3),
         0 4px 10px -4px rgba(0, 0, 0, 0.7);
     cursor: pointer;
-}
-
-@media (max-width: 389px) {
-    .room .reaction-key {
-        order: 1;
-        margin: 2px 6px 2px 0;
-    }
-
-    .room .bar .watchers {
-        order: 2;
-    }
 }
 
 .room .reaction-key.on {

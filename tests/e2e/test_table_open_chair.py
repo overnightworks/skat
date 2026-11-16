@@ -17,6 +17,7 @@ from tests.e2e.support.hands import TURN_CHAIR, deal_playing_table
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.listening_agent import ListeningAgent
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
+from tests.e2e.support.table_menu import open_table_menu
 from tests.e2e.support.tables import open_new_table, plate_of, sit_in, watch
 
 if TYPE_CHECKING:
@@ -35,7 +36,6 @@ SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
 CANCEL = text(SOURCE_LANGUAGE, "table.sitQuestionCancel")
 TAKE_SKAT = text(SOURCE_LANGUAGE, "declare.takeSkat")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
-CALL_PILL = text(SOURCE_LANGUAGE, "agents.pill")
 LEGAL_CARD = ".own-hand .card.ok"
 BID_CONTROLS = ".bid"
 INVITATION_WITHIN_SECONDS = 15
@@ -180,7 +180,7 @@ def test_an_agent_sent_away_during_the_auction_leaves_the_plaque_over_the_wait_a
     sit_in(ben, 2)
     agent = ListeningAgent(e2e_server, member_of(felix).account.id, "Nova", "agent-subject-nova-open-chair")
     try:
-        felix.get_by_role("button", name=CALL_PILL).click()
+        open_table_menu(felix)
         felix.get_by_role("button", name=kit_text("agent.callLabel", name="Nova")).click()
         agent.accept(agent.invitation_within(felix, INVITATION_WITHIN_SECONDS))
         expect(felix.locator(".chair .mark.pos")).to_have_count(3)
