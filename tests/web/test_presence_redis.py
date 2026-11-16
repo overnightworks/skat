@@ -40,7 +40,7 @@ class TestOneAccountAsTwoHolders:
 
         assert (both, remaining, after) == (({"anna"}, {"anna"}), {"anna"}, frozenset())
 
-    def test_is_listed_by_table_from_one_read(self, redis_url):
+    def test_lists_the_watchers_of_each_table_across_two_pods(self, redis_url):
         first, second = pods_on(redis_url)
 
         async def scenario():
