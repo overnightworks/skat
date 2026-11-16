@@ -760,14 +760,11 @@ class Presence:
         give up after `ROSTER_READ_TIMEOUT_SECONDS`: a read that fails or stalls is an unknown presence. The answer is
         None once the presence has stopped, which cancels a read in flight: its loop may end before it answers.
         """
-        reading = asyncio.run_coroutine_threadsafe(self._read_present(), loop)
         with self._state:
-            stopped = self._stopped
-            if not stopped:
-                self._reads.add(reading)
-        if stopped:
-            reading.cancel()
-            return None
+            if self._stopped:
+                return None
+            reading = asyncio.run_coroutine_threadsafe(self._read_present(), loop)
+            self._reads.add(reading)
         try:
             return reading.result(ROSTER_READ_TIMEOUT_SECONDS)
         except CancelledError:

@@ -37,7 +37,8 @@ class InMemoryLeases:
     the entry of `kept` to its exit, and `live` lists them all. `settled` is what the roster answers.
 
     The failures to come are listed in `reading_fails`, `starting_fails` and `ending_fails`; `reading_hangs` never
-    answers a read and `ending_gate` holds every ending until it is set. `read_threads` names the thread of each read and `read_started` is set by the first.
+    answers a read and `ending_gate` holds every ending until it is set. `read_threads` names the thread of each read
+    and `read_started` is set by the first.
     """
 
     def __init__(self) -> None:
