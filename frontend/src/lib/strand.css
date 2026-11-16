@@ -406,7 +406,7 @@
     filter: drop-shadow(0 1px 1px rgba(30, 15, 10, 0.5)) drop-shadow(0 6px 8px rgba(30, 15, 10, 0.4));
 }
 
-/* On a desktop the own seat is a slim bar with no stool, and its avatar sits in the bar without the tile's brass ring. */
+/* On a desktop the own seat is a slim bar with no stool, and its avatar and name sit in the bar without the tile's brass ring or the brass plate. */
 @media (min-width: 900px) {
     .room[data-style="strandbar"] .chair.mine::after {
         display: none;
@@ -414,5 +414,15 @@
 
     .room[data-style="strandbar"] .chair.mine .tile {
         box-shadow: none;
+    }
+
+    .room[data-style="strandbar"] .chair.mine .plate {
+        color: var(--on-stage);
+        background: none;
+        box-shadow: none;
+    }
+
+    .room[data-style="strandbar"] .chair.mine .plate :is(small, .away-note) {
+        color: inherit;
     }
 }
