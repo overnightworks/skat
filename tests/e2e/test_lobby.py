@@ -349,6 +349,7 @@ def test_an_open_entry_shows_its_rules_its_state_and_the_minutes_an_away_chair_i
         ),
         bock=None,
         ramsch=None,
+        give_up=GiveUpOptionsAnswer(partner_agrees=False, any_time=False),
     )
     serve_stream(
         person,
