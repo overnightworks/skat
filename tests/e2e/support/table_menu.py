@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 MENU_KEY = ".menu-key"
 MENU = ".anchored-panel:has(.menu)"
 GIVE_UP_ROW = ".row.give-up"
+SHORTEN_ROW = ".row.shorten"
+PLAY_OPEN_ROW = ".row.play-open"
 
 
 def open_table_menu(person: Page | FrameLocator) -> Locator:
@@ -38,3 +40,8 @@ def close_table_menu(person: Page) -> None:
 def menu_button(person: Page | FrameLocator, name: str) -> Locator:
     """The menu's button of this exact name, with the menu opened first."""
     return open_table_menu(person).get_by_role("button", name=name, exact=True)
+
+
+def menu_row(person: Page | FrameLocator, row: str) -> Locator:
+    """The menu's row of this selector, with the menu opened first."""
+    return open_table_menu(person).locator(row)

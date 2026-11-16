@@ -11,7 +11,7 @@ from tests.e2e.support.early_end import THREE_SECONDS_MILLISECONDS, expect_a_ref
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.result_card import CARD, listed, waiting_for
-from tests.e2e.support.table_menu import GIVE_UP_ROW, MENU, close_table_menu, open_table_menu
+from tests.e2e.support.table_menu import GIVE_UP_ROW, MENU, close_table_menu, menu_button, open_table_menu
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -429,7 +429,7 @@ def give_up_key(person: Page) -> Any:
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_every_seated_strip_carries_only_its_own_key_and_the_menu_holds_aufgeben_and_aufstehen_and_the_watcher_has_none(
+def test_every_seated_menu_holds_aufgeben_aufstehen_and_its_own_game_row_and_the_strip_and_the_watcher_have_none(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_game(form_factor)
@@ -437,8 +437,9 @@ def test_every_seated_strip_carries_only_its_own_key_and_the_menu_holds_aufgeben
     for seat, person in table.pages.items():
         expect(give_up_key(person)).to_have_attribute("title", GIVE_UP)
         expect(button_of(person, STAND_UP)).to_be_visible()
+        expect(menu_button(person, SHORTEN if seat == table.declarer_seat else PLAY_OPEN)).to_be_visible()
         close_table_menu(person)
-        assert strip_keys(person) == [SHORTEN if seat == table.declarer_seat else PLAY_OPEN]
+        assert strip_keys(person) == []
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     expect(table.watcher.locator(KEY)).to_have_count(0)
     assert page_errors == []

@@ -862,7 +862,7 @@ const homeButton=(d,badge)=>{const mark=badge?`<span class="badge" aria-hidden="
           :`<span class="cb home" role="button" tabindex="0" title="Lobby" aria-label="Lobby">${I.back}${mark}</span>`;};
 I.lines=sv('<path d="M5 7h14M5 12h14M5 17h14"/>',2.2);
 const menuKey=(d,o={})=>`<span class="cb menu ${o.strip?'strip':''} ${o.open?'on':''}" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="${!!o.open}" title="Mehr" aria-label="Mehr">${o.strip?I.lines:I.more}</span>`;
-const reactKey=(after,on)=>`<span class="cb react ${on?'on':''}" role="button" tabindex="0" title="Reaktionen" aria-label="Reaktionen" style="${at(PB.cx<195?{right:72,top:3}:{left:after,top:3})}">${I.smile}</span>`;
+const reactKey=(after,on)=>`<span class="cb react ${on?'on':''}" role="button" tabindex="0" title="Reaktionen" aria-label="Reaktionen" style="${at({left:after,top:3})}">${I.smile}</span>`;
 /* Klassik's brass lamp stands on the table's rim at the lower right, as the page places it: 4% in from the right and 12% up from the bottom of the table, 46 px high on the phone and 64 px on the desktop, its foot a fifth of its height below that corner; it lies under every card and key. The Strandbar scenes draw the shell and the cocktail there instead. */
 const LAMP=`<svg viewBox="0 0 48 64" aria-hidden="true"><ellipse cx="24" cy="59" rx="15" ry="3.6" fill="#8c6a2f"/><ellipse cx="24" cy="57.6" rx="13" ry="2.6" fill="#c9a464"/><path d="M22.5 29h3v28h-3z" fill="#b08a45"/><path d="M5 32C5 16 13 6 24 6s19 10 19 26z" fill="#2f5d46"/><path d="M9 30C10 18 15 11 22 9" fill="none" stroke="#6fae8c" stroke-width="2" stroke-linecap="round"/><ellipse cx="24" cy="32" rx="19" ry="3" fill="#ffd9a0"/></svg>`;
 let klassikScene=true;
@@ -1101,11 +1101,11 @@ const IDEAS=[
   ['🎉','Farben-Konfetti','Ein Sieg wirft Konfetti aus Kreuz, Pik, Herz, Karo aus den Stühlen der Gewinner; Schneider mehr, Schwarz am meisten.','call-end'],
   ['0','Null-Plumps','Eine verlorene Null sackt freundlich in sich zusammen, ohne Spott.','nur hier','null'],
   ['🏳','Aufgeben','Wer aufgibt, fragt die andere Seite: die Tafel nennt den Fragenden mit seinem Gesicht, die Gegenseite antwortet mit zwei Tasten, ein Nein setzt ein Kreuz auf den Stuhl, und das Ergebnis trägt den Stempel „Aufgegeben“.','giveup-asked, giveup-waits, giveup-side, giveup-end'],
-  ['✂','Abkürzen und offen spielen','Der Alleinspieler fragt „Abkürzen“: die Tafel nennt ihn mit seinem Gesicht und die geforderte Stufe, jeder Gegner antwortet „Ja“ oder „Nein“, ein Nein legt die Karten des Alleinspielers für alle offen und das Spiel geht weiter. Ein Gegner „spielt offen“ mit einer Taste in der Leiste; liegt er falsch, fragt die Tafel den Alleinspieler, und spielt der weiter, liegen die Karten dieses Gegners für alle offen.','shorten-asked, shorten-waits, shorten-watch, shorten-refused, shorten-end, open-play-key, open-play-asked, open-play-on, open-play-end'],
+  ['✂','Abkürzen und offen spielen','Der Alleinspieler fragt „Abkürzen“: die Tafel nennt ihn mit seinem Gesicht und die geforderte Stufe, jeder Gegner antwortet „Ja“ oder „Nein“, ein Nein legt die Karten des Alleinspielers für alle offen und das Spiel geht weiter. Ein Gegner „spielt offen“ mit einer Zeile im Menü, die ein zweites Mal fragt; liegt er falsch, fragt die Tafel den Alleinspieler, und spielt der weiter, liegen die Karten dieses Gegners für alle offen.','shorten-asked, shorten-waits, shorten-watch, shorten-refused, shorten-end, open-play-key, open-play-asked, open-play-on, open-play-end'],
   ['🔢','Serie','Eine ruhige Marke zählt „Spiel 8 von 36“; am Ende zeigt die Rangliste Platz, Stand sowie gewonnene und verlorene Spiele, und „Neue Serie“ setzt alle Bierdeckel auf null.','series-play, series-end, series-fresh'],
   ['🃏','Stiche eines Spiels','Ein Tipp auf eine Zeile der Liste öffnet das Spiel: Skat und Gedrücktes, die Augen gegen die 61, dann jeder Stich mit seinen drei Karten, dem Punkt dessen, der stach, und seinen Augen; ein Ramsch zeigt die Augen jedes Stuhls, ein früh beendetes Spiel, wie es endete. (#573)','game-tricks, game-ramsch, game-ended'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
-  ['⋯','Das Menü des Tisches','Unten liegt nur, was das Spiel jetzt fragt (Reizen, Halten, Weg, Kontra und Re, Abkürzen, Offen spielen, Weiter) und die Reaktion. Alles, was den Tisch betrifft, liegt oben hinter „⋯“: „Tisch“ mit Link kopieren, Agenten rufen, Stil, Regeln (öffnet das Regelblatt, die Marken bleiben in der oberen Zeile), Aufstehen und „Tisch schließen“ für den, der ihn öffnete, dazu „Serie beenden“; „Spiel“ mit „Aufgeben“ und „Abbrechen“, die ein zweites Mal gefragt werden. Im Anruf, wo die obere Zeile dem Anruf gehört, steht die Menütaste in Skats Leiste.','agents-strip, agents-list, agents-leave, menu-armed, menu-call, menu-watch'],
+  ['⋯','Das Menü des Tisches','Unten liegt nur, was das Spiel jetzt fragt (Reizen, Halten, Weg, Kontra und Re, Weiter). Alles, was den Tisch betrifft, liegt oben hinter „⋯“: „Tisch“ mit Link kopieren, Agenten rufen, Stil, Regeln (öffnet das Regelblatt, die Marken bleiben in der oberen Zeile), Aufstehen und „Tisch schließen“ für den, der ihn öffnete, dazu „Serie beenden“; „Spiel“ mit „Abkürzen“ (der Alleinspieler), „Offen spielen“ (ein Gegner), „Aufgeben“ und „Abbrechen“; „Offen spielen“, „Aufgeben“ und „Abbrechen“ werden ein zweites Mal gefragt. Im Anruf, wo die obere Zeile dem Anruf gehört, steht die Menütaste in Skats Leiste.','agents-strip, agents-list, agents-leave, menu-armed, menu-call, menu-watch'],
   ['🤖','Agenten rufen','Im Menü „⋯“ steht unter „Tisch“ die Liste des Kits: „Rufen“ setzt Nova auf den freien Stuhl, „Bitten zu gehen“ schickt sie weg; wer kein Recht an einem Agenten hat, sieht keine Zeile. (#315)','agents-strip, agents-list,agents-calling, agents-here, agents-refused, agents-empty, agents-framed, agents-leave'],
   ['🪑','Freier Platz im Spiel','Geht ein Agent mitten im Spiel, wird sein Stuhl frei, seine Karten warten daneben und niemand ist dran; wer sich setzt, übernimmt Karten und Zug, die anderen sehen „Lena spielt weiter“. (#314)','lobby-seat-open (start.html)'],
   ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet das Menü unter „Spiel“ „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
@@ -1139,7 +1139,7 @@ const awaySeat=(k,pos,marks=[])=>seat(k,{...pos,marks:[...marks,'away']}).replac
 const watching=(n,d)=>`${homeButton(d,homeBadge)}${d?'':reactKey(56)}<div class="tag-glass" title="Zuschauer" style="${at(d?{right:68,top:14}:{right:60,top:8})}">${I.eye}<span>${n}</span></div>${menuKey(d)}`;
 const waiting=(cx,y)=>plaque(cx,y,`<div class="game">Warte auf Mitspieler${waitDots()}</div>`);
 const notice=(text,k,x,y)=>`<div class="notice mo" role="status" style="${at({left:x,top:y,'--k':'.7s'})}">${[].concat(k).map(who=>`<span class="dot ${P[who].agent?'agent':''}" style="${dotStyle(P[who])}">${dotInner(P[who])}</span>`).join('')}${text}</div>`;
-/* the strip at the thumb holds the game's decision (o.lead: bid, Kontra, Abkürzen, Offen spielen, Weiter); in a call (o.call) Skat's strip ends in the ⋯ key. o.menu: the open menu */
+/* the strip at the thumb holds the game's decision (o.lead: bid, Kontra, Weiter); in a call (o.call) Skat's strip ends in the ⋯ key. o.menu: the open menu */
 const tableBar=(desk,o={})=>`<div class="sbar${o.above?' above':''}">${o.lead||''}${o.call?menuKey(desk,{strip:true,open:!!o.menu})+(o.menu||''):''}</div>${o.call?'':o.menu||''}`;
 const panel=(o)=>`<div class="result closed" role="${o.role||'status'}" style="${at({left:o.x,top:o.y,width:o.w})}"><span class="by ${o.k?'':'glyph'}" style="${o.k?dotStyle(P[o.k]):''}">${o.k?P[o.k].i:o.icon}</span><h3>${o.text}</h3>${o.line?`<p class="line">${o.line}</p>`:''}<div class="btns">${o.buttons}</div></div>`;
 const NEW_TABLE=`<span class="button button-stage">${I.plus}Neuer Tisch</span>`;
@@ -1439,7 +1439,7 @@ ORDER.unshift(...[...S3_SCENES,...DEAL_SCENES].flatMap(([id])=>[`${id}-390`,`${i
 const SERIES=36;
 Object.assign(P,{tom:{n:'Tom',i:'T',c:['#9fd0f2','#4b8fc4'],v:['#2e3c4a','#171f27'],l:['#2f4a63','#172533']}});
 /* the count is a quiet mark at the top of the felt; tapping it opens the list of every game */
-const seriesCount=(d,n,o={})=>`<div class="tag-glass series ${o.open?'unfolded':''} ${o.moves?'mo':''}" role="button" aria-expanded="${!!o.open}" aria-label="Liste der Spiele" style="${at({left:d?640:195,top:d?14:8,'--k':'.4s','z-index':o.open?'50':undefined})}"><span>Spiel ${n} von ${SERIES}</span>${I.chev}</div>`;
+const seriesCount=(d,n,o={})=>`<div class="tag-glass series ${o.open?'unfolded':''} ${o.moves?'mo':''}" role="button" aria-expanded="${!!o.open}" aria-label="Liste der Spiele" style="${at({left:d?640:76,top:d?14:48,'--k':'.4s','z-index':o.open?'50':undefined})}"><span>Spiel ${n} von ${SERIES}</span>${I.chev}</div>`;
 const seriesPlay=(d,count)=>room(d,{left:8,glow:yourTurn(d)})+count
   +plaque(d?640:195,d?98:176,gameLine('c','Kreuz'))+announcedTrick(d)
   +seats(d,{video:true,anna:['decl'],you:['turn'],score:[148,62,55]})+ownHand(d,PLAY_HAND,{swipe:true})+callBar(d);
@@ -1595,7 +1595,7 @@ const ruleChips=(on)=>`<span class="chips">${on.length?TABLE_RULES.filter(r=>on.
 /* the chips are one tap target; centred above the felt, or starting at x */
 const rulePill=(x,y,on,o={})=>`<div class="rulepill ${o.mid?'mid':''} ${o.open?'on':''}" role="button" aria-label="Regeln" style="${at({left:x,top:y})}">${ruleChips(on)}</div>`;
 const ruleRows=(on)=>on.length?TABLE_RULES.filter(r=>on.includes(r.id)).map(r=>`<div class="rrow"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${r.settings}</small></span></div>`).join(''):'';
-const rulesSheet=(d,on=ANNAS_RULES)=>`<div class="scrim over"></div>`+rulePill(d?640:195,d?14:8,on,{mid:true,open:true})
+const rulesSheet=(d,on=ANNAS_RULES)=>`<div class="scrim over"></div>`+rulePill(d?640:195,d?14:48,on,{mid:true,open:true})
   +`<div class="result rules" role="dialog" aria-label="Regeln" style="${at({left:d?640:195,top:d?84:76,width:d?460:354,'z-index':'50'})}"><h3>Regeln</h3>
   <span class="lockbadge" role="status">${I.lock}Fest für diesen Tisch<span class="info" role="button" tabindex="0" aria-label="Info" title="Andere Regeln heißen neuer Tisch.">i</span></span>
   <div class="rrows">${ruleRows(on)}</div>
@@ -1603,7 +1603,7 @@ const rulesSheet=(d,on=ANNAS_RULES)=>`<div class="scrim over"></div>`+rulePill(d
 /* during play the series count and the chips share the top; on a phone the chips take a row of their own and the two top chairs step down */
 const DROP=14;
 const PBR={...PB,anna:{...PB.anna,y:PB.anna.y+DROP},nova:{...PB.nova,y:PB.nova.y+DROP},coasters:[[100,112+DROP,34,-10],[256,112+DROP,34,8],PB.coasters[2]]};
-const ruleTop=(d,on)=>seriesCount(d,8)+(on?(d?rulePill(716,15,on):rulePill(195,38,on,{mid:true})):'');
+const ruleTop=(d,on)=>seriesCount(d,8)+(on?(d?rulePill(716,15,on):rulePill(262,48,on,{mid:true})):'');
 const ruleRoom=(d,glow)=>{const room_=room(d,{left:7,call:false,glow});return d?room_:`<div class="drop" style="inset:0;transform:translateY(${DROP}px)">${room_}</div>`;};
 const RULE_HAND=[['B','h','no'],['D','c','no'],['7','c','no'],['9','s','ok'],['10','h','no'],['K','d','no'],['8','d','no']];
 const rulePlay=(d,o)=>{const L=d?DB:PBR;
@@ -1620,7 +1620,7 @@ const ruleWatch=(d)=>{const L=d?DB:PBR;
     +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felixSeen',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
     +tableBar(d);};
 const RULES_SCENES=[
-  ['rules-sit','Die Regeln vor dem Hinsetzen',(d)=>S3.watch(d)+rulePill(d?640:195,d?14:8,ANNAS_RULES,{mid:true}),
+  ['rules-sit','Die Regeln vor dem Hinsetzen',(d)=>S3.watch(d)+rulePill(d?640:195,d?14:48,ANNAS_RULES,{mid:true}),
     ['Oben auf dem Tisch stehen die Marken der Hausregeln, vom Aufmachen an: dieselben Marken wie in der Liste, auch für den, der nur zuschaut.',
      'In der Liste und am Tisch siehst du, welche Hausregeln gelten, bevor du dich setzt.']],
   ['rules-sheet','Die Regeln im Einzelnen',(d)=>S3.watch(d)+rulesSheet(d),
@@ -1659,14 +1659,14 @@ const centred=(d,html)=>d?html:html.replace('left:195px',`left:${PB.cx}px`);
 const turnGlow=(d)=>d?glow(640,640,640,170):glow(PB.cx,560,240,120);
 const novaGlow=(d)=>d?glow(980,270,220,260):glow(PB.cx+105,190,190,110);
 
-/* the table's matters behind ⋯, in two sections: Tisch (link, the agents, style, the rules sheet outside a call, standing up, closing for the opener, ending the series) and Spiel (Aufgeben and Abbrechen, asked a second time). The section a person has nothing in is not drawn.
+/* the table's matters behind ⋯, in two sections: Tisch (link, the agents, style, the rules sheet outside a call, standing up, closing for the opener, ending the series) and Spiel (Abkürzen, Offen spielen, Aufgeben and Abbrechen; all but Abkürzen asked a second time). The section a person has nothing in is not drawn.
    o.agents: the kit's list; o.armed: the row asking its second tap; o.above: in a call the list opens over the strip's ⋯ key */
 const menuRow=(icon,label,cls='')=>`<span class="row ${cls}" role="menuitem" tabindex="0">${icon}<span>${label}</span></span>`;
-const askRow=(icon,word)=>`<span class="row danger arm" role="menuitem" tabindex="0">${icon}<span>${word}</span><i class="run-out" aria-hidden="true"></i></span>`;
+const menuAskRow=(icon,word)=>`<span class="row danger arm" role="menuitem" tabindex="0">${icon}<span>${word}</span><i class="run-out" aria-hidden="true"></i></span>`;
 const tableMenu=(d,o={})=>{
   const tisch=[o.link===false?'':menuRow(I.link,'Link kopieren'),o.agents||'',o.style?menuRow(I.style,'Stil'):'',o.link===false?'':menuRow(I.rules,'Regeln'),o.stand?menuRow(I.stand,'Aufstehen'):'',
-    o.opener?menuRow(I.power,'Tisch schließen','danger'):'',o.series?(o.armed==='series'?askRow(I.finish,'Wirklich beenden?'):menuRow(I.finish,'Serie beenden')):''].join('');
-  const spiel=[o.giveUp?(o.armed==='giveUp'?askRow(I.flag,'Wirklich aufgeben?'):menuRow(I.flag,'Aufgeben','danger')):'',o.abort?(o.armed==='abort'?askRow(I.stop,'Wirklich abbrechen?'):menuRow(I.stop,'Abbrechen','danger')):''].join('');
+    o.opener?menuRow(I.power,'Tisch schließen','danger'):'',o.series?(o.armed==='series'?menuAskRow(I.finish,'Wirklich beenden?'):menuRow(I.finish,'Serie beenden')):''].join('');
+  const spiel=[o.shorten?menuRow(I.shorten,'Abkürzen'):'',o.playOpen?(o.armed==='playOpen'?menuAskRow(I.eye,'Wirklich offen spielen?'):menuRow(I.eye,'Offen spielen')):'',o.giveUp?(o.armed==='giveUp'?menuAskRow(I.flag,'Wirklich aufgeben?'):menuRow(I.flag,'Aufgeben','danger')):'',o.abort?(o.armed==='abort'?menuAskRow(I.stop,'Wirklich abbrechen?'):menuRow(I.stop,'Abbrechen','danger')):''].join('');
   return `<div class="menu-pop ${o.above?'above':''}" role="menu" aria-label="Mehr">${tisch?`<h4>Tisch</h4>${tisch}`:''}${spiel?`<h4>Spiel</h4>${spiel}`:''}</div>`;
 };
 /* a scene shows the menu open by giving the agents' list (or nothing) and the rows of its moment */
@@ -1760,7 +1760,7 @@ const AGENT_SCENES=[
     return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)+lead(d,'anna','left')+answered(d)
       +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
       +ownCards(d,FELIX_FOLLOWS)+stripOf(d,{pill:tableMenu(d,{style:true,stand:true,opener:true,giveUp:true,armed:'giveUp'})});},
-    ['Der erste Tipp auf „Aufgeben“ macht die Zeile rot und fragt „Wirklich aufgeben?“, der Strich läuft in drei Sekunden ab; erst der zweite Tipp schickt es, jeder andere Tipp und die Zeit nehmen die Frage zurück. Das Menü bleibt dabei offen. „Abbrechen“ und „Serie beenden“ fragen ebenso.']],
+    ['Der erste Tipp auf „Aufgeben“ macht die Zeile rot und fragt „Wirklich aufgeben?“, der Strich läuft in drei Sekunden ab; erst der zweite Tipp schickt es, jeder andere Tipp und die Zeit nehmen die Frage zurück. Das Menü bleibt dabei offen. „Abbrechen“, „Offen spielen“ und „Serie beenden“ fragen ebenso.']],
   ['menu-watch','Das Menü beim Zuschauen',[390,1280],(d)=>openChair(d,{viewer:'lena',watchers:2})+nearFan(d,8)+tableBar(d,{menu:tableMenu(d,{})}),
     ['Lena schaut zu: „Tisch“ hat nur „Link kopieren“, „Spiel“ fehlt; unten steht allein die Reaktion.']],
   ['abort-offer','Abbrechen: das Angebot',[390,1280],(d)=>openChair(d)+ownCards(d)+stripOf(d,{pill:agentPill(d,{open:true,panel:'',abort:true})}),
@@ -2247,7 +2247,6 @@ const shortenRefused=(d)=>{const L=seatsOf(d);
 const SHORTENED_END={near:'felix',declarer:'anna',winners:['anna'],adds:[80,0,0],word:'Verloren',suit:'h',game:'Anna, Herz',
   calc:{suit:'h',base:10,mit:true,count:1,steps:['Spiel',SHORTEN_LEVEL],won:true},names:['Anna','Wir'],ready:['anna'],stamp:'Abgekürzt',stampBy:'anna'};
 /* the keys: one wide key leads the strip, Aufgeben and Aufstehen go round on a phone, and at 360 the word stands without its icon */
-const stripKey=(d,icon,label)=>stripOf(d,{lead:barKey('glass',narrow()?'':icon,label)});
 /* an opponent's wrong open play waits for the declarer, who chooses as after a give-up; every card is dimmed until he does */
 const openPlayAsked=(d)=>giveUpTable(d,{dim:true})+requestPlaque(d,`${faceDot('anna')}Anna spielt offen`,answers(),FANS_CLEAR)
   +giveUpSeats(d,{you:['decl']})+ownHand(d,FELIX_HOLDS)+giveUpBar(d,GIVE_UP);
@@ -2268,8 +2267,8 @@ const SHORTEN_SCENES=[
     ['Die Anfrage steht auf der Tafel wie „Anna will aufgeben“, mit dem Gesicht der Fragenden und der Stufe, die sie fordert; jeder Gegner sieht „Ja“ und „Nein“. Der Stich und die Hand bleiben spielbar, eine gespielte Karte beendet die Anfrage. Es liegt noch keine Karte offen.']],
   ['shorten-plain','Anna will abkürzen, ohne Stufe',[360,390,1280],(d)=>shortenAsked(d),
     ['Fordert Anna keine Stufe, fehlt die Zeile darunter; sonst ist alles wie nebenan.']],
-  ['shorten-key','Die Taste „Abkürzen“',[360,390,1280],(d)=>kontraTable(d,{cast:'declarer'})+stripKey(d,I.shorten,'Abkürzen'),
-    ['Der Alleinspieler hat „Abkürzen“ in der Leiste; die Taste wartet auf niemanden, bis er fragt.']],
+  ['shorten-key','Die Zeile „Abkürzen“ im Menü',[360,390,1280],(d)=>kontraTable(d,{cast:'declarer'})+stripOf(d,{pill:tableMenu(d,{style:true,stand:true,opener:true,shorten:true,giveUp:true})}),
+    ['Der Alleinspieler hat „Abkürzen“ im Menü unter „Spiel“, über „Aufgeben“; die Zeile fragt kein zweites Mal, denn die Gegner antworten ihm. Unten bleibt die Leiste leer, bis ein Zug zu entscheiden ist.']],
   ['shorten-waits','Du fragst, Ben antwortet noch',[360,390,1280],(d)=>shortenWaiting(d,{level:SHORTEN_LEVEL}),
     ['Wer fragt, sieht, wer noch eine Antwort schuldet: Anna sagte Ja (der Haken an ihrem Stuhl), Ben antwortet noch (die Punkte). Er hat keine Taste zum Zurücknehmen, seine nächste Karte nimmt die Anfrage zurück. Es endet nur, wenn beide Ja sagen.']],
   ['shorten-watch','Zuschauen bei der Anfrage',[360,390,1280],(d)=>shortenWatch(d,{level:SHORTEN_LEVEL}),
@@ -2280,8 +2279,8 @@ const SHORTEN_SCENES=[
     ['Der Stempel „Abgekürzt“ trägt das Gesicht dessen, der abkürzte, und steht dort, wo sonst „Aufgegeben“ steht. Beide Gegner sagten Ja: das Spiel zählt wie angesagt mit der geforderten Stufe, die Karte zeigt keine Augen, denn die Wertung liest sie nicht.']],
 ];
 const OPEN_PLAY_SCENES=[
-  ['open-play-key','Die Taste „Offen spielen“',[360,390,1280],(d)=>kontraTable(d)+stripKey(d,I.eye,'Offen spielen'),
-    ['Ein Gegner hat „Offen spielen“ in der Leiste; sie gilt in jedem Zug, auch wenn ein anderer dran ist. Sie sagt, dass der Alleinspieler keinen Stich mehr macht, was auch gespielt wird.']],
+  ['open-play-key','Die Zeile „Offen spielen“ im Menü, gefragt',[360,390,1280],(d)=>kontraTable(d)+stripOf(d,{pill:tableMenu(d,{style:true,stand:true,opener:true,playOpen:true,giveUp:true,armed:'playOpen'})}),
+    ['Ein Gegner hat „Offen spielen“ im Menü unter „Spiel“; sie gilt in jedem Zug, auch wenn ein anderer dran ist. Der erste Tipp macht die Zeile rot und fragt „Wirklich offen spielen?“, der Strich läuft in drei Sekunden ab, erst der zweite Tipp schickt es, denn ein falsches Offen spielen lässt sich nicht zurücknehmen. Es sagt, dass der Alleinspieler keinen Stich mehr macht, was auch gespielt wird.']],
   ['open-play-asked','Anna spielt offen, du antwortest',[360,390,1280],openPlayAsked,
     ['Hätte der Alleinspieler keinen Stich mehr gemacht, endete das Spiel gleich. Fragt die Tafel ihn, war es falsch: er hat „Annehmen“ (das Spiel endet) oder „Weiterspielen“. Bis dahin ist keine Karte spielbar; dass er gefragt wird, sagt allen, dass er noch einen Stich machen kann.']],
   ['open-play-waits','Du spielst offen, Anna antwortet',[360,390,1280],openPlayWaiting,
@@ -2311,8 +2310,8 @@ const soundButton=(d,o={})=>{
   const attrs=`role="button" tabindex="0" data-snd ${state} title="${label}" aria-label="${label}" style="${at(o.at||{})}"`;
   return d?`<span class="cb wide glass ${cls}" ${attrs}>${icon}${o.muted?MUTED_WORD:'Ton'}</span>`:`<span class="cb ${cls}" ${attrs}>${icon}</span>`;
 };
-/* the top row: the speaker stands left of the watchers, at 360 px beside Lobby (the watchers and the series pill leave no 40 px between them) */
-const SOUND_AT={360:{left:58},390:{left:58},1280:{right:132}};
+/* the top row: on a phone the speaker stands after the reaction key, which stands after Lobby; from 900 px it stands left of the watchers */
+const SOUND_AT={360:{left:104},390:{left:104},1280:{right:132}};
 const soundTop=(d,w,o={})=>soundButton(d,{...o,top:true,at:SOUND_AT[w]});
 /* Felix's solo table in game 8 of 36, his turn: the top row and the strip as the table draws them */
 const soundTable=(d,w,o={})=>{const L=seatsOf(d);

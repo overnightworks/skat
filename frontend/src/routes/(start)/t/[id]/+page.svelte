@@ -54,7 +54,6 @@
     import OwnHand from "#lib/ui/OwnHand.svelte";
     import PassMark from "#lib/ui/PassMark.svelte";
     import PlayControls from "#lib/ui/PlayControls.svelte";
-    import PlayOpenKey from "#lib/ui/PlayOpenKey.svelte";
     import PushControls from "#lib/ui/PushControls.svelte";
     import PointsBar from "#lib/ui/PointsBar.svelte";
     import RamschMarks from "#lib/ui/RamschMarks.svelte";
@@ -62,7 +61,6 @@
     import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SeatNoticeLine from "#lib/ui/SeatNoticeLine.svelte";
-    import ShortenKey from "#lib/ui/ShortenKey.svelte";
     import Standings from "#lib/ui/Standings.svelte";
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
@@ -732,8 +730,6 @@
                         sent={sentFromVersion === current.version}
                         ontap={() => tapWeiter(current)}
                     />
-                    <ShortenKey {id} table={outcome.table} bind:note />
-                    <PlayOpenKey {id} table={outcome.table} bind:note />
                     {#if callMode}
                         <SoundButton place="strip" />
                         {@render tableMenu("strip")}

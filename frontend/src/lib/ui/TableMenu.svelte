@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { KitWords } from "overnightworks-design";
     import { abortView } from "#lib/abort.ts";
-    import { giveUpOffered } from "#lib/giveUp.ts";
+    import { giveUpOffered, playOpenKey, shortenKey } from "#lib/giveUp.ts";
     import { seriesEndOffered } from "#lib/series.ts";
     import { words } from "#lib/words.ts";
     import AbortKey from "./AbortKey.svelte";
@@ -10,6 +10,8 @@
     import CloseQuestion from "./CloseQuestion.svelte";
     import CopyLinkKey from "./CopyLinkKey.svelte";
     import GiveUpKey from "./GiveUpKey.svelte";
+    import PlayOpenKey from "./PlayOpenKey.svelte";
+    import ShortenKey from "./ShortenKey.svelte";
     import SeriesEndKey from "./SeriesEndKey.svelte";
     import StandKey from "./StandKey.svelte";
     import PaletteMark from "./PaletteMark.svelte";
@@ -71,7 +73,9 @@
     const tableRows = $derived(
         !callMode || agentsShown || styleOffered || standOffered || closeOffered || seriesEndOffered(table),
     );
-    const gameRows = $derived(giveUpOffered(table) || abortView(table).offered);
+    const gameRows = $derived(
+        shortenKey(table) || playOpenKey(table) || giveUpOffered(table) || abortView(table).offered,
+    );
 
     function close(): void {
         open = false;
@@ -194,6 +198,8 @@
         {/if}
         {#if gameRows}
             <h3 class="menu-section">{words["table.menuGame"]}</h3>
+            <ShortenKey {id} {table} bind:note onsent={close} />
+            <PlayOpenKey {id} {table} bind:note onsent={close} />
             <GiveUpKey {id} {table} bind:note onsent={close} />
             <AbortKey {id} {table} bind:note onsent={close} />
         {/if}

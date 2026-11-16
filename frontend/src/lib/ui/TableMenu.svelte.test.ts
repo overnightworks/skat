@@ -57,7 +57,7 @@ describe("the table menu", () => {
     const rows = (): string[] =>
         [...document.querySelectorAll(".menu .row")].map((each) => each.querySelector(".label")?.textContent ?? "");
 
-    it("holds the link, the style, the rules, the stand-up and the give-up of a seated person at a running game, in two sections", () => {
+    it("holds the link, the style, the rules, the stand-up, the shortening and the give-up of a seated person at a running game, in two sections", () => {
         show(tableWith(DECLARER, null));
 
         expect([key()?.getAttribute("aria-label"), sections(), rows()]).toEqual([
@@ -68,9 +68,16 @@ describe("the table menu", () => {
                 words["table.style"],
                 words["rules.title"],
                 words["table.standUp"],
+                words["table.shorten"],
                 words["table.giveUp"],
             ],
         ]);
+    });
+
+    it("offers an opponent the open play before the give-up", () => {
+        show(tableWith(FIRST_OPPONENT, null));
+
+        expect(rows().slice(-2)).toEqual([words["table.playOpen"], words["table.giveUp"]]);
     });
 
     it("holds only the link and the rules for a watcher and has no game section", () => {
@@ -129,7 +136,7 @@ describe("the table menu", () => {
 
         expect([key()?.classList.contains("strip"), rows()]).toEqual([
             true,
-            [words["table.style"], words["table.standUp"], words["table.giveUp"]],
+            [words["table.style"], words["table.standUp"], words["table.shorten"], words["table.giveUp"]],
         ]);
     });
 

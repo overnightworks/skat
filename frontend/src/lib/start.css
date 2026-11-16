@@ -5356,9 +5356,9 @@ body {
     outline-offset: 2px;
 }
 
-/* 8 px between the glass of the speaker and the glass beside it. The speaker's, the back key's and the menu key's tap targets are 4 px wider than their glass, the watchers' pill has no such margin: the speaker stands right after the back key on a phone and left of the watchers from 900 px. */
+/* 8 px between the glass of the speaker and the glass beside it. The speaker's, the back key's and the menu key's tap targets are 4 px wider than their glass, the watchers' pill has no such margin: the speaker stands right after the reaction key on a phone and left of the watchers from 900 px. */
 .room .sound-button.sound-bar {
-    margin-left: 4px;
+    margin-left: 6px;
     margin-right: auto;
 }
 
@@ -6857,9 +6857,18 @@ body {
     outline-offset: 2px;
 }
 
-@media (max-width: 389px) {
+/* A phone has no room for the count in the first row between the back key, the reaction key, the speaker, the watchers and the menu key, which closes the row; the count stands in the second row beside the rules' chips. */
+@media (max-width: 899px) {
     .room .series-count {
-        top: 9px;
+        position: relative;
+        top: auto;
+        left: auto;
+        order: 3;
+        transform: none;
+    }
+
+    .room .rules-slot {
+        flex: 1 1 auto;
     }
 }
 

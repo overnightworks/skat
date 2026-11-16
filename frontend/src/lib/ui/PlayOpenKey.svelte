@@ -4,7 +4,13 @@
     import { words } from "#lib/words.ts";
     import type { Table } from "../../routes/(start)/tables.ts";
 
-    let { id, table, note = $bindable() }: { id: string; table: Table; note: string } = $props();
+    // `onsent` is told when the second tap sends the open play, so the menu that holds the row can close.
+    let {
+        id,
+        table,
+        note = $bindable(),
+        onsent,
+    }: { id: string; table: Table; note: string; onsent?: () => void } = $props();
 
     // The open play is under way from the second tap until the stream brings a newer version; only a refusal ends it sooner.
     let sentAtVersion = $state<number | null>(null);
@@ -25,11 +31,12 @@
 {#if playOpenKey(table)}
     {#key table.version}
         <ArmedKey
-            class={["copy", "play-open"]}
+            class="row play-open"
             idle={words["table.playOpen"]}
             armedWord={words["table.playOpenSure"]}
             disabled={busy}
             onconfirm={() => {
+                onsent?.();
                 void send();
             }}
         >
