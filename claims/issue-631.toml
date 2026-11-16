@@ -3,6 +3,6 @@ agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
 role = "builder"
 base = "3350ec39e3da98e140e84773ce6840439fa70a18"
 branch = "claude/issue-631-the-table-lives-players-throw-reactions"
-scope = ["docs", "frontend/src", "src/skat", "tests"]
+scope = [".github/workflows/ci.yml", "docs", "frontend/src", "frontend/vite.config.ts", "scripts/generate_wire.py", "src/skat", "tests"]
 opened_commit = "52e69ad7d51388ddc5ca8249ef20b82b958726e5"
 whole_reason = "operator's live finding and requests of 15.11.2026 span page, service and tests"
