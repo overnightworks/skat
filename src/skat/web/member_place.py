@@ -64,7 +64,7 @@ from skat.table.game_list import RamschResultView, ResultView
 from skat.table.member_place import Acceptance, MembershipState
 from skat.table.nudging import own_nudges
 from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS
-from skat.web.mcp import ToolRefusal, token_carries_agent_facts, tool_step
+from skat.web.mcp import token_carries_agent_facts
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, actor_for, answer_of
 
 if TYPE_CHECKING:
@@ -72,7 +72,6 @@ if TYPE_CHECKING:
 
     from agents.mcp_server import MemberResources
     from agents.tools import JsonObject
-    from logline import StepTimer
 
     from skat.table.member_place import TableStanding
     from skat.table.member_view import MemberActs, MemberView, ViewSignal
@@ -107,8 +106,7 @@ refusal codes have none for it, so no code stands in its place.
 """
 
 
-def _refused(refusal: AcceptInvitationRefusal, step: StepTimer) -> ToolOutcome:
-    step.refuse(refusal.value)
+def _refused(refusal: AcceptInvitationRefusal) -> ToolOutcome:
     return ToolOutcome(AcceptInvitationRefused(refused=refusal).model_dump_json(), is_error=True)
 
 
@@ -317,17 +315,12 @@ def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTo
     """
 
     async def handler(request: PersonRequest, arguments: JsonObject) -> ToolOutcome:
-        async with tool_step(ACCEPT_INVITATION_TOOL) as step:
-            return await take(request, arguments, step)
-
-    async def take(request: PersonRequest, arguments: JsonObject, step: StepTimer) -> ToolOutcome:
         try:
             accepted = AcceptInvitationArguments.model_validate_json(json.dumps(arguments))
         except ValidationError:
-            step.refuse(ToolRefusal.MALFORMED_ARGUMENTS)
             return ToolOutcome(_MALFORMED_ACCEPT_TEXT, is_error=True)
         if accepted.place.kind != TABLE_PLACE_KIND:
-            return _refused(AcceptInvitationRefusal.STALE_INVITATION, step)
+            return _refused(AcceptInvitationRefusal.STALE_INVITATION)
         table_id = accepted.place.id
         user = resource_person(HTTPConnection(request.scope))
         acceptance = Acceptance(table_id, accepted.invitation, accepted.epoch)
@@ -336,7 +329,7 @@ def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTo
             partial(tables.accept_invitation, actor_for(user), owner_account, acceptance, presence.connected(table_id))
         )
         if result.refusal is not None:
-            return _refused(AcceptInvitationRefusal(result.refusal.value), step)
+            return _refused(AcceptInvitationRefusal(result.refusal.value))
         presence.wake_table(table_id)
         presence.chair_taken(table_id)
         if result.result_pending:
