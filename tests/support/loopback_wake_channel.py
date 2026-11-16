@@ -1,6 +1,7 @@
 import asyncio
 from typing import TYPE_CHECKING
 
+from logline import current_traceparent
 from tandem import Resubscribed, Wake
 
 if TYPE_CHECKING:
@@ -9,7 +10,7 @@ if TYPE_CHECKING:
 
 class LoopbackWakeChannel:
     """One pod's end of a `LoopbackWakeBus`: what any pod publishes reaches every pod's `received`, the publisher's
-    own as well, as on Redis.
+    own as well, as on Redis, each carrying the trace its publisher was in.
     """
 
     def __init__(self, bus: LoopbackWakeBus, *, acknowledging: bool) -> None:
@@ -26,7 +27,7 @@ class LoopbackWakeChannel:
             raise self.failures_before_publishing.pop(0)
         self._bus.published.append(address)
         for channel in self._bus.channels:
-            channel.inbox.put_nowait(Wake(address))
+            channel.inbox.put_nowait(Wake(address, current_traceparent()))
 
     async def received(self) -> AsyncIterator[Wake | Resubscribed]:
         """Yields the acknowledgement of the subscription, unless the channel is one that never gets it, and then what

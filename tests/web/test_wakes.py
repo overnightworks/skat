@@ -1,6 +1,8 @@
 import asyncio
 
 import pytest
+import structlog
+from logline import current_traceparent, unit_trace
 from structlog.testing import capture_logs
 from tandem import Resubscribed, StoreError, Wake
 
@@ -8,6 +10,7 @@ from skat.web import wakes as wakes_module
 from skat.web.secret_files import StartRefusedError
 from skat.web.wakes import AccountTopic, OpenTablesTopic, TableTopic
 from tests.support.idle_presence import idle_wakes
+from tests.support.log_lines import lines_of, logged
 from tests.support.loopback_wake_channel import LoopbackWakeBus
 from tests.web.support.presence import Wakes
 from tests.web.support.wake_pods import ARRIVAL_SECONDS, Pod, run_pods
@@ -17,6 +20,7 @@ SECOND_TABLE = TableTopic("b" * 32)
 # More event-loop turns than leaving takes, so that only waiting for the publish lets it arrive.
 SLOW_PUBLISH_TURNS = 50
 ANNA = AccountTopic("account-anna")
+HANDLED = "test.wake_handled"
 OTHER_ACCOUNT = AccountTopic("account-other")
 
 
@@ -112,6 +116,37 @@ class TestSharedWakes:
             await second.arrival_of("second")
 
         between_pods(scenario)
+
+    def test_a_wake_is_handled_in_the_trace_of_the_request_that_sent_it(self, capsys):
+        sent_in = []
+
+        async def scenario(_bus, first, second):
+            second.wake_list.register([FIRST_TABLE], lambda: structlog.get_logger().info(HANDLED))
+            second.listen("second", FIRST_TABLE)
+
+            with unit_trace(None):
+                sent_in.append(current_traceparent().split("-")[1])
+                first.wake_list.wake(FIRST_TABLE)
+            await second.arrival_of("second")
+
+        with logged(capsys) as lines:
+            between_pods(scenario)
+
+        assert [line["trace_id"] for line in lines_of(lines, HANDLED)] == sent_in
+
+    def test_a_wake_sent_outside_any_trace_is_handled_in_a_trace_of_its_own(self, capsys):
+        async def scenario(_bus, first, second):
+            second.wake_list.register([FIRST_TABLE], lambda: structlog.get_logger().info(HANDLED))
+            second.listen("second", FIRST_TABLE)
+
+            first.wake_list.wake(FIRST_TABLE)
+            await second.arrival_of("second")
+
+        with logged(capsys) as lines:
+            between_pods(scenario)
+
+        (line,) = lines_of(lines, HANDLED)
+        assert line["trace_id"]
 
     def test_a_wake_that_arrives_wakes_locally_and_is_published_no_more(self):
         async def scenario(bus, first, second):
