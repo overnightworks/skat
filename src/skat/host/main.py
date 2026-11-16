@@ -10,7 +10,7 @@ import uvicorn
 from sqlalchemy.engine import make_url
 
 from skat.host.app import PodLinks, create_app
-from skat.store.migrate import ReadinessProbe, create_store_engine, database_health, migrate, require_head
+from skat.store.migrate import ReadinessProbe, create_store_engine, database_health, migrate, require_served_revision
 from skat.store.redis_clients import (
     shared_place_store,
     shared_rate_limits,
@@ -95,7 +95,9 @@ def create_database_engine(settings: DatabaseSettings) -> Engine:
 def command_line_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="skat")
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("serve", help="start the server; it refuses a database that is not at the newest migration")
+    commands.add_parser(
+        "serve", help="start the server; it refuses a database that does not list its revision as served"
+    )
     commands.add_parser("migrate", help="bring the database to the newest migration")
     return parser
 
@@ -143,7 +145,7 @@ def _run(command: str, run_server: Callable[..., None], build_directory: Path) -
         return
     settings = ServerSettings()  # pyright: ignore[reportCallIssue]
     engine = create_database_engine(settings)
-    require_head(engine)
+    require_served_revision(engine)
     app = create_app(
         settings,
         page_build=PageBuild.load(build_directory),

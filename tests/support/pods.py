@@ -1,6 +1,5 @@
 """Two real `skat serve` processes on one database and one Redis, and what a test does at them."""
 
-import json
 import secrets
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
@@ -26,11 +25,6 @@ if TYPE_CHECKING:
 
 FETCH = {"accept": "application/json"}
 SAME_ORIGIN = {"origin": TEST_PUBLIC_ORIGIN}
-
-
-def lines_of(process: SkatProcess, event: str) -> list[dict]:
-    lines = [json.loads(line) for line in process.output().splitlines() if line.startswith("{")]
-    return [line for line in lines if line.get("event") == event]
 
 
 def new_command_id() -> str:

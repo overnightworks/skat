@@ -15,7 +15,7 @@ from skat.table.records import Actor, SitDown
 from skat.table.service import TableService
 from skat.web.constants import AUTH_START_PATH, LOGOUT_PATH
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
-from tests.support.pods import SAME_ORIGIN, Pods, lines_of, new_command_id, running_pods
+from tests.support.pods import SAME_ORIGIN, Pods, new_command_id, running_pods
 from tests.support.redis import end_subscriptions, fresh_database_url
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 
@@ -86,10 +86,10 @@ class TestASeededSession:
 
 class TestAStopWithSigterm:
     def test_writes_the_process_stopped_line_before_the_process_ends(self, pods):
-        logged_before = len(lines_of(pods.second, "process.stopped"))
+        logged_before = len(pods.second.log_lines("process.stopped"))
 
         exit_status = pods.second.stop()
-        stopped_lines = len(lines_of(pods.second, "process.stopped")) - logged_before
+        stopped_lines = len(pods.second.log_lines("process.stopped")) - logged_before
         pods.second.start()
 
         assert (exit_status, stopped_lines) == (SIGTERM_EXIT, 1)
@@ -101,7 +101,7 @@ class TestATableCommandLine:
 
         table_id = pods.table_opened_by(pods.first, cookie)
 
-        creations = [line for line in lines_of(pods.first, "table_command.ended") if line["command"] == "create-table"]
+        creations = [line for line in pods.first.log_lines("table_command.ended") if line["command"] == "create-table"]
         assert creations[-1]["table_id"] == table_id
 
 

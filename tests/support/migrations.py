@@ -1,25 +1,101 @@
+import os
+import shutil
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+from sqlalchemy import delete, insert, select
 
 from skat.store.migrate import MIGRATIONS_DIRECTORY, migrate
+from skat.store.schema import serving_revisions
+from tests.support.skat_process import CHECKOUT_SOURCE
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+def _config(extra_versions: Path | None = None) -> Config:
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
+    if extra_versions is not None:
+        config.set_main_option("path_separator", "os")
+        config.set_main_option(
+            "version_locations", os.pathsep.join([str(MIGRATIONS_DIRECTORY / "versions"), str(extra_versions)])
+        )
+    return config
+
+
+def head_revision():
+    """The newest revision of Skat's own migrations."""
+    return ScriptDirectory.from_config(_config()).get_current_head()
 
 
 def revision_before_head():
     """The revision the newest migration comes after."""
-    config = Config()
-    config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
-    scripts = ScriptDirectory.from_config(config)
+    scripts = ScriptDirectory.from_config(_config())
     return scripts.get_revision(scripts.get_current_head()).down_revision
 
 
-def upgrade_to(engine, revision, operator_account_id=None):
-    config = Config()
-    config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
+def revisions_from(first: str):
+    """The real revision `first` and every one after it, the oldest first."""
+    scripts = ScriptDirectory.from_config(_config())
+    newest_first = list(scripts.walk_revisions())
+    return list(reversed(newest_first[: [each.revision for each in newest_first].index(first) + 1]))
+
+
+def upgrade_to(engine, revision, operator_account_id=None, *, extra_versions: Path | None = None):
+    """Applies the steps up to `revision` through the real `env.py`; `extra_versions` names a directory of further
+    revision files, which `write_revisions` fills, that extend the real ones.
+    """
+    config = _config(extra_versions)
     with engine.connect() as connection:
         config.attributes["connection"] = connection
         config.attributes["operator_account_id"] = operator_account_id
         command.upgrade(config, revision)
+
+
+@dataclass(frozen=True)
+class FixtureRevision:
+    revision: str
+    statements: tuple[str, ...] = ()
+    contracts: bool = False
+
+
+def write_revisions(directory: Path, *revisions: FixtureRevision) -> None:
+    """Writes the revisions as a chain that continues the real one, in the order given."""
+    down_revision = head_revision()
+    for each in revisions:
+        calls = "".join(f"    op.execute({statement!r})\n" for statement in each.statements) or "    pass\n"
+        (directory / f"{each.revision}.py").write_text(
+            f"from alembic import op\n\nrevision = {each.revision!r}\ndown_revision = {down_revision!r}\n"
+            f"CONTRACTS = {each.contracts!r}\n\n\ndef upgrade() -> None:\n{calls}"
+        )
+        down_revision = each.revision
+
+
+def release_source(directory: Path, *revisions: FixtureRevision) -> Path:
+    """The source tree of a release that ships `revisions` after this checkout's migrations, as a copy of this
+    checkout's, so that a process runs it as that release's code with that release's head.
+    """
+    source = directory / "src"
+    shutil.copytree(CHECKOUT_SOURCE, source, ignore=shutil.ignore_patterns("__pycache__"))
+    write_revisions(source / "skat" / "store" / "migrations" / "versions", *revisions)
+    return source
+
+
+def served_revisions(engine) -> set[str]:
+    with engine.connect() as connection:
+        return set(connection.execute(select(serving_revisions.c.revision)).scalars())
+
+
+def serve_only(engine, *revisions):
+    """Makes the database list exactly these revisions as served."""
+    with engine.begin() as connection:
+        connection.execute(delete(serving_revisions))
+        if revisions:
+            connection.execute(insert(serving_revisions), [{"revision": revision} for revision in revisions])
 
 
 def migrated_from(engine, revision, *statements):
