@@ -45,6 +45,7 @@ class Timers:
     presence: Presence
     time: Any
     leases: Leases
+    roster: InMemoryLeases
     notes: Notes
     ends: Any
     deals: Any
@@ -53,16 +54,16 @@ class Timers:
 
 @pytest.fixture
 def timers(time, releases, deals, ends):
-    leases, notes = Leases(), Notes()
+    leases, notes, roster = Leases(), Notes(), InMemoryLeases()
     presence = Presence(
         ChairHold(HOLD_SECONDS, time.clock, time, releases.free_chair),
         NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
         EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end, notes.note),
         AgentLease(LEASE_SECONDS, leases.seated_tables),
         idle_wakes(),
-        InMemoryLeases(),
+        roster,
     )
-    return Timers(presence, time, leases, notes, ends, deals, releases)
+    return Timers(presence, time, leases, roster, notes, ends, deals, releases)
 
 
 def fail_the_next_runs(world, timer, count):
@@ -110,7 +111,9 @@ def started(world, timer, failures):
     first_run(world, timer, leaving)
 
 
-TIMERS = list(PresenceTimer)
+# The close's absence check shares the roster with the note of who is present, so its test makes the roster's outage
+# outlast both rather than fail a count of runs.
+TIMERS = [timer for timer in PresenceTimer if timer is not PresenceTimer.CLOSE_ABSENCE_CHECK]
 
 
 class TestThePresenceTimerLine:
@@ -153,3 +156,24 @@ class TestThePresenceTimerLine:
 
         (line,) = lines_of(lines, EVENT)
         assert line["table_id"] == TABLE
+
+
+class TestTheCloseAbsenceCheckLine:
+    def test_a_roster_that_cannot_be_read_writes_one_streak_instead_of_an_error_per_retry(self, timers, capsys):
+        leaving = connect(timers.presence, TABLE, MEMBER, lambda: None)
+        timers.roster.reading_fails = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)] * 100
+
+        with logged(capsys) as lines:
+            run(timers.presence.close(leaving))
+            run(timers.time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+            run(timers.time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+            timers.roster.reading_fails.clear()
+            run(timers.time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+
+        first, recovery = [
+            line for line in lines_of(lines, EVENT) if line["timer"] == PresenceTimer.CLOSE_ABSENCE_CHECK
+        ]
+        assert (first["outcome"], first["failed_run_count"], first["table_id"]) == (Outcome.FAILED, 1, TABLE)
+        assert (recovery["outcome"], recovery["failed_run_count"]) == (Outcome.OK, 3)
+        assert lines_of(lines, "stream_close.failed") == []
+        assert MEMBER not in str(lines_of(lines, EVENT))

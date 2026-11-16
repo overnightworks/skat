@@ -504,11 +504,15 @@ class Presence:
         """
         if self._stopped:
             return
+        run = self._timer_runs.start(PresenceTimer.CLOSE_ABSENCE_CHECK, table_id, account_id, table_id=table_id)
         try:
             present = await self._read_present()
-        except Exception as failure:
-            log.error("stream_close.failed", table_id=table_id, error_type=type(failure).__name__)
+        except Exception:
+            # The failure's message may carry the account id, which the streak line never names.
+            run.failed()
             present = None
+        else:
+            run.succeeded()
         if present is not None and lease_ended and account_id in present.at(table_id):
             return
         if present is not None and present.settled and account_id not in present.at(table_id):

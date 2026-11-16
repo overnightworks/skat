@@ -215,7 +215,7 @@ class TestTheCloseOfAStream:
         with capture_logs() as logs:
             run(holding.close(subscription))
         assert holding.hold_seconds_left([TABLE]) == {}
-        assert logged_failures(logs) == [("stream_close.failed", "ConnectionError")]
+        assert logged_failures(logs) == []
 
         run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
         assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": HOLD_SECONDS}}
