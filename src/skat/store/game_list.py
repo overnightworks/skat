@@ -397,12 +397,8 @@ def _columns_of(entry: GameEntry) -> dict[str, object]:
 
 def read_game_list(connection: Connection, table_id: str, series_number: int) -> tuple[GameEntry, ...]:
     """The games of the table's series `series_number` in the order played."""
-    rows = connection.execute(
-        select(game_list)
-        .where(game_list.c.table_id == table_id, game_list.c.series_number == series_number)
-        .order_by(game_list.c.ordinal)
-    )
-    return tuple(_entry_of(row) for row in rows)
+    in_series = (game_list.c.table_id == table_id) & (game_list.c.series_number == series_number)
+    return tuple(map(_entry_of, connection.execute(select(game_list).where(in_series).order_by(game_list.c.ordinal))))
 
 
 def last_series_with_games(connection: Connection, table_id: str) -> int | None:
