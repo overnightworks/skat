@@ -4229,12 +4229,6 @@ body {
         margin-top: calc(36px + var(--chair-drop));
     }
 
-    /* The near chair is too narrow for the away mark beside its position label, so the mark stands below it. */
-    .room .chair:nth-child(3) .mark.pos ~ .mark.away {
-        top: 36px;
-        right: 6px;
-        left: auto;
-    }
     .room .chair:nth-child(1) {
         justify-self: start;
     }
@@ -4339,6 +4333,59 @@ body {
         width: auto;
         padding: 0 9px 0 7px;
         font-size: 12.5px;
+    }
+
+    /* The near chair is as small as a phone chair, so its marks are the phone chair's: the position on the top edge, the dealer badge as the icon alone, and the turn, pass and away marks at the top right, clear of the position. */
+    .room .chair:nth-child(3) .mark.pos {
+        top: -11px;
+        right: -4px;
+        height: 22px;
+        padding: 0 8px;
+        font-size: 11.5px;
+    }
+
+    .room .chair:nth-child(3) .mark.dealer {
+        top: -12px;
+        left: -6px;
+        width: 26px;
+        padding: 0;
+        font-size: 0;
+        gap: 0;
+    }
+
+    .room .chair:nth-child(3) .mark:is(.turn, .pass, .waits, .ready, .think, .away),
+    .room .chair:nth-child(3) .mark.dealer ~ .mark:is(.turn, .pass, .waits, .ready, .think) {
+        top: 11px;
+        right: 11px;
+        left: auto;
+        height: 26px;
+    }
+
+    .room .chair:nth-child(3) .mark:is(.turn, .pass, .think) {
+        width: 26px;
+        padding: 0;
+        font-size: 0;
+    }
+
+    .room .chair:nth-child(3) .mark.away {
+        width: 28px;
+        height: 28px;
+    }
+
+    .room .chair:nth-child(3) .mark.waits {
+        padding: 0 7px 0 5px;
+    }
+
+    .room .chair:nth-child(3) .mark.waits .dot {
+        width: 16px;
+        height: 16px;
+        font-size: 9px;
+    }
+
+    /* The away mark beside another mark stands below it. */
+    .room .chair:nth-child(3) .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away,
+    .room .chair:nth-child(3) .mark.dealer ~ .mark:is(.turn, .pass, .waits, .ready) ~ .mark.away {
+        top: 41px;
     }
 }
 

@@ -244,6 +244,23 @@ def test_the_dealer_and_the_positions_follow_the_server_for_each_dealer(
         assert [chair["seat"] for chair in drawn["chairs"] if chair["dealer"] == DEALER] == [dealer]
 
 
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_own_chairs_position_and_dealer_badge_stand_on_its_top_edge_at_every_width(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    players = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    write_dealer(e2e_server, players.table_id, 3)
+    players.cleo.reload()
+    wait_for_the_hand(players.cleo)
+
+    chair = players.cleo.locator(".chair.mine").bounding_box()
+    assert chair is not None
+    for mark in (".mark.pos", ".mark.dealer"):
+        box = players.cleo.locator(f".chair.mine {mark}").bounding_box()
+        assert box is not None
+        assert box["y"] + box["height"] / 2 <= chair["y"] + 1, f"{mark} lies over the own chair's face"
+
+
 def person_at(players: Players, server: RunningServer, position: str) -> Page:
     return next(
         person
