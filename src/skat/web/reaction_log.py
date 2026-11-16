@@ -75,6 +75,8 @@ class ReactionLog:
         self._numbers.pop(table_id, None)
 
     def _forget_old_throws(self, now: float) -> None:
-        for account_id, moments in list(self._people.items()):
-            if now - moments[-1] >= REACTION_WINDOW_SECONDS:
-                del self._people[account_id]
+        forgotten = [
+            account_id for account_id, moments in self._people.items() if now - moments[-1] >= REACTION_WINDOW_SECONDS
+        ]
+        for account_id in forgotten:
+            del self._people[account_id]
