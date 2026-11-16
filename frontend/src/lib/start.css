@@ -7305,18 +7305,21 @@ body {
     text-transform: uppercase;
 }
 
-/* The scenes colour each person's dot; the sheet colours each seat's the same way. */
-.room .game-list .game-sheet .dot.seat-1 {
+/* The scenes colour each person's dot; the sheet and the emotes colour each seat's the same way. */
+.room .game-list .game-sheet .dot.seat-1,
+.room .emote .from.seat-1 {
     --c1: #6fd3bd;
     --c2: #2f8f7d;
 }
 
-.room .game-list .game-sheet .dot.seat-2 {
+.room .game-list .game-sheet .dot.seat-2,
+.room .emote .from.seat-2 {
     --c1: #c2a8f5;
     --c2: #7c5cd6;
 }
 
-.room .game-list .game-sheet .dot.seat-3 {
+.room .game-list .game-sheet .dot.seat-3,
+.room .emote .from.seat-3 {
     --c1: #e8c895;
     --c2: #b08a55;
 }

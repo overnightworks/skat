@@ -92,6 +92,7 @@ export function table(
         chairs: chairs(mine, chairChanges),
         watchers: 0,
         opened_by_me: false,
+        reactions: [],
         hand: null,
         result: changes === null ? null : result(changes),
         passed_in: null,

@@ -2070,3 +2070,75 @@ msgstr ""
 msgctxt "table.styleNote"
 msgid "Gilt für alle am Tisch, auch für die Zuschauer."
 msgstr ""
+
+msgctxt "table.reactions"
+msgid "Reaktion senden"
+msgstr ""
+
+msgctxt "table.reactionTray"
+msgid "Reaktionen"
+msgstr ""
+
+msgctxt "table.reactionClap"
+msgid "Applaus"
+msgstr ""
+
+msgctxt "table.reactionClapMark"
+msgid "👏"
+msgstr ""
+
+msgctxt "table.reactionLaugh"
+msgid "Lachen"
+msgstr ""
+
+msgctxt "table.reactionLaughMark"
+msgid "😂"
+msgstr ""
+
+msgctxt "table.reactionGasp"
+msgid "Staunen"
+msgstr ""
+
+msgctxt "table.reactionGaspMark"
+msgid "😮"
+msgstr ""
+
+msgctxt "table.reactionFire"
+msgid "Feuer"
+msgstr ""
+
+msgctxt "table.reactionFireMark"
+msgid "🔥"
+msgstr ""
+
+msgctxt "table.reactionCheers"
+msgid "Prost"
+msgstr ""
+
+msgctxt "table.reactionCheersMark"
+msgid "🍻"
+msgstr ""
+
+msgctxt "table.reactionKnock"
+msgid "Klopfen"
+msgstr ""
+
+msgctxt "table.reactionKnockMark"
+msgid "👊"
+msgstr ""
+
+msgctxt "table.objectCocktail"
+msgid "Cocktail"
+msgstr ""
+
+msgctxt "table.objectShell"
+msgid "Muschel"
+msgstr ""
+
+msgctxt "table.objectCoaster"
+msgid "Untersetzer"
+msgstr ""
+
+msgctxt "table.objectLamp"
+msgid "Lampe"
+msgstr ""
