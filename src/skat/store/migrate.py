@@ -130,9 +130,10 @@ class ServingWindow:
     Steps that only expand keep the revision the database was at beside the new one, because code of that revision
     still reads the schema; that window of one release back is the most a release may rely on. A step that declares
     `CONTRACTS = True` is exempt from the check that migrations only expand, and drops only what the release before
-    it no longer reads. A contraction that is not the first step of the run skips a release: the database then
-    serves the new revision alone, and processes two releases old turn unready. A fresh database serves its head, and
-    a run that applies no step changes nothing.
+    it no longer reads. The window knows steps, not releases, so a contracting step must be the first migration of
+    its release: a contraction that is not the first step of the run is taken to skip a release, and the database
+    then serves the new revision alone, so that processes of the release before turn unready too. A fresh database
+    serves its head, and a run that applies no step changes nothing.
     """
 
     def __init__(self) -> None:
