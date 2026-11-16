@@ -15,7 +15,6 @@ TABLE = "t" * 32
 OTHER_TABLE = "o" * 32
 HOLD_SECONDS = 300
 FAILURE_NAMING_AN_ACCOUNT = "account anna"
-NAMED_FAILURE = ("error", "ConnectionError")
 THIRD_PASS_COMMAND = "pass-seat-3"
 
 

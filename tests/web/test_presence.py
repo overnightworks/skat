@@ -255,7 +255,7 @@ class TestChairHold:
 
         assert releases.calls == []
 
-    def test_a_failed_freeing_wakes_nobody_logs_by_name_and_is_tried_again_until_it_commits(
+    def test_a_failed_freeing_wakes_nobody_writes_the_streak_warning_and_is_tried_again_until_it_commits(
         self, holding, time, releases, wakes, capsys
     ):
         connect(holding, TABLE, "ben", wakes.callback("ben"))

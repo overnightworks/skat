@@ -186,7 +186,9 @@ class TestWhenTheCheckRuns:
 
 
 class TestWhenTheStoreFails:
-    def test_a_failed_end_is_logged_by_name_and_retried_after_the_retry_delay(self, holding, time, ends, capsys):
+    def test_a_failed_end_writes_the_streak_warning_and_is_retried_after_the_retry_delay(
+        self, holding, time, ends, capsys
+    ):
         ends.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
         holding.watch_empty_table(TABLE)
 
@@ -327,7 +329,7 @@ class TestTheStoredTimeSinceNobodyWasThere:
 
         assert wakes.counts["ben"] == before + 1
 
-    def test_a_failed_leave_write_is_logged_by_name_and_retried_while_the_presence_runs(
+    def test_a_failed_leave_write_writes_the_streak_warning_and_is_retried_while_the_presence_runs(
         self, noting, time, notes, capsys
     ):
         leaving = connect(noting, TABLE, "anna", lambda: None)

@@ -124,7 +124,7 @@ class TestNextDealPause:
 
         assert time.pending == 1
 
-    def test_a_failed_deal_is_logged_by_name_wakes_nobody_and_leaves_the_next_request_free(
+    def test_a_failed_deal_writes_the_streak_warning_wakes_nobody_and_leaves_the_next_request_free(
         self, holding, time, deals, wakes, capsys
     ):
         connect(holding, TABLE, "anna", wakes.callback("anna"))
@@ -174,7 +174,7 @@ class TestDealNow:
         run(holding.deal_now(TABLE))
         assert wakes.counts["anna"] == before + 1
 
-    def test_a_failed_deal_is_logged_by_name_and_wakes_nobody(self, holding, deals, wakes, capsys):
+    def test_a_failed_deal_writes_the_streak_warning_and_wakes_nobody(self, holding, deals, wakes, capsys):
         connect(holding, TABLE, "anna", wakes.callback("anna"))
         before = wakes.counts["anna"]
         deals.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
@@ -379,7 +379,7 @@ class TestNextHandComes:
 
             assert server.store.tables[table_id] == before
 
-    def test_a_store_failure_in_the_deal_is_named_changes_nothing_and_the_next_stream_opening_deals(
+    def test_a_store_failure_in_the_deal_writes_the_streak_warning_changes_nothing_and_the_next_stream_opening_deals(
         self, hold, time, capsys
     ):
         store = OvertakenStore()
