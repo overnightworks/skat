@@ -6,32 +6,29 @@ import asyncio
 import threading
 
 import pytest
-from structlog.testing import capture_logs
 
 from skat.web import presence as presence_module
 from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS
+from skat.web.presence_line import PresenceTimer
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
-from tests.web.support.presence import HOLD_SECONDS, TABLE, connect, run
+from tests.support.log_lines import logged
+from tests.web.support.presence import HOLD_SECONDS, TABLE, connect, failed_timers, run
 
 UNREACHABLE = ConnectionError("redis is unreachable")
 
 
-def logged_failures(logs):
-    return [(log["event"], log["error_type"]) for log in logs if log["log_level"] == "error"]
-
-
 class TestAFreeingOfAChair:
     def test_reads_the_roster_again_under_the_row_lock_and_frees_nothing_while_it_cannot_be_read(
-        self, holding, leases, time, releases
+        self, holding, leases, time, releases, capsys
     ):
         run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
         leases.reading_fails = [UNREACHABLE]
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run(time.advance(HOLD_SECONDS))
 
         assert releases.outcomes == []
-        assert logged_failures(logs) == [("chair_release.failed", "PresenceUnknownError")]
+        assert failed_timers(lines) == [(PresenceTimer.CHAIR_RELEASE, "warning")]
 
     def test_frees_the_chair_on_the_retry_once_the_roster_can_be_read(self, holding, leases, time, releases):
         run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
@@ -66,15 +63,15 @@ class TestAFreeingOfAChair:
 
 
 class TestTheEndOfAnEmptyTable:
-    def test_ends_nothing_while_the_roster_cannot_be_read_and_tries_again(self, holding, leases, time, ends):
+    def test_ends_nothing_while_the_roster_cannot_be_read_and_tries_again(self, holding, leases, time, ends, capsys):
         holding.watch_empty_table(TABLE)
         leases.reading_fails = [UNREACHABLE]
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
         run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
 
-        assert logged_failures(logs) == [("empty_table_end.failed", "PresenceUnknownError")]
+        assert failed_timers(lines) == [(PresenceTimer.EMPTY_TABLE_END, "warning")]
         assert ends.calls == [(TABLE, frozenset())]
 
     def test_ends_nothing_while_the_roster_is_unsettled_and_lists_nobody_at_the_table(
@@ -99,15 +96,15 @@ class TestTheEndOfAnEmptyTable:
 
 class TestTheNextDeal:
     def test_tries_again_after_the_retry_delay_when_the_roster_cannot_be_read_and_then_deals(
-        self, holding, leases, time, deals
+        self, holding, leases, time, deals, capsys
     ):
         connect(holding, TABLE, "anna", lambda: None)
         leases.reading_fails = [UNREACHABLE]
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run(holding.deal_now(TABLE))
         assert deals.calls == []
-        assert logged_failures(logs) == [("next_deal.failed", "PresenceUnknownError")]
+        assert failed_timers(lines) == [(PresenceTimer.NEXT_DEAL, "warning")]
 
         run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
         assert deals.calls == [(TABLE, {"anna"})]
@@ -132,16 +129,18 @@ class TestTheNextDeal:
 
 
 class TestAStalledRoster:
-    def test_counts_as_unknown_after_its_timeout_and_frees_nothing(self, holding, leases, time, releases, monkeypatch):
+    def test_counts_as_unknown_after_its_timeout_and_frees_nothing(
+        self, holding, leases, time, releases, monkeypatch, capsys
+    ):
         monkeypatch.setattr(presence_module, "ROSTER_READ_TIMEOUT_SECONDS", 0.05)
         run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
         leases.reading_hangs = True
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run(time.advance(HOLD_SECONDS))
 
         assert releases.outcomes == []
-        assert logged_failures(logs) == [("chair_release.failed", "PresenceUnknownError")]
+        assert failed_timers(lines) == [(PresenceTimer.CHAIR_RELEASE, "warning")]
 
     def test_a_stop_ends_a_read_in_flight_and_the_guard_yields_nobody_at_once(
         self, holding, leases, deals, monkeypatch
@@ -208,14 +207,16 @@ class TestTheCloseOfAStream:
         assert leases.holders == []
         assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": HOLD_SECONDS}}
 
-    def test_starts_no_hold_while_the_roster_cannot_be_read_and_starts_it_on_the_retry(self, holding, leases, time):
+    def test_starts_no_hold_while_the_roster_cannot_be_read_and_starts_it_on_the_retry(
+        self, holding, leases, time, capsys
+    ):
         subscription = connect(holding, TABLE, "anna", lambda: None)
         leases.reading_fails = [UNREACHABLE]
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run(holding.close(subscription))
         assert holding.hold_seconds_left([TABLE]) == {}
-        assert logged_failures(logs) == []
+        assert failed_timers(lines) == [(PresenceTimer.CLOSE_ABSENCE_CHECK, "warning")]
 
         run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
         assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": HOLD_SECONDS}}

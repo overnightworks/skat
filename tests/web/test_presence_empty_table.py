@@ -1,7 +1,6 @@
 import asyncio
 
 import pytest
-from structlog.testing import capture_logs
 
 from skat.web.presence import (
     CHAIR_RELEASE_RETRY_SECONDS,
@@ -11,18 +10,20 @@ from skat.web.presence import (
     NextDeal,
     Presence,
 )
+from skat.web.presence_line import PresenceTimer
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.idle_presence import idle_agent_lease, idle_wakes
 from tests.support.in_memory_leases import InMemoryLeases
+from tests.support.log_lines import logged
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
     HOLD_SECONDS,
-    NAMED_FAILURE,
     OTHER_TABLE,
     TABLE,
     Notes,
     Wakes,
     connect,
+    failed_timers,
     run,
 )
 
@@ -185,15 +186,15 @@ class TestWhenTheCheckRuns:
 
 
 class TestWhenTheStoreFails:
-    def test_a_failed_end_is_logged_by_name_and_retried_after_the_retry_delay(self, holding, time, ends):
+    def test_a_failed_end_is_logged_by_name_and_retried_after_the_retry_delay(self, holding, time, ends, capsys):
         ends.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
         holding.watch_empty_table(TABLE)
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
 
-        assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE]
-        assert (logs[0]["table_id"], "anna" in str(logs)) == (TABLE, False)
+        assert failed_timers(lines) == [(PresenceTimer.EMPTY_TABLE_END, "warning")]
+        assert "anna" not in str(lines)
         assert ends.calls == []
 
         run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
@@ -326,16 +327,18 @@ class TestTheStoredTimeSinceNobodyWasThere:
 
         assert wakes.counts["ben"] == before + 1
 
-    def test_a_failed_leave_write_is_logged_by_name_and_retried_while_the_presence_runs(self, noting, time, notes):
+    def test_a_failed_leave_write_is_logged_by_name_and_retried_while_the_presence_runs(
+        self, noting, time, notes, capsys
+    ):
         leaving = connect(noting, TABLE, "anna", lambda: None)
         notes.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
         run(noting.close(leaving))
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run(time.advance(0))
         run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
 
-        assert [(log["error_type"], log["table_id"]) for log in logs] == [("ConnectionError", TABLE)]
+        assert failed_timers(lines) == [(PresenceTimer.EMPTY_SINCE_WRITE, "warning")]
         assert notes.calls[-1] == (TABLE, frozenset())
 
     def test_a_retried_leave_write_notes_who_is_connected_when_it_runs_after_a_reconnect(self, noting, time, notes):

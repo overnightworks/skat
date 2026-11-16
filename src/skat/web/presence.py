@@ -344,9 +344,7 @@ class Presence:
         run = self._timer_runs.start(PresenceTimer.LEASE_SETTLE, account_id)
         try:
             table_ids = list(await self._lease.seated_tables(account_id))
-        except Exception as failure:
-            # The failure's message may carry the account id, so only its type is logged.
-            log.error("lease_tables_read.failed", error_type=type(failure).__name__)
+        except Exception:
             run.failed()
             self._hold.scheduler.schedule(
                 CHAIR_RELEASE_RETRY_SECONDS, partial(self._settle_lease, account_id, lapsed=lapsed)
@@ -469,7 +467,6 @@ class Presence:
         try:
             present = await self._read_present()
         except Exception:
-            # The failure's message may carry the account id, which the streak line never names.
             run.failed()
             present = None
         else:
@@ -555,9 +552,7 @@ class Presence:
                 table_id,
                 self._connected_while_writing(table_id, asyncio.get_running_loop(), absence_decides=False),
             )
-        except Exception as failure:
-            # The failure's message may carry an account id, so only its type is logged.
-            log.error("next_deal.failed", table_id=table_id, error_type=type(failure).__name__)
+        except Exception:
             run.failed()
             if not self._stopped:
                 self._hold.scheduler.schedule(CHAIR_RELEASE_RETRY_SECONDS, partial(self.deal_now, table_id))
@@ -588,9 +583,7 @@ class Presence:
             ended = await self._empty_table.note(
                 table_id, self._connected_while_writing(table_id, asyncio.get_running_loop())
             )
-        except Exception as failure:
-            # The failure's message may carry an account id, so only its type is logged.
-            log.error("empty_since_write.failed", table_id=table_id, error_type=type(failure).__name__)
+        except Exception:
             run.failed()
             self._note_soon(table_id, CHAIR_RELEASE_RETRY_SECONDS)
             return
@@ -607,9 +600,7 @@ class Presence:
             ended = await self._empty_table.end(
                 table_id, self._connected_while_writing(table_id, loop, partial(self._is_latest_wait, table_id, wait))
             )
-        except Exception as failure:
-            # The failure's message may carry an account id, so only its type is logged.
-            log.error("empty_table_end.failed", table_id=table_id, error_type=type(failure).__name__)
+        except Exception:
             run.failed()
             self._hold.scheduler.schedule(CHAIR_RELEASE_RETRY_SECONDS, partial(self._end_if_empty, table_id, wait))
             return
@@ -649,9 +640,7 @@ class Presence:
                 account_id,
                 self._while_latest_leave(table_id, account_id, left_at, asyncio.get_running_loop()),
             )
-        except Exception as failure:
-            # The failure's message may carry the account id, so only its type is logged.
-            log.error("chair_release.failed", table_id=table_id, error_type=type(failure).__name__)
+        except Exception:
             run.failed()
             self._hold.scheduler.schedule(
                 CHAIR_RELEASE_RETRY_SECONDS, partial(self._expire, table_id, account_id, left_at)

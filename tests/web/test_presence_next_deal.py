@@ -2,7 +2,6 @@ from dataclasses import replace
 from functools import partial
 
 import pytest
-from structlog.testing import capture_logs
 
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position, next_dealer, positions_from
@@ -10,21 +9,23 @@ from skat.table.records import Actor, CreateTable, HandProgress, SitDown, TableI
 from skat.table.service import TableService
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
+from skat.web.presence_line import PresenceTimer
 from skat.web.streams import IDLE_HEARTBEAT
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
+from tests.support.log_lines import logged
 from tests.support.payload_cards import DEALER_SEAT, cards_in, seated_three, wire_cards
 from tests.support.played_game import before_the_last_card
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
-    NAMED_FAILURE,
     OTHER_TABLE,
     TABLE,
     THIRD_PASS_COMMAND,
     OvertakenStore,
     connect,
     end_the_first_game,
+    failed_timers,
     occupied_seats,
     pass_hand_in,
     post_pass,
@@ -124,19 +125,19 @@ class TestNextDealPause:
         assert time.pending == 1
 
     def test_a_failed_deal_is_logged_by_name_wakes_nobody_and_leaves_the_next_request_free(
-        self, holding, time, deals, wakes
+        self, holding, time, deals, wakes, capsys
     ):
         connect(holding, TABLE, "anna", wakes.callback("anna"))
         before = wakes.counts["anna"]
         deals.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
 
         holding.deal_soon(TABLE)
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
 
         assert wakes.counts["anna"] == before
-        assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE]
-        assert "anna" not in str(logs)
+        assert failed_timers(lines) == [(PresenceTimer.NEXT_DEAL, "warning")]
+        assert "anna" not in str(lines)
         holding.deal_soon(TABLE)
         run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
         assert wakes.counts["anna"] == before + 1
@@ -173,17 +174,17 @@ class TestDealNow:
         run(holding.deal_now(TABLE))
         assert wakes.counts["anna"] == before + 1
 
-    def test_a_failed_deal_is_logged_by_name_and_wakes_nobody(self, holding, deals, wakes):
+    def test_a_failed_deal_is_logged_by_name_and_wakes_nobody(self, holding, deals, wakes, capsys):
         connect(holding, TABLE, "anna", wakes.callback("anna"))
         before = wakes.counts["anna"]
         deals.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run(holding.deal_now(TABLE))
 
         assert wakes.counts["anna"] == before
-        assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE]
-        assert "anna" not in str(logs)
+        assert failed_timers(lines) == [(PresenceTimer.NEXT_DEAL, "warning")]
+        assert "anna" not in str(lines)
 
     def test_once_the_server_stopped_it_asks_with_none_connected_to_say_so(self, holding, deals):
         connect(holding, TABLE, "anna", lambda: None)
@@ -378,7 +379,9 @@ class TestNextHandComes:
 
             assert server.store.tables[table_id] == before
 
-    def test_a_store_failure_in_the_deal_is_named_changes_nothing_and_the_next_stream_opening_deals(self, hold, time):
+    def test_a_store_failure_in_the_deal_is_named_changes_nothing_and_the_next_stream_opening_deals(
+        self, hold, time, capsys
+    ):
         store = OvertakenStore()
         server = Skat(lambda: hold, store=store, chair_clock=time.clock, chair_scheduler=time)
 
@@ -393,12 +396,12 @@ class TestNextHandComes:
                 passed_in = store.tables[table_id]
                 store.meanwhile = store_goes_down
 
-                with capture_logs() as logs:
+                with logged(capsys) as lines:
                     advance(server, time, NEXT_DEAL_PAUSE_SECONDS)
 
                 assert store.tables[table_id] == passed_in
-                assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE]
-                assert "anna" not in str(logs)
+                assert failed_timers(lines) == [(PresenceTimer.NEXT_DEAL, "warning")]
+                assert "anna" not in str(lines)
 
                 with streams_of(server, table_id, people[3:]):
                     advance(server, time, NEXT_DEAL_PAUSE_SECONDS)

@@ -1,9 +1,13 @@
 import asyncio
 from contextlib import contextmanager
 
+from logline import Outcome
+
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
+from skat.web.presence_line import EVENT
 from skat.web.tables import TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
+from tests.support.log_lines import lines_of
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 
@@ -13,6 +17,11 @@ HOLD_SECONDS = 300
 FAILURE_NAMING_AN_ACCOUNT = "account anna"
 NAMED_FAILURE = ("error", "ConnectionError")
 THIRD_PASS_COMMAND = "pass-seat-3"
+
+
+def failed_timers(lines):
+    """The timer and level of each line a failed run of a presence timer wrote."""
+    return [(line["timer"], line["level"]) for line in lines_of(lines, EVENT) if line["outcome"] == Outcome.FAILED]
 
 
 def view_of_version(messages, version):

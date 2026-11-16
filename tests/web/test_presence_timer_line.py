@@ -143,6 +143,15 @@ class TestThePresenceTimerLine:
         assert MEMBER not in str(lines_of(lines, EVENT))
 
     @pytest.mark.parametrize("timer", TIMERS)
+    def test_a_timer_that_keeps_failing_writes_no_error_line_per_retry(self, timers, capsys, timer):
+        with logged(capsys) as lines:
+            started(timers, timer, 3)
+            next_run(timers, timer)
+            next_run(timers, timer)
+
+        assert [line for line in lines if line["level"] == "error"] == []
+
+    @pytest.mark.parametrize("timer", TIMERS)
     def test_a_timer_that_succeeds_with_no_streak_behind_it_writes_no_line(self, timers, capsys, timer):
         with logged(capsys) as lines:
             started(timers, timer, 0)

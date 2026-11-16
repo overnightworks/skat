@@ -3,7 +3,6 @@ import threading
 
 import pytest
 from logline import current_traceparent, unit_trace
-from structlog.testing import capture_logs
 
 from skat.web.presence import (
     CHAIR_RELEASE_RETRY_SECONDS,
@@ -14,19 +13,21 @@ from skat.web.presence import (
     NextDeal,
     Presence,
 )
+from skat.web.presence_line import PresenceTimer
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.idle_presence import idle_agent_lease, idle_presence, idle_wakes, note_nothing
 from tests.support.in_memory_leases import InMemoryLeases
+from tests.support.log_lines import logged
 from tests.support.payload_cards import seated_three
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
     HOLD_SECONDS,
-    NAMED_FAILURE,
     OTHER_TABLE,
     TABLE,
     connect,
     end_the_first_game,
+    failed_timers,
     occupied_seats,
     pass_hand_in,
     run,
@@ -255,14 +256,14 @@ class TestChairHold:
         assert releases.calls == []
 
     def test_a_failed_freeing_wakes_nobody_logs_by_name_and_is_tried_again_until_it_commits(
-        self, holding, time, releases, wakes
+        self, holding, time, releases, wakes, capsys
     ):
         connect(holding, TABLE, "ben", wakes.callback("ben"))
         run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
         releases.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT), ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
         woken_before = wakes.counts["ben"]
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run(time.advance(HOLD_SECONDS))
             assert wakes.counts["ben"] == woken_before
             run(time.advance(CHAIR_RELEASE_RETRY_SECONDS - 1))
@@ -273,8 +274,8 @@ class TestChairHold:
 
         assert len(releases.calls) == 3
         assert wakes.counts["ben"] == woken_before + 1
-        assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE] * 2
-        assert "anna" not in str(logs)
+        assert failed_timers(lines) == [(PresenceTimer.CHAIR_RELEASE, "warning")]
+        assert "anna" not in str(lines)
 
     def test_a_member_returning_while_the_freeing_waits_keeps_the_chair(self, holding, time, releases):
         run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
