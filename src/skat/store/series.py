@@ -29,7 +29,7 @@ class SeriesSettingsChangedError(Exception):
     """
 
 
-def _counters_of(table: TableRecord) -> dict[str, Any]:
+def _counters_of(table: TableRecord) -> dict[str, object]:
     """The columns that change while the series is played: its deals, early end, standing proposal and Bock rounds."""
     current = table.series
     proposal = None if current is None else current.end_proposal
