@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 from logline import Outcome
 
 from skat.table.service import TableService
-from tests.host.test_app_unplayed_tables import UNPLAYED_DAYS, UnplayedTables
 from tests.support.log_lines import lines_of, logged
+from tests.support.unplayed_tables import UNPLAYED_DAYS, UnplayedTables
 
 EVENT = "table_sweep.ended"
 
