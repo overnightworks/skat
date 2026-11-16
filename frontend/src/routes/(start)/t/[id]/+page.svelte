@@ -34,7 +34,7 @@
         type PlayingHand,
     } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
-    import { seriesCountText, seriesEndAsk, seriesOver, standingsView } from "#lib/series.ts";
+    import { resultOnStage, seriesCountText, seriesEndAsk, seriesOver, standingsView } from "#lib/series.ts";
     import { declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, LegalLinks, Marked } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
@@ -299,11 +299,6 @@
     function tapFreeChair(chairSeat: number, handRuns: boolean, returning: boolean): void {
         if (handRuns && !returning) asking = chairSeat;
         else void seat(sitDown(id, chairSeat, crypto.randomUUID()));
-    }
-
-    // A result, the standings or a Ramsch's reckoning stands on the table.
-    function resultOnStage(table: Table): boolean {
-        return standingsView(table) !== null || declaredResult(table) !== null || ramschResultView(table) !== null;
     }
 
     async function copy(): Promise<void> {
