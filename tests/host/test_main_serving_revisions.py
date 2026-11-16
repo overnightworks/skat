@@ -1,5 +1,6 @@
-"""A process keeps serving after another release migrated the database as long as the database still lists its
-revision as served, and turns unready, loudly, once it does not; a process that starts needs its revision listed."""
+"""A process of one release keeps serving after a newer release's `skat migrate` ran on the database, as long as the
+database still lists its revision as served, and turns unready, loudly, once it does not; a process that starts
+needs its revision listed."""
 
 import secrets
 from typing import TYPE_CHECKING
@@ -13,12 +14,12 @@ from skat.web.constants import HEALTH_PATH
 from skat.web.sign_in import LoggingAuditSink, build_sign_in_configs
 from skat.web.tables import TABLES_PATH
 from tests.support.in_memory_stores import in_process_rate_limits
-from tests.support.migrations import FixtureRevision, upgrade_to, write_revisions
+from tests.support.migrations import FixtureRevision, release_source
 from tests.support.postgres import created_database
 from tests.support.redis import fresh_database_url
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN, build_sign_in_settings
 from tests.support.signed_in import cookie_header, seed_member
-from tests.support.skat_process import SkatProcess
+from tests.support.skat_process import CHECKOUT_SOURCE, SkatProcess, migrate_as_release
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -31,8 +32,10 @@ WELL_PAST_THE_REUSE_SECONDS = 3 * READINESS_REUSE_SECONDS
 UNREADY_DEADLINE_SECONDS = 10
 
 
-class Release:
-    """One database with a process of this checkout's revision serving on it, and the means to migrate it on."""
+class Deployment:
+    """One database, the releases of Skat that run on it (this checkout's, and newer ones that ship further
+    migrations), and the processes started from them.
+    """
 
     def __init__(self, directory, database_url: str) -> None:
         redis_url = fresh_database_url()
@@ -43,23 +46,31 @@ class Release:
         )
         self._directory = directory
         self.engine = create_store_engine(database_url)
+        self.releases = {
+            "checkout": CHECKOUT_SOURCE,
+            "newer": release_source(directory / "newer", FixtureRevision("newer", EXPAND)),
+            "later": release_source(
+                directory / "later", FixtureRevision("newer", EXPAND), FixtureRevision("later", ANOTHER_EXPAND)
+            ),
+        }
         self._processes: list[SkatProcess] = []
-        self.serving = self.new_process()
-        self.serving.start()
 
-    def new_process(self) -> SkatProcess:
-        process = SkatProcess(self.sign_in.environment, self._directory / f"pod-{len(self._processes)}.log")
+    def start(self, release: str) -> SkatProcess:
+        process = SkatProcess(
+            self.sign_in.environment, self._directory / f"pod-{len(self._processes)}.log", self.releases[release]
+        )
         self._processes.append(process)
+        process.start()
         return process
 
-    def migrate_on_to(self, revision: str) -> None:
-        upgrade_to(self.engine, revision, extra_versions=self._directory)
+    def migrate_as(self, release: str) -> None:
+        migrate_as_release(self.sign_in.environment, self.releases[release])
 
-    def table_opened_by_serving_process(self) -> int:
+    def table_opened_by(self, process: SkatProcess) -> int:
         stores = PostgresSignInStores(self.engine, audit=LoggingAuditSink())
         config = build_sign_in_configs(self.sign_in.settings, in_process_rate_limits()).web_auth
         member = seed_member(stores, config)
-        opened = self.serving.request(
+        opened = process.request(
             "POST",
             TABLES_PATH,
             cookie=cookie_header(member.set_cookie_headers),
@@ -75,44 +86,55 @@ class Release:
 
 
 @pytest.fixture
-def release(postgres_template, tmp_path) -> Iterator[Release]:
-    write_revisions(tmp_path, FixtureRevision("newer", EXPAND), FixtureRevision("later", ANOTHER_EXPAND))
+def deployment(postgres_template, tmp_path) -> Iterator[Deployment]:
+    for name in ("newer", "later"):
+        (tmp_path / name).mkdir()
     with created_database(postgres_template) as database_url:
-        running = Release(tmp_path, database_url)
+        running = Deployment(tmp_path, database_url)
         try:
             yield running
         finally:
             running.stop()
 
 
+@pytest.fixture
+def checkout_process(deployment) -> SkatProcess:
+    """The process of this checkout's release, serving before any newer release migrates."""
+    return deployment.start("checkout")
+
+
 class TestAProcessWhoseRevisionTheDatabaseStillServes:
-    def test_stays_ready_and_serves_a_table_after_a_newer_release_migrated_the_database(self, release):
-        release.migrate_on_to("newer")
+    def test_stays_ready_and_serves_a_table_after_the_newer_release_migrated_the_database(
+        self, deployment, checkout_process
+    ):
+        deployment.migrate_as("newer")
 
-        assert release.serving.stays_ready_for(WELL_PAST_THE_REUSE_SECONDS)
-        assert release.table_opened_by_serving_process() == 200
+        assert checkout_process.stays_ready_for(WELL_PAST_THE_REUSE_SECONDS)
+        assert deployment.table_opened_by(checkout_process) == 200
 
-    def test_is_joined_by_a_process_that_starts_after_the_migration(self, release):
-        release.migrate_on_to("newer")
-        joining = release.new_process()
+    @pytest.mark.parametrize("joining", ["newer", "checkout"])
+    def test_is_joined_by_a_process_that_starts_after_the_migration(self, deployment, checkout_process, joining):
+        deployment.migrate_as("newer")
 
-        joining.start()
+        started = deployment.start(joining)
 
-        assert joining.request("GET", HEALTH_PATH).status_code == 200
+        assert started.request("GET", HEALTH_PATH).status_code == 200
 
 
 class TestAProcessWhoseRevisionTheDatabaseNoLongerServes:
-    def test_turns_unready_and_logs_why_once_two_newer_releases_have_migrated_the_database(self, release):
-        release.migrate_on_to("newer")
-        release.migrate_on_to("later")
+    def test_turns_unready_and_logs_why_once_two_newer_releases_have_migrated_the_database(
+        self, deployment, checkout_process
+    ):
+        deployment.migrate_as("newer")
+        deployment.migrate_as("later")
 
-        assert release.serving.becomes_unready_within(UNREADY_DEADLINE_SECONDS)
-        (changed,) = release.serving.log_lines("database_readiness.changed")
+        assert checkout_process.becomes_unready_within(UNREADY_DEADLINE_SECONDS)
+        (changed,) = checkout_process.log_lines("database_readiness.changed")
         assert (changed["was"], changed["now"]) == ("ready", "revision_not_served")
 
-    def test_is_not_joined_by_a_process_that_starts_after_the_migration(self, release):
-        release.migrate_on_to("newer")
-        release.migrate_on_to("later")
+    def test_is_not_joined_by_a_process_that_starts_after_the_migration(self, deployment):
+        deployment.migrate_as("newer")
+        deployment.migrate_as("later")
 
         with pytest.raises(AssertionError, match="skat migrate"):
-            release.new_process().start()
+            deployment.start("checkout")

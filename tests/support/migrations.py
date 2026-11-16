@@ -1,4 +1,5 @@
 import os
+import shutil
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -9,6 +10,7 @@ from sqlalchemy import delete, insert, select
 
 from skat.store.migrate import MIGRATIONS_DIRECTORY, migrate
 from skat.store.schema import serving_revisions
+from tests.support.skat_process import CHECKOUT_SOURCE
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -71,6 +73,16 @@ def write_revisions(directory: Path, *revisions: FixtureRevision) -> None:
             f"CONTRACTS = {each.contracts!r}\n\n\ndef upgrade() -> None:\n{calls}"
         )
         down_revision = each.revision
+
+
+def release_source(directory: Path, *revisions: FixtureRevision) -> Path:
+    """The source tree of a release that ships `revisions` after this checkout's migrations, as a copy of this
+    checkout's, so that a process runs it as that release's code with that release's head.
+    """
+    source = directory / "src"
+    shutil.copytree(CHECKOUT_SOURCE, source, ignore=shutil.ignore_patterns("__pycache__"))
+    write_revisions(source / "skat" / "store" / "migrations" / "versions", *revisions)
+    return source
 
 
 def served_revisions(engine) -> set[str]:
