@@ -4,7 +4,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord, Visibility
-from skat.table.rules import CREATE_TABLE_COMMAND
+from skat.table.rules import CREATE_TABLE_COMMAND, played_series_of
 from skat.table.service import TableService
 from skat.table.transactions import DuplicateReceiptError, LiveWait, OccupiedChair, PausedFacts, TableVersion
 
@@ -77,11 +77,12 @@ class FakeTableStore:
     def table(self, table_id: TableId) -> TableRecord | EndedTable | None:
         return self.tables.get(table_id.value)
 
-    def game_cards(self, table_id: TableId, number: int) -> GameCards | None:
+    def game_cards(self, table_id: TableId, series_number: int, number: int) -> GameCards | None:
         table = self.table(table_id)
-        if not isinstance(table, TableRecord) or not 1 <= number <= len(table.game_list):
+        played = None if table is None else played_series_of(table)
+        if played is None or played.number != series_number or not 1 <= number <= len(played.game_list):
             return None
-        return table.game_list[number - 1].cards
+        return played.game_list[number - 1].cards
 
     def locked_table(self, table_id: TableId) -> TableRecord | None:
         table = self.table(table_id)
@@ -121,7 +122,8 @@ class FakeTableStore:
 
     def end_table(self, table_id: TableId, at: datetime, ending: Ending) -> None:
         table = self.tables[table_id.value]
-        self.tables[table_id.value] = EndedTable(table.id, table.version + 1, ending)
+        last_series = played_series_of(table) if table.game_list else None
+        self.tables[table_id.value] = EndedTable(table.id, table.version + 1, ending, last_series)
         self.ended_at[table_id.value] = at
         if table.game_list:
             self.with_games.add(table_id.value)
@@ -134,8 +136,9 @@ class FakeTableStore:
             if receipt.table_id != table_id or receipt.command == CREATE_TABLE_COMMAND
         }
 
-    def forget_ended_before(self, cutoff: datetime) -> None:
+    def forget_ended_before(self, cutoff: datetime) -> int:
         due = {table_id for table_id, at in self.ended_at.items() if at <= cutoff}
+        deleted = len(due - self.with_games)
         for table_id in due - self.with_games:
             del self.tables[table_id], self.ended_at[table_id]
             self.receipts = {
@@ -143,7 +146,8 @@ class FakeTableStore:
             }
         for table_id in due & self.with_games:
             ended = self.tables[table_id]
-            self.tables[table_id] = EndedTable(ended.id, ended.version, replace(ended.ending, closed_by_name=None))
+            self.tables[table_id] = replace(ended, ending=replace(ended.ending, closed_by_name=None))
+        return deleted
 
     def empty_since(self, table_id: TableId) -> datetime | None:
         return self.empty_since_by_table.get(table_id.value)

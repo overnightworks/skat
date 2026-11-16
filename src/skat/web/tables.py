@@ -1,6 +1,7 @@
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Final
 
+import structlog
 from fastapi import APIRouter, HTTPException, Path, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -15,6 +16,7 @@ from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field ty
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.nudging import NudgeRefusal  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.pushing import PushAction  # noqa: TC001 - pydantic reads the field type at runtime
+from skat.table.reacting import Reaction, ReactionRefusal  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.records import Actor, CommandRefusal, EndReason, OccupantKind, TableStyle
 from skat.table.service import CommandIdReusedError
 from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS, AnnouncementToken, GameToken
@@ -22,11 +24,11 @@ from skat.web.languages import LANGUAGE_VARY, language_of_request
 from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
 from skat.web.result_answer import RamschResultAnswer, ResultAnswer, result_answer_of
 from skat.web.routes import READ_METHODS, built_page_response
-from skat.web.series_answer import SeriesAnswer, series_answer_of
+from skat.web.series_answer import SeriesAnswer, StandingAnswer, series_answer_of, standing_answer_of
 from skat.web.table_options import OptionsAnswer, options_answer_of
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Mapping, Sequence
 
     from webauth.config import WebAuthConfig
     from webauth.ports import AuthenticatedUser, SessionRecordStore
@@ -38,9 +40,10 @@ if TYPE_CHECKING:
     from skat.table.playing import PlayingView
     from skat.table.pushing import PushingView
     from skat.table.service import TableService
-    from skat.table.views import AbortedView, ChairHand, CommandResult, HandView, PassedInView, TableView
+    from skat.table.views import AbortedView, ChairHand, CommandResult, EndedView, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
+    from skat.web.reaction_log import Thrown
 
 TABLES_PATH: Final = "/api/tables"
 TABLE_PAGE_PREFIX: Final = "/t/"
@@ -74,10 +77,21 @@ class CommandRequest(BaseModel):
 
 
 class RefusalAnswer(BaseModel):
-    """A command or a nudge that changed nothing; `holder_name` names who sits in a chair that was taken."""
+    """A command, a nudge or a reaction that changed nothing; `holder_name` names who sits in a chair that was taken."""
 
-    reason: CommandRefusal | NudgeRefusal
+    reason: CommandRefusal | NudgeRefusal | ReactionRefusal
     holder_name: str | None
+
+
+TABLE_READ_REFUSED_EVENT: Final = "table_read.refused"
+
+logger = structlog.get_logger()
+
+
+class TableReadRefusal(StrEnum):
+    """Why a read of a table was refused: the one set of `reason`s of its log line."""
+
+    NO_TABLE = "no-table"
 
 
 class SuitToken(StrEnum):
@@ -304,6 +318,17 @@ class NudgeAnswer(BaseModel):
     by_name: str | None
 
 
+class ReactionAnswer(BaseModel):
+    """A reaction thrown at the table lately: `number` counts them at the table, so a page plays each one once. A
+    watcher's reaction has no seat and no name; a seat that was vacated since has no name.
+    """
+
+    number: int
+    reaction: Reaction
+    by_seat: int | None
+    by_name: str | None
+
+
 class ChairAnswer(BaseModel):
     seat: int
     occupant_name: str | None
@@ -331,6 +356,8 @@ class EndedAnswer(BaseModel):
     empty_seconds: int | None
     unplayed_days: int | None
     closed_by_name: str | None
+    standings: list[StandingAnswer] | None
+    game_count: int | None
 
 
 class BockAnswer(BaseModel):
@@ -353,6 +380,7 @@ class TableAnswer(BaseModel):
     bock: BockAnswer | None
     ended: EndedAnswer | None
     opened_by_me: bool
+    reactions: list[ReactionAnswer]
 
 
 class CardChoice(CardAnswer):
@@ -510,7 +538,27 @@ def nudge_answer_of(view: TableView, state: NudgeState | None) -> NudgeAnswer | 
     return NudgeAnswer(nudges=state.nudges, may_nudge=state.may_nudge, by_name=by_name)
 
 
-def answer_of(view: TableView, nudges: Mapping[int, NudgeState]) -> TableAnswer:
+def ended_answer_of(ended: EndedView | None) -> EndedAnswer | None:
+    if ended is None:
+        return None
+    standings = None if ended.standings is None else [standing_answer_of(each) for each in ended.standings]
+    return EndedAnswer(
+        reason=ended.reason,
+        empty_seconds=ended.empty_seconds,
+        unplayed_days=ended.unplayed_days,
+        closed_by_name=ended.closed_by_name,
+        standings=standings,
+        game_count=ended.game_count,
+    )
+
+
+def reaction_answer_of(view: TableView, thrown: Thrown) -> ReactionAnswer:
+    seat = thrown.by_seat
+    by_name = None if seat is None else view.chairs[seat - 1].occupant_name
+    return ReactionAnswer(number=thrown.number, reaction=thrown.reaction, by_seat=seat, by_name=by_name)
+
+
+def answer_of(view: TableView, nudges: Mapping[int, NudgeState], reactions: Sequence[Thrown] = ()) -> TableAnswer:
     return TableAnswer(
         id=view.id,
         version=view.version,
@@ -539,15 +587,9 @@ def answer_of(view: TableView, nudges: Mapping[int, NudgeState]) -> TableAnswer:
         options=None if view.options is None else options_answer_of(view.options),
         style=view.style,
         bock=None if view.bock is None else BockAnswer(games_left=view.bock.games_left, factor=view.bock.factor),
-        ended=None
-        if view.ended is None
-        else EndedAnswer(
-            reason=view.ended.reason,
-            empty_seconds=view.ended.empty_seconds,
-            unplayed_days=view.ended.unplayed_days,
-            closed_by_name=view.ended.closed_by_name,
-        ),
+        ended=ended_answer_of(view.ended),
         opened_by_me=view.opened_by_me,
+        reactions=[reaction_answer_of(view, thrown) for thrown in reactions],
     )
 
 
@@ -596,7 +638,7 @@ async def command_answer(
         presence.wake_table(table_id)
         if result.seated_when_hand_ended:
             presence.restart_deal_pause(table_id)
-        return answer_of(result.view, presence.waits.nudges_of(result.view))
+        return answer_of(result.view, presence.waits.nudges_of(result.view), presence.reactions.shown(table_id))
 
 
 def _create_page_router(page_build: PageBuild, sessions: SessionRecordStore, web_auth: WebAuthConfig) -> APIRouter:
@@ -651,7 +693,9 @@ def create_tables_router(
         says why: `reason` is `empty` (nobody was there while no hand was dealt; `empty_seconds` is the wait),
         `unplayed` (no hand was dealt or played at for `unplayed_days` days) or `closed` (its opener closed it, and
         `closed_by_name` is the opener's name, which the sweep at the start and every hour clears once
-        `SKAT_ENDED_TABLE_DAYS` days have passed, so it stays until that next sweep).
+        `SKAT_ENDED_TABLE_DAYS` days have passed, so it stays until that next sweep). A table that finished a game, of
+        whichever reason, carries `game_count` and the `standings` of its last series with that series' own rules, and
+        names nobody in `closed_by_name`; one that finished none carries both as null.
         A game can also end shortened or played-open, each with the seat that did it.
         A 404 means no table has this id.
         """
@@ -660,8 +704,9 @@ def create_tables_router(
         with presence.waits.reading(table_id):
             view = await run_in_threadpool(tables.view, actor_of(request), table_id, presence.connected(table_id))
             if view is None:
+                logger.info(TABLE_READ_REFUSED_EVENT, reason=TableReadRefusal.NO_TABLE)
                 raise HTTPException(status_code=404, detail="table not found")
-            return answer_of(view, presence.waits.nudges_of(view))
+            return answer_of(view, presence.waits.nudges_of(view), presence.reactions.shown(table_id))
 
     router.include_router(_create_page_router(page_build, sessions, web_auth))
 

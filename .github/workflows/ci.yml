@@ -16,7 +16,8 @@ concurrency:
 jobs:
   ci:
     name: Lint and test
-    timeout-minutes: 10
+    # The unit suite takes 5 to 9.5 minutes on the same code, by the runner it lands on; the limit leaves room for the slow ones.
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     # The throwaway server of the Postgres tests; the digest is the image scripts/test_stores.sh runs, so keep them equal.
     services:
@@ -426,7 +427,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    uses: overnightworks/quality/.github/workflows/gate.yml@07196e5a108fca24be8614279e42003d0b78efe3 # v0.20.0
+    uses: overnightworks/quality/.github/workflows/gate.yml@915acb8df197c4765b6637b4f3ab67f2fba09c4a # v0.21.0
     with:
       coverage-artifact: coverage
     secrets:

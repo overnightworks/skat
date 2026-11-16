@@ -9,7 +9,7 @@ from skat.engine.games import GameKind
 from skat.engine.tricks import CardPlayed
 from skat.engine.value import Matadors
 from skat.table.game_cards import GameCards, SeatedCard
-from skat.table.game_list import GameEnding, ListEntry, RamschEntry
+from skat.table.game_list import GameEnding, ListEntry, RamschEntry, series_list_view_of
 from skat.table.hand_state import game_of
 from skat.table.playing import card_played
 from skat.table.records import (
@@ -19,6 +19,7 @@ from skat.table.records import (
     HandProgress,
     Occupant,
     OccupantKind,
+    PlayedSeries,
     Series,
     TableId,
     TableOptions,
@@ -95,6 +96,7 @@ def an_entry(seat_accounts: tuple[str, str, str] = ANNA_BEN_CLEO) -> ListEntry:
     return ListEntry(
         seat_accounts=seat_accounts,
         seat_names=("Anna", "Ben", "Cleo"),
+        seat_kinds=(OccupantKind.PERSON,) * 3,
         declarer_seat=1,
         declaration=Declaration(GameKind.KREUZ, hand=False, ouvert=False, announcement=Announcement.NONE),
         schneider=False,
@@ -117,7 +119,8 @@ def after_a_game(record: TableRecord, entry: ListEntry, *ready_seats: int) -> Ta
     """The seated table as a game's last card leaves it: `entry` seated at the table's chairs ends its list."""
     seat_accounts = tuple(chair.occupant.account_id for chair in record.chairs)
     chairs = tuple(replace(chair, ready=chair.seat in ready_seats) for chair in record.chairs)
-    listed = replace(entry, seat_accounts=seat_accounts)
+    seat_kinds = tuple(chair.occupant.kind for chair in record.chairs)
+    listed = replace(entry, seat_accounts=seat_accounts, seat_kinds=seat_kinds)
     return replace(record, chairs=chairs, hand=None, progress=HandProgress(), game_list=(*record.game_list, listed))
 
 
@@ -132,6 +135,7 @@ def a_ramsch_entry(
     return RamschEntry(
         seat_accounts=seat_accounts,
         seat_names=("Anna", "Ben", "Cleo"),
+        seat_kinds=(OccupantKind.PERSON,) * 3,
         seat_points=(47, 40, 33),
         seat_scores=seat_scores,
         durchmarsch_seat=None,
@@ -200,3 +204,8 @@ def a_game_cards(laid_skat: tuple[Card, ...] = ()) -> GameCards:
         tricks=tricks,
         laid_skat=laid_skat,
     )
+
+
+def list_rows_of(table: TableRecord):
+    """The rows of a live table's list: the series it plays, read with the options it plays under."""
+    return series_list_view_of(PlayedSeries(1, table.options, table.game_list))

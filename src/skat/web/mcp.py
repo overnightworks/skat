@@ -9,7 +9,6 @@ route's body; the front also serves the agent's standing as a resource.
 """
 
 import json
-import logging
 import warnings
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -20,7 +19,7 @@ from agents.mcp_server import McpPersonFront, OfferedTools, PersonTool, route_to
 from agents.mcp_wire import MCP_ENDPOINT_PATH
 from agents.member import ACCEPT_INVITATION_TOOL
 from agents.tools import Principal, ToolEffect, ToolOutcome, agent_tool, not_an_agent_tool
-from logline import StepTimer, set_route
+from logline import set_route
 from pydantic import BaseModel
 from starlette.requests import HTTPConnection
 from starlette.routing import Route
@@ -92,8 +91,7 @@ STAND_UP_TOOL: Final = "stand_up"
 READ_RULE_SETS_TOOL: Final = "read_rule_sets"
 SAVE_RULE_SET_TOOL: Final = "save_rule_set"
 NUDGE_SEAT_TOOL: Final = "nudge_seat"
-
-_LOGGER: Final = logging.getLogger(__name__)
+THROW_REACTION_TOOL: Final = "throw_reaction"
 
 
 class Exclusion(StrEnum):
@@ -108,20 +106,6 @@ class Exclusion(StrEnum):
     PERSON_ACT = "calling an agent is a person's act, no agent's tool"
     TABLE_LOOK = "a table's look is for the people who sit at it; an agent plays without seeing it"
     GAME_SHEET = "the page's sheet of one finished game; an agent reads the list of the games"
-
-
-class ToolRefusal(StrEnum):
-    """Why a tool call ended refused, beside the codes the agents library gives the accept: the one set of `reason`s of
-    the tool call's log line.
-    """
-
-    ROUTE_ERROR = "route_error"
-    MALFORMED_ARGUMENTS = "malformed_arguments"
-
-
-def tool_step(tool: str) -> StepTimer:
-    """The timer of one tool call's log line, for the route's tools and the accept alike."""
-    return StepTimer("tool_call.ended", _LOGGER, tool=tool)
 
 
 def excluded(reason: Exclusion) -> dict[str, object]:
@@ -166,6 +150,7 @@ STAND_UP_MARK: Final = agent_tool(name=STAND_UP_TOOL, effect=ToolEffect.SIDE_EFF
 READ_RULE_SETS_MARK: Final = agent_tool(name=READ_RULE_SETS_TOOL, effect=ToolEffect.READ_ONLY)
 SAVE_RULE_SET_MARK: Final = agent_tool(name=SAVE_RULE_SET_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 NUDGE_SEAT_MARK: Final = agent_tool(name=NUDGE_SEAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+THROW_REACTION_MARK: Final = agent_tool(name=THROW_REACTION_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 
 
 # The tools of a table's moves, whose route answers with the whole table; an agent is told only what the move did and
@@ -205,9 +190,10 @@ TABLE_COMMAND_TOOLS: Final = frozenset(
 
 
 # Every moment offers the reads, so an agent finds out what it needs whatever its table is doing; a seated moment adds
-# leaving the chair, nudging a seat that holds up the table and taking an invitation to another table.
+# leaving the chair, nudging a seat that holds up the table, throwing a reaction and taking an invitation to another
+# table.
 _READ_TOOLS: Final = frozenset({READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, READ_PAUSED_TABLES_TOOL, READ_RULE_SETS_TOOL})
-_SEATED_TOOLS: Final = _READ_TOOLS | {STAND_UP_TOOL, NUDGE_SEAT_TOOL, ACCEPT_INVITATION_TOOL}
+_SEATED_TOOLS: Final = _READ_TOOLS | {STAND_UP_TOOL, NUDGE_SEAT_TOOL, THROW_REACTION_TOOL, ACCEPT_INVITATION_TOOL}
 _ABORT_TOOLS: Final = frozenset({AGREE_TO_ABORT_HAND_TOOL, REFUSE_TO_ABORT_HAND_TOOL})
 _PLAY_TOOLS: Final = frozenset(
     {
@@ -272,19 +258,6 @@ def _done_answering(tool: PersonTool) -> PersonTool:
         table = json.loads(outcome.content)
         done = CommandDoneAnswer(done=name, table_id=table["id"], version=table["version"])
         return ToolOutcome(done.model_dump_json(), is_error=False)
-
-    return PersonTool(tool.declaration, handler)
-
-
-def _timed(tool: PersonTool) -> PersonTool:
-    """The tool, with each call written as one log line; a route that answers an error ended it refused."""
-
-    async def handler(request: PersonRequest, arguments: JsonObject) -> ToolOutcome:
-        async with tool_step(tool.declaration.name) as step:
-            outcome = await tool.handler(request, arguments)
-            if outcome.is_error:
-                step.refuse(ToolRefusal.ROUTE_ERROR)
-        return outcome
 
     return PersonTool(tool.declaration, handler)
 
@@ -374,7 +347,7 @@ def mount_mcp(
     def resolve_person(scope: Scope) -> Principal:
         return Principal(iss=issuer, sub=resource_person(HTTPConnection(scope)).id)
 
-    served_tools = (*(_timed(_done_answering(each)) for each in tools.tools), member.tool)
+    served_tools = (*(_done_answering(each) for each in tools.tools), member.tool)
     front = McpPersonFront(
         served_tools,
         resolve_person=resolve_person,

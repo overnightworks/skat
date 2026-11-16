@@ -113,8 +113,8 @@ def _ramsch_checks(table_name: str) -> tuple[CheckConstraint, ...]:
 
 
 def option_columns(table_name: str) -> tuple[Column[Any] | CheckConstraint, ...]:
-    """The columns that hold a table's rule options and their checks, for `tables` and `rule_sets` alike; a table
-    stored before an option existed reads it as the official default.
+    """The columns that hold rule options and their checks, for `series` and `rule_sets` alike; a series stored before
+    an option existed reads it as the official default.
     """
     return (
         Column("show_running_points", Boolean, nullable=False, server_default=false()),
@@ -223,12 +223,7 @@ tables = Table(
     Column("empty_since", DateTime(timezone=True)),
     Column("last_played_at", DateTime(timezone=True)),
     Column("opener_name", Text),
-    Column("series_length", SmallInteger),
-    Column("series_deals", SmallInteger),
     Column("series_number", SmallInteger, nullable=False, server_default="1"),
-    Column("series_ended_early", Boolean, nullable=False, server_default=false()),
-    Column("series_end_proposer", SmallInteger),
-    Column("series_end_accepter", SmallInteger),
     Column("give_up_asked_by", Text),
     Column("give_up_declined_by", Text),
     Column("give_up_claim", Text),
@@ -238,9 +233,6 @@ tables = Table(
     Column("played_open", ARRAY(Text), nullable=False, server_default=text("'{}'")),
     Column("abort_yes_seats", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
     Column("hand_aborted", Boolean, nullable=False, server_default=false()),
-    *option_columns("tables"),
-    Column("bock_rounds", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
-    Column("ramsch_round_games", SmallInteger, nullable=False, server_default="0"),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
     CheckConstraint("(ended_at IS NULL) = (end_reason IS NULL)", name="tables_end_time_comes_with_its_reason"),
     CheckConstraint(
@@ -265,31 +257,7 @@ tables = Table(
     CheckConstraint("char_length(opener_name) >= 1", name="tables_opener_name_is_not_empty"),
     one_of("visibility", (visibility.value for visibility in Visibility), "tables_visibility_is_a_visibility"),
     one_of("style", (style.value for style in TableStyle), "tables_style_is_a_style"),
-    CheckConstraint("(series_length IS NULL) = (series_deals IS NULL)", name="tables_series_is_both_or_neither"),
-    CheckConstraint(
-        f"series_length BETWEEN {SERIES_LENGTH_MIN} AND {SERIES_LENGTH_MAX}"
-        f" AND series_length % {SERIES_LENGTH_STEP} = 0",
-        name="tables_series_length_is_a_length",
-    ),
-    CheckConstraint("series_deals BETWEEN 0 AND series_length", name="tables_series_deals_are_within_the_length"),
     CheckConstraint("series_number >= 1", name="tables_series_number_is_a_number"),
-    CheckConstraint("series_length IS NOT NULL OR series_number = 1", name="tables_series_numbers_only_with_a_series"),
-    CheckConstraint(
-        "series_end_proposer BETWEEN 1 AND 3 AND series_end_accepter BETWEEN 1 AND 3",
-        name="tables_series_end_seats_are_seats",
-    ),
-    CheckConstraint(
-        "series_end_accepter IS NULL"
-        " OR (series_end_proposer IS NOT NULL AND series_end_accepter <> series_end_proposer)",
-        name="tables_series_end_accepter_follows_a_proposer",
-    ),
-    CheckConstraint(
-        "series_length IS NOT NULL OR (series_end_proposer IS NULL AND NOT series_ended_early)",
-        name="tables_series_end_needs_a_series",
-    ),
-    CheckConstraint(
-        "NOT series_ended_early OR series_end_proposer IS NULL", name="tables_series_ended_early_holds_no_proposal"
-    ),
     one_of("end_reason", (reason.value for reason in EndReason), "tables_end_reason_is_a_reason"),
     one_of("give_up_asked_by", POSITION_TEXT.values(), "tables_give_up_asker_is_a_position"),
     one_of("give_up_declined_by", POSITION_TEXT.values(), "tables_give_up_decliner_is_a_position"),
@@ -327,14 +295,47 @@ tables = Table(
     CheckConstraint(
         "NOT hand_aborted OR cardinality(abort_yes_seats) = 0", name="tables_an_aborted_hand_holds_no_proposal"
     ),
+)
+
+# One row per series of a table: the settings the series started with and its counters, proposal and Bock state.
+series = Table(
+    "series",
+    metadata,
+    Column("table_id", Text, ForeignKey(tables.c.id), primary_key=True),
+    Column("number", SmallInteger, primary_key=True),
+    Column("length", SmallInteger),
+    Column("deals", SmallInteger),
+    Column("ended_early", Boolean, nullable=False, server_default=false()),
+    Column("end_proposer", SmallInteger),
+    Column("end_accepter", SmallInteger),
+    *option_columns("series"),
+    Column("bock_rounds", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
+    Column("ramsch_round_games", SmallInteger, nullable=False, server_default="0"),
+    CheckConstraint("number >= 1", name="series_number_counts_from_one"),
+    CheckConstraint("(length IS NULL) = (deals IS NULL)", name="series_length_comes_with_deals"),
+    CheckConstraint(
+        f"length BETWEEN {SERIES_LENGTH_MIN} AND {SERIES_LENGTH_MAX} AND length % {SERIES_LENGTH_STEP} = 0",
+        name="series_length_is_a_length",
+    ),
+    CheckConstraint("deals BETWEEN 0 AND length", name="series_deals_are_within_the_length"),
+    CheckConstraint("length IS NOT NULL OR number = 1", name="series_numbers_only_with_a_length"),
+    CheckConstraint("end_proposer BETWEEN 1 AND 3 AND end_accepter BETWEEN 1 AND 3", name="series_end_seats_are_seats"),
+    CheckConstraint(
+        "end_accepter IS NULL OR (end_proposer IS NOT NULL AND end_accepter <> end_proposer)",
+        name="series_end_accepter_follows_a_proposer",
+    ),
+    CheckConstraint(
+        "length IS NOT NULL OR (end_proposer IS NULL AND NOT ended_early)", name="series_end_needs_a_length"
+    ),
+    CheckConstraint("NOT ended_early OR end_proposer IS NULL", name="series_ended_early_holds_no_proposal"),
     CheckConstraint(
         f"bock_rounds <@ ARRAY[{BOCK_ROUND_LIST}]::smallint[] AND array_position(bock_rounds, NULL) IS NULL",
-        name="tables_bock_rounds_are_rounds_with_games_left",
+        name="series_bock_rounds_are_rounds_with_games_left",
     ),
     CheckConstraint(
-        "bock_triggers IS NOT NULL OR cardinality(bock_rounds) = 0", name="tables_bock_rounds_only_with_bock"
+        "bock_triggers IS NOT NULL OR cardinality(bock_rounds) = 0", name="series_bock_rounds_only_with_bock"
     ),
-    CheckConstraint("ramsch_round_games >= 0", name="tables_ramsch_round_games_are_not_negative"),
+    CheckConstraint("ramsch_round_games >= 0", name="series_ramsch_round_games_are_not_negative"),
 )
 
 rule_sets = Table(

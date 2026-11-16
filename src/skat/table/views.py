@@ -116,14 +116,19 @@ class AbortedView:
 @dataclass(frozen=True)
 class EndedView:
     """Why the table ended: for an empty one the whole seconds nobody was there, for an unplayed one the days that
-    passed without a deal or step of play, for a closed one the display name of the account that closed it; the others
-    are None.
+    passed without a deal or step of play, for a closed one without a game the display name of the account that closed
+    it; the others are None.
+
+    A table that finished a game also carries what its last series played: `game_count` games and the `standings` of
+    every account they seated, ranked by that series' own options. Such a table never names who ended it.
     """
 
     reason: EndReason
     empty_seconds: int | None
     unplayed_days: int | None
     closed_by_name: str | None
+    standings: tuple[Standing, ...] | None
+    game_count: int | None
 
 
 @dataclass(frozen=True)
@@ -320,6 +325,7 @@ class CommandResult:
 
 
 def _ended_view_of(table: EndedTable) -> TableView:
+    played = table.last_series
     return TableView(
         id=table.id.value,
         version=table.version,
@@ -337,7 +343,9 @@ def _ended_view_of(table: EndedTable) -> TableView:
             table.ending.reason,
             table.ending.empty_seconds,
             table.ending.unplayed_days,
-            table.ending.closed_by_name,
+            table.ending.closed_by_name if played is None else None,
+            None if played is None else standings_of(played.game_list, reach_of(played.options)),
+            None if played is None else len(played.game_list),
         ),
     )
 
@@ -361,7 +369,7 @@ def view_of(
     after a played game it carries the result, the same for every viewer. A table with a series says which game of how
     many runs and whether the series is over, and carries the standings once it is. A table with Bock says how many Bock
     games are still to come and by what the running or next game's list score is multiplied.
-    An ended table names nobody and holds nothing of a hand.
+    An ended table holds nothing of a hand; it names who closed it only when it finished no game.
     """
     if isinstance(table, EndedTable):
         return _ended_view_of(table)

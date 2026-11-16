@@ -44,6 +44,23 @@ LATER_COLUMNS = (
     "played_open",
     "ramsch_round_games",
     "style",
+    "series_length",
+    "series_deals",
+    "series_ended_early",
+    "series_end_proposer",
+    "series_end_accepter",
+    "show_running_points",
+    "kontra_sayer",
+    "kontra_reach",
+    "kontra_deadline",
+    "bock_triggers",
+    "bock_overlap",
+    "bock_rounds",
+    "ramsch_occasion",
+    "ramsch_scoring",
+    "ramsch_jungfrau",
+    "ramsch_durchmarsch",
+    "ramsch_pushing",
 )
 RUNNING_HAND_TABLES = ("tables", "chairs", "hand_cards", "auction_actions")
 

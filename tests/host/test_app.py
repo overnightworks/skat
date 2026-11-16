@@ -173,6 +173,8 @@ class TestCreateApp:
             "empty_seconds": 1800,
             "unplayed_days": None,
             "closed_by_name": None,
+            "standings": None,
+            "game_count": None,
         }
 
     def test_the_paused_table_days_setting_decides_the_end_a_paused_entry_names(self, sign_in_settings):

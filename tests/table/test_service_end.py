@@ -153,7 +153,7 @@ class TestEndEmptyTable:
         assert view.chairs == ()
         assert [view.hand, view.result, view.passed_in] == [None, None, None]
         assert view.watchers == 0
-        assert view.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS, None, None)
+        assert view.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS, None, None, None, None)
 
     def test_the_wait_is_stored_with_the_end(self, service, table_id):
         service.end_empty_table(table_id, nullcontext(NOBODY), 7)
@@ -197,7 +197,7 @@ class TestAtAnEndedTable:
         again = service.create(OPENER, CreateTable(command_id="command-open"))
 
         assert again.id == ended_id.value
-        assert again.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS, None, None)
+        assert again.ended == EndedView(EndReason.EMPTY, EMPTY_SECONDS, None, None, None, None)
         assert list(store.tables) == [ended_id.value]
 
     @pytest.mark.parametrize(
@@ -420,7 +420,9 @@ class TestEndUnplayedTable:
 
         service.end_unplayed_table(dealt_id, 90, nullcontext(NOBODY))
 
-        assert service.view(OPENER, dealt_id.value, NOBODY).ended == EndedView(EndReason.UNPLAYED, None, 90, None)
+        assert service.view(OPENER, dealt_id.value, NOBODY).ended == EndedView(
+            EndReason.UNPLAYED, None, 90, None, None, None
+        )
 
     def test_a_second_run_changes_nothing(self, service, store, dealt_id):
         last_played(store, dealt_id)
@@ -478,7 +480,7 @@ class TestClose:
         )
         assert store.ended_at[table_id.value] == ENDED_AT
         assert result.refusal is None
-        assert result.view.ended == EndedView(EndReason.CLOSED, None, None, OPENER.display_name)
+        assert result.view.ended == EndedView(EndReason.CLOSED, None, None, OPENER.display_name, None, None)
 
     def test_ends_a_dealt_table_with_its_running_hand(self, service, store, dealt_id):
         assert store.tables[dealt_id.value].hand is not None
@@ -501,7 +503,7 @@ class TestClose:
 
         again = close(service, OPENER, table_id)
 
-        assert again.view.ended == EndedView(EndReason.CLOSED, None, None, OPENER.display_name)
+        assert again.view.ended == EndedView(EndReason.CLOSED, None, None, OPENER.display_name, None, None)
         assert written == (store.tables, store.receipts)
 
     def test_the_command_id_is_refused_for_another_table(self, service, table_id):

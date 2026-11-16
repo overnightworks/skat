@@ -10,6 +10,7 @@ const ROW: GameRow = {
     number: 5,
     name: "Cleo",
     subjectSeat: 3,
+    agent: false,
     initial: "C",
     line: null,
     value: "88",

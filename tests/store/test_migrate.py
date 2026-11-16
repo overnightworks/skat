@@ -14,6 +14,7 @@ pytestmark = pytest.mark.postgres
 
 STORE_TABLES = {
     "tables",
+    "series",
     "chairs",
     "receipts",
     "hand_cards",
@@ -580,26 +581,26 @@ class TestFromADealtTableAtRevisionNine:
 
     def test_the_old_table_has_no_series(self, migrated):
         with migrated.connect() as connection:
-            row = connection.execute(text("SELECT series_length, series_deals FROM tables")).one()
+            row = connection.execute(text("SELECT length, deals FROM series")).one()
 
         assert tuple(row) == (None, None)
 
     def test_accepts_a_series_with_its_deals(self, migrated):
-        run_in_transaction(migrated, text("UPDATE tables SET series_length = 36, series_deals = 36"))
+        run_in_transaction(migrated, text("UPDATE series SET length = 36, deals = 36"))
 
         with migrated.connect() as connection:
-            assert connection.execute(text("SELECT count(*) FROM tables WHERE series_deals = 36")).scalar_one() == 1
+            assert connection.execute(text("SELECT count(*) FROM series WHERE deals = 36")).scalar_one() == 1
 
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param("UPDATE tables SET series_length = 12", id="length-without-deals"),
-            pytest.param("UPDATE tables SET series_deals = 0", id="deals-without-length"),
-            pytest.param("UPDATE tables SET series_length = 0, series_deals = 0", id="no-games"),
-            pytest.param("UPDATE tables SET series_length = 4, series_deals = 0", id="not-a-multiple-of-three"),
-            pytest.param("UPDATE tables SET series_length = 102, series_deals = 0", id="beyond-the-largest"),
-            pytest.param("UPDATE tables SET series_length = 12, series_deals = 13", id="more-deals-than-games"),
-            pytest.param("UPDATE tables SET series_length = 12, series_deals = -1", id="negative-deals"),
+            pytest.param("UPDATE series SET length = 12", id="length-without-deals"),
+            pytest.param("UPDATE series SET deals = 0", id="deals-without-length"),
+            pytest.param("UPDATE series SET length = 0, deals = 0", id="no-games"),
+            pytest.param("UPDATE series SET length = 4, deals = 0", id="not-a-multiple-of-three"),
+            pytest.param("UPDATE series SET length = 102, deals = 0", id="beyond-the-largest"),
+            pytest.param("UPDATE series SET length = 12, deals = 13", id="more-deals-than-games"),
+            pytest.param("UPDATE series SET length = 12, deals = -1", id="negative-deals"),
         ],
     )
     def test_the_checks_refuse_a_row_that_is_no_series(self, migrated, statement):
@@ -670,18 +671,20 @@ class TestFromALiveAndAnEndedTableAtRevisionTwelve:
 
     def test_both_tables_read_the_switch_off(self, migrated):
         with migrated.connect() as connection:
-            rows = connection.execute(text("SELECT id, show_running_points FROM tables ORDER BY id")).all()
+            rows = connection.execute(text("SELECT table_id, show_running_points FROM series ORDER BY table_id")).all()
 
         assert [tuple(row) for row in rows] == [("ended", False), ("live", False)]
 
     def test_accepts_the_switch_on(self, migrated):
-        run_in_transaction(migrated, text("UPDATE tables SET show_running_points = true WHERE id = 'live'"))
+        run_in_transaction(migrated, text("UPDATE series SET show_running_points = true WHERE table_id = 'live'"))
 
         with migrated.connect() as connection:
-            assert connection.execute(text("SELECT show_running_points FROM tables WHERE id = 'live'")).scalar_one()
+            assert connection.execute(
+                text("SELECT show_running_points FROM series WHERE table_id = 'live'")
+            ).scalar_one()
 
     def test_refuses_a_missing_switch(self, migrated):
-        refused = text("UPDATE tables SET show_running_points = NULL")
+        refused = text("UPDATE series SET show_running_points = NULL")
 
         with pytest.raises(IntegrityError):
             run_in_transaction(migrated, refused)
@@ -700,7 +703,7 @@ class TestFromALiveTableAndAGameAtRevisionThirteen:
 
     def test_the_table_plays_without_kontra_and_the_row_names_no_word(self, migrated):
         with migrated.connect() as connection:
-            options = connection.execute(text("SELECT kontra_sayer, kontra_reach, kontra_deadline FROM tables")).one()
+            options = connection.execute(text("SELECT kontra_sayer, kontra_reach, kontra_deadline FROM series")).one()
             word = connection.execute(text("SELECT kontra_word FROM game_list")).scalar_one()
 
         assert (tuple(options), word) == ((None, None, None), None)
@@ -713,7 +716,7 @@ class TestFromALiveTableAndAGameAtRevisionThirteen:
         run_in_transaction(
             migrated,
             text(
-                "UPDATE tables SET kontra_sayer = 'bidders-only', kontra_reach = 'up-to-hirsch',"
+                "UPDATE series SET kontra_sayer = 'bidders-only', kontra_reach = 'up-to-hirsch',"
                 " kontra_deadline = 'own-card'"
             ),
         )
@@ -726,20 +729,20 @@ class TestFromALiveTableAndAGameAtRevisionThirteen:
     @pytest.mark.parametrize(
         "statement",
         [
-            pytest.param("UPDATE tables SET kontra_sayer = 'any-opponent'", id="one-option-alone"),
+            pytest.param("UPDATE series SET kontra_sayer = 'any-opponent'", id="one-option-alone"),
             pytest.param(
-                "UPDATE tables SET kontra_sayer = 'any-opponent', kontra_reach = 'kontra-re'", id="two-options-alone"
+                "UPDATE series SET kontra_sayer = 'any-opponent', kontra_reach = 'kontra-re'", id="two-options-alone"
             ),
             pytest.param(
-                "UPDATE tables SET kontra_sayer = 'anyone', kontra_reach = 'kontra-re', kontra_deadline = 'own-card'",
+                "UPDATE series SET kontra_sayer = 'anyone', kontra_reach = 'kontra-re', kontra_deadline = 'own-card'",
                 id="unknown-sayer",
             ),
             pytest.param(
-                "UPDATE tables SET kontra_sayer = 'any-opponent', kontra_reach = 'all', kontra_deadline = 'own-card'",
+                "UPDATE series SET kontra_sayer = 'any-opponent', kontra_reach = 'all', kontra_deadline = 'own-card'",
                 id="unknown-reach",
             ),
             pytest.param(
-                "UPDATE tables SET kontra_sayer = 'any-opponent', kontra_reach = 'kontra-re',"
+                "UPDATE series SET kontra_sayer = 'any-opponent', kontra_reach = 'kontra-re',"
                 " kontra_deadline = 'never'",
                 id="unknown-deadline",
             ),

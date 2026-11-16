@@ -241,7 +241,7 @@ body.solo .frame{border-radius:0;border:0}
 /* a knock on the table: two rings on the felt */
 .knock{width:var(--ks,70px);aspect-ratio:1;translate:-50% -50%;border-radius:50%;pointer-events:none;
   box-shadow:0 0 0 2px rgba(251,248,240,.55),0 0 0 14px rgba(251,248,240,.08),0 0 0 16px rgba(251,248,240,.3)}
-/* reaction tray (phone: opened from the bar) and rail (desktop: always there) */
+/* reaction tray (phone: opened from the key in the top row, hanging below it) and rail (desktop: always there) */
 .tray{display:flex;gap:2px;padding:4px;border-radius:999px;background:rgba(23,27,32,.92);backdrop-filter:blur(14px);box-shadow:0 12px 26px -8px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.08)}
 .tray.rail{flex-direction:column;border-radius:26px}
 .tray span{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:24px;font-family:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif}
@@ -550,6 +550,10 @@ body.solo section.shot .rule{display:none}
 /* ---------- S3.7p: the lobby button on the table page; a round 40 px glass button inside a 44 px tap area, a pill with its word on the desktop; lighter than the other glass so it reads on the dark wood ---------- */
 .cb.home{position:absolute;left:10px;top:3px;width:40px;height:40px;cursor:pointer;background:rgba(244,246,248,.26);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3),0 4px 10px -4px rgba(0,0,0,.7)}
 .cb.home::after{content:"";position:absolute;inset:-2px}
+/* the reaction key of a phone: a round glass key in the top row like the Lobby button, after it (from 390 px) or left of the watchers (narrower); a desktop has no key, its tray stands always */
+.cb.react{position:absolute;width:40px;height:40px;background:rgba(244,246,248,.26);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3),0 4px 10px -4px rgba(0,0,0,.7)}
+.cb.react svg{width:22px;height:22px}
+.cb.react.on{background:var(--on-stage);color:var(--stage)}
 .cb.home svg{width:22px;height:22px}
 .cb.wide.glass.home{left:20px;top:9px;width:auto;height:40px;padding:0 16px 0 12px;font-size:14px;gap:8px}
 .cb.wide.glass.home svg{width:20px;height:20px}
@@ -824,8 +828,8 @@ function confetti(o){
 const people=(n,x,y)=>`<div class="tag-glass" style="${at({left:x,top:y})}">${I.people}<span>${n}</span></div>`;
 const callBar=(desk,o={})=>desk
   ?`<div class="cbar"><span class="cb">${I.mic}</span><span class="cb">${I.cam}</span><span class="cb">${I.screen}</span><span class="gap"></span><span class="cb">${I.invite}</span><span class="cb">${I.chat}</span><span class="cb">${I.more}</span><span class="gap"></span><span class="cb leave">${I.leave}</span></div>`
-  :`<div class="cbar"><span class="cb">${I.mic}</span><span class="cb">${I.cam}</span><span class="cb ${o.react?'on':''}">${I.smile}</span><span class="cb">${I.chat}</span><span class="cb">${I.more}</span><span class="cb leave">${I.leave}</span></div>`;
-const soloBar=()=>`<div class="sbar"><span class="cb">${I.smile}</span><span class="cb wide">${I.cam}Anruf</span><span class="cb">${I.more}</span></div>`;
+  :`<div class="cbar"><span class="cb">${I.mic}</span><span class="cb">${I.cam}</span><span class="cb">${I.chat}</span><span class="cb">${I.more}</span><span class="cb leave">${I.leave}</span></div>`;
+const soloBar=()=>`<div class="sbar"><span class="cb wide">${I.cam}Anruf</span><span class="cb">${I.more}</span></div>`;
 const FRAMES=[];
 const frame=(id,title,note,size,html,rules=[])=>FRAMES.push([id,`<section class="shot"><h2>${title}<small>${note}</small><button class="replay" type="button">Nochmal</button></h2><div class="frame ${size}" id="${id}">${html}</div>${rules.map(r=>`<p class="rule">${r}</p>`).join('')}</section>`]);
 /* the hands: Felix holds ten while bidding; one trick later eight are left, then seven */
@@ -858,7 +862,13 @@ const homeButton=(d,badge)=>{const mark=badge?`<span class="badge" aria-hidden="
           :`<span class="cb home" role="button" tabindex="0" title="Lobby" aria-label="Lobby">${I.back}${mark}</span>`;};
 I.lines=sv('<path d="M5 7h14M5 12h14M5 17h14"/>',2.2);
 const menuKey=(d,o={})=>`<span class="cb menu ${o.strip?'strip':''} ${o.open?'on':''}" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="${!!o.open}" title="Mehr" aria-label="Mehr">${o.strip?I.lines:I.more}</span>`;
-const pbRoom=(o)=>table({...PB.table,thud:o.thud})+(o.glow||'')+(o.call===false?'':people(4,12,8)+watchers(296,4,[['ben',56,40]]))
+const reactKey=(after,on)=>`<span class="cb react ${on?'on':''}" role="button" tabindex="0" title="Reaktionen" aria-label="Reaktionen" style="${at(PB.cx<195?{right:72,top:3}:{left:after,top:3})}">${I.smile}</span>`;
+/* Klassik's brass lamp stands on the table's rim at the lower right, as the page places it: 4% in from the right and 12% up from the bottom of the table, 46 px high on the phone and 64 px on the desktop, its foot a fifth of its height below that corner; it lies under every card and key. The Strandbar scenes draw the shell and the cocktail there instead. */
+const LAMP=`<svg viewBox="0 0 48 64" aria-hidden="true"><ellipse cx="24" cy="59" rx="15" ry="3.6" fill="#8c6a2f"/><ellipse cx="24" cy="57.6" rx="13" ry="2.6" fill="#c9a464"/><path d="M22.5 29h3v28h-3z" fill="#b08a45"/><path d="M5 32C5 16 13 6 24 6s19 10 19 26z" fill="#2f5d46"/><path d="M9 30C10 18 15 11 22 9" fill="none" stroke="#6fae8c" stroke-width="2" stroke-linecap="round"/><ellipse cx="24" cy="32" rx="19" ry="3" fill="#ffd9a0"/></svg>`;
+let klassikScene=true;
+const klassikLamp=(d)=>{if(!klassikScene)return '';const t=(d?DB:PB).table,h=d?64:46;
+  return `<span class="decor lamp" style="${at({left:t.x+t.w*.96,top:t.y+t.h*.88+h*.2,'--h':h})}">${LAMP}</span>`;};
+const pbRoom=(o)=>table({...PB.table,thud:o.thud})+klassikLamp(false)+(o.glow||'')+(o.call===false?'':people(4,12,8)+reactKey(82,o.react)+watchers(296,4,[['ben',56,40]]))
   +fan(o.left,{x:PB.fans[0],y:168,w:26,rot:150,spread:6,dim:o.annaOut,deal:o.deal&&150})+fan(o.left,{x:PB.fans[1],y:168,w:26,rot:210,spread:6,dim:o.novaOut,deal:o.deal&&150,d0:.1});
 const pbSeats=(o)=>seat('anna',{...PB.anna,video:o.video,marks:o.anna,out:o.annaOut})+seat('nova',{...PB.nova,marks:o.nova,win:o.novaWin,out:o.novaOut})
   +seat('felix',{...(o.layout||PB).you,video:o.video,marks:o.you,win:o.youWin,got:o.got})
@@ -905,7 +915,7 @@ const DB={
   anna:{x:22,y:180,w:236,h:178}, nova:{x:1022,y:180,w:236,h:178}, you:{x:92,y:560,w:190,h:144},
   coasters:[[230,330,50,-10],[1000,330,50,8],[34,612,50,-6]],
 };
-const dbRoom=(o)=>table({...DB.table,thud:o.thud})+(o.glow||'')+(o.call===false?'':people(4,16,14)+watchers(1086,10,[['ben',140,80]]))
+const dbRoom=(o)=>table({...DB.table,thud:o.thud})+klassikLamp(true)+(o.glow||'')+(o.call===false?'':people(4,16,14)+watchers(1086,10,[['ben',140,80]]))
   +fan(o.left,{x:268,y:282,w:42,rot:90,spread:6,dim:o.annaOut,deal:o.deal&&260})+fan(o.left,{x:1012,y:282,w:42,rot:270,spread:6,dim:o.novaOut,deal:o.deal&&260,d0:.1})
   +(o.call===false?'':tray({right:18,bottom:112},{rail:true}));
 const dbSeats=(o)=>seat('anna',{...DB.anna,video:o.video,marks:o.anna,out:o.annaOut})+seat('nova',{...DB.nova,marks:o.nova,win:o.novaWin,out:o.novaOut})
@@ -990,12 +1000,12 @@ const result=(x,y,w,pw)=>`<div class="result" style="${at({left:x,top:y,width:w}
 const annaKnock=(x,y,ks,es)=>knock(x,y,ks,.3)+emote('👊','anna',{x,y,ox:x,oy:y,lift:0,es,k:.95});
 
 frame('call-end-390','Gewonnen im Anruf','Handy 390 px','p390',
-  pbRoom({left:0})
+  pbRoom({left:0,react:true})
   +confetti({n:16,box:[8,60,382,640],origins:[[195,540],[320,96]],size:12,k:1.25,seed:11})
   +result(195,168,354,0)
   +pbSeats({video:true,anna:['decl'],youWin:true,novaWin:true,score:[26,102,95],layout:PB_BACK})
   +annaKnock(180,126,50,34)
-  +tray({left:54,top:668},{hot:'🍻'})+callBar(false,{react:true}));
+  +tray({right:14,top:51},{hot:'🍻'})+callBar(false));
 
 frame('call-end-1280','Gewonnen im Anruf','Desktop 1280 px','d1280',
   dbRoom({left:0})
@@ -1011,7 +1021,7 @@ frame('solo-play-390','Tisch ohne Anruf','Handy 390 px','p390',
   +plaque(195,176,gameLine('','Grand'))
   +stamp('Kontra!','felix',{x:195,y:350,sf:30,ss:230,k:.42})
   +pbSeats({video:false,anna:['decl'],nova:['turn','think'],score:[148,62,55]})
-  +hand(BID_HAND,PHONE_HAND)+soloBar()+homeButton(false));
+  +hand(BID_HAND,PHONE_HAND)+soloBar()+homeButton(false)+reactKey(56));
 
 frame('solo-play-1280','Tisch ohne Anruf','Desktop 1280 px','d1280',
   dbRoom({left:10,call:false,thud:'0s',glow:glow(980,270,220,260)})
@@ -1126,12 +1136,11 @@ const freeSeat=(pos,o={})=>`<div class="seat free ${pos.sm?'sm':''} ${o.idle?'id
   <div class="chair"><div class="tile">${o.idle?'':`<span class="sit">${I.plus}</span>`}</div></div><span class="plate"><b>Frei</b></span></div>`;
 /* the chair stays held: the nameplate keeps the name and says the player is not there */
 const awaySeat=(k,pos,marks=[])=>seat(k,{...pos,marks:[...marks,'away']}).replace('class="seat','class="seat away').replace('</b></span>','</b><small>nicht da</small></span>');
-const watching=(n,d)=>`${homeButton(d,homeBadge)}<div class="tag-glass" title="Zuschauer" style="${at(d?{right:68,top:14}:{right:60,top:8})}">${I.eye}<span>${n}</span></div>${menuKey(d)}`;
+const watching=(n,d)=>`${homeButton(d,homeBadge)}${d?'':reactKey(56)}<div class="tag-glass" title="Zuschauer" style="${at(d?{right:68,top:14}:{right:60,top:8})}">${I.eye}<span>${n}</span></div>${menuKey(d)}`;
 const waiting=(cx,y)=>plaque(cx,y,`<div class="game">Warte auf Mitspieler${waitDots()}</div>`);
 const notice=(text,k,x,y)=>`<div class="notice mo" role="status" style="${at({left:x,top:y,'--k':'.7s'})}">${[].concat(k).map(who=>`<span class="dot ${P[who].agent?'agent':''}" style="${dotStyle(P[who])}">${dotInner(P[who])}</span>`).join('')}${text}</div>`;
-/* the strip at the thumb holds the game's decision (o.lead: bid, Kontra, Abkürzen, Offen spielen, Weiter) and the reaction key; in a call (o.call) the call's bar carries the reactions and Skat's strip ends in the ⋯ key. o.menu: the open menu */
-const REACT=`<span class="cb react" role="button" tabindex="0" title="Reaktion" aria-label="Reaktion">${I.smile}</span>`;
-const tableBar=(desk,o={})=>`<div class="sbar${o.above?' above':''}">${o.lead||''}${o.call?menuKey(desk,{strip:true,open:!!o.menu})+(o.menu||''):REACT}</div>${o.call?'':o.menu||''}`;
+/* the strip at the thumb holds the game's decision (o.lead: bid, Kontra, Abkürzen, Offen spielen, Weiter); in a call (o.call) Skat's strip ends in the ⋯ key. o.menu: the open menu */
+const tableBar=(desk,o={})=>`<div class="sbar${o.above?' above':''}">${o.lead||''}${o.call?menuKey(desk,{strip:true,open:!!o.menu})+(o.menu||''):''}</div>${o.call?'':o.menu||''}`;
 const panel=(o)=>`<div class="result closed" role="${o.role||'status'}" style="${at({left:o.x,top:o.y,width:o.w})}"><span class="by ${o.k?'':'glyph'}" style="${o.k?dotStyle(P[o.k]):''}">${o.k?P[o.k].i:o.icon}</span><h3>${o.text}</h3>${o.line?`<p class="line">${o.line}</p>`:''}<div class="btns">${o.buttons}</div></div>`;
 const NEW_TABLE=`<span class="button button-stage">${I.plus}Neuer Tisch</span>`;
 const emptyChair=(pos,k,cr)=>`<div class="chair empty" style="${at({left:pos.x,top:pos.y,width:pos.w,height:pos.h,'--l1':P[k].l[0],'--l2':P[k].l[1],'--cr':`${cr}deg`})}"></div>`;
@@ -1146,8 +1155,8 @@ const S3={
             :pbRoom({left:0,call:false})+waiting(195,176)+awaySeat('anna',PB.anna)+freeSeat(PB.nova,{idle:true})+seat('felix',PB.you)+watching(1,false))+tableBar(d),
   taken:(d)=>(d?dbRoom({left:0,call:false})+seat('anna',DB.anna)+seat('ben',DB.nova)+seat('lena',{...DB.you,got:'.6s;--d:.25s'})+watching(4,true)+notice('Platz vergeben','lena',187,522)
              :pbRoom({left:0,call:false})+seat('anna',PB.anna)+seat('ben',PB.nova)+seat('lena',{...PB.you,got:'.6s;--d:.25s'})+watching(4,false)+notice('Platz vergeben','lena',195,462))+tableBar(d),
-  ended:(d,o)=>(d?emptyChair(DE.anna,'anna',-7)+emptyChair(DE.right,'ben',7)+emptyChair(DE.you,'felix',4)+table(DB.table)+panel({x:640,y:214,w:460,...o})
-               :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table)+panel({x:195,y:250,w:330,...o}))+homeButton(d,homeBadge),
+  ended:(d,o)=>(d?emptyChair(DE.anna,'anna',-7)+emptyChair(DE.right,'ben',7)+emptyChair(DE.you,'felix',4)+table(DB.table)+klassikLamp(true)+panel({x:640,y:214,w:460,...o})
+               :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table)+klassikLamp(false)+panel({x:195,y:250,w:330,...o}))+homeButton(d,homeBadge),
 };
 const S3_SCENES=[
   ['s3-watch','Zuschauen',(d)=>S3.watch(d)],
@@ -1679,7 +1688,7 @@ const agentPanel=(rows,o={})=>`<div class="agent-control" role="group" aria-labe
     :'<p class="empty">Gerade ist kein Agent erreichbar.</p>'}</div>`;
 const NOVA_CALLABLE=[['Nova','available']],NOVA_HERE=[['Nova','here']];
 
-/* Skat's strip: the decision keys the scene leads with and the reaction key; o.pill is the open menu a scene shows */
+/* Skat's strip: the decision keys the scene leads with; o.pill is the open menu a scene shows */
 const stripOf=(d,o={})=>tableBar(d,{lead:o.lead,menu:o.pill,above:o.above,call:o.call});
 const ABORT='';
 
@@ -2460,8 +2469,8 @@ const strandDecor=(d,phoneAt)=>{const t=(d?DB:PB).table,cx=t.x+t.w/2,cy=t.y+t.h/
   const [gx,gy]=!d&&phoneAt?.glass||rim(d?38:36),[sx,sy]=!d&&phoneAt?.shell||rim(d?150:144);
   return `<span class="decor cocktail" style="${at({left:gx,top:gy,'--h':d?84:62})}">${COCKTAIL}</span><span class="decor shell" style="${at({left:sx,top:sy,'--h':d?44:34})}">${SHELL}</span>`;};
 /* a scene of Klassik drawn in the style: the beach behind, the style's card backs, the decoration at the rim */
-const strandView=(draw,phoneAt)=>(d,w)=>{const [fw,fh]=STRAND_SIZE[w];
-  return beach(fw,fh,d)+draw(d,w).replaceAll('href="#cardback"','href="#cardback-strand"')+strandDecor(d,phoneAt?.[w]??phoneAt);};
+const strandView=(draw,phoneAt)=>(d,w)=>{const [fw,fh]=STRAND_SIZE[w];klassikScene=false;
+  try{return beach(fw,fh,d)+draw(d,w).replaceAll('href="#cardback"','href="#cardback-strand"')+strandDecor(d,phoneAt?.[w]??phoneAt);}finally{klassikScene=true;}};
 const SEA_CAPTION='Dazu klingt das Meer: leises, gleichmäßiges Rauschen der Brandung unter dem Spiel, in der Lautstärke der Tafel und still bei „Ton aus“. Die Wellen am Strand rollen langsam ein und aus; bei der Bewegung „dezent“ und bei „Bewegung reduzieren“ stehen sie still, wie dieses Bild.';
 const LOOK_PREVIEW={
   Klassik:`<svg class="prev" viewBox="0 0 120 76" aria-hidden="true"><rect width="120" height="76" fill="#1b130d"/><rect x="8" y="10" width="104" height="56" rx="28" fill="#7a4c2a"/><rect x="12" y="14" width="96" height="48" rx="24" fill="#1d7a55"/><rect x="48" y="26" width="13" height="19" rx="2" fill="#22386a" stroke="#d6b46a" stroke-width=".8" transform="rotate(-8 54 36)"/><rect x="60" y="26" width="13" height="19" rx="2" fill="#22386a" stroke="#d6b46a" stroke-width=".8" transform="rotate(7 66 36)"/><rect x="2" y="30" width="16" height="14" rx="3" fill="#3a3a40"/><rect x="102" y="30" width="16" height="14" rx="3" fill="#2a3b5e"/></svg>`,
@@ -2524,6 +2533,125 @@ const BELL_SCENES=[
     ['Lena schaut zu und hat keinen Stuhl: dieselbe Glocke, dasselbe Rütteln und dieselbe Blase wie bei den Spielern, nur ohne ihre eigenen Karten.']],
 ];
 agentScenes(BELL_SCENES);
+/* ===== the series end: the ask, the wait, a refusal, the choice, the silent minute, the settings and the closed link ===== */
+const HOUSE_RULES=[
+  {id:'points',ic:I.points,name:'Laufende Augen zeigen',line:'Alle sehen die Augen im Spiel',chip:'Augen'},
+  {id:'kontra',ic:I.kontra,name:'Kontra und Re',line:'Verdoppeln und zurückdoppeln',chip:'Kontra',vars:[
+    {q:'Wer darf Kontra sagen?',pick:['Jeder Gegner','Nur wer gereizt hat'],at:1},
+    {q:'Wie weit geht es?',pick:['Kontra, Re','mit Ständen','bis Hirsch'],at:2},
+    {q:'Wann muss das Wort fallen?',pick:['bis zur eigenen Karte','vor der ersten Karte'],at:0}]},
+  {id:'ramsch',ic:I.ramsch,name:'Ramsch beim Einpassen',line:'Alle passen: jeder gegen jeden',chip:'Ramsch',vars:[
+    {q:'Wie zählt der Ramsch?',pick:['Augen','Augen durch 10','Skat zum Verlierer'],at:0},
+    {q:'Jungfrau (kein Stich)',pick:['Verlierer doppelt','Aus'],at:0},
+    {q:'Durchmarsch (alle Stiche)',pick:['Gewinnt 120','120, nicht doppelt','Aus'],at:0}],
+    sub:{id:'schieben',ic:I.schieben,name:'Schieberamsch',line:'Den Skat weiterschieben',vars:[
+      {q:'Was beim Schieben gilt',pick:['Buben bleiben','Buben dürfen weg','Nicht doppelt'],at:0},
+      {q:'Grand Hand statt Ramsch',pick:['Aus','Erlaubt'],at:0}]}},
+  {id:'bock',ic:I.bock,name:'Bockrunden',line:'Manche Spiele zählen doppelt',chip:'Bock',vars:[
+    {q:'Bock gibt es nach',flags:[['60 zu 60',1],['Grand Hand gewonnen',1],['Verloren nach Kontra',1],['Re',1],['Alle gepasst',0],['Schneider',0]]},
+    {q:'Neuer Auslöser im Bock',pick:['Runden dazu','Nochmal doppelt','Zählt nicht'],at:0}]},
+];
+const ruleRow=(r,on,sub)=>`<div class="hrule ${sub?'sub':''} ${on.includes(r.id)?'on':''}" role="group" aria-label="${r.name}"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${r.line}</small></span>
+  <span class="sw ${on.includes(r.id)?'on':''}" role="switch" tabindex="0" aria-checked="${on.includes(r.id)}" aria-label="${r.name}"><i>${I.check}</i></span></div>`;
+/* a rule's variants start with the values of the picked set; „Offiziell“ holds none, so a rule switched on there starts with Felix's */
+const askRow=(a)=>a.flags
+  ?`<div class="ask" role="group" aria-label="${a.q}"><span class="q">${a.q}</span><div class="flags">${a.flags.map(([name,v])=>`<div class="flag"><span>${name}</span><span class="sw sm ${v?'on':''}" role="switch" tabindex="0" aria-checked="${!!v}" aria-label="${name}"><i>${I.check}</i></span></div>`).join('')}</div></div>`
+  :`<div class="ask" role="radiogroup" aria-label="${a.q}"><span class="q">${a.q}</span><div class="pick" style="--n:${a.pick.length}">${a.pick.map((name,i)=>`<span class="pk ${i===a.at?'on':''}" role="radio" aria-checked="${i===a.at}" tabindex="0">${i===a.at?I.check:''}${name}</span>`).join('')}</div></div>`;
+/* a rule switched on unfolds into its variants; one with none, or off, stays the plain row */
+const ruleUnit=(r,on,sub)=>on.includes(r.id)&&r.vars
+  ?`<div class="unit ${sub?'sub':''}">${ruleRow(r,on)}<div class="vars">${r.vars.map(askRow).join('')}</div></div>`
+  :ruleRow(r,on,sub);
+const rulesPart=(on)=>`<div class="hrules">${HOUSE_RULES.map(r=>ruleUnit(r,on)+(r.sub&&on.includes(r.id)?ruleUnit(r.sub,on,true):'')).join('')}</div>`;
+/* the sets a person can pick when opening a table; the official one is the default */
+const RULE_SETS=[{id:'official',name:'Offiziell',on:[]},{id:'felix',name:'Felix',on:['kontra','ramsch','schieben','bock']},{id:'skatabend',name:'Skatabend',on:[]}];
+const setChoice=(picked)=>`<div class="sets" role="radiogroup" aria-label="Regeln">${RULE_SETS.map(t=>`<span class="set ${t.id===picked?'on':''}" role="radio" aria-checked="${t.id===picked}" tabindex="0">${t.id===picked?I.check:''}${t.name}</span>`).join('')}</div>`;
+/* the length of a table's series: any multiple of 3 from 3 to 99, set in a number field with steps of 3 and named once when the table opens */
+const lengthChoice=(length)=>`<div class="stepper" role="group" aria-label="Länge der Serie"><span class="step" role="button" tabindex="0" aria-label="3 Spiele weniger">−</span><span class="stepvalue" role="spinbutton" tabindex="0" aria-valuemin="3" aria-valuemax="99" aria-valuenow="${length}" aria-label="Spiele">${length}<small>Spiele</small></span><span class="step" role="button" tabindex="0" aria-label="3 Spiele mehr">${I.plus}</span></div>`;
+Object.assign(P,{
+  mozart:{...P.nova,n:'Mozart'},
+  benSelf:{...P.ben,n:'Du'},
+});
+/* the three chairs, seen from the near one: clockwise near, left, right */
+const SEATING={ben:{near:'benSelf',left:'anna',right:'mozart'},anna:{near:'annaSelf',left:'mozart',right:'ben'}};
+const seriesEndSeats=(d,view,marks={},o={})=>{const L=endLayout(d),who=SEATING[view],place={left:L.anna,right:L.nova,near:L.you};
+  return ['left','right','near'].map(spot=>{const k=who[spot],base=k.replace('Self','').toLowerCase();
+    return seat(k,{...place[spot],marks:marks[base]||[],win:(o.winners||[]).includes(base)});}).join('');};
+const seriesEndCoasters=(d,view,score)=>{const who=SEATING[view];
+  return chairCoasters(endLayout(d),['left','right','near'].map(spot=>score[who[spot].replace('Self','').toLowerCase()]));};
+const BEFORE_END={anna:148,ben:62,mozart:55};
+MARK.yes=`<span class="mark ready" title="Ja">${I.check}</span>`;
+/* the ask on the plaque: who asks, the minute counting down, the two answers for whoever has not answered */
+const askLine=(line,clock)=>`<div class="game">${faceDot('anna')}${line}</div><div class="clockline">${I.clock}<span>ohne Antwort in ${clock} = Nein</span></div>`;
+const seriesEndPlaque=(d,inner)=>plaque(d?640:195,d?150:206,inner).replace('class="plaque"','class="plaque ask"');
+const JA_NEIN=answers({icon:I.check,text:'Ja'},{icon:I.cross,text:'Nein'});
+const bareBar=(keys)=>`<div class="sbar">${keys}</div>`;
+
+/* the standings with the next series' settings under them and the way to change them */
+const NEXT_RULES=['ramsch','kontra'];
+const nextLine=(o={})=>`<div class="nextline"><span class="lbl">Nächste Serie</span><span class="chips"><span class="chip len">${I.clock}12 Spiele</span>${TABLE_RULES.filter(r=>NEXT_RULES.includes(r.id)).map(r=>`<span class="chip">${r.ic}${r.chip}</span>`).join('')}</span><span class="change" role="button">Ändern</span></div>`;
+const seriesEndRank=([k,place,total])=>{const p=P[k];
+  return `<div class="rank ${place===1?'win':''}"><span class="place">${place}</span><span class="dot ${p.agent?'agent':''}" style="${dotStyle(p)}">${dotInner(p)}</span>`
+    +`<span class="txt"><b>${p.n}${p.agent?aiMark():''}</b></span><span class="sum">${withMinus(total)}</span></div>`;};
+const END_ROWS=[['anna',1,502],['benSelf',2,365],['mozart',3,233]];
+const END_ROWS_ANNA=[['annaSelf',1,502],['ben',2,365],['mozart',3,233]];
+const FINAL={anna:502,ben:365,mozart:233};
+const seriesEndStandings=(d,rows)=>`<div class="result standing" role="status" style="${at(d?{left:640,top:100,width:480}:{left:195,top:158,width:358})}">
+  <h3>${I.trophy}Serie zu Ende</h3><div class="sub">36 Spiele</div><div class="ranks">${rows.map(seriesEndRank).join('')}</div>${nextLine()}</div>`;
+const NEW_SERIES_KEY=barKey('',I.check,'Neue Serie');
+const STOP_KEY=barKey('glass',I.stand,'Aufhören');
+/* the ended table's link: the empty chairs, the final standings, the games to read, a new table */
+const lastGames=()=>[...GAMES_PLAYED].reverse().slice(0,7).map(([n,k,...rest])=>{const who=k==='felix'?'mozart':k,p=P[who],row=gameRow([n+16,who==='mozart'?'anna':who,...rest]);
+  return who==='mozart'?row.replace(/<span class="dot" style="[^"]*">A<\/span>/,`<span class="dot agent">${dotInner(p)}</span>`).replace('<b>Anna</b>',`<b>${p.n}${aiMark()}</b>`):row;}).join('');
+const CLOSED_ROWS=[['anna',1,502],['ben',2,365],['mozart',3,233]];
+const closedTable=(d)=>(d?emptyChair(DE.anna,'anna',-7)+emptyChair(DE.right,'ben',7)+emptyChair(DE.you,'felix',4)+table(DB.table)
+  :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table))+homeButton(d,homeBadge)
+  +`<div class="result standing closedseries" role="status" style="${at(d?{left:640,top:40,width:500}:{left:195,top:64,width:358})}"><h3>${I.trophy}Serie beendet</h3><div class="sub">36 Spiele</div>
+  <div class="ranks">${CLOSED_ROWS.map(seriesEndRank).join('')}</div><div class="gamesbox"><span class="lbl">Spiele</span><div class="rows">${lastGames()}</div></div>
+  <div class="btns"><span class="button button-stage">${I.plus}Neuer Tisch</span></div></div>`;
+const COUNT_8=(d)=>seriesCount(d,8);
+
+
+/* „Ändern“ opens the start sheet's body filled with the last series' values over the end scene, behind a scrim */
+const SETTINGS_SHEET={390:{x:195,w:354,top:40,h:780},1280:{x:640,w:440,top:24,h:752}};
+const SERIES_END_SCENE=(d)=>dealRoom(d,{watchers:1})+seriesEndStandings(d,END_ROWS)
+  +seriesEndSeats(d,'ben',{anna:['ready'],mozart:['ready'],ben:['notTapped']},{winners:['anna']})+seriesEndCoasters(d,'ben',FINAL)
+  +bareBar(NEW_SERIES_KEY+STOP_KEY);
+const seriesSheet=(d)=>{const z=SETTINGS_SHEET[d?1280:390];
+  return `<div class="scrim over"></div><div class="setsheet" role="dialog" aria-label="Nächste Serie" style="${at({left:z.x,top:z.top,width:z.w,'max-height':z.h})}"><h3>Nächste Serie</h3>
+  ${lengthChoice(12)}${setChoice('')}
+  <div class="sbody down">${rulesPart(['kontra','ramsch'])}</div>
+  <p class="takeback">Speichern nimmt Annas und Mozarts „Neue Serie“ zurück.</p>
+  <div class="btns"><span class="button button-stage">${I.check}Speichern</span><span class="button button-glass">Abbrechen</span></div></div>`;};
+const SERIES_END_SCENES=[
+  ['seriesend-ask','Ben wird gefragt',(d)=>dealRoom(d,{watchers:1})+COUNT_8(d)
+    +seriesEndPlaque(d,askLine('Anna möchte die Serie beenden','0:42')+JA_NEIN)
+    +seriesEndSeats(d,'ben',{anna:['yes'],mozart:['yes'],ben:['unanswered']})+seriesEndCoasters(d,'ben',BEFORE_END)+bareBar(''),
+    ['Anna hat aus ⋯ „Serie beenden“ vorgeschlagen; ihr Stuhl trägt ihr Ja. Mozart ist ein Agent und stimmt wie jeder Mensch, sein Ja steht an seinem Stuhl. Antwortet Ben nicht binnen der Minute, zählt das als Nein.']],
+  ['seriesend-wait','Anna wartet auf Ben',(d)=>dealRoom(d,{watchers:1})+COUNT_8(d)
+    +seriesEndPlaque(d,`<div class="game">${faceDot('ben')}Warte auf Ben${waitDots()}</div><div class="clockline">${I.clock}<span>ohne Antwort in 0:42 = Nein</span></div>`)
+    +seriesEndSeats(d,'anna',{anna:['yes'],mozart:['yes'],ben:['unanswered']})+seriesEndCoasters(d,'anna',BEFORE_END)+tableBar(d,{seated:true}),
+    ['Wer fragt, sieht die Marken und die Minute; eine Taste zum Zurücknehmen gibt es nicht.']],
+  ['seriesend-refused','Ben sagt Nein',(d)=>dealRoom(d,{watchers:1})+COUNT_8(d)
+    +notice('Ben möchte weiterspielen','ben',d?640:195,d?190:236)
+    +seriesEndSeats(d,'anna',{ben:['declined']})+seriesEndCoasters(d,'anna',BEFORE_END)+endBar(d,tapButton),
+    ['Ein Nein beendet den Vorschlag: das Kreuz an Bens Stuhl und die Zeile nennen ihn, „Weiter“ ist zurück, und bis zum nächsten Spiel gibt es keinen neuen Vorschlag.']],
+  ['seriesend-end','Serie zu Ende, Ben wählt',(d)=>dealRoom(d,{watchers:1})+seriesEndStandings(d,END_ROWS)
+    +seriesEndSeats(d,'ben',{anna:['ready'],mozart:['ready'],ben:['notTapped']},{winners:['anna']})+seriesEndCoasters(d,'ben',FINAL)
+    +bareBar(NEW_SERIES_KEY+STOP_KEY),
+    ['Genau zwei Tasten: „Neue Serie“ setzt die Marke am eigenen Stuhl, „Aufhören“ steht auf. Die Zeile darunter zeigt, womit die nächste Serie beginnt; „Ändern“ öffnet die Einstellungen.',
+     'Mozart wählt wie jeder Mensch: sein Haken heißt, er hat „Neue Serie“ getippt. Die neue Serie beginnt erst, wenn alle drei gewählt haben.']],
+  ['seriesend-silent','Neue Serie: Mozart antwortet noch',(d)=>dealRoom(d,{watchers:1})+seriesEndStandings(d,END_ROWS_ANNA)
+    +plaque(d?640:195,d?600:506,`<div class="game">${I.clock}Ohne Antwort in 0:38 endet der Tisch</div>`).replace('class="plaque"','class="plaque ask timer"')
+    +seriesEndSeats(d,'anna',{anna:['ready'],ben:['ready'],mozart:['notTapped']},{winners:['anna']})+seriesEndCoasters(d,'anna',FINAL)
+    +bareBar(`<span class="cb wide glass" role="status">Warte auf Mozart${waitDots()}</span>`+STOP_KEY),
+    ['Eine neue Serie braucht das „Neue Serie“ aller drei. Antwortet einer binnen der Minute nicht, zählt das als Nein: der Tisch endet, und alle sind zurück in der Lobby.']],
+  ['seriesend-settings','Nächste Serie ändern',(d)=>SERIES_END_SCENE(d)+seriesSheet(d),
+    ['„Ändern“ öffnet die Einstellungen der nächsten Serie, gefüllt mit denen der letzten. Speichern nimmt Annas und Mozarts „Neue Serie“ zurück, denn sie haben die alten Einstellungen gewählt.']],
+  ['seriesend-closed','Der Link eines beendeten Tisches',(d)=>closedTable(d),
+    ['Wer den Link eines beendeten Tisches öffnet, sieht die Rangliste mit Platz und Punkten und kann jedes Spiel der Serie nachlesen; wer den Tisch beendet hat, steht nirgends.']],
+];
+scenes(SERIES_END_SCENES);
+ORDER.push(...SERIES_END_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
@@ -2864,6 +2992,7 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .decor{z-index:3;pointer-events:none;height:var(--h);transform:translate(-50%,-78%);filter:drop-shadow(0 6px 5px rgba(25,12,30,.5))}
 .decor svg{display:block;height:100%;width:auto}
 .decor.shell{transform:translate(-50%,-62%) rotate(-14deg)}
+.decor.lamp{z-index:auto;transform:translate(-50%,-100%)}
 /* the style row of the panel: two tiles, each with a small preview */
 .snd-look{flex:1 0 100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .snd-look span{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 6px 8px;border-radius:14px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(240,214,150,.22);font-size:14px;font-weight:600;cursor:pointer}
@@ -2912,7 +3041,7 @@ if(panels.length){hangPanels();document.fonts.ready.then(hangPanels);}}
 }
 </style>
 <style>
-/* ---------- the bar split: the thumb holds the game's decision and the reactions; every table matter lies behind ⋯ at the top ---------- */
+/* ---------- the bar split: the thumb holds the game's decision only; every table matter lies behind ⋯ at the top ---------- */
 .cb.menu{position:absolute;right:10px;top:3px;width:40px;height:40px;cursor:pointer;background:rgba(244,246,248,.26);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3),0 4px 10px -4px rgba(0,0,0,.7)}
 .cb.menu::after{content:"";position:absolute;inset:-2px}
 .cb.menu svg{width:22px;height:22px}
@@ -2938,7 +3067,88 @@ if(panels.length){hangPanels();document.fonts.ready.then(hangPanels);}}
 .menu-pop .row.arm{background:var(--leave);color:#fff}
 .menu-pop .row .run-out{position:absolute;left:48px;right:16px;bottom:6px;height:3px;border-radius:2px;background:rgba(255,255,255,.85);transform:scaleX(.6);transform-origin:left}
 .menu-pop .agent-control{padding-bottom:0}
-.sbar .cb.react{flex:none}
+/* ---------- the series' settings sheet: the start page's sheet parts, scoped to the sheet ---------- */
+.setsheet{transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px 16px 16px;border-radius:24px; background:rgba(12,14,17,.8);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:inset 0 0 0 1.5px rgba(240,214,150,.32),0 24px 50px -16px rgba(0,0,0,.9)}
+.d1280 .setsheet{gap:10px}
+.setsheet h3{font-family:var(--font-mark);font-size:32px;font-weight:700;color:#f3cf7a;line-height:1;text-shadow:0 2px 0 rgba(0,0,0,.4)}
+.setsheet .btns{display:flex;gap:10px;width:100%}
+.setsheet .hrules{display:flex;flex-direction:column;gap:8px;width:100%}
+.setsheet .hrule{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 12px;border-radius:16px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(240,214,150,.14)}
+.setsheet .hrule .ic{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--glass);color:var(--on-stage-soft)}
+.setsheet .hrule .ic svg{width:20px;height:20px}
+.setsheet .hrule.on .ic{background:var(--accent-stage);color:var(--stage)}
+.setsheet .hrule .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.setsheet .hrule b{font-size:15px;font-weight:600;line-height:1.2}
+.setsheet .hrule small{font-size:12.5px;line-height:1.25;color:var(--on-stage-soft)}
+.setsheet .hrule.sub{margin-left:26px;min-height:46px;position:relative}
+.setsheet .hrule.sub::before{content:"";position:absolute;left:-14px;top:-9px;height:35px;width:10px;border-left:1.5px solid rgba(240,214,150,.32);border-bottom:1.5px solid rgba(240,214,150,.32);border-radius:0 0 0 8px}
+.setsheet .unit{display:flex;flex-direction:column;border-radius:16px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(240,214,150,.14)}
+.setsheet .unit>.hrule{background:none;box-shadow:none}
+.setsheet .unit.sub{margin-left:26px;position:relative}
+.setsheet .unit.sub::before{content:"";position:absolute;left:-14px;top:-9px;height:35px;width:10px;border-left:1.5px solid rgba(240,214,150,.32);border-bottom:1.5px solid rgba(240,214,150,.32);border-radius:0 0 0 8px}
+.setsheet .unit.sub>.hrule{min-height:46px}
+.setsheet .hrule.sub .ic,.setsheet .unit.sub .hrule .ic{width:30px;height:30px}
+.setsheet .hrule.sub .ic svg,.setsheet .unit.sub .hrule .ic svg{width:17px;height:17px}
+.setsheet .vars{display:flex;flex-direction:column;gap:10px;padding:2px 12px 12px}
+.setsheet .ask{display:flex;flex-direction:column;gap:5px}
+.setsheet .ask .q{font-size:12.5px;font-weight:600;line-height:1.2;color:var(--on-stage-soft)}
+.setsheet .pick{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:6px}
+.setsheet .pk{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:40px;padding:4px 8px;border-radius:999px;background:var(--glass);color:var(--on-stage); font-size:13px;font-weight:600;line-height:1.15;text-align:center;box-shadow:inset 0 0 0 1px rgba(240,214,150,.22);cursor:pointer}
+.setsheet .pk svg{width:14px;height:14px;flex:none}
+.setsheet .pk.on{background:var(--accent-stage);color:var(--stage);box-shadow:none}
+.setsheet .flags{display:flex;flex-direction:column;gap:4px}
+.setsheet .flag{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px 0 12px;border-radius:12px;background:rgba(0,0,0,.22);font-size:14px;font-weight:600}
+.setsheet .flag>span:first-child{flex:1;min-width:0}
+.setsheet .sw.sm{width:40px;height:24px}
+.setsheet .sw.sm i{width:18px;height:18px}
+.setsheet .sw.sm.on i{left:19px}
+.setsheet .sw.sm i svg{width:11px;height:11px}
+.setsheet .sbody{position:relative;display:flex;flex-direction:column;align-items:center;gap:16px;flex:0 1 auto;min-height:0;width:calc(100% + 48px);margin:-24px;padding:24px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+.setsheet .sbody.up,.setsheet .sbody.down{clip-path:inset(16px -24px)}
+.d1280 .setsheet .sbody{gap:10px}
+.setsheet>.choice,.setsheet>.stepper,.setsheet>.sets,.setsheet>.save,.setsheet>.btns{flex:none}
+.setsheet .sbody.down{-webkit-mask-image:linear-gradient(#000 calc(100% - 40px),transparent);mask-image:linear-gradient(#000 calc(100% - 40px),transparent)}
+.setsheet .sbody.up{-webkit-mask-image:linear-gradient(transparent,#000 40px);mask-image:linear-gradient(transparent,#000 40px)}
+.setsheet .sbody.up.down{-webkit-mask-image:linear-gradient(transparent,#000 40px,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(transparent,#000 40px,#000 calc(100% - 40px),transparent)}
+.setsheet .sbody>*{flex:none}
+.setsheet .sw{flex:none;position:relative;width:48px;height:28px;border-radius:999px;background:var(--glass);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.22)}
+.setsheet .sw i{position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#f4ecd9;color:var(--stage);box-shadow:0 2px 4px rgba(0,0,0,.5)}
+.setsheet .sw i svg{display:none;width:13px;height:13px}
+.setsheet .sw.on{background:var(--accent-stage);box-shadow:none}
+.setsheet .sw.on i{left:23px}
+.setsheet .sw.on i svg{display:block}
+.setsheet .sets{display:flex;gap:8px;width:100%}
+.setsheet .set{flex:1;min-width:0;position:relative;height:44px;padding:0 10px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--glass);color:var(--on-stage); font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:inset 0 0 0 1px rgba(240,214,150,.22);cursor:pointer}
+.setsheet .set svg{width:16px;height:16px;flex:none}
+.setsheet .set.on{background:var(--accent-stage);color:var(--stage);box-shadow:none}
+.setsheet .stepper{display:flex;gap:8px;width:100%}
+.setsheet .stepper .step,.setsheet .stepper .stepvalue{height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--glass);color:var(--on-stage);font-size:15px;font-weight:600;box-shadow:inset 0 0 0 1px rgba(240,214,150,.22)}
+.setsheet .stepper .step{flex:none;width:56px;font-size:22px;cursor:pointer}
+.setsheet .stepper .step svg{width:16px;height:16px}
+.setsheet .stepper .stepvalue{flex:1;min-width:0}
+.setsheet .stepper .stepvalue small{font-size:15px;font-weight:600;opacity:.75}
+.clockline{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:var(--on-stage-soft);font-variant-numeric:tabular-nums}
+.clockline svg{width:16px;height:16px}
+.rank .dot.agent{background:radial-gradient(circle at 34% 30%,#d9e6ff,#4467b8 60%,#1d2c55);color:#fff}
+.rank .dot.agent svg{width:17px;height:17px}
+.nextline{display:flex;align-items:center;flex-wrap:wrap;justify-content:center;gap:8px 10px;width:100%;padding-top:4px}
+.nextline .lbl{font-size:13px;font-weight:600;color:var(--on-stage-soft)}
+.nextline .chip.len{background:var(--glass);color:var(--on-stage);box-shadow:none}
+.nextline .change{font-size:14px;font-weight:600;color:var(--accent-stage);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.plaque.timer .game{gap:8px;font-size:15px}
+.plaque.timer .game svg{width:18px;height:18px}
+.gamesbox{display:flex;flex-direction:column;gap:6px;width:100%;min-height:0}
+.gamesbox .lbl{font-size:13px;font-weight:600;color:var(--on-stage-soft);padding-left:4px}
+.gamesbox .rows{display:flex;flex-direction:column;overflow:hidden;-webkit-mask-image:linear-gradient(#000 calc(100% - 36px),transparent);mask-image:linear-gradient(#000 calc(100% - 36px),transparent)}
+.p390 .closedseries .gamesbox .rows{max-height:250px}
+.d1280 .closedseries .gamesbox .rows{max-height:210px}
+.grow .dot.agent{background:radial-gradient(circle at 34% 30%,#d9e6ff,#4467b8 60%,#1d2c55);color:#fff}
+.grow .dot.agent svg{width:16px;height:16px}
+
+.setsheet{z-index:46}
+.setsheet .btns{position:static;transform:none}
+.setsheet .btns .button{flex:1;min-width:0}
+.takeback{flex:none;font-size:13px;color:var(--on-stage-soft);text-align:center}
 </style>
 </body>
 </html>

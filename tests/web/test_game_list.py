@@ -3,6 +3,7 @@ from dataclasses import replace
 import pytest
 
 from skat.engine.deal import Position, positions_from
+from skat.table.records import OccupantKind
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT
@@ -75,6 +76,22 @@ class TestReadingTheList:
 
         assert named[0]["declarer_name"] == names[declarer_seat - 1]
         assert record.chairs[declarer_seat - 1].occupant.display_name != names[declarer_seat - 1]
+
+    def test_a_row_carries_the_seat_and_the_kind_its_declarer_was_seated_as(self, skat):
+        table, _ = play_a_series(skat)
+        record = table.record
+        agent_list = tuple(
+            replace(each, seat_kinds=(OccupantKind.AGENT, OccupantKind.PERSON, OccupantKind.PERSON))
+            for each in record.game_list
+        )
+        skat.store.tables[table.table_id] = replace(record, game_list=agent_list)
+
+        rows = entries_of(read_list(skat, table.watcher, table.table_id))
+
+        assert [(row["declarer_seat"], row["declarer_kind"]) for row in rows] == [
+            (each.declarer_seat, OccupantKind.AGENT if each.declarer_seat == 1 else OccupantKind.PERSON)
+            for each in record.game_list
+        ]
 
     def test_a_row_stored_before_names_were_kept_names_nobody(self, skat):
         table, _ = play_a_series(skat)

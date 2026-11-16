@@ -52,6 +52,7 @@ export const TABLE_AGENT_SEND_AWAY_SUFFIX = "/send-away";
 export const TABLE_ABORT_AGREE_SUFFIX = "/abort/agree";
 export const TABLE_ABORT_REFUSE_SUFFIX = "/abort/refuse";
 export const TABLE_NUDGE_SUFFIX = "/nudge";
+export const TABLE_REACTION_SUFFIX = "/reaction";
 export const SUIT_TOKENS = ["kreuz", "pik", "herz", "karo"] as const;
 export const RANK_TOKENS = ["seven", "eight", "nine", "ten", "jack", "queen", "king", "ace"] as const;
 export const POSITION_TOKENS = ["forehand", "middlehand", "rearhand"] as const;
@@ -95,6 +96,18 @@ export const GAME_ENDING_TOKENS = ["played-out", "given-up", "thrown-down", "sho
 export const WORD_TOKENS = ["kontra", "re", "supra", "hirsch"] as const;
 export const VISIBILITY_TOKENS = ["open", "private"] as const;
 export const TABLE_STYLE_TOKENS = ["klassik", "strandbar"] as const;
+export const REACTION_TOKENS = [
+    "clap",
+    "laugh",
+    "gasp",
+    "fire",
+    "cheers",
+    "knock",
+    "cocktail",
+    "shell",
+    "coaster",
+    "lamp",
+] as const;
 export const VALID_BIDS = [
     18, 20, 22, 23, 24, 27, 30, 33, 35, 36, 40, 44, 45, 46, 48, 50, 54, 55, 59, 60, 63, 66, 70, 72, 77, 80, 81, 84, 88,
     90, 96, 99, 100, 108, 110, 117, 120, 121, 126, 130, 132, 135, 140, 143, 144, 150, 153, 154, 156, 160, 162, 165, 168,

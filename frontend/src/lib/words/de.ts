@@ -210,6 +210,7 @@ export type Words = {
     readonly "closed.unplayedDays": (count: number) => string;
     readonly "closed.closed": string;
     readonly "closed.closedBy": (gaps: { readonly name: string }) => string;
+    readonly "closed.seriesEnded": string;
     readonly "declare.commandFailed": string;
     readonly "declare.takeSkat": string;
     readonly "push.takeSkat": string;
@@ -509,6 +510,24 @@ export type Words = {
     readonly "table.menu": string;
     readonly "table.menuTable": string;
     readonly "table.menuGame": string;
+    readonly "table.reactions": string;
+    readonly "table.reactionTray": string;
+    readonly "table.reactionClap": string;
+    readonly "table.reactionClapMark": string;
+    readonly "table.reactionLaugh": string;
+    readonly "table.reactionLaughMark": string;
+    readonly "table.reactionGasp": string;
+    readonly "table.reactionGaspMark": string;
+    readonly "table.reactionFire": string;
+    readonly "table.reactionFireMark": string;
+    readonly "table.reactionCheers": string;
+    readonly "table.reactionCheersMark": string;
+    readonly "table.reactionKnock": string;
+    readonly "table.reactionKnockMark": string;
+    readonly "table.objectCocktail": string;
+    readonly "table.objectShell": string;
+    readonly "table.objectCoaster": string;
+    readonly "table.objectLamp": string;
 };
 // prettier-ignore
 export const words: Words = {
@@ -815,6 +834,7 @@ export const words: Words = {
     })[pluralRules.select(count)],
     "closed.closed": "Tisch geschlossen",
     "closed.closedBy": (gaps: { readonly name: string }) => gaps.name + " hat den Tisch geschlossen",
+    "closed.seriesEnded": "Serie beendet",
     "declare.commandFailed": "Das hat nicht geklappt",
     "declare.takeSkat": "Aufnehmen",
     "push.takeSkat": "Skat nehmen",
@@ -1114,5 +1134,23 @@ export const words: Words = {
     "table.menu": "Mehr",
     "table.menuTable": "Tisch",
     "table.menuGame": "Spiel",
+    "table.reactions": "Reaktion senden",
+    "table.reactionTray": "Reaktionen",
+    "table.reactionClap": "Applaus",
+    "table.reactionClapMark": "👏",
+    "table.reactionLaugh": "Lachen",
+    "table.reactionLaughMark": "😂",
+    "table.reactionGasp": "Staunen",
+    "table.reactionGaspMark": "😮",
+    "table.reactionFire": "Feuer",
+    "table.reactionFireMark": "🔥",
+    "table.reactionCheers": "Prost",
+    "table.reactionCheersMark": "🍻",
+    "table.reactionKnock": "Klopfen",
+    "table.reactionKnockMark": "👊",
+    "table.objectCocktail": "Cocktail",
+    "table.objectShell": "Muschel",
+    "table.objectCoaster": "Untersetzer",
+    "table.objectLamp": "Lampe",
 };
 export type Key = keyof Words;
