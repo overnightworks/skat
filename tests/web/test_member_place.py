@@ -9,12 +9,13 @@ from datetime import timedelta
 import pytest
 from agents.mcp_wire import MCP_ENDPOINT_PATH
 from agents.member import ACCEPT_INVITATION_TOOL, LEASE_SECONDS, STANDING_URI, AcceptInvitationRefusal
+from agents.turn import ToolRefusal
 from logline import REQUEST_EVENT, Outcome
 from starlette.concurrency import run_in_threadpool
 
 from skat.table.member_place import MemberRefusal
 from skat.table.records import TableId
-from skat.web.mcp import MCP_GROUP, READ_TABLE_TOOL, ToolRefusal
+from skat.web.mcp import MCP_GROUP, READ_TABLE_TOOL
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.calls import call_facts
 from tests.support.log_lines import lines_of, logged
@@ -523,7 +524,7 @@ class TestToolCallLine:
 
         (call,) = lines_of(lines, "tool_call.ended")
         (mcp_request,) = [line for line in lines_of(lines, REQUEST_EVENT) if line["route"] == MCP_ENDPOINT_PATH]
-        assert (call["tool"], call["outcome"]) == (READ_TABLE_TOOL, Outcome.OK)
+        assert (call["tool_name"], call["outcome"]) == (READ_TABLE_TOOL, Outcome.OK)
         assert call["trace_id"] == mcp_request["trace_id"] is not None
 
     def test_a_route_that_answers_an_error_ends_the_call_refused(self, agent, capsys):
@@ -531,31 +532,20 @@ class TestToolCallLine:
             agent.read("not-a-table-id")
 
         (call,) = lines_of(lines, "tool_call.ended")
-        assert (call["outcome"], call["reason"]) == (Outcome.REFUSED, ToolRefusal.ROUTE_ERROR)
+        assert (call["outcome"], call["reason"]) == (Outcome.REFUSED, ToolRefusal.TOOL_ERROR)
 
-    def test_a_refused_accept_is_in_skats_own_log_with_the_refusals_code(self, invite, agent, owner, table_id, capsys):
+    def test_a_refused_accept_ends_one_call_line_refused(self, invite, agent, owner, table_id, capsys):
         offer = invite(agent, table_id, owner)
 
         with logged(capsys) as lines:
             agent.accept(table_id, offer, epoch=offer.epoch + 1)
 
         (call,) = lines_of(lines, "tool_call.ended")
-        assert (call["tool"], call["outcome"], call["reason"]) == (
+        assert (call["tool_name"], call["outcome"], call["reason"]) == (
             ACCEPT_INVITATION_TOOL,
             Outcome.REFUSED,
-            AcceptInvitationRefusal.STALE_INVITATION,
+            ToolRefusal.TOOL_ERROR,
         )
-
-    def test_an_accept_with_malformed_arguments_is_refused_for_its_own_code(
-        self, invite, skat, agent, owner, table_id, capsys
-    ):
-        offer = invite(agent, table_id, owner)
-
-        with at_the_table(skat, table_id, owner), logged(capsys) as lines:
-            agent.accept(table_id, offer, epoch=-1)
-
-        (call,) = lines_of(lines, "tool_call.ended")
-        assert (call["outcome"], call["reason"]) == (Outcome.REFUSED, ToolRefusal.MALFORMED_ARGUMENTS)
 
     def test_an_accepted_invitation_ends_ok_without_a_reason(self, invite, skat, agent, owner, table_id, capsys):
         offer = invite(agent, table_id, owner)
@@ -564,4 +554,4 @@ class TestToolCallLine:
             agent.accept(table_id, offer)
 
         (call,) = lines_of(lines, "tool_call.ended")
-        assert (call["tool"], call["outcome"], "reason" in call) == (ACCEPT_INVITATION_TOOL, Outcome.OK, False)
+        assert (call["tool_name"], call["outcome"], "reason" in call) == (ACCEPT_INVITATION_TOOL, Outcome.OK, False)

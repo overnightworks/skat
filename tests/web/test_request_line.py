@@ -2,12 +2,13 @@ import logline
 import pytest
 import structlog.testing
 from fastapi.testclient import TestClient
+from logline import Outcome
 from webauth.config import installed_web_auth_config
 
 from skat.host.app import create_app
 from skat.table.records import TableId
 from skat.web.constants import ACCOUNT_PATH, APP_ASSET_PATH, LOGIN_PATH
-from skat.web.tables import TABLES_PATH
+from skat.web.tables import TABLE_READ_REFUSED_EVENT, TABLES_PATH
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
 from tests.support.in_memory_stores import in_memory_stores, single_pod
@@ -76,7 +77,9 @@ class TestRequestLine:
         (line,) = request_lines_of(logs)
         assert (answer.status_code, line["route"]) == (200, APP_ASSET_PATH)
 
-    def test_a_refused_request_leaves_the_request_line_alone_on_its_trace(self, app, stores, browser, capsys):
+    def test_a_refused_read_writes_its_refusal_line_on_the_request_lines_trace_and_leaves_the_request_line_alone(
+        self, app, stores, browser, capsys
+    ):
         member = seed_member(stores, installed_web_auth_config(app))
         unknown = TableId.random().value
 
@@ -88,5 +91,7 @@ class TestRequestLine:
         (request,) = request_lines_of(lines)
         assert (answer.status_code, request["status"]) == (404, 404)
         assert [line["event"] for line in lines if line.get("trace_id") == request["trace_id"]] == [
-            logline.REQUEST_EVENT
+            TABLE_READ_REFUSED_EVENT,
+            logline.REQUEST_EVENT,
         ]
+        assert request["outcome"] == Outcome.OK

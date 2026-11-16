@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Final, Protocol
 import structlog
 from logline import unit_trace
 
+from skat.web.presence_line import PresenceTimer, TimerRuns
 from skat.web.waits import AskClock
 from skat.web.wakes import Registration, TableTopic, WakeList
 
@@ -184,6 +185,7 @@ class Presence:
         self._pauses: dict[str, object] = {}
         self._empty_waits: dict[str, object] = {}
         self._left_at: dict[tuple[str, str], float] = {}
+        self._timer_runs = TimerRuns()
         self._state = threading.Lock()
         self._committing: dict[tuple[str, str], asyncio.Event] = {}
         self._writing: set[asyncio.Event] = set()
@@ -271,15 +273,18 @@ class Presence:
         """
         if self._stopped or (account_id in self._lease_ends) == lapsed:
             return
+        run = self._timer_runs.start(PresenceTimer.LEASE_SETTLE, account_id)
         try:
             table_ids = list(await self._lease.seated_tables(account_id))
         except Exception as failure:
             # The failure's message may carry the account id, so only its type is logged.
             log.error("lease_tables_read.failed", error_type=type(failure).__name__)
+            run.failed()
             self._hold.scheduler.schedule(
                 CHAIR_RELEASE_RETRY_SECONDS, partial(self._settle_lease, account_id, lapsed=lapsed)
             )
             return
+        run.succeeded()
         for table_id in table_ids:
             self.wake_table(table_id)
             self._note_soon(table_id)
@@ -406,6 +411,7 @@ class Presence:
 
         A failure is logged and changes nothing, so the next request asks again.
         """
+        run = self._timer_runs.start(PresenceTimer.NEXT_DEAL, table_id, table_id=table_id)
         try:
             dealt = await self._next_deal.deal(
                 table_id, self._connected_while_writing(table_id, asyncio.get_running_loop())
@@ -413,7 +419,9 @@ class Presence:
         except Exception as failure:
             # The failure's message may carry an account id, so only its type is logged.
             log.error("next_deal.failed", table_id=table_id, error_type=type(failure).__name__)
+            run.failed()
             return
+        run.succeeded()
         if dealt:
             self.wake_table(table_id)
 
@@ -434,6 +442,7 @@ class Presence:
 
     async def _note_presence(self, table_id: str) -> None:
         """Store who is present now, read once the row is locked; a failure is retried while the presence runs."""
+        run = self._timer_runs.start(PresenceTimer.EMPTY_SINCE_WRITE, table_id, table_id=table_id)
         try:
             ended = await self._empty_table.note(
                 table_id, self._connected_while_writing(table_id, asyncio.get_running_loop())
@@ -441,8 +450,10 @@ class Presence:
         except Exception as failure:
             # The failure's message may carry an account id, so only its type is logged.
             log.error("empty_since_write.failed", table_id=table_id, error_type=type(failure).__name__)
+            run.failed()
             self._note_soon(table_id, CHAIR_RELEASE_RETRY_SECONDS)
             return
+        run.succeeded()
         if ended:
             self.table_ended(table_id)
 
@@ -450,6 +461,7 @@ class Presence:
         if not self._is_latest_wait(table_id, wait):
             return
         loop = asyncio.get_running_loop()
+        run = self._timer_runs.start(PresenceTimer.EMPTY_TABLE_END, table_id, table_id=table_id)
         try:
             ended = await self._empty_table.end(
                 table_id, self._connected_while_writing(table_id, loop, partial(self._is_latest_wait, table_id, wait))
@@ -457,8 +469,10 @@ class Presence:
         except Exception as failure:
             # The failure's message may carry an account id, so only its type is logged.
             log.error("empty_table_end.failed", table_id=table_id, error_type=type(failure).__name__)
+            run.failed()
             self._hold.scheduler.schedule(CHAIR_RELEASE_RETRY_SECONDS, partial(self._end_if_empty, table_id, wait))
             return
+        run.succeeded()
         with self._state:
             if self._empty_waits.get(table_id) is wait:
                 del self._empty_waits[table_id]
@@ -484,6 +498,7 @@ class Presence:
     async def _expire(self, table_id: str, account_id: str, left_at: float) -> None:
         if not self._is_latest_leave(table_id, account_id, left_at):
             return
+        run = self._timer_runs.start(PresenceTimer.CHAIR_RELEASE, table_id, account_id, table_id=table_id)
         try:
             freed = await self._hold.free_chair(
                 table_id,
@@ -493,10 +508,12 @@ class Presence:
         except Exception as failure:
             # The failure's message may carry the account id, so only its type is logged.
             log.error("chair_release.failed", table_id=table_id, error_type=type(failure).__name__)
+            run.failed()
             self._hold.scheduler.schedule(
                 CHAIR_RELEASE_RETRY_SECONDS, partial(self._expire, table_id, account_id, left_at)
             )
             return
+        run.succeeded()
         if self._left_at.get((table_id, account_id)) == left_at:
             del self._left_at[table_id, account_id]
         if freed:
