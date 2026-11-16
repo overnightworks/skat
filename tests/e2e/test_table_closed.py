@@ -54,7 +54,7 @@ RECONNECT_WINDOW_MILLISECONDS = 6_000
 # The scenes `s3-idle` and `s3-missing` name the wait and the table in these words.
 CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
 UNPLAYED_HEADING = text(SOURCE_LANGUAGE, "closed.unplayedDays", count=UNPLAYED_DAYS)
-NOT_FOUND_HEADING = "Tisch nicht gefunden"
+NOT_FOUND_HEADING = text(SOURCE_LANGUAGE, "closed.notFound")
 GAME_LIST = ".game-list"
 SHEET_BACK = text(SOURCE_LANGUAGE, "table.sheetBack")
 # A point of the room outside the centred panel, where a tap lands on the backdrop of the game sheet.
