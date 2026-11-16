@@ -22,7 +22,7 @@ from skat.table.playing import (
     ShortenCommand,
     ThrowDownCommand,
 )
-from skat.table.records import CreateTable, GiveUpAsked, Refusal
+from skat.table.records import CreateTable, GiveUpAsked, GiveUpOptions, Refusal, TableOptions
 from skat.table.service import TableService
 from tests.support.faulty_tables import (
     WAIT_DEADLINE_SECONDS,
@@ -216,9 +216,10 @@ def test_an_unanswered_request_and_a_no_are_read_back_by_a_new_service_and_a_yes
     assert stored_request(engine) == (None, None)
 
 
-def test_an_opponents_give_up_is_read_back_by_a_new_service_and_the_declarers_yes_after_that_ends_the_game(
-    game, engine, database_url, stored
+def test_an_opponents_give_up_at_a_table_whose_partner_must_agree_is_read_back_and_the_partners_yes_ends_the_game(
+    service, transactions, engine, database_url, stored
 ):
+    game = seated_game(service, transactions, stored, TableOptions(give_up=GiveUpOptions(partner_agrees=True)))
     ask = GiveUpCommand(command_id="ask", table_id=game.table_id, version=game.record.version)
     asked = game.service.give_up(game.actors[Position.FOREHAND], ask, nobody_connected())
     assert asked.refusal is None
@@ -229,7 +230,7 @@ def test_an_opponents_give_up_is_read_back_by_a_new_service_and_the_declarers_ye
         restarted = PostgresTableTransactions(restarted_engine)
         assert stored(restarted, game.table_id).progress.give_up == GiveUpAsked(Position.FOREHAND)
         yes = AgreeToGiveUpCommand(command_id="yes", table_id=game.table_id, version=game.record.version)
-        result = TableService(restarted).agree_to_give_up(game.actors[Position.MIDDLEHAND], yes, nobody_connected())
+        result = TableService(restarted).agree_to_give_up(game.actors[Position.REARHAND], yes, nobody_connected())
     finally:
         restarted_engine.dispose()
 
