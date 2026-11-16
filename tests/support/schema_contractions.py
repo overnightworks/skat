@@ -16,12 +16,25 @@ class ColumnFacts:
     default: str | None
 
 
+@dataclass(frozen=True, order=True)
+class UniqueFacts:
+    """A unique constraint or index by what it restricts: its keys (columns or expressions) and the predicate of a
+    partial one, so that an unconditional index beside a partial one on the same columns is a new restriction.
+    """
+
+    keys: tuple[str, ...]
+    predicate: str = ""
+
+    def describe(self) -> str:
+        return f"{self.keys} where {self.predicate}" if self.predicate else str(self.keys)
+
+
 @dataclass(frozen=True)
 class TableFacts:
     columns: dict[str, ColumnFacts]
     primary_key: tuple[str, ...]
     foreign_keys: frozenset[tuple[tuple[str, ...], str, tuple[str, ...]]]
-    uniques: frozenset[tuple[str, ...]]
+    uniques: frozenset[UniqueFacts]
     checks: frozenset[str]
 
 
@@ -32,8 +45,15 @@ def schema_facts(engine: Engine) -> dict[str, TableFacts]:
     inspector = inspect(engine)
     facts: dict[str, TableFacts] = {}
     for table in set(inspector.get_table_names()) - IGNORED_TABLES:
-        unique_indexes = {tuple(index["column_names"]) for index in inspector.get_indexes(table) if index["unique"]}
-        constraints = {tuple(unique["column_names"]) for unique in inspector.get_unique_constraints(table)}
+        unique_indexes = {
+            UniqueFacts(
+                tuple(index.get("expressions") or index["column_names"]),
+                index["dialect_options"].get("postgresql_where") or "",
+            )
+            for index in inspector.get_indexes(table)
+            if index["unique"]
+        }
+        constraints = {UniqueFacts(tuple(unique["column_names"])) for unique in inspector.get_unique_constraints(table)}
         facts[table] = TableFacts(
             columns={
                 column["name"]: ColumnFacts(str(column["type"]), not column["nullable"], column["default"])
@@ -68,7 +88,8 @@ def _table_contractions(before: TableFacts, after: TableFacts) -> list[str]:
         f"a foreign key on {columns} is new" for columns, _, _ in sorted(after.foreign_keys - before.foreign_keys)
     )
     found.extend(
-        f"a unique constraint or index on {columns} is new" for columns in sorted(after.uniques - before.uniques)
+        f"a unique constraint or index on {unique.describe()} is new"
+        for unique in sorted(after.uniques - before.uniques)
     )
     found.extend(f"the check {check} is new" for check in sorted(after.checks - before.checks))
     return found

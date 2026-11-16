@@ -12,6 +12,7 @@ FIRST_CHECKED_REVISION = "0049"
 SCRATCH = (
     "CREATE TABLE other (id integer PRIMARY KEY)",
     "CREATE TABLE scratch (id integer PRIMARY KEY, name text, kept text NOT NULL DEFAULT 'x', other_id integer)",
+    "CREATE UNIQUE INDEX scratch_other_while_kept ON scratch (other_id) WHERE kept = 'x'",
 )
 CONTRACTING_STEPS = {
     "drops a table": ("DROP TABLE other", "table other is dropped"),
@@ -26,6 +27,10 @@ CONTRACTING_STEPS = {
     "changes a server default": ("ALTER TABLE scratch ALTER COLUMN kept SET DEFAULT 'y'", "server default"),
     "adds a unique constraint": ("ALTER TABLE scratch ADD UNIQUE (name)", "unique constraint or index"),
     "adds a unique index": ("CREATE UNIQUE INDEX scratch_name ON scratch (name)", "unique constraint or index"),
+    "adds an unconditional unique index beside a partial one on the same column": (
+        "CREATE UNIQUE INDEX scratch_other ON scratch (other_id)",
+        "unique constraint or index",
+    ),
     "adds a check constraint": ("ALTER TABLE scratch ADD CHECK (length(name) > 1)", "check"),
     "adds a foreign key": ("ALTER TABLE scratch ADD FOREIGN KEY (other_id) REFERENCES other (id)", "foreign key"),
     "changes the primary key": (
