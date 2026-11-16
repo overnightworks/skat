@@ -58,6 +58,7 @@ PASS_BUTTON = ".bid-buttons .button-glass"
 BID_CHIP_PAINT = ["backgroundColor", "color"]
 STRIP = ".ladder .higher"
 TURN_CHAIR = ".chair.mine.turn"
+FAR_TURN_CHAIR = ".chair.turn:not(.mine)"
 PLAQUE = ".plaque"
 CARD_FACE = ".card-face"
 BUBBLE = ".bubble"
@@ -457,15 +458,18 @@ def test_no_controls_and_no_auction_word_before_a_hand(
 
 
 @pytest.mark.parametrize(("motion", "animated"), [("no-preference", True), ("reduce", False)])
-def test_the_own_turn_ring_breathes_and_holds_still_for_reduced_motion(
+def test_the_turn_ring_of_a_far_chair_breathes_and_holds_still_for_reduced_motion_and_the_own_bar_never_breathes(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], motion: str, animated: bool
 ) -> None:
     table = dealt_table(open_person, e2e_server, page_errors, {**DESKTOP, "reduced_motion": motion})
 
-    expect(table.middlehand.locator(TURN_CHAIR)).to_have_count(1)
-    expect(table.middlehand.locator(".chair[data-moving]")).to_have_count(0)
-    tile = table.middlehand.locator(f"{TURN_CHAIR} .tile")
+    expect(table.watcher.locator(FAR_TURN_CHAIR)).to_have_count(1)
+    expect(table.watcher.locator(".chair[data-moving]")).to_have_count(0)
+    tile = table.watcher.locator(f"{FAR_TURN_CHAIR} .tile")
     assert ("breathe" in tile.evaluate("(tile) => getComputedStyle(tile).animationName")) is animated
+    expect(table.middlehand.locator(TURN_CHAIR)).to_have_count(1)
+    own_tile = table.middlehand.locator(f"{TURN_CHAIR} .tile")
+    assert "breathe" not in own_tile.evaluate("(tile) => getComputedStyle(tile).animationName")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
