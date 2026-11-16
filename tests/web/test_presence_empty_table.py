@@ -1,7 +1,6 @@
 import asyncio
 
 import pytest
-from structlog.testing import capture_logs
 
 from skat.web.presence import (
     CHAIR_RELEASE_RETRY_SECONDS,
@@ -11,17 +10,20 @@ from skat.web.presence import (
     NextDeal,
     Presence,
 )
+from skat.web.presence_line import PresenceTimer
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.idle_presence import idle_agent_lease, idle_wakes
+from tests.support.in_memory_leases import InMemoryLeases
+from tests.support.log_lines import logged
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
     HOLD_SECONDS,
-    NAMED_FAILURE,
     OTHER_TABLE,
     TABLE,
     Notes,
     Wakes,
     connect,
+    failed_timers,
     run,
 )
 
@@ -57,7 +59,7 @@ class TestWhenTheTimerStarts:
     def test_the_last_stream_ending_starts_the_wait_from_then(self, holding, time, ends):
         leaving = connect(holding, TABLE, "anna", lambda: None)
         run(time.advance(MINUTE))
-        holding.unsubscribe(leaving)
+        run(holding.close(leaving))
 
         run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS - 1))
         assert ends.calls == []
@@ -71,7 +73,7 @@ class TestWhenTheTimerStarts:
         leaving = connect(holding, TABLE, "anna", lambda: None)
         connect(holding, TABLE, "ben", lambda: None)
 
-        holding.unsubscribe(leaving)
+        run(holding.close(leaving))
         run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
 
         assert ends.calls == []
@@ -95,11 +97,11 @@ class TestWhenTheTimerStarts:
 
     def test_a_return_and_a_second_leave_restart_the_wait_and_the_first_timer_ends_nothing(self, holding, time, ends):
         first_leave = connect(holding, TABLE, "anna", lambda: None)
-        holding.unsubscribe(first_leave)
+        run(holding.close(first_leave))
         run(time.advance(20 * MINUTE))
         second_leave = connect(holding, TABLE, "anna", lambda: None)
         run(time.advance(5 * MINUTE))
-        holding.unsubscribe(second_leave)
+        run(holding.close(second_leave))
 
         run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS - 25 * MINUTE))
         assert ends.calls == []
@@ -156,7 +158,7 @@ class TestWhenTheCheckRuns:
             await expiry
             await time.advance(DEFAULT_EMPTY_TABLE_SECONDS)
 
-        holding.unsubscribe(connect(holding, TABLE, "anna", lambda: None))
+        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
         releases.within = write_until_released
 
         run(scenario())
@@ -178,21 +180,23 @@ class TestWhenTheCheckRuns:
         holding.stop()
 
         holding.watch_empty_table(TABLE)
-        holding.unsubscribe(connect(holding, OTHER_TABLE, "anna", lambda: None))
+        run(holding.close(connect(holding, OTHER_TABLE, "anna", lambda: None)))
 
         assert time.pending == 0
 
 
 class TestWhenTheStoreFails:
-    def test_a_failed_end_is_logged_by_name_and_retried_after_the_retry_delay(self, holding, time, ends):
+    def test_a_failed_end_writes_the_streak_warning_and_is_retried_after_the_retry_delay(
+        self, holding, time, ends, capsys
+    ):
         ends.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
         holding.watch_empty_table(TABLE)
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
 
-        assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE]
-        assert (logs[0]["table_id"], "anna" in str(logs)) == (TABLE, False)
+        assert failed_timers(lines) == [(PresenceTimer.EMPTY_TABLE_END, "warning")]
+        assert "anna" not in str(lines)
         assert ends.calls == []
 
         run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
@@ -232,6 +236,7 @@ def noting(time, releases, deals, ends, notes):
         EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end, notes.note),
         idle_agent_lease(),
         idle_wakes(),
+        InMemoryLeases(),
     )
 
 
@@ -249,7 +254,7 @@ class TestTheStoredTimeSinceNobodyWasThere:
 
     def test_the_last_leave_writes_with_nobody_connected(self, noting, time, notes):
         leaving = connect(noting, TABLE, "anna", lambda: None)
-        noting.unsubscribe(leaving)
+        run(noting.close(leaving))
 
         run(time.advance(0))
 
@@ -258,7 +263,7 @@ class TestTheStoredTimeSinceNobodyWasThere:
     def test_a_leave_while_another_stays_writes_nothing(self, noting, time, notes):
         leaving = connect(noting, TABLE, "anna", lambda: None)
         connect(noting, TABLE, "ben", lambda: None)
-        noting.unsubscribe(leaving)
+        run(noting.close(leaving))
 
         run(time.advance(0))
 
@@ -270,7 +275,7 @@ class TestTheStoredTimeSinceNobodyWasThere:
         with pytest.raises(ConnectionError):
             connect(noting, TABLE, "anna", lambda: None)
 
-        assert noting.connected(TABLE) == frozenset()
+        assert run(noting.connected(TABLE)) == frozenset()
 
     def test_a_reconnect_after_a_failed_arrival_writes_again(self, noting, notes):
         notes.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
@@ -315,7 +320,7 @@ class TestTheStoredTimeSinceNobodyWasThere:
     def test_a_leave_write_that_ends_the_table_wakes_the_streams_open_by_then(self, noting, time, notes):
         wakes = Wakes()
         leaving = connect(noting, TABLE, "anna", wakes.callback("anna"))
-        noting.unsubscribe(leaving)
+        run(noting.close(leaving))
         connect(noting, TABLE, "ben", wakes.callback("ben"))
         before = wakes.counts["ben"]
         notes.ended = True
@@ -324,22 +329,24 @@ class TestTheStoredTimeSinceNobodyWasThere:
 
         assert wakes.counts["ben"] == before + 1
 
-    def test_a_failed_leave_write_is_logged_by_name_and_retried_while_the_presence_runs(self, noting, time, notes):
+    def test_a_failed_leave_write_writes_the_streak_warning_and_is_retried_while_the_presence_runs(
+        self, noting, time, notes, capsys
+    ):
         leaving = connect(noting, TABLE, "anna", lambda: None)
         notes.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
-        noting.unsubscribe(leaving)
+        run(noting.close(leaving))
 
-        with capture_logs() as logs:
+        with logged(capsys) as lines:
             run(time.advance(0))
         run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
 
-        assert [(log["error_type"], log["table_id"]) for log in logs] == [("ConnectionError", TABLE)]
+        assert failed_timers(lines) == [(PresenceTimer.EMPTY_SINCE_WRITE, "warning")]
         assert notes.calls[-1] == (TABLE, frozenset())
 
     def test_a_retried_leave_write_notes_who_is_connected_when_it_runs_after_a_reconnect(self, noting, time, notes):
         leaving = connect(noting, TABLE, "anna", lambda: None)
         notes.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
-        noting.unsubscribe(leaving)
+        run(noting.close(leaving))
         run(time.advance(0))
         connect(noting, TABLE, "anna", lambda: None)
         calls_after_reconnect = len(notes.calls)
@@ -351,7 +358,7 @@ class TestTheStoredTimeSinceNobodyWasThere:
     def test_a_stopped_presence_writes_no_leave(self, noting, time, notes):
         leaving = connect(noting, TABLE, "anna", lambda: None)
         noting.stop()
-        noting.unsubscribe(leaving)
+        run(noting.close(leaving))
 
         run(time.advance(0))
 

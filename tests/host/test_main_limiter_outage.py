@@ -1,7 +1,8 @@
-"""A Redis that goes away takes the limits and the wake channel with it, and a stream that is open meanwhile keeps
-running."""
+"""A Redis that goes away takes the limits, the wake channel and the count of who watches with it: a stream that is open
+meanwhile ends, because it cannot vouch for who is present, while new requests are refused and the pod stays up."""
 
 import json
+from contextlib import suppress
 from http import HTTPStatus
 
 import httpx2
@@ -9,7 +10,7 @@ import pytest
 from webauth.config import installed_web_auth_config
 
 from skat.host.app import PodLinks, create_app
-from skat.store.redis_clients import shared_place_store, shared_rate_limits, shared_wake_channel
+from skat.store.redis_clients import shared_place_store, shared_rate_limits, shared_stream_leases, shared_wake_channel
 from skat.table.records import Actor, CreateTable, SitDown
 from skat.web.constants import ACCOUNT_PATH, HEALTH_PATH
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
@@ -27,7 +28,7 @@ pytestmark = pytest.mark.redis
 HEARTBEAT_SECONDS = 0.2
 
 
-def test_a_stream_open_when_the_limits_fail_still_shows_a_change_while_new_requests_get_a_503_and_health_answers(
+def test_a_stream_open_when_the_limits_fail_ends_without_a_view_while_new_requests_get_a_503_and_health_answers(
     sign_in_settings, redis_url, relay_in_front_of
 ):
     settings = sign_in_settings(host=LOOPBACK, port=free_port()).settings
@@ -46,6 +47,7 @@ def test_a_stream_open_when_the_limits_fail_still_shows_a_change_while_new_reque
             rate_limits=shared_rate_limits(redis.url),
             wake_channel=shared_wake_channel(redis.url),
             place_store=shared_place_store(redis.url),
+            stream_leases=shared_stream_leases(redis.url),
             end_process=lambda: process_ended.append(True),
         ),
     )
@@ -67,7 +69,9 @@ def test_a_stream_open_when_the_limits_fail_still_shows_a_change_while_new_reque
 
             redis.sever()
             tables.sit(Actor(guest.account.id, "Guest"), SitDown("take-a-seat", table.id, 2), frozenset())
-            after = json.loads(next(events))
+            after: list[str] = []
+            with suppress(httpx2.TransportError):
+                after.extend(events)
 
             refused = httpx2.get(f"{base_url}{ACCOUNT_PATH}", timeout=STARTED_WITHIN_SECONDS)
             healthy = httpx2.get(f"{base_url}{HEALTH_PATH}", timeout=STARTED_WITHIN_SECONDS)
@@ -75,7 +79,8 @@ def test_a_stream_open_when_the_limits_fail_still_shows_a_change_while_new_reque
         server.should_exit = True
         thread.join(timeout=STARTED_WITHIN_SECONDS)
 
-    assert after["version"] > before["version"]
+    assert before["version"] > 0
+    assert after == []
     assert process_ended == []
     assert refused.status_code == HTTPStatus.SERVICE_UNAVAILABLE
     assert healthy.status_code == HTTPStatus.OK

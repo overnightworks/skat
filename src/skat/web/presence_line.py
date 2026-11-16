@@ -23,6 +23,7 @@ class PresenceTimer(StrEnum):
     EMPTY_SINCE_WRITE = "empty_since_write"
     EMPTY_TABLE_END = "empty_table_end"
     CHAIR_RELEASE = "chair_release"
+    CLOSE_ABSENCE_CHECK = "close_absence_check"
 
 
 class TimerRun:

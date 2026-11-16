@@ -1,22 +1,22 @@
 from dataclasses import replace
 
-import logline
 import pytest
-from structlog.testing import capture_logs
 
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position, next_dealer
 from skat.table.records import HandProgress, Refusal
 from skat.web.paused import PAUSED_TABLES_PATH
+from skat.web.presence_line import PresenceTimer
 from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
+from tests.support.log_lines import logged
 from tests.support.payload_cards import DEALER_SEAT, seated_three
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
-    NAMED_FAILURE,
     OvertakenStore,
     end_the_first_game,
+    failed_timers,
     occupied_seats,
     view_of_version,
 )
@@ -214,7 +214,7 @@ class TestWeiter:
 
 
 class TestRetry:
-    def test_a_deal_lost_after_the_commit_follows_the_retry_and_a_further_retry_deals_nothing(self, hold, time):
+    def test_a_deal_lost_after_the_commit_follows_the_retry_and_a_further_retry_deals_nothing(self, hold, time, capsys):
         store = OvertakenStore()
         server = Skat(lambda: hold, store=store, chair_clock=time.clock, chair_scheduler=time)
 
@@ -230,12 +230,11 @@ class TestRetry:
                     WEITER_COMMAND_ID,
                     lambda: setattr(store, "meanwhile", store_goes_down),
                 )
-                with capture_logs() as logs:
+                with logged(capsys) as lines:
                     first = weiter(server, people[2][0], table_id)
                 assert first.status_code == 200, first.text
                 assert store.tables[table_id].hand is None
-                skat_logs = [log for log in logs if log["event"] != logline.REQUEST_EVENT]
-                assert [(log["log_level"], log["error_type"]) for log in skat_logs] == [NAMED_FAILURE]
+                assert failed_timers(lines) == [(PresenceTimer.NEXT_DEAL, "warning")]
 
                 retried = weiter(server, people[2][0], table_id)
                 dealt = store.tables[table_id]

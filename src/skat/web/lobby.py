@@ -202,9 +202,10 @@ class _TopicHoldingSource(ABC):
 
     async def moved(self, actor: Actor, /) -> bool:
         listed = await self._listed(actor)
-        return self._standing_at(listed, await self._leased_seats(listed)) != self._read_stood_on
+        seats = await self._leased_seats(listed)
+        return await self._standing_at(listed, seats) != self._read_stood_on
 
-    def close(self) -> None:
+    async def close(self) -> None:  # NOSONAR(S7503) StreamSource.close is async
         assert self._registration is not None  # noqa: S101 - narrows the type; the loop closes only an opened source
         self._wakes.unregister(self._registration)
 
@@ -214,14 +215,15 @@ class _TopicHoldingSource(ABC):
     async def _leased_seats(self, listed: tuple[TableVersion, ...]) -> frozenset[OccupiedChair]:
         return await run_in_threadpool(self._tables.leased_seats, [table.table_id for table in listed])
 
-    def _standing_at(
+    async def _standing_at(
         self, listed: tuple[TableVersion, ...], seats: frozenset[OccupiedChair]
     ) -> tuple[_TableStanding, ...]:
+        connected = await self._presence.connected_at(table.table_id.value for table in listed)
         return tuple(
             _TableStanding(
                 table.table_id.value,
                 table.version,
-                self._presence.connected(table.table_id.value),
+                connected[table.table_id.value],
                 frozenset(seat.account_id for seat in seats if seat.table_id == table.table_id),
             )
             for table in listed
@@ -240,7 +242,7 @@ class _TopicHoldingSource(ABC):
             self._wakes.register([AccountTopic(self._account_id), *self._standing, *topics], self._wake),
         )
         self._wakes.unregister(previous)
-        self._read_stood_on = self._standing_at(listed, seats)
+        self._read_stood_on = await self._standing_at(listed, seats)
         return {table.table_id: table.connected for table in self._read_stood_on}
 
 

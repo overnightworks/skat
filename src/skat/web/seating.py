@@ -152,7 +152,9 @@ def create_seating_router(tables: TableService, presence: Presence, wakes: WakeL
                 wakes.wake(OpenTablesTopic())
         # A retry finds a table that has moved on; the answer is read as read_table reads it, with who is present.
         with presence.waits.reading(created.id):
-            view = await run_in_threadpool(tables.view, actor_of(request), created.id, presence.connected(created.id))
+            view = await run_in_threadpool(
+                tables.view, actor_of(request), created.id, await presence.connected(created.id)
+            )
             assert view is not None  # noqa: S101 - narrows the type; a created or replayed table is never deleted
             return answer_of(view, presence.waits.nudges_of(view))
 

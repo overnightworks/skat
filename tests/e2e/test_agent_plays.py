@@ -186,6 +186,7 @@ def test_a_word_an_agent_says_stamps_the_felt_with_the_agents_mark(
     ben = record_page_errors(open_person(username="ben-hears-re", **DESKTOP), page_errors)
     watch(ben, e2e_server, path)
     sit_in(ben, 2)
+    expect(ben.locator(".chair[data-seat='2'] .plate")).to_contain_text(word_text(SOURCE_LANGUAGE, "table.sideYou"))
     api_path = f"{TABLES_PATH}/{table_id_of(path)}"
     sessions = {
         1: opener,

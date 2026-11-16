@@ -80,8 +80,8 @@ select = [
     "TID251", # flake8-tidy-imports banned-api
 ]
 ignore = []
-# quality owns S and T20; its noqa lines would read as unused here
-external = ["S", "T20"]
+# quality owns S and T20 and vulture owns V; their noqa lines would read as unused here
+external = ["S", "T20", "V"]
 # the generated catalog module carries the × of the blessed scene
 allowed-confusables = ["×"]
 

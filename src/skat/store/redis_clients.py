@@ -1,7 +1,8 @@
-"""The clients of the Redis every pod shares: the limits webauth spends, the channel tandem wakes the pods on and the
-place store agents keeps its listen record in.
+"""The clients of the Redis every pod shares: the limits webauth spends, the channel tandem wakes the pods on, the
+leases that count who watches a table and the place store agents keeps its listen record in.
 """
 
+from datetime import timedelta
 from typing import Final
 
 from agents.mcp_server.redis_place_store import RedisPlaceStore
@@ -10,11 +11,16 @@ from redis.asyncio import Redis as AsyncRedis
 from redis.asyncio.retry import Retry as AsyncRetry
 from redis.backoff import ExponentialBackoff
 from redis.retry import Retry
-from tandem import WakeChannel
+from tandem import Leases, WakeChannel
 from webauth.rate_limit import RedisRateLimitBackend
 
 RATE_LIMIT_KEY_PREFIX: Final = "skat:rate"
 WAKE_KEY_PREFIX: Final = "skat"
+STREAM_LEASE_FAMILY: Final = "presence"
+# A pod that dies loses its people from every read once this has passed since their last renewal; a claim on a lapse
+# outlasts the slowest handling of it.
+STREAM_LEASE_LASTS: Final = timedelta(seconds=30)
+_STREAM_LEASE_CLAIM_FOR: Final = timedelta(seconds=60)
 
 # A limit check holds its worker thread until the client gives up, so the timeouts are short and the retries few: an
 # outage answers 503 at once and pins no thread.
@@ -52,6 +58,17 @@ def _shared_async_client(redis_url: str) -> AsyncRedis:
 def shared_wake_channel(redis_url: str) -> WakeChannel:
     """The channel on which the pods tell one another what changed."""
     return WakeChannel(_shared_async_client(redis_url), key_prefix=WAKE_KEY_PREFIX)
+
+
+def shared_stream_leases(redis_url: str) -> Leases:
+    """The leases of the open streams, which tell every pod who watches which table."""
+    return Leases(
+        _shared_async_client(redis_url),
+        key_prefix=WAKE_KEY_PREFIX,
+        family=STREAM_LEASE_FAMILY,
+        lasts=STREAM_LEASE_LASTS,
+        claim_for=_STREAM_LEASE_CLAIM_FOR,
+    )
 
 
 def shared_place_store(redis_url: str) -> RedisPlaceStore:

@@ -4,7 +4,6 @@ a stream, and „Weiter“ is a tool.
 
 import pytest
 from agents.member import LEASE_SECONDS
-from structlog.testing import capture_logs
 from webauth.admission import AppRole
 from webauth.ports import AccountKind
 
@@ -12,16 +11,18 @@ from skat.engine.deal import Position, seats_from
 from skat.table.records import EndedTable, Refusal
 from skat.web.mcp import AUCTION_PASS_TOOL, CONTINUE_AFTER_RESULT_TOOL, MCP_GROUP
 from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, NEXT_DEAL_PAUSE_SECONDS
+from skat.web.presence_line import PresenceTimer
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
+from tests.support.log_lines import logged
 from tests.support.payload_cards import DEALER_SEAT
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, Agent, person_passes
 from tests.web.support.calling import running_skat
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
-    NAMED_FAILURE,
     end_the_first_game,
+    failed_timers,
     occupied_seats,
 )
 from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, FakeTime, Skat, streams_of
@@ -610,20 +611,20 @@ class TestWhenTheTablesCannotBeRead:
         store.tables_of = tables_of
 
     def test_a_failed_read_at_a_lapse_is_retried_and_loses_neither_the_wake_nor_the_hold(
-        self, skat, time, undealt_table, hold_seconds
+        self, skat, time, undealt_table, hold_seconds, capsys
     ):
         owner, table_id = undealt_table
         with streams_of(skat, table_id, [(owner, None)]) as (messages,):
             advance(skat, time, CALL_EVERY_SECONDS)
             self.failing_once(skat.store)
-            with capture_logs() as logs:
+            with logged(capsys) as lines:
                 advance(skat, time, LEASE_SECONDS - CALL_EVERY_SECONDS + 1)
             advance(skat, time, CHAIR_RELEASE_RETRY_SECONDS)
             woken = next(message for message in messages if message["chairs"][UNDEALT_AGENT_SEAT - 1]["is_away"])
 
             advance(skat, time, hold_seconds)
 
-        assert [(log["log_level"], log["error_type"]) for log in logs] == [NAMED_FAILURE]
+        assert failed_timers(lines) == [(PresenceTimer.LEASE_SETTLE, "warning")]
         assert woken["chairs"][UNDEALT_AGENT_SEAT - 1]["is_away"] is True
         assert UNDEALT_AGENT_SEAT not in occupied_seats(skat, table_id)
 

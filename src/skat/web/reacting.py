@@ -69,14 +69,15 @@ def create_reacting_router(tables: TableService, presence: Presence) -> APIRoute
         """
         response.headers["Cache-Control"] = "no-store"
         actor = actor_of(request)
-        view = await run_in_threadpool(tables.view, actor, table_id, presence.connected(table_id))
+        connected = await presence.connected(table_id)
+        view = await run_in_threadpool(tables.view, actor, table_id, connected)
         if view is None:
             raise HTTPException(status_code=404, detail="table not found")
         log = presence.reactions
         # The decision and the record follow each other on the event loop with no await between them.
         refusal = reaction_refusal(
             view,
-            watching=actor.account_id in presence.connected(table_id),
+            watching=actor.account_id in connected,
             thrown_at=log.thrown_by(actor.account_id),
             now=log.now(),
         )

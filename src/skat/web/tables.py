@@ -627,7 +627,7 @@ async def command_answer(
     response.headers["Cache-Control"] = "no-store"
     with presence.waits.reading(table_id):
         try:
-            result = await run_in_threadpool(command, presence.connected(table_id))
+            result = await run_in_threadpool(command, await presence.connected(table_id))
         except CommandIdReusedError:
             raise HTTPException(status_code=409, detail="command id reused with another request") from None
         if result is None:
@@ -702,7 +702,7 @@ def create_tables_router(
         response.headers["Cache-Control"] = "no-store"
         # Presence belongs to the event loop's thread; only the store read leaves it.
         with presence.waits.reading(table_id):
-            view = await run_in_threadpool(tables.view, actor_of(request), table_id, presence.connected(table_id))
+            view = await run_in_threadpool(tables.view, actor_of(request), table_id, await presence.connected(table_id))
             if view is None:
                 logger.info(TABLE_READ_REFUSED_EVENT, reason=TableReadRefusal.NO_TABLE)
                 raise HTTPException(status_code=404, detail="table not found")
