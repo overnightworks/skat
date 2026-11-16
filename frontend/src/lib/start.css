@@ -3546,8 +3546,8 @@ body {
         --lie: 9deg;
     }
 
-    .room .laid.near {
-        top: 64%;
+    .room :is(.laid.near, .lead-slot) {
+        top: 52%;
     }
 
     .room .points {
@@ -8269,9 +8269,9 @@ body {
         top: 10px;
     }
 
-    /* While a hand is played the trick rises among the far chairs' row and the bar stands over the hand, so a lifted card stands clear of the bar and the trick's cards and tags end above it. */
+    /* While a hand is played the trick rises among the far chairs' row and the bar stands over the hand, so the dashed slot and the laid cards with their tags end above the bar and a lifted card stands clear of it. */
     .room .stage:has(> .trick) {
-        --trick-rise: 142px;
+        --trick-rise: 152px;
     }
 
     .room .stage:has(> .trick) .trick,
@@ -8280,7 +8280,7 @@ body {
     }
 
     .room .stage:has(> .trick) .chair.mine {
-        margin-bottom: 34px;
+        margin-bottom: 18px;
     }
 
     /* The felt reaches up with the trick, so the raised cards still lie on it. */

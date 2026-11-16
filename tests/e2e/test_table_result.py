@@ -692,6 +692,8 @@ def test_a_picked_card_lifts_clear_of_the_near_chair_and_the_bar_stays_on_the_sc
 # On a desktop the own seat is a slim bar centred over the hand, never a tile of the felt's size, so no card the finger
 # holds up, no trick card or tag lies under it.
 OWN_BAR_HEIGHT = 56
+# Where the dashed slot stands before the viewer's card lies, and the card once it lies, there.
+TRICK_THINGS = ".trick .face, .trick .tag, .trick .lead-slot"
 LIFT_ONLY_THE_CARD_AT = """(index) => {
     const cards = [...document.querySelectorAll('.own-hand .card')];
     cards.forEach((card, at) => card.classList.toggle('touch', at === index));
@@ -723,7 +725,11 @@ def test_the_own_seat_is_a_slim_bar_centred_over_the_hand_and_a_lifted_card_stan
     legal_cards.first.locator("button").click(position=INSIDE_THE_VISIBLE_STRIP)
     expect(middlehand.locator(f"{OWN_HAND_CARD}.touch .swipe")).to_have_count(1)
     expect_no_crossing(middlehand, f"{OWN_HAND_CARD}:is(.ok, .touch), .own-hand .swipe", ".chair.mine")
-    expect_no_crossing(middlehand, ".trick .face, .trick .tag", ".chair.mine")
+    expect_no_crossing(middlehand, TRICK_THINGS, ".chair.mine")
+    table.play_through_the_api(sorted(table.legal_cards(table.seat_at["middlehand"]))[0])
+    expect(middlehand.locator(".trick .laid.near")).to_have_count(1)
+    expect(middlehand.locator(".trick .lead-slot")).to_have_count(0)
+    expect_no_crossing(middlehand, TRICK_THINGS, ".chair.mine")
 
 
 # Each desktop scene's own seat, found by its class, against everything else the scene draws, except the cards sweeping
