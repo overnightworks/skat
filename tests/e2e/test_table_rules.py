@@ -12,6 +12,7 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.raw_http import RawSession
+from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import open_new_table, watch
 
 if TYPE_CHECKING:
@@ -197,6 +198,23 @@ def test_the_sheet_lists_a_row_per_rule_and_closes_by_its_button_and_by_escape_w
     expect(sheet).to_be_visible()
     person.keyboard.press("Escape")
     expect(sheet).to_be_hidden()
+    expect(chips_of(person)).to_be_focused()
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_menus_rules_row_opens_the_sheet_and_the_focus_returns_to_the_chips(
+    looks_at: Callable[..., Page], form_factor: dict[str, Any]
+) -> None:
+    person = looks_at(form_factor, KONTRA_AND_BOCK)
+
+    menu_button(person, word("rules.title")).click()
+
+    expect(sheet_of(person)).to_be_visible()
+    expect(sheet_of(person).locator(".rrow b")).to_have_text(
+        [word("rules.namePoints"), word("rules.nameKontra"), word("rules.nameBock")]
+    )
+    sheet_of(person).get_by_role("button", name=CLOSE).click()
+    expect(sheet_of(person)).to_be_hidden()
     expect(chips_of(person)).to_be_focused()
 
 

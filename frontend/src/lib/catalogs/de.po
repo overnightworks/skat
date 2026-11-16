@@ -1563,10 +1563,6 @@ msgctxt "card.letterAce"
 msgid "A"
 msgstr ""
 
-msgctxt "agents.pill"
-msgid "Agenten"
-msgstr ""
-
 msgctxt "table.agentSits"
 msgid "{name} setzt sich"
 msgstr ""
@@ -2069,6 +2065,18 @@ msgstr ""
 
 msgctxt "table.styleNote"
 msgid "Gilt für alle am Tisch, auch für die Zuschauer."
+msgstr ""
+
+msgctxt "table.menu"
+msgid "Mehr"
+msgstr ""
+
+msgctxt "table.menuTable"
+msgid "Tisch"
+msgstr ""
+
+msgctxt "table.menuGame"
+msgid "Spiel"
 msgstr ""
 
 msgctxt "table.reactions"

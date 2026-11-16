@@ -10,6 +10,7 @@ from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
 from tests.e2e.support.people import DESKTOP, WIDTHS
+from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import (
     TABLE_URL,
     assert_never_reloaded,
@@ -104,7 +105,7 @@ def test_the_list_follows_another_person_sitting_down_and_standing_up_without_a_
     sit_in(guest, 2)
 
     expect(plates_of(card)).to_have_text([YOU, "Gero", SEAT_FREE])
-    guest.get_by_role("button", name=STAND_UP).click()
+    menu_button(guest, STAND_UP).click()
     expect(plates_of(card)).to_have_text([YOU, SEAT_FREE, SEAT_FREE])
     assert_never_reloaded(host)
 

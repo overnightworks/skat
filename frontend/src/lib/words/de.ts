@@ -381,7 +381,6 @@ export type Words = {
     readonly "card.letterQueen": string;
     readonly "card.letterKing": string;
     readonly "card.letterAce": string;
-    readonly "agents.pill": string;
     readonly "table.agentSits": (gaps: { readonly name: string }) => string;
     readonly "table.agentLeft": (gaps: { readonly name: string }) => string;
     readonly "table.standUpNotice": (gaps: { readonly name: string }) => string;
@@ -508,6 +507,9 @@ export type Words = {
     readonly "table.styleKlassik": string;
     readonly "table.styleStrandbar": string;
     readonly "table.styleNote": string;
+    readonly "table.menu": string;
+    readonly "table.menuTable": string;
+    readonly "table.menuGame": string;
     readonly "table.reactions": string;
     readonly "table.reactionTray": string;
     readonly "table.reactionClap": string;
@@ -1003,7 +1005,6 @@ export const words: Words = {
     "card.letterQueen": "D",
     "card.letterKing": "K",
     "card.letterAce": "A",
-    "agents.pill": "Agenten",
     "table.agentSits": (gaps: { readonly name: string }) => gaps.name + " setzt sich",
     "table.agentLeft": (gaps: { readonly name: string }) => gaps.name + " ist gegangen",
     "table.standUpNotice": (gaps: { readonly name: string }) => gaps.name + " ist aufgestanden",
@@ -1130,6 +1131,9 @@ export const words: Words = {
     "table.styleKlassik": "Klassik",
     "table.styleStrandbar": "Strandbar",
     "table.styleNote": "Gilt für alle am Tisch, auch für die Zuschauer.",
+    "table.menu": "Mehr",
+    "table.menuTable": "Tisch",
+    "table.menuGame": "Spiel",
     "table.reactions": "Reaktion senden",
     "table.reactionTray": "Reaktionen",
     "table.reactionClap": "Applaus",

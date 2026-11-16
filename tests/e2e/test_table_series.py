@@ -11,6 +11,7 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
 from tests.e2e.support.result_card import MINUS, waiting_for
+from tests.e2e.support.table_menu import close_table_menu, menu_button, open_table_menu
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -43,7 +44,7 @@ FRAME_PADDING = 24
 SHEET_BACK = text(SOURCE_LANGUAGE, "table.sheetBack")
 STANDING = ".result.standing"
 ASK = ".plaque.ask"
-END_KEY = ".actions .end-series"
+END_KEY = ".row.end-series"
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 PHONE_BREAKPOINT = 900
@@ -82,8 +83,8 @@ def answer_the_ask(person: Page, word: str) -> None:
 
 
 def propose_the_end(person: Page) -> None:
-    """The key asks a second tap, as the other armed keys do."""
-    key = person.locator(END_KEY)
+    """The menu's row asks a second tap, as the other armed keys do."""
+    key = open_table_menu(person).locator(END_KEY)
     key.click()
     key.click()
 
@@ -110,17 +111,13 @@ def expect_the_tricks_to_lay_their_cards_side_by_side_in_the_panels_one_frame(pe
         assert len({round(left) for left in lefts}) == PLAYS_IN_A_TRICK, f"cards overlap at x={lefts}"
 
 
-def expect_the_keys_in_one_row(person: Page) -> None:
+def expect_the_end_in_the_menu_and_the_bar_holding_only_weiter(person: Page) -> None:
     bar = person.locator(".actions")
-    keys = (
-        bar.locator(".end-series"),
-        bar.get_by_role("button", name=WEITER, exact=True),
-        bar.get_by_role("button", name=STAND_UP),
-    )
-    boxes = [key.bounding_box() for key in keys]
-    tops = [box["y"] for box in boxes if box is not None]
-    assert len(tops) == len(keys)
-    assert max(tops) - min(tops) <= 1
+    expect(open_table_menu(person).locator(END_KEY)).to_be_visible()
+    close_table_menu(person)
+    expect(bar.locator(END_KEY)).to_have_count(0)
+    expect(bar.get_by_role("button", name=STAND_UP)).to_have_count(0)
+    expect(bar.get_by_role("button", name=WEITER, exact=True)).to_be_visible()
 
 
 TABLE_SCENES = Path(__file__).parents[2] / "docs" / "mockups" / "table.html"
@@ -354,9 +351,7 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
     table.play_out()
     first, second, third = table.pages[1], table.pages[2], table.pages[3]
 
-    expect(first.locator(END_KEY)).to_be_visible()
-    if form_factor["viewport"]["width"] < PHONE_BREAKPOINT:
-        expect_the_keys_in_one_row(first)
+    expect_the_end_in_the_menu_and_the_bar_holding_only_weiter(first)
     propose_the_end(first)
     expect_the_proposal_asked(table)
 
@@ -453,7 +448,7 @@ def test_a_player_who_stands_up_from_the_ended_series_stays_in_the_standings_mar
     for person in table.everyone:
         expect(person.locator(STANDING)).to_have_count(1)
 
-    table.pages[3].get_by_role("button", name=STAND_UP, exact=True).click()
+    menu_button(table.pages[3], STAND_UP).click()
 
     for person in table.everyone:
         leaver = person.locator(f"{STANDING} .rank b", has_text=table.names[3])

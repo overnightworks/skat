@@ -2,9 +2,9 @@
 import { flushSync, mount, unmount } from "svelte";
 import { loadKitWords, type KitWords } from "overnightworks-design/words";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import AgentsPill from "#lib/ui/AgentsPill.svelte";
+import AgentsList from "#lib/ui/AgentsList.svelte";
 import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
-import { language, words } from "#lib/words.ts";
+import { language } from "#lib/words.ts";
 
 const TABLE_ID = "b".repeat(32);
 const CONTROL_PATH = `${TABLES_PATH}/${TABLE_ID}${TABLE_AGENTS_SUFFIX}`;
@@ -22,10 +22,9 @@ function server({ control, call }: Answer) {
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve));
-const pill = () => document.querySelector<HTMLButtonElement>("button.agents");
-const popover = () => document.querySelector(".agents-pop");
+const list = () => document.querySelector(".agents-list");
 
-describe("the Agenten pill", () => {
+describe("the agents' list in the table menu", () => {
     let mounted: ReturnType<typeof mount> | undefined;
     let kitWords: KitWords;
 
@@ -44,18 +43,19 @@ describe("the Agenten pill", () => {
         vi.unstubAllGlobals();
     });
 
-    // The page's facts the pill follows, which a test moves like the stream does.
-    const table = $state<{ streamedVersion: number | null; seatedAgents: string; watchers: number }>({
-        streamedVersion: null,
-        seatedAgents: "",
-        watchers: 0,
-    });
+    // The page's facts the list follows, which a test moves like the stream and the menu do; `shown` is what the list
+    // tells the menu.
+    const table = $state<{
+        streamedVersion: number | null;
+        seatedAgents: string;
+        watchers: number;
+        open: boolean;
+        shown: boolean;
+    }>({ streamedVersion: null, seatedAgents: "", watchers: 0, open: false, shown: false });
 
-    async function show(streamedVersion: number | null) {
-        table.streamedVersion = streamedVersion;
-        table.seatedAgents = "";
-        table.watchers = 0;
-        mounted = mount(AgentsPill, {
+    async function show(streamedVersion: number | null, open = false) {
+        Object.assign(table, { streamedVersion, seatedAgents: "", watchers: 0, open, shown: false });
+        mounted = mount(AgentsList, {
             target: document.body,
             props: {
                 tableId: TABLE_ID,
@@ -69,18 +69,40 @@ describe("the Agenten pill", () => {
                 get watchers() {
                     return table.watchers;
                 },
+                get open() {
+                    return table.open;
+                },
+                get shown() {
+                    return table.shown;
+                },
+                set shown(value: boolean) {
+                    table.shown = value;
+                },
             },
         });
         await settle();
         flushSync();
     }
 
+    async function openMenu() {
+        table.open = true;
+        await settle();
+        flushSync();
+    }
+
+    async function closeMenu() {
+        table.open = false;
+        await settle();
+        flushSync();
+    }
+
+    const callKey = () => list()?.querySelector<HTMLButtonElement>(".act");
+
     it("reads nothing before the stream's first table and shows nothing", async () => {
         const fetcher = server({ control: { shown: true, rows: [row] } });
-
         await show(null);
 
-        expect([pill(), fetcher.mock.calls.length]).toEqual([null, 0]);
+        expect([list(), table.shown, fetcher.mock.calls.length]).toEqual([null, false, 0]);
     });
 
     it("shows nothing to a viewer the control is not shown to", async () => {
@@ -88,22 +110,21 @@ describe("the Agenten pill", () => {
 
         await show(1);
 
-        expect([pill(), fetcher.mock.calls.length]).toEqual([null, 1]);
+        expect([list(), table.shown, fetcher.mock.calls.length]).toEqual([null, false, 1]);
         expect(fetcher).toHaveBeenCalledWith(CONTROL_PATH, undefined);
     });
 
-    it("shows the pill with the mark and the word, named Agenten", async () => {
+    it("shows the kit's list with a row per agent and tells the menu it has rows", async () => {
         server({ control: { shown: true, rows: [row] } });
 
         await show(1);
 
-        expect(pill()?.getAttribute("aria-label")).toBe(words["agents.pill"]);
-        expect(pill()?.textContent).toContain("AI");
-        expect(pill()?.textContent).toContain(words["agents.pill"]);
-        expect(popover()).toBeNull();
+        expect(list()?.textContent).toContain("Nova");
+        expect(callKey()?.getAttribute("aria-label")).toBe(kitWords["agent.callLabel"]({ name: "Nova" }));
+        expect(table.shown).toBe(true);
     });
 
-    it("reads again when an agent sits, which shows the pill to an owner who had none", async () => {
+    it("reads again when an agent sits, which shows the list to an owner who had none", async () => {
         const fetcher = server({ control: { shown: false, rows: [] } });
         await show(1);
         fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row] })));
@@ -113,7 +134,7 @@ describe("the Agenten pill", () => {
         await settle();
         flushSync();
 
-        expect([fetcher.mock.calls.length, pill() === null]).toEqual([2, false]);
+        expect([fetcher.mock.calls.length, list() === null]).toEqual([2, false]);
     });
 
     it("reads again when one agent leaves and another sits in a single wake, so the count stays the same", async () => {
@@ -130,21 +151,18 @@ describe("the Agenten pill", () => {
         await settle();
         flushSync();
 
-        expect([fetcher.mock.calls.length, pill() === null]).toEqual([3, false]);
+        expect([fetcher.mock.calls.length, list() === null]).toEqual([3, false]);
     });
 
-    it("closes the list when the control stops being shown, so it is not open when the pill comes back", async () => {
+    it("takes the list away when the control stops being shown and brings it back when it is shown again", async () => {
         const fetcher = server({ control: { shown: true, rows: [row] } });
         await show(1);
-        pill()?.click();
-        await settle();
-        flushSync();
         fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: false, rows: [] })));
         table.streamedVersion = 2;
         table.seatedAgents = "2:Nova";
         await settle();
         flushSync();
-        const whileHidden = [pill(), popover()];
+        const whileHidden = [list(), table.shown];
         fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row] })));
 
         table.streamedVersion = 3;
@@ -152,10 +170,10 @@ describe("the Agenten pill", () => {
         await settle();
         flushSync();
 
-        expect([whileHidden, pill() === null, popover()]).toEqual([[null, null], false, null]);
+        expect([whileHidden, list() === null]).toEqual([[null, false], false]);
     });
 
-    it("reads nothing for a later table that seats no other agent while the list is closed", async () => {
+    it("reads nothing for a later table that seats no other agent while the menu is closed", async () => {
         const fetcher = server({ control: { shown: true, rows: [row] } });
         await show(1);
 
@@ -166,22 +184,28 @@ describe("the Agenten pill", () => {
         expect(fetcher.mock.calls).toHaveLength(1);
     });
 
-    it("reads again when the people who watch change while the list is open, which lists an agent whose owner just came", async () => {
-        const fetcher = server({ control: { shown: true, rows: [] } });
+    it("reads again when the menu opens", async () => {
+        const fetcher = server({ control: { shown: true, rows: [row] } });
         await show(1);
-        pill()?.click();
-        await settle();
-        flushSync();
+
+        await openMenu();
+
+        expect(fetcher.mock.calls).toHaveLength(2);
+    });
+
+    it("reads again when the people who watch change while the menu is open, which lists an agent whose owner just came", async () => {
+        const fetcher = server({ control: { shown: true, rows: [] } });
+        await show(1, true);
         fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row] })));
 
         table.watchers = 1;
         await settle();
         flushSync();
 
-        expect(popover()?.textContent).toContain("Nova");
+        expect(list()?.textContent).toContain("Nova");
     });
 
-    it("reads nothing for a change of the people who watch while the list is closed", async () => {
+    it("reads nothing for a change of the people who watch while the menu is closed", async () => {
         const fetcher = server({ control: { shown: true, rows: [row] } });
         await show(1);
 
@@ -192,35 +216,12 @@ describe("the Agenten pill", () => {
         expect(fetcher.mock.calls).toHaveLength(1);
     });
 
-    it("opens the kit's list on a tap, with a row per agent, and closes it with the next tap", async () => {
-        server({ control: { shown: true, rows: [row] } });
-        await show(1);
-
-        pill()?.click();
-        await settle();
-        flushSync();
-
-        expect(pill()?.getAttribute("aria-expanded")).toBe("true");
-        expect(popover()?.textContent).toContain("Nova");
-        expect(popover()?.querySelector(".act")?.getAttribute("aria-label")).toBe(
-            kitWords["agent.callLabel"]({ name: "Nova" }),
-        );
-
-        pill()?.click();
-        flushSync();
-
-        expect(popover()).toBeNull();
-    });
-
-    it("says that nobody is reachable when the list is empty and keeps the pill", async () => {
+    it("says that nobody is reachable when the list is empty", async () => {
         server({ control: { shown: true, rows: [] } });
-        await show(1);
 
-        pill()?.click();
-        await settle();
-        flushSync();
+        await show(1, true);
 
-        expect(popover()?.textContent).toContain(kitWords["agent.empty"]);
+        expect(list()?.textContent).toContain(kitWords["agent.empty"]);
     });
 
     it("calls the row's agent with a tap on Rufen and shows the row calling", async () => {
@@ -229,17 +230,14 @@ describe("the Agenten pill", () => {
             control: { shown: true, rows: [row] },
             call: Response.json({ shown: true, rows: [inviting] }),
         });
-        await show(1);
-        pill()?.click();
-        await settle();
-        flushSync();
+        await show(1, true);
 
-        popover()?.querySelector<HTMLButtonElement>(".act")?.click();
+        callKey()?.click();
         await settle();
         flushSync();
 
         expect(fetcher).toHaveBeenCalledWith(`${CONTROL_PATH}/key-nova${TABLE_AGENT_CALL_SUFFIX}`, { method: "POST" });
-        expect(popover()?.textContent).toContain(kitWords["agent.calling"]);
+        expect(list()?.textContent).toContain(kitWords["agent.calling"]);
     });
 
     it.each([
@@ -251,14 +249,11 @@ describe("the Agenten pill", () => {
         async (outcome, wording) => {
             const ended = { ...row, state: "ended", outcome };
             server({ control: { shown: true, rows: [ended] } });
-            await show(1);
 
-            pill()?.click();
-            await settle();
-            flushSync();
+            await show(1, true);
 
-            expect(popover()?.textContent).toContain(kitWords[wording]);
-            expect(popover()?.querySelector(".act")).toBeNull();
+            expect(list()?.textContent).toContain(kitWords[wording]);
+            expect(callKey()).toBeNull();
         },
     );
 
@@ -268,11 +263,8 @@ describe("the Agenten pill", () => {
             control: { shown: true, rows: [here] },
             call: Response.json({ shown: true, rows: [row] }),
         });
-        await show(1);
-        pill()?.click();
-        await settle();
-        flushSync();
-        const button = popover()?.querySelector<HTMLButtonElement>(".act");
+        await show(1, true);
+        const button = callKey();
 
         button?.click();
         await settle();
@@ -281,42 +273,30 @@ describe("the Agenten pill", () => {
         expect(button?.getAttribute("aria-label")).toBe(kitWords["agent.askToLeaveLabel"]({ name: "Nova" }));
         const [path, init] = fetcher.mock.calls.at(-1) ?? [];
         expect([path, init?.method]).toEqual([`${CONTROL_PATH}/key-nova${TABLE_AGENT_SEND_AWAY_SUFFIX}`, "POST"]);
-        expect(popover()?.querySelector(".act")?.getAttribute("aria-label")).toBe(
-            kitWords["agent.callLabel"]({ name: "Nova" }),
-        );
+        expect(callKey()?.getAttribute("aria-label")).toBe(kitWords["agent.callLabel"]({ name: "Nova" }));
     });
 
-    it("shows the refusal above the rows until the list closes", async () => {
+    it("shows the refusal above the rows until the menu closes", async () => {
         server({
             control: { shown: true, rows: [row] },
             call: Response.json({ reason: "place-full" }, { status: 409 }),
         });
-        await show(1);
-        pill()?.click();
-        await settle();
-        flushSync();
+        await show(1, true);
 
-        popover()?.querySelector<HTMLButtonElement>(".act")?.click();
+        callKey()?.click();
         await settle();
         flushSync();
-        const shown = popover()?.querySelector("[role=alert]")?.textContent;
-        pill()?.click();
-        flushSync();
-        pill()?.click();
-        await settle();
-        flushSync();
+        const shown = list()?.querySelector("[role=alert]")?.textContent;
+        await closeMenu();
 
         expect(shown).toContain(kitWords["agent.placeFull"]);
-        expect(popover()?.querySelector("[role=alert]")).toBeNull();
+        expect(list()?.querySelector("[role=alert]")).toBeNull();
     });
 
-    it("keeps the pill and the refusal while the read after it no longer shows the control, and takes both when the list closes", async () => {
+    it("keeps the list and the refusal while the read after it no longer shows the control, and takes both when the menu closes", async () => {
         const here = { ...row, state: "here" };
         const fetcher = server({ control: { shown: true, rows: [here] } });
-        await show(1);
-        pill()?.click();
-        await settle();
-        flushSync();
+        await show(1, true);
         fetcher.mockImplementation((_path: string, init?: RequestInit) =>
             Promise.resolve(
                 init?.method === "POST"
@@ -325,51 +305,14 @@ describe("the Agenten pill", () => {
             ),
         );
 
-        popover()?.querySelector<HTMLButtonElement>(".act")?.click();
+        callKey()?.click();
         await settle();
         flushSync();
-        const shown = [
-            popover()?.querySelector("[role=alert]")?.textContent,
-            popover()?.querySelectorAll(".act").length,
-        ];
-        pill()?.click();
-        flushSync();
+        const shown = [list()?.querySelector("[role=alert]")?.textContent, list()?.querySelectorAll(".act").length];
+        await closeMenu();
 
         expect(shown[0]).toContain(kitWords["agent.notAllowed"]);
         expect(shown[1]).toBe(1);
-        expect([pill(), popover()]).toEqual([null, null]);
-    });
-
-    it("closes on a tap outside the pill and its list, and not on a tap inside", async () => {
-        server({ control: { shown: true, rows: [row] } });
-        await show(1);
-        pill()?.click();
-        await settle();
-        flushSync();
-
-        popover()?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-        flushSync();
-        const afterInside = popover() !== null;
-        document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-        flushSync();
-
-        expect([afterInside, popover()]).toEqual([true, null]);
-    });
-
-    it("hangs the list over the pill inside the margin of both edges", async () => {
-        server({ control: { shown: true, rows: [row] } });
-        await show(1);
-        vi.stubGlobal("innerWidth", 360);
-
-        pill()?.click();
-        await settle();
-        flushSync();
-
-        const style = (popover() as HTMLElement).style;
-        expect([style.width, style.left.endsWith("px"), style.getPropertyValue("--caret").endsWith("px")]).toEqual([
-            "300px",
-            true,
-            true,
-        ]);
+        expect([list(), table.shown]).toEqual([null, false]);
     });
 });

@@ -2,12 +2,12 @@
     import ArmedKey from "#lib/ui/ArmedKey.svelte";
     import { words } from "#lib/words.ts";
 
-    // `handRuns` makes the key round on a phone and asks a second tap of it; between hands one tap stands up.
+    // `handRuns` asks a second tap of the row; between hands one tap stands up.
     const { handRuns, onstand }: { handRuns: boolean; onstand: () => void } = $props();
 </script>
 
 <ArmedKey
-    class={["copy", "stand", handRuns && "round"]}
+    class="row stand"
     idle={words["table.standUp"]}
     armedWord={words["table.standUpArmed"]}
     arms={handRuns}

@@ -7,6 +7,7 @@ from skat.web.tables import TABLE_SIT_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
+from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import SIT_DOWN, assert_never_reloaded, mark_page, open_new_table, plate_of, sit_in, watch
 
 if TYPE_CHECKING:
@@ -56,11 +57,11 @@ def test_a_watcher_sits_and_stands_and_every_open_page_follows_without_a_reload(
     expect(plate_of(sitter, 2)).to_have_text(YOU)
     for person in pages:
         expect(watchers_of(person)).to_have_text("1")
-    expect(sitter.get_by_role("button", name=STAND_UP)).to_be_visible()
+    expect(menu_button(sitter, STAND_UP)).to_be_visible()
     expect(sitter.get_by_role("button", name=SIT_DOWN)).to_have_count(0)
-    expect(onlooker.get_by_role("button", name=STAND_UP)).to_have_count(0)
+    expect(onlooker.locator(".row.stand")).to_have_count(0)
 
-    sitter.get_by_role("button", name=STAND_UP).click()
+    menu_button(sitter, STAND_UP).click()
 
     for person in pages:
         expect(plate_of(person, 2)).to_have_text(SEAT_FREE)
@@ -78,7 +79,7 @@ def test_three_sit_and_a_fourth_member_only_watches_while_the_hand_runs(
     watch(second, e2e_server, path)
     sit_in(second, 2)
     expect(plate_of(opener, 2)).to_have_text("ben")
-    second.get_by_role("button", name=STAND_UP).click()
+    menu_button(second, STAND_UP).click()
     expect(plate_of(opener, 2)).to_have_text(SEAT_FREE)
     sit_in(second, 2)
     third = record_page_errors(open_person(username="cleo", **DESKTOP), page_errors)
@@ -91,7 +92,7 @@ def test_three_sit_and_a_fourth_member_only_watches_while_the_hand_runs(
     for seat, name in ((1, "anna"), (2, "ben"), (3, "cleo")):
         expect(plate_of(fourth, seat)).to_have_text(name)
     expect(fourth.get_by_role("button", name=SIT_DOWN)).to_have_count(0)
-    expect(fourth.get_by_role("button", name=STAND_UP)).to_have_count(0)
+    expect(fourth.locator(".row.stand")).to_have_count(0)
     expect(watchers_of(fourth)).to_have_text("1")
 
 

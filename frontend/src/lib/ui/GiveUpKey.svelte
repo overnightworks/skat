@@ -1,12 +1,18 @@
 <script lang="ts">
-    import { giveUp, giveUpKey } from "#lib/giveUp.ts";
+    import { giveUp, giveUpOffered } from "#lib/giveUp.ts";
     import ArmedKey from "#lib/ui/ArmedKey.svelte";
     import { words } from "#lib/words.ts";
     import type { Table } from "../../routes/(start)/tables.ts";
 
-    let { id, table, note = $bindable() }: { id: string; table: Table; note: string } = $props();
+    // `onsent` is told when the second tap sends the give-up, so the menu that holds the row can close.
+    let {
+        id,
+        table,
+        note = $bindable(),
+        onsent,
+    }: { id: string; table: Table; note: string; onsent?: () => void } = $props();
 
-    const key = $derived(giveUpKey(table));
+    const offered = $derived(giveUpOffered(table));
     // The give-up is under way from the second tap until the stream brings a newer version; only a refusal ends it sooner.
     let sentAtVersion = $state<number | null>(null);
     const busy = $derived(sentAtVersion === table.version);
@@ -23,14 +29,15 @@
 </script>
 
 <!-- A newer version of the table, a card played among them, is a new key: it comes back disarmed. -->
-{#if key !== null}
+{#if offered}
     {#key table.version}
         <ArmedKey
-            class={["copy", "give-up", key.round && "round"]}
+            class="row give-up"
             idle={words["table.giveUp"]}
             armedWord={words["table.giveUpSure"]}
             disabled={busy}
             onconfirm={() => {
+                onsent?.();
                 void send();
             }}
         >

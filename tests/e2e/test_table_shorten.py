@@ -15,7 +15,6 @@ from tests.e2e.support.early_end import (
     OPEN_CARDS,
     OPEN_TAG,
     REQUEST,
-    SHORTEN_KEY,
     expect_a_refused_tap_to_show_the_failure_note,
     expect_nothing_to_overflow,
     expect_the_hand_and_the_strip_on_the_first_screen,
@@ -27,6 +26,7 @@ from tests.e2e.support.early_end import (
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.result_card import CARD, waiting_for
+from tests.e2e.support.table_menu import GIVE_UP_ROW, SHORTEN_ROW, close_table_menu, menu_button, menu_row
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -46,17 +46,23 @@ NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
 GIVE_UP = text(SOURCE_LANGUAGE, "table.giveUp")
 
 
+def tap_the_shorten_row(person: Page) -> None:
+    """The shorten row of the menu, opened first and tapped once: it asks nothing a second time."""
+    row = menu_row(person, SHORTEN_ROW)
+    expect(row).to_be_enabled()
+    row.click()
+
+
 @pytest.fixture
 def deal_a_shortening(deal_a_game: Callable[..., PlayingTable]) -> Callable[..., PlayingTable]:
-    """A declared game after two tricks at which the declarer shortened by the key on his page."""
+    """A declared game after two tricks at which the declarer shortened by the row in his menu."""
 
     def deal(form_factor: dict[str, Any], *, console: bool = True) -> PlayingTable:
         table = deal_a_game(form_factor, console=console)
         table.play_out(CARDS_AFTER_TWO_TRICKS)
         declarer = table.pages[table.declarer_seat]
         expect_the_page_to_show_every_card_played(declarer, CARDS_AFTER_TWO_TRICKS)
-        expect(declarer.locator(SHORTEN_KEY)).to_be_enabled()
-        declarer.locator(SHORTEN_KEY).click()
+        tap_the_shorten_row(declarer)
         for person in table.everyone:
             expect(person.locator(REQUEST)).to_be_visible()
         return table
@@ -172,8 +178,7 @@ def test_a_new_request_after_a_no_does_not_show_the_old_no(
     says(table, refuser, NO)
     expect(mark_on(declarer, refuser, CROSS)).to_be_visible()
 
-    expect(declarer.locator(SHORTEN_KEY)).to_be_enabled()
-    declarer.locator(SHORTEN_KEY).click()
+    tap_the_shorten_row(declarer)
 
     for person in table.everyone:
         expect(person.locator(REQUEST)).to_be_visible()
@@ -253,18 +258,19 @@ def test_a_card_takes_the_request_back_on_every_page(
     assert page_errors == []
 
 
-def test_only_the_declarer_has_the_key_and_it_sits_before_aufgeben(
+def test_only_the_declarer_has_abkuerzen_in_the_menu_beside_aufgeben_and_the_strip_holds_no_table_key(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
     table = deal_a_game(PHONE)
 
     declarer = table.pages[table.declarer_seat]
-    keys = declarer.locator(f"{SHORTEN_KEY}, .copy.give-up").evaluate_all("keys => keys.map(key => key.title)")
-    assert keys == [SHORTEN, GIVE_UP]
-    expect(declarer.locator(SHORTEN_KEY)).to_have_count(1)
+    assert declarer.locator(".actions > .copy").evaluate_all("keys => keys.map(key => key.title)") == []
+    expect(menu_button(declarer, SHORTEN)).to_be_visible()
+    expect(menu_button(declarer, GIVE_UP)).to_be_visible()
+    close_table_menu(declarer)
     for seat in opponents(table):
-        expect(table.pages[seat].locator(SHORTEN_KEY)).to_have_count(0)
-    expect(table.watcher.locator(SHORTEN_KEY)).to_have_count(0)
+        expect(table.pages[seat].locator(SHORTEN_ROW)).to_have_count(0)
+    expect(table.watcher.locator(SHORTEN_ROW)).to_have_count(0)
     assert page_errors == []
 
 
@@ -273,7 +279,7 @@ def test_no_key_while_the_declarer_still_declares_or_a_chair_is_open_or_a_reques
 ) -> None:
     declaring = deal_a_declaring_table(PHONE)
     expect(declaring.declarer.locator(".chair.mine")).to_have_count(1)
-    expect(declaring.declarer.locator(SHORTEN_KEY)).to_have_count(0)
+    expect(declaring.declarer.locator(SHORTEN_ROW)).to_have_count(0)
 
     table = deal_a_game(PHONE)
     standing = opponents(table)[0]
@@ -281,8 +287,8 @@ def test_no_key_while_the_declarer_still_declares_or_a_chair_is_open_or_a_reques
 
     declarer = table.pages[table.declarer_seat]
     expect(declarer.locator(".chair.mine")).to_have_count(1)
-    expect(declarer.locator(SHORTEN_KEY)).to_have_count(0)
-    expect(declarer.locator(".copy.give-up")).to_have_count(0)
+    expect(declarer.locator(SHORTEN_ROW)).to_have_count(0)
+    expect(declarer.locator(GIVE_UP_ROW)).to_have_count(0)
 
 
 def test_a_shortening_with_a_demanded_level_names_the_level_under_the_line_on_every_page(
@@ -307,7 +313,7 @@ def test_a_tap_that_the_table_refuses_shows_the_failure_note_and_offers_the_key_
     declarer = table.pages[table.declarer_seat]
 
     expect_a_refused_tap_to_show_the_failure_note(
-        declarer, f"{table.declaring.api_path}{TABLE_SHORTEN_SUFFIX}", declarer.locator(SHORTEN_KEY).click
+        declarer, f"{table.declaring.api_path}{TABLE_SHORTEN_SUFFIX}", lambda: tap_the_shorten_row(declarer)
     )
-    expect(declarer.locator(SHORTEN_KEY)).to_be_enabled()
+    expect(declarer.locator(SHORTEN_ROW)).to_be_enabled()
     expect(declarer.locator(REQUEST)).to_have_count(0)

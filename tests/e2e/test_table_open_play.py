@@ -13,9 +13,7 @@ from tests.e2e.support.early_end import (
     NOTICE_MILLISECONDS,
     OPEN_CARDS,
     OPEN_TAG,
-    PLAY_OPEN_KEY,
     REQUEST,
-    STRIP,
     THREE_SECONDS_MILLISECONDS,
     expect_a_refused_tap_to_show_the_failure_note,
     expect_nothing_to_overflow,
@@ -28,6 +26,7 @@ from tests.e2e.support.early_end import (
 from tests.e2e.support.people import PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.result_card import waiting_for
 from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
+from tests.e2e.support.table_menu import MENU, PLAY_OPEN_ROW, close_table_menu, menu_button, menu_row
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -77,7 +76,7 @@ def deal_a_wrong_open_play(deal_a_game: Callable[..., PlayingTable]) -> Callable
 
 
 def play_open_through_the_key(person: Page) -> None:
-    key = person.locator(PLAY_OPEN_KEY)
+    key = menu_row(person, PLAY_OPEN_ROW)
     expect(key).to_be_enabled()
     key.click()
     expect(key).to_have_attribute("title", PLAY_OPEN_SURE)
@@ -226,7 +225,7 @@ def test_the_key_sends_nothing_before_its_second_tap(
 ) -> None:
     table = deal_a_game(PHONE)
     player = table.pages[opponents(table)[0]]
-    key = player.locator(PLAY_OPEN_KEY)
+    key = menu_row(player, PLAY_OPEN_ROW)
     sent: list[str] = []
     player.on(
         "request", lambda request: sent.append(request.url) if request.url.endswith(TABLE_PLAY_OPEN_SUFFIX) else None
@@ -240,26 +239,25 @@ def test_the_key_sends_nothing_before_its_second_tap(
     assert page_errors == []
 
 
-def test_only_an_opponent_has_the_key_and_it_sits_before_aufgeben_and_a_chair_left_open_takes_it(
+def test_only_an_opponent_has_offen_spielen_in_the_menu_beside_aufgeben_and_a_chair_left_open_takes_the_row(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
     table = deal_a_game(PHONE)
     first, second = opponents(table)
 
     for seat in (first, second):
-        keys = (
-            table.pages[seat]
-            .locator(f"{PLAY_OPEN_KEY}, .copy.give-up")
-            .evaluate_all("keys => keys.map(key => key.title)")
-        )
-        assert keys == [PLAY_OPEN, text(SOURCE_LANGUAGE, "table.giveUp")]
-    expect(table.pages[table.declarer_seat].locator(PLAY_OPEN_KEY)).to_have_count(0)
-    expect(table.watcher.locator(PLAY_OPEN_KEY)).to_have_count(0)
+        person = table.pages[seat]
+        assert person.locator(".actions > .copy").evaluate_all("keys => keys.map(key => key.title)") == []
+        expect(menu_button(person, PLAY_OPEN)).to_be_visible()
+        expect(menu_button(person, text(SOURCE_LANGUAGE, "table.giveUp"))).to_be_visible()
+        close_table_menu(person)
+    expect(table.pages[table.declarer_seat].locator(PLAY_OPEN_ROW)).to_have_count(0)
+    expect(table.watcher.locator(PLAY_OPEN_ROW)).to_have_count(0)
 
     table.stand_up_through_the_api(first)
 
     expect(table.pages[second].locator(".chair.mine")).to_have_count(1)
-    expect(table.pages[second].locator(PLAY_OPEN_KEY)).to_have_count(0)
+    expect(table.pages[second].locator(PLAY_OPEN_ROW)).to_have_count(0)
     assert page_errors == []
 
 
@@ -270,25 +268,30 @@ def test_no_key_for_an_opponent_while_the_declarer_still_declares(
 
     for opponent in declaring.others:
         expect(opponent.locator(".chair.mine")).to_have_count(1)
-        expect(opponent.locator(PLAY_OPEN_KEY)).to_have_count(0)
+        expect(opponent.locator(PLAY_OPEN_ROW)).to_have_count(0)
     assert page_errors == []
 
 
 @pytest.mark.parametrize("form_factor", [SMALL_PHONE, PHONE])
-def test_the_strip_with_the_key_stays_one_row_without_scrolling_also_armed(
+def test_the_armed_row_stays_inside_the_menu_and_the_menu_inside_the_page_without_scrolling(
     deal_a_game: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_game(form_factor)
-    for person in (table.pages[opponents(table)[0]], table.pages[table.declarer_seat]):
-        keys = person.locator(".actions > .copy").all()
-        tops = {round(box["y"]) for key in keys if (box := key.bounding_box()) is not None}
-        assert len(tops) == 1
-        assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     opponent = table.pages[opponents(table)[0]]
-    armed = opponent.locator(PLAY_OPEN_KEY)
+    armed = menu_row(opponent, PLAY_OPEN_ROW)
+
     armed.click()
+
     expect(armed).to_have_attribute("title", PLAY_OPEN_SURE)
-    expect_nothing_to_overflow(opponent, f"{STRIP} > :not([popover])")
+    row = armed.bounding_box()
+    menu = opponent.locator(MENU).bounding_box()
+    assert row is not None
+    assert menu is not None
+    assert menu["x"] <= row["x"]
+    assert row["x"] + row["width"] <= menu["x"] + menu["width"]
+    assert menu["x"] >= 0
+    assert menu["x"] + menu["width"] <= form_factor["viewport"]["width"]
+    assert opponent.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     assert page_errors == []
 
 
@@ -304,5 +307,5 @@ def test_a_second_tap_that_the_table_refuses_shows_the_failure_note_and_offers_t
         f"{table.declaring.api_path}{TABLE_PLAY_OPEN_SUFFIX}",
         lambda: play_open_through_the_key(player),
     )
-    expect(player.locator(PLAY_OPEN_KEY)).to_be_enabled()
+    expect(player.locator(PLAY_OPEN_ROW)).to_be_enabled()
     expect(player.locator(REQUEST)).to_have_count(0)

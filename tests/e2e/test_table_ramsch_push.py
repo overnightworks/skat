@@ -11,6 +11,7 @@ from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch_stage import PLAQUE, RamschStageTable, deal
 from tests.e2e.support.result_card import CARD
 from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
+from tests.e2e.support.table_menu import GIVE_UP_ROW
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -35,7 +36,6 @@ GRAND_HAND = text(SOURCE_LANGUAGE, "push.grandHand")
 GRAND_HAND_ASKED = text(SOURCE_LANGUAGE, "push.grandHandAsk")
 GRAND_HAND_GAME = text(SOURCE_LANGUAGE, "game.handName", game=text(SOURCE_LANGUAGE, "game.grand"))
 ANY_PLAQUE = ".plaque"
-GIVE_UP_KEY = ".copy.give-up"
 GRAND_HAND_BID = text(SOURCE_LANGUAGE, "table.bidValue", value=str(LOWEST_BID))
 KEYS = (TAKE_SKAT, PUSH, PUT_BACK, GRAND_HAND, GRAND_HAND_ASKED)
 STRIP_CARD = ".own-hand .card button.pick"
@@ -183,7 +183,7 @@ def test_the_seat_on_turn_declares_a_grand_hand_with_a_second_tap_and_the_hand_p
     for person in (*(table.pages[table.seat_of(position)] for position in ("middlehand", "rearhand")), table.watcher):
         expect_no_key(person)
     for person in table.everyone:
-        expect(person.locator(GIVE_UP_KEY)).to_have_count(0)
+        expect(person.locator(GIVE_UP_ROW)).to_have_count(0)
 
     key(forehand, GRAND_HAND).click()
     expect(key(forehand, GRAND_HAND_ASKED)).to_be_visible()
@@ -202,8 +202,8 @@ def test_the_seat_on_turn_declares_a_grand_hand_with_a_second_tap_and_the_hand_p
         expect_no_key(person)
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     for person in table.pages.values():
-        expect(person.locator(GIVE_UP_KEY)).to_have_count(1)
-    expect(table.watcher.locator(GIVE_UP_KEY)).to_have_count(0)
+        expect(person.locator(GIVE_UP_ROW)).to_have_count(1)
+    expect(table.watcher.locator(GIVE_UP_ROW)).to_have_count(0)
 
     play_to_the_result(table)
 
