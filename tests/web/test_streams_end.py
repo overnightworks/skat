@@ -19,6 +19,7 @@ from tests.support.idle_presence import (
     idle_presence,
     idle_wakes,
 )
+from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.log_lines import lines_of, logged
 from tests.web.support.skat import Skat, streams_of, unnamed_lines
 from tests.web.support.streams import (
@@ -56,7 +57,7 @@ class TestAStreamOnAnEndingTable:
             ended = await next_view(stream)
             with pytest.raises(StopAsyncIteration):
                 await next_view(stream)
-            return live, ended, presence.connected(table_id)
+            return live, ended, await presence.connected(table_id)
 
         live, ended, connected = run_on_a_loop_of_its_own(scenario())
 
@@ -112,7 +113,9 @@ class TestAStreamWhoseArrivalWriteFails:
             return False
 
         empty_table = EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_no_table, note)
-        presence = Presence(idle_hold(), idle_next_deal(), empty_table, idle_agent_lease(), idle_wakes())
+        presence = Presence(
+            idle_hold(), idle_next_deal(), empty_table, idle_agent_lease(), idle_wakes(), InMemoryLeases()
+        )
 
         async def scenario():
             failed = stream_of(presence, service, VISITOR, table_id)

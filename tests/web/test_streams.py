@@ -10,6 +10,7 @@ from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.presence import Presence
+from skat.web.stream_holder import StreamHolder
 from skat.web.streams import IDLE_HEARTBEAT
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
@@ -21,6 +22,7 @@ from tests.support.idle_presence import (
     idle_presence,
     idle_wakes,
 )
+from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in_text, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
@@ -68,7 +70,7 @@ class TestTableViews:
             first = await next_view(stream)
             visitor = await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
             joined = await next_view(stream)
-            presence.unsubscribe(visitor)
+            await presence.close(visitor)
             left = await next_view(stream)
             await stream.aclose()
             return first, joined, left, presence
@@ -76,7 +78,33 @@ class TestTableViews:
         first, joined, left, presence = run_on_a_loop_of_its_own(scenario())
 
         assert [(view.watchers, view.version) for view in (first, joined, left)] == [(0, 1), (1, 1), (0, 1)]
-        assert presence.connected(table_id) == frozenset()
+        assert run_on_a_loop_of_its_own(presence.connected(table_id)) == frozenset()
+
+    def test_a_roster_that_cannot_be_read_ends_the_stream_with_the_failure_and_ends_its_lease(self, service, table_id):
+        leases = InMemoryLeases()
+        unreachable = ConnectionError("redis is unreachable")
+
+        async def scenario():
+            presence = idle_presence(leases=leases)
+            stream = stream_of(presence, service, OPENER, table_id)
+            await next_view(stream)
+            await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
+            leases.reading_fails = [unreachable]
+            with pytest.raises(ConnectionError):
+                await next_view(stream)
+
+        run_on_a_loop_of_its_own(scenario())
+
+        assert [StreamHolder.parse(holder).account_id for holder in leases.holders] == [VISITOR.account_id]
+
+    def test_an_unsettled_roster_is_good_enough_for_a_view(self, service, table_id):
+        leases = InMemoryLeases()
+        leases.settled = False
+
+        async def scenario():
+            return await next_view(stream_of(idle_presence(leases=leases), service, OPENER, table_id))
+
+        assert run_on_a_loop_of_its_own(scenario()).watchers == 0
 
     def test_the_stream_registers_before_it_reads_so_a_change_during_the_read_is_not_lost(self, service, table_id):
         async def scenario():
@@ -113,8 +141,8 @@ class TestTableViews:
             first_tab = await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
             second_tab = await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
             present = await next_view(stream)
-            presence.unsubscribe(first_tab)
-            presence.unsubscribe(second_tab)
+            await presence.close(first_tab)
+            await presence.close(second_tab)
             away = await next_view(stream)
             await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
             back = await next_view(stream)
@@ -141,7 +169,12 @@ class TestTableViews:
 
         async def scenario():
             presence = ConnectsAnotherRightAfterRegistering(
-                idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), idle_wakes()
+                idle_hold(),
+                idle_next_deal(),
+                idle_empty_table(),
+                idle_agent_lease(),
+                idle_wakes(),
+                InMemoryLeases(),
             )
             stream = stream_of(presence, service, VISITOR, table_id)
             first = await next_view(stream)
@@ -176,7 +209,7 @@ class TestTableViews:
             for number in range(5):
                 guest = await presence.subscribe(table_id, f"guest-{number}", lambda: None)
                 seen_by_quick.append((await next_view(quick)).watchers)
-                presence.unsubscribe(guest)
+                await presence.close(guest)
                 await next_view(quick)
             caught_up = await next_view(stalled)
             await stalled.aclose()
@@ -199,7 +232,7 @@ class TestTableViews:
                 await anext(stream)
             return presence
 
-        assert run_on_a_loop_of_its_own(scenario()).connected(table_id) == frozenset()
+        assert run_on_a_loop_of_its_own(run_on_a_loop_of_its_own(scenario()).connected(table_id)) == frozenset()
 
 
 class TestLostNotification:
@@ -235,7 +268,7 @@ class TestReadmission:
         views, presence = run_on_a_loop_of_its_own(scenario())
 
         assert views == []
-        assert presence.connected(table_id) == frozenset()
+        assert run_on_a_loop_of_its_own(presence.connected(table_id)) == frozenset()
 
     def test_a_refusal_at_a_change_ends_the_stream_with_nothing_more_sent(self, service, table_id):
         async def scenario():
@@ -244,7 +277,7 @@ class TestReadmission:
             first = await next_view(stream)
             visitor = await presence.subscribe(table_id, VISITOR.account_id, lambda: None)
             second = await next_view(stream)
-            presence.unsubscribe(visitor)
+            await presence.close(visitor)
             with pytest.raises(StopAsyncIteration):
                 await next_view(stream)
             return first, second, presence
@@ -252,7 +285,7 @@ class TestReadmission:
         first, second, presence = run_on_a_loop_of_its_own(scenario())
 
         assert (first.watchers, second.watchers) == (0, 1)
-        assert presence.connected(table_id) == frozenset()
+        assert run_on_a_loop_of_its_own(presence.connected(table_id)) == frozenset()
 
     def test_an_idle_heartbeat_admits_again_and_sends_no_view(self, service, table_id):
         async def scenario():
@@ -285,7 +318,7 @@ class TestReadmission:
                 await next_view(stream)
             return presence
 
-        assert run_on_a_loop_of_its_own(scenario()).connected(table_id) == frozenset()
+        assert run_on_a_loop_of_its_own(run_on_a_loop_of_its_own(scenario()).connected(table_id)) == frozenset()
 
     def test_a_change_that_lands_during_a_heartbeat_sends_exactly_one_view(self, service, table_id):
         async def scenario():
@@ -330,7 +363,7 @@ class TestReadmission:
             await next_view(stream)
             guest = await presence.subscribe(table_id, "guest", lambda: None)
             await next_view(stream)
-            presence.unsubscribe(guest)
+            await presence.close(guest)
             await stream.aclose()
             return readers
 
@@ -344,7 +377,7 @@ class TestReadmission:
                 await anext(stream)
             return presence
 
-        assert run_on_a_loop_of_its_own(scenario()).connected(table_id) == frozenset()
+        assert run_on_a_loop_of_its_own(run_on_a_loop_of_its_own(scenario()).connected(table_id)) == frozenset()
 
     def test_one_refused_session_ends_only_its_own_stream(self, service, table_id):
         async def scenario():
@@ -357,7 +390,7 @@ class TestReadmission:
             with pytest.raises(StopAsyncIteration):
                 await next_view(refused)
             still_watching = await next_view(kept)
-            presence.unsubscribe(guest)
+            await presence.close(guest)
             await kept.aclose()
             return still_watching
 
@@ -379,7 +412,7 @@ class TestReadmission:
         views, presence = run_on_a_loop_of_its_own(scenario())
 
         assert views == []
-        assert presence.connected(table_id) == frozenset()
+        assert run_on_a_loop_of_its_own(presence.connected(table_id)) == frozenset()
 
 
 class TestWatchTableAdmission:

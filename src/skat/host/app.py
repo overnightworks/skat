@@ -1,9 +1,10 @@
+import asyncio
 import signal
 import time
 from contextlib import asynccontextmanager, nullcontext
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Final, cast
+from typing import TYPE_CHECKING, Final, NoReturn, cast
 
 import structlog
 from agents.mcp_server import ResourceChanges
@@ -95,6 +96,7 @@ if TYPE_CHECKING:
     from skat.table.rule_sets import RuleSetService
     from skat.table.service import TableService
     from skat.web.page_build import PageBuild
+    from skat.web.presence import StreamLeases
     from skat.web.settings import ServerSettings
     from skat.web.sign_in import ExpirableSessions
     from skat.web.wakes import WakeChannel
@@ -117,13 +119,14 @@ def end_with_sigterm() -> None:
 @dataclass(frozen=True, kw_only=True)
 class PodLinks:
     """What the pods of one deployment share: the counts of their sign-in limits, the channel that carries their
-    wakes, the place store that tells them which agents listen and what changed for them, and how a pod stops itself
-    when the wake channel cannot be heard.
+    wakes, the place store that tells them which agents listen and what changed for them, the leases that count who
+    watches which table, and how a pod stops itself when the wake channel cannot be heard.
     """
 
     rate_limits: RateLimitBackend
     wake_channel: WakeChannel
     place_store: PlaceStore
+    stream_leases: StreamLeases
     end_process: Callable[[], None] = end_with_sigterm
 
 
@@ -260,6 +263,7 @@ def _presence(
     clock: Callable[[], float],
     scheduler: Scheduler,
     wakes: WakeList,
+    stream_leases: StreamLeases,
 ) -> Presence:
     return Presence(
         _chair_hold(settings, tables, clock, scheduler),
@@ -267,6 +271,7 @@ def _presence(
         _empty_table(settings, tables),
         _agent_lease(tables),
         wakes,
+        stream_leases,
     )
 
 
@@ -340,7 +345,7 @@ async def _end_unplayed_tables(
     ended_count = 0
     for table_id in await run_in_threadpool(tables.unplayed_tables, days):
         try:
-            ended = await run_in_threadpool(tables.end_unplayed_table, table_id, days, presence.writing(table_id.value))
+            ended = await run_in_threadpool(tables.end_unplayed_table, table_id, days, presence.writing())
         except Exception as failure:
             if at_start:
                 raise
@@ -415,6 +420,14 @@ def _sweep_tables(
     scheduler.schedule(period_seconds, sweep)
 
 
+def _log_if_failed(lapses: asyncio.Task[NoReturn]) -> None:
+    """A pod that stops serving the lapsed leases still hears its streams' heartbeats, which re-read who is present;
+    only the wake of a dead pod's table is late.
+    """
+    if not lapses.cancelled():
+        log.error("stream_lapses.stopped", error_type=type(lapses.exception()).__name__)
+
+
 def _serving(
     settings: ServerSettings,
     tables: TableService,
@@ -441,13 +454,17 @@ def _serving(
             forget_expired_sessions = _session_forgetter(serving, sessions)
             await forget_expired_sessions()
             _sweep_tables(settings, tables, presence, scheduler, forget_expired_sessions, unplayed_sweep_seconds)
+            lapses = asyncio.create_task(presence.serve_lapses())
+            lapses.add_done_callback(_log_if_failed)
             try:
                 async with serving.state.mcp_front.running():
                     log.info("process.ready")
                     yield
             finally:
+                lapses.cancel()
                 presence.stop()
                 await presence.finish_writes()
+                await asyncio.gather(lapses, return_exceptions=True)
 
     return hold_chairs_while_serving
 
@@ -487,7 +504,7 @@ def create_app(
     shared_wakes = SharedWakes(pods.wake_channel, end_process=pods.end_process)
     wakes = WakeList(shared_wakes.publish)
     slots = StreamSlots(settings.streams_per_account)
-    presence = _presence(settings, tables, chair_clock, scheduler, wakes)
+    presence = _presence(settings, tables, chair_clock, scheduler, wakes, pods.stream_leases)
 
     app = _new_app(
         _serving(settings, tables, presence, scheduler, stores.sessions, unplayed_sweep_seconds, shared_wakes, wakes)

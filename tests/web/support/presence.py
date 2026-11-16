@@ -34,6 +34,22 @@ class Wakes:
         return wake
 
 
+async def on_a_worker(guard, work, within=None):
+    """What a table command does in its worker: enter `guard` there, call `work` with what it yields and, while the
+    guard is held, wait for `within`, which runs on the event loop.
+    """
+    loop = asyncio.get_running_loop()
+
+    def enter():
+        with guard as yielded:
+            outcome = work(yielded)
+            if within is not None:
+                asyncio.run_coroutine_threadsafe(within(), loop).result(5)
+        return outcome
+
+    return await asyncio.to_thread(enter)
+
+
 class Releases:
     """The freeing command as the presence calls it: what it was asked, and what it answers or raises next."""
 
@@ -51,10 +67,7 @@ class Releases:
             raise self.failures.pop(0)
         if self.meanwhile is not None:
             await self.meanwhile()
-        with due as still_due:
-            outcome = self.freed and still_due
-            if self.within is not None:
-                await self.within()
+        outcome = await on_a_worker(due, lambda still_due: self.freed and still_due, self.within)
         self.outcomes.append(outcome)
         return outcome
 
@@ -73,8 +86,7 @@ class Deals:
             raise self.failures.pop(0)
         if self.meanwhile is not None:
             await self.meanwhile()
-        with connected_accounts as connected:
-            self.calls.append((table_id, connected))
+        await on_a_worker(connected_accounts, lambda connected: self.calls.append((table_id, connected)))
         return self.dealt
 
 
@@ -92,8 +104,7 @@ class Notes:
             await self.meanwhile()
         if self.failures:
             raise self.failures.pop(0)
-        with connected_accounts as connected:
-            self.calls.append((table_id, connected))
+        await on_a_worker(connected_accounts, lambda connected: self.calls.append((table_id, connected)))
         return self.ended
 
 

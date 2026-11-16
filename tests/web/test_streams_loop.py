@@ -116,7 +116,7 @@ class TestStreamLoop:
                 await next_item(stream)
             return presence
 
-        assert run_on_a_loop_of_its_own(scenario()).connected(table_id) == frozenset()
+        assert run_on_a_loop_of_its_own(run_on_a_loop_of_its_own(scenario()).connected(table_id)) == frozenset()
 
     def test_a_source_that_fails_ends_only_its_own_stream(self, service, table_id):
         async def scenario():
@@ -139,14 +139,14 @@ class TestStreamLoop:
             with pytest.raises(RuntimeError, match="store down"):
                 await next_view(failing)
             still_watching = await next_view(kept)
-            presence.unsubscribe(guest)
+            await presence.close(guest)
             await kept.aclose()
             return still_watching, presence
 
         still_watching, presence = run_on_a_loop_of_its_own(scenario())
 
         assert still_watching.watchers == 2
-        assert presence.connected(table_id) == frozenset()
+        assert run_on_a_loop_of_its_own(presence.connected(table_id)) == frozenset()
 
 
 async def sat_down(service, presence, table_id):
@@ -203,7 +203,7 @@ class TestTheTableSourceMoves:
             await source.read(OPENER)
             await happens(service, presence, table_id)
             answer = await source.moved(OPENER)
-            source.close()
+            await source.close()
             return answer
 
         assert run_on_a_loop_of_its_own(scenario()) is moved
@@ -238,7 +238,7 @@ class WholeNumberSource:
         self.checks += 1
         return self.number != self.read_number
 
-    def close(self):
+    async def close(self):
         self.is_open = False
 
 

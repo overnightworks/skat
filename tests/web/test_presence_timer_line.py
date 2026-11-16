@@ -21,6 +21,7 @@ from skat.web.presence import (
 from skat.web.presence_line import EVENT, PresenceTimer
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.idle_presence import idle_wakes
+from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.log_lines import lines_of, logged
 from tests.web.support.presence import FAILURE_NAMING_AN_ACCOUNT, HOLD_SECONDS, TABLE, Notes, connect, run
 
@@ -59,6 +60,7 @@ def timers(time, releases, deals, ends):
         EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end, notes.note),
         AgentLease(LEASE_SECONDS, leases.seated_tables),
         idle_wakes(),
+        InMemoryLeases(),
     )
     return Timers(presence, time, leases, notes, ends, deals, releases)
 
@@ -82,13 +84,13 @@ def first_run(world, timer, leaving):
     elif timer is PresenceTimer.NEXT_DEAL:
         run(presence.deal_now(TABLE))
     elif timer is PresenceTimer.EMPTY_SINCE_WRITE:
-        presence.unsubscribe(leaving)
+        run(presence.close(leaving))
         run(time.advance(0))
     elif timer is PresenceTimer.EMPTY_TABLE_END:
         presence.watch_empty_table(TABLE)
         run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
     else:
-        presence.unsubscribe(leaving)
+        run(presence.close(leaving))
         run(time.advance(HOLD_SECONDS))
 
 

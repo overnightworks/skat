@@ -163,7 +163,7 @@ class TestWhatMovesASource:
             await source.read(ANNA)
             await happens(scene, table_id)
             answer = await source.moved(ANNA)
-            source.close()
+            await source.close()
             return answer
 
         assert run_on_a_loop_of_its_own(scenario()) is moved

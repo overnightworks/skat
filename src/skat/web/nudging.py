@@ -73,7 +73,7 @@ def create_nudging_router(
         waits = presence.waits
         # The standing, the decision and the record follow each other on the event loop with no await between them.
         with waits.reading(table_id):
-            view = await run_in_threadpool(tables.view, actor_of(request), table_id, presence.connected(table_id))
+            view = await run_in_threadpool(tables.view, actor_of(request), table_id, await presence.connected(table_id))
             if view is None:
                 raise HTTPException(status_code=404, detail="table not found")
             standing = waits.standing(view)

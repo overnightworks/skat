@@ -371,7 +371,7 @@ class _Calling:
 
     async def _at_the_table(self, table_id: TableId) -> frozenset[str]:
         return await run_in_threadpool(
-            self._tables.accounts_at_the_table, table_id, self._presence.connected(table_id.value)
+            self._tables.accounts_at_the_table, table_id, await self._presence.connected(table_id.value)
         )
 
     async def _offered(self, request: Request, table_id: TableId, *, viewer_is_member: bool) -> list[_Offered]:
@@ -379,7 +379,7 @@ class _Calling:
         the table.
         """
         viewer = actor_of(request).account_id
-        streams = self._presence.connected(table_id.value)
+        streams = await self._presence.connected(table_id.value)
         viewer_present = viewer in await self._at_the_table(table_id)
         calls = [
             (
@@ -478,7 +478,7 @@ class _Calling:
             return await self._replayed_send_away(request, command)
         if refusal is not None:
             return refusal
-        connected = self._presence.connected(table_id.value)
+        connected = await self._presence.connected(table_id.value)
         try:
             sent = await run_in_threadpool(self._tables.send_away, actor_of(request), command, connected, is_member)
         except CommandIdReusedError:

@@ -83,7 +83,11 @@ class StreamSource(Protocol):  # pragma: no cover - a port's method bodies are s
         """
         ...
 
-    def close(self) -> None: ...
+    async def close(self) -> None:
+        """Give up what `open` took: drop its registration at once, then run to the end whatever awaits, even when the
+        stream is cancelled.
+        """
+        ...
 
 
 def message_of(item: SourceMessage | IdleHeartbeat) -> str:
@@ -125,7 +129,7 @@ class TableSource:
     async def read(self, actor: Actor) -> SourceMessage:
         leased = await self._read_leased()
         with self._presence.waits.reading(self._table_id):
-            connected = self._presence.connected(self._table_id)
+            connected = await self._presence.connected(self._table_id)
             view = await self._read_view(actor, connected)
             if view is None:
                 message = f"table {self._table_id} vanished while a stream watched it"
@@ -140,12 +144,12 @@ class TableSource:
 
     async def moved(self, _actor: Actor, /) -> bool:
         version = await self._read_version()
-        standing = (version, self._presence.connected(self._table_id), await self._read_leased())
+        standing = (version, await self._presence.connected(self._table_id), await self._read_leased())
         return version is None or standing != self._read_standing
 
-    def close(self) -> None:
+    async def close(self) -> None:
         assert self._subscription is not None  # noqa: S101 - narrows the type; the loop closes only an opened source
-        self._presence.unsubscribe(self._subscription)
+        await self._presence.close(self._subscription)
 
     async def _ask_for_next_deal(self, view: TableView) -> None:
         if view.passed_in is not None:
@@ -204,6 +208,18 @@ async def _changed_messages(
     return changed
 
 
+async def _closed_all(opened: Sequence[StreamSource]) -> None:
+    """Close every opened source, though one's close is cancelled or fails; the first such exception then propagates."""
+    first: BaseException | None = None
+    for source in opened:
+        try:
+            await source.close()
+        except BaseException as failure:
+            first = first or failure
+    if first is not None:
+        raise first
+
+
 async def stream_messages(
     sources: Sequence[StreamSource],
     admit: Callable[[], Awaitable[Actor | None]],
@@ -254,8 +270,7 @@ async def stream_messages(
                 deadline = loop.time() + heartbeat_seconds
             deadline_passed = await _wait_for_wake_or_deadline(changed, deadline)
     finally:
-        for source in opened:
-            source.close()
+        await _closed_all(opened)
 
 
 class StreamKind(StrEnum):

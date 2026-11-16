@@ -4,9 +4,10 @@ from skat.engine.deal import Position
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, ChairHold, EmptyTable, NextDeal, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.fake_issuer import FakeIssuer
-from tests.support.idle_presence import idle_agent_lease, idle_wakes, note_nothing
+from tests.support.idle_presence import idle_agent_lease, idle_presence, idle_wakes, note_nothing
+from tests.support.in_memory_leases import InMemoryLeases
 from tests.web.support.agent import Agent
-from tests.web.support.presence import HOLD_SECONDS, Deals, Releases, Wakes
+from tests.web.support.presence import HOLD_SECONDS, Deals, Releases, Wakes, on_a_worker
 from tests.web.support.skat import AgentTable, FakeTime, Skat
 
 FOREHAND, MIDDLEHAND = Position.FOREHAND, Position.MIDDLEHAND
@@ -92,10 +93,8 @@ class Ends:
             raise self.failures.pop(0)
         if self.meanwhile is not None:
             await self.meanwhile()
-        with connected_accounts as connected:
-            self.calls.append((table_id, connected))
-            if self.within is not None:
-                await self.within()
+        connected = await on_a_worker(connected_accounts, lambda yielded: yielded, self.within)
+        self.calls.append((table_id, connected))
         outcome = self.ended and connected is not None
         self.outcomes.append(outcome)
         return outcome
@@ -107,13 +106,25 @@ def ends():
 
 
 @pytest.fixture
-def holding(time, releases, deals, ends):
+def leases():
+    return InMemoryLeases()
+
+
+@pytest.fixture
+def elsewhere(leases):
+    """The other pod of `holding`: it holds streams on the same leases and runs no timer."""
+    return idle_presence(leases=leases)
+
+
+@pytest.fixture
+def holding(time, releases, deals, ends, leases):
     return Presence(
         ChairHold(HOLD_SECONDS, time.clock, time, releases.free_chair),
         NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
         EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end, note_nothing),
         idle_agent_lease(),
         idle_wakes(),
+        leases,
     )
 
 

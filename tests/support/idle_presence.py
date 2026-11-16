@@ -3,6 +3,7 @@ from agents.member import LEASE_SECONDS
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, AgentLease, ChairHold, EmptyTable, NextDeal, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from skat.web.wakes import Topic, WakeList
+from tests.support.in_memory_leases import InMemoryLeases
 
 
 class IdleScheduler:
@@ -60,5 +61,12 @@ def idle_wakes() -> WakeList:
     return WakeList(publish_nowhere)
 
 
-def idle_presence(wakes: WakeList | None = None) -> Presence:
-    return Presence(idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), wakes or idle_wakes())
+def idle_presence(wakes: WakeList | None = None, leases: InMemoryLeases | None = None) -> Presence:
+    return Presence(
+        idle_hold(),
+        idle_next_deal(),
+        idle_empty_table(),
+        idle_agent_lease(),
+        wakes or idle_wakes(),
+        leases or InMemoryLeases(),
+    )
