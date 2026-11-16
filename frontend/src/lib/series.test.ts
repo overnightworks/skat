@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Chair } from "../routes/(start)/tables.ts";
 import { weiterBar } from "#lib/result.ts";
-import { gameRows, seriesCountText, seriesEndAsk, seriesEndOffered, seriesOver, standingsView } from "#lib/series.ts";
+import {
+    gameRows,
+    resultOnStage,
+    seriesCountText,
+    seriesEndAsk,
+    seriesEndOffered,
+    seriesOver,
+    standingsView,
+} from "#lib/series.ts";
 import {
     chairs,
     DECLARED_ENTRY,
@@ -11,6 +19,7 @@ import {
     tableBetweenGames,
     WATCHER,
 } from "#lib/series.fixtures.ts";
+import { LOST_WITH_PUSHES, table as tableWith } from "#lib/result.fixtures.ts";
 import { words } from "#lib/words.ts";
 
 describe("seriesCountText", () => {
@@ -163,6 +172,26 @@ describe("standingsView", () => {
         );
 
         expect([...(view?.winnerSeats ?? [])].sort()).toEqual([1, 2]);
+    });
+});
+
+describe("resultOnStage", () => {
+    const ended = tableBetweenGames(2, seriesAt({ over: true, standings: [], game_number: 36 }));
+
+    it("is true while a declared game's result stands", () => {
+        expect(resultOnStage(tableWith(1, {}))).toBe(true);
+    });
+
+    it("is true while a Ramsch's reckoning stands", () => {
+        expect(resultOnStage({ ...tableWith(1, null), result: LOST_WITH_PUSHES })).toBe(true);
+    });
+
+    it("is true while the standings stand", () => {
+        expect(resultOnStage(ended)).toBe(true);
+    });
+
+    it("is false between games with no result", () => {
+        expect(resultOnStage(tableBetweenGames(1, seriesAt()))).toBe(false);
     });
 });
 
