@@ -30,6 +30,7 @@ STORE_TABLES = {
     "member_book",
     "accounts",
     "sessions",
+    "serving_revisions",
 }
 
 

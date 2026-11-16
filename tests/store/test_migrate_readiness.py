@@ -12,9 +12,9 @@ from skat.store.migrate import (
     ReadinessProbe,
 )
 
-READY = DatabaseHealth(serves_queries=True, at_head=True)
-UNREACHABLE = DatabaseHealth(serves_queries=False, at_head=False)
-NOT_AT_HEAD = DatabaseHealth(serves_queries=True, at_head=False)
+READY = DatabaseHealth(serves_queries=True, revision_served=True)
+UNREACHABLE = DatabaseHealth(serves_queries=False, revision_served=False)
+REVISION_NOT_SERVED = DatabaseHealth(serves_queries=True, revision_served=False)
 BURST_SIZE = 50
 STALL_GUARD_SECONDS = 10
 
@@ -98,7 +98,7 @@ class TestReadinessProbe:
 
         assert database.probes_started == 2
 
-    @pytest.mark.parametrize("health", [UNREACHABLE, NOT_AT_HEAD], ids=["unreachable", "not-at-head"])
+    @pytest.mark.parametrize("health", [UNREACHABLE, REVISION_NOT_SERVED], ids=["unreachable", "revision-not-served"])
     def test_the_verdict_turns_unready_and_ready_again_after_the_reuse_time(self, readiness, database, clock, health):
         before = asyncio.run(readiness())
         database.health = health
@@ -151,14 +151,14 @@ class TestReadinessProbe:
 class TestReadinessLogging:
     def test_a_changed_verdict_is_logged_once_with_its_cause(self, readiness, database, clock):
         asyncio.run(readiness())
-        database.health = NOT_AT_HEAD
+        database.health = REVISION_NOT_SERVED
         clock.now += READINESS_REUSE_SECONDS
 
         with capture_logs() as logs:
             asyncio.run(burst(readiness))
 
         assert [(entry["event"], entry["was"], entry["now"]) for entry in logs] == [
-            ("database_readiness.changed", "ready", "not_at_head")
+            ("database_readiness.changed", "ready", "revision_not_served")
         ]
 
     def test_a_steady_verdict_logs_nothing(self, readiness, clock):
@@ -212,8 +212,8 @@ class TestReadinessLogging:
 
     @pytest.mark.parametrize(
         ("health", "cause"),
-        [(UNREACHABLE, "unreachable"), (NOT_AT_HEAD, "not_at_head")],
-        ids=["unreachable", "not-at-head"],
+        [(UNREACHABLE, "unreachable"), (REVISION_NOT_SERVED, "revision_not_served")],
+        ids=["unreachable", "revision-not-served"],
     )
     def test_a_stalled_probe_after_an_unready_verdict_logs_nothing_more_and_answers_unready(
         self, readiness, database, clock, monkeypatch, health, cause
