@@ -307,10 +307,6 @@ msgctxt "table.wantsToGiveUp"
 msgid "{name} will aufgeben"
 msgstr "{name} wants to give up"
 
-msgctxt "table.givesUp"
-msgid "{name} gibt auf"
-msgstr "{name} gives up"
-
 msgctxt "table.giveUp"
 msgid "Aufgeben"
 msgstr "Give up"

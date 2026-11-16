@@ -129,7 +129,6 @@ const translated = {
     "table.pass": "Pass",
     "table.waitingFor": (gaps: { readonly names: string }) => "Waiting for " + gaps.names,
     "table.wantsToGiveUp": (gaps: { readonly name: string }) => gaps.name + " wants to give up",
-    "table.givesUp": (gaps: { readonly name: string }) => gaps.name + " gives up",
     "table.giveUp": "Give up",
     "table.giveUpSure": "Really give up?",
     "table.accept": "Accept",

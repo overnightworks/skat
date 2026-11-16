@@ -326,10 +326,6 @@ def expect_the_cards_played_to_have_reached(person: Page, played: int) -> None:
     expect(person.locator(TRICK_CARDS)).to_have_count(0)
 
 
-def gives_up(opponent: str) -> str:
-    return text(SOURCE_LANGUAGE, "table.givesUp", name=opponent)
-
-
 class PartnerAgreesTable(DeclaringTable):
     """A table opened through the API whose special rule wants the partner's yes to an opponent's give-up."""
 
@@ -379,11 +375,11 @@ def test_an_opponents_give_up_shows_his_partner_the_cards_held_and_the_two_answe
     partner = table.pages[partner_of(table, asker)]
     declarer = table.pages[table.declarer_seat]
 
-    expect(partner.locator(REQUEST)).to_contain_text(gives_up(table.names[asker]))
+    expect(partner.locator(REQUEST)).to_contain_text(wants_to_give_up(table.names[asker]))
     expect(button_of(partner, ACCEPT)).to_be_visible()
     expect(button_of(partner, PLAY_ON)).to_be_visible()
     expect(partner.locator(HELD_CARDS)).to_be_visible()
-    expect(declarer.locator(REQUEST)).to_contain_text(gives_up(table.names[asker]))
+    expect(declarer.locator(REQUEST)).to_contain_text(wants_to_give_up(table.names[asker]))
     expect(declarer.locator(f"{REQUEST} button")).to_have_count(0)
     expect_nothing_to_overflow(partner)
     assert page_errors == []

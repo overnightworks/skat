@@ -103,7 +103,7 @@ describe("a give-up request on the table", () => {
     it("lets the partner answer an opponent's request and holds every card meanwhile", () => {
         expect(giveUpView(tableWith(SECOND_OPPONENT, OPPONENT_ASKS))).toMatchObject({
             line: "gives-up",
-            text: words["table.givesUp"]({ name: "player 1" }),
+            text: words["table.wantsToGiveUp"]({ name: "player 1" }),
             answers: ["agree", "decline"],
             cardsHeld: true,
         });

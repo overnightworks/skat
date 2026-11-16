@@ -155,12 +155,11 @@ function giveUpRequestView(asked: Asked, request: GiveUp, declarerSeat: number):
     const faces = (asking ? pendingSeats : [askerSeat]).map((seat) => faceOf(chairs, seat));
     const names = listFormat.format(faces.map((face) => face.name));
     const askedLine = declarerAsks ? "wants-to-give-up" : "gives-up";
-    const askedSentence = declarerAsks ? words["table.wantsToGiveUp"] : words["table.givesUp"];
     const offeredAnswers: GiveUpAnswer[] = viewerSeat === declinedSeat ? ["agree"] : ["agree", "decline"];
     return {
         line: asking ? "waits" : askedLine,
         // Not asking, `faces` holds the one asker, so the asked sentence names exactly one asker.
-        text: asking ? words["table.waitingFor"]({ names }) : askedSentence({ name: names }),
+        text: asking ? words["table.waitingFor"]({ names }) : words["table.wantsToGiveUp"]({ name: names }),
         faces,
         answers: answering ? offeredAnswers : [],
         marks,
