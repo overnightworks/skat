@@ -62,7 +62,11 @@ class StreamLeases(Protocol):  # pragma: no cover - a port's method bodies are s
     async def live(self) -> Roster: ...
 
     async def serve_lapses(
-        self, handle: Callable[[Lapse], Awaitable[None]], *, claimer: str, every: timedelta
+        self,
+        handle: Callable[[Lapse], Awaitable[None]],  # noqa: V107 the port's parameter names are tandem's
+        *,
+        claimer: str,  # noqa: V107 the port's parameter names are tandem's
+        every: timedelta,
     ) -> NoReturn: ...
 
 
