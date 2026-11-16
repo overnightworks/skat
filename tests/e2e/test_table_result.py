@@ -723,35 +723,44 @@ def test_a_card_lifted_anywhere_in_the_hand_stands_clear_of_the_near_chair_on_a_
             expect_no_crossing(middlehand, f"{OWN_HAND_CARD}.touch", f".chair.mine {part}")
 
 
-# Each desktop scene's own chair, found by standing centred over its hand, against the lifted cards of that hand.
-NEAR_CHAIRS_OVER_LIFTED_CARDS = """() => [...document.querySelectorAll('.frame.d1280')].flatMap((frame) => {
-    const hand = frame.querySelector('.hand');
-    if (!hand) return [];
-    const middle = (box) => (box.left + box.right) / 2;
-    const handMiddle = middle(hand.getBoundingClientRect());
-    const chair = [...frame.querySelectorAll('.seat .chair')].find(
-        (candidate) => Math.abs(middle(candidate.getBoundingClientRect()) - handMiddle) < 1
-    );
-    if (!chair) return [];
-    const seat = chair.closest('.seat');
-    const own = [...seat.querySelectorAll('.chair, .mark, .plate')];
-    const box = chair.getBoundingClientRect();
-    own.push(...[...frame.querySelectorAll('.coaster')].filter((coaster) => {
-        const at = coaster.getBoundingClientRect();
-        return middle(at) < box.left && Math.abs((at.top + at.bottom) / 2 - (box.top + box.bottom) / 2) < box.height;
-    }));
-    const lifted = frame.querySelectorAll('.hand .card.ok, .hand .card.touch, .hand .swipe');
-    const crossing = (a, b) =>
-        Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
-        Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
-    return own.flatMap((part) =>
-        [...lifted]
-            .filter((card) => crossing(part.getBoundingClientRect(), card.getBoundingClientRect()))
-            .map((card) => `${frame.id}: ${part.className} over ${card.className}`)
-    );
-})"""
+# Each desktop scene's own chair, found by standing centred over its hand, against the lifted cards of that hand. A
+# scene with a lifted card and no such chair is reported as unchecked, so a layout that moves the chair off the hand's
+# centre fails instead of passing on an empty check.
+NEAR_CHAIRS_OVER_LIFTED_CARDS = """() => {
+    const unchecked = [];
+    const crossings = [...document.querySelectorAll('.frame.d1280')].flatMap((frame) => {
+        const lifted = [...frame.querySelectorAll('.hand .card.ok, .hand .card.touch, .hand .swipe')];
+        if (lifted.length === 0) return [];
+        const middle = (box) => (box.left + box.right) / 2;
+        const handMiddle = middle(frame.querySelector('.hand').getBoundingClientRect());
+        const chair = [...frame.querySelectorAll('.seat .chair')].find(
+            (candidate) => Math.abs(middle(candidate.getBoundingClientRect()) - handMiddle) < 1
+        );
+        if (!chair) {
+            unchecked.push(frame.id);
+            return [];
+        }
+        const seat = chair.closest('.seat');
+        const own = [...seat.querySelectorAll('.chair, .mark, .plate')];
+        const box = chair.getBoundingClientRect();
+        own.push(...[...frame.querySelectorAll('.coaster')].filter((coaster) => {
+            const at = coaster.getBoundingClientRect();
+            const apart = Math.abs((at.top + at.bottom) / 2 - (box.top + box.bottom) / 2);
+            return middle(at) < box.left && apart < box.height;
+        }));
+        const crossing = (a, b) =>
+            Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+            Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
+        return own.flatMap((part) =>
+            lifted
+                .filter((card) => crossing(part.getBoundingClientRect(), card.getBoundingClientRect()))
+                .map((card) => `${frame.id}: ${part.className} over ${card.className}`)
+        );
+    });
+    return { unchecked, crossings };
+}"""
 
 
 def test_every_desktop_scene_draws_the_near_chair_clear_of_the_lifted_cards(page: Page) -> None:
     page.goto(TABLE_SCENES.as_uri())
-    assert page.evaluate(NEAR_CHAIRS_OVER_LIFTED_CARDS) == []
+    assert page.evaluate(NEAR_CHAIRS_OVER_LIFTED_CARDS) == {"unchecked": [], "crossings": []}
