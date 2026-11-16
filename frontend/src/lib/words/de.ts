@@ -246,7 +246,16 @@ export type Words = {
     readonly "voice.re": string;
     readonly "voice.supra": string;
     readonly "voice.hirsch": string;
+    readonly "voice.kreuz": string;
+    readonly "voice.pik": string;
+    readonly "voice.herz": string;
+    readonly "voice.karo": string;
+    readonly "voice.grand": string;
     readonly "voice.null": string;
+    readonly "voice.hand": string;
+    readonly "voice.ouvert": string;
+    readonly "voice.schneider": string;
+    readonly "voice.schwarz": string;
     readonly "voice.grumbleComing": string;
     readonly "voice.grumbleRush": string;
     readonly "voice.grumbleThinking": string;
@@ -842,7 +851,16 @@ export const words: Words = {
     "voice.re": "Re",
     "voice.supra": "Supra",
     "voice.hirsch": "Hirsch",
+    "voice.kreuz": "Kreuz",
+    "voice.pik": "Pik",
+    "voice.herz": "Herz",
+    "voice.karo": "Karo",
+    "voice.grand": "Grand",
     "voice.null": "Null",
+    "voice.hand": "Hand",
+    "voice.ouvert": "Ouvert",
+    "voice.schneider": "Schneider angesagt",
+    "voice.schwarz": "Schwarz angesagt",
     "voice.grumbleComing": "Jaja, ich komm ja schon!",
     "voice.grumbleRush": "Hetz mich nicht!",
     "voice.grumbleThinking": "Moment, ich denk noch!",

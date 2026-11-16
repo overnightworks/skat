@@ -13,7 +13,8 @@
     import { abortView } from "#lib/abort.ts";
     import { grumblingAt, ring, stopRinging } from "#lib/bell.svelte.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
-    import { cuesBetween, springsUp, stampBetween, type BidWord } from "#lib/cues.ts";
+    import { tableShowing, type Presenter } from "#lib/closingHand.ts";
+    import { springsUp, stampBetween, type BidWord } from "#lib/cues.ts";
     import { browserCallHost, greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import {
         answerGiveUp,
@@ -87,6 +88,7 @@
         isDealing,
         receiveOnStage,
         resetStage,
+        stageMoves,
         sweepingTo,
         trickIsMoving,
     } from "#lib/stage.svelte.ts";
@@ -104,6 +106,7 @@
         isSuitGame,
         markReady,
         positionWord,
+        readGameSheet,
         readTable,
         seatedAgentsKey,
         seriesNumberOf,
@@ -172,12 +175,11 @@
         seatNoteTimer = setTimeout(() => (seatNote = null), SEAT_NOTICE_MILLISECONDS);
     }
 
-    function showTable(previous: Table | undefined, table: Table): void {
+    const presentTable: Presenter = (previous, table, cues, whenResultShown) => {
         streamedVersion = table.version;
         streamedWatchers = table.watchers;
         seatedAgents = seatedAgentsKey(previous, table);
         const nudged = previous === undefined ? null : nudgedNote(previous, table);
-        const cues = cuesBetween(previous, table);
         const note = requestEndedNotice(cues, table.chairs) ?? seatNotice(cues, table) ?? nudged;
         if (note !== null) showSeatNote(note);
         seatNote = noticeStanding(seatNote, table);
@@ -185,7 +187,6 @@
         if (previous === undefined || cues.some((cue) => cue.kind === "dealt")) playedThisHand = [];
         stamp = stampBetween(previous, table) ?? stamp;
         soundForCues(cues, table);
-        receiveOnStage(previous, cues);
         for (const cue of cues) {
             if (cue.kind === "card-played") {
                 playedThisHand = [...playedThisHand, cue.card];
@@ -203,7 +204,11 @@
         }
         if (table.result === null) countedOrdinal = null;
         outcome = { kind: "table", table };
-    }
+        // The stage may show the result at once, so nothing of this table is set after it.
+        receiveOnStage(previous, cues, whenResultShown);
+    };
+
+    const tables = tableShowing(presentTable, (ordinal) => readGameSheet(id, ordinal), stageMoves);
 
     // SvelteKit keeps this component when the address changes from one table to another.
     $effect(() => {
@@ -227,15 +232,10 @@
             if (!current) return;
             outcome = answer;
             if (answer.kind === "table" && answer.table.ended === null) {
-                let shown: Table | undefined = answer.table;
-                const show = (table: Table): void => {
-                    showTable(shown, table);
-                    shown = table;
-                };
-                // A dropped connection forgets the table shown: the first table after it stands still.
+                tables.begin(answer.table);
                 stopWatching = watchTable(
                     id,
-                    show,
+                    tables.show,
                     (count) => {
                         attention = count;
                     },
@@ -243,7 +243,7 @@
                         connected = isConnected;
                         if (isConnected) streamsFull = false;
                         else {
-                            shown = undefined;
+                            tables.forget();
                             attention = 0;
                         }
                     },
@@ -265,6 +265,7 @@
             clearTimeout(wonTimer);
             clearTimeout(seatNoteTimer);
             stopWatching();
+            tables.end();
             resetStage();
             stopRinging();
         };
