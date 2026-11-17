@@ -2,8 +2,11 @@
 
 import json
 from contextlib import nullcontext
+from datetime import UTC, datetime
 
 from skat.table.records import Actor, TableId, Visibility
+from skat.table.service import TableService
+from tests.support.fake_tables import FakeTableStore
 from tests.web.support.lobby_scene import ANNA, BEN, CLEO, DORA, Scene, ids_of, next_mine, next_open
 from tests.web.support.presence import HOLD_SECONDS
 from tests.web.support.streams import run_on_a_loop_of_its_own
@@ -165,7 +168,8 @@ class TestTheOpenList:
         assert [(entry["id"], entry["free_chairs"]) for entry in listed] == [(free, 2), (full, 0)]
 
     def test_an_away_member_at_an_undealt_open_table_shows_the_seconds_left_of_the_stored_hold(self):
-        scene = Scene()
+        held_clock = datetime(2026, 5, 4, 20, 0, tzinfo=UTC)
+        scene = Scene(TableService(FakeTableStore(clock=lambda: held_clock)))
         table_id = scene.open_table(ANNA)
         scene.service.note_leave(TableId(table_id), ANNA.account_id, HOLD_SECONDS)
 

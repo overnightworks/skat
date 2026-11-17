@@ -279,7 +279,14 @@ def test_forgetting_an_ended_table_drops_its_holds(service, engine, transactions
 
 def test_the_lobby_shows_the_whole_seconds_left_of_a_stored_hold_rounded_up(service, engine, table_id):
     hold_due_in(engine, table_id, LEAVER.account_id, 90.9)
+    before = seconds_left(engine, table_id, LEAVER.account_id)
 
     (entry,) = service.my_tables(OPENER.account_id, [table_id], {table_id.value: frozenset({OPENER.account_id})}, 7)
+    after = seconds_left(engine, table_id, LEAVER.account_id)
 
-    assert [chair.hold_seconds_left for chair in entry.chairs] == [None, 91, None]
+    shown = [chair.hold_seconds_left for chair in entry.chairs]
+    assert shown[0] is None
+    assert shown[2] is None
+    # Rounded up, the whole seconds shown at the read are at least the exact seconds left then, and less than one more.
+    assert isinstance(shown[1], int)
+    assert after <= shown[1] < before + 1
