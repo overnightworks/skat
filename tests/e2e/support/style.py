@@ -128,3 +128,21 @@ def boxes_in_the_scene(person: Page, scene: str, selector: str) -> list[dict[str
 def boxes_on_the_page(person: Page, selector: str) -> list[dict[str, Any]]:
     """The boxes `person`'s page draws for `selector`, measured as `boxes_in_the_scene` measures the scene's."""
     return person.locator(":root").evaluate(BOXES, selector)
+
+
+# A box on the page stands where the scene draws it, to the pixel the browser rounds to.
+SCENE_TOLERANCE = 2
+# Where a box stands and how large it is, how round its corners are drawn, and only how high it stands.
+PLACE = ("left", "top", "width", "height")
+SHAPE = ("cornerWidth", "cornerHeight")
+TOP = ("top",)
+
+
+def expect_drawn_as_the_scene(
+    page_boxes: list[dict[str, Any]], scene_boxes: list[dict[str, Any]], measures: tuple[str, ...]
+) -> None:
+    """Each box of the page, left to right, has the `measures` of the scene's box in its place."""
+    assert len(page_boxes) == len(scene_boxes)
+    for on_page, in_scene in zip(page_boxes, scene_boxes, strict=True):
+        for measure in measures:
+            assert abs(on_page[measure] - in_scene[measure]) <= SCENE_TOLERANCE, (measure, on_page, in_scene)

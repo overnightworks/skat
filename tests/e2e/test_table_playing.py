@@ -10,9 +10,13 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.style import (
+    PLACE,
+    SHAPE,
     STYLES,
+    TOP,
     boxes_in_the_scene,
     boxes_on_the_page,
+    expect_drawn_as_the_scene,
     expect_the_furniture_clear,
     give_the_table_its_style,
 )
@@ -20,6 +24,7 @@ from tests.e2e.support.style import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from tests.e2e.support.declaring import DeclaringTable
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
@@ -349,40 +354,53 @@ def test_the_laid_cards_and_their_tags_stay_clear_of_every_fan(
     assert page_errors == []
 
 
-# The blessed scene of each style that shows a trick on a desktop's felt.
+# The blessed scene of each style that shows a resting trick on a desktop's felt.
 TRICK_SCENES = {TableStyle.KLASSIK: "last-trick-rest", TableStyle.STRANDBAR: "strand-trick"}
-# A box on the page stands where the scene draws it, to the pixel the browser rounds to.
-SCENE_TOLERANCE = 2
-# Where a box stands and how large it is, and how round its corners are drawn.
-PLACE = ("left", "top", "width", "height")
-SHAPE = ("cornerWidth", "cornerHeight")
+# The blessed scene of the declarer choosing whether to take the skat.
+SKAT_CHOICE_SCENE = "skat-choose"
+FAR_CHAIRS = ".chair:not(.mine) .tile"
+# The scenes' other seats at the table; a small seat at the top is a watcher's.
+FAR_CHAIRS_IN_THE_SCENE = ".seat:not(.own, .sm) > .chair"
 
 
-def expect_drawn_as_the_scene(
-    page_boxes: list[dict[str, Any]], scene_boxes: list[dict[str, Any]], measures: tuple[str, ...]
-) -> None:
-    assert len(page_boxes) == len(scene_boxes)
-    for on_page, in_scene in zip(page_boxes, scene_boxes, strict=True):
-        for measure in measures:
-            assert abs(on_page[measure] - in_scene[measure]) <= SCENE_TOLERANCE, (measure, on_page, in_scene)
+def expect_the_felt_and_the_far_chairs_as_the_scene(person: Page, scene: str) -> None:
+    expect(person.locator(".chair:not(.mine)")).to_have_count(2)
+    expect_drawn_as_the_scene(
+        boxes_on_the_page(person, ".felt"), boxes_in_the_scene(person, scene, ".felt"), PLACE + SHAPE
+    )
+    expect_drawn_as_the_scene(
+        boxes_on_the_page(person, FAR_CHAIRS), boxes_in_the_scene(person, scene, FAR_CHAIRS_IN_THE_SCENE), PLACE
+    )
 
 
 @pytest.mark.parametrize("table_style", STYLES)
-def test_on_a_desktop_the_felt_and_the_far_chairs_stand_as_the_scene_draws_them(
+def test_on_a_desktop_the_felt_the_far_chairs_the_trick_the_bar_and_the_hand_stand_as_the_scene_draws_them(
     deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], table_style: TableStyle
 ) -> None:
     table = deal_a_playing_table(DESKTOP)
+    table.leave_the_last_trick_on_the_felt()
+    table.play_out(CARDS_IN_A_TRICK)
     scene = TRICK_SCENES[table_style]
     for person in table.pages.values():
-        expect(person.locator(".chair:not(.mine)")).to_have_count(len(table.pages) - 1)
+        expect(person.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+        expect_the_felt_and_the_far_chairs_as_the_scene(person, scene)
         expect_drawn_as_the_scene(
-            boxes_on_the_page(person, ".felt"), boxes_in_the_scene(person, scene, ".felt"), PLACE + SHAPE
+            boxes_on_the_page(person, FELT_CARD), boxes_in_the_scene(person, scene, ".play"), PLACE
         )
         expect_drawn_as_the_scene(
-            boxes_on_the_page(person, ".chair:not(.mine) .tile"),
-            boxes_in_the_scene(person, scene, ".seat:not(.own) > .chair"),
-            PLACE,
+            boxes_on_the_page(person, ".chair.mine"), boxes_in_the_scene(person, scene, ".seat.own"), TOP
         )
+        expect_drawn_as_the_scene(
+            boxes_on_the_page(person, ".own-hand"), boxes_in_the_scene(person, scene, ".hand"), TOP
+        )
+    assert page_errors == []
+
+
+def test_while_a_game_is_declared_on_a_desktop_the_felt_and_the_far_chairs_stand_as_the_scene_draws_them(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str]
+) -> None:
+    table = deal_a_declaring_table(DESKTOP)
+    expect_the_felt_and_the_far_chairs_as_the_scene(table.declarer, SKAT_CHOICE_SCENE)
     assert page_errors == []
 
 
