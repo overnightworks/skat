@@ -8249,6 +8249,11 @@ body {
         margin-top: 12px;
     }
 
+    /* Beside the notice the plaque ends where a game's one line ends, so a second line, as the wait for an empty chair's, grows up towards the top bar and the notice covers none of it. */
+    .room .stage:has(> .trick):has(> .notice.seat) .plaque {
+        align-self: end;
+    }
+
     /* At the result the card stands on the felt between the far chairs, from where the scenes draw its top, and the bar stands under it, clear of the keys. */
     .room .stage:has(> .result) {
         grid-template-rows: 0 0 minmax(0, 1fr) auto auto;

@@ -10,6 +10,7 @@ from playwright.sync_api import Page, expect
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.style import SCENE_TOLERANCE, in_the_scene
 from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import plate_of
 
@@ -29,7 +30,19 @@ SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 LOCKED = text(SOURCE_LANGUAGE, "table.chairLocked")
 OWN_HAND = ".own-hand"
 NOTICE = "p.notice"
-NEVER_UNDER_THE_NOTICE = (".plaque", ".bubble", ".chair .fan", ".chair .tile", ".trick .laid")
+NEVER_UNDER_THE_NOTICE = (".plaque", ".bubble", ".chair .fan", ".chair .tile")
+# Every scene of a hand that goes on after a notice about a chair draws the pill over the top edge of the trick's far
+# cards; this one stands for them.
+NOTICE_SCENE = "shorten-refused"
+# How far the notice reaches down into the deepest card below `cardSelector` beside it, in pixels.
+NOTICE_DEPTH_INTO_A_CARD = """(root, [noticeSelector, cardSelector]) => {
+    const notice = root.querySelector(noticeSelector).getBoundingClientRect();
+    const depths = [...root.querySelectorAll(cardSelector)]
+        .map((card) => card.getBoundingClientRect())
+        .filter((card) => card.left < notice.right && notice.left < card.right)
+        .map((card) => Math.min(notice.bottom, card.bottom) - Math.max(notice.top, card.top));
+    return Math.max(0, ...depths);
+}"""
 TWO_CARDS = 2
 SENTENCE_INSIDE_THE_PILL = """notice => {
     const sentence = document.createRange();
@@ -116,7 +129,7 @@ def test_the_second_tap_stands_up_and_the_others_read_it_once_while_the_person_w
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_notice_about_the_chair_holds_its_sentence_and_lies_over_no_plaque_bubble_fan_chair_or_laid_card(
+def test_the_notice_about_the_chair_holds_its_sentence_covers_no_plaque_bubble_fan_or_chair_and_the_trick_as_the_scene(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -126,6 +139,7 @@ def test_the_notice_about_the_chair_holds_its_sentence_and_lies_over_no_plaque_b
     table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor)
     table.play_out(TWO_CARDS)
     seat = table.seat_at["rearhand"]
+    depth_in_the_scene = in_the_scene(table.watcher, NOTICE_SCENE, NOTICE_DEPTH_INTO_A_CARD, [".notice", ".play .card"])
 
     stands_up_through_the_key(table.pages[seat])
 
@@ -134,10 +148,12 @@ def test_the_notice_about_the_chair_holds_its_sentence_and_lies_over_no_plaque_b
         notice = other.locator(NOTICE).bounding_box()
         assert notice is not None
         assert other.locator(NOTICE).evaluate(SENTENCE_INSIDE_THE_PILL)
+        depth_on_the_page = other.locator(":root").evaluate(NOTICE_DEPTH_INTO_A_CARD, [NOTICE, ".trick .laid"])
         for selector in NEVER_UNDER_THE_NOTICE:
             for covered in other.locator(selector).all():
                 box = covered.bounding_box()
                 assert box is None or not overlaps(notice, box), selector
+        assert depth_on_the_page <= depth_in_the_scene + SCENE_TOLERANCE
     assert page_errors == []
 
 
