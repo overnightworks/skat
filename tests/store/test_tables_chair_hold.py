@@ -21,7 +21,7 @@ from tests.support.seated_tables import (
     seated_table,
     undealt_table,
 )
-from tests.support.table_rows import WorkInAThread, wait_until_a_session_waits_for_a_lock
+from tests.support.table_rows import WorkInAThread, rows_of, wait_until_a_session_waits_for_a_lock
 
 pytestmark = pytest.mark.postgres
 
@@ -55,15 +55,6 @@ def seconds_left(engine, table_id, account_id):
                 chair_holds.c.table_id == table_id.value, chair_holds.c.account_id == account_id
             )
         ).scalar_one_or_none()
-
-
-def due_at(engine, table_id, account_id):
-    with engine.connect() as connection:
-        return connection.execute(
-            select(chair_holds.c.due_at).where(
-                chair_holds.c.table_id == table_id.value, chair_holds.c.account_id == account_id
-            )
-        ).scalar_one()
 
 
 def holds(engine):
@@ -127,11 +118,11 @@ class TestALeave:
 
     def test_a_lapse_keeps_the_deadline_of_an_existing_hold(self, service, engine, table_id):
         hold_due_in(engine, table_id, LEAVER.account_id, 10)
-        before = due_at(engine, table_id, LEAVER.account_id)
+        before = rows_of(engine, table_id.value)["chair_holds"]
 
         service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS, newest_wins=False)
 
-        assert due_at(engine, table_id, LEAVER.account_id) == before
+        assert rows_of(engine, table_id.value)["chair_holds"] == before
 
     def test_a_leave_of_an_account_without_a_chair_at_the_live_table_stores_nothing(
         self, service, engine, transactions, table_id
