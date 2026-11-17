@@ -253,6 +253,7 @@
     background-color: #0c1220;
 }
 
+/* The stool under a chair; on a desktop a watcher's near chair ends 48 px above the page's foot, so the stool stays shorter than that and the page never scrolls. */
 .room[data-style="strandbar"] .chair::after {
     content: "";
     position: absolute;
@@ -260,7 +261,7 @@
     left: 16%;
     right: 16%;
     top: calc(100% + 6px);
-    height: clamp(30px, 24%, 48px);
+    height: clamp(30px, 24%, 40px);
     pointer-events: none;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M12 0L4 38M88 0L96 38' stroke='%237a5430' stroke-width='6'/%3E%3Cpath d='M12 0L4 38M88 0L96 38' stroke='%23e4c590' stroke-width='2.4' stroke-opacity='.8'/%3E%3Cellipse cx='50' cy='24' rx='41' ry='5' stroke='%237a5430' stroke-width='4'/%3E%3Cellipse cx='50' cy='24' rx='41' ry='5' stroke='%23e4c590' stroke-width='1.6' stroke-opacity='.8'/%3E%3C/g%3E%3C/svg%3E")
         0 0 / 100% 100% no-repeat;
