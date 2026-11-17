@@ -292,10 +292,16 @@ class Presence:
         self.wake_table(holder.table_id)
 
     async def _is_back(self, table_id: str, account_id: str) -> bool:
-        """Whether the account streams at the table on any pod or a lease of it runs here; an unreadable roster says
-        no, which stores a leave the freeing reads the roster against again.
+        """Whether the account is here at the table; an unreadable roster says no, which stores a leave the freeing
+        reads the roster against again.
         """
-        return account_id in self.live_leases() or account_id in await self._connected_or_none(table_id)
+        return self._is_here(account_id, await self._connected_or_none(table_id))
+
+    def _is_here(self, account_id: str, connected: frozenset[str]) -> bool:
+        """Whether the account counts as here at a table whose streams on every pod are `connected`: it streams there,
+        or a lease of it runs here.
+        """
+        return account_id in connected or account_id in self.live_leases()
 
     def live_leases(self) -> frozenset[str]:
         """The agents whose lease runs: a read with no side effect, which a worker may call under a table's lock."""
@@ -653,7 +659,7 @@ class Presence:
         self, table_id: str, account_id: str, loop: asyncio.AbstractEventLoop
     ) -> AbstractContextManager[bool | None]:
         """Enter on a worker once it holds the table and the hold: yields whether the account is gone, and None once
-        stopped. The account is gone when the roster lists no stream of it at the table and no lease of it runs here.
+        stopped. The account is gone when, by the roster, it is not here (`_is_here`).
         A roster that cannot be read, or that is unsettled and does not list the account, raises
         `PresenceUnknownError`, which frees nothing. The exit runs on the worker after the commit, so `finish_writes`
         outlives a cancelled event-loop task.
@@ -667,7 +673,7 @@ class Presence:
                 raise PresenceUnknownError
             return present.at(table_id)
 
-        return _absent_from(self._guarded_write(loop, connected_unless_unknown), account_id, self.live_leases)
+        return _absent_from(self._guarded_write(loop, connected_unless_unknown), partial(self._is_here, account_id))
 
     def _connected_while_writing(
         self,
@@ -753,7 +759,7 @@ class Presence:
 
 @contextmanager
 def _absent_from(
-    connected: AbstractContextManager[frozenset[str] | None], account_id: str, live_leases: Callable[[], frozenset[str]]
+    connected: AbstractContextManager[frozenset[str] | None], is_here: Callable[[frozenset[str]], bool]
 ) -> Generator[bool | None]:
     with connected as accounts:
-        yield None if accounts is None else account_id not in accounts and account_id not in live_leases()
+        yield None if accounts is None else not is_here(accounts)

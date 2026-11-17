@@ -34,6 +34,14 @@ def lapse_of(table_id, account_id):
     return Lapse(StreamHolder(table_id, account_id, "stream").encoded(), "generation", Due("key", "claim"))
 
 
+def streams_on_another_pod(holding, elsewhere, account_id):
+    connect(elsewhere, TABLE, account_id, lambda: None)
+
+
+def holds_a_lease_here(holding, elsewhere, account_id):
+    holding.renew_lease(account_id)
+
+
 class TestTheFreeingGuard:
     @pytest.fixture
     def due(self, holds):
@@ -181,8 +189,9 @@ class TestALeave:
         assert holds.left == [(TABLE, "anna")]
         assert wakes.counts["ben"] == before + 1
 
-    def test_a_lapse_of_an_account_that_streams_again_stores_no_leave(self, holding, holds, elsewhere, leases):
-        connect(elsewhere, TABLE, "anna", lambda: None)
+    @pytest.mark.parametrize("back", [streams_on_another_pod, holds_a_lease_here])
+    def test_a_lapse_of_an_account_that_is_still_here_stores_no_leave(self, holding, holds, elsewhere, leases, back):
+        back(holding, elsewhere, "anna")
         leases.lapses = [lapse_of(TABLE, "anna")]
 
         run(self.served(holding, leases))
