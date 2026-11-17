@@ -206,11 +206,36 @@ class TestALeave:
 
         assert (leases.handler_failures, holds.lapsed) == ([UNREACHABLE], [(TABLE, "anna")])
 
-    def test_an_agent_lease_that_lapses_stores_its_leave_at_every_table_it_sits_at(self, holds, leases, time):
+    def test_an_agent_lease_that_lapses_stores_its_leave_as_a_lapse_at_every_table_it_sits_at(
+        self, holds, leases, time
+    ):
+        presence = self.agent_seated_at_both(holds, leases, time)
+        presence.renew_lease("agent")
+        run(time.advance(0))
+        assert holds.lapsed == []
+
+        run(time.advance(LEASE_SECONDS))
+
+        assert (holds.lapsed, holds.left) == ([(TABLE, "agent"), (OTHER_TABLE, "agent")], [])
+
+    def test_an_agent_lapse_whose_leave_fails_stores_it_as_a_lapse_on_the_retry(self, holds, leases, time):
+        presence = self.agent_seated_at_both(holds, leases, time)
+        presence.renew_lease("agent")
+        run(time.advance(0))
+        holds.leave_failures = [UNREACHABLE]
+
+        run(time.advance(LEASE_SECONDS))
+        assert holds.lapsed == [(OTHER_TABLE, "agent")]
+        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+
+        assert (holds.lapsed, holds.left) == ([(OTHER_TABLE, "agent"), (TABLE, "agent")], [])
+
+    @staticmethod
+    def agent_seated_at_both(holds, leases, time):
         async def seated_at_both(account_id):
             return [TABLE, OTHER_TABLE]
 
-        presence = Presence(
+        return Presence(
             chair_hold(time, holds),
             idle_next_deal(),
             idle_empty_table(),
@@ -218,13 +243,6 @@ class TestALeave:
             idle_wakes(),
             leases,
         )
-        presence.renew_lease("agent")
-        run(time.advance(0))
-        assert holds.left == []
-
-        run(time.advance(LEASE_SECONDS))
-
-        assert holds.left == [(TABLE, "agent"), (OTHER_TABLE, "agent")]
 
     @staticmethod
     async def served(holding, leases):

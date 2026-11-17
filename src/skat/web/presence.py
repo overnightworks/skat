@@ -363,7 +363,7 @@ class Presence:
             if not lapsed:
                 self.deal_soon(table_id)
                 continue
-            await self._store_leave(table_id, account_id)
+            await self._store_leave(table_id, account_id, lapsed=True)
             if table_id not in self._subscriptions:
                 self._start_empty_wait(table_id)
 
@@ -452,7 +452,7 @@ class Presence:
         table_id, account_id = subscription.table_id, subscription.account_id
         left = not any(each.account_id == account_id for each in self._subscriptions.get(table_id, []))
         if left:
-            await self._store_leave(table_id, account_id)
+            await self._store_leave(table_id, account_id, lapsed=False)
         try:
             await subscription.lease.aclose()
         except Exception as failure:
@@ -464,23 +464,25 @@ class Presence:
             self._start_empty_wait(table_id)
             self._note_soon(table_id)
 
-    async def _store_leave(self, table_id: str, account_id: str) -> None:
-        """Store the account's leave; a failure is logged and the leave stored again later while the presence runs."""
+    async def _store_leave(self, table_id: str, account_id: str, *, lapsed: bool) -> None:
+        """Store the account's leave, as a lapse where its lease lapsed; a failure is logged and the leave stored again
+        later while the presence runs.
+        """
         run = self._timer_runs.start(PresenceTimer.LEAVE_WRITE, table_id, account_id, table_id=table_id)
         try:
-            await self._hold.leave(table_id, account_id)
+            await (self._hold.lapse if lapsed else self._hold.leave)(table_id, account_id)
         except Exception as failure:
             run.failed(failure)
             if not self._stopped:
                 self._hold.scheduler.schedule(
-                    CHAIR_RELEASE_RETRY_SECONDS, partial(self._store_leave_again, table_id, account_id)
+                    CHAIR_RELEASE_RETRY_SECONDS, partial(self._store_leave_again, table_id, account_id, lapsed=lapsed)
                 )
             return
         run.succeeded()
 
-    async def _store_leave_again(self, table_id: str, account_id: str) -> None:
+    async def _store_leave_again(self, table_id: str, account_id: str, *, lapsed: bool) -> None:
         if not await self._is_back(table_id, account_id):
-            await self._store_leave(table_id, account_id)
+            await self._store_leave(table_id, account_id, lapsed=lapsed)
 
     def start_hold_sweeps(self) -> None:
         """Free the chairs whose hold is due every `HOLD_SWEEP_EVERY_SECONDS` while the presence runs."""
