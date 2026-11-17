@@ -77,10 +77,13 @@ class Pods:
         """The table's view as the process answers it, read once."""
         return process.request("GET", f"{TABLES_PATH}/{table_id}", cookie=cookie, **FETCH).json()
 
-    def restart_both(self) -> None:
-        """Stop both processes with SIGTERM, as a rollout does, then start them again on the same settings."""
+    def stop_both(self) -> None:
+        """Stop both processes with SIGTERM, as a rollout does."""
         for process in (self.first, self.second):
             process.stop()
+
+    def start_both(self) -> None:
+        """Start both stopped processes again on the same settings."""
         for process in (self.first, self.second):
             process.start()
 

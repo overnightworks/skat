@@ -9,14 +9,17 @@ from typing import TYPE_CHECKING
 
 import httpx2
 import pytest
+from sqlalchemy import select
 
 from skat.store.redis_clients import STREAM_LEASE_LASTS
+from skat.store.schema import chair_holds
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS, LAPSE_SWEEP_EVERY, STREAM_RENEWAL_EVERY
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.pods import Pods, running_pods
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from datetime import datetime
 
 pytestmark = [pytest.mark.postgres, pytest.mark.redis]
 
@@ -56,6 +59,17 @@ def leaver_at_a_new_table(pods: Pods) -> tuple[str, str, str]:
 
 def occupants(pods: Pods, table_id: str, cookie: str) -> list[str | None]:
     return [chair["occupant_name"] for chair in pods.table_at(pods.first, table_id, cookie)["chairs"]]
+
+
+def stored_holds(pods: Pods, table_id: str) -> frozenset[tuple[str, datetime]]:
+    """Each stored hold at the table, as its account and the deadline the store keeps."""
+    with pods.engine.connect() as connection:
+        return frozenset(
+            tuple(row)
+            for row in connection.execute(
+                select(chair_holds.c.account_id, chair_holds.c.due_at).where(chair_holds.c.table_id == table_id)
+            )
+        )
 
 
 def seconds_until_the_leaver_is_freed(pods: Pods, table_id: str, cookie: str, within: float) -> float:
@@ -106,8 +120,13 @@ def test_a_hold_stored_before_both_pods_restarted_frees_the_chair_at_its_deadlin
     ):
         next(e)
         stopped = time.monotonic()
-        pods.restart_both()
+        pods.stop_both()
+    stored = stored_holds(pods, table_id)
+    pods.start_both()
     started = time.monotonic()
+
+    assert stored != frozenset()
+    assert stored_holds(pods, table_id) in {stored, frozenset()}, "a start held the chair anew"
 
     seconds_until_the_leaver_is_freed(pods, table_id, opener_cookie, HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS + 30)
     assert time.monotonic() - stopped < HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS + MARGIN_SECONDS
