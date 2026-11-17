@@ -529,19 +529,13 @@ class TableService(LobbyReads, GameListReads):
         return self._server_steps().deal_next(table_id, connected_accounts)
 
     def end_empty_table(
-        self,
-        table_id: TableId,
-        connected_accounts: AbstractContextManager[frozenset[str] | None],
-        empty_seconds: int,
+        self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None], empty_seconds: int
     ) -> bool:
         """The server's step of ending an empty table; see `ServerSteps.end_empty_table`."""
         return self._server_steps().end_empty_table(table_id, connected_accounts, empty_seconds)
 
     def note_presence(
-        self,
-        table_id: TableId,
-        connected_accounts: AbstractContextManager[frozenset[str] | None],
-        empty_seconds: int,
+        self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None], empty_seconds: int
     ) -> bool:
         """The server's step of noting who is present; see `ServerSteps.note_presence`."""
         return self._server_steps().note_presence(table_id, connected_accounts, empty_seconds)
