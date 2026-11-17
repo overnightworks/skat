@@ -1,7 +1,8 @@
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Final, Literal
 
-from sqlalchemy import delete, exists, insert, select, update
+from sqlalchemy import Integer, delete, exists, func, insert, literal, select, update
+from sqlalchemy.dialects.postgresql import insert as upsert
 from sqlalchemy.exc import IntegrityError
 
 from skat.engine.bidding import PassedIn
@@ -22,6 +23,7 @@ from skat.store.schema import (
     RANK_TEXT,
     SKAT_HOLDER,
     SUIT_TEXT,
+    chair_holds,
     chairs,
     hand_cards,
     metadata,
@@ -54,6 +56,7 @@ from skat.table.records import (
 from skat.table.rules import CREATE_TABLE_COMMAND, series_number_of
 from skat.table.transactions import (
     DuplicateReceiptError,
+    HeldChair,
     LiveWait,
     OccupiedChair,
     PausedFacts,
@@ -65,7 +68,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Sequence
     from datetime import datetime
 
-    from sqlalchemy import Row
+    from sqlalchemy import ColumnElement, Row
     from sqlalchemy.engine import Connection, Engine
 
     from skat.table.game_cards import GameCards
@@ -223,6 +226,10 @@ def _forget_played_hand(connection: Connection, table_id: str) -> None:
         kontra_no_words,
     ):
         connection.execute(delete(rows).where(rows.c.table_id == table_id))
+
+
+def _hold_of(table_id: TableId, account_id: str) -> tuple[ColumnElement[bool], ...]:
+    return chair_holds.c.table_id == table_id.value, chair_holds.c.account_id == account_id
 
 
 class _PostgresTableTransaction:
@@ -461,13 +468,56 @@ class _PostgresTableTransaction:
             )
         )
 
-    def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
-        return tuple(
-            OccupiedChair(TableId(row.table_id), row.account_id)
-            for row in self._connection.execute(
-                select(chairs.c.table_id, chairs.c.account_id).where(chairs.c.account_id.is_not(None))
+    def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float) -> None:
+        seated = (
+            select(
+                chairs.c.table_id,
+                chairs.c.account_id,
+                func.now() + func.make_interval(0, 0, 0, 0, 0, 0, literal(hold_seconds)),
+            )
+            .join(tables, tables.c.id == chairs.c.table_id)
+            .where(
+                chairs.c.table_id == table_id.value,
+                chairs.c.account_id == account_id,
+                tables.c.end_reason.is_(None),
             )
         )
+        written = upsert(chair_holds).from_select(["table_id", "account_id", "due_at"], seated)
+        self._connection.execute(
+            written.on_conflict_do_update(
+                index_elements=[chair_holds.c.table_id, chair_holds.c.account_id],
+                set_={"due_at": written.excluded.due_at},
+            )
+        )
+
+    def delete_hold(self, table_id: TableId, account_id: str) -> None:
+        self._connection.execute(delete(chair_holds).where(*_hold_of(table_id, account_id)))
+
+    def locked_hold_due(self, table_id: TableId, account_id: str) -> bool:
+        due = self._connection.execute(
+            select(chair_holds.c.due_at <= func.now()).where(*_hold_of(table_id, account_id)).with_for_update()
+        ).scalar_one_or_none()
+        return bool(due)
+
+    def due_holds(self, limit: int) -> tuple[HeldChair, ...]:
+        return tuple(
+            HeldChair(TableId(row.table_id), row.account_id)
+            for row in self._connection.execute(
+                select(chair_holds.c.table_id, chair_holds.c.account_id)
+                .where(chair_holds.c.due_at <= func.now())
+                .order_by(chair_holds.c.due_at)
+                .limit(limit)
+            )
+        )
+
+    def hold_seconds_left(self, table_id: TableId) -> dict[str, int]:
+        left = func.greatest(0, func.ceil(func.extract("epoch", chair_holds.c.due_at - func.now()))).cast(Integer)
+        return {
+            row.account_id: row.left
+            for row in self._connection.execute(
+                select(chair_holds.c.account_id, left.label("left")).where(chair_holds.c.table_id == table_id.value)
+            )
+        }
 
     def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
         return tuple(

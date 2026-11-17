@@ -270,9 +270,8 @@ class AccountTablesSource(_TopicHoldingSource, ABC):
     async def read(self, actor: Actor) -> SourceMessage:
         listed = await self._listed(actor)
         connected = await self._stand_on(listed)
-        holds = self._presence.hold_seconds_left(connected)
         held = tuple(table.table_id for table in listed)
-        entries = await run_in_threadpool(self._tables.my_tables, actor.account_id, held, connected, holds, self._days)
+        entries = await run_in_threadpool(self._tables.my_tables, actor.account_id, held, connected, self._days)
         return self._message_of(entries)
 
     async def _listed(self, actor: Actor) -> tuple[TableVersion, ...]:
@@ -298,9 +297,8 @@ class OpenTablesSource(_TopicHoldingSource):
     async def read(self, actor: Actor) -> SourceMessage:
         listed = await self._listed(actor)
         connected = await self._stand_on(listed)
-        holds = self._presence.hold_seconds_left(connected)
         ids = tuple(table.table_id for table in listed)
-        entries = await run_in_threadpool(self._tables.open_tables, actor.account_id, ids, connected, holds, self._days)
+        entries = await run_in_threadpool(self._tables.open_tables, actor.account_id, ids, connected, self._days)
         answer = OpenAnswer(tables=[_open_answer_of(entry) for entry in entries])
         return SourceMessage(answer.model_dump_json(), event=StreamEvent.OPEN)
 

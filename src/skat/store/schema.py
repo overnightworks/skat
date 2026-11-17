@@ -387,6 +387,16 @@ chairs = Table(
     Index("chairs_by_account", "account_id", postgresql_where=text("account_id IS NOT NULL")),
 )
 
+# An away member's chair hold: the deadline after which any pod frees the chair, on the database's clock.
+chair_holds = Table(
+    "chair_holds",
+    metadata,
+    Column("table_id", Text, ForeignKey(tables.c.id, ondelete="CASCADE"), primary_key=True),
+    Column("account_id", Text, primary_key=True),
+    Column("due_at", DateTime(timezone=True), nullable=False),
+    Index("chair_holds_by_due", "due_at"),
+)
+
 member_book = Table(
     "member_book",
     metadata,

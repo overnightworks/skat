@@ -1,16 +1,17 @@
 import copy
+import math
 from contextlib import contextmanager
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord, Visibility
 from skat.table.rules import CREATE_TABLE_COMMAND, played_series_of
 from skat.table.service import TableService
-from skat.table.transactions import DuplicateReceiptError, LiveWait, OccupiedChair, PausedFacts, TableVersion
+from skat.table.transactions import DuplicateReceiptError, HeldChair, LiveWait, OccupiedChair, PausedFacts, TableVersion
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
-    from datetime import datetime
+    from collections.abc import Callable, Iterable, Iterator
 
     from skat.table.game_cards import GameCards
     from skat.table.member_place import BookEntry
@@ -25,9 +26,14 @@ class DealtWithoutTimeError(Exception):
 
 
 class FakeTableStore:
-    """The transaction port in memory: a block that raises leaves the store as it found it."""
+    """The transaction port in memory: a block that raises leaves the store as it found it.
 
-    def __init__(self) -> None:
+    `clock` is the store's own clock, on which a chair hold falls due.
+    """
+
+    def __init__(self, clock: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
+        self.clock = clock
+        self.holds: dict[tuple[str, str], datetime] = {}
         self.tables: dict[str, TableRecord | EndedTable] = {}
         self.receipts: dict[tuple[str, str], Receipt] = {}
         self.ended_at: dict[str, datetime] = {}
@@ -49,6 +55,7 @@ class FakeTableStore:
                 self.last_played_at,
                 self.opener_names,
                 self.book,
+                self.holds,
             )
         )
         try:
@@ -63,6 +70,7 @@ class FakeTableStore:
                 self.last_played_at,
                 self.opener_names,
                 self.book,
+                self.holds,
             ) = before
             raise
 
@@ -144,6 +152,7 @@ class FakeTableStore:
             self.receipts = {
                 key: receipt for key, receipt in self.receipts.items() if receipt.table_id.value != table_id
             }
+            self.holds = {key: due for key, due in self.holds.items() if key[0] != table_id}
         for table_id in due & self.with_games:
             ended = self.tables[table_id]
             self.tables[table_id] = replace(ended, ending=replace(ended.ending, closed_by_name=None))
@@ -164,6 +173,30 @@ class FakeTableStore:
             for table in self.tables.values()
             if isinstance(table, TableRecord)
         )
+
+    def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float) -> None:
+        if any(chair.table_id == table_id and chair.account_id == account_id for chair in self.occupied_chairs()):
+            self.holds[table_id.value, account_id] = self.clock() + timedelta(seconds=hold_seconds)
+
+    def delete_hold(self, table_id: TableId, account_id: str) -> None:
+        self.holds.pop((table_id.value, account_id), None)
+
+    def locked_hold_due(self, table_id: TableId, account_id: str) -> bool:
+        due_at = self.holds.get((table_id.value, account_id))
+        return due_at is not None and due_at <= self.clock()
+
+    def due_holds(self, limit: int) -> tuple[HeldChair, ...]:
+        now = self.clock()
+        due = sorted((due_at, key) for key, due_at in self.holds.items() if due_at <= now)
+        return tuple(HeldChair(TableId(table_id), account_id) for _, (table_id, account_id) in due[:limit])
+
+    def hold_seconds_left(self, table_id: TableId) -> dict[str, int]:
+        now = self.clock()
+        return {
+            account_id: max(0, math.ceil((due_at - now).total_seconds()))
+            for (at_table, account_id), due_at in self.holds.items()
+            if at_table == table_id.value
+        }
 
     def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         return tuple(
