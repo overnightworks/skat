@@ -1,0 +1,8 @@
+claim_id = "60f9f51701d2439f8afdf4cbab59a613"
+agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
+role = "builder"
+base = "a30d899b853d04af887b46515b7f383c48c315dd"
+branch = "claude/issue-668-skat-pins-agents-v0-52-0-and-lets-the-pe"
+scope = ["pyproject.toml", "src/skat/web/member_place.py", "tests", "uv.lock"]
+opened_commit = "8a3d4fec0a24f7045131e324d374ac6b1fb35ad5"
+whole_reason = "a pin bump touches pyproject, lock, the member place and its tests"
