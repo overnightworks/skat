@@ -43,3 +43,11 @@ job = "Lint and test"
 item = "overnightworks/skat#484"
 date = 2026-11-13
 reason = "written by design-catalogs from the language catalogs and proven byte for byte by make words-check, which make lint in Lint and test runs"
+
+[[advisories.allow]]
+id = "GHSA-fc5q-39xc-vjpf"
+lock = "frontend/pnpm-lock.yaml"
+until = 2027-01-31
+date = 2026-11-17
+item = "overnightworks/quality#879"
+reason = "picomatch 4.0.7 comes only through svelte-check and tinyglobby at build time and no fix is released"
