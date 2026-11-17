@@ -1,0 +1,8 @@
+claim_id = "ca5a95f3e7dc441d8fbf6ed938ec4146"
+agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
+role = "builder"
+base = "a30d899b853d04af887b46515b7f383c48c315dd"
+branch = "claude/issue-681-skat-s-gate-runs-on-quality-v0-22-0"
+scope = [".github/workflows"]
+opened_commit = "44d7579896625e73e3e9ca23ea954a4896586af2"
+whole_reason = "every quality pin across the workflow files moves together"
