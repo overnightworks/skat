@@ -7,6 +7,7 @@ from dataclasses import replace
 from datetime import timedelta
 
 import pytest
+from agents.mcp_server.route_call import ARGUMENTS_REFUSED_TEXT
 from agents.mcp_wire import MCP_ENDPOINT_PATH
 from agents.member import ACCEPT_INVITATION_TOOL, LEASE_SECONDS, STANDING_URI, AcceptInvitationRefusal
 from agents.turn import ToolRefusal
@@ -285,14 +286,16 @@ class TestAnAcceptThatIsStale:
             pytest.param({"unknown": 1}, id="an-unknown-argument"),
         ],
     )
-    def test_not_as_stale_when_the_arguments_are_malformed(self, invite, skat, agent, owner, table_id, changes):
+    def test_by_the_front_naming_the_failing_fields_when_the_arguments_are_malformed(
+        self, invite, skat, agent, owner, table_id, changes
+    ):
         offer = invite(agent, table_id, owner)
         before = stored(skat)
 
         with at_the_table(skat, table_id, owner):
             answer = agent.accept(table_id, offer, **changes)
 
-        assert (answer.is_error, "stale_invitation" in answer.text) == (True, False)
+        assert (answer.is_error, answer.text.startswith(f"{ARGUMENTS_REFUSED_TEXT}: ")) == (True, True)
         assert stored(skat) == before
         assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
 
