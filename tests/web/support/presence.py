@@ -63,8 +63,7 @@ class Holds:
     """The stored chair holds as the presence uses them: the leaves stored and the holds cleared, in order, the holds
     the store answers as due, each freeing asked for with what its guard yielded, and the failures to come.
 
-    `on_leave` and `on_clear` run inside the write, before it answers; `within` runs on the event loop while a freeing
-    holds its guard.
+    `on_leave` and `on_clear` run inside the write, before it answers.
     """
 
     def __init__(self):
@@ -77,10 +76,8 @@ class Holds:
         self.clear_failures = []
         self.due_failures = []
         self.free_failures = []
-        self.freed = True
         self.on_leave = None
         self.on_clear = None
-        self.within = None
 
     async def leave(self, table_id, account_id):
         if self.leave_failures:
@@ -105,11 +102,11 @@ class Holds:
         self.calls.append((table_id, account_id))
         if self.free_failures:
             raise self.free_failures.pop(0)
-        yielded = await on_a_worker(absent, lambda is_absent: is_absent, self.within)
+        yielded = await on_a_worker(absent, lambda is_absent: is_absent)
         self.outcomes.append(yielded)
         if yielded is not None:
             self.due_now.remove((table_id, account_id))
-        return bool(yielded) and self.freed
+        return bool(yielded)
 
 
 def chair_hold(time, holds):
