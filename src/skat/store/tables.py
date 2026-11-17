@@ -407,6 +407,7 @@ class _PostgresTableTransaction:
         )
         _forget_played_hand(self._connection, table_id.value)
         self._connection.execute(delete(chairs).where(chairs.c.table_id == table_id.value))
+        self._connection.execute(delete(chair_holds).where(chair_holds.c.table_id == table_id.value))
         forget_table(self._connection, table_id.value)
         self._connection.execute(
             delete(receipts).where(receipts.c.table_id == table_id.value, receipts.c.command != CREATE_TABLE_COMMAND)

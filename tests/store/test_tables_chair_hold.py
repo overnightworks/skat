@@ -272,8 +272,8 @@ class TestTheFreeing:
         assert holds(engine) == set()
 
     def test_a_due_hold_at_an_ended_table_is_dropped(self, service, engine, transactions, table_id):
-        hold_due_in(engine, table_id, LEAVER.account_id, -1)
         ended_at(transactions, table_id)
+        hold_due_in(engine, table_id, LEAVER.account_id, -1)
 
         assert service.free_held_chair(table_id, LEAVER.account_id, nullcontext(ABSENT)) is False
         assert holds(engine) == set()
@@ -291,8 +291,8 @@ class TestTheFreeing:
 
 
 def test_forgetting_an_ended_table_drops_its_holds(service, engine, transactions, table_id):
-    hold_due_in(engine, table_id, LEAVER.account_id, HOLD_SECONDS)
     ended_at(transactions, table_id)
+    hold_due_in(engine, table_id, LEAVER.account_id, HOLD_SECONDS)
     with transactions.begin() as transaction:
         transaction.forget_ended_before(ENDED_AT)
 
