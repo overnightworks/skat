@@ -7,7 +7,7 @@ from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
-from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
+from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.style import STYLES, expect_the_furniture_clear, give_the_table_its_style
 
 if TYPE_CHECKING:
@@ -340,6 +340,45 @@ def test_the_laid_cards_and_their_tags_stay_clear_of_every_fan(
             expect(person.locator(FELT_CARD)).to_have_count(played % CARDS_IN_A_TRICK or CARDS_IN_A_TRICK)
             person.wait_for_function(CLEAR_OF_EVERY_FAN)
         expect_the_furniture_clear(table.everyone, table_style)
+    assert page_errors == []
+
+
+# The chair the page paints over a card of the own hand where a finger reaches it: down the middle of the strip the
+# next card leaves free, and down the middle of the last card.
+CHAIRS_OVER_THE_HAND = """() => {
+    const cards = [...document.querySelectorAll('.own-hand .card')];
+    return cards.flatMap((card, index) => {
+        const box = card.getBoundingClientRect();
+        const next = cards[index + 1]?.getBoundingClientRect();
+        const x = (box.left + (next ? Math.min(next.left, box.right) : box.right)) / 2;
+        return [0.05, 0.25, 0.5]
+            .map((down) => document.elementFromPoint(x, box.top + box.height * down)?.closest('.chair'))
+            .filter((chair) => chair)
+            .map((chair) => `card ${index} under the chair of seat ${chair.dataset.seat}`);
+    });
+}"""
+
+
+def test_on_the_smallest_phone_no_chair_covers_a_card_of_the_hand_and_two_taps_play_the_first_legal_card(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_playing_table(SMALL_PHONE)
+    forehand_seat = table.seat_at["forehand"]
+    forehand = table.pages[forehand_seat]
+    expect(forehand.locator(LEGAL_CARD)).to_have_count(CARDS_IN_A_HAND)
+    for person in table.pages.values():
+        assert person.evaluate(CHAIRS_OVER_THE_HAND) == []
+
+    for card in reversed(forehand.locator(f"{HAND_CARD} button").all()):
+        card.tap(position=INSIDE_THE_VISIBLE_STRIP)
+        expect(forehand.locator(LIFTED_CARD)).to_have_count(1)
+        assert forehand.evaluate(CHAIRS_OVER_THE_HAND) == []
+    (first,) = faces_of(forehand.locator(LIFTED_CARD))
+    card_in_hand(forehand, first).locator("button").tap(position=INSIDE_THE_VISIBLE_STRIP)
+
+    laid = forehand.locator(f"{FELT_CARD}[data-seat='{forehand_seat}']")
+    expect(laid).to_have_count(1)
+    assert faces_of(laid) == {first}
     assert page_errors == []
 
 

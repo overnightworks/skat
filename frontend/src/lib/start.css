@@ -3250,6 +3250,14 @@ body {
     }
 }
 
+/* On the smallest phones the near chair's plate reaches down to the hand's top edge, and a lifted card rises past it: the hand lies above the chairs, so no plate covers a card a finger reaches for. */
+@media (max-width: 379px) {
+    .room .own-hand {
+        position: relative;
+        z-index: 2;
+    }
+}
+
 /* On turn the legal cards stand lifted with the blue ring, the tapped one higher and wider, the others dimmed. */
 .room .own-hand .card.ok {
     --lift: calc(var(--card-width) * -0.18);
