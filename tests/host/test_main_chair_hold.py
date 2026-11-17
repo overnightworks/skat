@@ -126,7 +126,10 @@ def test_a_hold_stored_before_both_pods_restarted_frees_the_chair_at_its_deadlin
     started = time.monotonic()
 
     assert stored != frozenset()
-    assert stored_holds(pods, table_id) in {stored, frozenset()}, "a start held the chair anew"
+    while (now_stored := stored_holds(pods, table_id)) != frozenset():
+        assert now_stored == stored, "a start or a lapse stored the hold anew"
+        assert time.monotonic() - started < HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS + 30, "the hold was kept too long"
+        time.sleep(POLL_SECONDS)
 
     seconds_until_the_leaver_is_freed(pods, table_id, opener_cookie, HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS + 30)
     assert time.monotonic() - stopped < HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS + MARGIN_SECONDS
