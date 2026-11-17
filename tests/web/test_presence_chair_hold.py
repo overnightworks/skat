@@ -5,15 +5,17 @@ arrival, and sweeps the due holds with a guard that frees only an account the ro
 import asyncio
 
 import pytest
+from agents.member import LEASE_SECONDS
 from tandem import Lapse
 from tandem.deadlines import Due
 
 from skat.web import presence as presence_module
-from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, HOLD_SWEEP_EVERY_SECONDS
+from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, HOLD_SWEEP_EVERY_SECONDS, AgentLease, Presence
 from skat.web.presence_line import EVENT, PresenceTimer
 from skat.web.stream_holder import StreamHolder
+from tests.support.idle_presence import idle_empty_table, idle_next_deal, idle_wakes
 from tests.support.log_lines import lines_of, logged
-from tests.web.support.presence import OTHER_TABLE, TABLE, connect, failed_timers, run
+from tests.web.support.presence import OTHER_TABLE, TABLE, chair_hold, connect, failed_timers, run
 
 UNREACHABLE = ConnectionError("redis is unreachable")
 
@@ -194,6 +196,26 @@ class TestALeave:
         run(self.served(holding, leases))
 
         assert (leases.handler_failures, holds.left) == ([UNREACHABLE], [(TABLE, "anna")])
+
+    def test_an_agent_lease_that_lapses_stores_its_leave_at_every_table_it_sits_at(self, holds, leases, time):
+        async def seated_at_both(account_id):
+            return [TABLE, OTHER_TABLE]
+
+        presence = Presence(
+            chair_hold(time, holds),
+            idle_next_deal(),
+            idle_empty_table(),
+            AgentLease(LEASE_SECONDS, seated_at_both),
+            idle_wakes(),
+            leases,
+        )
+        presence.renew_lease("agent")
+        run(time.advance(0))
+        assert holds.left == []
+
+        run(time.advance(LEASE_SECONDS))
+
+        assert holds.left == [(TABLE, "agent"), (OTHER_TABLE, "agent")]
 
     @staticmethod
     async def served(holding, leases):

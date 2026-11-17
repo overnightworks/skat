@@ -477,8 +477,6 @@ class Presence:
         self._hold.scheduler.schedule(HOLD_SWEEP_EVERY_SECONDS, self._sweep_holds)
 
     async def _sweep_holds(self) -> None:
-        if self._stopped:
-            return
         try:
             await self._free_due_holds()
         finally:

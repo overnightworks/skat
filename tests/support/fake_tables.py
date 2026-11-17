@@ -179,7 +179,7 @@ class FakeTableStore:
         self.holds[table_id, account_id] = self.clock() - timedelta(seconds=1)
 
     def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float) -> None:
-        if any(chair.table_id == table_id and chair.account_id == account_id for chair in self.occupied_chairs()):
+        if any(chair.table_id == table_id and chair.account_id == account_id for chair in self._occupied_chairs()):
             self.holds[table_id.value, account_id] = self.clock() + timedelta(seconds=hold_seconds)
 
     def delete_hold(self, table_id: TableId, account_id: str) -> None:
@@ -202,7 +202,7 @@ class FakeTableStore:
             if at_table == table_id.value
         }
 
-    def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
+    def _occupied_chairs(self) -> tuple[OccupiedChair, ...]:
         return tuple(
             OccupiedChair(table.id, chair.occupant.account_id)
             for table in self.tables.values()
@@ -238,7 +238,7 @@ class FakeTableStore:
         wanted = {table_id.value for table_id in table_ids}
         return frozenset(
             chair
-            for chair in self.occupied_chairs()
+            for chair in self._occupied_chairs()
             if chair.table_id.value in wanted and chair.account_id in account_ids
         )
 
