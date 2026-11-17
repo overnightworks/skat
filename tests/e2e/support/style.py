@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -74,15 +74,57 @@ PAINT = """(element, properties) => {
 }"""
 
 
-def expect_painted_as_the_scene(person: Page, scene: str, live: str, drawn: str, properties: list[str]) -> None:
-    """`live` has the computed `properties` that `drawn` has in the blessed scene at this width."""
+def in_the_scene(person: Page, scene: str, script: str, argument: object) -> Any:
+    """What `script` returns for the frame of the blessed `scene` at the width of `person`'s page, and `argument`."""
     viewport = person.viewport_size
     assert viewport is not None
     frame = f"{scene}-{viewport['width']}"
     page_of_scenes = person.context.new_page()
     try:
         page_of_scenes.goto(f"{TABLE_SCENES.as_uri()}?f={frame}")
-        in_scene = page_of_scenes.locator(f"[id='{frame}'] {drawn}").first.evaluate(PAINT, properties)
+        return page_of_scenes.locator(f"[id='{frame}']").evaluate(script, argument)
     finally:
         page_of_scenes.close()
+
+
+def expect_painted_as_the_scene(person: Page, scene: str, live: str, drawn: str, properties: list[str]) -> None:
+    """`live` has the computed `properties` that `drawn` has in the blessed scene at this width."""
+    in_scene = in_the_scene(
+        person, scene, f"(frame, properties) => ({PAINT})(frame.querySelector({drawn!r}), properties)", properties
+    )
     assert person.locator(live).first.evaluate(PAINT, properties) == in_scene
+
+
+# The boxes of everything `selector` finds, left to right, measured from the frame's top left corner, with the radii
+# its top left corner is drawn with, after the browser shrinks radii too long for the box; the page measures from the
+# window's, which a scene's frame stands for.
+BOXES = """(frame, selector) => {
+    const origin = frame === document.documentElement ? { left: 0, top: 0 } : frame.getBoundingClientRect();
+    const length = (value, whole) => (value.endsWith('%') ? (parseFloat(value) / 100) * whole : parseFloat(value));
+    return [...frame.querySelectorAll(selector)]
+        .map((element) => {
+            const box = element.getBoundingClientRect();
+            const [across, down = across] = getComputedStyle(element).borderTopLeftRadius.split(' ');
+            const [x, y] = [length(across, box.width), length(down, box.height)];
+            const shrink = Math.min(1, box.width / (2 * x), box.height / (2 * y));
+            return {
+                left: box.left - origin.left,
+                top: box.top - origin.top,
+                width: box.width,
+                height: box.height,
+                cornerWidth: x * shrink,
+                cornerHeight: y * shrink,
+            };
+        })
+        .sort((first, second) => first.left - second.left);
+}"""
+
+
+def boxes_in_the_scene(person: Page, scene: str, selector: str) -> list[dict[str, Any]]:
+    """The boxes the blessed `scene` draws for `selector` at the width of `person`'s page."""
+    return in_the_scene(person, scene, BOXES, selector)
+
+
+def boxes_on_the_page(person: Page, selector: str) -> list[dict[str, Any]]:
+    """The boxes `person`'s page draws for `selector`, measured as `boxes_in_the_scene` measures the scene's."""
+    return person.locator(":root").evaluate(BOXES, selector)

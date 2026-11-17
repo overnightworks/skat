@@ -2149,8 +2149,10 @@ body {
     grid-template-rows: auto minmax(136px, 1fr) auto auto auto auto;
 }
 
-.room .stage:has(> .bid) .felt {
-    grid-row: 2 / 6;
+@media (max-width: 899px) {
+    .room .stage:has(> .bid) .felt {
+        grid-row: 2 / 6;
+    }
 }
 
 .room .stage:has(> .bid) .skat-spot {
@@ -3327,8 +3329,10 @@ body {
     grid-template-rows: auto auto auto auto auto;
 }
 
-.room .stage:has(> .trick) .felt {
-    grid-row: 2 / 5;
+@media (max-width: 899px) {
+    .room .stage:has(> .trick) .felt {
+        grid-row: 2 / 5;
+    }
 }
 
 .room .stage:has(> .trick) .chair:nth-child(3) {
@@ -3983,10 +3987,15 @@ body {
         grid-template-rows: auto minmax(215px, 1fr) minmax(215px, 1fr) auto;
     }
 
-    /* The card counts hang below the far fans, where the controls and the trick lie while a hand is declared or played. */
-    .room .stage:has(> :is(.declare, .trick)) .count-tag {
+    /* The card counts hang below the far fans, where the trick lies while a hand is played. */
+    .room .stage:has(> .trick) .count-tag {
         display: none;
     }
+}
+
+/* The card counts hang below the far fans, where the keys of the declaration lie while a game is declared. */
+.room .stage:has(> .declare) .count-tag {
+    display: none;
 }
 
 /* A short phone gives up its gaps, so the bar under the hand stays on the screen. */
@@ -4292,7 +4301,10 @@ body {
         padding: 22px 24px;
     }
 
+    /* The plaque and the hand lie on the felt, which reaches up behind the plaque and down under the hand. */
     .room .plaque {
+        position: relative;
+        z-index: 2;
         margin-bottom: 0;
     }
 
@@ -4300,11 +4312,36 @@ body {
     .room .stage {
         width: min(100%, 1180px);
         grid-template-rows: auto minmax(165px, 1fr) minmax(165px, 1fr) auto;
-        --chair-width: 160px;
+        --chair-width: 236px;
         padding-bottom: 8px;
     }
-    .room .felt {
-        margin-inline: 120px;
+
+    /* The table stands where the scenes draw it in every phase: from just above the plaque down under the hand, as wide as the stage leaves beside the far chairs; a short screen shortens it. The felt lies inside the table's rim. */
+    .room .stage {
+        --table-top: -22px;
+        --table-height: min(566px, 100% - 72px);
+        --table-inline: 120px;
+        --rim: 18px;
+    }
+
+    .room .stage > .felt {
+        position: absolute;
+        grid-area: auto;
+        top: calc(var(--table-top) + var(--rim));
+        right: calc(var(--table-inline) + var(--rim));
+        left: calc(var(--table-inline) + var(--rim));
+        height: calc(var(--table-height) - 2 * var(--rim));
+        margin: 0;
+    }
+
+    /* Klassik's felt is long with round ends, in a rim of wood with a brass line. */
+    .room[data-style="klassik"] .felt {
+        border-radius: 999px;
+        box-shadow:
+            0 0 0 calc(var(--rim) * 0.58) #57331b,
+            0 0 0 calc(var(--rim) * 0.58 + 1.4px) rgba(201, 164, 100, 0.8),
+            0 0 0 var(--rim) #57331b,
+            0 40px 70px -20px rgba(0, 0, 0, 0.9);
     }
 
     /* While a hand is played the near chair lies beside the trick, so the hand and the bar stay on the screen. */
@@ -4314,13 +4351,27 @@ body {
     }
 
     .room .controls {
+        position: relative;
         margin-top: 12px;
     }
+
+    /* The far chairs reach past the stage's padding over the felt's round ends, as the scenes draw them. */
     .room .chair:nth-child(1) {
         justify-self: start;
+        margin-left: -52px;
     }
     .room .chair:nth-child(2) {
         justify-self: end;
+        margin-right: -52px;
+    }
+
+    /* While a hand is played the far chairs stand a little below the plaque's row, as the scenes draw them, and the trick's row takes the room the screen has to spare, so the rows above it keep their places and the hand stands at the bottom. */
+    .room .stage:has(> .trick) {
+        grid-template-rows: auto auto 1fr auto auto;
+    }
+
+    .room .stage:has(> .trick) .chair:is(:nth-child(1), :nth-child(2)) {
+        margin-top: 42px;
     }
     .room .chair:nth-child(3) {
         grid-column: 1;
@@ -4459,8 +4510,10 @@ body {
     display: none;
 }
 
-.room .stage:has(> .result) .felt {
-    grid-row: 2 / 5;
+@media (max-width: 899px) {
+    .room .stage:has(> .result) .felt {
+        grid-row: 2 / 5;
+    }
 }
 
 .room .stage:has(> .result) .chair:nth-child(3) {
@@ -4732,10 +4785,6 @@ body {
 @media (min-width: 900px) and (max-height: 860px) {
     .room .result {
         gap: 6px;
-    }
-
-    .room .stage:has(> .result) .felt {
-        grid-row: 2 / 4;
     }
 
     .room .stage:has(> .result) .chair:nth-child(3) {
@@ -8195,11 +8244,6 @@ body {
 
     .room .stage:has(> .trick):has(> .notice.seat) .chair.mine {
         margin-bottom: -4px;
-    }
-
-    /* The felt reaches up with the trick, so the raised cards still lie on it. */
-    .room .stage:has(> .trick) .felt {
-        margin-top: 6px;
     }
 
     /* At the result the card rises, so the bar stands under it, clear of the keys. */

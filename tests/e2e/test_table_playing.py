@@ -4,16 +4,22 @@ import pytest
 from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.engine.tricks import CARDS_IN_A_GAME
+from skat.table.records import TableStyle
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
-from tests.e2e.support.style import STYLES, expect_the_furniture_clear, give_the_table_its_style
+from tests.e2e.support.style import (
+    STYLES,
+    boxes_in_the_scene,
+    boxes_on_the_page,
+    expect_the_furniture_clear,
+    give_the_table_its_style,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from skat.table.records import TableStyle
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
@@ -340,6 +346,43 @@ def test_the_laid_cards_and_their_tags_stay_clear_of_every_fan(
             expect(person.locator(FELT_CARD)).to_have_count(played % CARDS_IN_A_TRICK or CARDS_IN_A_TRICK)
             person.wait_for_function(CLEAR_OF_EVERY_FAN)
         expect_the_furniture_clear(table.everyone, table_style)
+    assert page_errors == []
+
+
+# The blessed scene of each style that shows a trick on a desktop's felt.
+TRICK_SCENES = {TableStyle.KLASSIK: "last-trick-rest", TableStyle.STRANDBAR: "strand-trick"}
+# A box on the page stands where the scene draws it, to the pixel the browser rounds to.
+SCENE_TOLERANCE = 2
+# Where a box stands and how large it is, and how round its corners are drawn.
+PLACE = ("left", "top", "width", "height")
+SHAPE = ("cornerWidth", "cornerHeight")
+
+
+def expect_drawn_as_the_scene(
+    page_boxes: list[dict[str, Any]], scene_boxes: list[dict[str, Any]], measures: tuple[str, ...]
+) -> None:
+    assert len(page_boxes) == len(scene_boxes)
+    for on_page, in_scene in zip(page_boxes, scene_boxes, strict=True):
+        for measure in measures:
+            assert abs(on_page[measure] - in_scene[measure]) <= SCENE_TOLERANCE, (measure, on_page, in_scene)
+
+
+@pytest.mark.parametrize("table_style", STYLES)
+def test_on_a_desktop_the_felt_and_the_far_chairs_stand_as_the_scene_draws_them(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], table_style: TableStyle
+) -> None:
+    table = deal_a_playing_table(DESKTOP)
+    scene = TRICK_SCENES[table_style]
+    for person in table.pages.values():
+        expect(person.locator(".chair:not(.mine)")).to_have_count(len(table.pages) - 1)
+        expect_drawn_as_the_scene(
+            boxes_on_the_page(person, ".felt"), boxes_in_the_scene(person, scene, ".felt"), PLACE + SHAPE
+        )
+        expect_drawn_as_the_scene(
+            boxes_on_the_page(person, ".chair:not(.mine) .tile"),
+            boxes_in_the_scene(person, scene, ".seat:not(.own) > .chair"),
+            PLACE,
+        )
     assert page_errors == []
 
 
