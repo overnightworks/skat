@@ -161,6 +161,19 @@ def run(scenario):
     return asyncio.run(scenario)
 
 
+def stop_during_a_hanging_read(holding, leases, work):
+    """Start the work, stop the presence once its roster read hangs, and wait for the work to end."""
+    leases.reading_hangs = True
+
+    async def scenario():
+        working = asyncio.create_task(work())
+        await leases.read_started.wait()
+        holding.stop()
+        await asyncio.wait_for(working, 5)
+
+    run(scenario())
+
+
 def connect(presence, table_id, account_id, wake):
     return run(presence.subscribe(table_id, account_id, wake))
 

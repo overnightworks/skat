@@ -12,7 +12,7 @@ from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, HOLD_SWEEP_EVERY_SECO
 from skat.web.presence_line import PresenceTimer
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.log_lines import logged
-from tests.web.support.presence import TABLE, connect, failed_timers, run
+from tests.web.support.presence import TABLE, connect, failed_timers, run, stop_during_a_hanging_read
 
 UNREACHABLE = ConnectionError("redis is unreachable")
 
@@ -102,15 +102,8 @@ class TestAStalledRoster:
         self, holding, leases, deals, monkeypatch
     ):
         monkeypatch.setattr(presence_module, "ROSTER_READ_TIMEOUT_SECONDS", 30)
-        leases.reading_hangs = True
 
-        async def scenario():
-            dealing = asyncio.create_task(holding.deal_now(TABLE))
-            await leases.read_started.wait()
-            holding.stop()
-            await asyncio.wait_for(dealing, 5)
-
-        run(scenario())
+        stop_during_a_hanging_read(holding, leases, lambda: holding.deal_now(TABLE))
 
         assert deals.calls == [(TABLE, None)]
 

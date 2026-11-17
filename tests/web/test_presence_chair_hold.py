@@ -15,7 +15,15 @@ from skat.web.presence_line import EVENT, PresenceTimer
 from skat.web.stream_holder import StreamHolder
 from tests.support.idle_presence import idle_empty_table, idle_next_deal, idle_wakes
 from tests.support.log_lines import lines_of, logged
-from tests.web.support.presence import OTHER_TABLE, TABLE, chair_hold, connect, failed_timers, run
+from tests.web.support.presence import (
+    OTHER_TABLE,
+    TABLE,
+    chair_hold,
+    connect,
+    failed_timers,
+    run,
+    stop_during_a_hanging_read,
+)
 
 UNREACHABLE = ConnectionError("redis is unreachable")
 
@@ -91,16 +99,9 @@ class TestTheFreeingGuard:
         self, holding, holds, leases, time, due, monkeypatch
     ):
         monkeypatch.setattr(presence_module, "ROSTER_READ_TIMEOUT_SECONDS", 30)
-        leases.reading_hangs = True
         holding.start_hold_sweeps()
 
-        async def scenario():
-            sweeping = asyncio.create_task(time.advance(HOLD_SWEEP_EVERY_SECONDS))
-            await leases.read_started.wait()
-            holding.stop()
-            await asyncio.wait_for(sweeping, 5)
-
-        run(scenario())
+        stop_during_a_hanging_read(holding, leases, lambda: time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
         assert (holds.outcomes, holds.due_now) == ([None], [(TABLE, "anna")])
 
