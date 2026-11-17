@@ -1,13 +1,13 @@
 import pytest
 
 from skat.engine.deal import Position
-from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, ChairHold, EmptyTable, NextDeal, Presence
+from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, EmptyTable, NextDeal, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.idle_presence import idle_agent_lease, idle_presence, idle_wakes, note_nothing
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.web.support.agent import Agent
-from tests.web.support.presence import HOLD_SECONDS, Deals, Releases, Wakes, on_a_worker
+from tests.web.support.presence import Deals, Holds, Wakes, chair_hold, on_a_worker
 from tests.web.support.skat import AgentTable, FakeTime, Skat
 
 FOREHAND, MIDDLEHAND = Position.FOREHAND, Position.MIDDLEHAND
@@ -64,8 +64,8 @@ def time():
 
 
 @pytest.fixture
-def releases():
-    return Releases()
+def holds():
+    return Holds()
 
 
 @pytest.fixture
@@ -117,9 +117,9 @@ def elsewhere(leases):
 
 
 @pytest.fixture
-def holding(time, releases, deals, ends, leases):
+def holding(time, holds, deals, ends, leases):
     return Presence(
-        ChairHold(HOLD_SECONDS, time.clock, time, releases.free_chair),
+        chair_hold(time, holds),
         NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
         EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end, note_nothing),
         idle_agent_lease(),

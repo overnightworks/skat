@@ -5,6 +5,7 @@ from contextlib import nullcontext
 
 from skat.table.records import Actor, TableId, Visibility
 from tests.web.support.lobby_scene import ANNA, BEN, CLEO, DORA, Scene, ids_of, next_mine, next_open
+from tests.web.support.presence import HOLD_SECONDS
 from tests.web.support.streams import run_on_a_loop_of_its_own
 
 OPEN_ENTRY_FIELDS = {
@@ -163,10 +164,10 @@ class TestTheOpenList:
 
         assert [(entry["id"], entry["free_chairs"]) for entry in listed] == [(free, 2), (full, 0)]
 
-    def test_an_away_member_at_an_undealt_open_table_shows_the_seconds_left_of_the_hold_from_presence(self):
+    def test_an_away_member_at_an_undealt_open_table_shows_the_seconds_left_of_the_stored_hold(self):
         scene = Scene()
         table_id = scene.open_table(ANNA)
-        scene.presence.hold_chairs([(table_id, ANNA.account_id)])
+        scene.service.note_leave(TableId(table_id), ANNA.account_id, HOLD_SECONDS)
 
         async def scenario():
             stream = scene.open_stream(BEN)
@@ -177,7 +178,7 @@ class TestTheOpenList:
         (entry,) = run_on_a_loop_of_its_own(scenario())
 
         assert [(chair["is_away"], chair["hold_seconds_left"]) for chair in entry["chairs"]] == [
-            (True, 300),
+            (True, HOLD_SECONDS),
             (False, None),
             (False, None),
         ]

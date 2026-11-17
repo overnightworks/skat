@@ -375,13 +375,15 @@ class TestTheSignalOfACommit:
         scene.service.sit(BACH, SitDown("command-bach", scene.table_id, 3), NOBODY)
         scene.signals.clear()
 
-        freed = scene.service.free_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True))
+        scene.store.hold_due(scene.table_id, MOZART.account_id)
+        freed = scene.service.free_held_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True))
 
         assert freed is True
         assert [accounts for _, accounts, _ in scene.signals] == [{BACH.account_id}]
 
     def test_a_chair_not_freed_tells_nobody(self, scene):
-        assert scene.service.free_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(False)) is False
+        scene.store.hold_due(scene.table_id, MOZART.account_id)
+        assert scene.service.free_held_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(False)) is False
         assert scene.signals == []
 
     def test_an_accepted_invitation_tells_the_agents_seated_after_it(self):

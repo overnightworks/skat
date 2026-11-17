@@ -176,10 +176,19 @@ def _install_sign_in(
 def _chair_hold(
     settings: ServerSettings, tables: TableService, clock: Callable[[], float], scheduler: Scheduler
 ) -> ChairHold:
-    async def free_chair(table_id: str, account_id: str, due: AbstractContextManager[bool]) -> bool:
-        return await run_in_threadpool(tables.free_chair, TableId(table_id), account_id, due)
+    async def leave(table_id: str, account_id: str) -> None:
+        await run_in_threadpool(tables.note_leave, TableId(table_id), account_id, settings.chair_hold_seconds)
 
-    return ChairHold(settings.chair_hold_seconds, clock, scheduler, free_chair)
+    async def clear(table_id: str, account_id: str) -> None:
+        await run_in_threadpool(tables.clear_hold, TableId(table_id), account_id)
+
+    async def due() -> list[tuple[str, str]]:
+        return [(held.table_id.value, held.account_id) for held in await run_in_threadpool(tables.due_holds)]
+
+    async def free_chair(table_id: str, account_id: str, absent: AbstractContextManager[bool | None]) -> bool:
+        return await run_in_threadpool(tables.free_held_chair, TableId(table_id), account_id, absent)
+
+    return ChairHold(clock, scheduler, leave, clear, due, free_chair)
 
 
 def _agent_lease(tables: TableService) -> AgentLease:
@@ -439,13 +448,10 @@ def _serving(
     wakes: WakeList,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
     @asynccontextmanager
-    async def hold_chairs_while_serving(serving: FastAPI) -> AsyncGenerator[None]:
+    async def while_serving(serving: FastAPI) -> AsyncGenerator[None]:
         # The wakes come first: a pod that serves before it hears them may show a state another pod has changed.
         async with shared_wakes.following(wakes):
-            # Leave times are not stored, so every chair seated at the start is held for a full hold from now.
             # A table already past its wait has ended before the first request; every other waits what is left of it.
-            occupied = await run_in_threadpool(tables.occupied_chairs)
-            presence.hold_chairs((chair.table_id.value, chair.account_id) for chair in occupied)
             presence.watch_empty_tables(
                 await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds)
             )
@@ -454,6 +460,8 @@ def _serving(
             forget_expired_sessions = _session_forgetter(serving, sessions)
             await forget_expired_sessions()
             _sweep_tables(settings, tables, presence, scheduler, forget_expired_sessions, unplayed_sweep_seconds)
+            # The holds are stored, so the first sweep frees those that fell due while no pod ran; none starts anew.
+            presence.start_hold_sweeps()
             lapses = asyncio.create_task(presence.serve_lapses())
             lapses.add_done_callback(_log_if_failed)
             try:
@@ -466,7 +474,7 @@ def _serving(
                 await presence.finish_writes()
                 await asyncio.gather(lapses, return_exceptions=True)
 
-    return hold_chairs_while_serving
+    return while_serving
 
 
 def _new_app(lifespan: Callable[[FastAPI], AbstractAsyncContextManager[None]]) -> FastAPI:

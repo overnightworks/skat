@@ -282,7 +282,8 @@ class TestChairsChangingHands:
         yes(skat, table, 1)
         yes(skat, table, 2)
 
-        freed = TableService(skat.store).free_chair(
+        skat.store.hold_due(table.table_id, accounts_of(table)[leaver - 1])
+        freed = TableService(skat.store).free_held_chair(
             TableId(table.table_id), accounts_of(table)[leaver - 1], nullcontext(True)
         )
 

@@ -5,7 +5,7 @@ import pytest
 from logline import current_traceparent, unit_trace
 
 from skat.web.presence import (
-    CHAIR_RELEASE_RETRY_SECONDS,
+    HOLD_SWEEP_EVERY_SECONDS,
     NEXT_DEAL_PAUSE_SECONDS,
     ChairHold,
     EmptyTable,
@@ -13,21 +13,23 @@ from skat.web.presence import (
     NextDeal,
     Presence,
 )
-from skat.web.presence_line import PresenceTimer
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
-from tests.support.idle_presence import idle_agent_lease, idle_presence, idle_wakes, note_nothing
+from tests.support.idle_presence import (
+    clear_no_hold,
+    idle_agent_lease,
+    idle_presence,
+    idle_wakes,
+    note_nothing,
+    store_no_leave,
+)
 from tests.support.in_memory_leases import InMemoryLeases
-from tests.support.log_lines import logged
 from tests.support.payload_cards import seated_three
 from tests.web.support.presence import (
-    FAILURE_NAMING_AN_ACCOUNT,
-    HOLD_SECONDS,
     OTHER_TABLE,
     TABLE,
     connect,
     end_the_first_game,
-    failed_timers,
     occupied_seats,
     pass_hand_in,
     run,
@@ -129,8 +131,8 @@ class TestWakingATable:
         presence.wake_table(TABLE)
 
 
-async def leaves_her_table(presence):
-    await presence.close(await presence.subscribe(TABLE, "anna", lambda: None))
+async def sweeps_her_due_hold(presence):  # NOSONAR(S7503) the scenarios that start a write are awaited
+    presence.start_hold_sweeps()
 
 
 async def starts_the_pause(presence):
@@ -142,229 +144,11 @@ async def waits_for_nobody(presence):
     presence.watch_empty_table(TABLE)
 
 
-class TestChairHold:
-    def test_a_member_whose_last_stream_ended_keeps_the_chair_until_the_hold_has_passed(
-        self, holding, time, releases, wakes
-    ):
-        connect(holding, TABLE, "ben", wakes.callback("ben"))
-        leaving = connect(holding, TABLE, "anna", wakes.callback("anna"))
-        run(holding.close(leaving))
-
-        run(time.advance(HOLD_SECONDS - 1))
-
-        assert releases.calls == []
-
-    def test_the_chair_is_freed_once_the_hold_has_passed_and_every_stream_is_woken(
-        self, holding, time, releases, wakes
-    ):
-        connect(holding, TABLE, "ben", wakes.callback("ben"))
-        run(holding.close(connect(holding, TABLE, "anna", wakes.callback("anna"))))
-        woken_before = wakes.counts["ben"]
-
-        run(time.advance(HOLD_SECONDS))
-
-        assert releases.calls == [(TABLE, "anna")]
-        assert wakes.counts["ben"] == woken_before + 1
-
-    def test_the_hold_counts_from_the_moment_the_last_stream_ended(self, holding, time, releases):
-        leaving = connect(holding, TABLE, "anna", lambda: None)
-        run(time.advance(40))
-        run(holding.close(leaving))
-
-        run(time.advance(HOLD_SECONDS - 1))
-        assert releases.calls == []
-        run(time.advance(1))
-        assert releases.calls == [(TABLE, "anna")]
-
-    def test_a_member_who_returns_within_the_hold_keeps_the_chair_and_nothing_is_written(self, holding, time, releases):
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        run(time.advance(200))
-        connect(holding, TABLE, "anna", lambda: None)
-
-        run(time.advance(HOLD_SECONDS))
-
-        assert releases.calls == []
-
-    def test_only_the_timer_of_the_latest_leave_frees_the_chair(self, holding, time, releases):
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        run(time.advance(100))
-        returned = connect(holding, TABLE, "anna", lambda: None)
-        run(time.advance(50))
-        run(holding.close(returned))
-
-        run(time.advance(HOLD_SECONDS - 150))
-        assert releases.calls == []
-        run(time.advance(150))
-        assert releases.calls == [(TABLE, "anna")]
-
-    def test_closing_one_of_two_tabs_schedules_no_timer(self, holding, time):
-        first = connect(holding, TABLE, "anna", lambda: None)
-        connect(holding, TABLE, "anna", lambda: None)
-
-        run(holding.close(first))
-
-        assert time.pending == 0
-
-    def test_a_member_standing_up_before_the_hold_ends_is_not_freed_again_and_nobody_is_woken(
-        self, holding, time, releases, wakes
-    ):
-        connect(holding, TABLE, "ben", wakes.callback("ben"))
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        releases.freed = False
-        woken_before = wakes.counts["ben"]
-
-        run(time.advance(HOLD_SECONDS))
-
-        assert releases.calls == [(TABLE, "anna")]
-        assert wakes.counts["ben"] == woken_before
-
-    def test_a_check_that_found_nothing_to_free_is_not_repeated(self, holding, time, releases):
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        releases.freed = False
-
-        run(time.advance(HOLD_SECONDS * 3))
-
-        assert len(releases.calls) == 1
-
-    def test_every_seated_member_counts_as_having_left_when_the_server_starts(self, holding, time, releases):
-        holding.hold_chairs([(TABLE, "anna"), (OTHER_TABLE, "ben")])
-
-        run(time.advance(HOLD_SECONDS - 1))
-        assert releases.calls == []
-        run(time.advance(1))
-        assert set(releases.calls) == {(TABLE, "anna"), (OTHER_TABLE, "ben")}
-
-    def test_the_seconds_a_hold_has_left_count_down_for_the_asked_tables_only(self, holding, time, releases):
-        holding.hold_chairs([(TABLE, "anna"), (OTHER_TABLE, "ben")])
-
-        run(time.advance(HOLD_SECONDS - 10))
-
-        assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": 10}}
-
-    def test_a_member_who_is_connected_again_has_no_hold_left_to_count(self, holding):
-        holding.hold_chairs([(TABLE, "anna")])
-        connect(holding, TABLE, "anna", lambda: None)
-
-        assert holding.hold_seconds_left([TABLE]) == {}
-
-    def test_a_member_connecting_after_the_start_keeps_the_chair(self, holding, time, releases):
-        holding.hold_chairs([(TABLE, "anna")])
-        connect(holding, TABLE, "anna", lambda: None)
-
-        run(time.advance(HOLD_SECONDS))
-
-        assert releases.calls == []
-
-    def test_a_failed_freeing_wakes_nobody_writes_the_streak_warning_and_is_tried_again_until_it_commits(
-        self, holding, time, releases, wakes, capsys
-    ):
-        connect(holding, TABLE, "ben", wakes.callback("ben"))
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        releases.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT), ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
-        woken_before = wakes.counts["ben"]
-
-        with logged(capsys) as lines:
-            run(time.advance(HOLD_SECONDS))
-            assert wakes.counts["ben"] == woken_before
-            run(time.advance(CHAIR_RELEASE_RETRY_SECONDS - 1))
-            assert len(releases.calls) == 1
-            run(time.advance(1))
-            assert len(releases.calls) == 2
-            run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
-
-        assert len(releases.calls) == 3
-        assert wakes.counts["ben"] == woken_before + 1
-        assert failed_timers(lines) == [(PresenceTimer.CHAIR_RELEASE, "warning")]
-        assert "anna" not in str(lines)
-
-    def test_a_member_returning_while_the_freeing_waits_keeps_the_chair(self, holding, time, releases):
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-
-        async def returns():
-            await holding.subscribe(TABLE, "anna", lambda: None)
-
-        releases.meanwhile = returns
-
-        run(time.advance(HOLD_SECONDS))
-
-        assert releases.outcomes == [False]
-
-    def test_a_leave_during_the_freeing_keeps_its_own_timer(self, holding, time, releases):
-        returned = []
-
-        async def leaves_again():
-            returned.append(await holding.subscribe(TABLE, "anna", lambda: None))
-            await holding.close(returned[0])
-
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        releases.meanwhile = leaves_again
-        run(time.advance(HOLD_SECONDS))
-        releases.meanwhile = None
-        run(time.advance(HOLD_SECONDS))
-
-        assert releases.calls == [(TABLE, "anna"), (TABLE, "anna")]
-
-    def test_a_reconnect_during_the_write_waits_for_its_commit_while_the_loop_stays_free(self, holding, time, releases):
-        order = []
-        writing = asyncio.Event()
-        commit = asyncio.Event()
-
-        async def write_until_released():
-            writing.set()
-            await commit.wait()
-            order.append("committed")
-
-        async def scenario():
-            expiry = asyncio.create_task(time.advance(HOLD_SECONDS))
-            await writing.wait()
-            returning = asyncio.create_task(holding.subscribe(TABLE, "anna", lambda: None))
-            await asyncio.wait_for(holding.subscribe(OTHER_TABLE, "ben", lambda: None), 2)
-            await asyncio.sleep(0)
-            waited = not returning.done()
-            commit.set()
-            await expiry
-            await returning
-            order.append("returned")
-            return waited
-
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        releases.within = write_until_released
-
-        waited = run(scenario())
-
-        assert (waited, releases.outcomes, order) == (True, [True], ["committed", "returned"])
-
-    def test_a_cancelled_reconnect_during_a_failing_write_leaves_the_chair_to_the_retry(self, holding, time, releases):
-        writing = asyncio.Event()
-        fail = asyncio.Event()
-
-        async def fail_after_reconnect():
-            writing.set()
-            await fail.wait()
-            raise RuntimeError("store down")
-
-        async def scenario():
-            expiry = asyncio.create_task(time.advance(HOLD_SECONDS))
-            await writing.wait()
-            returning = asyncio.create_task(holding.subscribe(TABLE, "anna", lambda: None))
-            await asyncio.sleep(0)
-            returning.cancel()
-            fail.set()
-            await expiry
-            releases.within = None
-            await time.advance(CHAIR_RELEASE_RETRY_SECONDS)
-
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        releases.within = fail_after_reconnect
-
-        run(scenario())
-
-        assert releases.outcomes == [True]
-
+class TestFinishingWrites:
     @pytest.mark.parametrize(
         ("anna_starts_the_write", "seconds", "entered_with"),
         [
-            pytest.param(leaves_her_table, HOLD_SECONDS, True, id="freeing"),
+            pytest.param(sweeps_her_due_hold, HOLD_SWEEP_EVERY_SECONDS, True, id="freeing"),
             pytest.param(starts_the_pause, NEXT_DEAL_PAUSE_SECONDS, frozenset({"anna"}), id="next-deal"),
             pytest.param(waits_for_nobody, DEFAULT_EMPTY_TABLE_SECONDS, frozenset(), id="empty-table"),
         ],
@@ -383,8 +167,11 @@ class TestChairHold:
                 committed.append(still_due)
             return still_due
 
-        async def free_on_worker(table_id, account_id, due):
-            return await asyncio.to_thread(worker, due)
+        async def free_on_worker(table_id, account_id, absent):
+            return await asyncio.to_thread(worker, absent)
+
+        async def anna_due():
+            return [(TABLE, "anna")]
 
         async def deal_on_worker(table_id, connected_accounts):
             return await asyncio.to_thread(worker, connected_accounts)
@@ -395,7 +182,7 @@ class TestChairHold:
         async def scenario():
             time = FakeTime()
             presence = Presence(
-                ChairHold(HOLD_SECONDS, time.clock, time, free_on_worker),
+                ChairHold(time.clock, time, store_no_leave, clear_no_hold, anna_due, free_on_worker),
                 NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal_on_worker),
                 EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_on_worker, note_nothing),
                 idle_agent_lease(),
@@ -414,30 +201,6 @@ class TestChairHold:
             return waited, list(committed)
 
         assert run(scenario()) == (True, [entered_with])
-
-    def test_a_freeing_that_waits_while_the_server_stops_frees_nothing(self, holding, time, releases):
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-
-        async def stops():
-            holding.stop()
-
-        releases.meanwhile = stops
-
-        run(time.advance(HOLD_SECONDS))
-
-        assert (releases.outcomes, time.pending) == ([False], 0)
-
-    def test_stopping_cancels_every_pending_check_and_a_stream_ending_afterwards_schedules_none(
-        self, holding, time, releases
-    ):
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        ending = connect(holding, OTHER_TABLE, "ben", lambda: None)
-
-        holding.stop()
-        run(holding.close(ending))
-        run(time.advance(HOLD_SECONDS * 2))
-
-        assert (time.pending, releases.calls) == (0, [])
 
 
 def leaves_the_table(server, table_id, headers):
