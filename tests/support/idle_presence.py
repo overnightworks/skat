@@ -58,7 +58,9 @@ def idle_next_deal() -> NextDeal:
 
 def idle_hold(clock=lambda: 0.0, scheduler=None) -> ChairHold:
     """A chair hold whose store keeps nothing, on `clock` and `scheduler`, which by default runs nothing."""
-    return ChairHold(clock, scheduler or IdleScheduler(), store_no_leave, clear_no_hold, nothing_due, free_no_chair)
+    return ChairHold(
+        clock, scheduler or IdleScheduler(), store_no_leave, store_no_leave, clear_no_hold, nothing_due, free_no_chair
+    )
 
 
 def idle_agent_lease() -> AgentLease:

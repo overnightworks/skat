@@ -177,7 +177,14 @@ def _chair_hold(
     settings: ServerSettings, tables: TableService, clock: Callable[[], float], scheduler: Scheduler
 ) -> ChairHold:
     async def leave(table_id: str, account_id: str) -> None:
-        await run_in_threadpool(tables.note_leave, TableId(table_id), account_id, settings.chair_hold_seconds)
+        await run_in_threadpool(
+            tables.note_leave, TableId(table_id), account_id, settings.chair_hold_seconds, newest_wins=True
+        )
+
+    async def lapse(table_id: str, account_id: str) -> None:
+        await run_in_threadpool(
+            tables.note_leave, TableId(table_id), account_id, settings.chair_hold_seconds, newest_wins=False
+        )
 
     async def clear(table_id: str, account_id: str) -> None:
         await run_in_threadpool(tables.clear_hold, TableId(table_id), account_id)
@@ -188,7 +195,7 @@ def _chair_hold(
     async def free_chair(table_id: str, account_id: str, absent: AbstractContextManager[bool | None]) -> bool:
         return await run_in_threadpool(tables.free_held_chair, TableId(table_id), account_id, absent)
 
-    return ChairHold(clock, scheduler, leave, clear, due, free_chair)
+    return ChairHold(clock, scheduler, leave, lapse, clear, due, free_chair)
 
 
 def _agent_lease(tables: TableService) -> AgentLease:

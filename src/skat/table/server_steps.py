@@ -67,12 +67,13 @@ class ServerSteps:
         self._tell_view = tell_view
         self._tell_moments = tell_moments
 
-    def note_leave(self, table_id: TableId, account_id: str, hold_seconds: float) -> None:
-        """Store the account's chair hold as due `hold_seconds` from now, the newest leave on any pod winning; a
-        watcher, an ended table or a forgotten one stores nothing.
+    def note_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
+        """Store the account's chair hold as due `hold_seconds` from now: when `newest_wins` in place of an earlier
+        one, the newest leave on any pod winning, else only where the account has no hold at the table. A watcher, an
+        ended table or a forgotten one stores nothing.
         """
         with self._transactions.begin() as transaction:
-            transaction.store_leave(table_id, account_id, hold_seconds)
+            transaction.store_leave(table_id, account_id, hold_seconds, newest_wins=newest_wins)
 
     def clear_hold(self, table_id: TableId, account_id: str) -> None:
         """Drop the account's chair hold, as it arrived; a freeing in flight makes this wait for its commit."""

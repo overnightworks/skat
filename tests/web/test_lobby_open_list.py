@@ -171,7 +171,7 @@ class TestTheOpenList:
         held_clock = datetime(2026, 5, 4, 20, 0, tzinfo=UTC)
         scene = Scene(TableService(FakeTableStore(clock=lambda: held_clock)))
         table_id = scene.open_table(ANNA)
-        scene.service.note_leave(TableId(table_id), ANNA.account_id, HOLD_SECONDS)
+        scene.service.note_leave(TableId(table_id), ANNA.account_id, HOLD_SECONDS, newest_wins=True)
 
         async def scenario():
             stream = scene.open_stream(BEN)

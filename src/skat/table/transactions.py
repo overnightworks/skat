@@ -122,9 +122,10 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
 
     def add_receipt(self, receipt: Receipt) -> None: ...
 
-    def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float) -> None:
+    def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
         """Store the account's chair hold as due `hold_seconds` from now on the store's clock, in place of an earlier
-        one; nothing is stored unless the account holds a chair at the live table.
+        one when `newest_wins`, else only where the account has no hold at the table; nothing is stored unless the
+        account holds a chair at the live table.
         """
         ...
 

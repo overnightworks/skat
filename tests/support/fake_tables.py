@@ -178,8 +178,10 @@ class FakeTableStore:
         """Store a hold of the account's chair whose deadline has passed, as a scenario's arrangement."""
         self.holds[table_id, account_id] = self.clock() - timedelta(seconds=1)
 
-    def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float) -> None:
-        if any(chair.table_id == table_id and chair.account_id == account_id for chair in self._occupied_chairs()):
+    def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
+        if (newest_wins or (table_id.value, account_id) not in self.holds) and any(
+            chair.table_id == table_id and chair.account_id == account_id for chair in self._occupied_chairs()
+        ):
             self.holds[table_id.value, account_id] = self.clock() + timedelta(seconds=hold_seconds)
 
     def delete_hold(self, table_id: TableId, account_id: str) -> None:

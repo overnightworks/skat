@@ -122,8 +122,8 @@ class _FaultyTransaction:
     def live_empty_since(self) -> tuple[LiveWait, ...]:
         return self._inner.live_empty_since()
 
-    def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float) -> None:
-        self._inner.store_leave(table_id, account_id, hold_seconds)
+    def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
+        self._inner.store_leave(table_id, account_id, hold_seconds, newest_wins=newest_wins)
 
     def delete_hold(self, table_id: TableId, account_id: str) -> None:
         self._inner.delete_hold(table_id, account_id)

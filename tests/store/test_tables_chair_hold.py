@@ -57,6 +57,15 @@ def seconds_left(engine, table_id, account_id):
         ).scalar_one_or_none()
 
 
+def due_at(engine, table_id, account_id):
+    with engine.connect() as connection:
+        return connection.execute(
+            select(chair_holds.c.due_at).where(
+                chair_holds.c.table_id == table_id.value, chair_holds.c.account_id == account_id
+            )
+        ).scalar_one()
+
+
 def holds(engine):
     with engine.connect() as connection:
         return {tuple(row) for row in connection.execute(select(chair_holds.c.table_id, chair_holds.c.account_id))}
@@ -99,17 +108,30 @@ def table_id(service):
 
 class TestALeave:
     def test_a_leave_stores_a_deadline_one_hold_from_now(self, service, engine, table_id):
-        service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS)
+        service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS, newest_wins=True)
 
         assert HOLD_SECONDS - STEP_SECONDS < seconds_left(engine, table_id, LEAVER.account_id) <= HOLD_SECONDS
 
     def test_a_newer_leave_replaces_the_older_deadline(self, service, engine, table_id):
         hold_due_in(engine, table_id, LEAVER.account_id, -10)
 
-        service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS)
+        service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS, newest_wins=True)
 
         assert seconds_left(engine, table_id, LEAVER.account_id) > HOLD_SECONDS - STEP_SECONDS
         assert holds(engine) == {(table_id.value, LEAVER.account_id)}
+
+    def test_a_lapse_stores_a_deadline_one_hold_from_now_where_no_hold_exists(self, service, engine, table_id):
+        service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS, newest_wins=False)
+
+        assert HOLD_SECONDS - STEP_SECONDS < seconds_left(engine, table_id, LEAVER.account_id) <= HOLD_SECONDS
+
+    def test_a_lapse_keeps_the_deadline_of_an_existing_hold(self, service, engine, table_id):
+        hold_due_in(engine, table_id, LEAVER.account_id, 10)
+        before = due_at(engine, table_id, LEAVER.account_id)
+
+        service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS, newest_wins=False)
+
+        assert due_at(engine, table_id, LEAVER.account_id) == before
 
     def test_a_leave_of_an_account_without_a_chair_at_the_live_table_stores_nothing(
         self, service, engine, transactions, table_id
@@ -117,16 +139,16 @@ class TestALeave:
         ended = undealt_table(service, "ended")
         ended_at(transactions, ended)
 
-        service.note_leave(table_id, SEATED[2].account_id, HOLD_SECONDS)
-        service.note_leave(ended, LEAVER.account_id, HOLD_SECONDS)
-        service.note_leave(TableId("0" * 32), LEAVER.account_id, HOLD_SECONDS)
+        service.note_leave(table_id, SEATED[2].account_id, HOLD_SECONDS, newest_wins=True)
+        service.note_leave(ended, LEAVER.account_id, HOLD_SECONDS, newest_wins=True)
+        service.note_leave(TableId("0" * 32), LEAVER.account_id, HOLD_SECONDS, newest_wins=True)
 
         assert holds(engine) == set()
 
 
 class TestAnArrival:
     def test_an_arrival_clears_the_hold(self, service, engine, table_id):
-        service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS)
+        service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS, newest_wins=True)
 
         service.clear_hold(table_id, LEAVER.account_id)
 
@@ -202,7 +224,7 @@ class TestTheFreeing:
         freeing = WorkInAThread(lambda: service.free_held_chair(table_id, LEAVER.account_id, nullcontext(ABSENT)))
 
         with transactions.begin() as leaving:
-            leaving.store_leave(table_id, LEAVER.account_id, HOLD_SECONDS)
+            leaving.store_leave(table_id, LEAVER.account_id, HOLD_SECONDS, newest_wins=True)
             freeing.start()
             wait_until_a_session_waits_for_a_lock(engine, freeing)
         freeing.join(STEP_SECONDS)
@@ -212,7 +234,7 @@ class TestTheFreeing:
         assert seconds_left(engine, table_id, LEAVER.account_id) > HOLD_SECONDS - STEP_SECONDS
 
     def test_a_hold_not_yet_due_frees_nothing_and_stays(self, service, engine, table_id):
-        service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS)
+        service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS, newest_wins=True)
 
         assert service.free_held_chair(table_id, LEAVER.account_id, nullcontext(ABSENT)) is False
         assert occupants(service, table_id) == ["Anna", "Ben", None]
@@ -260,7 +282,7 @@ class TestTheFreeing:
         other = undealt_table(service, "other")
         hold_due_in(engine, table_id, LEAVER.account_id, -1)
         hold_due_in(engine, other, OPENER.account_id, -5)
-        service.note_leave(other, LEAVER.account_id, HOLD_SECONDS)
+        service.note_leave(other, LEAVER.account_id, HOLD_SECONDS, newest_wins=True)
 
         assert [(due.table_id, due.account_id) for due in service.due_holds()] == [
             (other, OPENER.account_id),

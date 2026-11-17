@@ -102,7 +102,8 @@ class ChairHold:
     """The presence's clock and timers, and the stored chair holds; each call raises when the store fails.
 
     `leave(table_id, account_id)` stores the account's hold as due one hold from now, the newest leave on any pod
-    winning, and stores nothing for an account without a chair at the live table. `clear(table_id, account_id)` drops
+    winning, and stores nothing for an account without a chair at the live table. `lapse(table_id, account_id)` stores
+    it the same way only where the account has no hold at the table. `clear(table_id, account_id)` drops
     it, and waits for a freeing of it in flight. `due()` answers the (table id, account id) of the holds due now, a
     candidate list. `free_chair(table_id, account_id, absent)` frees the chair of a due hold and drops the hold, once:
     it enters `absent` in its worker once it holds the table and the hold, leaves it after the commit, and answers
@@ -112,6 +113,7 @@ class ChairHold:
     clock: Callable[[], float]
     scheduler: Scheduler
     leave: Callable[[str, str], Awaitable[None]]
+    lapse: Callable[[str, str], Awaitable[None]]
     clear: Callable[[str, str], Awaitable[None]]
     due: Callable[[], Awaitable[Iterable[tuple[str, str]]]]
     free_chair: Callable[[str, str, AbstractContextManager[bool | None]], Awaitable[bool]]
@@ -285,10 +287,12 @@ class Presence:
         await self._stream_leases.serve_lapses(self._leave_lapsed, claimer=self._claimer, every=LAPSE_SWEEP_EVERY)
 
     async def _leave_lapsed(self, lapse: Lapse) -> None:
-        """A leave that cannot be stored raises, so tandem hands the lapse again once its claim runs out."""
+        """Store the leave only where no hold exists, since tandem queues a lapse for every lease that ends, a close's
+        too; a leave that cannot be stored raises, so tandem hands the lapse again once its claim runs out.
+        """
         holder = StreamHolder.parse(lapse.holder)
         if not await self._is_back(holder.table_id, holder.account_id):
-            await self._hold.leave(holder.table_id, holder.account_id)
+            await self._hold.lapse(holder.table_id, holder.account_id)
         self.wake_table(holder.table_id)
 
     async def _is_back(self, table_id: str, account_id: str) -> bool:

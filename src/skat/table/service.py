@@ -508,9 +508,9 @@ class TableService(LobbyReads, GameListReads):
             lambda table: decide_refuse_to_abort(table, actor),
         )
 
-    def note_leave(self, table_id: TableId, account_id: str, hold_seconds: float) -> None:
+    def note_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
         """The server's step of storing a chair hold; see `ServerSteps.note_leave`."""
-        self._server_steps().note_leave(table_id, account_id, hold_seconds)
+        self._server_steps().note_leave(table_id, account_id, hold_seconds, newest_wins=newest_wins)
 
     def clear_hold(self, table_id: TableId, account_id: str) -> None:
         """The server's step of dropping a chair hold at an arrival; see `ServerSteps.clear_hold`."""

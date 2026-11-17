@@ -179,14 +179,14 @@ class TestALeave:
 
         assert (holds.left, leases.holders, time.pending) == ([], [], 0)
 
-    def test_a_lapsed_stream_stores_its_leave_and_wakes_its_table(self, holding, holds, leases, wakes):
+    def test_a_lapsed_stream_stores_its_leave_as_a_lapse_and_wakes_its_table(self, holding, holds, leases, wakes):
         connect(holding, TABLE, "ben", wakes.callback("ben"))
         before = wakes.counts["ben"]
         leases.lapses = [lapse_of(TABLE, "anna")]
 
         run(self.served(holding, leases))
 
-        assert holds.left == [(TABLE, "anna")]
+        assert (holds.lapsed, holds.left) == ([(TABLE, "anna")], [])
         assert wakes.counts["ben"] == before + 1
 
     @pytest.mark.parametrize("back", [streams_on_another_pod, holds_a_lease_here])
@@ -196,7 +196,7 @@ class TestALeave:
 
         run(self.served(holding, leases))
 
-        assert holds.left == []
+        assert (holds.lapsed, holds.left) == ([], [])
 
     def test_a_lapse_whose_leave_fails_raises_so_it_is_handed_again(self, holding, holds, leases):
         holds.leave_failures = [UNREACHABLE]
@@ -204,7 +204,7 @@ class TestALeave:
 
         run(self.served(holding, leases))
 
-        assert (leases.handler_failures, holds.left) == ([UNREACHABLE], [(TABLE, "anna")])
+        assert (leases.handler_failures, holds.lapsed) == ([UNREACHABLE], [(TABLE, "anna")])
 
     def test_an_agent_lease_that_lapses_stores_its_leave_at_every_table_it_sits_at(self, holds, leases, time):
         async def seated_at_both(account_id):

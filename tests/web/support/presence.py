@@ -60,14 +60,16 @@ async def on_a_worker(guard, work, within=None):
 
 
 class Holds:
-    """The stored chair holds as the presence uses them: the leaves stored and the holds cleared, in order, the holds
-    the store answers as due, each freeing asked for with what its guard yielded, and the failures to come.
+    """The stored chair holds as the presence uses them: the leaves stored, the lapses stored and the holds cleared,
+    each in order, the holds the store answers as due, each freeing asked for with what its guard yielded, and the
+    failures to come.
 
     `on_leave` and `on_clear` run inside the write, before it answers.
     """
 
     def __init__(self):
         self.left = []
+        self.lapsed = []
         self.cleared = []
         self.due_now = []
         self.calls = []
@@ -85,6 +87,11 @@ class Holds:
         if self.on_leave is not None:
             await self.on_leave()
         self.left.append((table_id, account_id))
+
+    async def lapse(self, table_id, account_id):
+        if self.leave_failures:
+            raise self.leave_failures.pop(0)
+        self.lapsed.append((table_id, account_id))
 
     async def clear(self, table_id, account_id):
         if self.clear_failures:
@@ -111,7 +118,7 @@ class Holds:
 
 def chair_hold(time, holds):
     """The chair hold of a presence on the test's time, over the fake store of holds."""
-    return ChairHold(time.clock, time, holds.leave, holds.clear, holds.due, holds.free_chair)
+    return ChairHold(time.clock, time, holds.leave, holds.lapse, holds.clear, holds.due, holds.free_chair)
 
 
 class Deals:

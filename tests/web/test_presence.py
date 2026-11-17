@@ -182,7 +182,7 @@ class TestFinishingWrites:
         async def scenario():
             time = FakeTime()
             presence = Presence(
-                ChairHold(time.clock, time, store_no_leave, clear_no_hold, anna_due, free_on_worker),
+                ChairHold(time.clock, time, store_no_leave, store_no_leave, clear_no_hold, anna_due, free_on_worker),
                 NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal_on_worker),
                 EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_on_worker, note_nothing),
                 idle_agent_lease(),

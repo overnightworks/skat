@@ -468,7 +468,7 @@ class _PostgresTableTransaction:
             )
         )
 
-    def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float) -> None:
+    def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
         seated = (
             select(
                 chairs.c.table_id,
@@ -483,11 +483,11 @@ class _PostgresTableTransaction:
             )
         )
         written = upsert(chair_holds).from_select(["table_id", "account_id", "due_at"], seated)
+        held = [chair_holds.c.table_id, chair_holds.c.account_id]
         self._connection.execute(
-            written.on_conflict_do_update(
-                index_elements=[chair_holds.c.table_id, chair_holds.c.account_id],
-                set_={"due_at": written.excluded.due_at},
-            )
+            written.on_conflict_do_update(index_elements=held, set_={"due_at": written.excluded.due_at})
+            if newest_wins
+            else written.on_conflict_do_nothing(index_elements=held)
         )
 
     def delete_hold(self, table_id: TableId, account_id: str) -> None:
