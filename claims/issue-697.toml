@@ -1,0 +1,8 @@
+claim_id = "f9bbdba7f3794cb5b38c859b588dee51"
+agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
+role = "builder"
+base = "014daf5b20e1b8fb8391ab247abc79865508d45c"
+branch = "claude/issue-697-a-device-that-never-chose-a-sound-plays"
+scope = ["docs/mockups/table.html", "frontend/src/lib", "tests/e2e"]
+opened_commit = "3cbf04eb31e73c9254904b5a5b457135e75127a1"
+whole_reason = "the two defaults live in frontend/src/lib and the e2e tests pinning them in tests/e2e"
