@@ -57,7 +57,6 @@ export function gameSheetView(sheet: GameSheet, game: Game | null): GameSheetVie
     });
     const seatOf = (seat: number): SheetSeat => seats[seat - 1] as SheetSeat;
     const cards = sheet.cards;
-    const played = cards?.tricks.length ?? 0;
     const count = sheet.count;
     if (count.kind === "ramsch") {
         const most = Math.max(...count.seat_points);
@@ -79,7 +78,9 @@ export function gameSheetView(sheet: GameSheet, game: Game | null): GameSheetVie
         };
     }
     const opponents = seats.filter((seat) => seat.seat !== count.declarer_seat).map((seat) => seat.name);
-    const ending = ENDING_WORDS[count.ending] ?? (played < TRICKS_IN_A_GAME ? words["table.sheetDecided"] : null);
+    const ending =
+        ENDING_WORDS[count.ending] ??
+        (endedBeforeTheTenthTrick(cards?.tricks.length ?? 0) ? words["table.sheetDecided"] : null);
     return {
         seats,
         count: {
@@ -96,11 +97,16 @@ export function gameSheetView(sheet: GameSheet, game: Game | null): GameSheetVie
     };
 }
 
+// A game whose sheet holds fewer tricks than a game has ended before its tenth; played out, its last trick decided it.
+function endedBeforeTheTenthTrick(tricksPlayed: number): boolean {
+    return tricksPlayed < TRICKS_IN_A_GAME;
+}
+
 /** The trick that decided a game before its tenth, as the sheet draws it, or null for a game played to its last trick. */
 export function earlyDecidingTrick(sheet: GameSheet | null): SheetTrick | null {
     const tricks = sheet === null ? [] : (gameSheetView(sheet, null).cards?.tricks ?? []);
     const last = tricks.at(-1);
-    return tricks.length < TRICKS_IN_A_GAME && last?.taker != null ? last : null;
+    return endedBeforeTheTenthTrick(tricks.length) && last?.taker != null ? last : null;
 }
 
 // Whether the sheet has an eleventh row, the end line after ten tricks: a wide sheet lays its tricks in two columns of
