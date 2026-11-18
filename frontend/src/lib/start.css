@@ -119,12 +119,16 @@ body {
     margin-top: 12px;
 }
 
+/* The section heads are quiet body text, not the family's display headings. */
 .lobby-lists h2 {
     margin: 8px 0 12px;
     color: color-mix(in srgb, var(--brass) 80%, transparent);
+    font-family: inherit;
     font-size: 14px;
     font-weight: 600;
     line-height: 20px;
+    letter-spacing: normal;
+    text-transform: none;
 }
 
 .lobby-list {
@@ -5387,7 +5391,9 @@ body {
     font-size: 22px;
     font-weight: 700;
     line-height: 1.2;
+    letter-spacing: normal;
     text-align: center;
+    text-transform: none;
 }
 
 .room .closed .new-table {
