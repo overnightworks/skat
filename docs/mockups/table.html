@@ -2381,7 +2381,7 @@ const soundTable=(d,w,o={})=>{const L=seatsOf(d);
 /* the panel: what a player chooses, per device; rows are data, the panel only draws them */
 const SOUND_CHOICES={sound:['Leise','Stammtisch','Funkeln'],motion:['dezent','verspielt'],last:['wegfegen','liegen lassen']};
 const REDUCED_NOTE='Dein Gerät sagt „Bewegung reduzieren“. Darum zeigt Skat jeden Zustand sofort.';
-const soundState=(o={})=>({muted:false,volume:70,sound:'Leise',motion:'verspielt',voice:false,last:'wegfegen',background:false,vibration:false,reduced:false,replay:false,...o});
+const soundState=(o={})=>({muted:false,volume:70,sound:'Stammtisch',motion:'verspielt',voice:true,last:'wegfegen',background:false,vibration:false,reduced:false,replay:false,...o});
 const soundRows=(s,o={})=>[
   {kind:'switch',label:'Ton',on:!s.muted},
   {kind:'volume',label:'Lautstärke',value:s.volume},
@@ -2416,11 +2416,11 @@ const SOUND_SCENES=[
   ['sound-button','Ton: der Knopf',[360,390,1280],(d,w)=>soundTable(d,w),
     ['Felix spielt an seinem Tisch in Spiel 8 von 36. Oben links steht der runde Lautsprecher neben der Zurück-Taste, rechts die Zuschauer und „⋯“; die Serienmarke behält ihren Platz in der Mitte.']],
   ['sound-panel','Ton: die Tafel',[360,390,1280],(d,w)=>soundTable(d,w,{open:true,over:soundPanel(d,soundRows(soundState()))}),
-    ['Felix tippt auf den Lautsprecher: die Tafel „Ton und Bewegung“ zeigt Ton an, Lautstärke 70, Klänge „Leise“, Bewegung „verspielt“, Stimme aus. Auf dem Handy ist sie höchstens 70 Prozent so hoch wie der Bildschirm, der Rest rollt in ihr, und unter den Zeilen steht „mehr“, solange weitere folgen; ein Tipp daneben schließt sie.']],
+    ['Felix tippt auf den Lautsprecher: die Tafel „Ton und Bewegung“ zeigt Ton an, Lautstärke 70, Klänge „Stammtisch“, Bewegung „verspielt“, Stimme an. Auf dem Handy ist sie höchstens 70 Prozent so hoch wie der Bildschirm, der Rest rollt in ihr, und unter den Zeilen steht „mehr“, solange weitere folgen; ein Tipp daneben schließt sie.']],
   ['sound-panel-more','Ton: die Tafel weiter unten',[390],(d,w)=>soundTable(d,w,{open:true,over:soundPanel(d,soundRows(soundState()),{scroll:'end'})}),
     ['Dieselbe Tafel nach unten gerollt: „Letzter Stich: wegfegen“, „Du bist dran im Hintergrund“ aus, „Vibration“ aus.']],
-  ['sound-set-picked','Ton: ein Klang gewählt',[390],(d,w)=>soundTable(d,w,{open:true,over:soundPanel(d,soundRows(soundState({sound:'Stammtisch'}),{played:'Klänge'}))}),
-    ['Felix tippt „Stammtisch“. Der Chip ist gewählt, und der Kartenklang dieses Satzes spielt einmal; „spielt einmal“ steht dann kurz an der Zeile.']],
+  ['sound-set-picked','Ton: ein Klang gewählt',[390],(d,w)=>soundTable(d,w,{open:true,over:soundPanel(d,soundRows(soundState({sound:'Funkeln'}),{played:'Klänge'}))}),
+    ['Felix tippt „Funkeln“. Der Chip ist gewählt, und der Kartenklang dieses Satzes spielt einmal; „spielt einmal“ steht dann kurz an der Zeile.']],
   ['sound-muted','Ton: stumm',[360,390,1280],(d,w)=>soundTable(d,w,{muted:true}),
     ['Felix hat „Ton“ ausgeschaltet. Die Tafel ist zu, der Lautsprecher ist durchgestrichen; der Tisch sieht aus wie vorher.']],
   ['sound-first','Ton: der erste Besuch',[390],(d,w)=>lenaTable(d,w)+tapRing(120,470),
