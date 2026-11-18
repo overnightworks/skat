@@ -8269,6 +8269,11 @@ body {
         grid-template-rows: 0 0 minmax(0, 1fr) auto auto;
     }
 
+    /* A question about the series, the one plaque a result shows, keeps its row above the card, so the card covers none of its keys. */
+    .room .stage:has(> .result):has(> .plaque) {
+        grid-template-rows: auto 0 minmax(0, 1fr) auto auto;
+    }
+
     .room .stage:has(> .result) .chair.mine {
         grid-column: 1 / 3;
         justify-self: center;
