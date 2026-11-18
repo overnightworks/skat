@@ -146,6 +146,20 @@ class PlayingTable:
         }
         self.declaring.sessions[seat].post(f"{self.declaring.api_path}{TABLE_READY_SUFFIX}", body)
 
+    def play_until_the_declarer_takes_a_trick(self) -> int:
+        """The declarer plays his strongest legal card and each opponent its weakest, until the hand ends.
+
+        In a Null the declarer's first trick ends the hand; the cards played until then are returned.
+        """
+        played = 0
+        while True:
+            seat = self.turn_seat()
+            legal = self.legal_cards(seat)
+            card = (max if seat == self.declarer_seat else min)(sorted(legal), key=self._strength)
+            played += 1
+            if self._send(seat, self.view(seat)["version"], card)["hand"] is None:
+                return played
+
     def a_lead_the_middlehand_must_follow(self) -> WireCard:
         """A forehand card whose playing suit the middlehand holds beside another (Kreuz: jacks and Kreuz are trump)."""
         held = {self._playing_suit(card) for card in self.own_cards(self.seat_at["middlehand"])}
@@ -155,10 +169,20 @@ class PlayingTable:
         pytest.fail("the deal gave the forehand no suit the middlehand must follow")
 
     def _playing_suit(self, card: WireCard) -> object:
+        return self._named_game().playing_suit(_engine_card(card))
+
+    def _strength(self, card: WireCard) -> int:
+        return self._named_game().strength(_engine_card(card))
+
+    def _named_game(self) -> GameKind:
         assert self.game is not None, "a table whose game was declared on the page has no named game"
-        suits = {token: suit for suit, token in SUIT_TOKENS.items()}
-        ranks = {token: rank for rank, token in RANK_TOKENS.items()}
-        return self.game.playing_suit(Card(suits[card[0]], ranks[card[1]]))
+        return self.game
+
+
+def _engine_card(card: WireCard) -> Card:
+    suits = {token: suit for suit, token in SUIT_TOKENS.items()}
+    ranks = {token: rank for rank, token in RANK_TOKENS.items()}
+    return Card(suits[card[0]], ranks[card[1]])
 
 
 def deal_playing_table(

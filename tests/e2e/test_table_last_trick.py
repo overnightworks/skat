@@ -1,12 +1,14 @@
 import json
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 from playwright.sync_api import Page, expect
 
+from skat.engine.bidding import VALID_BIDS
 from tests.e2e.support.audio import voices_started
 from tests.e2e.support.browser import record_page_errors
+from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, holds, passes
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 
@@ -35,10 +37,37 @@ VOICES_OF_ONE_SWEEP = 1
 VOICES_OF_THREE_CARDS = 6
 HAND_CARD = ".own-hand .card"
 RESULT_CARD = ".result"
+DECIDING_ROW_CARD = ".result .deciding .deciding-card"
 # The thirtieth card ends the hand.
 CARDS_IN_A_HAND = 30
 # An installed clock keeps ticking until paused, and pausing only moves time forward, so it stops this far ahead.
 CLOCK_HOLD_LEAD = timedelta(seconds=5)
+
+
+class DeclarerLeadsTable(DeclaringTable):
+    """The forehand outbids the middlehand, so the declarer leads the first trick."""
+
+    declarer_position = "forehand"
+    auction: ClassVar[tuple[AuctionCall, ...]] = (
+        bids("middlehand", VALID_BIDS[0]),
+        holds("forehand"),
+        passes("middlehand"),
+        passes("rearhand"),
+    )
+
+
+@pytest.fixture
+def null_table(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> PlayingTable:
+    """A Null the declarer leads; he plays his strongest cards, so his first trick decides it early."""
+    return deal_playing_table(
+        open_person, e2e_server, member_of, page_errors, form_factor, game="null", declaring=DeclarerLeadsTable
+    )
 
 
 @pytest.fixture
@@ -386,4 +415,47 @@ def test_a_muted_page_sweeps_without_a_sound(
 
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
     assert voices_started(watcher) == []
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_null_lost_early_rests_its_deciding_trick_with_a_red_rim_on_the_declarers_card_before_the_result(
+    null_table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    watcher = open_watcher(open_person, page_errors, null_table, form_factor)
+
+    played = null_table.play_until_the_declarer_takes_a_trick()
+
+    assert played < CARDS_IN_A_HAND
+    expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+    expect(watcher.locator(RESULT_CARD)).to_have_count(0)
+    taker = watcher.locator(f"{FELT_CARD}.took.lost")
+    expect(taker).to_have_attribute("data-seat", str(null_table.declarer_seat))
+
+    run_until(watcher, RESULT_CARD, 1)
+
+    expect(watcher.locator(FELT_CARD)).to_have_count(0)
+    assert null_table.result()["won"] is False
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_with_reduced_motion_a_null_lost_early_shows_its_deciding_trick_as_a_row_on_the_result(
+    null_table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    watcher = open_watcher(open_person, page_errors, null_table, form_factor, moving=False, clock=False)
+
+    null_table.play_until_the_declarer_takes_a_trick()
+
+    expect(watcher.locator(RESULT_CARD)).to_have_count(1)
+    expect(watcher.locator(DECIDING_ROW_CARD)).to_have_count(CARDS_IN_A_TRICK)
+    expect(watcher.locator(f"{DECIDING_ROW_CARD}.took")).to_have_attribute("data-seat", str(null_table.declarer_seat))
+    expect(watcher.locator(".result .deciding.lost")).to_have_count(1)
+    expect(watcher.locator(FELT_CARD)).to_have_count(0)
     assert page_errors == []

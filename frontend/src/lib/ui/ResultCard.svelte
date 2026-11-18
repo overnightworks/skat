@@ -2,16 +2,28 @@
     import type { Attachment } from "svelte/attachments";
 
     import { MOTION_SETS } from "#lib/motionSets.ts";
+    import type { LaidCard } from "#lib/playView.ts";
     import type { ResultView } from "#lib/result.ts";
     import { motionInForce } from "#lib/settings.svelte.ts";
+    import CardFace from "#lib/ui/CardFace.svelte";
     import Confetti from "#lib/ui/Confetti.svelte";
     import PointsBar from "#lib/ui/PointsBar.svelte";
     import { words } from "#lib/words.ts";
 
-    import type { Suit } from "../../routes/(start)/tables.ts";
+    import { cardName, type Suit } from "../../routes/(start)/tables.ts";
 
-    // A card that counts is one that appeared while the page watched; each won gain on it counts up to its value.
-    let { view, counts = false }: { view: ResultView; counts?: boolean } = $props();
+    // A card that counts is one that appeared while the page watched; each won gain on it counts up to its value. A game
+    // decided before its tenth trick, shown while the stage stood still, carries that trick as a row, the card that took
+    // it in the rim of the declarer's outcome.
+    let {
+        view,
+        counts = false,
+        deciding = null,
+    }: {
+        view: ResultView;
+        counts?: boolean;
+        deciding?: { cards: LaidCard[]; takerSeat: number; declarerWon: boolean } | null;
+    } = $props();
 
     // A won result that appeared while the page watched throws the confetti of the motion set in force, if it has any.
     const motion = $derived(motionInForce());
@@ -69,6 +81,16 @@
             </span>
         {/if}
     </div>
+    {#if deciding !== null}
+        <ul class={["deciding", deciding.declarerWon ? "won" : "lost"]} aria-label={words["play.lastTrick"]}>
+            {#each deciding.cards as { card, seat, initial } (seat)}
+                <li class="deciding-card" class:took={seat === deciding.takerSeat} data-seat={seat}>
+                    <span class="face" role="img" aria-label={cardName(card)}><CardFace {card} /></span>
+                    <span class="dot" aria-hidden="true">{initial}</span>
+                </li>
+            {/each}
+        </ul>
+    {/if}
     {#if view.chips.length > 0}
         <div class="ladder" role="list">
             {#each view.chips as chip (chip.word)}

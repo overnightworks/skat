@@ -5089,6 +5089,93 @@ body {
     backdrop-filter: none;
 }
 
+/* The keys the table waits on from the viewer, as the scenes turn-pop and strand-turn-pop draw them: the key pops once
+   with a fading ring when the viewer's turn is shown, and a slow sheen runs over it while it waits. The pop lasts the
+   motion set's keyPopsSeconds. */
+.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)) {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::before,
+.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+}
+
+.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::before {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 40%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+}
+
+.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::after {
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.85);
+}
+
+.room[data-motion]
+    :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)):not(:disabled)::before {
+    animation: key-sheen 2.8s ease-in-out 0.5s infinite; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room.key-pops[data-motion="verspielt"]
+    :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)) {
+    animation: key-pop 420ms cubic-bezier(0.3, 1.6, 0.5, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room.key-pops[data-motion="verspielt"]
+    :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::after {
+    animation: key-ring 700ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+.room.key-pops[data-motion="dezent"]
+    :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::after {
+    animation: key-ring 400ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes key-pop {
+    0%,
+    100% {
+        scale: 1;
+    }
+
+    45% {
+        scale: 1.12;
+    }
+}
+
+@keyframes key-ring {
+    from {
+        scale: 0.9;
+        opacity: 1;
+    }
+
+    to {
+        scale: 1;
+        opacity: 0;
+    }
+}
+
+@keyframes key-sheen {
+    0% {
+        translate: -120% 0;
+        opacity: 1;
+    }
+
+    55%,
+    100% {
+        translate: 260% 0;
+        opacity: 1;
+    }
+}
+
 .room .copy.wait {
     display: flex;
     justify-content: center;
@@ -8046,6 +8133,74 @@ body {
     aspect-ratio: 100 / 140;
     border-radius: calc(var(--lt-card) * 0.07);
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+}
+
+/* The last trick of a hand lifts the card that took it until the result rises, as the scenes deciding-lost and
+   deciding-won draw it: in a red rim when the declarer lost, a gold one when he won, the pile's brass in a Ramsch. */
+.room .laid.took .face {
+    transform: translateY(-12%);
+    border-radius: calc(var(--card-width) * 0.075);
+    outline: 3px solid var(--rim, var(--brass-hi));
+    outline-offset: 2px;
+    transition: transform 200ms ease-out;
+}
+
+.room .laid.took.lost {
+    --rim: var(--leave);
+}
+
+.room .laid.took.won {
+    --rim: var(--brass-hi);
+}
+
+/* With motion still, the result of a game decided before its tenth trick carries that trick as a row, as the scene
+   deciding-still draws it. */
+.room .result .deciding {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 8px 0 2px;
+    padding: 0;
+    list-style: none;
+}
+
+.room .result .deciding-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.room .result .deciding-card .face {
+    display: block;
+    width: 34px;
+    aspect-ratio: 100 / 140;
+    border-radius: 3px;
+}
+
+.room .result .deciding-card.took .face {
+    outline: 2px solid var(--rim);
+    outline-offset: 2px;
+}
+
+.room .result .deciding.lost {
+    --rim: var(--leave);
+}
+
+.room .result .deciding.won {
+    --rim: var(--brass-hi);
+}
+
+.room .result .deciding-card .dot {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--glass);
+    color: var(--on-stage);
+    font-size: 11px;
+    font-weight: 700;
 }
 
 .room .lt-card.took .face {

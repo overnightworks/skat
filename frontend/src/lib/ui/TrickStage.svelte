@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { playedCards, trickInPile, trickOnTheFelt } from "#lib/playView.ts";
     import { currentSettings } from "#lib/settings.svelte.ts";
-    import { currentStage, jumpStage, lookingAt, sweepingTo } from "#lib/stage.svelte.ts";
+    import { closingTrickWon, currentStage, jumpStage, lookingAt, sweepingTo } from "#lib/stage.svelte.ts";
     import type { Stamp } from "#lib/kontra.ts";
     import CalloutStamp from "#lib/ui/CalloutStamp.svelte";
     import LastTrickShown from "#lib/ui/LastTrickShown.svelte";
@@ -11,7 +11,8 @@
 
     // The trick on the felt as the stage shows it, not as the received table has it: a finished trick rests, glides to
     // its taker's pile and is gone, or stays until the next lead. A Kontra stamp lands above it, and the last trick lifted
-    // out of its pile lies over it. A window that turns hidden shows the received table at once.
+    // out of its pile lies over it. The last trick of a hand lifts the card that took it, in the rim of the declarer's
+    // outcome, until the result rises. A window that turns hidden shows the received table at once.
     const {
         chairs,
         playing,
@@ -29,6 +30,12 @@
     const stage = $derived(currentStage());
     const mode = $derived(currentSettings().lastTrick);
     const laid = $derived(playing === null ? [] : trickOnTheFelt(chairs, playing, stage, mode));
+    const closingWon = $derived(closingTrickWon());
+    const took = $derived(
+        closingWon === undefined || stage.trick === null
+            ? null
+            : { seat: stage.trick.taker_seat, declarerWon: closingWon },
+    );
     const lookedAt = $derived(playing === null || lookingAt() === null ? null : trickInPile(playing, stage, mode));
 
     onMount(() => {
@@ -44,7 +51,7 @@
 
 <CalloutStamp {stamp} aboveNearCard={laid.some(({ slot }) => slot === "near")} />
 {#if playing !== null}
-    <PlayedTrick {chairs} {laid} {playedThisHand} {turnSeat} sweptTo={sweepingTo()} />
+    <PlayedTrick {chairs} {laid} {playedThisHand} {turnSeat} sweptTo={sweepingTo()} {took} />
 {/if}
 {#if lookedAt !== null}
     <LastTrickShown cards={playedCards(chairs, lookedAt)} takerSeat={lookedAt.taker_seat} />

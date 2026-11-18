@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tableShowing } from "#lib/closingHand.ts";
-import { afterTheLastCard, beforeTheLastCard, sheetOfTheLastTrick } from "#lib/closingTrick.fixtures.ts";
+import {
+    afterTheLastCard,
+    beforeTheLastCard,
+    sheetOfTheLastTrick,
+    sheetOfTrickThree,
+} from "#lib/closingTrick.fixtures.ts";
 import type { Cue } from "#lib/cues.ts";
 import { MIDDLEHAND } from "#lib/cues.fixtures.ts";
-import type { GameSheet, Table } from "../routes/(start)/tables.ts";
+import type { GameSheet, LastTrick, Table } from "../routes/(start)/tables.ts";
 
 type Presented = { previous: Table | undefined; table: Table; cues: readonly Cue[] };
 
@@ -17,15 +22,20 @@ let stageIsMoving = true;
 function showing(readSheet: (ordinal: number) => Promise<GameSheet | null>) {
     const presented: Presented[] = [];
     const resultShown: (() => void)[] = [];
+    const declarerWon: (boolean | null)[] = [];
+    const stillTricks: { ordinal: number; trick: LastTrick }[] = [];
     const shown = tableShowing(
-        (previous, table, cues, whenResultShown) => {
+        (previous, table, cues, closing) => {
             presented.push({ previous, table, cues });
-            if (whenResultShown !== undefined) resultShown.push(whenResultShown);
+            if (closing === undefined) return;
+            resultShown.push(closing.whenResultShown);
+            declarerWon.push(closing.declarerWon);
         },
         readSheet,
         () => stageIsMoving,
+        (ordinal, trick) => stillTricks.push({ ordinal, trick }),
     );
-    return { shown, presented, resultShown };
+    return { shown, presented, resultShown, declarerWon, stillTricks };
 }
 
 const kinds = (presentation: Presented | undefined): string[] => presentation?.cues.map((cue) => cue.kind) ?? [];
@@ -157,16 +167,53 @@ describe("the table that follows the last card", () => {
         expect(presented.map(({ table }) => table)).toEqual([afterwards]);
     });
 
-    it("shows the table as any other when the stage does not move", () => {
-        stageIsMoving = false;
-        const readSheet = vi.fn(() => Promise.resolve<GameSheet | null>(lastTrickSheet));
-        const { shown, presented } = showing(readSheet);
+    it("tells whether the declarer won the hand whose last trick it holds", async () => {
+        const { shown, declarerWon } = showing(() => Promise.resolve(lastTrickSheet));
         shown.begin(beforeTheLastCard);
 
         shown.show(afterwards);
+        await vi.advanceTimersByTimeAsync(0);
 
-        expect(readSheet).not.toHaveBeenCalled();
+        expect(afterwards.result?.kind).toBe("declared");
+        expect(declarerWon).toEqual([afterwards.result?.kind === "declared" && afterwards.result.won]);
+    });
+
+    it("shows the result at once when the stage does not move, and a trick played to the last on no row", async () => {
+        stageIsMoving = false;
+        const { shown, presented, stillTricks } = showing(() => Promise.resolve(lastTrickSheet));
+        shown.begin(beforeTheLastCard);
+
+        shown.show(afterwards);
         expect(presented.map(({ table }) => table)).toEqual([afterwards]);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(stillTricks).toEqual([]);
+    });
+
+    it("shows the trick that decided the game before its tenth once the sheet has come, when the stage does not move", async () => {
+        stageIsMoving = false;
+        const { shown, presented, stillTricks } = showing(() => Promise.resolve(sheetOfTrickThree));
+        shown.begin(beforeTheLastCard);
+
+        shown.show(afterwards);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(presented.map(({ table }) => table)).toEqual([afterwards]);
+        expect(stillTricks.map(({ ordinal, trick }) => [ordinal, trick.taker_seat])).toEqual([
+            [afterwards.result?.ordinal, sheetOfTrickThree.cards?.tricks.at(-1)?.taker_seat],
+        ]);
+    });
+
+    it("shows no still trick once the page has ended while the sheet was read", async () => {
+        stageIsMoving = false;
+        const { shown, stillTricks } = showing(() => Promise.resolve(sheetOfTrickThree));
+        shown.begin(beforeTheLastCard);
+
+        shown.show(afterwards);
+        shown.end();
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(stillTricks).toEqual([]);
     });
 
     it("shows the result at once when the stage stopped moving while the sheet was read", async () => {

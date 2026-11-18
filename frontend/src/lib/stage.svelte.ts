@@ -1,3 +1,4 @@
+import type { Closing } from "./closingHand.ts";
 import { isChairCue, type ChairCue, type Cue } from "./cues.ts";
 import { MOTION_SETS, type MotionSet } from "./motionSets.ts";
 import { currentSettings, motionInForce } from "./settings.svelte.ts";
@@ -21,6 +22,11 @@ let looking: number | null = $state(null);
 let timer: ReturnType<typeof setTimeout> | undefined;
 // What the page does with the result of the hand whose last trick the stage moves, once the stage has settled.
 let showResult: (() => void) | undefined;
+// Whether the declarer of the hand whose last trick the stage moves won it, none in a Ramsch.
+let closingWon = $state<boolean | null>(null);
+// Whether the key the table waits on from the viewer pops, from the moment the viewer's turn is shown.
+let popping = $state(false);
+let popTimer: ReturnType<typeof setTimeout> | undefined;
 // The chairs that changed hands in the latest update, while their motion lasts.
 let moving: readonly ChairCue[] = $state([]);
 let movingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -35,7 +41,10 @@ function apply(step: Step, cues: readonly Cue[] = []): void {
     clearTimeout(timer);
     stage = step.stage;
     if (step.beats.includes("glide-started")) soundForGlide();
-    if (step.beats.includes("turn-shown")) soundForTurn(cues);
+    if (step.beats.includes("turn-shown")) {
+        soundForTurn(cues);
+        popTheKey();
+    }
     if (step.beats.includes("result-shown")) {
         const show = showResult;
         showResult = undefined;
@@ -51,6 +60,26 @@ function apply(step: Step, cues: readonly Cue[] = []): void {
 /** The pacing now; a trick on the move shows apart from the received table. */
 export function currentStage(): StageState {
     return stage;
+}
+
+/** Whether the declarer won the hand whose last trick is on the move, null in a Ramsch; undefined while no last trick moves. */
+export function closingTrickWon(): boolean | null | undefined {
+    return stage.phase !== "settled" && stage.resultPending ? closingWon : undefined;
+}
+
+/** Whether the key the table waits on from the viewer pops now, as the viewer's turn has just been shown. */
+export function keyPops(): boolean {
+    return popping;
+}
+
+function popTheKey(): void {
+    const set = motionSetInForce();
+    clearTimeout(popTimer);
+    if (set === undefined) return;
+    popping = true;
+    popTimer = setTimeout(() => {
+        popping = false;
+    }, set.keyPopsSeconds * 1000);
 }
 
 /** The seat a finished trick glides to, while it glides. */
@@ -78,6 +107,8 @@ export function resetStage(): void {
     clearTimeout(timer);
     showResult = undefined;
     clearTimeout(dealTimer);
+    clearTimeout(popTimer);
+    popping = false;
     stage = SETTLED;
     looking = null;
     stopChairs();
@@ -108,10 +139,10 @@ export function stageMoves(): boolean {
 }
 
 /**
- * The update `cues` brought to the table that followed `previous`. `whenResultShown` is given for the cues of the
- * trick that closes the hand: the stage calls it once that trick has rested and swept, or at once when it does not move.
+ * The update `cues` brought to the table that followed `previous`. `closing` is given for the cues of the trick that
+ * closes the hand: the stage shows its result once that trick has rested and swept, or at once when it does not move.
  */
-export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[], whenResultShown?: () => void): void {
+export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[], closing?: Closing): void {
     if (previous === undefined) {
         resetStage();
         return;
@@ -125,14 +156,15 @@ export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[]
         moving = cues.filter(isChairCue);
         movingTimer = setTimeout(stopChairs, chairMilliseconds);
     }
-    showResult = whenResultShown;
+    showResult = closing?.whenResultShown;
+    closingWon = closing?.declarerWon ?? null;
     apply(
         receive(stage, {
             cues,
             before: previous.hand?.playing ?? null,
             timing,
             mode: currentSettings().lastTrick,
-            closing: whenResultShown !== undefined,
+            closing: closing !== undefined,
             now: Date.now(),
         }),
         cues,

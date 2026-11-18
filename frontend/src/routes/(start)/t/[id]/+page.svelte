@@ -24,6 +24,7 @@
         bidLineOfGameDeclaredInTheStage,
         gameInPlay,
         openCardsOf,
+        playedCards,
         sideNames,
         type PlayingHand,
     } from "#lib/playView.ts";
@@ -80,6 +81,7 @@
     import {
         chairMoving,
         isDealing,
+        keyPops,
         receiveOnStage,
         resetStage,
         stageMoves,
@@ -114,6 +116,7 @@
         type SeriesEndAnswer,
         type AuctionAction,
         type Card,
+        type LastTrick,
         type Options,
         type Outcome,
         type Picking,
@@ -146,6 +149,8 @@
     let justWon = $state(false);
     // The ordinal of the result that appeared while this page watched; only its card counts the gains up.
     let countedOrdinal = $state<number | null>(null);
+    // The trick that decided the game of the result `ordinal` before its tenth, shown on the result as the stage stood still.
+    let stillTrick = $state<{ ordinal: number; trick: LastTrick } | null>(null);
     // The cards this page saw laid in the running hand; a card that was not seen laid, a reload's for one, is not here.
     let playedThisHand = $state<Card[]>([]);
     // The latest word said at this table in the running hand, which the stamp shows for a moment.
@@ -171,7 +176,7 @@
         seatNoteTimer = setTimeout(() => (seatNote = null), SEAT_NOTICE_MILLISECONDS);
     }
 
-    const presentTable: Presenter = (previous, table, cues, whenResultShown) => {
+    const presentTable: Presenter = (previous, table, cues, closing) => {
         streamedVersion = table.version;
         streamedWatchers = table.watchers;
         seatedAgents = seatedAgentsKey(previous, table);
@@ -199,13 +204,23 @@
                 wonTimer = setTimeout(() => (justWon = false), WON_MOMENT_MILLISECONDS);
             }
         }
-        if (table.result === null) countedOrdinal = null;
+        if (table.result === null) {
+            countedOrdinal = null;
+            stillTrick = null;
+        }
         outcome = { kind: "table", table };
         // The stage may show the result at once, so nothing of this table is set after it.
-        receiveOnStage(previous, cues, whenResultShown);
+        receiveOnStage(previous, cues, closing);
     };
 
-    const tables = tableShowing(presentTable, (ordinal) => readGameSheet(id, ordinal), stageMoves);
+    const tables = tableShowing(
+        presentTable,
+        (ordinal) => readGameSheet(id, ordinal),
+        stageMoves,
+        (ordinal, trick) => {
+            stillTrick = { ordinal, trick };
+        },
+    );
 
     // SvelteKit keeps this component when the address changes from one table to another.
     $effect(() => {
@@ -215,6 +230,7 @@
         attention = 0;
         justWon = false;
         countedOrdinal = null;
+        stillTrick = null;
         streamedVersion = null;
         seatNote = null;
         asking = null;
@@ -391,6 +407,7 @@
     class="room"
     class:framed={callMode}
     class:dealing={isDealing()}
+    class:key-pops={keyPops()}
     data-theme="dark"
     data-motion={motionInForce()}
     data-style={tableStyle()}
@@ -542,7 +559,18 @@
             {#if standing !== null}
                 <Standings view={standing} />
             {:else if view !== null}
-                <ResultCard {view} counts={declared?.ordinal === countedOrdinal} />
+                {@const decidingTrick = stillTrick?.ordinal === declared?.ordinal ? stillTrick?.trick : undefined}
+                <ResultCard
+                    {view}
+                    counts={declared?.ordinal === countedOrdinal}
+                    deciding={decidingTrick === undefined
+                        ? null
+                        : {
+                              cards: playedCards(outcome.table.chairs, decidingTrick),
+                              takerSeat: decidingTrick.taker_seat,
+                              declarerWon: declared?.won ?? false,
+                          }}
+                />
             {:else if ramschView !== null}
                 <RamschResultCard view={ramschView} />
             {/if}

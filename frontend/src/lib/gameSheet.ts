@@ -3,7 +3,7 @@ import type { SideNames } from "#lib/playView.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { Card, CardState, Game, GameEnding, GameSheet, Sides } from "../routes/(start)/tables.ts";
 
-const TRICKS_IN_A_GAME = 10;
+export const TRICKS_IN_A_GAME = 10;
 
 export type SheetSeat = { seat: number; name: string; initial: string };
 export type SheetHand = { seat: SheetSeat; cards: { card: Card; state: CardState }[] };
