@@ -4,11 +4,13 @@ import { closedHandOrdinal, cuesBetween } from "#lib/cues.ts";
 import { FOREHAND, MIDDLEHAND, REARHAND, table } from "#lib/cues.fixtures.ts";
 import {
     afterTheLastCard,
+    beforeTheDecidingCard,
     beforeTheLastCard,
     HERZ_NINE,
     KREUZ_ACE,
     KREUZ_KING,
     sheetOfTheLastTrick,
+    sheetOfTrickThree,
 } from "#lib/closingTrick.fixtures.ts";
 import { LOST_GAME, ramschResult, table as tableWithResult } from "#lib/result.fixtures.ts";
 import type { Table } from "../routes/(start)/tables.ts";
@@ -85,6 +87,21 @@ describe("the last trick of a hand that the game sheet names", () => {
         const cues = held === null ? [] : cuesBetween(behind, held);
         expect(cues.filter((cue) => cue.kind === "card-played")).toHaveLength(3);
         expect(cues.at(-1)?.kind).toBe("trick-taken");
+    });
+
+    it("takes from each hand only the card it laid when the game is decided before its last trick", () => {
+        const held = closeHand(beforeTheDecidingCard, afterTheLastCard, sheetOfTrickThree);
+
+        expect(held?.chairs.map((chair) => chair.hand?.card_count)).toEqual([7, 7, 7]);
+        expect(held?.hand?.own_cards).toHaveLength(7);
+        expect(held?.hand?.own_cards).not.toContainEqual(KREUZ_ACE);
+        expect(held && cuesBetween(beforeTheDecidingCard, held)).toEqual([
+            { kind: "card-played", seat: REARHAND, card: KREUZ_ACE },
+            {
+                kind: "trick-taken",
+                trick: { cards: [KREUZ_KING, HERZ_NINE, KREUZ_ACE], leader_seat: FOREHAND, taker_seat: REARHAND },
+            },
+        ]);
     });
 
     it.each([
