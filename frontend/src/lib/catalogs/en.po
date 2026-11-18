@@ -1913,6 +1913,14 @@ msgctxt "rules.namePoints"
 msgid "Laufende Augen zeigen"
 msgstr "Show running points"
 
+msgctxt "rules.nameOfficial"
+msgid "Offizielle Skatordnung (ISkO)"
+msgstr "Official Skat rules (ISkO)"
+
+msgctxt "rules.officialUnchanged"
+msgid "Unverändert gespielt"
+msgstr "Played unchanged"
+
 msgctxt "rules.nameKontra"
 msgid "Kontra und Re"
 msgstr "Kontra and Re"
@@ -2108,6 +2116,10 @@ msgstr "More"
 msgctxt "table.menuTable"
 msgid "Tisch"
 msgstr "Table"
+
+msgctxt "table.agents"
+msgid "Agenten"
+msgstr "Agents"
 
 msgctxt "table.menuGame"
 msgid "Spiel"
