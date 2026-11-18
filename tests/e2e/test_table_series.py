@@ -454,3 +454,25 @@ def test_a_player_who_stands_up_from_the_ended_series_stays_in_the_standings_mar
         leaver = person.locator(f"{STANDING} .rank b", has_text=table.names[3])
         expect(leaver.locator("em")).to_have_text(GONE)
     assert page_errors == []
+
+
+def test_a_proposal_whose_asked_players_stood_up_opens_and_waits_for_players(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, PHONE)
+    table.pass_all()
+    table.play_out()
+    proposer = table.pages[1]
+    propose_the_end(proposer)
+    expect_the_proposal_asked(table)
+
+    for leaver in (table.pages[2], table.pages[3]):
+        menu_button(leaver, STAND_UP).click()
+    proposer.reload()
+
+    expect(proposer.locator(ASK)).to_contain_text(text(SOURCE_LANGUAGE, "table.waitingForPlayers"))
+    expect(proposer.locator(ASK).locator(".face")).to_have_count(0)
+    assert page_errors == []

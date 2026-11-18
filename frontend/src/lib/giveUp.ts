@@ -93,10 +93,17 @@ export function giveUpOffered(table: Table): boolean {
     return seated && gameInPlay(table) !== null && !handWaits(table.hand);
 }
 
-export function faceOf(chairs: readonly Chair[], seat: number): AskFace {
-    // A chair of a running hand is occupied.
-    const name = (chairs.find((chair) => chair.seat === seat) as Chair).occupant_name as string;
-    return { seat, name, initial: name.slice(0, 1) };
+// The faces of the seats someone holds, in the order given: a free chair shows none.
+export function facesOf(chairs: readonly Chair[], seats: readonly number[]): AskFace[] {
+    return seats.flatMap((seat) => {
+        const name = (chairs.find((chair) => chair.seat === seat) as Chair).occupant_name;
+        return name === null ? [] : [{ seat, name, initial: name.slice(0, 1) }];
+    });
+}
+
+// The names of the faces in the page's list format.
+export function namesOf(faces: readonly AskFace[]): string {
+    return listFormat.format(faces.map((face) => face.name));
 }
 
 // Who is asked and who asks, read from the request's own fields.
@@ -152,8 +159,8 @@ function giveUpRequestView(asked: Asked, request: GiveUp, declarerSeat: number):
     const marks = new Map<number, AnswerMark>(unansweredSeats.map((seat) => [seat, "unanswered"]));
     if (declinedSeat !== null) marks.set(declinedSeat, "declined");
 
-    const faces = (asking ? pendingSeats : [askerSeat]).map((seat) => faceOf(chairs, seat));
-    const names = listFormat.format(faces.map((face) => face.name));
+    const faces = facesOf(chairs, asking ? pendingSeats : [askerSeat]);
+    const names = namesOf(faces);
     const askedLine = declarerAsks ? "wants-to-give-up" : "gives-up";
     const offeredAnswers: GiveUpAnswer[] = viewerSeat === declinedSeat ? ["agree"] : ["agree", "decline"];
     return {
@@ -179,8 +186,8 @@ function shorteningView(asked: Asked, request: Shortening): GiveUpView {
     const marks = new Map<number, AnswerMark>(answering ? [] : pendingSeats.map((seat) => [seat, "unanswered"]));
     if (agreedSeat !== null) marks.set(agreedSeat, "agreed");
 
-    const faces = (asking ? pendingSeats : [askerSeat]).map((seat) => faceOf(chairs, seat));
-    const names = listFormat.format(faces.map((face) => face.name));
+    const faces = facesOf(chairs, asking ? pendingSeats : [askerSeat]);
+    const names = namesOf(faces);
     const offeredAnswers: GiveUpAnswer[] = viewerSeat === agreedSeat ? ["decline"] : ["agree", "decline"];
     return {
         line: asking ? "waits" : "wants-to-shorten",
@@ -199,18 +206,18 @@ function openPlayView(asked: Asked): GiveUpView {
     const { askerSeat, answererSeats, viewerSeat, chairs } = asked;
     const asking = viewerSeat === askerSeat;
     const answering = viewerSeat !== undefined && answererSeats.includes(viewerSeat);
-    const asker = faceOf(chairs, askerSeat);
-    const awaited = answererSeats.map((seat) => faceOf(chairs, seat));
+    const askers = facesOf(chairs, [askerSeat]);
+    const awaited = facesOf(chairs, answererSeats);
     return {
         line: "plays-open",
-        text: asking ? words["table.youPlayOpen"] : words["table.playsOpen"]({ name: asker.name }),
-        faces: [asker],
+        text: asking ? words["table.youPlayOpen"] : words["table.playsOpen"]({ name: namesOf(askers) }),
+        faces: askers,
         answers: answering ? ["agree", "decline"] : [],
         marks: new Map<number, AnswerMark>(asking ? answererSeats.map((seat) => [seat, "unanswered"]) : []),
         demand: null,
         waitsFor: asking
             ? {
-                  text: words["table.waitingFor"]({ names: listFormat.format(awaited.map((face) => face.name)) }),
+                  text: words["table.waitingFor"]({ names: namesOf(awaited) }),
                   faces: awaited,
               }
             : null,
@@ -230,9 +237,9 @@ export function requestEndedNotice(cues: readonly Cue[], chairs: readonly Chair[
 
 // The notice after the second no: the refusing seats play on, named in the page's list format.
 function refusalNotice(chairs: readonly Chair[], seats: readonly number[]): SeatNotice {
-    const faces = seats.map((seat) => faceOf(chairs, seat));
+    const faces = facesOf(chairs, seats);
     return {
-        text: words["table.playingOn"]({ names: listFormat.format(faces.map((face) => face.name)) }),
+        text: words["table.playingOn"]({ names: namesOf(faces) }),
         initials: faces.map((face) => face.initial),
         seat: null,
         occupied: false,
@@ -245,9 +252,14 @@ function playOnNotice(
     chairs: readonly Chair[],
     cue: { kind: "shortening-refused" | "open-play-on"; seat: number },
 ): SeatNotice {
-    const { name, initial } = faceOf(chairs, cue.seat);
+    const faces = facesOf(chairs, [cue.seat]);
     const sentence = cue.kind === "shortening-refused" ? words["table.saidNoPlayingOn"] : words["table.playsOpenOn"];
-    return { text: sentence({ name }), initials: [initial], seat: null, occupied: false };
+    return {
+        text: sentence({ name: namesOf(faces) }),
+        initials: faces.map((face) => face.initial),
+        seat: null,
+        occupied: false,
+    };
 }
 
 const GIVE_UP_BUTTONS: Record<GiveUpAnswer, AskButton<GiveUpAnswer>> = {
