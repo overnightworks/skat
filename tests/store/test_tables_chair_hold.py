@@ -241,8 +241,10 @@ class TestTheFreeing:
     def test_an_unknown_presence_frees_nothing_and_keeps_the_hold(self, service, engine, table_id):
         hold_due_in(engine, table_id, LEAVER.account_id, -1)
 
+        presence = unknown_presence()
+
         with pytest.raises(PresenceUnknownError):
-            service.free_held_chair(table_id, LEAVER.account_id, unknown_presence())
+            service.free_held_chair(table_id, LEAVER.account_id, presence)
 
         assert occupants(service, table_id) == ["Anna", "Ben", None]
         assert holds(engine) == {(table_id.value, LEAVER.account_id)}
