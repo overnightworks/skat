@@ -84,9 +84,19 @@ describe("seriesEndAsk", () => {
     });
 
     it.each([
-        { name: "both asked chairs are free", freeSeats: [2, 3], seatedFaces: [] },
-        { name: "one asked chair is free", freeSeats: [3], seatedFaces: [2] },
-    ])("makes the proposer wait for players when $name", ({ freeSeats, seatedFaces }) => {
+        {
+            name: "both asked chairs are free",
+            freeSeats: [2, 3],
+            text: words["table.waitingForPlayers"],
+            seatedFaces: [],
+        },
+        {
+            name: "one asked chair is free",
+            freeSeats: [3],
+            text: words["table.waitingFor"]({ names: "player 2" }),
+            seatedFaces: [2],
+        },
+    ])("makes the proposer wait for the seated asked players when $name", ({ freeSeats, text, seatedFaces }) => {
         const table = tableBetweenGames(1, proposal(null));
         const freed = table.chairs.map((chair) =>
             freeSeats.includes(chair.seat) ? { ...chair, occupant_name: null } : chair,
@@ -94,7 +104,7 @@ describe("seriesEndAsk", () => {
 
         const ask = seriesEndAsk({ ...table, chairs: freed });
 
-        expect(ask?.text).toBe(words["table.waitingForPlayers"]);
+        expect(ask?.text).toBe(text);
         expect(ask?.faces.map((face) => face.seat)).toEqual(seatedFaces);
         expect(ask?.waits).toBe(true);
     });

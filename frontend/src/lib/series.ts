@@ -23,7 +23,7 @@ const SERIES_END_BUTTONS: AskButton<SeriesEndAnswer>[] = [
 
 // The plaque of a standing proposal to end the series: the other two see Ja and Nein, whoever proposed or said yes waits
 // for the rest by name, and a watcher is told who proposed. A chair freed after the proposal is answered by whoever sits
-// there next, so while one is free the wait names no one and shows the faces of those seated.
+// there next, so the wait names and shows only those seated, and with every asked chair free it waits for players.
 export function seriesEndAsk(table: Table): AskView<SeriesEndAnswer> | null {
     const proposal = table.series?.end_proposal;
     if (!proposal) return null;
@@ -33,10 +33,7 @@ export function seriesEndAsk(table: Table): AskView<SeriesEndAnswer> | null {
     if (viewerSeat !== undefined && answeredSeats.has(viewerSeat)) {
         const faces = facesOf(table.chairs, waitingSeats);
         const names = namesOf(faces);
-        const text =
-            faces.length === waitingSeats.length
-                ? words["table.waitingFor"]({ names })
-                : words["table.waitingForPlayers"];
+        const text = faces.length > 0 ? words["table.waitingFor"]({ names }) : words["table.waitingForPlayers"];
         return { text, faces, waits: true, buttons: [] };
     }
     // The proposal goes with its proposer's chair, so a standing one names a seated proposer.
