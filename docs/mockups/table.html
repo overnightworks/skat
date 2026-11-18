@@ -2561,7 +2561,7 @@ const DECIDING_SCENES=[
   ['deciding-won','Der letzte Stich eines gewonnenen Spiels',[390,1280],(d,w)=>decidingTable(d,w,{felt:decidingTrick(d,TENTH_TRICK,'won'),game:gameLine('c','Kreuz'),fans:0,annaTricks:3,felixTricks:6,hand:[]}),
     ['Gewinnt der Alleinspieler, trägt die Karte, die den entscheidenden Stich nahm, einen goldenen Rand: hier Felix’ Pik-Ass im zehnten Stich seines Kreuz. Danach steigt „Gewonnen!“.']],
   ['deciding-still','Früh verloren, Bewegung reduziert',[360,390,1280],(d)=>stillEnd(d,NULL_LOST,NULL_DECIDING,'lost'),
-    ['Mit reduzierter Bewegung, im verborgenen Fenster oder nach dem Neuladen steht das Ergebnis sofort da; unter dem Spiel zeigt die Karte den entscheidenden Stich als stille Reihe in der gespielten Folge, die Karte, die ihn nahm, im roten Rand des verlorenen Spiels.']],
+    ['Mit reduzierter Bewegung oder im verborgenen Fenster steht das Ergebnis sofort da; unter dem Spiel zeigt die Karte den entscheidenden Stich als stille Reihe in der gespielten Folge, die Karte, die ihn nahm, im roten Rand des verlorenen Spiels.']],
   ['turn-pop','Du bist dran: die Taste',[390,1280],(d)=>turnKey(BID_SCENES.find(([id])=>id==='bid-middle')[2](d),/<span class="button button-stage">/),
     ['Wenn Felix dran ist, springt die Taste, auf die der Tisch von ihm wartet, einmal kurz auf, und ein Ring um sie verblasst; solange er dran bleibt, läuft langsam ein heller Glanz über sie. Das gilt für „Weiter“, das Reizen, Kontra und „Ansagen“. Mit reduzierter Bewegung steht die Taste nur hell da.']],
   ['strand-turn-pop','Strandbar: du bist dran',[390,1280],strandView((d)=>turnKey(BID_SCENES.find(([id])=>id==='bid-middle')[2](d),/<span class="button button-stage">/)),
