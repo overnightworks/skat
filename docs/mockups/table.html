@@ -2569,7 +2569,7 @@ const NULL_LOST={...NULL_HAND,winners:['anna','ben'],adds:[40,40,-120],won:false
 const decidingRow=(trick,rim)=>`<div class="deciding ${rim}" aria-label="Entscheidender Stich">${trick.map(([r,s,k])=>`<span class="dc ${k==='felix'?'took':''}">${card(r,s,'',at({'--w':34}))}${faceTag(k==='nova'?'ben':k)}</span>`).join('')}</div>`;
 const stillEnd=(d,o,trick,rim)=>endScene(d,o,tapButton).replace(/(<div class="sub"><div class="game">[\s\S]*?<\/div>[\s\S]*?<\/div>)/,`$1${decidingRow(trick,rim)}`);
 /* the key the table waits on from the viewer pops once when his turn begins and carries the sheen while it stays open */
-const turnKey=(html,find)=>html.replace(find,(m)=>m.replace('class="','class="turnkey pop mo ').replace(/>$/,' style="--k:.3s"><span class="sheen" aria-hidden="true"></span>'));
+const turnKey=(html,find)=>html.replace(find,(m)=>m.replace('class="','class="turnkey mo ').replace(/>$/,' style="--k:.3s"><span class="sheen" aria-hidden="true"></span>'));
 const DECIDING_SCENES=[
   ['deciding-lost','Früh verloren: der entscheidende Stich',[360,390,1280],(d,w)=>decidingTable(d,w,{felt:decidingTrick(d,NULL_DECIDING,'lost'),game:gameLine('','Null Hand'),fans:7,annaTricks:2,felixTricks:0,hand:AFTER_HAND}),
     ['Ein Spiel, das vor dem zehnten Stich entschieden ist, endet nicht mit dem Ergebnis: Felix spielt Null Hand und muss im dritten Stich Annas Herz-Acht mit der Dame nehmen. Der Stich landet und liegt still wie jeder Stich; die Dame, die ihn nahm, hebt sich mit rotem Rand, denn der Alleinspieler verliert. Erst dann steigt die Karte „Verloren“; Felix behält bis dahin seine übrigen sieben Karten.']],
@@ -3268,8 +3268,8 @@ if(panels.length){hangPanels();document.fonts.ready.then(hangPanels);}}
 .turnkey .sheen{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none}
 .turnkey .sheen::after{content:"";position:absolute;top:0;bottom:0;left:0;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);translate:60% 0}
 @media (prefers-reduced-motion:no-preference){
-  .turnkey.pop.mo{animation:key-pop .42s cubic-bezier(.3,1.6,.5,1) var(--k,.3s) both}
-  .turnkey.pop.mo::before{animation:key-ring .7s ease-out var(--k,.3s) both}
+  .turnkey.mo{animation:key-pop .42s cubic-bezier(.3,1.6,.5,1) var(--k,.3s) both}
+  .turnkey.mo::before{animation:key-ring .7s ease-out var(--k,.3s) both}
   .turnkey.mo .sheen::after{animation:key-sheen 2.8s ease-in-out calc(var(--k,.3s) + .5s) infinite}
   @keyframes key-pop{0%{scale:1}45%{scale:1.12}100%{scale:1}}
   @keyframes key-ring{0%{scale:.92;opacity:.9}100%{scale:1.25;opacity:0}}

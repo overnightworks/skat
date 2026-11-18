@@ -11,13 +11,13 @@ from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.kontra import ContestedTable
 from tests.e2e.support.people import PHONE, WIDTHS
-from tests.e2e.support.style import ROOM, STYLE_KEY, choose_style, expect_painted_as_the_scene
+from tests.e2e.support.style import ROOM, STYLE_KEY, TABLE_SCENES, choose_style, expect_painted_as_the_scene
 from tests.e2e.support.table_menu import close_table_menu, menu_button, open_table_menu
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from playwright.sync_api import Route
+    from playwright.sync_api import BrowserContext, Route
 
     from tests.e2e.support.hands import PlayingTable
     from tests.e2e.support.server import RunningServer
@@ -36,6 +36,11 @@ REFUSED = 409
 # The thirtieth card ends the hand.
 CARDS_IN_A_HAND = 30
 KEY_COLOUR = "key => getComputedStyle(key).backgroundColor"
+SCENE_KEY_DRAWN = """id => { const frame = document.getElementById(id);
+  const key = frame.querySelector('.button-stage'); const drawn = getComputedStyle(key);
+  const edge = frame.getBoundingClientRect(); const box = key.getBoundingClientRect();
+  return {background: drawn.backgroundColor, color: drawn.color, height: drawn.height, transform: drawn.transform,
+          left: box.left - edge.left, top: box.top - edge.top}; }"""
 
 
 def the_weiter_key(table: PlayingTable) -> tuple[Page, str]:
@@ -207,3 +212,14 @@ def test_the_key_the_table_waits_on_is_as_bright_in_the_strandbar_as_in_klassik(
 
     assert key.evaluate(KEY_COLOUR) == strandbar
     assert page_errors == []
+
+
+@pytest.mark.parametrize("width", [390, 1280])
+@pytest.mark.parametrize("scene", ["turn-pop", "strand-turn-pop"])
+def test_the_pictures_turn_pop_scene_draws_the_waited_on_key_where_and_as_the_bid_scene_draws_it(
+    new_context: Callable[..., BrowserContext], scene: str, width: int
+) -> None:
+    page = new_context(reduced_motion="reduce").new_page()
+    page.goto(TABLE_SCENES.as_uri())
+
+    assert page.evaluate(SCENE_KEY_DRAWN, f"{scene}-{width}") == page.evaluate(SCENE_KEY_DRAWN, f"bid-middle-{width}")
