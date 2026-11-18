@@ -51,6 +51,28 @@ SENTENCE_INSIDE_THE_PILL = """notice => {
     const pill = notice.getBoundingClientRect();
     return text.left >= pill.left && text.right <= pill.right;
 }"""
+# The notice leaves after a few seconds, so each page reads its boxes in the browser in one pass while it shows.
+NOTICE_ON_THE_PAGE = (
+    "(root, [noticeSelector, cardSelector, covers]) => {"
+    + """
+    const notice = root.querySelector(noticeSelector);
+    if (notice === null || notice.getClientRects().length === 0) return null;
+    const pill = notice.getBoundingClientRect();
+    const overlaps = (box) =>
+        pill.left < box.right && box.left < pill.right && pill.top < box.bottom && box.top < pill.bottom;
+    const coversShown = (selector) => [...root.querySelectorAll(selector)]
+        .some((element) => element.getClientRects().length > 0 && overlaps(element.getBoundingClientRect()));
+    return {
+        covered: covers.filter(coversShown),
+        sentenceInside: ("""
+    + SENTENCE_INSIDE_THE_PILL
+    + """)(notice),
+        depth: ("""
+    + NOTICE_DEPTH_INTO_A_CARD
+    + """)(root, [noticeSelector, cardSelector]),
+    };
+}"""
+)
 
 
 def stand_key_of(person: Page):
@@ -59,15 +81,6 @@ def stand_key_of(person: Page):
 
 def chair_of(person: Page, seat: int):
     return person.locator(f".chair[data-seat='{seat}']")
-
-
-def overlaps(first: dict[str, float], second: dict[str, float]) -> bool:
-    return (
-        first["x"] < second["x"] + second["width"]
-        and second["x"] < first["x"] + first["width"]
-        and first["y"] < second["y"] + second["height"]
-        and second["y"] < first["y"] + first["height"]
-    )
 
 
 def stands_up_through_the_key(person: Page) -> None:
@@ -145,15 +158,13 @@ def test_the_notice_about_the_chair_holds_its_sentence_covers_no_plaque_bubble_f
 
     for other in (*(page for other_seat, page in table.pages.items() if other_seat != seat), table.watcher):
         expect(other.locator(NOTICE)).to_have_count(1)
-        notice = other.locator(NOTICE).bounding_box()
-        assert notice is not None
-        assert other.locator(NOTICE).evaluate(SENTENCE_INSIDE_THE_PILL)
-        depth_on_the_page = other.locator(":root").evaluate(NOTICE_DEPTH_INTO_A_CARD, [NOTICE, ".trick .laid"])
-        for selector in NEVER_UNDER_THE_NOTICE:
-            for covered in other.locator(selector).all():
-                box = covered.bounding_box()
-                assert box is None or not overlaps(notice, box), selector
-        assert depth_on_the_page <= depth_in_the_scene + SCENE_TOLERANCE
+        shown = other.locator(":root").evaluate(
+            NOTICE_ON_THE_PAGE, [NOTICE, ".trick .laid", list(NEVER_UNDER_THE_NOTICE)]
+        )
+        assert shown is not None
+        assert shown["sentenceInside"]
+        assert shown["covered"] == []
+        assert shown["depth"] <= depth_in_the_scene + SCENE_TOLERANCE
     assert page_errors == []
 
 
