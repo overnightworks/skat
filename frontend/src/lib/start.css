@@ -4374,7 +4374,10 @@ body {
         grid-template-rows: 42px 0 418px 0 auto;
     }
 
+    /* The near chair is smaller than the far ones, as the scenes draw it. */
     .room .chair:nth-child(3) {
+        --chair-width: 190px;
+
         grid-column: 1;
         justify-self: start;
         margin-left: 40px;
