@@ -7,6 +7,7 @@ from dataclasses import replace
 from datetime import timedelta
 
 import pytest
+from agents.mcp_server.route_call import ARGUMENTS_REFUSED_TEXT
 from agents.mcp_wire import MCP_ENDPOINT_PATH
 from agents.member import ACCEPT_INVITATION_TOOL, LEASE_SECONDS, STANDING_URI, AcceptInvitationRefusal
 from agents.turn import ToolRefusal
@@ -277,23 +278,27 @@ class TestAnAcceptThatIsStale:
         assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
 
     @pytest.mark.parametrize(
-        "changes",
+        ("changes", "failing_field"),
         [
-            pytest.param({"epoch": -1}, id="a-negative-epoch"),
-            pytest.param({"voices": []}, id="no-voice-named"),
-            pytest.param({"voices": ["Mozart", "Mozart"]}, id="a-voice-twice"),
-            pytest.param({"voices": "Mozart"}, id="voices-that-are-no-list"),
-            pytest.param({"unknown": 1}, id="an-unknown-argument"),
+            pytest.param({"epoch": -1}, "epoch", id="a-negative-epoch"),
+            pytest.param({"voices": []}, "voices", id="no-voice-named"),
+            pytest.param({"voices": ["Mozart", "Mozart"]}, "voices", id="a-voice-twice"),
+            pytest.param({"voices": "Mozart"}, "voices", id="voices-that-are-no-list"),
+            pytest.param({"unknown": 1}, "[key]", id="an-unknown-argument"),
         ],
     )
-    def test_not_as_stale_when_the_arguments_are_malformed(self, invite, skat, agent, owner, table_id, changes):
+    def test_by_the_front_naming_the_failing_fields_when_the_arguments_are_malformed(
+        self, invite, skat, agent, owner, table_id, changes, failing_field
+    ):
         offer = invite(agent, table_id, owner)
         before = stored(skat)
 
         with at_the_table(skat, table_id, owner):
             answer = agent.accept(table_id, offer, **changes)
 
-        assert (answer.is_error, "stale_invitation" in answer.text) == (True, False)
+        refused_fields = answer.text.removeprefix(f"{ARGUMENTS_REFUSED_TEXT}: ")
+        assert (answer.is_error, refused_fields != answer.text) == (True, True)
+        assert f"{failing_field} (" in refused_fields
         assert stored(skat) == before
         assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
 
