@@ -109,15 +109,21 @@ def test_the_menu_closes_on_escape_and_on_a_press_outside(
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
+@pytest.mark.parametrize(
+    "open_account_menu",
+    [open_the_start_pages_account_menu, open_the_table_menus_account_menu],
+    ids=["start page", "table page"],
+)
 def test_the_name_opens_the_account_console_in_a_new_tab_and_closes_the_menu(
     open_person: Callable[..., Page],
     expected_request_failures: list[str],
     e2e_server: RunningServer,
     page_errors: list[str],
     form_factor: dict[str, Any],
+    open_account_menu: Callable[[Page, RunningServer], Locator],
 ) -> None:
     expected_request_failures.append(TEST_ISSUER)
-    person = open_start_page(open_person, e2e_server, page_errors, **form_factor)
+    person = record_page_errors(open_person(**form_factor), page_errors)
     console_answers: list[tuple[int, str | None]] = []
     person.context.on(
         "response",
@@ -127,14 +133,14 @@ def test_the_name_opens_the_account_console_in_a_new_tab_and_closes_the_menu(
             else None
         ),
     )
-    person.locator(ACCOUNT_AVATAR).click()
-    name_row = person.locator(ACCOUNT_MENU).get_by_role("link").first
+    menu = open_account_menu(person, e2e_server)
+    name_row = menu.get_by_role("link").first
     expect(name_row).to_have_attribute("target", "_blank")
 
     with person.context.expect_event("page"):
         name_row.click()
 
-    expect(person.locator(ACCOUNT_MENU)).to_be_hidden()
+    expect(menu).to_be_hidden()
     assert console_answers[0] == (303, f"{TEST_ISSUER}/account")
 
 
