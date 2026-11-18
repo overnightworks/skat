@@ -4351,6 +4351,13 @@ body {
         align-self: end;
     }
 
+    /* A watcher has no hand: the near chair stands below the trick's row, where play-watch draws it, under the rim's left. */
+    .room .stage:has(> .trick) .chair:nth-child(3):not(.mine) {
+        grid-row: 5;
+        align-self: start;
+        margin-top: 4px;
+    }
+
     .room .controls {
         position: relative;
         margin-top: 12px;
