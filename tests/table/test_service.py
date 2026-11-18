@@ -527,7 +527,8 @@ class TestFreeHeldChair:
         with pytest.raises(ConnectionError):
             failing.free_held_chair(held_table, VISITOR.account_id, presence)
 
-        assert (store.tables, store.holds) == (written_tables, written_holds)
+        assert store.tables == written_tables
+        assert store.holds == written_holds
 
 
 ALL_THREE = frozenset({OPENER.account_id, VISITOR.account_id, CLEO.account_id})
