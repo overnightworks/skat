@@ -173,15 +173,14 @@ class LobbyReads:
         account_id: str,
         held_ids: Iterable[TableId],
         connected_by_table: Mapping[str, frozenset[str]],
-        hold_left_by_table: Mapping[str, Mapping[str, int]],
         days: int,
     ) -> tuple[LobbyEntryView, ...]:
         """The entries of the tables the account holds a chair at, in the lobby's order.
 
         `held_ids` is a candidate list from an unlocked read, so each table is read again in one transaction under its
         shared row lock: an ended table and a table whose chair the account left meanwhile are skipped. A table with
-        nobody in `connected_by_table` has nobody connected; the agents whose lease runs count as present.
-        `hold_left_by_table` gives the seconds each away member's hold has left, by table and account.
+        nobody in `connected_by_table` has nobody connected; the agents whose lease runs count as present. An away
+        member's chair shows the seconds its stored hold has left, read in the same transaction.
         """
         live_leases = self._live_leases()
         entries: list[LobbyEntryView] = []
@@ -193,7 +192,7 @@ class LobbyReads:
                 present = present_at(table, connected_by_table.get(table_id.value, frozenset()), live_leases)
                 member = member_view_of(table, account_id, present, transaction.opener_account(table_id))
                 if member is not None:
-                    holds = hold_left_by_table.get(table_id.value, {})
+                    holds = transaction.hold_seconds_left(table_id)
                     entries.append(_entry_of(table, member, present, holds, transaction.paused_facts(table_id), days))
         return tuple(sorted(entries, key=_order_of))
 
@@ -202,7 +201,6 @@ class LobbyReads:
         account_id: str,
         listed_ids: Iterable[TableId],
         connected_by_table: Mapping[str, frozenset[str]],
-        hold_left_by_table: Mapping[str, Mapping[str, int]],
         days: int,
     ) -> tuple[OpenEntryView, ...]:
         """The entries of the open tables the account holds no chair at, the fewest free chairs first, the full
@@ -223,7 +221,7 @@ class LobbyReads:
                     continue
                 connected = connected_by_table.get(table_id.value, frozenset())
                 present = present_at(table, connected, live_leases)
-                holds = hold_left_by_table.get(table_id.value, {})
+                holds = transaction.hold_seconds_left(table_id)
                 facts = transaction.paused_facts(table_id)
                 entries.append(_open_entry_of(table, connected, present, holds, facts, days))
         return tuple(sorted(entries, key=_open_order_of))

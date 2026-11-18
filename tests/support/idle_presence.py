@@ -16,7 +16,19 @@ class IdleScheduler:
         pass
 
 
-async def free_no_chair(table_id, account_id, due):
+async def store_no_leave(table_id, account_id):
+    pass
+
+
+async def clear_no_hold(table_id, account_id):
+    pass
+
+
+async def nothing_due():
+    return []
+
+
+async def free_no_chair(table_id, account_id, absent):
     return False
 
 
@@ -44,8 +56,11 @@ def idle_next_deal() -> NextDeal:
     return NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal_no_hand)
 
 
-def idle_hold() -> ChairHold:
-    return ChairHold(300, lambda: 0.0, IdleScheduler(), free_no_chair)
+def idle_hold(clock=lambda: 0.0, scheduler=None) -> ChairHold:
+    """A chair hold whose store keeps nothing, on `clock` and `scheduler`, which by default runs nothing."""
+    return ChairHold(
+        clock, scheduler or IdleScheduler(), store_no_leave, store_no_leave, clear_no_hold, nothing_due, free_no_chair
+    )
 
 
 def idle_agent_lease() -> AgentLease:

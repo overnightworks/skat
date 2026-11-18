@@ -103,7 +103,11 @@ def test_an_undealt_table_left_by_its_only_stream_ends_and_a_dealt_one_pauses_be
         ]
         dealt = json.loads(anna.get(dealt_path))
         assert (dealt["ended"], dealt["hand"] is not None) == (None, True)
-        assert rows_of(e2e_server.engine, dealt_id) == dealt_before
+        # Anna's closed stream stores her chair hold at the dealt table when the server notices the close, which the
+        # test does not observe; a hold is a deadline beside the table and no row of the paused table itself.
+        dealt_after = rows_of(e2e_server.engine, dealt_id)
+        assert {row[1] for row in dealt_after.pop("chair_holds")} <= {anna.member.account.id}
+        assert dealt_after == {name: rows for name, rows in dealt_before.items() if name != "chair_holds"}
         assert rows_of(e2e_server.engine, watched_id) == watched_before
     finally:
         watched.close()

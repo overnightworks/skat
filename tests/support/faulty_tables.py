@@ -9,7 +9,13 @@ if TYPE_CHECKING:
     from skat.table.game_cards import GameCards
     from skat.table.member_place import BookEntry
     from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord
-    from skat.table.transactions import LiveWait, OccupiedChair, PausedFacts, TableTransaction, TableTransactions
+    from skat.table.transactions import (
+        HeldChair,
+        LiveWait,
+        PausedFacts,
+        TableTransaction,
+        TableTransactions,
+    )
 
 
 BARRIER_TIMEOUT_SECONDS = 0.5
@@ -116,8 +122,20 @@ class _FaultyTransaction:
     def live_empty_since(self) -> tuple[LiveWait, ...]:
         return self._inner.live_empty_since()
 
-    def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
-        return self._inner.occupied_chairs()
+    def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
+        self._inner.store_leave(table_id, account_id, hold_seconds, newest_wins=newest_wins)
+
+    def delete_hold(self, table_id: TableId, account_id: str) -> None:
+        self._inner.delete_hold(table_id, account_id)
+
+    def locked_hold_due(self, table_id: TableId, account_id: str) -> bool:
+        return self._inner.locked_hold_due(table_id, account_id)
+
+    def due_holds(self, limit: int) -> tuple[HeldChair, ...]:
+        return self._inner.due_holds(limit)
+
+    def hold_seconds_left(self, table_id: TableId) -> dict[str, int]:
+        return self._inner.hold_seconds_left(table_id)
 
     def locked_book_entry(self, table_id: TableId, agent_account: str) -> BookEntry | None:
         return self._inner.locked_book_entry(table_id, agent_account)

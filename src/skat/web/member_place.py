@@ -22,7 +22,6 @@ Every touch of it runs on the event loop's thread, in the read of the view, whic
 the awaited agent at each deadline; the signal of a commit, which runs on a worker thread, touches neither.
 """
 
-import json
 from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Final
@@ -44,13 +43,13 @@ from agents.member import (
     PlaceWindow,
     Standing,
     StandingState,
+    member_arguments,
     place_ref_from_view_uri,
     place_ref_from_window_uri,
     place_view_uri,
     place_window_uri,
 )
 from agents.tools import Principal, ToolDeclaration, ToolEffect, ToolOutcome, tool_parameters
-from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import HTTPConnection
 from webauth.middleware.bearer_gate import resource_person
@@ -84,6 +83,10 @@ if TYPE_CHECKING:
 TABLE_PLACE_KIND: Final = "table"
 NOBODY_NAME: Final = "Table"
 SIGNAL_FAILED_EVENT: Final = "member_signal.failed"
+UNTRACED: Final = None
+"""The trace of a line and of a view: none, since an act and a table's version keep no trace of the command that
+made them, and the trace at a read is the reader's own.
+"""
 
 logger = structlog.get_logger()
 
@@ -98,12 +101,6 @@ ACCEPT_INVITATION_DECLARATION: Final = ToolDeclaration(
     parameters=tool_parameters(AcceptInvitationArguments),
     effect=ToolEffect.SIDE_EFFECTING,
 )
-
-
-_MALFORMED_ACCEPT_TEXT: Final = "the arguments of accept_invitation are malformed"
-"""The text of the error an accept answers with when its arguments do not fit the library's record; the library's
-refusal codes have none for it, so no code stands in its place.
-"""
 
 
 def _refused(refusal: AcceptInvitationRefusal) -> ToolOutcome:
@@ -193,6 +190,7 @@ def _entry_of(act: Act, member: MemberActs) -> PlaceEntry:
         text=_text_of(act),
         own=act.seat == member.own_seat,
         act=True,
+        traceparent=UNTRACED,
     )
 
 
@@ -253,6 +251,7 @@ class MemberStandings:
             revision=revision_of(member.view.version, asks + own_nudges(member.view, nudges)),
             awaits_you=member.awaits_you,
             state=answer_of(member.view, nudges).model_dump(mode="json"),
+            traceparent=UNTRACED,
         )
 
     async def _window(self, principal: Principal, place: PlaceRef) -> PlaceWindow | None:
@@ -310,15 +309,12 @@ class MemberStandings:
 
 
 def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTool:
-    """The accept as a tool of the front: the arguments are the library's, not a route's body, and the owner is read
-    from the token's agent facts, never from an argument.
+    """The accept as a tool of the front: the arguments are the library's, checked by the front before the handler
+    runs, not a route's body, and the owner is read from the token's agent facts, never from an argument.
     """
 
     async def handler(request: PersonRequest, arguments: JsonObject) -> ToolOutcome:
-        try:
-            accepted = AcceptInvitationArguments.model_validate_json(json.dumps(arguments))
-        except ValidationError:
-            return ToolOutcome(_MALFORMED_ACCEPT_TEXT, is_error=True)
+        accepted = member_arguments(AcceptInvitationArguments, arguments)
         if accepted.place.kind != TABLE_PLACE_KIND:
             return _refused(AcceptInvitationRefusal.STALE_INVITATION)
         table_id = accepted.place.id

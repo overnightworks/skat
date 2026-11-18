@@ -1,10 +1,10 @@
-"""The steps the server takes on its own account, with no actor, command id or receipt: freeing a chair its holder
-left, the next deal, a table's end for being empty and the presence's bookkeeping. Each is one transaction over the
-table's row lock; `TableService` forwards to them.
+"""The steps the server takes on its own account, with no actor, command id or receipt: storing, clearing and
+freeing a chair hold, the next deal, a table's end for being empty and the presence's bookkeeping. Each is one
+transaction, over the table's row lock where it decides; `TableService` forwards to them.
 """
 
 from contextlib import ExitStack, nullcontext
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from skat.table.member_place import agents_seated_at
 from skat.table.member_view import moment_recipients, view_recipients
@@ -31,7 +31,10 @@ if TYPE_CHECKING:
 
     from skat.table.member_view import ViewSignal
     from skat.table.records import TableId, TableRecord
-    from skat.table.transactions import TableTransaction, TableTransactions
+    from skat.table.transactions import HeldChair, TableTransaction, TableTransactions
+
+# The most due holds one sweep frees; the rest wait for the next.
+DUE_HOLDS_PER_SWEEP: Final = 100
 
 
 def members_of(transaction: TableTransaction, table: TableRecord) -> frozenset[str]:
@@ -64,18 +67,46 @@ class ServerSteps:
         self._tell_view = tell_view
         self._tell_moments = tell_moments
 
-    def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
-        """Free the account's chair on the server's own account, with no actor, command id or receipt.
+    def note_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
+        """Store the account's chair hold as due `hold_seconds` from now: when `newest_wins` in place of an earlier
+        one, the newest leave on any pod winning, else only where the account has no hold at the table. A watcher, an
+        ended table or a forgotten one stores nothing.
+        """
+        with self._transactions.begin() as transaction:
+            transaction.store_leave(table_id, account_id, hold_seconds, newest_wins=newest_wins)
 
-        `due` is entered once the row is locked, so a command that committed meanwhile has had its say, and left
-        after the commit; it yields whether the caller still wants the chair freed, and False changes nothing.
-        A table on which a hand was dealt frees no chair this way, and the refusal writes nothing. The decision
-        re-reads the chair under the row lock, so a repeat, or a chair the account left in the meantime, changes
-        nothing either. True when it freed the chair.
+    def clear_hold(self, table_id: TableId, account_id: str) -> None:
+        """Drop the account's chair hold, as it arrived; a freeing in flight makes this wait for its commit."""
+        with self._transactions.begin() as transaction:
+            transaction.delete_hold(table_id, account_id)
+
+    def due_holds(self) -> tuple[HeldChair, ...]:
+        """The chair holds due now, the earliest first and at most `DUE_HOLDS_PER_SWEEP`: a candidate list."""
+        with self._transactions.begin() as transaction:
+            return transaction.due_holds(DUE_HOLDS_PER_SWEEP)
+
+    def free_held_chair(self, table_id: TableId, account_id: str, absent: AbstractContextManager[bool | None]) -> bool:
+        """Free the chair of an account whose stored hold is due, on the server's own account, with no actor, command
+        id or receipt, and drop the hold in the same transaction, so it frees once.
+
+        The table's row is locked first, then the hold's. A hold not due, or gone, changes nothing. `absent` is entered
+        then and left after the commit: None frees nothing and keeps the hold for another pod, False keeps the chair
+        and drops the hold, True frees the chair where the rules let a hold free it, and the hold is dropped either
+        way; a guard that raises rolls everything back. The hold of an ended or forgotten table is dropped. True when
+        it freed the chair.
         """
         with ExitStack() as after_commit, self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
-            if table is None or not after_commit.enter_context(due) or not hold_frees_chair(table):
+            if table is None:
+                transaction.delete_hold(table_id, account_id)
+                return False
+            if not transaction.locked_hold_due(table_id, account_id):
+                return False
+            is_absent = after_commit.enter_context(absent)
+            if is_absent is None:
+                return False
+            transaction.delete_hold(table_id, account_id)
+            if not is_absent or not hold_frees_chair(table):
                 return False
             decision = decide_free_chair(table, account_id)
             if decision.refusal is not None:

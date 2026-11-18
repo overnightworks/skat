@@ -46,8 +46,10 @@ class Present:
         return self.by_table.get(table_id, frozenset())
 
     @classmethod
-    def of(cls, roster: Roster) -> Present:
+    def of(cls, roster: Roster, *, apart_from: StreamHolder | None = None) -> Present:
+        """Who the roster lists, leaving out the stream `apart_from`, whose own lease still runs while it closes."""
         by_table: dict[str, set[str]] = {}
         for holder in map(StreamHolder.parse, roster.holders):
-            by_table.setdefault(holder.table_id, set()).add(holder.account_id)
+            if holder != apart_from:
+                by_table.setdefault(holder.table_id, set()).add(holder.account_id)
         return cls({table_id: frozenset(accounts) for table_id, accounts in by_table.items()}, roster.settled)

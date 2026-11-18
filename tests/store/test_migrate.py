@@ -28,6 +28,7 @@ STORE_TABLES = {
     "kontra_no_words",
     "rule_sets",
     "member_book",
+    "chair_holds",
     "accounts",
     "sessions",
     "serving_revisions",

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "DuplicateReceiptError",
+    "HeldChair",
     "LiveWait",
     "OccupiedChair",
     "PausedFacts",
@@ -121,7 +122,36 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
 
     def add_receipt(self, receipt: Receipt) -> None: ...
 
-    def occupied_chairs(self) -> tuple[OccupiedChair, ...]: ...
+    def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
+        """Store the account's chair hold as due `hold_seconds` from now on the store's clock, in place of an earlier
+        one when `newest_wins`, else only where the account has no hold at the table; nothing is stored unless the
+        account holds a chair at the live table.
+        """
+        ...
+
+    def delete_hold(self, table_id: TableId, account_id: str) -> None:
+        """Drop the account's chair hold at the table, if any; a freeing that locked it makes this wait for its
+        commit.
+        """
+        ...
+
+    def locked_hold_due(self, table_id: TableId, account_id: str) -> bool:
+        """Whether the account's chair hold at the table is due on the store's clock, its row locked by this
+        transaction; False without a hold.
+        """
+        ...
+
+    def due_holds(self, limit: int) -> tuple[HeldChair, ...]:
+        """At most `limit` chair holds that are due on the store's clock, the earliest due first; no row is locked, so
+        the list is a candidate list.
+        """
+        ...
+
+    def hold_seconds_left(self, table_id: TableId) -> dict[str, int]:
+        """The whole seconds, rounded up, each chair hold at the table has left on the store's clock, by account; a due
+        hold has none left.
+        """
+        ...
 
     def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
         """The live tables the account holds a chair at, each with its version, in id order; no row is locked, so the
@@ -170,6 +200,14 @@ class PausedFacts:
 
 @dataclass(frozen=True)
 class OccupiedChair:
+    table_id: TableId
+    account_id: str
+
+
+@dataclass(frozen=True)
+class HeldChair:
+    """A stored chair hold: the account whose chair at the table it holds."""
+
     table_id: TableId
     account_id: str
 

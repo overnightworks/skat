@@ -7,6 +7,7 @@ from dataclasses import replace
 from datetime import timedelta
 
 import pytest
+from agents.mcp_server.route_call import ARGUMENTS_REFUSED_TEXT
 from agents.mcp_wire import MCP_ENDPOINT_PATH
 from agents.member import ACCEPT_INVITATION_TOOL, LEASE_SECONDS, STANDING_URI, AcceptInvitationRefusal
 from agents.turn import ToolRefusal
@@ -16,6 +17,7 @@ from starlette.concurrency import run_in_threadpool
 from skat.table.member_place import MemberRefusal
 from skat.table.records import TableId
 from skat.web.mcp import MCP_GROUP, READ_TABLE_TOOL
+from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.calls import call_facts
 from tests.support.log_lines import lines_of, logged
@@ -276,23 +278,27 @@ class TestAnAcceptThatIsStale:
         assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
 
     @pytest.mark.parametrize(
-        "changes",
+        ("changes", "failing_field"),
         [
-            pytest.param({"epoch": -1}, id="a-negative-epoch"),
-            pytest.param({"voices": []}, id="no-voice-named"),
-            pytest.param({"voices": ["Mozart", "Mozart"]}, id="a-voice-twice"),
-            pytest.param({"voices": "Mozart"}, id="voices-that-are-no-list"),
-            pytest.param({"unknown": 1}, id="an-unknown-argument"),
+            pytest.param({"epoch": -1}, "epoch", id="a-negative-epoch"),
+            pytest.param({"voices": []}, "voices", id="no-voice-named"),
+            pytest.param({"voices": ["Mozart", "Mozart"]}, "voices", id="a-voice-twice"),
+            pytest.param({"voices": "Mozart"}, "voices", id="voices-that-are-no-list"),
+            pytest.param({"unknown": 1}, "[key]", id="an-unknown-argument"),
         ],
     )
-    def test_not_as_stale_when_the_arguments_are_malformed(self, invite, skat, agent, owner, table_id, changes):
+    def test_by_the_front_naming_the_failing_fields_when_the_arguments_are_malformed(
+        self, invite, skat, agent, owner, table_id, changes, failing_field
+    ):
         offer = invite(agent, table_id, owner)
         before = stored(skat)
 
         with at_the_table(skat, table_id, owner):
             answer = agent.accept(table_id, offer, **changes)
 
-        assert (answer.is_error, "stale_invitation" in answer.text) == (True, False)
+        refused_fields = answer.text.removeprefix(f"{ARGUMENTS_REFUSED_TEXT}: ")
+        assert (answer.is_error, refused_fields != answer.text) == (True, True)
+        assert f"{failing_field} (" in refused_fields
         assert stored(skat) == before
         assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
 
@@ -399,7 +405,7 @@ class TestTheStandingFollowsTheChair:
         skat.client.portal.call(time.advance, LEASE_SECONDS + 1)
         assert [standing["state"] for standing in standing_of(agent)] == ["active"]
 
-        skat.client.portal.call(time.advance, LEASE_SECONDS + HOLD_SECONDS + 1)
+        skat.client.portal.call(time.advance, LEASE_SECONDS + HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS)
 
         assert chairs_of(skat, table_id)[1] is None
         assert standing_of(agent) == []
@@ -409,7 +415,7 @@ class TestTheStandingFollowsTheChair:
         self, skat, time, agent, table_id
     ):
         with agent.listening() as frames:
-            skat.client.portal.call(time.advance, LEASE_SECONDS + HOLD_SECONDS + 1)
+            skat.client.portal.call(time.advance, LEASE_SECONDS + HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS)
             freed = next(frames)
             after = standing_of(agent)
 
@@ -433,7 +439,7 @@ class TestTheStandingFollowsTheChair:
         assert after == []
 
     def test_an_agent_whose_lease_lapses_during_a_hand_stays_a_member(self, skat, time, middlehand_auction, agent):
-        skat.client.portal.call(time.advance, LEASE_SECONDS + HOLD_SECONDS + 1)
+        skat.client.portal.call(time.advance, LEASE_SECONDS + HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS)
 
         assert [standing["state"] for standing in standing_of(agent)] == ["active"]
         assert skat.store.tables[middlehand_auction.table_id].hand is not None

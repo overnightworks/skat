@@ -693,8 +693,8 @@ wheels = [
 
 [[package]]
 name = "overnightworks-agents"
-version = "0.50.0"
-source = { git = "https://github.com/overnightworks/agents?rev=v0.50.0#b8568cbf2d46aa0d88db19d6e9011bdf8c682ac5" }
+version = "0.56.0"
+source = { git = "https://github.com/overnightworks/agents?rev=v0.56.0#7f01a8d8f92e38010bcae65b49fdd79a9ca7188e" }
 dependencies = [
     { name = "pydantic" },
     { name = "ruamel-yaml" },
@@ -726,8 +726,8 @@ provides-extras = ["catalogs"]
 
 [[package]]
 name = "overnightworks-logline"
-version = "0.4.0"
-source = { git = "https://github.com/overnightworks/logline?rev=v0.4.0#24a7a6077f3bd0c382fde62e149946c70a9ced31" }
+version = "0.5.0"
+source = { git = "https://github.com/overnightworks/logline?rev=v0.5.0#8c96e5890458b42f9ddb97dc26ce4a6880011db4" }
 dependencies = [
     { name = "opentelemetry-api" },
     { name = "structlog" },
@@ -735,8 +735,8 @@ dependencies = [
 
 [[package]]
 name = "overnightworks-tandem"
-version = "0.8.0"
-source = { git = "https://github.com/overnightworks/tandem?rev=v0.8.0#8790769c1681b7b28fee7ad4d7399b5cff4e5a48" }
+version = "0.8.1"
+source = { git = "https://github.com/overnightworks/tandem?rev=v0.8.1#c423f8c220a9a1cf5dba8b2d93eca3a907841551" }
 dependencies = [
     { name = "overnightworks-logline" },
     { name = "redis" },
@@ -1278,9 +1278,9 @@ dev = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.16" },
     { name = "fastapi", specifier = ">=0.123.7" },
-    { name = "overnightworks-agents", extras = ["mcp-server"], git = "https://github.com/overnightworks/agents?rev=v0.50.0" },
-    { name = "overnightworks-logline", git = "https://github.com/overnightworks/logline?rev=v0.4.0" },
-    { name = "overnightworks-tandem", git = "https://github.com/overnightworks/tandem?rev=v0.8.0" },
+    { name = "overnightworks-agents", extras = ["mcp-server"], git = "https://github.com/overnightworks/agents?rev=v0.56.0" },
+    { name = "overnightworks-logline", git = "https://github.com/overnightworks/logline?rev=v0.5.0" },
+    { name = "overnightworks-tandem", git = "https://github.com/overnightworks/tandem?rev=v0.8.1" },
     { name = "overnightworks-webauth", extras = ["redis"], git = "https://github.com/overnightworks/webauth?rev=v0.40.1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.10" },
