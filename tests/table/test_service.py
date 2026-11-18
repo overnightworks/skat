@@ -520,13 +520,14 @@ class TestFreeHeldChair:
     def test_a_failure_after_the_chair_write_persists_nothing_and_keeps_the_hold(self, service, store, table_id):
         sit(service, VISITOR, table_id, 3)
         due_hold(store, table_id, VISITOR.account_id)
-        written = (dict(store.tables), dict(store.holds))
+        written_tables, written_holds = dict(store.tables), dict(store.holds)
         failing = TableService(FaultyTableTransactions(store, save_failure=ConnectionError("lost")))
+        held_table, presence = TableId(table_id), absent()
 
         with pytest.raises(ConnectionError):
-            failing.free_held_chair(TableId(table_id), VISITOR.account_id, absent())
+            failing.free_held_chair(held_table, VISITOR.account_id, presence)
 
-        assert (store.tables, store.holds) == written
+        assert (store.tables, store.holds) == (written_tables, written_holds)
 
 
 ALL_THREE = frozenset({OPENER.account_id, VISITOR.account_id, CLEO.account_id})
