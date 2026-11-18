@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ACCOUNT_PATH } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
