@@ -1,5 +1,5 @@
-import { faceOf, type AnswerMark, type AskButton, type AskView } from "#lib/giveUp.ts";
-import { listFormat, words } from "#lib/words.ts";
+import { facesOf, namesOf, type AnswerMark, type AskButton, type AskView } from "#lib/giveUp.ts";
+import { words } from "#lib/words.ts";
 import type { AbortAnswer, Table } from "../routes/(start)/tables.ts";
 
 // What the table says about the vote to abort the running hand while a chair of it is open, read from the hand's own
@@ -30,8 +30,8 @@ export function abortView(table: Table): AbortView {
     const unansweredSeats = table.chairs
         .filter((chair) => chair.occupant_name !== null && !proposerSeats.includes(chair.seat))
         .map((chair) => chair.seat);
-    const faces = (proposing ? unansweredSeats : proposerSeats).map((seat) => faceOf(table.chairs, seat));
-    const names = listFormat.format(faces.map((face) => face.name));
+    const faces = facesOf(table.chairs, proposing ? unansweredSeats : proposerSeats);
+    const names = namesOf(faces);
     return {
         offered: false,
         ask: {

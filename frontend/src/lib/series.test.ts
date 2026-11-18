@@ -83,6 +83,22 @@ describe("seriesEndAsk", () => {
         expect(ask?.buttons).toEqual([]);
     });
 
+    it.each([
+        { name: "both asked chairs are free", freeSeats: [2, 3], seatedFaces: [] },
+        { name: "one asked chair is free", freeSeats: [3], seatedFaces: [2] },
+    ])("makes the proposer wait for players when $name", ({ freeSeats, seatedFaces }) => {
+        const table = tableBetweenGames(1, proposal(null));
+        const freed = table.chairs.map((chair) =>
+            freeSeats.includes(chair.seat) ? { ...chair, occupant_name: null } : chair,
+        );
+
+        const ask = seriesEndAsk({ ...table, chairs: freed });
+
+        expect(ask?.text).toBe(words["table.waitingForPlayers"]);
+        expect(ask?.faces.map((face) => face.seat)).toEqual(seatedFaces);
+        expect(ask?.waits).toBe(true);
+    });
+
     it("tells a watcher who proposed and gives no answer to tap", () => {
         const ask = seriesEndAsk(tableBetweenGames(WATCHER, proposal(null)));
 

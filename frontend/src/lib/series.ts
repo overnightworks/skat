@@ -1,4 +1,4 @@
-import { faceOf, type AskButton, type AskView } from "#lib/giveUp.ts";
+import { facesOf, namesOf, type AskButton, type AskView } from "#lib/giveUp.ts";
 import { declaredResult, LEVEL_WORDS, ramschResultView, withMinus } from "#lib/result.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { SeriesEntry } from "../routes/(start)/seriesList.ts";
@@ -22,22 +22,28 @@ const SERIES_END_BUTTONS: AskButton<SeriesEndAnswer>[] = [
 ];
 
 // The plaque of a standing proposal to end the series: the other two see Ja and Nein, whoever proposed or said yes waits
-// for the rest by name, and a watcher is told who proposed.
+// for the rest by name, and a watcher is told who proposed. A chair freed after the proposal is answered by whoever sits
+// there next, so while one is free the wait names no one and shows the faces of those seated.
 export function seriesEndAsk(table: Table): AskView<SeriesEndAnswer> | null {
     const proposal = table.series?.end_proposal;
     if (!proposal) return null;
     const viewerSeat = table.chairs.find((chair) => chair.is_mine)?.seat;
     const answeredSeats = new Set([proposal.proposer_seat, proposal.accepter_seat]);
-    const waitingFor = table.chairs.filter((chair) => !answeredSeats.has(chair.seat));
+    const waitingSeats = table.chairs.map((chair) => chair.seat).filter((seat) => !answeredSeats.has(seat));
     if (viewerSeat !== undefined && answeredSeats.has(viewerSeat)) {
-        const faces = waitingFor.map((chair) => faceOf(table.chairs, chair.seat));
-        const names = listFormat.format(faces.map((face) => face.name));
-        return { text: words["table.waitingFor"]({ names }), faces, waits: true, buttons: [] };
+        const faces = facesOf(table.chairs, waitingSeats);
+        const names = namesOf(faces);
+        const text =
+            faces.length === waitingSeats.length
+                ? words["table.waitingFor"]({ names })
+                : words["table.waitingForPlayers"];
+        return { text, faces, waits: true, buttons: [] };
     }
-    const proposer = faceOf(table.chairs, proposal.proposer_seat);
+    // The proposal goes with its proposer's chair, so a standing one names a seated proposer.
+    const proposers = facesOf(table.chairs, [proposal.proposer_seat]);
     return {
-        text: words["table.wantsToEndSeries"]({ name: proposer.name }),
-        faces: [proposer],
+        text: words["table.wantsToEndSeries"]({ name: namesOf(proposers) }),
+        faces: proposers,
         waits: false,
         buttons: viewerSeat === undefined ? [] : SERIES_END_BUTTONS,
     };
