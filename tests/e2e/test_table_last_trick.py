@@ -261,6 +261,25 @@ def test_a_reload_shows_the_result_directly(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_weiter_key_pops_when_the_result_rises_for_a_seated_player(
+    table: PlayingTable, page_errors: list[str]
+) -> None:
+    player = table.pages[table.declarer_seat]
+    player.add_init_script(f"localStorage.setItem({SETTINGS_KEY!r}, {json.dumps(json.dumps({'replayMotion': True}))})")
+    player.clock.install()
+    player.clock.pause_at(datetime.now(UTC) + CLOCK_HOLD_LEAD)
+    player.reload()
+    expect(player.locator(".chair")).to_have_count(3)
+    table.play_out(CARDS_IN_A_HAND)
+
+    run_until(player, RESULT_CARD, 1)
+
+    expect(player.locator(".weiter")).to_be_visible()
+    expect(player.locator(".room.key-pops")).to_have_count(1)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_quiet_set_rests_shorter_and_glides_straight(
     table: PlayingTable,
     open_person: Callable[..., Page],
