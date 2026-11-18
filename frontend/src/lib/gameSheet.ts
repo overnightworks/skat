@@ -78,11 +78,7 @@ export function gameSheetView(sheet: GameSheet, game: Game | null): GameSheetVie
         };
     }
     const opponents = seats.filter((seat) => seat.seat !== count.declarer_seat).map((seat) => seat.name);
-    const ending =
-        cards === null
-            ? null
-            : (ENDING_WORDS[count.ending] ??
-              (endedBeforeTheTenthTrick(cards.tricks.length) ? words["table.sheetDecided"] : null));
+    const ending = cards === null ? null : endingLabel(count.ending, cards.tricks.length);
     return {
         seats,
         count: {
@@ -97,6 +93,13 @@ export function gameSheetView(sheet: GameSheet, game: Game | null): GameSheetVie
                 ? null
                 : { label: ending, by: count.ended_by_seat === null ? null : seatOf(count.ended_by_seat) },
     };
+}
+
+// A named ending speaks for itself; an unnamed one only shows when the game stopped before its tenth trick.
+function endingLabel(ending: GameEnding, tricksPlayed: number): string | null {
+    const named = ENDING_WORDS[ending];
+    if (named !== undefined) return named;
+    return endedBeforeTheTenthTrick(tricksPlayed) ? words["table.sheetDecided"] : null;
 }
 
 // A game whose sheet holds fewer tricks than a game has ended before its tenth; played out, its last trick decided it.
