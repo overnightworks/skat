@@ -8,6 +8,7 @@
         side,
         width,
         title,
+        bare = false,
         children,
     }: {
         /** The button the panel hangs on; Escape and every closing hand the focus back to it. */
@@ -17,6 +18,8 @@
         /** The width it wants; a narrower viewport shrinks it. */
         width: number;
         title: string;
+        /** The content is a surface of its own, as the kit's account menu, so the panel draws no glass around it. */
+        bare?: boolean;
         children: Snippet;
     } = $props();
 
@@ -69,7 +72,14 @@
     ontoggle={followToggle}
     onclick={closeAtTap}
 >
-    <div class="anchored-panel" class:above={side === "above"} role="dialog" aria-label={title} bind:this={panel}>
+    <div
+        class="anchored-panel"
+        class:above={side === "above"}
+        class:bare
+        role="dialog"
+        aria-label={title}
+        bind:this={panel}
+    >
         {@render children()}
     </div>
 </div>

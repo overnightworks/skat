@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from playwright.sync_api import Page, Route, expect
+from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.web.constants import ACCOUNT_CONSOLE_PATH, ACCOUNT_PATH, LOGIN_PATH
 from skat.web.lobby import LOBBY_EVENTS_PATH
@@ -19,6 +19,8 @@ from tests.e2e.support.browser import (
 )
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
+from tests.e2e.support.table_menu import ACCOUNT, ACCOUNT_PANEL, menu_button
+from tests.e2e.support.tables import open_new_table
 from tests.support.sign_in_settings import TEST_ISSUER
 
 if TYPE_CHECKING:
@@ -43,7 +45,7 @@ def open_start_page(
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
-def test_the_start_page_shows_the_wordmark_the_account_button_the_legal_links_and_the_new_table_button(
+def test_the_start_page_shows_the_wordmark_the_account_button_and_the_new_table_button(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     person = open_start_page(open_person, e2e_server, page_errors, **form_factor)
@@ -51,28 +53,45 @@ def test_the_start_page_shows_the_wordmark_the_account_button_the_legal_links_an
     expect(person).to_have_title(text(SOURCE_LANGUAGE, "app.name"))
     expect(person.locator(".wordmark")).to_have_text(text(SOURCE_LANGUAGE, "app.name"))
     expect(person.locator(ACCOUNT_AVATAR)).to_be_visible()
-    legal_row = person.locator(".start-legal").get_by_role("link")
-    assert {(link.inner_text(), link.get_attribute("href")) for link in legal_row.all()} == {
-        (text(SOURCE_LANGUAGE, key), href) for key, href in LEGAL_LINKS.items()
-    }
     expect(person.locator("body")).to_have_css("margin", "0px")
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 
-@pytest.mark.parametrize("form_factor", FORM_FACTORS)
-def test_the_account_button_opens_a_menu_with_the_username_one_log_out_and_the_legal_row(
-    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
-) -> None:
-    person = open_start_page(open_person, e2e_server, page_errors, username="felix.hummert", **form_factor)
-
+def open_the_start_pages_account_menu(person: Page, e2e_server: RunningServer) -> Locator:
+    person.goto(f"{e2e_server.base_url}/")
     person.locator(ACCOUNT_AVATAR).click()
+    return person.locator(ACCOUNT_MENU)
 
-    menu = person.locator(ACCOUNT_MENU)
+
+def open_the_table_menus_account_menu(person: Page, e2e_server: RunningServer) -> Locator:
+    open_new_table(person, e2e_server)
+    menu_button(person, ACCOUNT).click()
+    return person.locator(ACCOUNT_PANEL)
+
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+@pytest.mark.parametrize(
+    "open_account_menu",
+    [open_the_start_pages_account_menu, open_the_table_menus_account_menu],
+    ids=["start page", "table page"],
+)
+def test_the_account_menu_holds_the_username_one_log_out_and_the_legal_row_and_the_page_no_legal_footer(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    open_account_menu: Callable[[Page, RunningServer], Locator],
+) -> None:
+    person = record_page_errors(open_person(username="felix.hummert", **form_factor), page_errors)
+
+    menu = open_account_menu(person, e2e_server)
+
     expect(menu.get_by_role("link").first).to_have_text("felix.hummert")
     expect(menu.get_by_role("button", name=kit_text("account.logOut"))).to_have_count(1)
     assert {(link.inner_text(), link.get_attribute("href")) for link in menu.locator("nav a").all()} == {
         (text(SOURCE_LANGUAGE, key), href) for key, href in LEGAL_LINKS.items()
     }
+    expect(person.locator("nav.legal")).to_have_count(1)
 
 
 def test_the_menu_closes_on_escape_and_on_a_press_outside(

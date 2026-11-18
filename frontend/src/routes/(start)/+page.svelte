@@ -1,13 +1,12 @@
 <script lang="ts">
-    import { AccountMenu, LegalLinks } from "overnightworks-design";
     import { onMount } from "svelte";
     import type { PageProps } from "./$types";
-    import { legalLinks } from "#lib/legal.ts";
     import Lobby from "./Lobby.svelte";
     import NewTableButton from "./NewTableButton.svelte";
-    import { menuName, readAccount } from "#lib/ui/account.svelte.ts";
+    import AccountMark from "#lib/ui/AccountMark.svelte";
+    import { readAccount } from "#lib/ui/account.svelte.ts";
+    import SkatAccountMenu from "#lib/ui/SkatAccountMenu.svelte";
     import { words } from "#lib/words.ts";
-    import { ACCOUNT_CONSOLE_PATH, LOGOUT_PATH } from "#lib/wire.ts";
 
     const { data }: PageProps = $props();
 
@@ -28,30 +27,15 @@
     <header class="start-bar">
         <span class="wordmark">{words["app.name"]}</span>
         <button type="button" class="account-button" aria-label={words["account.title"]} popovertarget="accountMenu">
-            <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                aria-hidden="true"
-            >
-                <circle cx="9" cy="8" r="3.5" />
-                <path d="M2.5 19.5c.7-3.4 3.3-5.2 6.5-5.2s5.8 1.8 6.5 5.2" />
-            </svg>
+            <AccountMark />
         </button>
     </header>
     <div id="accountMenu" class="account-menu" popover bind:this={accountMenu}>
-        <AccountMenu
-            name={menuName()}
-            accountHref={ACCOUNT_CONSOLE_PATH}
+        <SkatAccountMenu
+            kitWords={data.kitWords}
             onAccountOpen={() => {
                 accountMenu.hidePopover();
             }}
-            appRows={[]}
-            legalLinks={legalLinks(words)}
-            logOutAction={LOGOUT_PATH}
-            words={data.kitWords}
         />
     </div>
     <div class="start-body">
@@ -59,8 +43,5 @@
         <main class="start-main">
             <NewTableButton />
         </main>
-        <footer class="start-legal">
-            <LegalLinks links={legalLinks(words)} words={data.kitWords} />
-        </footer>
     </div>
 </div>

@@ -12,12 +12,14 @@ if TYPE_CHECKING:
     from playwright.sync_api import FrameLocator, Locator
 
 MENU_KEY = ".menu-key"
-MENU = ".anchored-panel:has(.menu)"
+MENU = ".anchored-panel:has(.table-menu)"
 GIVE_UP_ROW = ".row.give-up"
 SHORTEN_ROW = ".row.shorten"
 PLAY_OPEN_ROW = ".row.play-open"
 AGENTS = text(SOURCE_LANGUAGE, "table.agents")
 AGENTS_PANEL = ".anchored-panel:has(.agents-list)"
+ACCOUNT = text(SOURCE_LANGUAGE, "account.title")
+ACCOUNT_PANEL = ".anchored-panel:has(nav.legal)"
 
 
 def open_table_menu(person: Page | FrameLocator) -> Locator:

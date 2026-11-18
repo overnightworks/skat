@@ -775,7 +775,10 @@
     <div class="reconnect" role="status" hidden={connected}>
         <span class="spin"></span>{streamsFull ? words["table.tooManyStreams"] : words["table.reconnecting"]}
     </div>
-    <footer class="legal">
-        <LegalLinks links={legalLinks(words)} newTab words={data.kitWords} />
-    </footer>
+    <!-- The table menu holds the account and its legal links; a closed or failed table has no menu, so its page carries them. -->
+    {#if outcome !== null && !(outcome.kind === "table" && outcome.table.ended === null)}
+        <footer class="legal">
+            <LegalLinks links={legalLinks(words)} newTab words={data.kitWords} />
+        </footer>
+    {/if}
 </div>

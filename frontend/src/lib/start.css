@@ -72,7 +72,7 @@ body {
     padding: 24px;
 }
 
-/* With the lobby to show, the page keeps its head and scrolls its list; the new-table button sticks to the bottom over a fade and the legal links end the scroll. */
+/* With the lobby to show, the page keeps its head and scrolls its list; the new-table button sticks to the bottom over a fade. */
 .start-body {
     display: contents;
 }
@@ -91,12 +91,7 @@ body {
     overscroll-behavior: contain;
 }
 
-.with-lobby .start-legal {
-    order: 1;
-    margin-top: auto;
-}
-
-/* The legal links stand at z-index 1 after this block in the page's order, so the block's stacking level, which holds the opening sheet, is 2: a tall sheet covers them. */
+/* The block's stacking level, which holds the opening sheet, is 2, so a tall sheet covers whatever scrolls under it. */
 .with-lobby .start-main {
     --fade: rgba(14, 9, 7, 0.97);
 
@@ -1237,7 +1232,7 @@ body {
 }
 
 /* The menu: sections of 48px rows on the dark glass of the anchored panel; the rows that end something are in a soft red, and a row that asks its second tap is the leave red. */
-.room .menu {
+.room .table-menu {
     display: flex;
     flex-direction: column;
     padding: 4px 0 6px;
@@ -1259,7 +1254,13 @@ body {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.room .menu .row {
+/* The account stands under the sections, apart from the table's and the game's matters. */
+.room .menu-foot:not(:first-child) {
+    margin-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.room .table-menu .row {
     position: relative;
     display: flex;
     align-items: center;
@@ -1276,28 +1277,28 @@ body {
     cursor: pointer;
 }
 
-.room .menu .row:hover:not(:disabled, .arm),
-.room .menu .row:focus-visible:not(.arm) {
+.room .table-menu .row:hover:not(:disabled, .arm),
+.room .table-menu .row:focus-visible:not(.arm) {
     background: rgba(255, 255, 255, 0.08);
     outline: none;
 }
 
-.room .menu .row:disabled {
+.room .table-menu .row:disabled {
     opacity: 0.6;
     cursor: default;
 }
 
-.room .menu .row svg {
+.room .table-menu .row svg {
     flex: none;
     width: 20px;
     height: 20px;
 }
 
-.room .menu .row:is(.close, .give-up, .abort) {
+.room .table-menu .row:is(.close, .give-up, .abort) {
     color: #ff8a8f;
 }
 
-.room .menu .row .run-out {
+.room .table-menu .row .run-out {
     right: 16px;
     left: 48px;
 }
@@ -4291,7 +4292,8 @@ body {
     color: var(--on-stage-soft);
 }
 
-.room .legal {
+/* The footer of a page without the table menu; the account menu's legal row keeps the kit's look. */
+.room > .legal {
     display: flex;
     justify-content: center;
     padding: 14px;
@@ -4372,7 +4374,7 @@ body {
         right: -28px;
     }
 
-    /* While a hand is played the rows above the hand are as tall as the scenes draw them, so the trick, the bar and the hand stand at the scene's heights on every screen; a plaque taller than a game's, as a question's, lies over the trick's top, and the keys and the note under the hand push the legal links down. */
+    /* While a hand is played the rows above the hand are as tall as the scenes draw them, so the trick, the bar and the hand stand at the scene's heights on every screen; a plaque taller than a game's, as a question's, lies over the trick's top. */
     .room .stage:has(> .trick) {
         grid-template-rows: 42px 0 418px 0 auto;
     }
@@ -4486,12 +4488,6 @@ body {
     }
 }
 
-.start-legal {
-    display: flex;
-    justify-content: center;
-    padding: 14px;
-}
-
 @media (min-width: 900px) {
     .start-bar {
         padding: 22px 24px;
@@ -4508,13 +4504,9 @@ body {
     min-height: 0;
 }
 
-/* The room is as tall as the screen while a result stands and the page does not scroll: a card too long for the room between the chairs and the bar scrolls inside itself, and the bar stays at the bottom of the screen. The legal links, which would hang below the room, stand again with the next phase. */
+/* The room is as tall as the screen while a result stands and the page does not scroll: a card too long for the room between the chairs and the bar scrolls inside itself, and the bar stays at the bottom of the screen. */
 .room:has(> .stage > .result) {
     height: 100dvh;
-}
-
-.room:has(> .stage > .result) > .legal {
-    display: none;
 }
 
 @media (max-width: 899px) {
@@ -5518,6 +5510,17 @@ body {
         0 18px 36px -10px rgba(0, 0, 0, 0.9);
     color: var(--on-stage);
     text-align: left;
+}
+
+/* A panel whose content is a surface of its own, as the kit's account menu, hangs without the glass and the caret. */
+.room .anchored-panel.bare {
+    background: none;
+    backdrop-filter: none;
+    box-shadow: none;
+}
+
+.room .anchored-panel.bare::after {
+    content: none;
 }
 
 .room .anchored-panel.above {

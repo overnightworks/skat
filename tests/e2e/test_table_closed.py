@@ -19,7 +19,7 @@ from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.settings import DEFAULT_ENDED_TABLE_DAYS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
+from tests.e2e.support.browser import LEGAL_LINKS, NEW_TABLE_BUTTON, record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.server import skat_on_new_database
@@ -125,7 +125,7 @@ def expect_the_panel_inside_the_viewport(person: Page) -> None:
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_old_link_of_an_ended_table_shows_the_wait_and_offers_no_seat_and_opens_no_stream(
+def test_the_old_link_of_an_ended_table_shows_the_wait_and_the_legal_links_and_offers_no_seat_and_opens_no_stream(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     page_errors: list[str],
@@ -147,6 +147,7 @@ def test_the_old_link_of_an_ended_table_shows_the_wait_and_offers_no_seat_and_op
         expect(person.get_by_text(absent)).to_be_hidden()
     expect(person.locator(MENU_KEY)).to_have_count(0)
     expect(person.locator(".watchers")).to_have_count(0)
+    expect(person.locator("nav.legal").get_by_role("link")).to_have_count(len(LEGAL_LINKS))
     expect_the_panel_inside_the_viewport(person)
     assert requests == []
 
