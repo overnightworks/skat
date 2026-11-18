@@ -168,6 +168,26 @@ describe("the table that follows the last card", () => {
         expect(presented.map(({ table }) => table)).toEqual([afterwards]);
     });
 
+    it("shows the trick that decided the game before its tenth once a sheet slower than the wait has come", async () => {
+        let arrive: (sheet: GameSheet | null) => void = () => undefined;
+        const { shown, presented, stillTricks } = showing(
+            () =>
+                new Promise<GameSheet | null>((resolve) => {
+                    arrive = resolve;
+                }),
+        );
+        shown.begin(beforeTheLastCard);
+
+        shown.show(afterwards);
+        await vi.advanceTimersByTimeAsync(SLOW_SHEET_MILLISECONDS);
+        expect(presented.map(({ table }) => table)).toEqual([afterwards]);
+        expect(stillTricks).toEqual([]);
+        arrive(sheetOfTrickThree);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(stillTricks.map(({ ordinal }) => ordinal)).toEqual([afterwards.result?.ordinal]);
+    });
+
     it.each([
         {
             name: "whether the declarer won",

@@ -45,9 +45,10 @@ type Held = { queued: [Table, Table][] };
 /**
  * Shows each table the stream brings. The table that follows the last card has no hand, so the last trick is drawn from
  * the game's sheet, rests and sweeps as any trick, and the result of the game appears when the stage has settled; the
- * tables that arrive meanwhile wait behind it. A stage that stands still shows the result at once, and a game decided
- * before its tenth trick then shows that trick once the sheet has come; so does a result the page shows from its first
- * table, after a load or a dropped connection, as no closing played before it.
+ * tables that arrive meanwhile wait behind it. A stage that stands still shows the result at once, and so does a closing
+ * whose sheet is slow or draws no trick taken; a game decided before its tenth trick then shows that trick once the
+ * sheet has come. So does a result the page shows from its first table, after a load or a dropped connection, as no
+ * closing played before it.
  */
 export function tableShowing(
     present: Presenter,
@@ -83,16 +84,17 @@ export function tableShowing(
     // The result of a played-out hand that shows at once, with no closing on the stage before it.
     function showResultStill(table: Table): void {
         const ordinal = playedOutResultOrdinal(table);
-        if (ordinal === null) return;
-        const readAt = ends;
-        void readSheet(ordinal).then((sheet) => {
-            showEarlyTrick(readAt, table, ordinal, sheet);
-        });
+        if (ordinal !== null) showEarlyTrickOnceRead(readSheet(ordinal), table, ordinal);
     }
 
-    function showEarlyTrick(readAt: number, table: Table, ordinal: number, sheet: GameSheet | null): void {
-        const trick = earlyDecidingTrick(sheet);
-        if (trick !== null && readAt === ends) showStillTrick({ ordinal, trick, declarerWon: declarerWonOf(table) });
+    // A result shown with no closing before it carries the trick that decided its game early, once the sheet has come.
+    function showEarlyTrickOnceRead(reading: Promise<GameSheet | null>, table: Table, ordinal: number): void {
+        const readAt = ends;
+        void reading.then((sheet) => {
+            const trick = earlyDecidingTrick(sheet);
+            if (trick !== null && readAt === ends)
+                showStillTrick({ ordinal, trick, declarerWon: declarerWonOf(table) });
+        });
     }
 
     function showQueued(queued: readonly [Table, Table][]): void {
@@ -106,7 +108,8 @@ export function tableShowing(
         const slow = new Promise<null>((resolve) => {
             slowTimer = setTimeout(resolve, SHEET_WAIT_MILLISECONDS, null);
         });
-        void Promise.race([readSheet(ordinal), slow]).then((sheet) => {
+        const reading = readSheet(ordinal);
+        void Promise.race([reading, slow]).then((sheet) => {
             clearTimeout(slowTimer);
             if (closing !== hold) return;
             const cues = cuesBetween(previous, table);
@@ -115,7 +118,7 @@ export function tableShowing(
             if (held === null || !trickCues.some((cue) => cue.kind === "trick-taken")) {
                 closing = null;
                 present(previous, table, cues);
-                if (!stageMoves()) showEarlyTrick(ends, table, ordinal, sheet);
+                showEarlyTrickOnceRead(reading, table, ordinal);
                 showQueued(hold.queued);
                 return;
             }
