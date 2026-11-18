@@ -1,8 +1,0 @@
-claim_id = "92b56874905d434383dc4725069219af"
-agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
-role = "builder"
-base = "a30d899b853d04af887b46515b7f383c48c315dd"
-branch = "claude/issue-667-s5a-a-chair-hold-is-a-stored-deadline-fr"
-scope = ["docs/ARCHITECTURE.md", "quality/baseline.toml", "src/skat", "tests"]
-opened_commit = "6f33dcb2503830280fca2664aa5c99ab1b074e62"
-whole_reason = "a stored hold crosses store, table steps, presence and host wiring, proven by two-process tests"
