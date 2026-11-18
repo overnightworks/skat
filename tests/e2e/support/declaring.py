@@ -3,6 +3,7 @@ import json
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple
+from urllib.parse import urlsplit
 
 from playwright.sync_api import Locator, Page, expect
 
@@ -15,7 +16,7 @@ from skat.web.declaring import (
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
 )
-from skat.web.tables import TABLES_PATH
+from skat.web.tables import TABLE_SIT_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.raw_http import RawSession
@@ -106,7 +107,9 @@ class DeclaringTable:
         for seat, username in zip((2, 3), joiners, strict=True):
             person = self._person(open_person, username, page_errors, form_factor, console)
             watch(person, server, path)
-            sit_in(person, seat)
+            # The sit that fills the third chair deals, so the chairs read below hold the hands once it is answered.
+            with person.expect_response(lambda response: urlsplit(response.url).path.endswith(TABLE_SIT_SUFFIX)):
+                sit_in(person, seat)
             people[seat] = person
         self.watcher = self._person(open_person, "dora", page_errors, form_factor, console)
         watch(self.watcher, server, path)
