@@ -99,7 +99,8 @@ export function tableShowing(
                 showQueued(hold.queued);
                 return;
             }
-            const isResult = (cue: Cue): boolean => cue.kind === "result-appeared";
+            // The result and the Weiter it opens appear together, once the last trick has settled.
+            const isResult = (cue: Cue): boolean => cue.kind === "result-appeared" || cue.kind === "weiter-came";
             present(previous, held, [...trickCues, ...cues.filter((cue) => !isResult(cue))], {
                 declarerWon: declarerWonOf(table),
                 whenResultShown: () => {

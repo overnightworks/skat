@@ -462,6 +462,14 @@ describe("the key the table waits on from the viewer", () => {
         expect(stage.keyPops()).toBe(false);
     });
 
+    it("pops when the result opens the viewer's Weiter", async () => {
+        const { stage } = await stageOnAPage(MOVING);
+
+        stage.receiveOnStage(TABLE_IN_PLAY, [{ kind: "weiter-came" }]);
+
+        expect(stage.keyPops()).toBe(true);
+    });
+
     it("pops only once the trick that holds the turn has settled", async () => {
         const { stage } = await stageOnAPage(MOVING);
 

@@ -681,6 +681,34 @@ describe("the deal that a table update brought", () => {
     });
 });
 
+describe("the viewer's Weiter that just opened", () => {
+    const before = { ...tableWithResult(1, null), version: 8 };
+    const after = (changes: Parameters<typeof tableWithResult>[1], chairChanges = {}, mine = 1): Table => ({
+        ...tableWithResult(mine, changes, chairChanges),
+        version: 9,
+    });
+    const opened = (previous: Table, next: Table) => cuesBetween(previous, next).some((cue) => cue.kind === "weiter-came");
+
+    it.each([
+        { name: "a declared result", next: after({}) },
+        { name: "a Ramsch result", next: { ...after(null), result: ramschResult([14, 86, 20], [0, -86, 0], {}) } },
+    ])("is the update that brings $name to a seated viewer who has not tapped", ({ next }) => {
+        expect(opened(before, next)).toBe(true);
+    });
+
+    it.each([
+        { name: "a watcher, who has no chair", next: after({}, {}, 0) },
+        { name: "a viewer who has already tapped", next: after({}, { 1: { ready: true } }) },
+        { name: "an update that brings no result", next: after(null) },
+    ])("is not for $name", ({ next }) => {
+        expect(opened(before, next)).toBe(false);
+    });
+
+    it("is not the same result standing, as when another chair's Weiter mark arrives", () => {
+        expect(opened({ ...after({}), version: 8 }, after({}, { 2: { ready: true } }))).toBe(false);
+    });
+});
+
 describe("the result that just appeared", () => {
     const before = { ...tableWithResult(1, null), version: 8 };
     const after = (changes: Parameters<typeof tableWithResult>[1] = {}, mine = 1): Table => ({

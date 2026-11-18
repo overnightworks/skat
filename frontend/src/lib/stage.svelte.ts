@@ -41,10 +41,9 @@ function apply(step: Step, cues: readonly Cue[] = []): void {
     clearTimeout(timer);
     stage = step.stage;
     if (step.beats.includes("glide-started")) soundForGlide();
-    if (step.beats.includes("turn-shown")) {
-        soundForTurn(cues);
-        popTheKey();
-    }
+    const turnShown = step.beats.includes("turn-shown");
+    if (turnShown) soundForTurn(cues);
+    if (turnShown || cues.some((cue) => cue.kind === "weiter-came")) popTheKey();
     if (step.beats.includes("result-shown")) {
         const show = showResult;
         showResult = undefined;
