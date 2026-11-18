@@ -56,6 +56,14 @@ def open_agents_panel(person: Page | FrameLocator) -> Locator:
     return panel
 
 
+def open_account_panel(person: Page | FrameLocator) -> Locator:
+    """The panel of the account with the legal links, opened by the menu's account row."""
+    menu_button(person, ACCOUNT).click()
+    panel = person.locator(ACCOUNT_PANEL)
+    expect(panel).to_be_visible()
+    return panel
+
+
 def menu_row(person: Page | FrameLocator, row: str) -> Locator:
     """The menu's row of this selector, with the menu opened first."""
     return open_table_menu(person).locator(row)

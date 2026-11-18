@@ -19,7 +19,7 @@ from tests.e2e.support.browser import (
 )
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
-from tests.e2e.support.table_menu import ACCOUNT, ACCOUNT_PANEL, menu_button
+from tests.e2e.support.table_menu import open_account_panel
 from tests.e2e.support.tables import open_new_table
 from tests.support.sign_in_settings import TEST_ISSUER
 
@@ -65,8 +65,7 @@ def open_the_start_pages_account_menu(person: Page, e2e_server: RunningServer) -
 
 def open_the_table_menus_account_menu(person: Page, e2e_server: RunningServer) -> Locator:
     open_new_table(person, e2e_server)
-    menu_button(person, ACCOUNT).click()
-    return person.locator(ACCOUNT_PANEL)
+    return open_account_panel(person)
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
