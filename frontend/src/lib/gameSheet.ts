@@ -79,8 +79,10 @@ export function gameSheetView(sheet: GameSheet, game: Game | null): GameSheetVie
     }
     const opponents = seats.filter((seat) => seat.seat !== count.declarer_seat).map((seat) => seat.name);
     const ending =
-        ENDING_WORDS[count.ending] ??
-        (endedBeforeTheTenthTrick(cards?.tricks.length ?? 0) ? words["table.sheetDecided"] : null);
+        cards === null
+            ? null
+            : (ENDING_WORDS[count.ending] ??
+              (endedBeforeTheTenthTrick(cards.tricks.length) ? words["table.sheetDecided"] : null));
     return {
         seats,
         count: {
@@ -91,7 +93,7 @@ export function gameSheetView(sheet: GameSheet, game: Game | null): GameSheetVie
         },
         cards: cards === null ? null : cardsView(cards, seatOf, count.declarer_seat, game),
         end:
-            cards === null || ending === null
+            ending === null
                 ? null
                 : { label: ending, by: count.ended_by_seat === null ? null : seatOf(count.ended_by_seat) },
     };
