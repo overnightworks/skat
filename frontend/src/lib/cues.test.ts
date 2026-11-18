@@ -687,7 +687,8 @@ describe("the viewer's Weiter that just opened", () => {
         ...tableWithResult(mine, changes, chairChanges),
         version: 9,
     });
-    const opened = (previous: Table, next: Table) => cuesBetween(previous, next).some((cue) => cue.kind === "weiter-came");
+    const opened = (previous: Table, next: Table) =>
+        cuesBetween(previous, next).some((cue) => cue.kind === "weiter-came");
 
     it.each([
         { name: "a declared result", next: after({}) },
