@@ -208,7 +208,6 @@ table_in = [["tests/table/test_playing.py", "table_in"]]
 "TestDealNext.test_changes_nothing_while_a_member_is_away" = [["tests/table/test_service_end.py", "TestEndUnplayedTable.test_a_table_with_no_hand_dealt_changes_nothing"]]
 
 [clones."tests/web/conftest.py"]
-"Ends.__init__" = [["tests/web/support/presence.py", "Releases.__init__"]]
 holding = [["tests/web/test_presence_empty_table.py", "noting"]]
 
 [clones."tests/web/support/agent.py"]

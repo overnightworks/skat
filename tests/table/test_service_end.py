@@ -243,7 +243,7 @@ class TestAtAnEndedTable:
     def test_the_server_frees_no_chair_and_deals_nothing(self, service, store, ended_id):
         written = dict(store.tables)
 
-        assert service.free_chair(ended_id, OPENER.account_id, nullcontext(True)) is False
+        assert service.free_held_chair(ended_id, OPENER.account_id, nullcontext(True)) is False
         assert service.deal_next(ended_id, nullcontext(frozenset({OPENER.account_id}))) is False
         assert store.tables == written
 

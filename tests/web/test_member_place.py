@@ -16,6 +16,7 @@ from starlette.concurrency import run_in_threadpool
 from skat.table.member_place import MemberRefusal
 from skat.table.records import TableId
 from skat.web.mcp import MCP_GROUP, READ_TABLE_TOOL
+from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.calls import call_facts
 from tests.support.log_lines import lines_of, logged
@@ -399,7 +400,7 @@ class TestTheStandingFollowsTheChair:
         skat.client.portal.call(time.advance, LEASE_SECONDS + 1)
         assert [standing["state"] for standing in standing_of(agent)] == ["active"]
 
-        skat.client.portal.call(time.advance, LEASE_SECONDS + HOLD_SECONDS + 1)
+        skat.client.portal.call(time.advance, LEASE_SECONDS + HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS)
 
         assert chairs_of(skat, table_id)[1] is None
         assert standing_of(agent) == []
@@ -409,7 +410,7 @@ class TestTheStandingFollowsTheChair:
         self, skat, time, agent, table_id
     ):
         with agent.listening() as frames:
-            skat.client.portal.call(time.advance, LEASE_SECONDS + HOLD_SECONDS + 1)
+            skat.client.portal.call(time.advance, LEASE_SECONDS + HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS)
             freed = next(frames)
             after = standing_of(agent)
 
@@ -433,7 +434,7 @@ class TestTheStandingFollowsTheChair:
         assert after == []
 
     def test_an_agent_whose_lease_lapses_during_a_hand_stays_a_member(self, skat, time, middlehand_auction, agent):
-        skat.client.portal.call(time.advance, LEASE_SECONDS + HOLD_SECONDS + 1)
+        skat.client.portal.call(time.advance, LEASE_SECONDS + HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS)
 
         assert [standing["state"] for standing in standing_of(agent)] == ["active"]
         assert skat.store.tables[middlehand_auction.table_id].hand is not None

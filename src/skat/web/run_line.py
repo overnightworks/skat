@@ -31,9 +31,11 @@ class RunLine:
         """The timer of a run, which starts now; `written` ends it or leaves it unwritten."""
         return StepTimer(self._event, _LOGGER)
 
-    def written(self, step: StepTimer, counts: Mapping[str, int], *, failed: bool) -> None:
-        """A failed run writes its line only when it is the first of its streak, as a warning; the run after a streak
-        writes its line with the streak's length, whatever it did.
+    def written(
+        self, step: StepTimer, counts: Mapping[str, int], *, failed: bool, failure: Exception | None = None
+    ) -> None:
+        """A failed run writes its line only when it is the first of its streak, as a warning that names the type of
+        `failure` when there is one; the run after a streak writes its line with the streak's length, whatever it did.
         """
         step.add(**counts)
         if failed:
@@ -42,7 +44,11 @@ class RunLine:
                 step.add(failed_run_count=1)
                 step.fail(RunFailure.STEP_FAILED)
                 step.handled()
-                step.end()
+                if failure is None:
+                    step.end()
+                else:
+                    # logline names a failure's type only from the exception that ends the step's block.
+                    step.__exit__(type(failure), failure, failure.__traceback__)
             return
         if self.failed_run_count or any(counts.values()):
             step.add(failed_run_count=self.failed_run_count)

@@ -4,13 +4,14 @@ import secrets
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
+import httpx2
 from sqlalchemy.engine import make_url
 
 from skat.store.migrate import create_store_engine
 from skat.store.sign_in import PostgresSignInStores
 from skat.web.constants import ACCOUNT_PATH
 from skat.web.sign_in import LoggingAuditSink, build_sign_in_configs
-from skat.web.tables import TABLES_PATH
+from skat.web.tables import TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.support.in_memory_stores import in_process_rate_limits
 from tests.support.postgres import created_database
 from tests.support.redis import fresh_database_url
@@ -62,6 +63,30 @@ class Pods:
         )
         return opened.json()["id"]
 
+    def sit(self, process: SkatProcess, cookie: str, table_id: str, seat: int) -> None:
+        sat = process.request(
+            "POST",
+            f"{TABLES_PATH}/{table_id}{TABLE_SIT_SUFFIX}",
+            cookie=cookie,
+            json={"command_id": new_command_id(), "seat": seat},
+            **SAME_ORIGIN,
+        )
+        assert sat.status_code == httpx2.codes.OK, sat.text
+
+    def table_at(self, process: SkatProcess, table_id: str, cookie: str) -> dict:
+        """The table's view as the process answers it, read once."""
+        return process.request("GET", f"{TABLES_PATH}/{table_id}", cookie=cookie, **FETCH).json()
+
+    def stop_both(self) -> None:
+        """Stop both processes with SIGTERM, as a rollout does."""
+        for process in (self.first, self.second):
+            process.stop()
+
+    def start_both(self) -> None:
+        """Start both stopped processes again on the same settings."""
+        for process in (self.first, self.second):
+            process.start()
+
     def watchers_at(self, process: SkatProcess, table_id: str, cookie: str) -> int:
         """How many accounts without a chair the process counts at the table, read once."""
         return process.request("GET", f"{TABLES_PATH}/{table_id}", cookie=cookie, **FETCH).json()["watchers"]
@@ -77,11 +102,15 @@ class Pods:
 
 
 @contextmanager
-def running_pods(postgres_template: str, directory: Path) -> Iterator[Pods]:
-    """Two started processes on a database and a Redis database of their own; the processes are killed at the end."""
+def running_pods(postgres_template: str, directory: Path, **settings: str | int) -> Iterator[Pods]:
+    """Two started processes on a database and a Redis database of their own, with `settings` beside the test's
+    sign-in settings; the processes are killed at the end.
+    """
     with created_database(postgres_template) as database_url:
         redis_url = fresh_database_url()
-        sign_in = build_sign_in_settings(directory, database_url=without_password(database_url), redis_url=redis_url)
+        sign_in = build_sign_in_settings(
+            directory, database_url=without_password(database_url), redis_url=redis_url, **settings
+        )
         engine = create_store_engine(database_url)
         processes = [SkatProcess(sign_in.environment, directory / f"pod-{name}.log") for name in ("first", "second")]
         try:

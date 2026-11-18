@@ -41,7 +41,7 @@ class Lobby:
     """An in-memory store holding the tables a test puts in it, read as the lobby reads them."""
 
     def __init__(self, leases=frozenset()):
-        self.store = FakeTableStore()
+        self.store = FakeTableStore(clock=lambda: LAST_PLAYED)
         self.service = TableService(self.store).with_leases(lambda: leases)
 
     def put(self, number, record, *, played_at=LAST_PLAYED, opener="Anna"):
@@ -53,13 +53,21 @@ class Lobby:
             self.store.opener_names[identifier.value] = opener
         return identifier
 
+    def hold(self, holds):
+        """Store each hold as due the given seconds from the store's clock, by table and account."""
+        for table_id, seconds_by_account in holds.items():
+            for account_id, seconds in seconds_by_account.items():
+                self.store.holds[table_id, account_id] = LAST_PLAYED + timedelta(seconds=seconds)
+
     def entries(self, account, held=None, connected=NOBODY_CONNECTED, holds=NO_HOLDS):
+        self.hold(holds)
         ids = held if held is not None else sorted((TableId(key) for key in self.store.tables), key=lambda i: i.value)
-        return self.service.my_tables(account, tuple(ids), connected, holds, DAYS)
+        return self.service.my_tables(account, tuple(ids), connected, DAYS)
 
     def open_entries(self, account=STRANGER, listed=None, connected=NOBODY_CONNECTED, holds=NO_HOLDS):
+        self.hold(holds)
         ids = self.service.open_table_ids() if listed is None else listed
-        return self.service.open_tables(account, tuple(ids), connected, holds, DAYS)
+        return self.service.open_tables(account, tuple(ids), connected, DAYS)
 
     def open_ids(self, account=STRANGER, **read):
         return [entry.id for entry in self.open_entries(account, **read)]
@@ -399,7 +407,7 @@ class TestTheOpenList:
 
         assert entry.ends_at == LAST_PLAYED + timedelta(days=DAYS)
 
-    def test_an_away_chair_at_an_undealt_table_says_the_seconds_its_hold_has_left_from_presence(self, lobby):
+    def test_an_away_chair_at_an_undealt_table_says_the_seconds_its_stored_hold_has_left(self, lobby):
         lobby.put(1, undealt())
 
         (entry,) = lobby.open_entries(

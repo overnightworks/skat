@@ -5,7 +5,6 @@ import pytest
 from skat.web.presence import (
     CHAIR_RELEASE_RETRY_SECONDS,
     NEXT_DEAL_PAUSE_SECONDS,
-    ChairHold,
     EmptyTable,
     NextDeal,
     Presence,
@@ -17,11 +16,11 @@ from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.log_lines import logged
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
-    HOLD_SECONDS,
     OTHER_TABLE,
     TABLE,
     Notes,
     Wakes,
+    chair_hold,
     connect,
     failed_timers,
     run,
@@ -138,28 +137,21 @@ class TestWhenTheCheckRuns:
 
         assert wakes.counts["ben"] == woken
 
-    def test_a_stream_cancelled_while_it_waits_for_a_freeing_leaves_the_table_to_end(
-        self, holding, time, releases, ends
-    ):
-        writing = asyncio.Event()
-        commit = asyncio.Event()
+    def test_a_stream_cancelled_while_its_hold_is_cleared_leaves_the_table_to_end(self, holding, time, holds, ends):
+        clearing = asyncio.Event()
 
-        async def write_until_released():
-            writing.set()
-            await commit.wait()
+        async def clear_until_cancelled():
+            clearing.set()
+            await asyncio.Event().wait()
+
+        holds.on_clear = clear_until_cancelled
 
         async def scenario():
-            expiry = asyncio.create_task(time.advance(HOLD_SECONDS))
-            await writing.wait()
             returning = asyncio.create_task(holding.subscribe(TABLE, "anna", lambda: None))
-            await asyncio.sleep(0)
+            await clearing.wait()
             returning.cancel()
-            commit.set()
-            await expiry
+            await asyncio.gather(returning, return_exceptions=True)
             await time.advance(DEFAULT_EMPTY_TABLE_SECONDS)
-
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        releases.within = write_until_released
 
         run(scenario())
 
@@ -229,9 +221,9 @@ def notes():
 
 
 @pytest.fixture
-def noting(time, releases, deals, ends, notes):
+def noting(time, holds, deals, ends, notes):
     return Presence(
-        ChairHold(HOLD_SECONDS, time.clock, time, releases.free_chair),
+        chair_hold(time, holds),
         NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
         EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end, notes.note),
         idle_agent_lease(),

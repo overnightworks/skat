@@ -23,7 +23,9 @@ class PresenceTimer(StrEnum):
     EMPTY_SINCE_WRITE = "empty_since_write"
     EMPTY_TABLE_END = "empty_table_end"
     CHAIR_RELEASE = "chair_release"
-    CLOSE_ABSENCE_CHECK = "close_absence_check"
+    HOLD_SWEEP = "hold_sweep"
+    LEAVE_WRITE = "leave_write"
+    HOLD_CLEAR = "hold_clear"
 
 
 class TimerRun:
@@ -35,13 +37,12 @@ class TimerRun:
         self._settled = settled
 
     def succeeded(self) -> None:
-        self._written(failed=False)
+        self._line.written(self._step, {}, failed=False)
+        self._settled()
 
-    def failed(self) -> None:
-        self._written(failed=True)
-
-    def _written(self, *, failed: bool) -> None:
-        self._line.written(self._step, {}, failed=failed)
+    def failed(self, failure: Exception) -> None:
+        """End the run as failed, naming only the failure's type: its message may carry an account id."""
+        self._line.written(self._step, {}, failed=True, failure=failure)
         self._settled()
 
 

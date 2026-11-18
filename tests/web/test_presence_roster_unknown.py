@@ -8,58 +8,13 @@ import threading
 import pytest
 
 from skat.web import presence as presence_module
-from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS
+from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, HOLD_SWEEP_EVERY_SECONDS
 from skat.web.presence_line import PresenceTimer
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.log_lines import logged
-from tests.web.support.presence import HOLD_SECONDS, TABLE, connect, failed_timers, run
+from tests.web.support.presence import TABLE, connect, failed_timers, run, stop_during_a_hanging_read
 
 UNREACHABLE = ConnectionError("redis is unreachable")
-
-
-class TestAFreeingOfAChair:
-    def test_reads_the_roster_again_under_the_row_lock_and_frees_nothing_while_it_cannot_be_read(
-        self, holding, leases, time, releases, capsys
-    ):
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        leases.reading_fails = [UNREACHABLE]
-
-        with logged(capsys) as lines:
-            run(time.advance(HOLD_SECONDS))
-
-        assert releases.outcomes == []
-        assert failed_timers(lines) == [(PresenceTimer.CHAIR_RELEASE, "warning")]
-
-    def test_frees_the_chair_on_the_retry_once_the_roster_can_be_read(self, holding, leases, time, releases):
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        leases.reading_fails = [UNREACHABLE]
-        run(time.advance(HOLD_SECONDS))
-
-        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
-
-        assert releases.outcomes == [True]
-
-    def test_frees_nothing_while_the_roster_is_unsettled_and_does_not_list_the_account(
-        self, holding, leases, time, releases
-    ):
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        leases.settled = False
-
-        run(time.advance(HOLD_SECONDS))
-        assert releases.outcomes == []
-
-        leases.settled = True
-        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
-        assert releases.outcomes == [True]
-
-    def test_is_not_due_while_an_unsettled_roster_lists_the_account(self, holding, elsewhere, leases, time, releases):
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        leases.settled = False
-        connect(elsewhere, TABLE, "anna", lambda: None)
-
-        run(time.advance(HOLD_SECONDS))
-
-        assert releases.outcomes == [False]
 
 
 class TestTheEndOfAnEmptyTable:
@@ -130,51 +85,27 @@ class TestTheNextDeal:
 
 class TestAStalledRoster:
     def test_counts_as_unknown_after_its_timeout_and_frees_nothing(
-        self, holding, leases, time, releases, monkeypatch, capsys
+        self, holding, leases, time, holds, monkeypatch, capsys
     ):
         monkeypatch.setattr(presence_module, "ROSTER_READ_TIMEOUT_SECONDS", 0.05)
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
+        holds.due_now = [(TABLE, "anna")]
         leases.reading_hangs = True
 
         with logged(capsys) as lines:
-            run(time.advance(HOLD_SECONDS))
+            holding.start_hold_sweeps()
+            run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
-        assert releases.outcomes == []
+        assert holds.outcomes == []
         assert failed_timers(lines) == [(PresenceTimer.CHAIR_RELEASE, "warning")]
 
     def test_a_stop_ends_a_read_in_flight_and_the_guard_yields_nobody_at_once(
         self, holding, leases, deals, monkeypatch
     ):
         monkeypatch.setattr(presence_module, "ROSTER_READ_TIMEOUT_SECONDS", 30)
-        leases.reading_hangs = True
 
-        async def scenario():
-            dealing = asyncio.create_task(holding.deal_now(TABLE))
-            await leases.read_started.wait()
-            holding.stop()
-            await asyncio.wait_for(dealing, 5)
-
-        run(scenario())
+        stop_during_a_hanging_read(holding, leases, lambda: holding.deal_now(TABLE))
 
         assert deals.calls == [(TABLE, None)]
-
-    def test_a_stop_ends_a_read_in_flight_and_the_freeing_is_not_due(
-        self, holding, leases, time, releases, monkeypatch
-    ):
-        monkeypatch.setattr(presence_module, "ROSTER_READ_TIMEOUT_SECONDS", 30)
-        run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
-        leases.reading_hangs = True
-        leases.read_started.clear()
-
-        async def scenario():
-            advancing = asyncio.create_task(time.advance(HOLD_SECONDS))
-            await leases.read_started.wait()
-            holding.stop()
-            await asyncio.wait_for(advancing, 5)
-
-        run(scenario())
-
-        assert releases.outcomes == [False]
 
     def test_a_presence_stopped_before_a_deal_reads_no_roster_and_the_guard_yields_nobody(self, holding, leases, deals):
         holding.stop()
@@ -196,17 +127,10 @@ class TestAStalledRoster:
         assert (deals.calls, set(leases.read_threads)) == ([(TABLE, frozenset())], {loop_thread})
 
 
-class TestAStoppedPresence:
-    def test_starts_no_hold_for_the_chairs_it_is_given(self, holding, time):
-        holding.stop()
-
-        holding.hold_chairs([(TABLE, "anna")])
-
-        assert (holding.hold_seconds_left([TABLE]), time.pending) == ({}, 0)
-
-
 class TestTheCloseOfAStream:
-    def test_ends_its_lease_and_starts_the_hold_though_the_closing_task_is_cancelled_meanwhile(self, holding, leases):
+    def test_ends_its_lease_and_stores_the_leave_though_the_closing_task_is_cancelled_meanwhile(
+        self, holding, leases, holds
+    ):
         async def scenario():
             subscription = await holding.subscribe(TABLE, "anna", lambda: None)
             leases.ending_gate = asyncio.Event()
@@ -220,57 +144,7 @@ class TestTheCloseOfAStream:
 
         run(scenario())
 
-        assert leases.holders == []
-        assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": HOLD_SECONDS}}
-
-    def test_starts_no_hold_while_the_roster_cannot_be_read_and_starts_it_on_the_retry(
-        self, holding, leases, time, capsys
-    ):
-        subscription = connect(holding, TABLE, "anna", lambda: None)
-        leases.reading_fails = [UNREACHABLE]
-
-        with logged(capsys) as lines:
-            run(holding.close(subscription))
-        assert holding.hold_seconds_left([TABLE]) == {}
-        assert failed_timers(lines) == [(PresenceTimer.CLOSE_ABSENCE_CHECK, "warning")]
-
-        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
-        assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": HOLD_SECONDS}}
-
-    def test_starts_no_hold_while_the_roster_is_unsettled_and_does_not_list_the_account(self, holding, leases, time):
-        subscription = connect(holding, TABLE, "anna", lambda: None)
-        leases.settled = False
-
-        run(holding.close(subscription))
-        assert holding.hold_seconds_left([TABLE]) == {}
-
-        leases.settled = True
-        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
-        assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": HOLD_SECONDS}}
-
-    def test_starts_no_hold_when_the_account_streams_on_another_pod_once_the_roster_can_be_read(
-        self, holding, elsewhere, leases, time
-    ):
-        connect(elsewhere, TABLE, "anna", lambda: None)
-        subscription = connect(holding, TABLE, "anna", lambda: None)
-        leases.reading_fails = [UNREACHABLE]
-
-        run(holding.close(subscription))
-        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
-
-        assert holding.hold_seconds_left([TABLE]) == {}
-
-    def test_starts_the_hold_once_a_lease_that_could_not_be_ended_has_left_the_roster(self, holding, leases, time):
-        subscription = connect(holding, TABLE, "anna", lambda: None)
-        leases.ending_fails = [UNREACHABLE]
-
-        run(holding.close(subscription))
-        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
-        assert holding.hold_seconds_left([TABLE]) == {}
-
-        leases.holders.clear()
-        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
-        assert holding.hold_seconds_left([TABLE]) == {TABLE: {"anna": HOLD_SECONDS}}
+        assert (leases.holders, holds.left) == ([], [(TABLE, "anna")])
 
     def test_closing_twice_changes_nothing_the_second_time(self, holding, wakes, time):
         connect(holding, TABLE, "ben", lambda: None)

@@ -22,12 +22,12 @@ from skat.table.records import EndedTable, Ending, Series, TableId
 from skat.web.mcp import AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, token_carries_agent_facts
 from skat.web.member_place import MemberStandings
 from skat.web.nudging import TABLE_NUDGE_SUFFIX
-from skat.web.presence import ChairHold, EmptyTable, Presence
+from skat.web.presence import EmptyTable, Presence
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from skat.web.waits import AskClock
 from tests.support.calls import call_facts
-from tests.support.idle_presence import free_no_chair, idle_agent_lease, idle_next_deal, idle_wakes
+from tests.support.idle_presence import idle_agent_lease, idle_hold, idle_next_deal, idle_wakes
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
@@ -502,7 +502,7 @@ class TestAnEndedTablesWaitIsDropped:
         time = FakeTime()
         ending = self._Ending()
         presence = Presence(
-            ChairHold(300, time.clock, time, free_no_chair),
+            idle_hold(time.clock, time),
             idle_next_deal(),
             EmptyTable(60, ending.answer, ending.answer),
             idle_agent_lease(),

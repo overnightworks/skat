@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from logline import Outcome
 
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
+from skat.web.presence import ChairHold
 from skat.web.presence_line import EVENT
 from skat.web.tables import TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
@@ -58,26 +59,66 @@ async def on_a_worker(guard, work, within=None):
     return await asyncio.to_thread(enter)
 
 
-class Releases:
-    """The freeing command as the presence calls it: what it was asked, and what it answers or raises next."""
+class Holds:
+    """The stored chair holds as the presence uses them: the leaves stored, the lapses stored and the holds cleared,
+    each in order, the holds the store answers as due, each freeing asked for with what its guard yielded, and the
+    failures to come.
+
+    `on_leave` and `on_clear` run inside the write, before it answers.
+    """
 
     def __init__(self):
+        self.left = []
+        self.lapsed = []
+        self.cleared = []
+        self.due_now = []
         self.calls = []
-        self.failures = []
-        self.freed = True
-        self.meanwhile = None
-        self.within = None
         self.outcomes = []
+        self.leave_failures = []
+        self.clear_failures = []
+        self.due_failures = []
+        self.free_failures = []
+        self.on_leave = None
+        self.on_clear = None
 
-    async def free_chair(self, table_id, account_id, due):
+    async def leave(self, table_id, account_id):
+        if self.leave_failures:
+            raise self.leave_failures.pop(0)
+        if self.on_leave is not None:
+            await self.on_leave()
+        self.left.append((table_id, account_id))
+
+    async def lapse(self, table_id, account_id):
+        if self.leave_failures:
+            raise self.leave_failures.pop(0)
+        self.lapsed.append((table_id, account_id))
+
+    async def clear(self, table_id, account_id):
+        if self.clear_failures:
+            raise self.clear_failures.pop(0)
+        if self.on_clear is not None:
+            await self.on_clear()
+        self.cleared.append((table_id, account_id))
+
+    async def due(self):
+        if self.due_failures:
+            raise self.due_failures.pop(0)
+        return list(self.due_now)
+
+    async def free_chair(self, table_id, account_id, absent):
         self.calls.append((table_id, account_id))
-        if self.failures:
-            raise self.failures.pop(0)
-        if self.meanwhile is not None:
-            await self.meanwhile()
-        outcome = await on_a_worker(due, lambda still_due: self.freed and still_due, self.within)
-        self.outcomes.append(outcome)
-        return outcome
+        if self.free_failures:
+            raise self.free_failures.pop(0)
+        yielded = await on_a_worker(absent, lambda is_absent: is_absent)
+        self.outcomes.append(yielded)
+        if yielded is not None:
+            self.due_now.remove((table_id, account_id))
+        return bool(yielded)
+
+
+def chair_hold(time, holds):
+    """The chair hold of a presence on the test's time, over the fake store of holds."""
+    return ChairHold(time.clock, time, holds.leave, holds.lapse, holds.clear, holds.due, holds.free_chair)
 
 
 class Deals:
@@ -118,6 +159,19 @@ class Notes:
 
 def run(scenario):
     return asyncio.run(scenario)
+
+
+def stop_during_a_hanging_read(holding, leases, work):
+    """Start the work, stop the presence once its roster read hangs, and wait for the work to end."""
+    leases.reading_hangs = True
+
+    async def scenario():
+        working = asyncio.create_task(work())
+        await leases.read_started.wait()
+        holding.stop()
+        await asyncio.wait_for(working, 5)
+
+    run(scenario())
 
 
 def connect(presence, table_id, account_id, wake):

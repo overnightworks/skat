@@ -142,7 +142,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
     from skat.table.member_place import CallFacts
-    from skat.table.transactions import OccupiedChair, TableTransaction, TableTransactions
+    from skat.table.transactions import HeldChair, TableTransaction, TableTransactions
 
 __all__ = ["CommandIdReusedError", "CommandResult", "TableService"]
 
@@ -508,28 +508,34 @@ class TableService(LobbyReads, GameListReads):
             lambda table: decide_refuse_to_abort(table, actor),
         )
 
-    def free_chair(self, table_id: TableId, account_id: str, due: AbstractContextManager[bool]) -> bool:
-        """The server's step of freeing the account's chair; see `ServerSteps.free_chair`."""
-        return self._server_steps().free_chair(table_id, account_id, due)
+    def note_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
+        """The server's step of storing a chair hold; see `ServerSteps.note_leave`."""
+        self._server_steps().note_leave(table_id, account_id, hold_seconds, newest_wins=newest_wins)
+
+    def clear_hold(self, table_id: TableId, account_id: str) -> None:
+        """The server's step of dropping a chair hold at an arrival; see `ServerSteps.clear_hold`."""
+        self._server_steps().clear_hold(table_id, account_id)
+
+    def due_holds(self) -> tuple[HeldChair, ...]:
+        """The chair holds due now; see `ServerSteps.due_holds`."""
+        return self._server_steps().due_holds()
+
+    def free_held_chair(self, table_id: TableId, account_id: str, absent: AbstractContextManager[bool | None]) -> bool:
+        """The server's step of freeing a chair whose hold is due; see `ServerSteps.free_held_chair`."""
+        return self._server_steps().free_held_chair(table_id, account_id, absent)
 
     def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
         """The server's step of dealing the next hand; see `ServerSteps.deal_next`."""
         return self._server_steps().deal_next(table_id, connected_accounts)
 
     def end_empty_table(
-        self,
-        table_id: TableId,
-        connected_accounts: AbstractContextManager[frozenset[str] | None],
-        empty_seconds: int,
+        self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None], empty_seconds: int
     ) -> bool:
         """The server's step of ending an empty table; see `ServerSteps.end_empty_table`."""
         return self._server_steps().end_empty_table(table_id, connected_accounts, empty_seconds)
 
     def note_presence(
-        self,
-        table_id: TableId,
-        connected_accounts: AbstractContextManager[frozenset[str] | None],
-        empty_seconds: int,
+        self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None], empty_seconds: int
     ) -> bool:
         """The server's step of noting who is present; see `ServerSteps.note_presence`."""
         return self._server_steps().note_presence(table_id, connected_accounts, empty_seconds)
@@ -574,10 +580,6 @@ class TableService(LobbyReads, GameListReads):
             return None
         self._tell_seats(closed.members)
         return closed.result
-
-    def occupied_chairs(self) -> tuple[OccupiedChair, ...]:
-        with self._transactions.begin() as transaction:
-            return transaction.occupied_chairs()
 
     def invite_agent(self, table_id: TableId, facts: CallFacts, lasting: timedelta) -> InvitationOffer | InviteRefusal:
         """Write the call as an invitation standing `lasting` from now, if the decision under the locks offers it."""

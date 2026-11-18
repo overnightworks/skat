@@ -594,7 +594,8 @@ class TestTheStandingFollowsTheChair:
     def test_the_holds_freeing_of_the_chair_ends_the_membership(self, scene):
         scene.sit(MOZART, 2)
 
-        assert scene.service.free_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True)) is True
+        scene.store.hold_due(scene.table_id, MOZART.account_id)
+        assert scene.service.free_held_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True)) is True
 
         assert scene.standing() == ()
 
@@ -605,7 +606,8 @@ class TestTheStandingFollowsTheChair:
         scene.signals.clear()
         before = scene.snapshot()
 
-        freed = scene.service.free_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True))
+        scene.store.hold_due(scene.table_id, MOZART.account_id)
+        freed = scene.service.free_held_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True))
 
         assert freed is False
         assert (scene.snapshot(), scene.standing(), scene.signals) == (before, (active_standing(scene),), [])
@@ -706,7 +708,8 @@ class TestSignals:
         scene.sit(MOZART, 2)
         scene.signals.clear()
 
-        scene.service.free_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True))
+        scene.store.hold_due(scene.table_id, MOZART.account_id)
+        scene.service.free_held_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True))
 
         assert scene.signals == [(frozenset({MOZART.account_id}), ())]
 

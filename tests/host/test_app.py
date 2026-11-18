@@ -15,6 +15,7 @@ from skat.table.records import Actor, CreateTable, EndReason, SitDown
 from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
 from skat.web.paused import PAUSED_TABLES_PATH
+from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
 from skat.web.secret_files import StartRefusedError
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from tests.support.fake_issuer import FakeIssuer
@@ -32,6 +33,7 @@ from tests.support.page_build import (
 )
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
+from tests.web.support.skat import FakeTime
 
 if TYPE_CHECKING:
     from skat.web.settings import ServerSettings
@@ -74,8 +76,8 @@ class FreeingSignal(TableService):
         super().__init__(store)
         self.chair_freed = threading.Event()
 
-    def free_chair(self, table_id, account_id, due):
-        freed = super().free_chair(table_id, account_id, due)
+    def free_held_chair(self, table_id, account_id, absent):
+        freed = super().free_held_chair(table_id, account_id, absent)
         if freed:
             self.chair_freed.set()
         return freed
@@ -107,25 +109,52 @@ class EndingSignal(TableService):
 
 
 class TestCreateApp:
-    def test_a_chair_seated_when_the_server_starts_turns_free_after_the_hold_when_nobody_connects(
-        self, sign_in_settings
-    ):
-        tables = FreeingSignal(FakeTableStore())
-        tables.create(Actor(account_id="account-anna", display_name="Anna"), CreateTable(command_id="command-open"))
-        settings = sign_in_settings().settings.model_copy(update={"chair_hold_seconds": 0.05})
+    def test_a_hold_that_fell_due_while_no_server_ran_frees_the_chair_once_the_server_starts(self, sign_in_settings):
+        time = FakeTime()
+        store = FakeTableStore(clock=time.moment)
+        tables = FreeingSignal(store)
+        table_id = tables.create(OPENER, CreateTable(command_id="command-open")).id
+        tables.sit(VISITOR, SitDown("command-sit", table_id, 2), frozenset())
+        store.holds[table_id, VISITOR.account_id] = time.moment() - timedelta(seconds=1)
+        app = create_app(
+            sign_in_settings().settings,
+            page_build=fixture_page_build(),
+            tables=tables,
+            rule_sets=in_memory_rule_sets(),
+            stores=in_memory_stores(),
+            chair_clock=time.clock,
+            chair_scheduler=time,
+            **single_pod(),
+        )
+
+        with TestClient(app) as client:
+            client.portal.call(time.advance, HOLD_SWEEP_EVERY_SECONDS)
+            assert tables.chair_freed.is_set()
+
+        assert [chair.occupant is None for chair in store.tables[table_id].chairs] == [False, True, True]
+
+    def test_the_server_start_holds_no_chair(self, sign_in_settings):
+        time = FakeTime()
+        store = FakeTableStore(clock=time.moment)
+        tables = TableService(store)
+        table_id = tables.create(OPENER, CreateTable(command_id="command-open")).id
+        settings = sign_in_settings().settings
         app = create_app(
             settings,
             page_build=fixture_page_build(),
             tables=tables,
             rule_sets=in_memory_rule_sets(),
             stores=in_memory_stores(),
+            chair_clock=time.clock,
+            chair_scheduler=time,
             **single_pod(),
         )
 
-        with TestClient(app):
-            assert tables.chair_freed.wait(timeout=10)
+        with TestClient(app) as client:
+            client.portal.call(time.advance, settings.chair_hold_seconds + HOLD_SWEEP_EVERY_SECONDS)
 
-        assert tables.occupied_chairs() == ()
+        assert store.holds == {}
+        assert store.tables[table_id].chairs[0].occupant is not None
 
     def test_a_table_read_live_when_the_server_starts_ends_after_the_wait_when_nobody_connects(self, sign_in_settings):
         tables = EndingSignal(FakeTableStore())

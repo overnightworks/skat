@@ -79,12 +79,13 @@ def end_at_the_store(transactions, table_id):
         )
 
 
-def test_the_end_step_deletes_the_chairs_hand_and_steps_of_a_running_hand_and_keeps_the_row(
+def test_the_end_step_deletes_the_chairs_holds_hand_and_steps_of_a_running_hand_and_keeps_the_row(
     service, transactions, stored, engine
 ):
     table_id = played_hand(service, transactions, stored, "one")
+    service.note_leave(table_id, SEATED[1].account_id, hold_seconds=300, newest_wins=True)
     before = rows_of(engine, table_id.value)
-    assert all(before[name] for name in ("chairs", *HAND_TABLES))
+    assert all(before[name] for name in ("chairs", "chair_holds", *HAND_TABLES))
 
     end_at_the_store(transactions, table_id)
 
@@ -204,7 +205,8 @@ def test_an_ended_table_reads_as_a_tombstone_and_is_no_live_table_and_no_chair_i
     with transactions.begin() as transaction:
         assert transaction.locked_table(ended) is None
         assert isinstance(transaction.locked_table(live), TableRecord)
-        assert {chair.table_id for chair in transaction.occupied_chairs()} == {live}
+        seated = frozenset(actor.account_id for actor in SEATED)
+        assert {chair.table_id for chair in transaction.chairs_taken_by([ended, live], seated)} == {live}
     with transactions.begin() as transaction:
         assert [wait.table_id for wait in transaction.live_empty_since()] == [live]
     assert isinstance(stored(transactions, ended.value), EndedTable)

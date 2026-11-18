@@ -16,6 +16,7 @@ from skat.engine.deal import positions_from
 from skat.host.app import UNPLAYED_SWEEP_SECONDS, create_app
 from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
+from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from tests.support.fake_rule_sets import FakeRuleSetStore
 from tests.support.fake_tables import FakeTableStore
@@ -31,6 +32,7 @@ NAVIGATION = {"accept": "text/html"}
 UNKNOWN_ID = "0" * 32
 SERVER_START_SECONDS = 1000.0
 FAKE_EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
+SWEEP_SECONDS = (UNPLAYED_SWEEP_SECONDS, HOLD_SWEEP_EVERY_SECONDS)
 
 
 def stored(skat):
@@ -40,7 +42,7 @@ def stored(skat):
 class FakeTime:
     """A monotonic clock and a scheduler on it: `advance` runs every action that falls due, in due order, and
     `callers` keeps the thread of each call of `schedule`. `pending` counts the presence's timers: the server's hourly
-    end of unplayed tables always waits and is no timer of a table."""
+    end of unplayed tables and its sweep of the chair holds always wait and are no timer of a table."""
 
     def __init__(self, now=SERVER_START_SECONDS):
         self.now = now
@@ -56,7 +58,7 @@ class FakeTime:
 
     def schedule(self, delay, action):
         self.callers.append(threading.get_ident())
-        self._scheduled.append((self.now + delay, action, delay == UNPLAYED_SWEEP_SECONDS))
+        self._scheduled.append((self.now + delay, action, delay in SWEEP_SECONDS))
 
     def cancel_all(self):
         self._scheduled.clear()
@@ -105,6 +107,10 @@ class Skat:
     def __init__(self, sign_in_settings, store=None, stores=None, now=None, view_signal_through=None, **app_options):
         self.stores = stores if stores is not None else in_memory_stores()
         self.store = store if store is not None else FakeTableStore()
+        if isinstance(self.store, FakeTableStore) and "chair_clock" in app_options:
+            # The store's clock, on which a chair hold falls due, runs with the presence's.
+            chair_clock = app_options["chair_clock"]
+            self.store.clock = lambda: FAKE_EPOCH + timedelta(seconds=chair_clock())
         self.rule_set_store = FakeRuleSetStore()
         self._wired = []
         self.app = create_app(
