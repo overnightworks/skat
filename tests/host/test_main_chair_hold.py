@@ -126,12 +126,19 @@ def test_a_hold_stored_before_both_pods_restarted_frees_the_chair_at_its_deadlin
     started = time.monotonic()
 
     assert stored != frozenset()
-    while (now_stored := stored_holds(pods, table_id)) != frozenset():
-        assert now_stored == stored, "a start or a lapse stored the hold anew"
+
+    def holds_now() -> frozenset[tuple[str, datetime]]:
+        now_stored = stored_holds(pods, table_id)
+        assert now_stored in {stored, frozenset()}, "a start or a lapse stored the hold anew"
+        return now_stored
+
+    while holds_now() != frozenset():
         assert time.monotonic() - started < HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS + 30, "the hold was kept too long"
         time.sleep(POLL_SECONDS)
 
     seconds_until_the_leaver_is_freed(pods, table_id, opener_cookie, HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS + 30)
     assert time.monotonic() - stopped < HOLD_SECONDS + HOLD_SWEEP_EVERY_SECONDS + MARGIN_SECONDS
-    time.sleep(max(0.0, started + KEPT_FOR_SECONDS - time.monotonic()))
+    while time.monotonic() < started + KEPT_FOR_SECONDS:
+        holds_now()
+        time.sleep(POLL_SECONDS)
     assert occupants(pods, table_id, opener_cookie)[0] is not None

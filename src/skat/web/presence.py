@@ -46,10 +46,17 @@ class Subscription:
     keeps it counted on every pod.
     """
 
-    table_id: str
-    account_id: str
+    holder: StreamHolder
     registration: Registration
     lease: AsyncExitStack
+
+    @property
+    def table_id(self) -> str:
+        return self.holder.table_id
+
+    @property
+    def account_id(self) -> str:
+        return self.holder.account_id
 
 
 async def _finished_despite_cancellation(work: Coroutine[object, object, None]) -> None:
@@ -384,7 +391,7 @@ class Presence:
         except BaseException:
             self._wakes.unregister(registration)
             raise
-        subscription = Subscription(table_id, account_id, registration, lease)
+        subscription = Subscription(holder, registration, lease)
         with self._state:
             self._empty_waits.pop(table_id, None)
             self._subscriptions.setdefault(table_id, []).append(subscription)
@@ -441,7 +448,7 @@ class Presence:
     async def close(self, subscription: Subscription) -> None:
         """End a stream: drop it here at once, then run to the end, even when the caller is cancelled, what awaits.
 
-        When it was the account's last stream at the table on this pod, its leave is stored while its lease still
+        When it was the account's last stream at the table on any pod, its leave is stored while its lease still
         counts it, so the hold is stored before the absence starts, and the table's streams are woken once the lease
         has ended.
         """
@@ -451,7 +458,7 @@ class Presence:
     async def _finish_close(self, subscription: Subscription) -> None:
         table_id, account_id = subscription.table_id, subscription.account_id
         left = not any(each.account_id == account_id for each in self._subscriptions.get(table_id, []))
-        if left:
+        if left and not await self._streams_elsewhere(subscription.holder):
             await self._store_leave(table_id, account_id, lapsed=False)
         try:
             await subscription.lease.aclose()
@@ -463,6 +470,17 @@ class Presence:
         if table_id not in self._subscriptions:
             self._start_empty_wait(table_id)
             self._note_soon(table_id)
+
+    async def _streams_elsewhere(self, holder: StreamHolder) -> bool:
+        """Whether another stream of the account watches the table on any pod, so that its leave waits for the last
+        one; an unreadable roster says no, which stores the leave the freeing reads the roster against again.
+        """
+        try:
+            present = Present.of(await self._stream_leases.live(), apart_from=holder)
+        except Exception as failure:
+            log.warning("presence_roster_read.failed", error_type=type(failure).__name__)
+            return False
+        return holder.account_id in present.at(holder.table_id)
 
     async def _store_leave(self, table_id: str, account_id: str, *, lapsed: bool) -> None:
         """Store the account's leave, as a lapse where its lease lapsed; a failure is logged and the leave stored again

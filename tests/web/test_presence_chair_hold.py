@@ -13,7 +13,7 @@ from skat.web import presence as presence_module
 from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, HOLD_SWEEP_EVERY_SECONDS, AgentLease, Presence
 from skat.web.presence_line import EVENT, PresenceTimer
 from skat.web.stream_holder import StreamHolder
-from tests.support.idle_presence import idle_empty_table, idle_next_deal, idle_wakes
+from tests.support.idle_presence import idle_agent_lease, idle_empty_table, idle_next_deal, idle_wakes
 from tests.support.log_lines import lines_of, logged
 from tests.web.support.presence import (
     OTHER_TABLE,
@@ -143,6 +143,21 @@ class TestALeave:
         run(holding.close(second))
 
         assert holds.left == []
+
+    def test_a_stream_ending_while_the_account_streams_on_another_pod_stores_its_leave_only_at_the_last_stream(
+        self, holding, holds, leases, time
+    ):
+        other_pod = Presence(
+            chair_hold(time, holds), idle_next_deal(), idle_empty_table(), idle_agent_lease(), idle_wakes(), leases
+        )
+        here = connect(holding, TABLE, "anna", lambda: None)
+        there = connect(other_pod, TABLE, "anna", lambda: None)
+
+        run(holding.close(here))
+        assert holds.left == []
+
+        run(other_pod.close(there))
+        assert holds.left == [(TABLE, "anna")]
 
     def test_a_leave_that_cannot_be_stored_is_logged_as_leave_write_and_stored_on_the_retry(
         self, holding, holds, leases, time, capsys
