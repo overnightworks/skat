@@ -159,6 +159,16 @@ class TestALeave:
         run(other_pod.close(there))
         assert holds.left == [(TABLE, "anna")]
 
+    def test_a_stream_ending_while_the_roster_cannot_be_read_stores_its_leave_and_ends_its_lease(
+        self, holding, holds, leases
+    ):
+        subscription = connect(holding, TABLE, "anna", lambda: None)
+        leases.reading_fails = [UNREACHABLE]
+
+        run(holding.close(subscription))
+
+        assert (holds.left, leases.holders) == ([(TABLE, "anna")], [])
+
     def test_a_leave_that_cannot_be_stored_is_logged_as_leave_write_and_stored_on_the_retry(
         self, holding, holds, leases, time, capsys
     ):
