@@ -4309,16 +4309,12 @@ body {
         margin-bottom: 0;
     }
 
-    /* The far chairs stand at the felt's rim, the near one at its lower left, as bid-watch draws them. */
+    /* The far chairs stand at the felt's rim, the near one at its lower left, as bid-watch draws them. The table stands where the scenes draw it in every phase: from just above the plaque down under the hand, as wide as the stage leaves beside the far chairs; a short screen shortens it. The felt lies inside the table's rim. */
     .room .stage {
         width: min(100%, 1180px);
         grid-template-rows: auto minmax(165px, 1fr) minmax(165px, 1fr) auto;
         --chair-width: 236px;
         padding-bottom: 8px;
-    }
-
-    /* The table stands where the scenes draw it in every phase: from just above the plaque down under the hand, as wide as the stage leaves beside the far chairs; a short screen shortens it. The felt lies inside the table's rim. */
-    .room .stage {
         --table-top: -22px;
         --table-height: min(566px, 100% - 72px);
         --table-inline: 120px;
