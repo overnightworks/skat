@@ -55,9 +55,11 @@ describe("the table menu", () => {
     const key = (): HTMLButtonElement | null => document.querySelector("button.menu-key");
     const sections = (): string[] => [...document.querySelectorAll(".menu-section")].map((each) => each.textContent);
     const rows = (): string[] =>
-        [...document.querySelectorAll(".menu .row")].map((each) => each.querySelector(".label")?.textContent ?? "");
+        [...document.querySelectorAll(".table-menu .row")].map(
+            (each) => each.querySelector(".label")?.textContent ?? "",
+        );
 
-    it("holds the link, the style, the rules, the stand-up, the shortening and the give-up of a seated person at a running game, in two sections", () => {
+    it("holds the link, the style, the rules, the stand-up, the shortening and the give-up of a seated person at a running game, in two sections, and the account under them", () => {
         show(tableWith(DECLARER, null));
 
         expect([key()?.getAttribute("aria-label"), sections(), rows()]).toEqual([
@@ -70,6 +72,7 @@ describe("the table menu", () => {
                 words["table.standUp"],
                 words["table.shorten"],
                 words["table.giveUp"],
+                words["account.title"],
             ],
         ]);
     });
@@ -77,15 +80,15 @@ describe("the table menu", () => {
     it("offers an opponent the open play before the give-up", () => {
         show(tableWith(FIRST_OPPONENT, null));
 
-        expect(rows().slice(-2)).toEqual([words["table.playOpen"], words["table.giveUp"]]);
+        expect(rows().slice(-3, -1)).toEqual([words["table.playOpen"], words["table.giveUp"]]);
     });
 
-    it("holds only the link and the rules for a watcher and has no game section", () => {
+    it("holds only the link, the rules and the account for a watcher and has no game section", () => {
         show(tableWith(WATCHER, null), { seated: false, styleOffered: false });
 
         expect([sections(), rows()]).toEqual([
             [words["table.menuTable"]],
-            [words["table.copyLink"], words["rules.title"]],
+            [words["table.copyLink"], words["rules.title"], words["account.title"]],
         ]);
     });
 
@@ -136,13 +139,19 @@ describe("the table menu", () => {
 
         expect([key()?.classList.contains("strip"), rows()]).toEqual([
             true,
-            [words["table.style"], words["table.standUp"], words["table.shorten"], words["table.giveUp"]],
+            [
+                words["table.style"],
+                words["table.standUp"],
+                words["table.shorten"],
+                words["table.giveUp"],
+                words["account.title"],
+            ],
         ]);
     });
 
-    it("shows no key to a watcher in a call, who has nothing to do at the table", () => {
+    it("offers a watcher in a call, who has nothing to do at the table, only the account", () => {
         show(tableWith(WATCHER, null), { callMode: true, seated: false, styleOffered: false });
 
-        expect(key()).toBeNull();
+        expect([key()?.classList.contains("strip"), sections(), rows()]).toEqual([true, [], [words["account.title"]]]);
     });
 });

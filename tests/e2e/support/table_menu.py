@@ -5,16 +5,21 @@ from typing import TYPE_CHECKING
 
 from playwright.sync_api import Page, expect
 
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.tables import until_the_agents_are_read
 
 if TYPE_CHECKING:
     from playwright.sync_api import FrameLocator, Locator
 
 MENU_KEY = ".menu-key"
-MENU = ".anchored-panel:has(.menu)"
+MENU = ".anchored-panel:has(.table-menu)"
 GIVE_UP_ROW = ".row.give-up"
 SHORTEN_ROW = ".row.shorten"
 PLAY_OPEN_ROW = ".row.play-open"
+AGENTS = text(SOURCE_LANGUAGE, "table.agents")
+AGENTS_PANEL = ".anchored-panel:has(.agents-list)"
+ACCOUNT = text(SOURCE_LANGUAGE, "account.title")
+ACCOUNT_PANEL = ".anchored-panel:has(nav.legal)"
 
 
 def open_table_menu(person: Page | FrameLocator) -> Locator:
@@ -40,6 +45,23 @@ def close_table_menu(person: Page) -> None:
 def menu_button(person: Page | FrameLocator, name: str) -> Locator:
     """The menu's button of this exact name, with the menu opened first."""
     return open_table_menu(person).get_by_role("button", name=name, exact=True)
+
+
+def open_agents_panel(person: Page | FrameLocator) -> Locator:
+    """The panel of the agents, opened by the menu's „Agenten“ row; an open one stays open."""
+    panel = person.locator(AGENTS_PANEL)
+    if not panel.is_visible():
+        menu_button(person, AGENTS).click()
+    expect(panel).to_be_visible()
+    return panel
+
+
+def open_account_panel(person: Page | FrameLocator) -> Locator:
+    """The panel of the account with the legal links, opened by the menu's account row."""
+    menu_button(person, ACCOUNT).click()
+    panel = person.locator(ACCOUNT_PANEL)
+    expect(panel).to_be_visible()
+    return panel
 
 
 def menu_row(person: Page | FrameLocator, row: str) -> Locator:

@@ -116,7 +116,7 @@ def test_a_seated_table_offers_the_lobby_button_top_left_and_no_wordmark_link(
 
     expect_the_lobby_top_left_and_tappable(person)
     expect_the_lobby_glass_on_the_wood(person)
-    expect(person.locator(".bar a")).to_have_count(1)
+    expect(person.locator(".bar a:visible")).to_have_count(1)
     expect(lobby_of(person)).to_have_attribute("href", "/")
 
 

@@ -469,6 +469,8 @@ export type Words = {
     readonly "rules.chipKontra": string;
     readonly "rules.chipRamsch": string;
     readonly "rules.namePoints": string;
+    readonly "rules.nameOfficial": string;
+    readonly "rules.officialUnchanged": string;
     readonly "rules.nameKontra": string;
     readonly "rules.nameRamsch": string;
     readonly "rules.nameRamschBockRounds": string;
@@ -518,6 +520,7 @@ export type Words = {
     readonly "table.styleNote": string;
     readonly "table.menu": string;
     readonly "table.menuTable": string;
+    readonly "table.agents": string;
     readonly "table.menuGame": string;
     readonly "table.reactions": string;
     readonly "table.reactionTray": string;
@@ -1102,6 +1105,8 @@ export const words: Words = {
     "rules.chipKontra": "Kontra",
     "rules.chipRamsch": "Ramsch",
     "rules.namePoints": "Laufende Augen zeigen",
+    "rules.nameOfficial": "Offizielle Skatordnung (ISkO)",
+    "rules.officialUnchanged": "Unverändert gespielt",
     "rules.nameKontra": "Kontra und Re",
     "rules.nameRamsch": "Ramsch beim Einpassen",
     "rules.nameRamschBockRounds": "Ramschrunde nach jeder Bockrunde",
@@ -1151,6 +1156,7 @@ export const words: Words = {
     "table.styleNote": "Gilt für alle am Tisch, auch für die Zuschauer.",
     "table.menu": "Mehr",
     "table.menuTable": "Tisch",
+    "table.agents": "Agenten",
     "table.menuGame": "Spiel",
     "table.reactions": "Reaktion senden",
     "table.reactionTray": "Reaktionen",

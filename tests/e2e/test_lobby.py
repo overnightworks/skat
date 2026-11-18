@@ -492,3 +492,23 @@ def test_the_empty_open_list_reads_in_english(
 
     expect(person.get_by_role("status").filter(has_text=text(ENGLISH, "lobby.noOpenTables"))).to_be_visible()
     expect_no_german(person, "lobby.noOpenTables")
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_on_an_empty_lobby_the_new_table_button_stands_at_the_foot_of_the_screen(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    expected_request_failures: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
+    person = open_person(username="Lone", **form_factor)
+    serve_stream(person, stream_of(open_tables=[]))
+
+    person.goto(f"{e2e_server.base_url}/")
+    expect(person.get_by_role("status").filter(has_text=NO_OPEN_TABLE)).to_be_visible()
+
+    box = person.get_by_role("button", name=NEW_TABLE_BUTTON).bounding_box()
+    assert box is not None
+    # The lobby scene draws one sticky bar at the screen's foot; its button ends in the lowest quarter.
+    assert box["y"] + box["height"] >= form_factor["viewport"]["height"] * 0.75

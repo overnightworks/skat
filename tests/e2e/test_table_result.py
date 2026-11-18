@@ -41,7 +41,7 @@ from tests.e2e.support.style import (
     expect_the_furniture_clear,
     give_the_table_its_style,
 )
-from tests.e2e.support.table_menu import MENU, close_table_menu, menu_button, open_table_menu
+from tests.e2e.support.table_menu import AGENTS_PANEL, close_table_menu, menu_button, open_agents_panel
 from tests.e2e.support.tables import SIT_DOWN
 
 if TYPE_CHECKING:
@@ -330,8 +330,7 @@ def test_the_result_bar_stays_inside_the_page_with_the_agents_in_the_menu(
 ) -> None:
     table = deal_a_finished_hand({**form_factor, "groups": (AGENT_ADDERS_GROUP,)})
     for person in table.everyone:
-        open_table_menu(person)
-        expect(person.locator(".agents-list")).to_be_visible()
+        open_agents_panel(person)
         close_table_menu(person)
     expect_the_bars_inside_the_pages(table)
 
@@ -349,9 +348,8 @@ def test_the_list_left_open_stays_inside_the_margin_as_the_result_slides_in_and_
         open_person, e2e_server, member_of, page_errors, {**form_factor, "groups": (AGENT_ADDERS_GROUP,)}
     )
     person = table.pages[table.declarer_seat]
-    open_table_menu(person)
-    expect(person.locator(".agents-list")).to_be_visible()
-    person.evaluate(WATCH_THE_OPEN_LIST, [form_factor["viewport"]["width"], EDGE_MARGIN, MENU])
+    open_agents_panel(person)
+    person.evaluate(WATCH_THE_OPEN_LIST, [form_factor["viewport"]["width"], EDGE_MARGIN, AGENTS_PANEL])
 
     table.play_out(CARDS_IN_A_GAME)
     expect(person.locator(CARD)).to_have_count(1)

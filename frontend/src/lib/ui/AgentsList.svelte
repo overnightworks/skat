@@ -3,8 +3,9 @@
     import { AgentControl, type AgentControlRefusal, type KitWords } from "overnightworks-design";
     import { followAgents, type AgentsControl, type AgentsFollower } from "../../routes/(start)/agents.ts";
 
-    // The kit's list of the agents the viewer may call or send away, a section of the table menu. `open` is the menu
-    // while it shows; `shown` tells the menu whether the server shows the control to the viewer at all.
+    // The kit's list of the agents the viewer may call or send away, in the panel the table menu's „Agenten“ row opens.
+    // `open` is the menu or the panel while either shows; `shown` tells the menu whether the server shows the control
+    // to the viewer at all, and so whether the row stands.
     // `streamedVersion` is the version of the latest table the page's stream brought, null before the first: the first
     // one means the viewer has a stream on the table, which the control needs, and each later one is read only while
     // the menu is open or when the agents seated changed, which can show the list to an owner or take it away.
@@ -67,8 +68,8 @@
         if (firstTable || agentsChanged || untrack(() => open)) void follower?.read();
     });
 
-    // The menu opens on a list read anew; it closes on a refusal read, and a control the server stopped showing while the
-    // refusal stood goes with it.
+    // The menu or the panel opens on a list read anew; it closes on a refusal read, and a control the server stopped
+    // showing while the refusal stood goes with it.
     $effect(() => {
         if (open) {
             void follower?.read();

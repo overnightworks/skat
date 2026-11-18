@@ -1146,8 +1146,8 @@ const IDEAS=[
   ['🏁','Der entscheidende Stich','Ein Spiel, das vor dem zehnten Stich entschieden ist, zeigt seinen entscheidenden Stich wie jeder letzte Stich: er liegt, die Karte, die ihn nahm, hebt sich rot (Alleinspieler verliert) oder gold (er gewinnt), dann steigt das Ergebnis; ohne Bewegung steht der Stich als Reihe auf der Ergebniskarte. Die Taste, auf die der Tisch wartet, bleibt in jedem Stil hell, springt bei deinem Zug und glänzt, solange er offen ist.','deciding-lost, deciding-won, deciding-still, turn-pop, strand-turn-pop'],
   ['🃏','Stiche eines Spiels','Ein Tipp auf eine Zeile der Liste öffnet das Spiel: Skat und Gedrücktes, die Augen gegen die 61, dann jeder Stich mit seinen drei Karten, dem Punkt dessen, der stach, und seinen Augen; ein Ramsch zeigt die Augen jedes Stuhls, ein früh beendetes Spiel, wie es endete. (#573)','game-tricks, game-ramsch, game-ended'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
-  ['⋯','Das Menü des Tisches','Unten liegt nur, was das Spiel jetzt fragt (Reizen, Halten, Weg, Kontra und Re, Weiter). Alles, was den Tisch betrifft, liegt oben hinter „⋯“: „Tisch“ mit Link kopieren, Agenten rufen, Stil, Regeln (öffnet das Regelblatt, die Marken bleiben in der oberen Zeile), Aufstehen und „Tisch schließen“ für den, der ihn öffnete, dazu „Serie beenden“; „Spiel“ mit „Abkürzen“ (der Alleinspieler), „Offen spielen“ (ein Gegner), „Aufgeben“ und „Abbrechen“; „Offen spielen“, „Aufgeben“ und „Abbrechen“ werden ein zweites Mal gefragt. Im Anruf, wo die obere Zeile dem Anruf gehört, steht die Menütaste in Skats Leiste.','agents-strip, agents-list, agents-leave, menu-armed, menu-call, menu-watch'],
-  ['🤖','Agenten rufen','Im Menü „⋯“ steht unter „Tisch“ die Liste des Kits: „Rufen“ setzt Nova auf den freien Stuhl, „Bitten zu gehen“ schickt sie weg; wer kein Recht an einem Agenten hat, sieht keine Zeile. (#315)','agents-strip, agents-list,agents-calling, agents-here, agents-refused, agents-empty, agents-framed, agents-leave'],
+  ['⋯','Das Menü des Tisches','Unten liegt nur, was das Spiel jetzt fragt (Reizen, Halten, Weg, Kontra und Re, Weiter). Alles, was den Tisch betrifft, liegt oben hinter „⋯“: „Tisch“ mit Link kopieren, Agenten, Stil, Regeln (öffnet das Regelblatt, die Marken bleiben in der oberen Zeile), Aufstehen und „Tisch schließen“ für den, der ihn öffnete, dazu „Serie beenden“; „Spiel“ mit „Abkürzen“ (der Alleinspieler), „Offen spielen“ (ein Gegner), „Aufgeben“ und „Abbrechen“; „Offen spielen“, „Aufgeben“ und „Abbrechen“ werden ein zweites Mal gefragt. Im Anruf, wo die obere Zeile dem Anruf gehört, steht die Menütaste in Skats Leiste.','agents-strip, agents-list, agents-leave, menu-armed, menu-call, menu-watch'],
+  ['🤖','Agenten rufen','Im Menü „⋯“ öffnet „Agenten“ unter „Tisch“ die Liste des Kits in einer Tafel für sich: „Rufen“ setzt Nova auf den freien Stuhl, „Bitten zu gehen“ schickt sie weg; wer kein Recht an einem Agenten hat, sieht keine Zeile. (#315)','agents-strip, agents-list,agents-calling, agents-here, agents-refused, agents-empty, agents-framed, agents-leave'],
   ['🪑','Freier Platz im Spiel','Geht ein Agent mitten im Spiel, wird sein Stuhl frei, seine Karten warten daneben und niemand ist dran; wer sich setzt, übernimmt Karten und Zug, die anderen sehen „Lena spielt weiter“. (#314)','lobby-seat-open (start.html)'],
   ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet das Menü unter „Spiel“ „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
   ['🔊','Ton und Bewegung','Ein runder Lautsprecher oben am Tisch öffnet die Tafel: Ton an oder aus, Lautstärke, die Klänge „Leise“, „Stammtisch“ oder „Funkeln“, die Bewegung „dezent“ oder „verspielt“, Stimme, letzter Stich, „Du bist dran“ im Hintergrund und Vibration; gemerkt auf diesem Gerät, durchgestrichen, wenn der Ton aus ist. (#376)','sound-button, sound-panel'],
@@ -1638,7 +1638,9 @@ const ANNAS_RULES=['points','kontra','bock'];
 const ruleChips=(on)=>`<span class="chips">${on.length?TABLE_RULES.filter(r=>on.includes(r.id)&&r.chip).filter((r,i,a)=>a.findIndex(o=>o.chip===r.chip)===i).map(r=>`<span class="chip">${r.chipIc||r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
 /* the chips are one tap target; centred above the felt, or starting at x */
 const rulePill=(x,y,on,o={})=>`<div class="rulepill ${o.mid?'mid':''} ${o.open?'on':''}" role="button" aria-label="Regeln" style="${at({left:x,top:y})}">${ruleChips(on)}</div>`;
-const ruleRows=(on)=>on.length?TABLE_RULES.filter(r=>on.includes(r.id)).map(r=>`<div class="rrow"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${r.settings}</small></span></div>`).join(''):'';
+/* a table without house rules names its rulebook in one row, never an empty sheet */
+const OFFICIAL_RULES={ic:I.check,name:'Offizielle Skatordnung (ISkO)',settings:'Unverändert gespielt'};
+const ruleRows=(on)=>(on.length?TABLE_RULES.filter(r=>on.includes(r.id)):[OFFICIAL_RULES]).map(r=>`<div class="rrow"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${r.settings}</small></span></div>`).join('');
 const rulesSheet=(d,on=ANNAS_RULES)=>`<div class="scrim over"></div>`+rulePill(d?640:195,d?14:48,on,{mid:true,open:true})
   +`<div class="result rules" role="dialog" aria-label="Regeln" style="${at({left:d?640:195,top:d?84:76,width:d?460:354,'z-index':'50'})}"><h3>Regeln</h3>
   <span class="lockbadge" role="status">${I.lock}Fest für diesen Tisch<span class="info" role="button" tabindex="0" aria-label="Info" title="Andere Regeln heißen neuer Tisch.">i</span></span>
@@ -1672,6 +1674,8 @@ const RULES_SCENES=[
      'Das Schloss sagt, dass die Regeln so bleiben, wie der Tisch aufgemacht wurde; „Andere Regeln heißen neuer Tisch“ steht hinter dem ⓘ.']],
   ['rules-official','Tisch ohne Hausregeln',(d)=>rulePlay(d,{chips:[]}),
     ['Ein Tisch ohne Hausregeln trägt die Marke „Offiziell“, und die Tafel zeigt keine Augen: Wer rechnen will, rechnet selbst.']],
+  ['rules-official-sheet','Die Regeln eines Tisches ohne Hausregeln',(d)=>S3.watch(d)+rulesSheet(d,[]),
+    ['Ein Tipp auf „Offiziell“ nennt das Regelwerk: eine Zeile „Offizielle Skatordnung (ISkO)“, unverändert gespielt. Das Blatt ist nie leer.']],
   ['rules-points','Laufende Augen',(d)=>rulePlay(d,{chips:ANNAS_RULES,plaque:runningPoints}),
     ['Mit der Marke „Augen“ steht unter dem Spiel: Anna 28, Wir 41, gezählt aus fertigen Stichen; der Strich bei 61 ist derselbe wie auf der Ergebniskarte.',
      'Vor dem ersten fertigen Stich steht dort 0 und 0, in einem Null-Spiel steht dort nichts.']],
@@ -1705,18 +1709,18 @@ const centred=(d,html)=>d?html:html.replace('left:195px',`left:${PB.cx}px`);
 const turnGlow=(d)=>d?glow(640,640,640,170):glow(PB.cx,560,240,120);
 const novaGlow=(d)=>d?glow(980,270,220,260):glow(PB.cx+105,190,190,110);
 
-/* the table's matters behind ⋯, in two sections: Tisch (link, the agents, style, the rules sheet outside a call, standing up, closing for the opener, ending the series) and Spiel (Abkürzen, Offen spielen, Aufgeben and Abbrechen; all but Abkürzen asked a second time). The section a person has nothing in is not drawn.
-   o.agents: the kit's list; o.armed: the row asking its second tap; o.above: in a call the list opens over the strip's ⋯ key */
+/* the table's matters behind ⋯, in two sections: Tisch (link, the agents' row for whoever may call or send one away, style, the rules sheet outside a call, standing up, closing for the opener, ending the series) and Spiel (Abkürzen, Offen spielen, Aufgeben and Abbrechen; all but Abkürzen asked a second time). The section a person has nothing in is not drawn. Under both stands „Konto“, which opens the kit's account menu with the legal links, so the page needs no footer of them.
+   o.agents: the agents' row; o.armed: the row asking its second tap; o.above: in a call the menu opens over the strip's ⋯ key */
 const menuRow=(icon,label,cls='')=>`<span class="row ${cls}" role="menuitem" tabindex="0">${icon}<span>${label}</span></span>`;
 const menuAskRow=(icon,word)=>`<span class="row danger arm" role="menuitem" tabindex="0">${icon}<span>${word}</span><i class="run-out" aria-hidden="true"></i></span>`;
 const tableMenu=(d,o={})=>{
-  const tisch=[o.link===false?'':menuRow(I.link,'Link kopieren'),o.agents||'',o.style?menuRow(I.style,'Stil'):'',o.link===false?'':menuRow(I.rules,'Regeln'),o.stand?menuRow(I.stand,'Aufstehen'):'',
+  const tisch=[o.link===false?'':menuRow(I.link,'Link kopieren'),o.agents?menuRow(I.spark,'Agenten'):'',o.style?menuRow(I.style,'Stil'):'',o.link===false?'':menuRow(I.rules,'Regeln'),o.stand?menuRow(I.stand,'Aufstehen'):'',
     o.opener?menuRow(I.power,'Tisch schließen','danger'):'',o.series?(o.armed==='series'?menuAskRow(I.finish,'Wirklich beenden?'):menuRow(I.finish,'Serie beenden')):''].join('');
   const spiel=[o.shorten?menuRow(I.shorten,'Abkürzen'):'',o.playOpen?(o.armed==='playOpen'?menuAskRow(I.eye,'Wirklich offen spielen?'):menuRow(I.eye,'Offen spielen')):'',o.giveUp?(o.armed==='giveUp'?menuAskRow(I.flag,'Wirklich aufgeben?'):menuRow(I.flag,'Aufgeben','danger')):'',o.abort?(o.armed==='abort'?menuAskRow(I.stop,'Wirklich abbrechen?'):menuRow(I.stop,'Abbrechen','danger')):''].join('');
-  return `<div class="menu-pop ${o.above?'above':''}" role="menu" aria-label="Mehr">${tisch?`<h4>Tisch</h4>${tisch}`:''}${spiel?`<h4>Spiel</h4>${spiel}`:''}</div>`;
+  return `<div class="menu-pop ${o.above?'above':''}" role="menu" aria-label="Mehr">${tisch?`<h4>Tisch</h4>${tisch}`:''}${spiel?`<h4>Spiel</h4>${spiel}`:''}<div class="menu-foot">${menuRow(I.person,'Konto')}</div></div>`;
 };
-/* a scene shows the menu open by giving the agents' list (or nothing) and the rows of its moment */
-const agentPill=(d,o={})=>o.open?tableMenu(d,{style:true,stand:true,opener:true,...o,agents:o.panel}):'';
+/* a scene shows the menu open with the rows of its moment, or the panel one of its rows opened in its place */
+const agentPill=(d,o={})=>o.open?o.panel||tableMenu(d,{style:true,stand:true,opener:true,...o}):'';
 /* the kit's AgentControl markup and words (ruled in the design stylesheet); the dots carry the picture's frozen moment */
 const AGENT_DOTS=`<span class="dots" aria-hidden="true">${[.36,.24,.12].map(k=>`<i class="mo" style="--k:${k}s"></i>`).join('')}</span>`;
 const AGENT_ACT={
@@ -1733,6 +1737,15 @@ const agentPanel=(rows,o={})=>`<div class="agent-control" role="group" aria-labe
   rows.length?`<ul>${rows.map(([name,state])=>`<li class="agent">${aiMark()}<span class="name">${name}</span>${AGENT_ACT[state](name)}</li>`).join('')}</ul>`
     :'<p class="empty">Gerade ist kein Agent erreichbar.</p>'}</div>`;
 const NOVA_CALLABLE=[['Nova','available']],NOVA_HERE=[['Nova','here']];
+/* „Agenten“ in the menu opens the kit's list in a panel of its own, hanging where the menu hung */
+const agentsPop=(rows,o={})=>`<div class="menu-pop ${o.above?'above':''}" role="dialog" aria-label="Agenten"><div class="pop-head">${I.spark}Agenten</div>${agentPanel(rows,o)}</div>`;
+/* „Konto“ in the menu opens the kit's account menu where the menu hung: the name to the account, „Abmelden“ and the legal row */
+Object.assign(I,{
+  external:sv('<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'),
+  logout:sv('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>'),
+});
+const accountPop=(o={})=>`<div class="menu-pop account ${o.above?'above':''}" role="dialog" aria-label="Konto"><span class="row who" role="link" tabindex="0"><span class="fill">Felix</span>${I.external}</span>
+  <div class="out"><span class="row" role="button" tabindex="0">${I.logout}Abmelden</span></div><nav class="legal menu" aria-label="Rechtliches">${LEGAL_ROW.map(l=>`<span>${l}</span>`).join('')}</nav></div>`;
 
 /* Skat's strip: the decision keys the scene leads with; o.pill is the open menu a scene shows */
 const stripOf=(d,o={})=>tableBar(d,{lead:o.lead,menu:o.pill,above:o.above,call:o.call});
@@ -1775,19 +1788,19 @@ const askingAnna=(d)=>{const L=seatsOf(d);
 const AWAITING_ANNA=`${faceDot('anna')}Warte auf Anna${waitDots()}`;
 
 const AGENT_SCENES=[
-  ['agents-strip','Das Menü ⋯',[360,390,1280],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:''}))),
-    [`${AT_TABLE}; unten bleibt nur die Reaktion, oben links die Zurück-Taste zur Lobby (der Stuhl bleibt dir gehalten) und oben rechts „⋯“. Das Menü hat zwei Abschnitte: „Tisch“ mit Link kopieren, Stil, Aufstehen und, für den, der den Tisch öffnete, „Tisch schließen“ in Rot; „Spiel“ gibt es nur, solange „Aufgeben“ oder „Abbrechen“ gilt. Wer keinen Agenten rufen darf, sieht keine Agentenzeile.`]],
-  ['agents-list','Agenten: im Menü',[390,1280],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentPanel(NOVA_CALLABLE)}))),
-    ['Felix öffnet „⋯“: unter „Tisch“ steht die Liste des Kits, die Zeile „Nova“ mit „Rufen“; der freie Platz wartet.']],
-  ['agents-calling','Agenten: wird gerufen',[390],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentPanel([['Nova','inviting']])}))),
+  ['agents-strip','Das Menü ⋯',[360,390,1280],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,agents:true}))),
+    [`${AT_TABLE}; unten bleibt nur die Reaktion, oben links die Zurück-Taste zur Lobby (der Stuhl bleibt dir gehalten) und oben rechts „⋯“. Das Menü hat zwei Abschnitte: „Tisch“ mit Link kopieren, Agenten, Stil, Aufstehen und, für den, der den Tisch öffnete, „Tisch schließen“ in Rot; „Spiel“ gibt es nur, solange „Aufgeben“ oder „Abbrechen“ gilt. Darunter steht „Konto“. Wer keinen Agenten rufen und keinen wegschicken darf, sieht keine Zeile „Agenten“.`]],
+  ['agents-list','Agenten: die Liste',[390,1280],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentsPop(NOVA_CALLABLE)}))),
+    ['Felix tippt in „⋯“ auf „Agenten“: an der Stelle des Menüs steht die Tafel „Agenten“ mit der Liste des Kits, die Zeile „Nova“ mit „Rufen“; der freie Platz wartet. Das Menü selbst listet keine Agenten.']],
+  ['agents-calling','Agenten: wird gerufen',[390],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentsPop([['Nova','inviting']])}))),
     ['Felix rief: „Wird gerufen…“ in seiner Liste, ohne Zählung; der Stuhl zeigt noch nichts, und kein anderer am Tisch sieht den Ruf.']],
   ['agents-here','Agenten: Nova setzt sich',[390,1280],(d)=>{const L=seatsOf(d);
     return tableOf(d)+plaque(mid(d),plaqueY(d),`<div class="game">Karten kommen${waitDots()}</div>`)+deck(d)+seat('anna',L.anna)+seat('nova',{...L.nova,got:'.6s;--d:.25s'})+seat('felix',L.you)
       +notice('Nova setzt sich','nova',mid(d),d?DB.you.own.y-40:462)+callerBar(d,agentPill(d));},
     ['Nova setzt sich: die Kugel, „Nova AI“ und der Hinweis „Nova setzt sich“; danach kommen die Karten.']],
-  ['agents-refused','Agenten: abgelehnt',[390],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentPanel(NOVA_CALLABLE,{refusal:'try-again'})}))),
+  ['agents-refused','Agenten: abgelehnt',[390],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentsPop(NOVA_CALLABLE,{refusal:'try-again'})}))),
     ['Der Ruf ging fehl: das Banner des Kits „Das hat nicht geklappt. Versuch es noch einmal.“ über der Zeile, die wieder „Rufen“ sagt; die anderen vier Gründe sehen genauso aus, mit ihrem eigenen Satz.']],
-  ['agents-empty','Agenten: keiner erreichbar',[390],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentPanel([])}))),
+  ['agents-empty','Agenten: keiner erreichbar',[390],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:agentsPop([])}))),
     ['Niemand ist zu rufen: die Liste sagt „Gerade ist kein Agent erreichbar.“']],
   ['agents-framed','Das Menü im Anruf',[390,1280],(d)=>room(d,{left:8,glow:novaGlow(d)})+plaque(mid(d),plaqueY(d),gameLine('c','Kreuz'))+played('K','s','anna',TRICK_SLOT.left(d))
     +seats(d,{video:true,anna:['decl'],nova:['turn','think'],score:TOTALS_BEFORE,drop:-HAND_RAISE})+ownHand(d,FELIX_HAND,{bottom:d?DESK_HAND.bottom+HAND_RAISE:164})+callBar(d)
@@ -1795,20 +1808,22 @@ const AGENT_SCENES=[
     ['Im Anruf gehört die obere Zeile dem Anruf: das Menü steht als letzte Taste in Skats Leiste über der Leiste des Anrufs, nach dem Lautsprecher, mit drei Strichen, damit es nicht mit dem „⋯“ des Anrufs verwechselt wird; die Hand rückt um eine Leiste nach oben.']],
   ['menu-call','Das Menü im Anruf: offen',[390,1280],(d)=>room(d,{left:8,glow:novaGlow(d)})+plaque(mid(d),plaqueY(d),gameLine('c','Kreuz'))+played('K','s','anna',TRICK_SLOT.left(d))
     +seats(d,{video:true,anna:['decl'],nova:['turn','think'],score:TOTALS_BEFORE,drop:-HAND_RAISE})+ownHand(d,FELIX_HAND,{bottom:d?DESK_HAND.bottom+HAND_RAISE:164})+callBar(d)
-    +stripOf(d,{call:true,above:true,pill:tableMenu(d,{above:true,link:false,agents:agentPanel(NOVA_HERE),style:true,stand:true,giveUp:true})}),
-    ['Im Anruf gibt es keinen Link und kein „Tisch schließen“, dafür „Aufstehen“ unter „Tisch“ wie sonst; „Aufgeben“ steht unter „Spiel“.']],
+    +stripOf(d,{call:true,above:true,pill:tableMenu(d,{above:true,link:false,agents:true,style:true,stand:true,giveUp:true})}),
+    ['Im Anruf gibt es keinen Link und kein „Tisch schließen“, dafür „Agenten“ und „Aufstehen“ unter „Tisch“ wie sonst; „Aufgeben“ steht unter „Spiel“, „Konto“ darunter.']],
   ['agents-leave','Agenten: bitten zu gehen',[390,1280],(d)=>{const L=seatsOf(d);
     return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)+lead(d,'anna','left')+answered(d)
       +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
-      +ownCards(d,FELIX_FOLLOWS)+stripOf(d,{pill:agentPill(d,{open:true,panel:agentPanel(NOVA_HERE),giveUp:true})});},
-    ['Mitten im Spiel öffnet Felix „⋯“: unter „Tisch“ sagt Novas Zeile „Bitten zu gehen“, unter „Spiel“ steht „Aufgeben“. Anna hat kein Recht an Nova und sieht keine Agentenzeile.']],
+      +ownCards(d,FELIX_FOLLOWS)+stripOf(d,{pill:agentPill(d,{open:true,panel:agentsPop(NOVA_HERE)})});},
+    ['Mitten im Spiel öffnet Felix „⋯“ und „Agenten“: Novas Zeile sagt „Bitten zu gehen“. Anna hat kein Recht an Nova und sieht keine Zeile „Agenten“.']],
+  ['menu-account','Das Konto im Menü',[390,1280],(d)=>idleTable(d,callerBar(d,agentPill(d,{open:true,panel:accountPop()}))),
+    ['Felix tippt in „⋯“ auf „Konto“: an der Stelle des Menüs steht das Konto-Menü des Kits, sein Name zum Konto, „Abmelden“ und die Zeile Impressum, Datenschutz, Nutzungsbedingungen. Eine Seite, auf der du angemeldet bist, hat keine Fußzeile mit diesen Links; im Anruf öffnet „Konto“ über der Leiste.']],
   ['menu-armed','Das Menü: Aufgeben fragt nach',[390,1280],(d)=>{const L=seatsOf(d);
     return tableOf(d,{fans:8,count:true,glow:turnGlow(d)})+kreuz(d)+lead(d,'anna','left')+answered(d)
       +seat('anna',{...L.anna,marks:['decl']})+seat('nova',L.nova)+seat('felix',{...L.you,marks:['turn']})+chairCoasters(L,TOTALS_BEFORE)
       +ownCards(d,FELIX_FOLLOWS)+stripOf(d,{pill:tableMenu(d,{style:true,stand:true,opener:true,giveUp:true,armed:'giveUp'})});},
     ['Der erste Tipp auf „Aufgeben“ macht die Zeile rot und fragt „Wirklich aufgeben?“, der Strich läuft in drei Sekunden ab; erst der zweite Tipp schickt es, jeder andere Tipp und die Zeit nehmen die Frage zurück. Das Menü bleibt dabei offen. „Abbrechen“, „Offen spielen“ und „Serie beenden“ fragen ebenso.']],
   ['menu-watch','Das Menü beim Zuschauen',[390,1280],(d)=>openChair(d,{viewer:'lena',watchers:2})+nearFan(d,8)+tableBar(d,{menu:tableMenu(d,{})}),
-    ['Lena schaut zu: „Tisch“ hat nur „Link kopieren“, „Spiel“ fehlt; unten steht allein die Reaktion.']],
+    ['Lena schaut zu: „Tisch“ hat nur „Link kopieren“ und „Regeln“, „Spiel“ fehlt, „Konto“ steht darunter; unten steht allein die Reaktion.']],
   ['abort-offer','Abbrechen: das Angebot',[390,1280],(d)=>openChair(d)+ownCards(d)+stripOf(d,{pill:agentPill(d,{open:true,panel:'',abort:true})}),
     ['Solange der Stuhl frei ist, bietet Felix’ Menü unter „Spiel“ „Abbrechen“ mit einem Stopp-Quadrat; ein zweiter Tipp binnen drei Sekunden schickt es, wie „Aufgeben“.']],
   ['abort-asked','Abbrechen: die Frage',[390,1280],askingAnna,
@@ -2674,12 +2689,12 @@ const seriesEndStandings=(d,rows)=>`<div class="result standing" role="status" s
   <h3>${I.trophy}Serie zu Ende</h3><div class="sub">36 Spiele</div><div class="ranks">${rows.map(seriesEndRank).join('')}</div>${nextLine()}</div>`;
 const NEW_SERIES_KEY=barKey('',I.check,'Neue Serie');
 const STOP_KEY=barKey('glass',I.stand,'Aufhören');
-/* the ended table's link: the empty chairs, the final standings, the games to read, a new table */
+/* the ended table's link: the empty chairs, the final standings, the games to read, a new table, and „⋯“, which holds only „Konto“ */
 const lastGames=()=>[...GAMES_PLAYED].reverse().slice(0,7).map(([n,k,...rest])=>{const who=k==='felix'?'mozart':k,p=P[who],row=gameRow([n+16,who==='mozart'?'anna':who,...rest]);
   return who==='mozart'?row.replace(/<span class="dot" style="[^"]*">A<\/span>/,`<span class="dot agent">${dotInner(p)}</span>`).replace('<b>Anna</b>',`<b>${p.n}${aiMark()}</b>`):row;}).join('');
 const CLOSED_ROWS=[['anna',1,502],['ben',2,365],['mozart',3,233]];
 const closedTable=(d)=>(d?emptyChair(DE.anna,'anna',-7)+emptyChair(DE.right,'ben',7)+emptyChair(DE.you,'felix',4)+table(DB.table)
-  :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table))+homeButton(d,homeBadge)
+  :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table))+homeButton(d,homeBadge)+menuKey(d)
   +`<div class="result standing closedseries" role="status" style="${at(d?{left:640,top:40,width:500}:{left:195,top:64,width:358})}"><h3>${I.trophy}Serie beendet</h3><div class="sub">36 Spiele</div>
   <div class="ranks">${CLOSED_ROWS.map(seriesEndRank).join('')}</div><div class="gamesbox"><span class="lbl">Spiele</span><div class="rows">${lastGames()}</div></div>
   <div class="btns"><span class="button button-stage">${I.plus}Neuer Tisch</span></div></div>`;
@@ -2723,7 +2738,7 @@ const SERIES_END_SCENES=[
   ['seriesend-settings','Nächste Serie ändern',(d)=>SERIES_END_SCENE(d)+seriesSheet(d),
     ['„Ändern“ öffnet die Einstellungen der nächsten Serie, gefüllt mit denen der letzten. Speichern nimmt Annas und Mozarts „Neue Serie“ zurück, denn sie haben die alten Einstellungen gewählt.']],
   ['seriesend-closed','Der Link eines beendeten Tisches',(d)=>closedTable(d),
-    ['Wer den Link eines beendeten Tisches öffnet, sieht die Rangliste mit Platz und Punkten und kann jedes Spiel der Serie nachlesen; wer den Tisch beendet hat, steht nirgends.']],
+    ['Wer den Link eines beendeten Tisches öffnet, sieht die Rangliste mit Platz und Punkten und kann jedes Spiel der Serie nachlesen; wer den Tisch beendet hat, steht nirgends. Oben rechts hält „⋯“ allein „Konto“ mit den Rechtslinks; die Seite hat keine Fußzeile.']],
 ];
 scenes(SERIES_END_SCENES);
 ORDER.push(...SERIES_END_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
@@ -3142,6 +3157,18 @@ if(panels.length){hangPanels();document.fonts.ready.then(hangPanels);}}
 .menu-pop .row.arm{background:var(--leave);color:#fff}
 .menu-pop .row .run-out{position:absolute;left:48px;right:16px;bottom:6px;height:3px;border-radius:2px;background:rgba(255,255,255,.85);transform:scaleX(.6);transform-origin:left}
 .menu-pop .agent-control{padding-bottom:0}
+.menu-pop .menu-foot{margin-top:6px;border-top:1px solid rgba(255,255,255,.1)}
+.menu-pop .pop-head{display:flex;align-items:center;gap:10px;height:48px;padding:0 16px;border-bottom:1px solid rgba(255,255,255,.15);font-size:15px;font-weight:600}
+.menu-pop .pop-head svg{width:20px;height:20px}
+/* the kit's account menu: its rows, the log-out under a rule and the legal row in its menu form */
+.menu-pop.account{width:256px;padding:4px 0;font-size:14px}
+.menu-pop.account .row{min-height:40px;padding:0 14px;gap:10px;font-size:14px;font-weight:400}
+.menu-pop.account .row svg{width:16px;height:16px;color:var(--text-muted)}
+.menu-pop.account .who{min-height:48px;font-weight:600}
+.menu-pop.account .fill{flex:1}
+.menu-pop.account .out{margin-top:4px;padding-top:4px;border-top:1px solid var(--border)}
+.menu-pop.account .legal.menu{justify-content:flex-start;gap:2px 12px;padding:8px 14px 6px;border-top:1px solid var(--border);font-size:11.5px}
+.menu-pop.account .legal.menu span{display:inline-flex;align-items:center;min-height:24px;border-bottom:none}
 /* ---------- the series' settings sheet: the start page's sheet parts, scoped to the sheet ---------- */
 .setsheet{transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px 16px 16px;border-radius:24px; background:rgba(12,14,17,.8);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:inset 0 0 0 1.5px rgba(240,214,150,.32),0 24px 50px -16px rgba(0,0,0,.9)}
 .d1280 .setsheet{gap:10px}

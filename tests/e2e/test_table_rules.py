@@ -172,7 +172,7 @@ def test_both_special_rules_of_giving_up_show_one_chip_and_a_row_each(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_table_without_options_shows_the_chip_official_and_no_rows(
+def test_a_table_without_options_shows_the_chip_official_and_its_sheet_names_the_official_rules(
     looks_at: Callable[..., Page], form_factor: dict[str, Any]
 ) -> None:
     person = looks_at(form_factor, None)
@@ -181,7 +181,9 @@ def test_a_table_without_options_shows_the_chip_official_and_no_rows(
     chips_of(person).click()
     expect(sheet_of(person)).to_be_visible()
     expect(sheet_of(person).locator(".lockbadge")).to_contain_text(word("rules.lockBadge"))
-    expect(sheet_of(person).locator(".rrow")).to_have_count(0)
+    expect(sheet_of(person).locator(".rrow b")).to_have_text([word("rules.nameOfficial")])
+    expect(sheet_of(person).locator(".rrow small span")).to_have_text([word("rules.officialUnchanged")])
+    assert_inside_the_screen(sheet_of(person), form_factor)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
