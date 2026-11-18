@@ -1,0 +1,8 @@
+claim_id = "4f8f325525dd4257aac844ce9278e578"
+agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
+role = "builder"
+base = "a30d899b853d04af887b46515b7f383c48c315dd"
+branch = "claude/issue-639-an-old-table-the-lobby-lists-opens-on-it"
+scope = ["frontend/src", "tests"]
+opened_commit = "49426dbee33108932900bfdd7d4d7d6c9e5c882a"
+whole_reason = "the empty-chair casts sit in several frontend modules, and the page-boundary test lives under tests"
