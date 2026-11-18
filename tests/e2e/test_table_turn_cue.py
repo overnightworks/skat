@@ -12,8 +12,8 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 SETTINGS_KEY = "skat.settings"
-# The default sound set's „Du bist dran“ is two tones.
-VOICES_OF_THE_TURN = 2
+# The default sound set's „Du bist dran“ is six tones.
+VOICES_OF_THE_TURN = 6
 BUZZ = [40]
 RECORD_BUZZES = "window.buzzes = []; navigator.vibrate = (pattern) => { window.buzzes.push(pattern); return true; };"
 
@@ -50,7 +50,7 @@ def test_the_turn_sounds_once_when_the_table_shows_it_and_not_again_for_the_move
     expect(second.locator(".chair.mine.turn")).to_be_visible()
     second.wait_for_function("count => window.voicesStarted.length >= count", arg=before + VOICES_OF_THE_TURN)
     # The card another seat laid sounds beside the turn.
-    assert sorted(voice["kind"] for voice in voices_started(second)[before:]) == ["noise", "tone", "tone", "tone"]
+    assert sorted(voice["kind"] for voice in voices_started(second)[before:]) == ["noise", "noise", *["tone"] * 7]
 
     after_the_turn = len(voices_started(second))
     table.play_through_the_api(sorted(table.legal_cards(table.seat_at["middlehand"]))[0])

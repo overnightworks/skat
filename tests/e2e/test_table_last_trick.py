@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import Page, expect
 
-from tests.e2e.support.audio import voices_started
+from tests.e2e.support.audio import VOICES_OF_ONE_CARD, voices_started
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
@@ -29,10 +29,8 @@ CARDS_IN_A_TRICK = 3
 CLOCK_STEP_MILLISECONDS = 50
 # Further than any set rests and glides together, so a trick still on the felt after it is meant to lie there.
 FAR_PAST_ANY_SWEEP_MILLISECONDS = 5000
-# A sweep sounds one noise voice in the set „Leise“.
-VOICES_OF_ONE_SWEEP = 1
-# A card sounds as one noise burst and one tone.
-VOICES_OF_THREE_CARDS = 6
+# A sweep sounds as one noise burst and one tone in the set „Stammtisch“.
+VOICES_OF_ONE_SWEEP = 2
 HAND_CARD = ".own-hand .card"
 RESULT_CARD = ".result"
 # The thirtieth card ends the hand.
@@ -174,7 +172,8 @@ def test_a_finished_trick_rests_then_sweeps_to_its_winner_with_one_sweep_sound_a
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
     expect_the_piles(watcher, table)
     expect_the_rim_on(watcher, second_taker)
-    assert len(voices_started(watcher)) == sounded_after_first_sweep + VOICES_OF_THREE_CARDS + VOICES_OF_ONE_SWEEP
+    second_trick = CARDS_IN_A_TRICK * VOICES_OF_ONE_CARD + VOICES_OF_ONE_SWEEP
+    assert len(voices_started(watcher)) == sounded_after_first_sweep + second_trick
     assert page_errors == []
 
 
@@ -344,7 +343,7 @@ def test_with_reduced_motion_the_trick_is_piled_at_once_and_still_sounds(
     expect_the_piles(watcher, table)
     expect_the_rim_on(watcher, taker_of_the_last_trick(table))
     expect(watcher.locator(f".chair.turn[data-seat='{table.turn_seat()}']")).to_have_count(1)
-    assert len(voices_started(watcher)) == sounded_before + 2 + VOICES_OF_ONE_SWEEP
+    assert len(voices_started(watcher)) == sounded_before + VOICES_OF_ONE_CARD + VOICES_OF_ONE_SWEEP
     assert page_errors == []
 
 

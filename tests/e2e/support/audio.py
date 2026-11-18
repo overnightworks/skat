@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Page, expect
 
+from skat.web.words import SOURCE_LANGUAGE, WORDS
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE
@@ -15,8 +16,11 @@ if TYPE_CHECKING:
 
 RECORDING_AUDIO_SCRIPT = Path(__file__).with_name("recording_audio.js")
 FELT_FACE = ".trick .laid .face"
-# One card sounds as one noise burst and one tone, and its voices start at the cue's time plus the engine's lead.
-VOICES_OF_ONE_CARD = 2
+# A card in the set a device starts with, „Stammtisch“, sounds as two noise bursts and one tone, and its voices start at
+# the cue's time plus the engine's lead.
+VOICES_OF_ONE_CARD = 3
+# The recordings of the page's language, which the page decodes once its voice is on.
+RECORDING_COUNT = sum(key.startswith("voice.") for key in WORDS[SOURCE_LANGUAGE])
 
 
 def voices_started(page: Page) -> list[dict[str, Any]]:

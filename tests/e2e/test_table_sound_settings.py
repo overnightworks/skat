@@ -8,11 +8,13 @@ from skat.web.calling import TABLE_AGENTS_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.audio import (
     FELT_FACE,
+    RECORDING_COUNT,
     VOICES_OF_ONE_CARD,
     open_at,
     open_watcher,
     tap,
     voices_started,
+    wait_for_recordings_decoded,
 )
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
@@ -36,6 +38,7 @@ VOLUME = text(SOURCE_LANGUAGE, "sound.volume")
 SOUND_SETS = text(SOURCE_LANGUAGE, "sound.sets")
 MOTION = text(SOURCE_LANGUAGE, "sound.motion")
 REPLAY_MOTION = text(SOURCE_LANGUAGE, "sound.replayMotion")
+VOICE = text(SOURCE_LANGUAGE, "sound.voice")
 REDUCED_NOTE = text(SOURCE_LANGUAGE, "sound.reducedMotionNote")
 # The hand is a tilted fan whose cards cover each other, so a tap this far in from a card's left edge reaches it.
 CARD_EDGE_INSET = 14
@@ -50,8 +53,8 @@ TURN_IN_BACKGROUND = text(SOURCE_LANGUAGE, "sound.turnInBackground")
 VIBRATION = text(SOURCE_LANGUAGE, "sound.vibration")
 SWEEP = text(SOURCE_LANGUAGE, "sound.lastTrickSweep")
 STAY = text(SOURCE_LANGUAGE, "sound.lastTrickStay")
-# The voices of a card in the sets "Stammtisch" and "Funkeln", in the order they start.
-STAMMTISCH_KINDS = ["noise", "noise", "tone"]
+# The voices of a card in the sets "Leise" and "Funkeln", in the order they start.
+LEISE_KINDS = ["noise", "tone"]
 FUNKELN_KINDS = ["tone", "noise", "tone"]
 # A tap target is at least this many CSS pixels on each side.
 TAP_TARGET_PIXELS = 44
@@ -300,6 +303,9 @@ def test_changing_the_setting_makes_no_request(
     with watcher.expect_request(lambda request: request.url.endswith(TABLE_AGENTS_SUFFIX)):
         watcher.goto(table.watcher.url)
     expect(watcher.locator(".chair")).to_have_count(3)
+    # The first tap fetches the voice's recordings, which a device that never chose the voice has on.
+    tap(watcher)
+    wait_for_recordings_decoded(watcher, RECORDING_COUNT)
     requested: list[str] = []
     watcher.on("request", lambda request: requested.append(request.url))
 
@@ -386,7 +392,7 @@ def stored_before_the_page_opens(page: Page, record: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
 @pytest.mark.parametrize("device_motion", ["no-preference", "reduce"])
-def test_the_panel_shows_the_volume_and_both_sets_at_their_defaults(
+def test_the_panel_shows_the_volume_both_sets_and_the_voice_at_their_defaults(
     table: PlayingTable,
     open_person: Callable[..., Page],
     page_errors: list[str],
@@ -398,8 +404,9 @@ def test_the_panel_shows_the_volume_and_both_sets_at_their_defaults(
     open_the_panel(watcher)
 
     expect(volume_of(watcher)).to_have_value("70")
-    expect(picked_in(watcher, SOUND_SETS)).to_have_accessible_name(LEISE)
+    expect(picked_in(watcher, SOUND_SETS)).to_have_accessible_name(STAMMTISCH)
     expect(picked_in(watcher, MOTION)).to_have_accessible_name(VERSPIELT)
+    expect(panel_of(watcher).get_by_role("switch", name=VOICE)).to_be_checked()
     assert inside_the_viewport(watcher)
     assert not horizontal_scroll(watcher)
     assert page_errors == []
@@ -499,10 +506,10 @@ def test_picking_a_sound_set_sounds_its_card_once_and_says_so_only_while_the_sou
         switch_the_sound(watcher, on=False)
     open_the_panel(watcher)
 
-    pick(watcher, SOUND_SETS, STAMMTISCH)
+    pick(watcher, SOUND_SETS, FUNKELN)
 
     expect(panel_of(watcher).get_by_text(PLAYS_ONCE)).to_have_count(int(sound_on))
-    assert voice_kinds(watcher) == (STAMMTISCH_KINDS if sound_on else [])
+    assert voice_kinds(watcher) == (FUNKELN_KINDS if sound_on else [])
     watcher.keyboard.press("Escape")
     open_the_panel(watcher)
     expect(panel_of(watcher).get_by_text(PLAYS_ONCE)).to_have_count(0)
@@ -525,7 +532,7 @@ def test_releasing_the_volume_slider_sounds_one_card_while_the_sound_is_on(
     assert page_errors == []
 
 
-@pytest.mark.parametrize(("soundset", "kinds"), [(STAMMTISCH, STAMMTISCH_KINDS), (FUNKELN, FUNKELN_KINDS)])
+@pytest.mark.parametrize(("soundset", "kinds"), [(LEISE, LEISE_KINDS), (FUNKELN, FUNKELN_KINDS)])
 def test_a_played_card_sounds_in_the_picked_set(
     table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str], soundset: str, kinds: list[str]
 ) -> None:
@@ -542,8 +549,8 @@ def test_a_played_card_sounds_in_the_picked_set(
     assert page_errors == []
 
 
-STORED_CHOICES = {"volume": 30, "soundSet": "stammtisch", "motionSet": "dezent", "replayMotion": True, "muted": True}
-SHOWN_CHOICES = {"volume": "30", "sound": STAMMTISCH, "motion": DEZENT, "override": True, "tone": False}
+STORED_CHOICES = {"volume": 30, "soundSet": "funkeln", "motionSet": "dezent", "replayMotion": True, "muted": True}
+SHOWN_CHOICES = {"volume": "30", "sound": FUNKELN, "motion": DEZENT, "override": True, "tone": False}
 
 
 def shown_choices(page: Page) -> dict[str, Any]:
@@ -561,7 +568,7 @@ def shown_choices(page: Page) -> dict[str, Any]:
     [
         ("volume", 500, "volume", "70"),
         ("volume", 12.5, "volume", "70"),
-        ("soundSet", "laut", "sound", LEISE),
+        ("soundSet", "laut", "sound", STAMMTISCH),
         ("motionSet", 7, "motion", VERSPIELT),
         ("replayMotion", "ja", "override", False),
         ("muted", 1, "tone", True),
