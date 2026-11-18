@@ -149,7 +149,6 @@
 
 /* The table: a round top of pale boards inside a woven rattan rim. */
 .room[data-style="strandbar"] .felt {
-    position: relative;
     background:
         radial-gradient(60% 50% at 50% 40%, rgba(255, 236, 190, 0.55), transparent 72%),
         repeating-linear-gradient(0deg, rgba(100, 62, 26, 0.2) 0 1.5px, transparent 1.5px 34px),
@@ -174,6 +173,23 @@
         linear-gradient(180deg, #f0d9a6, #cba768 55%, #a8814a);
     mask: radial-gradient(closest-side, transparent calc(100% - 17px), #000 calc(100% - 16px));
     pointer-events: none;
+}
+
+/* On a desktop the round top is the scenes' oval in a rim half again as wide, inside the same outline as the Klassik table. */
+@media (min-width: 900px) {
+    .room[data-style="strandbar"] .stage {
+        --rim: 28px;
+    }
+
+    /* The rim keeps its width all round: it is a border, and the mask cuts away what lies inside it. */
+    .room[data-style="strandbar"] .felt::before {
+        inset: calc(var(--rim) * -1);
+        border: var(--rim) solid transparent;
+        background-origin: border-box;
+        mask:
+            linear-gradient(#000 0 0) padding-box exclude,
+            linear-gradient(#000 0 0) border-box;
+    }
 }
 
 /* The shell and the cocktail stand on the rim's edge, away from every card and key, and under the result card. */
@@ -210,8 +226,6 @@
     }
 
     .room .felt .decor.shell {
-        left: 68%;
-        bottom: 2%;
         height: 44px;
     }
 }

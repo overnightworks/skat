@@ -4,16 +4,27 @@ import pytest
 from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.engine.tricks import CARDS_IN_A_GAME
+from skat.table.records import TableStyle
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
-from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
-from tests.e2e.support.style import STYLES, expect_the_furniture_clear, give_the_table_its_style
+from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
+from tests.e2e.support.style import (
+    PLACE,
+    SHAPE,
+    STYLES,
+    TOP,
+    boxes_in_the_scene,
+    boxes_on_the_page,
+    expect_drawn_as_the_scene,
+    expect_the_furniture_clear,
+    give_the_table_its_style,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from skat.table.records import TableStyle
+    from tests.e2e.support.declaring import DeclaringTable
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
@@ -340,6 +351,95 @@ def test_the_laid_cards_and_their_tags_stay_clear_of_every_fan(
             expect(person.locator(FELT_CARD)).to_have_count(played % CARDS_IN_A_TRICK or CARDS_IN_A_TRICK)
             person.wait_for_function(CLEAR_OF_EVERY_FAN)
         expect_the_furniture_clear(table.everyone, table_style)
+    assert page_errors == []
+
+
+# The blessed scene of each style that shows a resting trick on a desktop's felt.
+TRICK_SCENES = {TableStyle.KLASSIK: "last-trick-rest", TableStyle.STRANDBAR: "strand-trick"}
+# The blessed scene of the declarer choosing whether to take the skat.
+SKAT_CHOICE_SCENE = "skat-choose"
+FAR_CHAIRS = ".chair:not(.mine) .tile"
+# The scenes' other seats at the table; a small seat at the top is a watcher's.
+FAR_CHAIRS_IN_THE_SCENE = ".seat:not(.own, .sm) > .chair"
+
+
+def expect_the_felt_and_the_far_chairs_as_the_scene(person: Page, scene: str) -> None:
+    expect(person.locator(".chair:not(.mine)")).to_have_count(2)
+    expect_drawn_as_the_scene(
+        boxes_on_the_page(person, ".felt"), boxes_in_the_scene(person, scene, ".felt"), PLACE + SHAPE
+    )
+    expect_drawn_as_the_scene(
+        boxes_on_the_page(person, FAR_CHAIRS), boxes_in_the_scene(person, scene, FAR_CHAIRS_IN_THE_SCENE), PLACE
+    )
+
+
+@pytest.mark.parametrize("table_style", STYLES)
+def test_on_a_desktop_the_felt_the_far_chairs_the_trick_the_bar_and_the_hand_stand_as_the_scene_draws_them(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], table_style: TableStyle
+) -> None:
+    table = deal_a_playing_table(DESKTOP)
+    table.leave_the_last_trick_on_the_felt()
+    table.play_out(CARDS_IN_A_TRICK)
+    scene = TRICK_SCENES[table_style]
+    for person in table.pages.values():
+        expect(person.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+        expect_the_felt_and_the_far_chairs_as_the_scene(person, scene)
+        expect_drawn_as_the_scene(
+            boxes_on_the_page(person, FELT_CARD), boxes_in_the_scene(person, scene, ".play"), PLACE
+        )
+        expect_drawn_as_the_scene(
+            boxes_on_the_page(person, ".chair.mine"), boxes_in_the_scene(person, scene, ".seat.own"), TOP
+        )
+        expect_drawn_as_the_scene(
+            boxes_on_the_page(person, ".own-hand"), boxes_in_the_scene(person, scene, ".hand"), TOP
+        )
+    assert page_errors == []
+
+
+def test_while_a_game_is_declared_on_a_desktop_the_felt_and_the_far_chairs_stand_as_the_scene_draws_them(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str]
+) -> None:
+    table = deal_a_declaring_table(DESKTOP)
+    expect_the_felt_and_the_far_chairs_as_the_scene(table.declarer, SKAT_CHOICE_SCENE)
+    assert page_errors == []
+
+
+# The chair the page paints over a card of the own hand where a finger reaches it: down the middle of the strip the
+# next card leaves free, and down the middle of the last card.
+CHAIRS_OVER_THE_HAND = """() => {
+    const cards = [...document.querySelectorAll('.own-hand .card')];
+    return cards.flatMap((card, index) => {
+        const box = card.getBoundingClientRect();
+        const next = cards[index + 1]?.getBoundingClientRect();
+        const x = (box.left + (next ? Math.min(next.left, box.right) : box.right)) / 2;
+        return [0.05, 0.25, 0.5]
+            .map((down) => document.elementFromPoint(x, box.top + box.height * down)?.closest('.chair'))
+            .filter((chair) => chair)
+            .map((chair) => `card ${index} under the chair of seat ${chair.dataset.seat}`);
+    });
+}"""
+
+
+def test_on_the_smallest_phone_no_chair_covers_a_card_of_the_hand_and_two_taps_play_the_first_legal_card(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_playing_table(SMALL_PHONE)
+    forehand_seat = table.seat_at["forehand"]
+    forehand = table.pages[forehand_seat]
+    expect(forehand.locator(LEGAL_CARD)).to_have_count(CARDS_IN_A_HAND)
+    for person in table.pages.values():
+        assert person.evaluate(CHAIRS_OVER_THE_HAND) == []
+
+    for card in reversed(forehand.locator(f"{HAND_CARD} button").all()):
+        card.tap(position=INSIDE_THE_VISIBLE_STRIP)
+        expect(forehand.locator(LIFTED_CARD)).to_have_count(1)
+        assert forehand.evaluate(CHAIRS_OVER_THE_HAND) == []
+    (first,) = faces_of(forehand.locator(LIFTED_CARD))
+    card_in_hand(forehand, first).locator("button").tap(position=INSIDE_THE_VISIBLE_STRIP)
+
+    laid = forehand.locator(f"{FELT_CARD}[data-seat='{forehand_seat}']")
+    expect(laid).to_have_count(1)
+    assert faces_of(laid) == {first}
     assert page_errors == []
 
 
