@@ -3,6 +3,6 @@ agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
 role = "builder"
 base = "f44ca646359244068028c684d45c90700b36ab65"
 branch = "claude/issue-690-a-game-decided-early-shows-its-last-tric"
-scope = ["docs/ARCHITECTURE.md", "docs/mockups/table.html", "frontend/src", "src/skat/web/words.py", "tests/e2e"]
+scope = ["docs/ARCHITECTURE.md", "docs/mockups/table.html", "frontend/src", "quality/baseline.toml", "src/skat/web/words.py", "tests/e2e"]
 opened_commit = "6045a7f8823f6da44b0bbed59bd4337258acd2ad"
 whole_reason = "the closing trick, the key styles and the turn cue live in several frontend modules; e2e proves them"
