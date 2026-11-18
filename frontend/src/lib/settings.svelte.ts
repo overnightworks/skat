@@ -28,7 +28,7 @@ const DEFAULT_SETTINGS: Settings = {
     soundSet: DEFAULT_SOUND_SET,
     motionSet: DEFAULT_MOTION_SET,
     replayMotion: false,
-    voice: false,
+    voice: true,
     lastTrick: DEFAULT_LAST_TRICK_MODE,
     turnInBackground: false,
     vibration: false,

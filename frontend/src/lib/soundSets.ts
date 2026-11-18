@@ -642,4 +642,4 @@ export const SOUND_SETS = {
 
 export type SoundSetId = keyof typeof SOUND_SETS;
 
-export const DEFAULT_SOUND_SET: SoundSetId = "leise";
+export const DEFAULT_SOUND_SET: SoundSetId = "stammtisch";

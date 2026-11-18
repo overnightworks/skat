@@ -542,10 +542,10 @@ describe("the page's sound", () => {
     );
 
     it.each([
-        { stored: {}, voices: 2 },
-        { stored: { soundSet: "stammtisch" }, voices: 3 },
+        { stored: {}, voices: 3 },
+        { stored: { soundSet: "leise" }, voices: 2 },
         { stored: { soundSet: "funkeln" }, voices: 3 },
-        { stored: { soundSet: "nope" }, voices: 2 },
+        { stored: { soundSet: "nope" }, voices: 3 },
     ])("sounds the card of the stored sound set $stored", async ({ stored, voices }) => {
         const { started, listeners } = stubBrowser({ reducedMotion: true, stored: JSON.stringify(stored) });
         const { armSound, soundForCues } = await import("./tableSound.ts");
@@ -557,10 +557,10 @@ describe("the page's sound", () => {
         expect(started).toHaveLength(voices);
     });
 
-    it("says a word of Kontra from its recording once the voice is stored on and the recordings are fetched", async () => {
+    it("says a word of Kontra from its recording on a device that never chose the voice, once the recordings are fetched", async () => {
         const { started, listeners, decodes } = stubBrowser({
             reducedMotion: true,
-            stored: JSON.stringify({ voice: true }),
+            stored: JSON.stringify({ soundSet: "leise" }),
         });
         const { armSound, soundForCues } = await import("./tableSound.ts");
         armSound();
@@ -575,8 +575,8 @@ describe("the page's sound", () => {
         expect(started.length - before).toBe(KNOCKS_OF_LEISE + 1);
     });
 
-    it("fetches no recording while the voice is off", async () => {
-        const { listeners, decodes } = stubBrowser({ reducedMotion: true });
+    it("fetches no recording while the voice is stored off", async () => {
+        const { listeners, decodes } = stubBrowser({ reducedMotion: true, stored: JSON.stringify({ voice: false }) });
         const { armSound, prepareVoice } = await import("./tableSound.ts");
         armSound();
         listeners.get("keydown")?.();
