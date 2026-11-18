@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { tableShowing, type DecidingTrick } from "#lib/closingHand.ts";
+import { tableShowing, type DecidingTrick, type TableShowing } from "#lib/closingHand.ts";
 import {
     afterTheLastCard,
     beforeTheLastCard,
@@ -235,6 +235,39 @@ describe("the table that follows the last card", () => {
         shown.end();
         await vi.advanceTimersByTimeAsync(0);
 
+        expect(stillTricks).toEqual([]);
+    });
+
+    it.each([
+        { name: "the table a load answered with", firstShown: (shown: TableShowing) => shown.begin(afterwards) },
+        {
+            name: "the first table after a dropped connection",
+            firstShown: (shown: TableShowing) => {
+                shown.begin(beforeTheLastCard);
+                shown.forget();
+                shown.show(afterwards);
+            },
+        },
+    ])(
+        "shows the trick that decided the game before its tenth on the result of $name, as no closing played",
+        async ({ firstShown }) => {
+            const { shown, stillTricks } = showing(() => Promise.resolve(sheetOfTrickThree));
+
+            firstShown(shown);
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(stillTricks.map(({ ordinal }) => ordinal)).toEqual([afterwards.result?.ordinal]);
+        },
+    );
+
+    it("reads no sheet for a first table whose hand still runs", async () => {
+        const readSheet = vi.fn(() => Promise.resolve(sheetOfTrickThree));
+        const { shown, stillTricks } = showing(readSheet);
+
+        shown.begin(beforeTheLastCard);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(readSheet).not.toHaveBeenCalled();
         expect(stillTricks).toEqual([]);
     });
 

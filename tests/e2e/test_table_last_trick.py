@@ -482,3 +482,19 @@ def test_with_reduced_motion_a_null_lost_early_shows_its_deciding_trick_as_a_row
     expect(watcher.locator(".result .deciding.lost")).to_have_count(1)
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
     assert page_errors == []
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_page_opened_after_a_null_lost_early_shows_its_deciding_trick_as_a_row_on_the_result(
+    null_table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    null_table.play_until_the_declarer_takes_a_trick()
+
+    watcher = open_watcher(open_person, page_errors, null_table, form_factor, clock=False)
+
+    expect(watcher.locator(RESULT_CARD)).to_have_count(1)
+    expect(watcher.locator(DECIDING_ROW_CARD)).to_have_count(CARDS_IN_A_TRICK)
+    expect(watcher.locator(f"{DECIDING_ROW_CARD}.took")).to_have_attribute("data-seat", str(null_table.declarer_seat))
+    assert page_errors == []

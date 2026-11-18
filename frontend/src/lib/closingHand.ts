@@ -1,5 +1,5 @@
 import { closeHand } from "#lib/closingTrick.ts";
-import { closedHandOrdinal, cuesBetween, type Cue } from "#lib/cues.ts";
+import { closedHandOrdinal, cuesBetween, playedOutResultOrdinal, type Cue } from "#lib/cues.ts";
 import { earlyDecidingTrick, type SheetTrick } from "#lib/gameSheet.ts";
 import type { GameSheet, Table } from "../routes/(start)/tables.ts";
 
@@ -37,7 +37,8 @@ type Held = { queued: [Table, Table][] };
  * Shows each table the stream brings. The table that follows the last card has no hand, so the last trick is drawn from
  * the game's sheet, rests and sweeps as any trick, and the result of the game appears when the stage has settled; the
  * tables that arrive meanwhile wait behind it. A stage that stands still shows the result at once, and a game decided
- * before its tenth trick then shows that trick once the sheet has come.
+ * before its tenth trick then shows that trick once the sheet has come; so does a result the page shows from its first
+ * table, after a load or a dropped connection, as no closing played before it.
  */
 export function tableShowing(
     present: Presenter,
@@ -56,14 +57,24 @@ export function tableShowing(
             return;
         }
         closing = null;
-        const ordinal = previous === undefined ? null : closedHandOrdinal(previous, table);
-        if (previous === undefined || ordinal === null) present(previous, table, cuesBetween(previous, table));
+        if (previous === undefined) {
+            present(previous, table, cuesBetween(previous, table));
+            showResultStill(table);
+            return;
+        }
+        const ordinal = closedHandOrdinal(previous, table);
+        if (ordinal === null) present(previous, table, cuesBetween(previous, table));
         else if (stageMoves()) closeAtItsLastTrick(previous, table, ordinal);
-        else closeStill(previous, table, ordinal);
+        else {
+            present(previous, table, cuesBetween(previous, table));
+            showResultStill(table);
+        }
     }
 
-    function closeStill(previous: Table, table: Table, ordinal: number): void {
-        present(previous, table, cuesBetween(previous, table));
+    // The result of a played-out hand that shows at once, with no closing on the stage before it.
+    function showResultStill(table: Table): void {
+        const ordinal = playedOutResultOrdinal(table);
+        if (ordinal === null) return;
         const readAt = ends;
         void readSheet(ordinal).then((sheet) => {
             showEarlyTrick(readAt, table, ordinal, sheet);
@@ -116,6 +127,7 @@ export function tableShowing(
     return {
         begin: (table) => {
             shown = table;
+            showResultStill(table);
         },
         show: (table) => {
             showAfter(shown, table);

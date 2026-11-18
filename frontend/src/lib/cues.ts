@@ -95,10 +95,15 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     return [...cues, ...nudges];
 }
 
-/** The ordinal of the result a page that watched the play receives when the last card ended the hand, else null. A hand that ended by a give-up or a throw-down has no last trick. */
+/** The ordinal of the result a page that watched the play receives when the last card ended the hand, else null. */
 export function closedHandOrdinal(previous: Table, next: Table): number | null {
-    const { result } = next;
-    if (previous.hand?.playing == null || next.hand !== null || result === null) return null;
+    return previous.hand?.playing == null ? null : playedOutResultOrdinal(next);
+}
+
+/** The ordinal of the result the table shows when the last card ended its hand, else null. A hand that ended by a give-up or a throw-down has no last trick. */
+export function playedOutResultOrdinal(table: Table): number | null {
+    const { result } = table;
+    if (table.hand !== null || result === null) return null;
     return result.kind === "declared" && result.ending !== "played-out" ? null : result.ordinal;
 }
 
