@@ -23,7 +23,7 @@ from tests.e2e.support.call_frame import (
 )
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import WIDTHS
-from tests.e2e.support.table_menu import MENU, MENU_KEY, menu_button
+from tests.e2e.support.table_menu import AGENTS, MENU, MENU_KEY, menu_button
 from tests.e2e.support.tables import open_new_table
 
 if TYPE_CHECKING:
@@ -308,7 +308,7 @@ def test_the_result_bar_in_a_call_holds_weiter_the_speaker_and_the_menu_key_in_o
         assert last["x"] + last["width"] <= viewport["width"]
 
         expect(menu_button(call, STAND_UP)).to_be_visible()
-        expect(call.locator(".agents-list")).to_be_visible()
+        expect(menu_button(call, AGENTS)).to_be_visible()
     assert page_errors == []
 
 

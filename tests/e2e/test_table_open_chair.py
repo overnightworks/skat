@@ -17,7 +17,7 @@ from tests.e2e.support.hands import TURN_CHAIR, deal_playing_table
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.listening_agent import ListeningAgent
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
-from tests.e2e.support.table_menu import open_table_menu
+from tests.e2e.support.table_menu import open_agents_panel
 from tests.e2e.support.tables import open_new_table, plate_of, sit_in, watch
 
 if TYPE_CHECKING:
@@ -180,7 +180,7 @@ def test_an_agent_sent_away_during_the_auction_leaves_the_plaque_over_the_wait_a
     sit_in(ben, 2)
     agent = ListeningAgent(e2e_server, member_of(felix).account.id, "Nova", "agent-subject-nova-open-chair")
     try:
-        open_table_menu(felix)
+        open_agents_panel(felix)
         felix.get_by_role("button", name=kit_text("agent.callLabel", name="Nova")).click()
         agent.accept(agent.invitation_within(felix, INVITATION_WITHIN_SECONDS))
         expect(felix.locator(".chair .mark.pos")).to_have_count(3)

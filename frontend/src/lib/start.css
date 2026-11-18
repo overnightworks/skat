@@ -5111,7 +5111,7 @@ body {
     cursor: default;
 }
 
-/* The kit's list inside the table menu: its tokens are the dark ones, as the menu is dark glass. */
+/* The kit's list in the agents' panel: its tokens are the dark ones, as the panel is dark glass. */
 .room .agents-list {
     --text: #e0e0e0;
     --text-muted: #888;

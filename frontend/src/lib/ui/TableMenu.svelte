@@ -6,6 +6,7 @@
     import { words } from "#lib/words.ts";
     import AbortKey from "./AbortKey.svelte";
     import AgentsList from "./AgentsList.svelte";
+    import AgentsMark from "./AgentsMark.svelte";
     import AnchoredPanel from "./AnchoredPanel.svelte";
     import CloseQuestion from "./CloseQuestion.svelte";
     import CopyLinkKey from "./CopyLinkKey.svelte";
@@ -63,6 +64,7 @@
     let key: HTMLButtonElement | undefined = $state();
     let open = $state(false);
     let styleOpen = $state(false);
+    let agentsOpen = $state(false);
     let closeAsked = $state(false);
     let agentsShown = $state(false);
     let viewportWidth = $state(0);
@@ -126,15 +128,19 @@
                     }}
                 />
             {/if}
-            <AgentsList
-                tableId={id}
-                {streamedVersion}
-                {seatedAgents}
-                {watchers}
-                {kitWords}
-                {open}
-                bind:shown={agentsShown}
-            />
+            {#if agentsShown}
+                <button
+                    type="button"
+                    class="row agents"
+                    onclick={() => {
+                        close();
+                        agentsOpen = true;
+                    }}
+                >
+                    <AgentsMark />
+                    <span class="label">{words["table.agents"]}</span>
+                </button>
+            {/if}
             {#if styleOffered}
                 <button
                     type="button"
@@ -204,6 +210,28 @@
             <AbortKey {id} {table} bind:note onsent={close} />
         {/if}
     </div>
+</AnchoredPanel>
+<!-- The list stays mounted while its panel is closed: whether the server shows it decides the menu's row. -->
+<AnchoredPanel
+    anchor={key}
+    bind:open={agentsOpen}
+    {side}
+    width={viewportWidth >= DESKTOP_FROM ? DESKTOP_PANEL_WIDTH : PHONE_PANEL_WIDTH}
+    title={words["table.agents"]}
+>
+    <div class="sound-head">
+        <AgentsMark />
+        {words["table.agents"]}
+    </div>
+    <AgentsList
+        tableId={id}
+        {streamedVersion}
+        {seatedAgents}
+        {watchers}
+        {kitWords}
+        open={open || agentsOpen}
+        bind:shown={agentsShown}
+    />
 </AnchoredPanel>
 {#if styleOffered}
     <StylePanel {id} bind:note anchor={key} {side} bind:open={styleOpen} />
