@@ -62,11 +62,13 @@
         {#if stage === "choosing"}
             <div class="line">
                 <button type="button" class="step" disabled={busy} onclick={() => send({ action: "take" })}>
+                    <span class="sheen" aria-hidden="true"></span>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
                     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                     {`${words["push.takeSkat"]}`}
                 </button>
                 <button type="button" class="step glass" disabled={busy} onclick={() => send({ action: "push" })}>
+                    <span class="sheen" aria-hidden="true"></span>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" /></svg>
                     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                     {`${words["table.push"]}`}
@@ -99,6 +101,7 @@
                 disabled={busy || picked.length !== SKAT_SIZE}
                 onclick={() => send({ action: "put_back", cards: picked })}
             >
+                <span class="sheen" aria-hidden="true"></span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6" /></svg>
                 <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                 {`${words["declare.putBack"]}`}

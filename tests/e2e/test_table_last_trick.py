@@ -261,11 +261,13 @@ def test_a_reload_shows_the_result_directly(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_weiter_key_pops_when_the_result_rises_for_a_seated_player(
-    table: PlayingTable, page_errors: list[str]
+@pytest.mark.parametrize("motion_set", ["verspielt", "dezent"])
+def test_the_weiter_key_pops_with_a_short_scale_and_a_ring_around_it_when_the_result_rises_for_a_seated_player(
+    table: PlayingTable, page_errors: list[str], motion_set: str
 ) -> None:
     player = table.pages[table.declarer_seat]
-    player.add_init_script(f"localStorage.setItem({SETTINGS_KEY!r}, {json.dumps(json.dumps({'replayMotion': True}))})")
+    stored = {"replayMotion": True, "motionSet": motion_set}
+    player.add_init_script(f"localStorage.setItem({SETTINGS_KEY!r}, {json.dumps(json.dumps(stored))})")
     player.clock.install()
     player.clock.pause_at(datetime.now(UTC) + CLOCK_HOLD_LEAD)
     player.reload()
@@ -274,8 +276,19 @@ def test_the_weiter_key_pops_when_the_result_rises_for_a_seated_player(
 
     run_until(player, RESULT_CARD, 1)
 
-    expect(player.locator(".weiter")).to_be_visible()
+    key = player.locator(".copy.weiter")
+    expect(key).to_be_visible()
     expect(player.locator(".room.key-pops")).to_have_count(1)
+    popping = key.evaluate(
+        """key => document.getAnimations()
+            .filter(each => each.effect?.target === key)
+            .map(each => each.effect.pseudoElement ?? "key")"""
+    )
+    assert "key" in popping
+    assert "::after" in popping
+    ring_top = key.evaluate("key => parseFloat(getComputedStyle(key, '::after').top)")
+    assert ring_top < 0, "the ring stands around the key, outside its edge"
+    assert key.evaluate("key => getComputedStyle(key).overflow") == "visible"
     assert page_errors == []
 
 
@@ -482,6 +495,7 @@ def test_with_reduced_motion_a_null_lost_early_shows_its_deciding_trick_as_a_row
     expect(watcher.locator(".result .deciding.lost")).to_have_count(1)
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
     assert page_errors == []
+
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_page_opened_after_a_null_lost_early_shows_its_deciding_trick_as_a_row_on_the_result(

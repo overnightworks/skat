@@ -30,6 +30,7 @@
         disabled={busy}
         onclick={() => send((version) => sayKontra(id, version, crypto.randomUUID(), word))}
     >
+        <span class="sheen" aria-hidden="true"></span>
         <svg
             viewBox="0 0 24 24"
             fill="none"

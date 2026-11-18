@@ -5090,38 +5090,46 @@ body {
 }
 
 /* The keys the table waits on from the viewer, as the scenes turn-pop and strand-turn-pop draw them: the key pops once
-   with a fading ring when the viewer's turn is shown, and a slow sheen runs over it while it waits. The pop lasts the
-   motion set's keyPopsSeconds. */
+   when the viewer's turn is shown, a short scale while a ring around it grows and fades, and a slow sheen runs over it
+   while it waits. The sheen runs in a span of its own that clips it to the key, so the ring can reach past the key's
+   edge. The pop lasts the motion set's keyPopsSeconds. */
 .room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)) {
     position: relative;
-    overflow: hidden;
     isolation: isolate;
 }
 
-.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::before,
 .room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::after {
     content: "";
     position: absolute;
+    inset: -6px;
+    border-radius: inherit;
+    box-shadow: 0 0 0 3px var(--accent-stage, #7aa7f0);
     pointer-events: none;
     opacity: 0;
 }
 
-.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::before {
+.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)) .sheen {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)) .sheen::after {
+    content: "";
+    position: absolute;
     top: 0;
     bottom: 0;
     left: 0;
     width: 40%;
     background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
-}
-
-.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::after {
-    inset: 0;
-    border-radius: inherit;
-    box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.85);
+    opacity: 0;
 }
 
 .room[data-motion]
-    :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)):not(:disabled)::before {
+    :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)):not(:disabled)
+    .sheen::after {
     animation: key-sheen 2.8s ease-in-out 0.5s infinite; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
@@ -5133,6 +5141,12 @@ body {
 .room.key-pops[data-motion="verspielt"]
     :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::after {
     animation: key-ring 700ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+/* "dezent" pops smaller and shorter, without a bounce. */
+.room.key-pops[data-motion="dezent"]
+    :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)) {
+    animation: key-pop-dezent 300ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 .room.key-pops[data-motion="dezent"]
@@ -5151,14 +5165,25 @@ body {
     }
 }
 
+@keyframes key-pop-dezent {
+    0%,
+    100% {
+        scale: 1;
+    }
+
+    50% {
+        scale: 1.05;
+    }
+}
+
 @keyframes key-ring {
     from {
-        scale: 0.9;
-        opacity: 1;
+        scale: 0.92;
+        opacity: 0.9;
     }
 
     to {
-        scale: 1;
+        scale: 1.25;
         opacity: 0;
     }
 }

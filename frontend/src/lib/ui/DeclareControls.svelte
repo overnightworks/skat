@@ -108,6 +108,7 @@
     <div class={`declare ${panel}`}>
         {#if panel === "choosing"}
             <button type="button" class="step" disabled={busy} onclick={() => send({ action: "take" })}>
+                <span class="sheen" aria-hidden="true"></span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
                 <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                 {`${words["declare.takeSkat"]}`}
@@ -130,6 +131,7 @@
                 disabled={busy || picked.length !== SKAT_SIZE}
                 onclick={() => send({ action: "put_back", cards: picked })}
             >
+                <span class="sheen" aria-hidden="true"></span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6" /></svg>
                 <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                 {`${words["declare.putBack"]}`}
@@ -201,6 +203,7 @@
                             announcement: announcementOf(level),
                         })}
                 >
+                    <span class="sheen" aria-hidden="true"></span>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
                     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                     {`${words["declare.announceGame"]}`}
