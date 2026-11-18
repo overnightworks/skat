@@ -229,6 +229,7 @@ function onTheMove(phase: StageState["phase"], before: Playing | null = null): S
         until: 0,
         trick: FINISHED,
         before,
+        liftMilliseconds: 0,
         glideMilliseconds: 750,
         turnPending: false,
         resultPending: false,
