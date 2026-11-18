@@ -56,6 +56,9 @@
     // A step is under way from the tap until the stream brings a new version; only a refusal ends it sooner.
     let sentAtVersion = $state<number | null>(null);
     const busy = $derived(sentAtVersion === table.version);
+    // The put-back and the announcement are the keys the table waits on, each only while it can be pressed.
+    const mayPutBack = $derived(!busy && picked.length === SKAT_SIZE);
+    const mayDeclare = $derived(!busy && chosen !== null);
 
     // Whatever was picked belongs to its stage and does not outlive it, as a reload does not either.
     $effect(() => {
@@ -107,8 +110,16 @@
 {#if panel !== null}
     <div class={`declare ${panel}`}>
         {#if panel === "choosing"}
-            <button type="button" class="step" disabled={busy} onclick={() => send({ action: "take" })}>
-                <span class="sheen" aria-hidden="true"></span>
+            <button
+                type="button"
+                class="step"
+                class:turnkey={!busy}
+                disabled={busy}
+                onclick={() => send({ action: "take" })}
+            >
+                {#if !busy}
+                    <span class="sheen" aria-hidden="true"></span>
+                {/if}
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
                 <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                 {`${words["declare.takeSkat"]}`}
@@ -128,10 +139,13 @@
             <button
                 type="button"
                 class="step"
-                disabled={busy || picked.length !== SKAT_SIZE}
+                class:turnkey={mayPutBack}
+                disabled={!mayPutBack}
                 onclick={() => send({ action: "put_back", cards: picked })}
             >
-                <span class="sheen" aria-hidden="true"></span>
+                {#if mayPutBack}
+                    <span class="sheen" aria-hidden="true"></span>
+                {/if}
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6" /></svg>
                 <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                 {`${words["declare.putBack"]}`}
@@ -193,7 +207,8 @@
                 <button
                     type="button"
                     class="step"
-                    disabled={busy || chosen === null}
+                    class:turnkey={mayDeclare}
+                    disabled={!mayDeclare}
                     onclick={() =>
                         send({
                             action: "declare",
@@ -203,7 +218,9 @@
                             announcement: announcementOf(level),
                         })}
                 >
-                    <span class="sheen" aria-hidden="true"></span>
+                    {#if mayDeclare}
+                        <span class="sheen" aria-hidden="true"></span>
+                    {/if}
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
                     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                     {`${words["declare.announceGame"]}`}

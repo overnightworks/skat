@@ -104,7 +104,6 @@ const LANDS_AFTER: Record<Cue["kind"], (motion: MotionSet) => number> = {
     "shortening-refused": () => 0,
     "open-play-on": () => 0,
     "turn-came": () => 0,
-    "weiter-came": () => 0,
     dealt: () => 0,
     "result-appeared": (motion) => motion.resultLandsSeconds,
     "chair-taken": () => 0,

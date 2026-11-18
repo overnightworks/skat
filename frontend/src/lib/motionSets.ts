@@ -36,8 +36,6 @@ export interface MotionSet {
     readonly emoteRestsSeconds: number;
     /** From a tap to the moment an object of the table makes its first move; the set's CSS keeps the same time. */
     readonly objectMovesSeconds: number;
-    /** From the viewer's turn shown to the moment the waited-on key has popped and its ring has faded; the set's CSS keeps the same time. */
-    readonly keyPopsSeconds: number;
     /** How many suit pieces a won result throws; none is none. */
     readonly confettiPieces: number;
 }
@@ -62,7 +60,6 @@ export const MOTION_SETS = {
         emoteLandsSeconds: 0.3,
         emoteRestsSeconds: 1.8,
         objectMovesSeconds: 0.05,
-        keyPopsSeconds: 0.4,
         confettiPieces: 0,
     },
     verspielt: {
@@ -84,7 +81,6 @@ export const MOTION_SETS = {
         emoteLandsSeconds: 0.83,
         emoteRestsSeconds: 2.4,
         objectMovesSeconds: 0.08,
-        keyPopsSeconds: 0.7,
         confettiPieces: 16,
     },
 } as const satisfies Record<string, MotionSet>;

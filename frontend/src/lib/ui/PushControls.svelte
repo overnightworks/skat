@@ -25,6 +25,8 @@
     // A step is under way from the tap until the stream brings a new version; only a refusal ends it sooner.
     let sentAtVersion = $state<number | null>(null);
     const busy = $derived(sentAtVersion === table.version);
+    // The put-back is the key the table waits on once two cards are picked and while no step is under way.
+    const mayPutBack = $derived(!busy && picked.length === SKAT_SIZE);
 
     // Whatever was picked belongs to its stage and does not outlive it, as a reload does not either.
     $effect(() => {
@@ -61,14 +63,21 @@
     <div class={`declare pushing ${stage}`} class:grand={grandHandKey}>
         {#if stage === "choosing"}
             <div class="line">
-                <button type="button" class="step" disabled={busy} onclick={() => send({ action: "take" })}>
-                    <span class="sheen" aria-hidden="true"></span>
+                <button
+                    type="button"
+                    class="step"
+                    class:turnkey={!busy}
+                    disabled={busy}
+                    onclick={() => send({ action: "take" })}
+                >
+                    {#if !busy}
+                        <span class="sheen" aria-hidden="true"></span>
+                    {/if}
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
                     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                     {`${words["push.takeSkat"]}`}
                 </button>
                 <button type="button" class="step glass" disabled={busy} onclick={() => send({ action: "push" })}>
-                    <span class="sheen" aria-hidden="true"></span>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" /></svg>
                     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                     {`${words["table.push"]}`}
@@ -98,10 +107,13 @@
             <button
                 type="button"
                 class="step"
-                disabled={busy || picked.length !== SKAT_SIZE}
+                class:turnkey={mayPutBack}
+                disabled={!mayPutBack}
                 onclick={() => send({ action: "put_back", cards: picked })}
             >
-                <span class="sheen" aria-hidden="true"></span>
+                {#if mayPutBack}
+                    <span class="sheen" aria-hidden="true"></span>
+                {/if}
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6" /></svg>
                 <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
                 {`${words["declare.putBack"]}`}

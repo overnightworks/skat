@@ -14,8 +14,11 @@
 </script>
 
 {#if bar?.kind === "tap"}
-    <button type="button" class="copy weiter" disabled={sent && !bar.again} onclick={ontap}>
-        <span class="sheen" aria-hidden="true"></span>
+    {@const pressable = !sent || bar.again}
+    <button type="button" class="copy weiter" class:turnkey={pressable} disabled={!pressable} onclick={ontap}>
+        {#if pressable}
+            <span class="sheen" aria-hidden="true"></span>
+        {/if}
         <svg
             viewBox="0 0 24 24"
             fill="none"

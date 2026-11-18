@@ -24,9 +24,6 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 let showResult: (() => void) | undefined;
 // Whether the declarer of the hand whose last trick the stage moves won it, none in a Ramsch.
 let closingWon = $state<boolean | null>(null);
-// Whether the key the table waits on from the viewer pops, from the moment the viewer's turn is shown.
-let popping = $state(false);
-let popTimer: ReturnType<typeof setTimeout> | undefined;
 // The chairs that changed hands in the latest update, while their motion lasts.
 let moving: readonly ChairCue[] = $state([]);
 let movingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -41,9 +38,7 @@ function apply(step: Step, cues: readonly Cue[] = []): void {
     clearTimeout(timer);
     stage = step.stage;
     if (step.beats.includes("glide-started")) soundForGlide();
-    const turnShown = step.beats.includes("turn-shown");
-    if (turnShown) soundForTurn(cues);
-    if (turnShown || cues.some((cue) => cue.kind === "weiter-came")) popTheKey();
+    if (step.beats.includes("turn-shown")) soundForTurn(cues);
     if (step.beats.includes("result-shown")) {
         const show = showResult;
         showResult = undefined;
@@ -67,21 +62,6 @@ export function currentStage(): StageState {
  */
 export function closingTrickWon(): boolean | null | undefined {
     return (stage.phase === "lifting" || stage.phase === "gliding") && stage.resultPending ? closingWon : undefined;
-}
-
-/** Whether the key the table waits on from the viewer pops now, as the viewer's turn has just been shown. */
-export function keyPops(): boolean {
-    return popping;
-}
-
-function popTheKey(): void {
-    const set = motionSetInForce();
-    clearTimeout(popTimer);
-    if (set === undefined) return;
-    popping = true;
-    popTimer = setTimeout(() => {
-        popping = false;
-    }, set.keyPopsSeconds * 1000);
 }
 
 /** The seat a finished trick glides to, while it glides. */
@@ -109,8 +89,6 @@ export function resetStage(): void {
     clearTimeout(timer);
     showResult = undefined;
     clearTimeout(dealTimer);
-    clearTimeout(popTimer);
-    popping = false;
     stage = SETTLED;
     looking = null;
     stopChairs();

@@ -12,6 +12,7 @@ from tests.e2e.support.ramsch_stage import PLAQUE, RamschStageTable, deal
 from tests.e2e.support.result_card import CARD
 from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
 from tests.e2e.support.table_menu import GIVE_UP_ROW
+from tests.e2e.support.turn_key import POPS_RINGS_AND_SHINES, let_it_move, motion_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -141,6 +142,22 @@ def test_each_seat_on_turn_takes_or_pushes_on_the_page_and_puts_two_cards_back_w
     table.expect_the_turn_at("forehand")
     expect(forehand.locator(PLAYABLE_CARD).first).to_be_visible()
     table.expect_nothing_to_overflow()
+
+
+def test_the_take_key_of_the_seat_on_turn_pops_and_the_glass_push_key_beside_it_never(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = deal(open_person, e2e_server, member_of, page_errors, PHONE)
+    forehand = let_it_move(table.pages[table.seat_of("forehand")])
+
+    expect(key(forehand, TAKE_SKAT)).to_be_enabled()
+
+    assert motion_of(key(forehand, TAKE_SKAT)) == POPS_RINGS_AND_SHINES
+    assert motion_of(key(forehand, PUSH)) == frozenset()
+    assert page_errors == []
 
 
 def box_of(person: Page, name: str) -> dict[str, float]:

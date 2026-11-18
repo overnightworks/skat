@@ -80,7 +80,6 @@
     import {
         chairMoving,
         isDealing,
-        keyPops,
         receiveOnStage,
         resetStage,
         stageMoves,
@@ -400,7 +399,6 @@
     class="room"
     class:framed={callMode}
     class:dealing={isDealing()}
-    class:key-pops={keyPops()}
     data-theme="dark"
     data-motion={motionInForce()}
     data-style={tableStyle()}

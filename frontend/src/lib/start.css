@@ -5089,17 +5089,17 @@ body {
     backdrop-filter: none;
 }
 
-/* The keys the table waits on from the viewer, as the scenes turn-pop and strand-turn-pop draw them: the key pops once
-   when the viewer's turn is shown, a short scale while a ring around it grows and fades, and a slow sheen runs over it
-   while it waits. The sheen runs in a span of its own that clips it to the key. The ring is an outline drawn past the
-   edge of a box the key's own size; it grows as that box scales up to the key's size and never past it, so the key
-   never holds more than its words. The pop lasts the motion set's keyPopsSeconds. */
-.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)) {
+/* The key the table waits on from the viewer, as the scenes turn-pop and strand-turn-pop draw it: the control that
+   draws it marks it turnkey while it can be pressed. It pops once when it becomes pressable, a short scale while a ring
+   around it grows and fades, and a slow sheen runs over it while it waits. The sheen runs in a span of its own that
+   clips it to the key. The ring is an outline drawn past the edge of a box the key's own size; it grows as that box
+   scales up to the key's size and never past it, so the key never holds more than its words. */
+.room .turnkey {
     position: relative;
     isolation: isolate;
 }
 
-.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::after {
+.room .turnkey::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -5110,7 +5110,7 @@ body {
     opacity: 0;
 }
 
-.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)) .sheen {
+.room .turnkey .sheen {
     position: absolute;
     inset: 0;
     border-radius: inherit;
@@ -5118,7 +5118,7 @@ body {
     pointer-events: none;
 }
 
-.room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)) .sheen::after {
+.room .turnkey .sheen::after {
     content: "";
     position: absolute;
     top: 0;
@@ -5129,30 +5129,24 @@ body {
     opacity: 0;
 }
 
-.room[data-motion]
-    :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)):not(:disabled)
-    .sheen::after {
+.room[data-motion] .turnkey .sheen::after {
     animation: key-sheen 2.8s ease-in-out 0.5s infinite; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
-.room.key-pops[data-motion="verspielt"]
-    :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)) {
+.room[data-motion="verspielt"] .turnkey {
     animation: key-pop 420ms cubic-bezier(0.3, 1.6, 0.5, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
-.room.key-pops[data-motion="verspielt"]
-    :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::after {
+.room[data-motion="verspielt"] .turnkey::after {
     animation: key-ring 700ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
 /* "dezent" pops smaller and shorter, without a bounce. */
-.room.key-pops[data-motion="dezent"]
-    :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)) {
+.room[data-motion="dezent"] .turnkey {
     animation: key-pop-dezent 300ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
-.room.key-pops[data-motion="dezent"]
-    :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand))::after {
+.room[data-motion="dezent"] .turnkey::after {
     animation: key-ring 400ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 

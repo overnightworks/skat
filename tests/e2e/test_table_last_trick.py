@@ -11,6 +11,7 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, holds, passes
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.turn_key import POPS_RINGS_AND_SHINES, motion_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -278,14 +279,7 @@ def test_the_weiter_key_pops_with_a_short_scale_and_a_ring_around_it_when_the_re
 
     key = player.locator(".copy.weiter")
     expect(key).to_be_visible()
-    expect(player.locator(".room.key-pops")).to_have_count(1)
-    popping = key.evaluate(
-        """key => document.getAnimations()
-            .filter(each => each.effect?.target === key)
-            .map(each => each.effect.pseudoElement ?? "key")"""
-    )
-    assert "key" in popping
-    assert "::after" in popping
+    assert motion_of(key) == POPS_RINGS_AND_SHINES
     ring = key.evaluate(
         """key => {
             const ring = getComputedStyle(key, "::after");

@@ -84,7 +84,7 @@ describe("the tables the stream brings", () => {
 });
 
 describe("the table that follows the last card", () => {
-    it("draws the last trick from the sheet and shows the result and its Weiter once the stage has settled", async () => {
+    it("draws the last trick from the sheet and shows the result once the stage has settled", async () => {
         const readSheet = vi.fn(() => Promise.resolve<GameSheet | null>(lastTrickSheet));
         const { shown, presented, resultShown } = showing(readSheet);
         shown.begin(beforeTheLastCard);
@@ -96,13 +96,12 @@ describe("the table that follows the last card", () => {
         expect(presented).toHaveLength(1);
         expect(kinds(presented[0])).toContain("trick-taken");
         expect(kinds(presented[0])).not.toContain("result-appeared");
-        expect(kinds(presented[0])).not.toContain("weiter-came");
 
         resultShown[0]?.();
 
         expect(presented).toHaveLength(2);
         expect(presented[1]?.table).toBe(afterwards);
-        expect(kinds(presented[1])).toEqual(["weiter-came", "result-appeared"]);
+        expect(kinds(presented[1])).toEqual(["result-appeared"]);
     });
 
     it("holds the tables that arrive meanwhile until the result is shown", async () => {

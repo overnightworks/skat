@@ -1,7 +1,7 @@
 import type { Bubble } from "./auctionMarks.ts";
 import { stampOf, type SaidWord, type Stamp } from "./kontra.ts";
 import { handWaits } from "./openChair.ts";
-import { declaredResult, resultIsGood, weiterBar } from "./result.ts";
+import { declaredResult, resultIsGood } from "./result.ts";
 import {
     type AuctionAction,
     type AuctionWord,
@@ -55,8 +55,6 @@ export type Cue =
     | ({ kind: "game-announced" } & NonNullable<Declaring["declaration"]>)
     // The viewer is on turn in a phase of the hand where another chair, or no chair, was before.
     | { kind: "turn-came" }
-    // The table now waits on the viewer's Weiter: the viewer's turn at the result.
-    | { kind: "weiter-came" }
     // A hand was dealt to a table that was waiting for one.
     | { kind: "dealt" }
     // A chair the table waits for was nudged. Every page of the table computes the same `pick` from the nudge, which
@@ -88,7 +86,6 @@ export function cuesBetween(previous: Table | undefined, next: Table): Cue[] {
     const said = wordSaidBetween(previous, next);
     if (said !== null) cues.push({ kind: "word-said", said });
     if (turnCameBetween(previous, next)) cues.push({ kind: "turn-came" });
-    if (weiterBar(previous)?.kind !== "tap" && weiterBar(next)?.kind === "tap") cues.push({ kind: "weiter-came" });
     if (dealtBetween(previous, next)) cues.push({ kind: "dealt" });
     const appeared = resultAppearedBetween(previous, next);
     if (appeared !== null) cues.push(appeared);

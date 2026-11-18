@@ -7,12 +7,20 @@ from playwright.sync_api import Page, expect
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of
 from tests.e2e.support.hands import deal_playing_table
-from tests.e2e.support.kontra import FirstCardTable, LeadingFirstCardTable, expect_nothing_to_overflow
-from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.kontra import (
+    KEY,
+    ContestedTable,
+    FirstCardTable,
+    LeadingFirstCardTable,
+    expect_nothing_to_overflow,
+)
+from tests.e2e.support.people import PHONE, WIDTHS
+from tests.e2e.support.turn_key import POPS_RINGS_AND_SHINES, let_it_move, motion_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from tests.e2e.support.declaring import DeclaringTable
     from tests.e2e.support.hands import PlayingTable
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -128,4 +136,29 @@ def test_an_open_declarer_who_leads_shows_dimmed_cards_to_the_other_pages_until_
     for person in others:
         expect(person.locator(WAIT_LINE)).to_have_count(0)
         expect(person.locator(open_cards).first).not_to_have_css("filter", re.compile("brightness"))
+    assert page_errors == []
+
+
+@pytest.mark.parametrize(
+    ("declaring", "motion"),
+    [
+        pytest.param(FirstCardTable, POPS_RINGS_AND_SHINES, id="first-card-waits"),
+        pytest.param(ContestedTable, frozenset(), id="said-until-own-card"),
+    ],
+)
+def test_the_kontra_key_pops_and_shines_only_while_the_first_card_waits_on_it(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    declaring: type[DeclaringTable],
+    motion: frozenset[str],
+) -> None:
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, PHONE, declaring=declaring)
+    sayer = let_it_move(owing_page(table, "forehand"))
+
+    key = sayer.locator(KEY)
+    expect(key).to_be_enabled()
+
+    assert motion_of(key) == motion
     assert page_errors == []
