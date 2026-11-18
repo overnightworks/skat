@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { closeHand } from "#lib/closingTrick.ts";
 import { closedHandOrdinal, cuesBetween } from "#lib/cues.ts";
-import { FOREHAND, MIDDLEHAND, REARHAND, table } from "#lib/cues.fixtures.ts";
+import { declaringAt, FOREHAND, MIDDLEHAND, REARHAND, table } from "#lib/cues.fixtures.ts";
 import {
     afterTheLastCard,
     beforeTheDecidingCard,
@@ -13,7 +13,7 @@ import {
     sheetOfTrickThree,
 } from "#lib/closingTrick.fixtures.ts";
 import { LOST_GAME, ramschResult, table as tableWithResult } from "#lib/result.fixtures.ts";
-import type { Table } from "../routes/(start)/tables.ts";
+import type { Hand, Playing, Table } from "../routes/(start)/tables.ts";
 
 describe("the hand that the last card ends", () => {
     it.each([
@@ -102,6 +102,35 @@ describe("the last trick of a hand that the game sheet names", () => {
                 trick: { cards: [KREUZ_KING, HERZ_NINE, KREUZ_ACE], leader_seat: FOREHAND, taker_seat: REARHAND },
             },
         ]);
+    });
+
+    it("leaves a Ramsch without a declarer", () => {
+        const ramsch: Table = { ...beforeTheLastCard, hand: { ...(beforeTheLastCard.hand as Hand), declaring: null } };
+
+        const held = closeHand(ramsch, afterTheLastCard, sheetOfTheLastTrick(MIDDLEHAND));
+
+        expect(held?.hand?.declaring).toBeNull();
+    });
+
+    it("takes the laid card from the open cards of a declarer who plays open and from a hand laid open", () => {
+        const shownCards = (beforeTheDecidingCard.hand as Hand).own_cards;
+        const open = {
+            ...beforeTheDecidingCard,
+            hand: {
+                ...(beforeTheDecidingCard.hand as Hand),
+                declaring: { ...declaringAt("picked"), declarer_seat: REARHAND, open_cards: shownCards },
+                playing: {
+                    ...((beforeTheDecidingCard.hand as Hand).playing as Playing),
+                    open_hands: [{ seat: REARHAND, cards: shownCards }],
+                },
+            },
+        };
+
+        const held = closeHand(open, afterTheLastCard, sheetOfTrickThree);
+
+        const kept = shownCards.filter((card) => card !== KREUZ_ACE);
+        expect(held?.hand?.declaring?.open_cards).toEqual(kept);
+        expect(held?.hand?.playing?.open_hands).toEqual([{ seat: REARHAND, cards: kept }]);
     });
 
     it.each([
