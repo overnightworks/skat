@@ -5091,9 +5091,9 @@ body {
 
 /* The keys the table waits on from the viewer, as the scenes turn-pop and strand-turn-pop draw them: the key pops once
    when the viewer's turn is shown, a short scale while a ring around it grows and fades, and a slow sheen runs over it
-   while it waits. The sheen runs in a span of its own that clips it to the key. The ring is an outline on a box the
-   key's own size, so it reaches past the key's edge without widening what the key holds. The pop lasts the motion
-   set's keyPopsSeconds. */
+   while it waits. The sheen runs in a span of its own that clips it to the key. The ring is an outline drawn past the
+   edge of a box the key's own size; it grows as that box scales up to the key's size and never past it, so the key
+   never holds more than its words. The pop lasts the motion set's keyPopsSeconds. */
 .room :is(.copy.weiter, .copy.kontra, .bid-buttons .button-stage, .declare .step:not(.hand)) {
     position: relative;
     isolation: isolate;
@@ -5105,7 +5105,7 @@ body {
     inset: 0;
     border-radius: inherit;
     outline: 3px solid var(--accent-stage, #7aa7f0);
-    outline-offset: 6px;
+    outline-offset: 14px;
     pointer-events: none;
     opacity: 0;
 }
@@ -5180,12 +5180,12 @@ body {
 
 @keyframes key-ring {
     from {
-        outline-offset: 2px;
+        scale: 0.78;
         opacity: 0.9;
     }
 
     to {
-        outline-offset: 14px;
+        scale: 1;
         opacity: 0;
     }
 }

@@ -286,9 +286,20 @@ def test_the_weiter_key_pops_with_a_short_scale_and_a_ring_around_it_when_the_re
     )
     assert "key" in popping
     assert "::after" in popping
-    ring_top = key.evaluate("key => parseFloat(getComputedStyle(key, '::after').top)")
-    assert ring_top < 0, "the ring stands around the key, outside its edge"
-    assert key.evaluate("key => getComputedStyle(key).overflow") == "visible"
+    ring = key.evaluate(
+        """key => {
+            const ring = getComputedStyle(key, "::after");
+            return {
+                coversTheKey: parseFloat(ring.width) >= key.clientWidth && parseFloat(ring.height) >= key.clientHeight,
+                drawnPastItsBox: parseFloat(ring.outlineWidth) > 0 && parseFloat(ring.outlineOffset) > 0,
+                shown: getComputedStyle(key).overflow === "visible",
+                widensTheKey: key.scrollWidth > key.clientWidth || key.scrollHeight > key.clientHeight,
+            };
+        }"""
+    )
+    assert ring == {"coversTheKey": True, "drawnPastItsBox": True, "shown": True, "widensTheKey": False}, (
+        "the ring stands outside the key's edge without widening what the key holds"
+    )
     assert page_errors == []
 
 
