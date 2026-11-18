@@ -1,8 +1,0 @@
-claim_id = "97c641f9b7d8406885fa772bdc905047"
-agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
-role = "builder"
-base = "a30d899b853d04af887b46515b7f383c48c315dd"
-branch = "claude/issue-663-at-desktop-width-the-felt-and-the-far-se"
-scope = ["docs/mockups", "frontend/src", "tests/e2e"]
-opened_commit = "3ce9d5710bf6f7af4c0290c92466ef3555a48f04"
-whole_reason = "the felt and far seats are drawn in frontend/src, proven in tests/e2e against docs/mockups"
