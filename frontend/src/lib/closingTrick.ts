@@ -31,6 +31,8 @@ export function closeHand(previous: Table, next: Table, sheet: GameSheet | null)
     const laidBy = (seat: number): Card[] => laid.filter((seated) => seated.seat === seat).map(({ card }) => card);
     const ownSeat = previous.chairs.find((chair) => chair.is_mine)?.seat;
     const ownLaid = ownSeat === undefined ? [] : laidBy(ownSeat);
+    const keptBy = (seat: number, cards: readonly Card[]): Card[] =>
+        cards.filter((card) => !includesCard(laidBy(seat), card));
     return {
         ...previous,
         version: next.version,
@@ -44,8 +46,16 @@ export function closeHand(previous: Table, next: Table, sheet: GameSheet | null)
         hand: {
             ...hand,
             own_cards: hand.own_cards.filter((card) => !includesCard(ownLaid, card)),
+            declaring:
+                hand.declaring === null
+                    ? null
+                    : {
+                          ...hand.declaring,
+                          open_cards: keptBy(hand.declaring.declarer_seat, hand.declaring.open_cards),
+                      },
             playing: {
                 ...playing,
+                open_hands: playing.open_hands.map((open) => ({ ...open, cards: keptBy(open.seat, open.cards) })),
                 turn_seat: null,
                 current_trick: [],
                 last_trick: trick,
