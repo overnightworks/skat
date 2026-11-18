@@ -6,6 +6,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.engine.bidding import VALID_BIDS
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.audio import voices_started
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, holds, passes
@@ -39,6 +40,7 @@ VOICES_OF_THREE_CARDS = 6
 HAND_CARD = ".own-hand .card"
 RESULT_CARD = ".result"
 DECIDING_ROW_CARD = ".result .deciding .deciding-card"
+DECIDING_TRICK = text(SOURCE_LANGUAGE, "result.decidingTrick")
 # The thirtieth card ends the hand.
 CARDS_IN_A_HAND = 30
 # An installed clock keeps ticking until paused, and pausing only moves time forward, so it stops this far ahead.
@@ -495,6 +497,7 @@ def test_with_reduced_motion_a_null_lost_early_shows_its_deciding_trick_as_a_row
     null_table.play_until_the_declarer_takes_a_trick()
 
     expect(watcher.locator(RESULT_CARD)).to_have_count(1)
+    expect(watcher.locator(RESULT_CARD).get_by_role("list", name=DECIDING_TRICK)).to_have_count(1)
     expect(watcher.locator(DECIDING_ROW_CARD)).to_have_count(CARDS_IN_A_TRICK)
     expect(watcher.locator(f"{DECIDING_ROW_CARD}.took.lost")).to_have_attribute(
         "data-seat", str(null_table.declarer_seat)

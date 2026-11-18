@@ -183,6 +183,7 @@ export type Words = {
     readonly "result.givenUp": string;
     readonly "result.shortened": string;
     readonly "result.playedOpen": string;
+    readonly "result.decidingTrick": string;
     readonly "result.declarerWins": (gaps: { readonly name: string }) => string;
     readonly "result.declarerLoses": (gaps: { readonly name: string }) => string;
     readonly "result.opponentGameLine": (gaps: { readonly declarer: string; readonly game: string }) => string;
@@ -794,6 +795,7 @@ export const words: Words = {
     "result.givenUp": "Aufgegeben",
     "result.shortened": "Abgekürzt",
     "result.playedOpen": "Offen gespielt",
+    "result.decidingTrick": "Entscheidender Stich",
     "result.declarerWins": (gaps: { readonly name: string }) => gaps.name + " gewinnt",
     "result.declarerLoses": (gaps: { readonly name: string }) => gaps.name + " verliert",
     "result.opponentGameLine": (gaps: { readonly declarer: string; readonly game: string }) => gaps.declarer + ", " + gaps.game,

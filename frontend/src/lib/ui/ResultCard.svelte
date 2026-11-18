@@ -82,7 +82,7 @@
         {/if}
     </div>
     {#if deciding !== null}
-        <ul class="deciding" aria-label={words["play.lastTrick"]}>
+        <ul class="deciding" aria-label={words["result.decidingTrick"]}>
             {#each deciding.trick.cards as { card, by } (by.seat)}
                 <li
                     class={[

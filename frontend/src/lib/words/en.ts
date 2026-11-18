@@ -260,6 +260,7 @@ const translated = {
     "result.givenUp": "Given up",
     "result.shortened": "Shortened",
     "result.playedOpen": "Played open",
+    "result.decidingTrick": "Deciding trick",
     "result.declarerWins": (gaps: { readonly name: string }) => gaps.name + " wins",
     "result.declarerLoses": (gaps: { readonly name: string }) => gaps.name + " loses",
     "result.opponentGameLine": (gaps: { readonly declarer: string; readonly game: string }) => gaps.declarer + ", " + gaps.game,
