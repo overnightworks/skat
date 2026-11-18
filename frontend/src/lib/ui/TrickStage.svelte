@@ -11,8 +11,8 @@
 
     // The trick on the felt as the stage shows it, not as the received table has it: a finished trick rests, glides to
     // its taker's pile and is gone, or stays until the next lead. A Kontra stamp lands above it, and the last trick lifted
-    // out of its pile lies over it. The last trick of a hand lifts the card that took it, in the rim of the declarer's
-    // outcome, until the result rises. A window that turns hidden shows the received table at once.
+    // out of its pile lies over it. The last trick of a hand, once it has landed and rested, lifts the card that took it,
+    // in the rim of the declarer's outcome, until the result rises. A window that turns hidden shows the received table at once.
     const {
         chairs,
         playing,

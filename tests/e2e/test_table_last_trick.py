@@ -438,7 +438,7 @@ def test_a_muted_page_sweeps_without_a_sound(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_null_lost_early_rests_its_deciding_trick_with_a_red_rim_on_the_declarers_card_before_the_result(
+def test_a_null_lost_early_rests_its_deciding_trick_then_lifts_the_declarers_card_in_a_red_rim_before_the_result(
     null_table: PlayingTable,
     open_person: Callable[..., Page],
     page_errors: list[str],
@@ -451,8 +451,12 @@ def test_a_null_lost_early_rests_its_deciding_trick_with_a_red_rim_on_the_declar
     assert played < CARDS_IN_A_HAND
     expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
     expect(watcher.locator(RESULT_CARD)).to_have_count(0)
-    taker = watcher.locator(f"{FELT_CARD}.took.lost")
-    expect(taker).to_have_attribute("data-seat", str(null_table.declarer_seat))
+    expect(watcher.locator(f"{FELT_CARD}.took")).to_have_count(0)
+
+    assert run_until(watcher, f"{FELT_CARD}.took.lost", 1) > 0
+
+    expect(watcher.locator(RESULT_CARD)).to_have_count(0)
+    expect(watcher.locator(f"{FELT_CARD}.took.lost")).to_have_attribute("data-seat", str(null_table.declarer_seat))
 
     run_until(watcher, RESULT_CARD, 1)
 

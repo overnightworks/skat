@@ -12,6 +12,8 @@ export interface MotionSet {
     readonly stampLandsSeconds: number;
     /** How long a finished trick lies still on the felt before it is swept; the set's CSS keeps no time of it. */
     readonly trickRestSeconds: number;
+    /** How long the card that took the last trick of a hand stands lifted in its rim before the trick is swept and the result rises; the set's CSS keeps no time of it. */
+    readonly trickLiftSeconds: number;
     /** From the sweep's start to the moment the trick has come together in the middle; the set's CSS keeps the same time. */
     readonly trickGatherSeconds: number;
     /** From the gathered trick to the moment it lies on its taker's pile; the set's CSS keeps the same time. */
@@ -48,6 +50,7 @@ export const MOTION_SETS = {
         bidSpringsSeconds: 0.04,
         stampLandsSeconds: 0.18,
         trickRestSeconds: 0.5,
+        trickLiftSeconds: 0.5,
         trickGatherSeconds: 0,
         trickGlideSeconds: 0.28,
         chairSitsSeconds: 0.9,
@@ -69,6 +72,7 @@ export const MOTION_SETS = {
         bidSpringsSeconds: 0.04,
         stampLandsSeconds: 0.3,
         trickRestSeconds: 0.8,
+        trickLiftSeconds: 0.9,
         trickGatherSeconds: 0.25,
         trickGlideSeconds: 0.75,
         chairSitsSeconds: 1.4,

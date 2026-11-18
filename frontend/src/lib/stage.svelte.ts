@@ -61,9 +61,12 @@ export function currentStage(): StageState {
     return stage;
 }
 
-/** Whether the declarer won the hand whose last trick is on the move, null in a Ramsch; undefined while no last trick moves. */
+/**
+ * Whether the declarer won the hand whose last trick has rested and lifts the card that took it, null in a Ramsch;
+ * undefined while that trick still lands and rests, and while no last trick moves.
+ */
 export function closingTrickWon(): boolean | null | undefined {
-    return stage.phase !== "settled" && stage.resultPending ? closingWon : undefined;
+    return (stage.phase === "lifting" || stage.phase === "gliding") && stage.resultPending ? closingWon : undefined;
 }
 
 /** Whether the key the table waits on from the viewer pops now, as the viewer's turn has just been shown. */

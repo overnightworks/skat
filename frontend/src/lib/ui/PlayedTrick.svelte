@@ -7,7 +7,7 @@
     // The cards this page saw played in the running hand; only those land, a card drawn from a reload stands still.
     // `turnSeat` is the seat whose card the table waits for, undefined while the hand waits for a sitter or a trick
     // is on the move. `sweptTo` is the seat whose pile the trick glides to while it glides. `took` is the seat whose card
-    // took the last trick of the hand and whether the declarer won it, null in a Ramsch, while that trick is on the move.
+    // took the last trick of the hand and whether the declarer won it, null in a Ramsch, once that trick has rested.
     const {
         chairs,
         laid,
