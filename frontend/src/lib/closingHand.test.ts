@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { tableShowing } from "#lib/closingHand.ts";
-import { afterTheLastCard, beforeTheLastCard, sheetOfTheLastTrick } from "#lib/closingTrick.fixtures.ts";
+import { outcomeRim, tableShowing, type DecidingTrick, type TableShowing } from "#lib/closingHand.ts";
+import {
+    afterTheLastCard,
+    beforeTheLastCard,
+    sheetOfTheLastTrick,
+    sheetOfTrickThree,
+} from "#lib/closingTrick.fixtures.ts";
 import type { Cue } from "#lib/cues.ts";
 import { MIDDLEHAND } from "#lib/cues.fixtures.ts";
+import { ramschResult } from "#lib/result.fixtures.ts";
 import type { GameSheet, Table } from "../routes/(start)/tables.ts";
 
 type Presented = { previous: Table | undefined; table: Table; cues: readonly Cue[] };
@@ -17,15 +23,20 @@ let stageIsMoving = true;
 function showing(readSheet: (ordinal: number) => Promise<GameSheet | null>) {
     const presented: Presented[] = [];
     const resultShown: (() => void)[] = [];
+    const declarerWon: (boolean | null)[] = [];
+    const stillTricks: DecidingTrick[] = [];
     const shown = tableShowing(
-        (previous, table, cues, whenResultShown) => {
+        (previous, table, cues, closing) => {
             presented.push({ previous, table, cues });
-            if (whenResultShown !== undefined) resultShown.push(whenResultShown);
+            if (closing === undefined) return;
+            resultShown.push(closing.whenResultShown);
+            declarerWon.push(closing.declarerWon);
         },
         readSheet,
         () => stageIsMoving,
+        (deciding) => stillTricks.push(deciding),
     );
-    return { shown, presented, resultShown };
+    return { shown, presented, resultShown, declarerWon, stillTricks };
 }
 
 const kinds = (presentation: Presented | undefined): string[] => presentation?.cues.map((cue) => cue.kind) ?? [];
@@ -157,16 +168,131 @@ describe("the table that follows the last card", () => {
         expect(presented.map(({ table }) => table)).toEqual([afterwards]);
     });
 
-    it("shows the table as any other when the stage does not move", () => {
-        stageIsMoving = false;
-        const readSheet = vi.fn(() => Promise.resolve<GameSheet | null>(lastTrickSheet));
-        const { shown, presented } = showing(readSheet);
+    it("shows the trick that decided the game before its tenth once a sheet slower than the wait has come", async () => {
+        let arrive: (sheet: GameSheet | null) => void = () => undefined;
+        const { shown, presented, stillTricks } = showing(
+            () =>
+                new Promise<GameSheet | null>((resolve) => {
+                    arrive = resolve;
+                }),
+        );
         shown.begin(beforeTheLastCard);
 
         shown.show(afterwards);
+        await vi.advanceTimersByTimeAsync(SLOW_SHEET_MILLISECONDS);
+        expect(presented.map(({ table }) => table)).toEqual([afterwards]);
+        expect(stillTricks).toEqual([]);
+        arrive(sheetOfTrickThree);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(stillTricks.map(({ ordinal }) => ordinal)).toEqual([afterwards.result?.ordinal]);
+    });
+
+    it.each([
+        {
+            name: "whether the declarer won",
+            closed: afterwards,
+            won: afterwards.result?.kind === "declared" && afterwards.result.won,
+        },
+        {
+            name: "no declarer in a Ramsch",
+            closed: { ...afterwards, result: ramschResult([0, 0, 0], [0, 0, 0], {}) },
+            won: null,
+        },
+    ])("tells $name of the hand whose last trick it holds", async ({ closed, won }) => {
+        const { shown, declarerWon } = showing(() => Promise.resolve(lastTrickSheet));
+        shown.begin(beforeTheLastCard);
+
+        shown.show(closed);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(declarerWon).toEqual([won]);
+    });
+
+    it.each([
+        { name: "a trick played to the last", sheet: lastTrickSheet },
+        { name: "a sheet that kept no cards", sheet: { ...sheetOfTrickThree, cards: null } },
+        { name: "a sheet that cannot be read", sheet: null },
+    ])("shows the result at once when the stage does not move, and $name on no row", async ({ sheet }) => {
+        stageIsMoving = false;
+        const { shown, presented, stillTricks } = showing(() => Promise.resolve(sheet));
+        shown.begin(beforeTheLastCard);
+
+        shown.show(afterwards);
+        expect(presented.map(({ table }) => table)).toEqual([afterwards]);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(stillTricks).toEqual([]);
+    });
+
+    it("shows the trick that decided the game before its tenth once the sheet has come, when the stage does not move", async () => {
+        stageIsMoving = false;
+        const { shown, presented, stillTricks } = showing(() => Promise.resolve(sheetOfTrickThree));
+        shown.begin(beforeTheLastCard);
+
+        shown.show(afterwards);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(presented.map(({ table }) => table)).toEqual([afterwards]);
+        expect(stillTricks.map(({ ordinal, trick, declarerWon }) => [ordinal, trick.taker?.seat, declarerWon])).toEqual(
+            [
+                [
+                    afterwards.result?.ordinal,
+                    sheetOfTrickThree.cards?.tricks.at(-1)?.taker_seat,
+                    afterwards.result?.kind === "declared" && afterwards.result.won,
+                ],
+            ],
+        );
+    });
+
+    it("shows no still trick once the page has ended while the sheet was read", async () => {
+        stageIsMoving = false;
+        const { shown, stillTricks } = showing(() => Promise.resolve(sheetOfTrickThree));
+        shown.begin(beforeTheLastCard);
+
+        shown.show(afterwards);
+        shown.end();
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(stillTricks).toEqual([]);
+    });
+
+    it.each([
+        {
+            name: "the table a load answered with",
+            firstShown: (shown: TableShowing) => {
+                shown.begin(afterwards);
+            },
+        },
+        {
+            name: "the first table after a dropped connection",
+            firstShown: (shown: TableShowing) => {
+                shown.begin(beforeTheLastCard);
+                shown.forget();
+                shown.show(afterwards);
+            },
+        },
+    ])(
+        "shows the trick that decided the game before its tenth on the result of $name, as no closing played",
+        async ({ firstShown }) => {
+            const { shown, stillTricks } = showing(() => Promise.resolve(sheetOfTrickThree));
+
+            firstShown(shown);
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(stillTricks.map(({ ordinal }) => ordinal)).toEqual([afterwards.result?.ordinal]);
+        },
+    );
+
+    it("reads no sheet for a first table whose hand still runs", async () => {
+        const readSheet = vi.fn(() => Promise.resolve(sheetOfTrickThree));
+        const { shown, stillTricks } = showing(readSheet);
+
+        shown.begin(beforeTheLastCard);
+        await vi.advanceTimersByTimeAsync(0);
 
         expect(readSheet).not.toHaveBeenCalled();
-        expect(presented.map(({ table }) => table)).toEqual([afterwards]);
+        expect(stillTricks).toEqual([]);
     });
 
     it("shows the result at once when the stage stopped moving while the sheet was read", async () => {
@@ -214,5 +340,15 @@ describe("the table that follows the last card", () => {
         await vi.advanceTimersByTimeAsync(0);
 
         expect(presented.map(({ table }) => table)).toEqual([nextHand]);
+    });
+});
+
+describe("the rim of the card that took a hand's deciding trick", () => {
+    it.each([
+        { name: "gold when the declarer won", declarerWon: true, rim: "won" },
+        { name: "red when he lost", declarerWon: false, rim: "lost" },
+        { name: "none of its own in a Ramsch, which has no declarer", declarerWon: null, rim: null },
+    ])("is $name", ({ declarerWon, rim }) => {
+        expect(outcomeRim(declarerWon)).toBe(rim);
     });
 });

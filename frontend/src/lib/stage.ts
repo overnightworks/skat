@@ -8,8 +8,11 @@ export type LastTrickMode = (typeof LAST_TRICK_MODES)[number];
 
 export const DEFAULT_LAST_TRICK_MODE: LastTrickMode = "sweep";
 
-/** A finished trick lies still, then glides to its taker's pile; a table with no trick on the move is settled. */
-export type Phase = "settled" | "resting" | "gliding";
+/**
+ * A finished trick lies still, then glides to its taker's pile; the last trick of a hand lifts the card that took it
+ * between the two. A table with no trick on the move is settled.
+ */
+export type Phase = "settled" | "resting" | "lifting" | "gliding";
 
 /** The pacing of the trick that is on the move, apart from the table the page received. Times are on the caller's clock. */
 export interface StageState {
@@ -20,7 +23,9 @@ export interface StageState {
     readonly trick: LastTrick | null;
     /** The playing the table showed before the update that finished the trick, whose last trick the brass rim still marks. */
     readonly before: Playing | null;
-    /** How long the glide lasts once the rest is over; none means the trick drops to the next lead with no arc. */
+    /** How long the card that took the trick stands lifted once the rest is over; none for a trick that does not close the hand. */
+    readonly liftMilliseconds: number;
+    /** How long the glide lasts once the rest and the lift are over; none means the trick drops to the next lead with no arc. */
     readonly glideMilliseconds: number;
     /** Whether the viewer's turn came with the update that finished this trick; it is shown once the trick has settled. */
     readonly turnPending: boolean;
@@ -33,6 +38,7 @@ export const SETTLED: StageState = {
     until: 0,
     trick: null,
     before: null,
+    liftMilliseconds: 0,
     glideMilliseconds: 0,
     turnPending: false,
     resultPending: false,
@@ -41,6 +47,7 @@ export const SETTLED: StageState = {
 /** What a moving table takes; null is a budget of zero, where every state shows at once. */
 export interface Timing {
     readonly restMilliseconds: number;
+    readonly liftMilliseconds: number;
     readonly glideMilliseconds: number;
     readonly chairSitsMilliseconds: number;
     readonly chairEmptiesMilliseconds: number;
@@ -54,6 +61,7 @@ export function timingOf(motion: MotionSet | undefined, hidden: boolean): Timing
         ? null
         : {
               restMilliseconds: motion.trickRestSeconds * MILLISECONDS,
+              liftMilliseconds: motion.trickLiftSeconds * MILLISECONDS,
               glideMilliseconds: (motion.trickGatherSeconds + motion.trickGlideSeconds) * MILLISECONDS,
               chairSitsMilliseconds: motion.chairSitsSeconds * MILLISECONDS,
               chairEmptiesMilliseconds: motion.chairEmptiesSeconds * MILLISECONDS,
@@ -90,7 +98,7 @@ export interface Received {
 /** The moment is over at once: a trick that has not begun to glide still sounds its sweep once, and a turn or a result that waited is shown. */
 export function jump(stage: StageState): Step {
     if (stage.phase === "settled") return { stage, beats: [] };
-    const sweeps = stage.phase === "resting" && stage.glideMilliseconds > 0;
+    const sweeps = stage.phase !== "gliding" && stage.glideMilliseconds > 0;
     return { stage: SETTLED, beats: [...(sweeps ? ["glide-started" as const] : []), ...settledBeats(stage)] };
 }
 
@@ -125,13 +133,13 @@ function receiveTrick(stage: StageState, { cues, before, timing, mode, closing, 
         // A trick that stays lies on the felt with or without the stage; only a lead in the same update, or the result
         // that comes after it, needs the rest.
         return (leadFollows || closing) && timing !== null
-            ? { stage: resting(trick, before, now, timing.restMilliseconds, 0, closing), beats: jumped.beats }
+            ? { stage: resting(trick, before, now, timing, 0, closing), beats: jumped.beats }
             : { stage: SETTLED, beats: [...jumped.beats, ...resultBeats] };
     }
     return timing === null
         ? { stage: SETTLED, beats: [...jumped.beats, "glide-started", ...resultBeats] }
         : {
-              stage: resting(trick, before, now, timing.restMilliseconds, timing.glideMilliseconds, closing),
+              stage: resting(trick, before, now, timing, timing.glideMilliseconds, closing),
               beats: jumped.beats,
           };
 }
@@ -140,15 +148,16 @@ function resting(
     trick: LastTrick,
     before: Playing | null,
     now: number,
-    restMilliseconds: number,
+    timing: Timing,
     glideMilliseconds: number,
     resultPending: boolean,
 ): StageState {
     return {
         phase: "resting",
-        until: now + restMilliseconds,
+        until: now + timing.restMilliseconds,
         trick,
         before,
+        liftMilliseconds: resultPending ? timing.liftMilliseconds : 0,
         glideMilliseconds,
         turnPending: false,
         resultPending,
@@ -158,6 +167,8 @@ function resting(
 /** The moment the phase ends, the next begins. */
 export function advance(stage: StageState, now: number): Step {
     if (stage.phase === "settled" || now < stage.until) return { stage, beats: [] };
+    if (stage.phase === "resting" && stage.liftMilliseconds > 0)
+        return { stage: { ...stage, phase: "lifting", until: now + stage.liftMilliseconds }, beats: [] };
     if (stage.phase === "gliding" || stage.glideMilliseconds === 0)
         return { stage: SETTLED, beats: settledBeats(stage) };
     return { stage: { ...stage, phase: "gliding", until: now + stage.glideMilliseconds }, beats: ["glide-started"] };

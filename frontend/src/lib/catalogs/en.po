@@ -759,6 +759,10 @@ msgctxt "result.playedOpen"
 msgid "Offen gespielt"
 msgstr "Played open"
 
+msgctxt "result.decidingTrick"
+msgid "Entscheidender Stich"
+msgstr "Deciding trick"
+
 msgctxt "result.declarerWins"
 msgid "{name} gewinnt"
 msgstr "{name} wins"

@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { closeHand } from "#lib/closingTrick.ts";
 import { closedHandOrdinal, cuesBetween } from "#lib/cues.ts";
-import { FOREHAND, MIDDLEHAND, REARHAND, table } from "#lib/cues.fixtures.ts";
+import { declaringAt, FOREHAND, MIDDLEHAND, REARHAND, table } from "#lib/cues.fixtures.ts";
 import {
     afterTheLastCard,
+    beforeTheDecidingCard,
     beforeTheLastCard,
     HERZ_NINE,
     KREUZ_ACE,
     KREUZ_KING,
     sheetOfTheLastTrick,
+    sheetOfTrickThree,
 } from "#lib/closingTrick.fixtures.ts";
 import { LOST_GAME, ramschResult, table as tableWithResult } from "#lib/result.fixtures.ts";
-import type { Table } from "../routes/(start)/tables.ts";
+import type { Hand, Playing, Table } from "../routes/(start)/tables.ts";
 
 describe("the hand that the last card ends", () => {
     it.each([
@@ -85,6 +87,50 @@ describe("the last trick of a hand that the game sheet names", () => {
         const cues = held === null ? [] : cuesBetween(behind, held);
         expect(cues.filter((cue) => cue.kind === "card-played")).toHaveLength(3);
         expect(cues.at(-1)?.kind).toBe("trick-taken");
+    });
+
+    it("takes from each hand only the card it laid when the game is decided before its last trick", () => {
+        const held = closeHand(beforeTheDecidingCard, afterTheLastCard, sheetOfTrickThree);
+
+        expect(held?.chairs.map((chair) => chair.hand?.card_count)).toEqual([7, 7, 7]);
+        expect(held?.hand?.own_cards).toHaveLength(7);
+        expect(held?.hand?.own_cards).not.toContainEqual(KREUZ_ACE);
+        expect(held && cuesBetween(beforeTheDecidingCard, held)).toEqual([
+            { kind: "card-played", seat: REARHAND, card: KREUZ_ACE },
+            {
+                kind: "trick-taken",
+                trick: { cards: [KREUZ_KING, HERZ_NINE, KREUZ_ACE], leader_seat: FOREHAND, taker_seat: REARHAND },
+            },
+        ]);
+    });
+
+    it("leaves a Ramsch without a declarer", () => {
+        const ramsch: Table = { ...beforeTheLastCard, hand: { ...(beforeTheLastCard.hand as Hand), declaring: null } };
+
+        const held = closeHand(ramsch, afterTheLastCard, sheetOfTheLastTrick(MIDDLEHAND));
+
+        expect(held?.hand?.declaring).toBeNull();
+    });
+
+    it("takes the laid card from the open cards of a declarer who plays open and from a hand laid open", () => {
+        const shownCards = (beforeTheDecidingCard.hand as Hand).own_cards;
+        const open = {
+            ...beforeTheDecidingCard,
+            hand: {
+                ...(beforeTheDecidingCard.hand as Hand),
+                declaring: { ...declaringAt("picked"), declarer_seat: REARHAND, open_cards: shownCards },
+                playing: {
+                    ...((beforeTheDecidingCard.hand as Hand).playing as Playing),
+                    open_hands: [{ seat: REARHAND, cards: shownCards }],
+                },
+            },
+        };
+
+        const held = closeHand(open, afterTheLastCard, sheetOfTrickThree);
+
+        const kept = shownCards.filter((card) => card !== KREUZ_ACE);
+        expect(held?.hand?.declaring?.open_cards).toEqual(kept);
+        expect(held?.hand?.playing?.open_hands).toEqual([{ seat: REARHAND, cards: kept }]);
     });
 
     it.each([

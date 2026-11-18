@@ -1,16 +1,35 @@
 import { closeHand } from "#lib/closingTrick.ts";
-import { closedHandOrdinal, cuesBetween, type Cue } from "#lib/cues.ts";
+import { closedHandOrdinal, cuesBetween, playedOutResultOrdinal, type Cue } from "#lib/cues.ts";
+import { earlyDecidingTrick, type SheetTrick } from "#lib/gameSheet.ts";
 import type { GameSheet, Table } from "../routes/(start)/tables.ts";
 
 // A game sheet that is slower than this does not hold the result back.
 const SHEET_WAIT_MILLISECONDS = 1500;
 
-export type Presenter = (
-    previous: Table | undefined,
-    table: Table,
-    cues: readonly Cue[],
-    whenResultShown?: () => void,
-) => void;
+/** The last trick of a hand whose result waits for it: whether its declarer won, none in a Ramsch, and what shows the result. */
+export type Closing = { declarerWon: boolean | null; whenResultShown: () => void };
+
+export type Presenter = (previous: Table | undefined, table: Table, cues: readonly Cue[], closing?: Closing) => void;
+
+/** The trick that decided the game of the result `ordinal` before its tenth, and whether its declarer won. */
+export type DecidingTrick = { ordinal: number; trick: SheetTrick; declarerWon: boolean | null };
+
+/**
+ * The rim of the card that took a hand's deciding trick: gold when the declarer won, red when he lost. A Ramsch has no
+ * declarer, and the card keeps the brass of the pile's last trick.
+ */
+export function outcomeRim(declarerWon: boolean | null): "won" | "lost" | null {
+    if (declarerWon === null) return null;
+    return declarerWon ? "won" : "lost";
+}
+
+/** Shows the deciding trick on a page whose stage stood still. */
+export type StillTrick = (deciding: DecidingTrick) => void;
+
+// Whether the declarer won the result the table shows; a Ramsch has none.
+function declarerWonOf(table: Table): boolean | null {
+    return table.result?.kind === "declared" ? table.result.won : null;
+}
 
 export type TableShowing = {
     /** Takes the table the page was answered with as the one shown, so the first streamed table is compared with it. */
@@ -26,15 +45,21 @@ type Held = { queued: [Table, Table][] };
 /**
  * Shows each table the stream brings. The table that follows the last card has no hand, so the last trick is drawn from
  * the game's sheet, rests and sweeps as any trick, and the result of the game appears when the stage has settled; the
- * tables that arrive meanwhile wait behind it.
+ * tables that arrive meanwhile wait behind it. A stage that stands still shows the result at once, and so does a closing
+ * whose sheet is slow or draws no trick taken; a game decided before its tenth trick then shows that trick once the
+ * sheet has come. So does a result the page shows from its first table, after a load or a dropped connection, as no
+ * closing played before it.
  */
 export function tableShowing(
     present: Presenter,
     readSheet: (ordinal: number) => Promise<GameSheet | null>,
     stageMoves: () => boolean,
+    showStillTrick: StillTrick,
 ): TableShowing {
     let shown: Table | undefined;
     let closing: Held | null = null;
+    // Counts the ends of the page, so a sheet read before one shows nothing after it.
+    let ends = 0;
 
     function showAfter(previous: Table | undefined, table: Table): void {
         if (closing !== null && previous !== undefined) {
@@ -42,9 +67,34 @@ export function tableShowing(
             return;
         }
         closing = null;
-        const ordinal = previous === undefined ? null : closedHandOrdinal(previous, table);
-        if (previous !== undefined && ordinal !== null && stageMoves()) closeAtItsLastTrick(previous, table, ordinal);
-        else present(previous, table, cuesBetween(previous, table));
+        if (previous === undefined) {
+            present(previous, table, cuesBetween(previous, table));
+            showResultStill(table);
+            return;
+        }
+        const ordinal = closedHandOrdinal(previous, table);
+        if (ordinal === null) present(previous, table, cuesBetween(previous, table));
+        else if (stageMoves()) closeAtItsLastTrick(previous, table, ordinal);
+        else {
+            present(previous, table, cuesBetween(previous, table));
+            showResultStill(table);
+        }
+    }
+
+    // The result of a played-out hand that shows at once, with no closing on the stage before it.
+    function showResultStill(table: Table): void {
+        const ordinal = playedOutResultOrdinal(table);
+        if (ordinal !== null) showEarlyTrickOnceRead(readSheet(ordinal), table, ordinal);
+    }
+
+    // A result shown with no closing before it carries the trick that decided its game early, once the sheet has come.
+    function showEarlyTrickOnceRead(reading: Promise<GameSheet | null>, table: Table, ordinal: number): void {
+        const readAt = ends;
+        void reading.then((sheet) => {
+            const trick = earlyDecidingTrick(sheet);
+            if (trick !== null && readAt === ends)
+                showStillTrick({ ordinal, trick, declarerWon: declarerWonOf(table) });
+        });
     }
 
     function showQueued(queued: readonly [Table, Table][]): void {
@@ -58,7 +108,8 @@ export function tableShowing(
         const slow = new Promise<null>((resolve) => {
             slowTimer = setTimeout(resolve, SHEET_WAIT_MILLISECONDS, null);
         });
-        void Promise.race([readSheet(ordinal), slow]).then((sheet) => {
+        const reading = readSheet(ordinal);
+        void Promise.race([reading, slow]).then((sheet) => {
             clearTimeout(slowTimer);
             if (closing !== hold) return;
             const cues = cuesBetween(previous, table);
@@ -67,15 +118,19 @@ export function tableShowing(
             if (held === null || !trickCues.some((cue) => cue.kind === "trick-taken")) {
                 closing = null;
                 present(previous, table, cues);
+                showEarlyTrickOnceRead(reading, table, ordinal);
                 showQueued(hold.queued);
                 return;
             }
             const isResult = (cue: Cue): boolean => cue.kind === "result-appeared";
-            present(previous, held, [...trickCues, ...cues.filter((cue) => !isResult(cue))], () => {
-                if (closing !== hold) return;
-                closing = null;
-                present(held, table, cues.filter(isResult));
-                showQueued(hold.queued);
+            present(previous, held, [...trickCues, ...cues.filter((cue) => !isResult(cue))], {
+                declarerWon: declarerWonOf(table),
+                whenResultShown: () => {
+                    if (closing !== hold) return;
+                    closing = null;
+                    present(held, table, cues.filter(isResult));
+                    showQueued(hold.queued);
+                },
             });
         });
     }
@@ -83,6 +138,7 @@ export function tableShowing(
     return {
         begin: (table) => {
             shown = table;
+            showResultStill(table);
         },
         show: (table) => {
             showAfter(shown, table);
@@ -93,6 +149,7 @@ export function tableShowing(
         },
         end: () => {
             closing = null;
+            ends += 1;
         },
     };
 }

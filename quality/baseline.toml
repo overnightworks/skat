@@ -106,7 +106,6 @@ wait_for_end = [["tests/e2e/test_table_home.py", "wait_for_end"]]
 watch = [["tests/e2e/test_table_watch.py", "watch"]]
 
 [clones."tests/e2e/test_table_declaring.py"]
-overlaps = [["tests/e2e/test_table_stand_mid_hand.py", "overlaps"]]
 test_choosing_null_hides_the_levels_and_declares_null_hand_without_an_announcement = [["tests/e2e/test_table_ouvert.py", "test_the_ouvert_rung_clears_on_a_second_tap_and_the_levels_return_after_null"]]
 
 [clones."tests/e2e/test_table_end.py"]

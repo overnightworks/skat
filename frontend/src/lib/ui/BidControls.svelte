@@ -68,11 +68,15 @@
             <button
                 type="button"
                 class="button button-stage"
+                class:turnkey={!disabled}
                 {disabled}
                 onclick={() => {
                     onstep(ladder.main.action, ladder.main.value);
                 }}
             >
+                {#if !disabled}
+                    <span class="sheen" aria-hidden="true"></span>
+                {/if}
                 {#if ladder.main.action === "hold"}
                     {@render check()}
                     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->

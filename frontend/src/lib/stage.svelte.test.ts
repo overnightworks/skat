@@ -28,6 +28,7 @@ const PLAYING = { turn_seat: TAKER_SEAT } as Playing;
 const TABLE_IN_PLAY = { hand: { playing: PLAYING } } as unknown as Table;
 const TABLE_BETWEEN_HANDS = { hand: null } as unknown as Table;
 const REST_MILLISECONDS = MOTION_SETS.verspielt.trickRestSeconds * 1000;
+const LIFT_MILLISECONDS = MOTION_SETS.verspielt.trickLiftSeconds * 1000;
 const GLIDE_MILLISECONDS = (MOTION_SETS.verspielt.trickGatherSeconds + MOTION_SETS.verspielt.trickGlideSeconds) * 1000;
 
 // The stage is module state, so each test reads a module of its own, on a page whose player stored `stored`.
@@ -183,12 +184,37 @@ const SIT_MILLISECONDS = MOTION_SETS.verspielt.chairSitsSeconds * 1000;
 const EMPTY_MILLISECONDS = MOTION_SETS.verspielt.chairEmptiesSeconds * 1000;
 
 describe("the result of the hand the last trick closes on the page's stage", () => {
-    it("is shown once the last trick has rested and swept, and not before", async () => {
+    it.each([true, false, null])(
+        "tells the declarer's outcome %s once the last trick has landed and rested, and nothing once it has settled",
+        async (declarerWon) => {
+            const { stage } = await stageOnAPage(MOVING);
+
+            stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN], { declarerWon, whenResultShown: vi.fn() });
+            expect(stage.closingTrickWon()).toBeUndefined();
+
+            vi.advanceTimersByTime(REST_MILLISECONDS);
+            expect(stage.closingTrickWon()).toBe(declarerWon);
+
+            vi.advanceTimersByTime(LIFT_MILLISECONDS + GLIDE_MILLISECONDS);
+
+            expect(stage.closingTrickWon()).toBeUndefined();
+        },
+    );
+
+    it("tells no outcome for a trick that does not close the hand", async () => {
+        const { stage } = await stageOnAPage(MOVING);
+
+        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN]);
+
+        expect(stage.closingTrickWon()).toBeUndefined();
+    });
+
+    it("is shown once the last trick has rested, lifted its taking card and swept, and not before", async () => {
         const { stage } = await stageOnAPage(MOVING);
         const showResult = vi.fn();
 
-        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN], showResult);
-        vi.advanceTimersByTime(REST_MILLISECONDS);
+        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN], { declarerWon: true, whenResultShown: showResult });
+        vi.advanceTimersByTime(REST_MILLISECONDS + LIFT_MILLISECONDS);
         expect(showResult).not.toHaveBeenCalled();
 
         vi.advanceTimersByTime(GLIDE_MILLISECONDS);
@@ -200,7 +226,7 @@ describe("the result of the hand the last trick closes on the page's stage", () 
         const { stage } = await stageOnAPage({});
         const showResult = vi.fn();
 
-        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN], showResult);
+        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN], { declarerWon: true, whenResultShown: showResult });
 
         expect(showResult).toHaveBeenCalledTimes(1);
     });
@@ -209,7 +235,7 @@ describe("the result of the hand the last trick closes on the page's stage", () 
         const { stage } = await stageOnAPage(MOVING);
         const showResult = vi.fn();
 
-        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN], showResult);
+        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN], { declarerWon: true, whenResultShown: showResult });
         stage.jumpStage();
 
         expect(showResult).toHaveBeenCalledTimes(1);
