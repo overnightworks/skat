@@ -1,4 +1,3 @@
-import { TRICKS_IN_A_GAME } from "#lib/gameSheet.ts";
 import {
     includesCard,
     type Card,
@@ -27,12 +26,6 @@ function lastTrickOf(sheet: GameSheet | null): { trick: LastTrick; laid: SeatedC
         },
         laid: last.cards,
     };
-}
-
-/** The trick that decided a game before its tenth, or null for a game played to its last trick and a sheet without one. */
-export function earlyDecidingTrick(sheet: GameSheet | null): LastTrick | null {
-    const played = sheet?.cards?.tricks.length ?? TRICKS_IN_A_GAME;
-    return played < TRICKS_IN_A_GAME ? (lastTrickOf(sheet)?.trick ?? null) : null;
 }
 
 /** The table as the page shows it while the last trick rests and sweeps, or null when the sheet has no last trick to draw. */

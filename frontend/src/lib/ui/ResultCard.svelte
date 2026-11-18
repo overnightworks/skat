@@ -1,8 +1,8 @@
 <script lang="ts">
     import type { Attachment } from "svelte/attachments";
 
+    import type { SheetTrick } from "#lib/gameSheet.ts";
     import { MOTION_SETS } from "#lib/motionSets.ts";
-    import type { LaidCard } from "#lib/playView.ts";
     import type { ResultView } from "#lib/result.ts";
     import { motionInForce } from "#lib/settings.svelte.ts";
     import CardFace from "#lib/ui/CardFace.svelte";
@@ -22,7 +22,7 @@
     }: {
         view: ResultView;
         counts?: boolean;
-        deciding?: { cards: LaidCard[]; takerSeat: number; declarerWon: boolean } | null;
+        deciding?: { trick: SheetTrick; declarerWon: boolean } | null;
     } = $props();
 
     // A won result that appeared while the page watched throws the confetti of the motion set in force, if it has any.
@@ -83,10 +83,10 @@
     </div>
     {#if deciding !== null}
         <ul class={["deciding", deciding.declarerWon ? "won" : "lost"]} aria-label={words["play.lastTrick"]}>
-            {#each deciding.cards as { card, seat, initial } (seat)}
-                <li class="deciding-card" class:took={seat === deciding.takerSeat} data-seat={seat}>
+            {#each deciding.trick.cards as { card, by } (by.seat)}
+                <li class="deciding-card" class:took={by.seat === deciding.trick.taker?.seat} data-seat={by.seat}>
                     <span class="face" role="img" aria-label={cardName(card)}><CardFace {card} /></span>
-                    <span class="dot" aria-hidden="true">{initial}</span>
+                    <span class="dot" aria-hidden="true">{by.initial}</span>
                 </li>
             {/each}
         </ul>

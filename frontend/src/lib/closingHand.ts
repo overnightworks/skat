@@ -1,6 +1,7 @@
-import { closeHand, earlyDecidingTrick } from "#lib/closingTrick.ts";
+import { closeHand } from "#lib/closingTrick.ts";
 import { closedHandOrdinal, cuesBetween, type Cue } from "#lib/cues.ts";
-import type { GameSheet, LastTrick, Table } from "../routes/(start)/tables.ts";
+import { earlyDecidingTrick, type SheetTrick } from "#lib/gameSheet.ts";
+import type { GameSheet, Table } from "../routes/(start)/tables.ts";
 
 // A game sheet that is slower than this does not hold the result back.
 const SHEET_WAIT_MILLISECONDS = 1500;
@@ -11,7 +12,7 @@ export type Closing = { declarerWon: boolean | null; whenResultShown: () => void
 export type Presenter = (previous: Table | undefined, table: Table, cues: readonly Cue[], closing?: Closing) => void;
 
 /** Shows the trick that decided the game of the result `ordinal` before its tenth, on a page whose stage stood still. */
-export type StillTrick = (ordinal: number, trick: LastTrick) => void;
+export type StillTrick = (ordinal: number, trick: SheetTrick) => void;
 
 export type TableShowing = {
     /** Takes the table the page was answered with as the one shown, so the first streamed table is compared with it. */

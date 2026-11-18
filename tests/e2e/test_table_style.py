@@ -39,13 +39,18 @@ KEY_COLOUR = "key => getComputedStyle(key).backgroundColor"
 
 
 def the_weiter_key(table: PlayingTable) -> tuple[Page, str]:
-    """The declarer's page once the hand is played out, which waits on his „Weiter“."""
+    """The declarer's page at the Strandbar once the hand is played out, which waits on his „Weiter“."""
+    choose_style(table.pages[table.declarer_seat], TableStyle.STRANDBAR)
     table.play_out(CARDS_IN_A_HAND)
     return table.pages[table.declarer_seat], ".copy.weiter"
 
 
 def the_kontra_key(table: PlayingTable) -> tuple[Page, str]:
-    """The page of the opponent who bid, which the first card waits on for his Kontra."""
+    """The page at the Strandbar of the opponent who bid, which the first card waits on for his Kontra.
+
+    The style is offered only to a seated person who has no word to say, here the rearhand who passed at once.
+    """
+    choose_style(table.pages[table.seat_at["rearhand"]], TableStyle.STRANDBAR)
     return table.pages[table.seat_at["forehand"]], ".copy.kontra"
 
 
@@ -193,12 +198,12 @@ def test_the_key_the_table_waits_on_is_as_bright_in_the_strandbar_as_in_klassik(
     table = deal_playing_table(open_person, e2e_server, member_of, page_errors, PHONE, declaring=declaring)
     person, selector = decision_key(table)
     key = person.locator(selector)
-    expect(key).to_be_visible()
-    klassik = key.evaluate(KEY_COLOUR)
-
-    choose_style(person, TableStyle.STRANDBAR)
-
     expect(person.locator(ROOM)).to_have_attribute("data-style", "strandbar")
     expect(key).to_be_visible()
-    assert key.evaluate(KEY_COLOUR) == klassik
+    strandbar = key.evaluate(KEY_COLOUR)
+
+    # The style is not offered while the table waits on a decision, so the Klassik stylesheet paints the same key here.
+    person.locator(ROOM).evaluate("room => { room.dataset.style = 'klassik'; }")
+
+    assert key.evaluate(KEY_COLOUR) == strandbar
     assert page_errors == []

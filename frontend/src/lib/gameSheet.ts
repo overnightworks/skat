@@ -3,7 +3,7 @@ import type { SideNames } from "#lib/playView.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { Card, CardState, Game, GameEnding, GameSheet, Sides } from "../routes/(start)/tables.ts";
 
-export const TRICKS_IN_A_GAME = 10;
+const TRICKS_IN_A_GAME = 10;
 
 export type SheetSeat = { seat: number; name: string; initial: string };
 export type SheetHand = { seat: SheetSeat; cards: { card: Card; state: CardState }[] };
@@ -94,6 +94,13 @@ export function gameSheetView(sheet: GameSheet, game: Game | null): GameSheetVie
                 ? null
                 : { label: ending, by: count.ended_by_seat === null ? null : seatOf(count.ended_by_seat) },
     };
+}
+
+/** The trick that decided a game before its tenth, as the sheet draws it, or null for a game played to its last trick. */
+export function earlyDecidingTrick(sheet: GameSheet | null): SheetTrick | null {
+    const tricks = sheet === null ? [] : (gameSheetView(sheet, null).cards?.tricks ?? []);
+    const last = tricks.at(-1);
+    return tricks.length < TRICKS_IN_A_GAME && last?.taker != null ? last : null;
 }
 
 // Whether the sheet has an eleventh row, the end line after ten tricks: a wide sheet lays its tricks in two columns of

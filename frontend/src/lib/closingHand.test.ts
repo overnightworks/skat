@@ -8,7 +8,8 @@ import {
 } from "#lib/closingTrick.fixtures.ts";
 import type { Cue } from "#lib/cues.ts";
 import { MIDDLEHAND } from "#lib/cues.fixtures.ts";
-import type { GameSheet, LastTrick, Table } from "../routes/(start)/tables.ts";
+import type { SheetTrick } from "#lib/gameSheet.ts";
+import type { GameSheet, Table } from "../routes/(start)/tables.ts";
 
 type Presented = { previous: Table | undefined; table: Table; cues: readonly Cue[] };
 
@@ -23,7 +24,7 @@ function showing(readSheet: (ordinal: number) => Promise<GameSheet | null>) {
     const presented: Presented[] = [];
     const resultShown: (() => void)[] = [];
     const declarerWon: (boolean | null)[] = [];
-    const stillTricks: { ordinal: number; trick: LastTrick }[] = [];
+    const stillTricks: { ordinal: number; trick: SheetTrick }[] = [];
     const shown = tableShowing(
         (previous, table, cues, closing) => {
             presented.push({ previous, table, cues });
@@ -199,7 +200,7 @@ describe("the table that follows the last card", () => {
         await vi.advanceTimersByTimeAsync(0);
 
         expect(presented.map(({ table }) => table)).toEqual([afterwards]);
-        expect(stillTricks.map(({ ordinal, trick }) => [ordinal, trick.taker_seat])).toEqual([
+        expect(stillTricks.map(({ ordinal, trick }) => [ordinal, trick.taker?.seat])).toEqual([
             [afterwards.result?.ordinal, sheetOfTrickThree.cards?.tricks.at(-1)?.taker_seat],
         ]);
     });

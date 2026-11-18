@@ -17,6 +17,7 @@
         requestEndedNotice,
         type GiveUpAnswer,
     } from "#lib/giveUp.ts";
+    import type { SheetTrick } from "#lib/gameSheet.ts";
     import { firstCardWait, keyWord, type Stamp } from "#lib/kontra.ts";
     import { legalLinks } from "#lib/legal.ts";
     import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
@@ -24,7 +25,6 @@
         bidLineOfGameDeclaredInTheStage,
         gameInPlay,
         openCardsOf,
-        playedCards,
         sideNames,
         type PlayingHand,
     } from "#lib/playView.ts";
@@ -116,7 +116,6 @@
         type SeriesEndAnswer,
         type AuctionAction,
         type Card,
-        type LastTrick,
         type Options,
         type Outcome,
         type Picking,
@@ -150,7 +149,7 @@
     // The ordinal of the result that appeared while this page watched; only its card counts the gains up.
     let countedOrdinal = $state<number | null>(null);
     // The trick that decided the game of the result `ordinal` before its tenth, shown on the result as the stage stood still.
-    let stillTrick = $state<{ ordinal: number; trick: LastTrick } | null>(null);
+    let stillTrick = $state<{ ordinal: number; trick: SheetTrick } | null>(null);
     // The cards this page saw laid in the running hand; a card that was not seen laid, a reload's for one, is not here.
     let playedThisHand = $state<Card[]>([]);
     // The latest word said at this table in the running hand, which the stamp shows for a moment.
@@ -565,11 +564,7 @@
                     counts={declared?.ordinal === countedOrdinal}
                     deciding={decidingTrick === undefined
                         ? null
-                        : {
-                              cards: playedCards(outcome.table.chairs, decidingTrick),
-                              takerSeat: decidingTrick.taker_seat,
-                              declarerWon: declared?.won ?? false,
-                          }}
+                        : { trick: decidingTrick, declarerWon: declared?.won ?? false }}
                 />
             {:else if ramschView !== null}
                 <RamschResultCard view={ramschView} />
