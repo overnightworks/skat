@@ -181,14 +181,14 @@ class Presence:
     falls behind finds several changes folded into one wake and reads the latest state, which is its fresh snapshot.
 
     A chair hold is a deadline in the store, on the store's clock, so it outlives the pod that wrote it. A stream that
-    was the account's last at the table on this pod stores the account's leave before its lease ends, even while the
-    presence stops; a stream lapsed on a dead pod and an agent's lapsed lease store it too, unless the account
-    is back. A leave that cannot be stored is logged and stored again after `CHAIR_RELEASE_RETRY_SECONDS` while the
-    presence runs; until then the chair is kept. An arrival clears the account's hold once its lease has started.
-    Every pod sweeps the due holds every `HOLD_SWEEP_EVERY_SECONDS`; the freeing locks the table and the hold, and
-    frees the chair only while the roster vouches that the account streams on no pod and no lease of it runs here.
-    An arrival's clear waits for a freeing in flight, so it finds the chair freed instead of losing it unseen. Nothing
-    is held anew at a start.
+    was the account's last at the table on any pod, or whose pod cannot read the roster, stores the account's leave
+    before its lease ends, even while the presence stops; a stream lapsed on a dead pod and an agent's lapsed lease
+    store it too, unless the account is back. A leave that cannot be stored is logged and stored again after
+    `CHAIR_RELEASE_RETRY_SECONDS` while the presence runs; until then the chair is kept. An arrival clears the account's
+    hold once its lease has started. Every pod sweeps the due holds every `HOLD_SWEEP_EVERY_SECONDS`; the freeing locks
+    the table and the hold, and frees the chair only while the roster vouches that the account streams on no pod and no
+    lease of it runs here. An arrival's clear waits for a freeing in flight, so it finds the chair freed instead of
+    losing it unseen. Nothing is held anew at a start.
 
     After a passed-in hand a table gets one pause; when it ends, the deal is asked for with who is connected
     then, and a stream's first view of the table starts the next pause if none is pending. After a played game
