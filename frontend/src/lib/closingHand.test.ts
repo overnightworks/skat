@@ -239,7 +239,12 @@ describe("the table that follows the last card", () => {
     });
 
     it.each([
-        { name: "the table a load answered with", firstShown: (shown: TableShowing) => shown.begin(afterwards) },
+        {
+            name: "the table a load answered with",
+            firstShown: (shown: TableShowing) => {
+                shown.begin(afterwards);
+            },
+        },
         {
             name: "the first table after a dropped connection",
             firstShown: (shown: TableShowing) => {
