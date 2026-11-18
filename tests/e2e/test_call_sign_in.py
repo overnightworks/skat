@@ -41,6 +41,7 @@ from tests.e2e.support.call_frame import (
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, PHONE, SMALL_PHONE, WIDTHS, playwright_cookie
 from tests.e2e.support.sessions import end_sessions_of, holds_a_session
+from tests.e2e.support.table_menu import open_account_panel
 from tests.e2e.support.tables import open_new_table
 from tests.support.sign_in_settings import TEST_ISSUER
 from tests.support.signed_in import seed_member
@@ -425,7 +426,7 @@ def test_a_legal_link_of_the_table_opens_the_central_page_in_a_new_tab_and_the_t
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS, timeout=WAIT_MILLISECONDS)
 
         with visitor.context.expect_page() as opened:
-            table.get_by_role("link", name=text(SOURCE_LANGUAGE, link_name), exact=True).click()
+            open_account_panel(table).get_by_role("link", name=text(SOURCE_LANGUAGE, link_name), exact=True).click()
 
         assert opened.value.url == LEGAL_LINKS[link_name]
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)

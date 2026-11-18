@@ -23,8 +23,10 @@ export type RuleId = "points" | "kontra" | "ramsch" | "pushing" | "bock" | "give
 export type ChipId = Exclude<RuleId, "pushing" | "giveUpPartner" | "giveUpAnyTime"> | "giveUp" | "official";
 // The Bock chip counts the games still to come, the running one included, and stands alone while none is pending.
 export type RuleChip = { id: ChipId; word: string; count: { number: string; label: string } | null };
-// A rule's settings are separate short texts, never one sentence.
-export type RuleRow = { id: RuleId; name: string; settings: string[] };
+// A rule's settings are separate short texts, never one sentence. A table without any rule on names its rulebook in
+// the one row of the official rules.
+export type RuleRow = { id: RuleId | "official"; name: string; settings: string[] };
+type HouseRuleRow = RuleRow & { id: RuleId };
 export type TableRules = { chips: RuleChip[]; rows: RuleRow[] };
 
 const KONTRA_SAYER_WORDS: Record<Token<typeof KONTRA_SAYER_TOKENS>, string> = {
@@ -105,10 +107,16 @@ const CHIP_OF_ROW: Record<RuleId, Exclude<ChipId, "official"> | null> = {
     giveUpAnyTime: "giveUp",
 };
 
+const OFFICIAL_ROW: RuleRow = {
+    id: "official",
+    name: words["rules.nameOfficial"],
+    settings: [words["rules.officialUnchanged"]],
+};
+
 // The rules that are on, in the order the picture draws them.
-function rulesOf(options: Options): RuleRow[] {
+function rulesOf(options: Options): HouseRuleRow[] {
     const { kontra, ramsch, bock, give_up: giveUp } = options;
-    const rules: (RuleRow | null)[] = [
+    const rules: (HouseRuleRow | null)[] = [
         options.show_running_points
             ? { id: "points", name: words["rules.namePoints"], settings: [words["rules.pointsFromTricks"]] }
             : null,
@@ -185,7 +193,7 @@ export function tableRules(options: Options, bock: Bock | null): TableRules {
             word: CHIP_WORDS[id],
             count: countOf(id, bock),
         })),
-        rows,
+        rows: rows.length === 0 ? [OFFICIAL_ROW] : rows,
     };
 }
 

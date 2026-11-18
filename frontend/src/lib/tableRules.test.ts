@@ -63,9 +63,8 @@ const pushing = (patch: Partial<NonNullable<typeof RAMSCH.pushing>>): Options =>
     ramsch({ pushing: { rule: "jacks-stay", grand_hand: "off", ...patch } });
 
 describe("the chips", () => {
-    it("is the one chip Offiziell, with no rows, for a table without a rule on", () => {
+    it("is the one chip Offiziell for a table without a rule on", () => {
         expect(chipWords(NOTHING)).toEqual(["Offiziell"]);
-        expect(tableRules(NOTHING, null).rows).toEqual([]);
     });
 
     it("lists each rule that is on in the order Augen, Kontra, Ramsch, Bock, Aufgeben", () => {

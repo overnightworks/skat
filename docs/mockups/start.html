@@ -185,9 +185,15 @@ body.solo .frame{border-radius:0;border:0}
 .cta{transform:translateX(-50%);height:60px;padding:0 30px 0 24px;border-radius:999px;display:inline-flex;align-items:center;gap:10px;background:var(--accent-stage);color:var(--stage);
   font-size:18px;font-weight:700;white-space:nowrap;box-shadow:0 0 0 6px rgba(122,167,240,.18),0 16px 30px -10px rgba(0,0,0,.9)}
 .cta svg{width:22px;height:22px}
-.legal{left:0;right:0;bottom:var(--lb,6px);display:flex;justify-content:center;gap:4px}
-.legal a{min-height:44px;padding:0 10px;display:inline-flex;align-items:center;font-size:12.5px;color:rgba(244,246,248,.58);text-decoration:none}
-.legal a:focus-visible{outline:2px solid var(--accent-stage);outline-offset:-6px;border-radius:8px}
+/* the kit's account menu on its dark tokens: the name, the log-out under a rule and the legal row in its menu form */
+.acct-pop{z-index:40;width:256px;padding:4px 0;border:1px solid #333;border-radius:6px;background:#111;color:#e0e0e0;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.acct-pop .row{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px}
+.acct-pop .row svg{width:16px;height:16px;color:#888}
+.acct-pop .who{min-height:48px;font-weight:600}
+.acct-pop .fill{flex:1}
+.acct-pop .out{margin-top:4px;padding-top:4px;border-top:1px solid #333}
+.acct-pop .legal.menu{display:flex;flex-wrap:wrap;gap:2px 12px;padding:8px 14px 6px;border-top:1px solid #333;font-size:11.5px}
+.acct-pop .legal.menu a{display:inline-flex;align-items:center;min-height:24px;color:#888;text-decoration:none}
 /* empty chairs waiting at the start table */
 .chair.empty{opacity:.85;rotate:var(--cr,0deg)}
 .chair.empty::after{content:"";position:absolute;inset:8px;border-radius:20px 20px 12px 12px;background:radial-gradient(80% 70% at 50% 30%,rgba(0,0,0,.18),rgba(0,0,0,.45));box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
@@ -345,8 +351,6 @@ body.key .frame *:not(.mo){animation:none!important}
 .lobby-scroll{overflow:hidden}
 .lobby-inner{min-height:100%;display:flex;flex-direction:column;padding-bottom:var(--bar)}
 .lobby-list{display:grid;grid-template-columns:repeat(var(--cols),var(--cw));gap:var(--gap);justify-content:center;align-items:start}
-.lobby-inner .legal{margin-top:auto;padding-top:12px}
-.lobby-inner .legal.below{margin-top:var(--bar)}
 .section-head{grid-column:1/-1;margin:6px 0 calc(12px - var(--gap));font-size:14px;font-weight:600;line-height:20px;color:color-mix(in srgb,var(--brass) 80%,transparent)}
 .section-head:first-child{margin-top:8px}
 .quiet{grid-column:1/-1;display:flex;align-items:center;justify-content:center;min-height:64px;border-radius:22px;border:1.5px dashed rgba(240,214,150,.22);color:var(--on-stage-soft);font-size:15px;font-weight:600}
@@ -559,7 +563,11 @@ const JACKS=[['c',-24,-36],['s',-8,-12],['h',8,12],['d',24,36]];
 const jacks=(x,y,w,scale=1)=>`<div class="jacks" style="${at({left:x,top:y,'--w':w})}">${JACKS.map(([s,a,tx],i)=>card('B',s,'',at({'--w':w,'--a':`${a}deg`,'--tx':`${tx*scale}px`,'--d':`${.15+i*.06}s`}))).join('')}</div>`;
 const wordmark=(x,y,o)=>`<div class="mark-word" style="${at({left:x,top:y,'--ws':o.ws,'--ps':o.ps,'--rule':o.rule,'--wg':o.wg})}"><b>Skat</b><span class="pips">${SUITS.map(s=>`<span>${suitIcon(s)}</span>`).join('')}</span></div>`;
 const emptyChair=(x,y,w,h,k,cr=0)=>`<div class="chair empty" style="${at({left:x,top:y,width:w,height:h,'--l1':P[k].l[0],'--l2':P[k].l[1],'--cr':`${cr}deg`})}"></div>`;
-const legal=`<nav class="legal"><a href="#">Impressum</a><a href="#">Datenschutz</a><a href="#">Nutzungsbedingungen</a></nav>`;
+/* a signed-in page has no footer of legal links: they stand in the kit's account menu, which the account button opens */
+I.external=sv('<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>');
+I.logout=sv('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>');
+const accountMenu=(z)=>`<div class="acct-pop" role="dialog" aria-label="Konto" style="${at({right:z.ar,top:z.at+52})}"><span class="row who" role="link" tabindex="0"><span class="fill">Felix</span>${I.external}</span>
+  <div class="out"><span class="row" role="button" tabindex="0">${I.logout}Abmelden</span></div><nav class="legal menu" aria-label="Rechtliches"><a href="#">Impressum</a><a href="#">Datenschutz</a><a href="#">Nutzungsbedingungen</a></nav></div>`;
 
 const ORDER=[];
 /* ===== S3: the empty list, and the choice for a new table ===== */
@@ -635,14 +643,14 @@ frame('s3-empty-390','Niemand spielt','Handy 390 px','p390',
   +emptyChair(34,262,104,80,'anna',-14)+emptyChair(252,262,104,80,'ben',14)
   +table({x:20,y:318,w:350,h:420,tr:175,rim:14,ry:'44%',rs:170})
   +`<div class="lull" role="status" style="${at({left:195,top:356})}">Gerade spielt niemand</div>`
-  +jacks(195,530,80,.85)+cta(195,584)+legal);
+  +jacks(195,530,80,.85)+cta(195,584));
 frame('s3-empty-1280','Niemand spielt','Desktop 1280 px','d1280',
   wordmark(640,92,{ws:132,ps:30,rule:90,wg:16})
   +`<div class="account" style="--ar:20px;--at:16px"><span class="av">F</span>Felix${I.chev}</div>`
   +emptyChair(222,430,150,112,'anna',-78)+emptyChair(908,430,150,112,'ben',78)
   +table({x:340,y:318,w:600,h:420,tr:210,rim:16,ry:'44%',rs:200})
   +`<div class="lull" role="status" style="${at({left:640,top:350})}">Gerade spielt niemand</div>`
-  +jacks(640,544,100)+cta(640,600)+legal);
+  +jacks(640,544,100)+cta(640,600));
 ORDER.push(...['s3-empty','s3-new'].flatMap(f=>[`${f}-390`,`${f}-1280`]));
 /* the clock of a chip and the running totals of the coasters */
 I.clock=sv('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',2);
@@ -688,7 +696,7 @@ const LOBBY={
   idaOpen:{title:'Idas Tisch',length:'36 Spiele',watch:0,chairs:[{k:'ida'},{free:'sit'},{free:'sit'}]},
   felixWaits:{title:"Felix' Tisch",length:'Spiel 8 von 36',watch:0,chairs:[{k:'felixSeen'},{k:'anna'},{free:'sit'}],chips:[['now',I.clock,'Spiel wartet']]},
 };
-/* the lobby scene: a fixed head, a list that scrolls under it, and the action over a fade at the bottom; the legal links end the scroll */
+/* the lobby scene: a fixed head, a list that scrolls under it, and the action over a fade at the bottom; o.account opens the account menu */
 function lobbyScene(width,o={}){
   const z=LOBBY_SIZES[width],cx=z.w/2,desk=width===1280,mine=o.mine||[],open=o.open||[];
   const cols=desk?Math.min(3,Math.max(mine.length,open.length,1)):1,card=(t)=>lobbyEntry(t,z.o);
@@ -697,10 +705,10 @@ function lobbyScene(width,o={}){
   const body=(mine.length?`<div class="section-head" role="heading" aria-level="2">Meine Tische</div>${mine.map(card).join('')}`:'')
      +`<div class="section-head" role="heading" aria-level="2">Offene Tische</div>${open.length?open.map(card).join(''):`<p class="quiet" role="status">Sonst ist kein Tisch offen</p>`}`;
   const list=`<div class="lobby-scroll" style="${at({left:0,right:0,top:z.top,bottom:0,'--bar':`${z.bar}px`})}"><div class="lobby-inner">
-    <div class="lobby-list" style="${at({'--cols':String(cols),'--cw':`${z.o.w}px`,'--gap':`${z.gap}px`})}">${body}</div>${desk&&mine.length&&open.length?legal.replace('class="legal"','class="legal below"'):legal}</div></div>`;
+    <div class="lobby-list" style="${at({'--cols':String(cols),'--cw':`${z.o.w}px`,'--gap':`${z.gap}px`})}">${body}</div></div></div>`;
   const bar=`<div class="lobbybar" style="--bar:${z.bar}px"></div>${cta(cx,z.h-z.bar+16).replace('class="cta"','class="cta sticky"')}`;
   const page=head+list;
-  return (o.stale?`<div class="stale">${page}</div>`:page)+bar+(o.stale?`<div class="reconnect" role="status" style="${at({left:cx,top:desk?445:282})}"><span class="spin mo" style="--k:.3s"></span>verbinde neu</div>`:'');
+  return (o.stale?`<div class="stale">${page}</div>`:page)+bar+(o.account?accountMenu(z):'')+(o.stale?`<div class="reconnect" role="status" style="${at({left:cx,top:desk?445:282})}"><span class="spin mo" style="--k:.3s"></span>verbinde neu</div>`:'');
 }
 /* the root page while the start page's code cannot load: the stage, the wordmark and the table page's notice, nothing the root page does not know */
 function outageScene(width,o={}){
@@ -722,6 +730,8 @@ const LOBBY_SCENES=[
     ['Du hast in dieser Serie mitgespielt und bist aufgestanden; dein Stand bleibt.']],
   ['lobby-seat-open','Lobby: Spiel wartet auf einen Spieler','seat-open',(w)=>lobbyScene(w,{who:'tom',mine:[],open:[LOBBY.felixWaits,LOBBY.ida]}),[390,1280],
     ['Unter „Offene Tische“: „Felix\' Tisch“ mit Felix, Anna und dem freien Platz und dem Akzentchip „Spiel wartet“; ein Spiel ohne Spieler braucht eine Person. In „Meine Tische“ trüge derselbe Tisch den Chip neutral, weil er auf jemand anderen wartet.']],
+  ['lobby-account','Das Konto-Menü','account',(w)=>lobbyScene(w,{account:true,mine:[LOBBY.anna,LOBBY.lena],open:[LOBBY.tom,LOBBY.ida]}),[390,1280],
+    ['Ein Tipp auf das Konto oben rechts öffnet das Konto-Menü des Kits: dein Name führt zum Konto, darunter „Abmelden“ und die Zeile Impressum, Datenschutz, Nutzungsbedingungen. Eine Seite, auf der du angemeldet bist, hat keine Fußzeile mit diesen Links.']],
   ['lobby-reconnect','Lobby verbindet neu','reconnect',(w)=>lobbyScene(w,{stale:true,mine:[LOBBY.anna,LOBBY.lena],open:[LOBBY.tom,LOBBY.ida]}),[390,1280],
     ['Die Liste bleibt, gedimmt und still; „Neuer Tisch“ geht weiter.']],
   ['outage-tap','Tipp auf Lobby, Skat ist weg','outage-tap',(w)=>outageScene(w),[360,390,1280],

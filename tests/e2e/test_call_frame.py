@@ -30,7 +30,7 @@ from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.listening_agent import ListeningAgent
 from tests.e2e.support.people import DESKTOP, PHONE
-from tests.e2e.support.table_menu import MENU_KEY, menu_button, open_table_menu
+from tests.e2e.support.table_menu import AGENTS, MENU_KEY, menu_button, open_agents_panel
 from tests.e2e.support.tables import open_new_table, table_id_of
 
 if TYPE_CHECKING:
@@ -245,7 +245,7 @@ def test_a_give_up_request_in_a_360_wide_frame_keeps_the_call_strip_and_its_menu
 
 
 @pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
-def test_an_open_menu_in_a_landscape_frame_shows_both_agent_rows_above_the_call_strip(
+def test_the_agents_panel_in_a_landscape_frame_shows_both_agent_rows_above_the_call_strip(
     open_person: Callable[..., Page],
     member_of: Callable[[Page], SeededMember],
     browser_coverage: BrowserCoverage,
@@ -264,11 +264,11 @@ def test_an_open_menu_in_a_landscape_frame_shows_both_agent_rows_above_the_call_
     ]
     try:
         with framed_at(felix, browser_coverage, table_url(framing_server, path), LANDSCAPE_FRAME) as call:
-            # Measured before the menu is opened: a tap scrolls the frame and would hide a strip below the fold.
+            # Measured before the panel is opened: a tap scrolls the frame and would hide a strip below the fold.
             frame = box_of(felix.locator(FRAME))
             strip = box_of(call.locator(STRIP))
             assert bottom_of(strip) <= bottom_of(frame)
-            open_table_menu(call)
+            open_agents_panel(call)
             for name in ("Mozart", "Leonardo"):
                 expect(call.get_by_role("button", name=call_label(name))).to_be_visible()
 
@@ -309,7 +309,7 @@ def test_an_agent_sitting_notice_lies_clear_of_the_status_line(
             if framed
             else nullcontext(felix)
         ) as scope:
-            open_table_menu(scope)
+            open_agents_panel(scope)
             scope.get_by_role("button", name=call_label("Leonardo")).click()
             agent.accept(agent.invitation_within(felix, INVITATION_WITHIN_SECONDS))
 
@@ -341,7 +341,7 @@ def test_a_framed_call_strip_at_390_holds_the_speaker_and_the_menu_key_in_one_ro
         assert speaker["x"] < menu_key["x"]
         assert bar.evaluate_all("tags => new Set(tags.map(tag => tag.offsetTop)).size") == 1
         expect(menu_button(call, STAND_UP)).to_be_visible()
-        expect(call.locator(".agents-list")).to_be_visible()
+        expect(menu_button(call, AGENTS)).to_be_visible()
     assert page_errors == []
 
 
