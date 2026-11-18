@@ -8206,6 +8206,17 @@ body {
     outline-offset: 2px;
 }
 
+/* Under each card the face of who played it, in the felt's dark tag without the name. */
+.room .result .deciding-card .tag {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: rgba(10, 12, 14, 0.78);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
 .room .lt-card.took .face {
     outline: 2px solid var(--brass-hi);
     outline-offset: 2px;

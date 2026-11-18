@@ -92,7 +92,7 @@
                     data-seat={by.seat}
                 >
                     <span class="face" role="img" aria-label={cardName(card)}><CardFace {card} /></span>
-                    <span class="dot" aria-hidden="true">{by.initial}</span>
+                    <span class="tag"><span class="dot" aria-hidden="true">{by.initial}</span></span>
                 </li>
             {/each}
         </ul>
