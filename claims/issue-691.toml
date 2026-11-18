@@ -3,6 +3,6 @@ agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
 role = "builder"
 base = "f44ca646359244068028c684d45c90700b36ab65"
 branch = "claude/issue-691-the-rules-sheet-names-the-official-rules"
-scope = ["docs/mockups/start.html", "docs/mockups/table.html", "frontend/src", "tests/e2e"]
+scope = ["docs/mockups/start.html", "docs/mockups/table.html", "frontend/src", "src/skat/web/words.py", "tests/e2e"]
 opened_commit = "08ea86db2a6fd945197e5caeb87d89e936e768f7"
 whole_reason = "the rules sheet, the table menu and the start page are separate surfaces in several frontend modules; e2e proves them"
