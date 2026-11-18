@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { Attachment } from "svelte/attachments";
 
-    import type { DecidingTrick } from "#lib/closingHand.ts";
+    import { outcomeRim, type DecidingTrick } from "#lib/closingHand.ts";
     import { MOTION_SETS } from "#lib/motionSets.ts";
     import type { ResultView } from "#lib/result.ts";
     import { motionInForce } from "#lib/settings.svelte.ts";
@@ -82,12 +82,15 @@
         {/if}
     </div>
     {#if deciding !== null}
-        <ul
-            class={["deciding", { won: deciding.declarerWon === true, lost: deciding.declarerWon === false }]}
-            aria-label={words["play.lastTrick"]}
-        >
+        <ul class="deciding" aria-label={words["play.lastTrick"]}>
             {#each deciding.trick.cards as { card, by } (by.seat)}
-                <li class="deciding-card" class:took={by.seat === deciding.trick.taker?.seat} data-seat={by.seat}>
+                <li
+                    class={[
+                        "deciding-card",
+                        by.seat === deciding.trick.taker?.seat && ["took", outcomeRim(deciding.declarerWon)],
+                    ]}
+                    data-seat={by.seat}
+                >
                     <span class="face" role="img" aria-label={cardName(card)}><CardFace {card} /></span>
                     <span class="dot" aria-hidden="true">{by.initial}</span>
                 </li>

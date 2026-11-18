@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { outcomeRim } from "#lib/closingHand.ts";
     import { ownCardSlotOpen, type LaidCard } from "#lib/playView.ts";
     import CardFace from "#lib/ui/CardFace.svelte";
     import { words } from "#lib/words.ts";
@@ -23,12 +24,6 @@
         sweptTo: number | null;
         took?: { seat: number; declarerWon: boolean | null } | null;
     } = $props();
-
-    function rimOf(seat: number): string {
-        if (took?.seat !== seat) return "";
-        if (took.declarerWon === null) return " took";
-        return took.declarerWon ? " took won" : " took lost";
-    }
 
     // A name that fits its tag whole leaves the tags of the trick apart, as the scenes draw them. A name cut to the tag's
     // cap makes tags that reach each other, so the near tag then steps below the far ones. Whether a name is cut never
@@ -105,7 +100,15 @@
 
 <ul class="trick" class:stepped class:sweeping={sweptTo !== null} aria-label={words["play.trick"]} bind:this={trick}>
     {#each laid as { card, seat, slot, name, initial } (`${card.suit}-${card.rank}`)}
-        <li class={`laid ${slot}${includesCard(playedThisHand, card) ? " fresh" : ""}${rimOf(seat)}`} data-seat={seat}>
+        <li
+            class={[
+                "laid",
+                slot,
+                { fresh: includesCard(playedThisHand, card) },
+                took?.seat === seat && ["took", outcomeRim(took.declarerWon)],
+            ]}
+            data-seat={seat}
+        >
             <span class="face" role="img" aria-label={cardName(card)}><CardFace {card} /></span>
             <span class="tag">
                 <span class="dot" aria-hidden="true">{initial}</span>

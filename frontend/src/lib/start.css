@@ -8156,22 +8156,24 @@ body {
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
 }
 
-/* The last trick of a hand lifts the card that took it until the result rises, as the scenes deciding-lost and
-   deciding-won draw it: in a red rim when the declarer lost, a gold one when he won, the pile's brass in a Ramsch. */
+/* The card that took a hand's deciding trick wears the rim of the declarer's outcome, on the felt and in the result's
+   row alike, as the scenes deciding-lost, deciding-won and deciding-still draw it: red when he lost, gold when he won,
+   the pile's brass in a Ramsch. */
+.room :is(.laid, .deciding-card).took.lost {
+    --took-rim: var(--leave);
+}
+
+.room :is(.laid, .deciding-card).took.won {
+    --took-rim: var(--brass-hi);
+}
+
+/* The last trick of a hand lifts the card that took it until the result rises. */
 .room .laid.took .face {
     transform: translateY(-12%);
     border-radius: calc(var(--card-width) * 0.075);
-    outline: 3px solid var(--rim, var(--brass-hi));
+    outline: 3px solid var(--took-rim, var(--brass-hi));
     outline-offset: 2px;
     transition: transform 200ms ease-out;
-}
-
-.room .laid.took.lost {
-    --rim: var(--leave);
-}
-
-.room .laid.took.won {
-    --rim: var(--brass-hi);
 }
 
 /* With motion still, the result of a game decided before its tenth trick carries that trick as a row, as the scene
@@ -8200,28 +8202,8 @@ body {
 }
 
 .room .result .deciding-card.took .face {
-    outline: 2px solid var(--rim, var(--brass-hi));
+    outline: 2px solid var(--took-rim, var(--brass-hi));
     outline-offset: 2px;
-}
-
-.room .result .deciding.lost {
-    --rim: var(--leave);
-}
-
-.room .result .deciding.won {
-    --rim: var(--brass-hi);
-}
-
-.room .result .deciding-card .dot {
-    display: grid;
-    place-items: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--glass);
-    color: var(--on-stage);
-    font-size: 11px;
-    font-weight: 700;
 }
 
 .room .lt-card.took .face {
@@ -8255,7 +8237,8 @@ body {
     rotate: -5deg;
 }
 
-.room .lt-card .dot {
+.room .lt-card .dot,
+.room .result .deciding-card .dot {
     flex: none;
     display: grid;
     place-items: center;

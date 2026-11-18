@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { tableShowing, type DecidingTrick, type TableShowing } from "#lib/closingHand.ts";
+import { outcomeRim, tableShowing, type DecidingTrick, type TableShowing } from "#lib/closingHand.ts";
 import {
     afterTheLastCard,
     beforeTheLastCard,
@@ -320,5 +320,15 @@ describe("the table that follows the last card", () => {
         await vi.advanceTimersByTimeAsync(0);
 
         expect(presented.map(({ table }) => table)).toEqual([nextHand]);
+    });
+});
+
+describe("the rim of the card that took a hand's deciding trick", () => {
+    it.each([
+        { name: "gold when the declarer won", declarerWon: true, rim: "won" },
+        { name: "red when he lost", declarerWon: false, rim: "lost" },
+        { name: "none of its own in a Ramsch, which has no declarer", declarerWon: null, rim: null },
+    ])("is $name", ({ declarerWon, rim }) => {
+        expect(outcomeRim(declarerWon)).toBe(rim);
     });
 });

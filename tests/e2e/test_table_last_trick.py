@@ -496,8 +496,9 @@ def test_with_reduced_motion_a_null_lost_early_shows_its_deciding_trick_as_a_row
 
     expect(watcher.locator(RESULT_CARD)).to_have_count(1)
     expect(watcher.locator(DECIDING_ROW_CARD)).to_have_count(CARDS_IN_A_TRICK)
-    expect(watcher.locator(f"{DECIDING_ROW_CARD}.took")).to_have_attribute("data-seat", str(null_table.declarer_seat))
-    expect(watcher.locator(".result .deciding.lost")).to_have_count(1)
+    expect(watcher.locator(f"{DECIDING_ROW_CARD}.took.lost")).to_have_attribute(
+        "data-seat", str(null_table.declarer_seat)
+    )
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
     assert page_errors == []
 
