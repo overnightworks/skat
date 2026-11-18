@@ -7,7 +7,9 @@ from skat.table.records import TableStyle
 from skat.web.style import TABLE_STYLE_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.audio import tap
+from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import deal_playing_table
+from tests.e2e.support.kontra import ContestedTable
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.style import ROOM, STYLE_KEY, choose_style, expect_painted_as_the_scene
 from tests.e2e.support.table_menu import close_table_menu, menu_button, open_table_menu
@@ -31,6 +33,26 @@ SCENE_STYLE_ROW = ".snd-row.look"
 PAGE_STYLE_ROW = ".style-row"
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 REFUSED = 409
+# The thirtieth card ends the hand.
+CARDS_IN_A_HAND = 30
+KEY_COLOUR = "key => getComputedStyle(key).backgroundColor"
+
+
+def the_weiter_key(table: PlayingTable) -> tuple[Page, str]:
+    """The declarer's page once the hand is played out, which waits on his „Weiter“."""
+    table.play_out(CARDS_IN_A_HAND)
+    return table.pages[table.declarer_seat], ".copy.weiter"
+
+
+def the_kontra_key(table: PlayingTable) -> tuple[Page, str]:
+    """The page of the opponent who bid, which the first card waits on for his Kontra."""
+    return table.pages[table.seat_at["forehand"]], ".copy.kontra"
+
+
+DECISION_KEYS = [
+    pytest.param(DeclaringTable, the_weiter_key, id="weiter"),
+    pytest.param(ContestedTable, the_kontra_key, id="kontra"),
+]
 
 
 def expect_the_row_in_the_menu(person: Page) -> None:
@@ -156,4 +178,27 @@ def test_the_style_panel_opens_inside_the_page_and_changes_the_table_at_every_wi
         expect(person.locator(ROOM)).to_have_attribute("data-style", "strandbar")
     chooser.keyboard.press("Escape")
     expect_the_row_in_the_menu(chooser)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize(("declaring", "decision_key"), DECISION_KEYS)
+def test_the_key_the_table_waits_on_is_as_bright_in_the_strandbar_as_in_klassik(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    declaring: type[DeclaringTable],
+    decision_key: Callable[[PlayingTable], tuple[Page, str]],
+) -> None:
+    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, PHONE, declaring=declaring)
+    person, selector = decision_key(table)
+    key = person.locator(selector)
+    expect(key).to_be_visible()
+    klassik = key.evaluate(KEY_COLOUR)
+
+    choose_style(person, TableStyle.STRANDBAR)
+
+    expect(person.locator(ROOM)).to_have_attribute("data-style", "strandbar")
+    expect(key).to_be_visible()
+    assert key.evaluate(KEY_COLOUR) == klassik
     assert page_errors == []
