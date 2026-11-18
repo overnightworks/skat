@@ -8179,7 +8179,7 @@ body {
 }
 
 .room .result .deciding-card.took .face {
-    outline: 2px solid var(--rim);
+    outline: 2px solid var(--rim, var(--brass-hi));
     outline-offset: 2px;
 }
 

@@ -11,8 +11,16 @@ export type Closing = { declarerWon: boolean | null; whenResultShown: () => void
 
 export type Presenter = (previous: Table | undefined, table: Table, cues: readonly Cue[], closing?: Closing) => void;
 
-/** Shows the trick that decided the game of the result `ordinal` before its tenth, on a page whose stage stood still. */
-export type StillTrick = (ordinal: number, trick: SheetTrick) => void;
+/** The trick that decided the game of the result `ordinal` before its tenth, and whether its declarer won. */
+export type DecidingTrick = { ordinal: number; trick: SheetTrick; declarerWon: boolean | null };
+
+/** Shows the deciding trick on a page whose stage stood still. */
+export type StillTrick = (deciding: DecidingTrick) => void;
+
+// Whether the declarer won the result the table shows; a Ramsch has none.
+function declarerWonOf(table: Table): boolean | null {
+    return table.result?.kind === "declared" ? table.result.won : null;
+}
 
 export type TableShowing = {
     /** Takes the table the page was answered with as the one shown, so the first streamed table is compared with it. */
@@ -58,13 +66,13 @@ export function tableShowing(
         present(previous, table, cuesBetween(previous, table));
         const readAt = ends;
         void readSheet(ordinal).then((sheet) => {
-            showEarlyTrick(readAt, ordinal, sheet);
+            showEarlyTrick(readAt, table, ordinal, sheet);
         });
     }
 
-    function showEarlyTrick(readAt: number, ordinal: number, sheet: GameSheet | null): void {
+    function showEarlyTrick(readAt: number, table: Table, ordinal: number, sheet: GameSheet | null): void {
         const trick = earlyDecidingTrick(sheet);
-        if (trick !== null && readAt === ends) showStillTrick(ordinal, trick);
+        if (trick !== null && readAt === ends) showStillTrick({ ordinal, trick, declarerWon: declarerWonOf(table) });
     }
 
     function showQueued(queued: readonly [Table, Table][]): void {
@@ -87,14 +95,13 @@ export function tableShowing(
             if (held === null || !trickCues.some((cue) => cue.kind === "trick-taken")) {
                 closing = null;
                 present(previous, table, cues);
-                if (!stageMoves()) showEarlyTrick(ends, ordinal, sheet);
+                if (!stageMoves()) showEarlyTrick(ends, table, ordinal, sheet);
                 showQueued(hold.queued);
                 return;
             }
             const isResult = (cue: Cue): boolean => cue.kind === "result-appeared";
-            const result = table.result;
             present(previous, held, [...trickCues, ...cues.filter((cue) => !isResult(cue))], {
-                declarerWon: result?.kind === "declared" ? result.won : null,
+                declarerWon: declarerWonOf(table),
                 whenResultShown: () => {
                     if (closing !== hold) return;
                     closing = null;

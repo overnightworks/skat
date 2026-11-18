@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { tableShowing } from "#lib/closingHand.ts";
+import { tableShowing, type DecidingTrick } from "#lib/closingHand.ts";
 import {
     afterTheLastCard,
     beforeTheLastCard,
@@ -8,7 +8,6 @@ import {
 } from "#lib/closingTrick.fixtures.ts";
 import type { Cue } from "#lib/cues.ts";
 import { MIDDLEHAND } from "#lib/cues.fixtures.ts";
-import type { SheetTrick } from "#lib/gameSheet.ts";
 import type { GameSheet, Table } from "../routes/(start)/tables.ts";
 
 type Presented = { previous: Table | undefined; table: Table; cues: readonly Cue[] };
@@ -24,7 +23,7 @@ function showing(readSheet: (ordinal: number) => Promise<GameSheet | null>) {
     const presented: Presented[] = [];
     const resultShown: (() => void)[] = [];
     const declarerWon: (boolean | null)[] = [];
-    const stillTricks: { ordinal: number; trick: SheetTrick }[] = [];
+    const stillTricks: DecidingTrick[] = [];
     const shown = tableShowing(
         (previous, table, cues, closing) => {
             presented.push({ previous, table, cues });
@@ -34,7 +33,7 @@ function showing(readSheet: (ordinal: number) => Promise<GameSheet | null>) {
         },
         readSheet,
         () => stageIsMoving,
-        (ordinal, trick) => stillTricks.push({ ordinal, trick }),
+        (deciding) => stillTricks.push(deciding),
     );
     return { shown, presented, resultShown, declarerWon, stillTricks };
 }
@@ -200,9 +199,15 @@ describe("the table that follows the last card", () => {
         await vi.advanceTimersByTimeAsync(0);
 
         expect(presented.map(({ table }) => table)).toEqual([afterwards]);
-        expect(stillTricks.map(({ ordinal, trick }) => [ordinal, trick.taker?.seat])).toEqual([
-            [afterwards.result?.ordinal, sheetOfTrickThree.cards?.tricks.at(-1)?.taker_seat],
-        ]);
+        expect(stillTricks.map(({ ordinal, trick, declarerWon }) => [ordinal, trick.taker?.seat, declarerWon])).toEqual(
+            [
+                [
+                    afterwards.result?.ordinal,
+                    sheetOfTrickThree.cards?.tricks.at(-1)?.taker_seat,
+                    afterwards.result?.kind === "declared" && afterwards.result.won,
+                ],
+            ],
+        );
     });
 
     it("shows no still trick once the page has ended while the sheet was read", async () => {

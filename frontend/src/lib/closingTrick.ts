@@ -14,30 +14,20 @@ import {
 // decided before its tenth trick ends with cards in every hand, so each hand gives up only the cards the trick took
 // from it.
 
-// The trick the sheet names last, as the felt draws a trick, or null when it kept no taken trick.
-function lastTrickOf(sheet: GameSheet | null): { trick: LastTrick; laid: SeatedCard[] } | null {
-    const last = sheet?.cards?.tricks.at(-1);
-    if (last?.taker_seat == null || last.cards.length === 0) return null;
-    return {
-        trick: {
-            cards: last.cards.map(({ card }) => card),
-            leader_seat: (last.cards[0] as SeatedCard).seat,
-            taker_seat: last.taker_seat,
-        },
-        laid: last.cards,
-    };
-}
-
 /** The table as the page shows it while the last trick rests and sweeps, or null when the sheet has no last trick to draw. */
 export function closeHand(previous: Table, next: Table, sheet: GameSheet | null): Table | null {
     const tricks = sheet?.cards?.tricks ?? [];
-    const last = lastTrickOf(sheet);
+    const last = tricks.at(-1);
     const hand = previous.hand as Hand;
     const playing = hand.playing as Playing;
-    if (last === null) return null;
-    const { trick } = last;
+    if (last?.taker_seat == null || last.cards.length === 0) return null;
+    const trick: LastTrick = {
+        cards: last.cards.map(({ card }) => card),
+        leader_seat: (last.cards[0] as SeatedCard).seat,
+        taker_seat: last.taker_seat,
+    };
     // The cards of the trick that were on the felt already left their hands with the tables before.
-    const laid = last.laid.slice(playing.current_trick.length);
+    const laid = last.cards.slice(playing.current_trick.length);
     const laidBy = (seat: number): Card[] => laid.filter((seated) => seated.seat === seat).map(({ card }) => card);
     const ownSeat = previous.chairs.find((chair) => chair.is_mine)?.seat;
     const ownLaid = ownSeat === undefined ? [] : laidBy(ownSeat);

@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { Attachment } from "svelte/attachments";
 
-    import type { SheetTrick } from "#lib/gameSheet.ts";
+    import type { DecidingTrick } from "#lib/closingHand.ts";
     import { MOTION_SETS } from "#lib/motionSets.ts";
     import type { ResultView } from "#lib/result.ts";
     import { motionInForce } from "#lib/settings.svelte.ts";
@@ -22,7 +22,7 @@
     }: {
         view: ResultView;
         counts?: boolean;
-        deciding?: { trick: SheetTrick; declarerWon: boolean } | null;
+        deciding?: DecidingTrick | null;
     } = $props();
 
     // A won result that appeared while the page watched throws the confetti of the motion set in force, if it has any.
@@ -82,7 +82,10 @@
         {/if}
     </div>
     {#if deciding !== null}
-        <ul class={["deciding", deciding.declarerWon ? "won" : "lost"]} aria-label={words["play.lastTrick"]}>
+        <ul
+            class={["deciding", { won: deciding.declarerWon === true, lost: deciding.declarerWon === false }]}
+            aria-label={words["play.lastTrick"]}
+        >
             {#each deciding.trick.cards as { card, by } (by.seat)}
                 <li class="deciding-card" class:took={by.seat === deciding.trick.taker?.seat} data-seat={by.seat}>
                     <span class="face" role="img" aria-label={cardName(card)}><CardFace {card} /></span>
