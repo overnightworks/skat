@@ -13,7 +13,8 @@ from skat.web.declaring import (
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable
-from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.people import PHONE, WIDTHS
+from tests.e2e.support.turn_key import POPS_RINGS_AND_SHINES, let_it_move, motion_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -178,6 +179,35 @@ def test_the_winner_takes_the_skat_puts_two_back_and_declares_with_a_reload_at_e
     expect(declarer.locator(PLAQUE)).not_to_contain_text(NULL_HAND)
     reload_and_wait(declarer)
     expect_no_controls(declarer)
+    assert page_errors == []
+
+
+def test_each_key_the_declarer_is_awaited_on_pops_once_it_can_be_pressed_and_the_glass_hand_key_never(
+    deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str]
+) -> None:
+    declarer = let_it_move(deal_a_declaring_table(PHONE).declarer)
+    take, put_back, announce = (button_of(declarer, name) for name in (TAKE_SKAT, PUT_BACK, ANNOUNCE))
+
+    expect(take).to_be_enabled()
+    assert motion_of(take) == POPS_RINGS_AND_SHINES
+    assert motion_of(button_of(declarer, HAND)) == frozenset()
+
+    take.click()
+    expect(put_back).to_be_disabled()
+    assert motion_of(put_back) == frozenset()
+    cards = declarer.locator(PICKABLE_CARD)
+    expect(cards).to_have_count(CARDS_AFTER_THE_TAKE)
+    tap(cards.nth(0))
+    tap(cards.nth(1))
+    expect(put_back).to_be_enabled()
+    assert motion_of(put_back) == POPS_RINGS_AND_SHINES
+
+    put_back.click()
+    expect(announce).to_be_disabled()
+    assert motion_of(announce) == frozenset()
+    button_of(declarer, NULL_GAME).click()
+    expect(announce).to_be_enabled()
+    assert motion_of(announce) == POPS_RINGS_AND_SHINES
     assert page_errors == []
 
 

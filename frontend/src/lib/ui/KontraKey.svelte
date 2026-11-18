@@ -10,6 +10,9 @@
     // A word is under way from the tap until the stream brings a newer version; only a refusal ends it sooner.
     let sentAtVersion = $state<number | null>(null);
     const busy = $derived(sentAtVersion === table.version);
+    // The table waits on the viewer's word only while the first card waits on it; a word he may still say once the play
+    // runs is not awaited, so its key neither pops nor shines.
+    const awaited = $derived(declinable !== null && !busy);
 
     async function send(request: (version: number) => Promise<Outcome>): Promise<void> {
         if (busy) return;
@@ -27,9 +30,13 @@
     <button
         type="button"
         class="copy kontra"
+        class:turnkey={awaited}
         disabled={busy}
         onclick={() => send((version) => sayKontra(id, version, crypto.randomUUID(), word))}
     >
+        {#if awaited}
+            <span class="sheen" aria-hidden="true"></span>
+        {/if}
         <svg
             viewBox="0 0 24 24"
             fill="none"

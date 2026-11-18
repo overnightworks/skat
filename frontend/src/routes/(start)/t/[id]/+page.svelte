@@ -6,7 +6,7 @@
     import { abortView } from "#lib/abort.ts";
     import { grumblingAt, ring, stopRinging } from "#lib/bell.svelte.ts";
     import { bidLadder } from "#lib/bidLadder.ts";
-    import { tableShowing, type Presenter } from "#lib/closingHand.ts";
+    import { tableShowing, type DecidingTrick, type Presenter } from "#lib/closingHand.ts";
     import { springsUp, stampBetween, type BidWord } from "#lib/cues.ts";
     import { browserCallHost, greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import {
@@ -146,6 +146,8 @@
     let justWon = $state(false);
     // The ordinal of the result that appeared while this page watched; only its card counts the gains up.
     let countedOrdinal = $state<number | null>(null);
+    // The trick that decided a game before its tenth, shown on its result as the stage stood still.
+    let stillTrick = $state<DecidingTrick | null>(null);
     // The cards this page saw laid in the running hand; a card that was not seen laid, a reload's for one, is not here.
     let playedThisHand = $state<Card[]>([]);
     // The latest word said at this table in the running hand, which the stamp shows for a moment.
@@ -171,7 +173,7 @@
         seatNoteTimer = setTimeout(() => (seatNote = null), SEAT_NOTICE_MILLISECONDS);
     }
 
-    const presentTable: Presenter = (previous, table, cues, whenResultShown) => {
+    const presentTable: Presenter = (previous, table, cues, closing) => {
         streamedVersion = table.version;
         streamedWatchers = table.watchers;
         seatedAgents = seatedAgentsKey(previous, table);
@@ -202,10 +204,15 @@
         if (table.result === null) countedOrdinal = null;
         outcome = { kind: "table", table };
         // The stage may show the result at once, so nothing of this table is set after it.
-        receiveOnStage(previous, cues, whenResultShown);
+        receiveOnStage(previous, cues, closing);
     };
 
-    const tables = tableShowing(presentTable, (ordinal) => readGameSheet(id, ordinal), stageMoves);
+    const tables = tableShowing(
+        presentTable,
+        (ordinal) => readGameSheet(id, ordinal),
+        stageMoves,
+        (deciding) => (stillTrick = deciding),
+    );
 
     // SvelteKit keeps this component when the address changes from one table to another.
     $effect(() => {
@@ -215,6 +222,7 @@
         attention = 0;
         justWon = false;
         countedOrdinal = null;
+        stillTrick = null;
         streamedVersion = null;
         seatNote = null;
         asking = null;
@@ -544,7 +552,11 @@
             {#if standing !== null}
                 <Standings view={standing} />
             {:else if view !== null}
-                <ResultCard {view} counts={declared?.ordinal === countedOrdinal} />
+                <ResultCard
+                    {view}
+                    counts={declared?.ordinal === countedOrdinal}
+                    deciding={stillTrick?.ordinal === declared?.ordinal ? stillTrick : null}
+                />
             {:else if ramschView !== null}
                 <RamschResultCard view={ramschView} />
             {/if}

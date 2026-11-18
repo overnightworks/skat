@@ -1,3 +1,4 @@
+import type { Closing } from "./closingHand.ts";
 import { isChairCue, type ChairCue, type Cue } from "./cues.ts";
 import { MOTION_SETS, type MotionSet } from "./motionSets.ts";
 import { currentSettings, motionInForce } from "./settings.svelte.ts";
@@ -21,6 +22,8 @@ let looking: number | null = $state(null);
 let timer: ReturnType<typeof setTimeout> | undefined;
 // What the page does with the result of the hand whose last trick the stage moves, once the stage has settled.
 let showResult: (() => void) | undefined;
+// Whether the declarer of the hand whose last trick the stage moves won it, none in a Ramsch.
+let closingWon = $state<boolean | null>(null);
 // The chairs that changed hands in the latest update, while their motion lasts.
 let moving: readonly ChairCue[] = $state([]);
 let movingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -51,6 +54,14 @@ function apply(step: Step, cues: readonly Cue[] = []): void {
 /** The pacing now; a trick on the move shows apart from the received table. */
 export function currentStage(): StageState {
     return stage;
+}
+
+/**
+ * Whether the declarer won the hand whose last trick has rested and lifts the card that took it, null in a Ramsch;
+ * undefined while that trick still lands and rests, and while no last trick moves.
+ */
+export function closingTrickWon(): boolean | null | undefined {
+    return (stage.phase === "lifting" || stage.phase === "gliding") && stage.resultPending ? closingWon : undefined;
 }
 
 /** The seat a finished trick glides to, while it glides. */
@@ -108,10 +119,10 @@ export function stageMoves(): boolean {
 }
 
 /**
- * The update `cues` brought to the table that followed `previous`. `whenResultShown` is given for the cues of the
- * trick that closes the hand: the stage calls it once that trick has rested and swept, or at once when it does not move.
+ * The update `cues` brought to the table that followed `previous`. `closing` is given for the cues of the trick that
+ * closes the hand: the stage shows its result once that trick has rested and swept, or at once when it does not move.
  */
-export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[], whenResultShown?: () => void): void {
+export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[], closing?: Closing): void {
     if (previous === undefined) {
         resetStage();
         return;
@@ -125,14 +136,15 @@ export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[]
         moving = cues.filter(isChairCue);
         movingTimer = setTimeout(stopChairs, chairMilliseconds);
     }
-    showResult = whenResultShown;
+    showResult = closing?.whenResultShown;
+    closingWon = closing?.declarerWon ?? null;
     apply(
         receive(stage, {
             cues,
             before: previous.hand?.playing ?? null,
             timing,
             mode: currentSettings().lastTrick,
-            closing: whenResultShown !== undefined,
+            closing: closing !== undefined,
             now: Date.now(),
         }),
         cues,

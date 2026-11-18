@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { outcomeRim } from "#lib/closingHand.ts";
     import { ownCardSlotOpen, type LaidCard } from "#lib/playView.ts";
     import CardFace from "#lib/ui/CardFace.svelte";
     import { words } from "#lib/words.ts";
@@ -6,19 +7,22 @@
 
     // The cards this page saw played in the running hand; only those land, a card drawn from a reload stands still.
     // `turnSeat` is the seat whose card the table waits for, undefined while the hand waits for a sitter or a trick
-    // is on the move. `sweptTo` is the seat whose pile the trick glides to while it glides.
+    // is on the move. `sweptTo` is the seat whose pile the trick glides to while it glides. `took` is the seat whose card
+    // took the last trick of the hand and whether the declarer won it, null in a Ramsch, once that trick has rested.
     const {
         chairs,
         laid,
         playedThisHand,
         turnSeat,
         sweptTo,
+        took = null,
     }: {
         chairs: Chair[];
         laid: LaidCard[];
         playedThisHand: Card[];
         turnSeat: number | null | undefined;
         sweptTo: number | null;
+        took?: { seat: number; declarerWon: boolean | null } | null;
     } = $props();
 
     // A name that fits its tag whole leaves the tags of the trick apart, as the scenes draw them. A name cut to the tag's
@@ -96,7 +100,15 @@
 
 <ul class="trick" class:stepped class:sweeping={sweptTo !== null} aria-label={words["play.trick"]} bind:this={trick}>
     {#each laid as { card, seat, slot, name, initial } (`${card.suit}-${card.rank}`)}
-        <li class={`laid ${slot}${includesCard(playedThisHand, card) ? " fresh" : ""}`} data-seat={seat}>
+        <li
+            class={[
+                "laid",
+                slot,
+                { fresh: includesCard(playedThisHand, card) },
+                took?.seat === seat && ["took", outcomeRim(took.declarerWon)],
+            ]}
+            data-seat={seat}
+        >
             <span class="face" role="img" aria-label={cardName(card)}><CardFace {card} /></span>
             <span class="tag">
                 <span class="dot" aria-hidden="true">{initial}</span>

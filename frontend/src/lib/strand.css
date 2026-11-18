@@ -308,8 +308,9 @@
     box-shadow: inset 0 0 0 1px rgba(110, 76, 30, 0.35);
 }
 
-/* Text on the lighter top stays readable: dark glass behind light text. */
-.room[data-style="strandbar"] :is(.plaque, .result, .copy, .sheet) {
+/* Text on the lighter top stays readable: dark glass behind light text. The decision keys the table waits on keep
+   their bright colour, so they never read as greyed out; :where keeps the rule's weight that of a plain key. */
+.room[data-style="strandbar"] :is(.plaque, .result, .copy:not(:where(.weiter, .kontra)), .sheet) {
     background-color: rgba(28, 17, 22, 0.74);
 }
 

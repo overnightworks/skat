@@ -1143,6 +1143,7 @@ const IDEAS=[
   ['🏳','Aufgeben','Wer aufgibt, fragt die andere Seite: die Tafel nennt den Fragenden mit seinem Gesicht, die Gegenseite antwortet mit zwei Tasten, ein Nein setzt ein Kreuz auf den Stuhl, und das Ergebnis trägt den Stempel „Aufgegeben“.','giveup-asked, giveup-waits, giveup-side, giveup-end'],
   ['✂','Abkürzen und offen spielen','Der Alleinspieler fragt „Abkürzen“: die Tafel nennt ihn mit seinem Gesicht und die geforderte Stufe, jeder Gegner antwortet „Ja“ oder „Nein“, ein Nein legt die Karten des Alleinspielers für alle offen und das Spiel geht weiter. Ein Gegner „spielt offen“ mit einer Zeile im Menü, die ein zweites Mal fragt; liegt er falsch, fragt die Tafel den Alleinspieler, und spielt der weiter, liegen die Karten dieses Gegners für alle offen.','shorten-asked, shorten-waits, shorten-watch, shorten-refused, shorten-end, open-play-key, open-play-asked, open-play-on, open-play-end'],
   ['🔢','Serie','Eine ruhige Marke zählt „Spiel 8 von 36“; am Ende zeigt die Rangliste Platz, Stand sowie gewonnene und verlorene Spiele, und „Neue Serie“ setzt alle Bierdeckel auf null.','series-play, series-end, series-fresh'],
+  ['🏁','Der entscheidende Stich','Ein Spiel, das vor dem zehnten Stich entschieden ist, zeigt seinen entscheidenden Stich wie jeder letzte Stich: er liegt, die Karte, die ihn nahm, hebt sich rot (Alleinspieler verliert) oder gold (er gewinnt), dann steigt das Ergebnis; ohne Bewegung steht der Stich als Reihe auf der Ergebniskarte. Die Taste, auf die der Tisch wartet, bleibt in jedem Stil hell, springt bei deinem Zug und glänzt, solange er offen ist.','deciding-lost, deciding-won, deciding-still, turn-pop, strand-turn-pop'],
   ['🃏','Stiche eines Spiels','Ein Tipp auf eine Zeile der Liste öffnet das Spiel: Skat und Gedrücktes, die Augen gegen die 61, dann jeder Stich mit seinen drei Karten, dem Punkt dessen, der stach, und seinen Augen; ein Ramsch zeigt die Augen jedes Stuhls, ein früh beendetes Spiel, wie es endete. (#573)','game-tricks, game-ramsch, game-ended'],
   ['☝','Wisch-Hinweis','Die angetippte Karte hebt sich, ein Pfeil stupst zweimal nach oben: nochmal tippen oder hochwischen.','call-play'],
   ['⋯','Das Menü des Tisches','Unten liegt nur, was das Spiel jetzt fragt (Reizen, Halten, Weg, Kontra und Re, Weiter). Alles, was den Tisch betrifft, liegt oben hinter „⋯“: „Tisch“ mit Link kopieren, Agenten, Stil, Regeln (öffnet das Regelblatt, die Marken bleiben in der oberen Zeile), Aufstehen und „Tisch schließen“ für den, der ihn öffnete, dazu „Serie beenden“; „Spiel“ mit „Abkürzen“ (der Alleinspieler), „Offen spielen“ (ein Gegner), „Aufgeben“ und „Abbrechen“; „Offen spielen“, „Aufgeben“ und „Abbrechen“ werden ein zweites Mal gefragt. Im Anruf, wo die obere Zeile dem Anruf gehört, steht die Menütaste in Skats Leiste.','agents-strip, agents-list, agents-leave, menu-armed, menu-call, menu-watch'],
@@ -2547,11 +2548,41 @@ const STRAND_SCENES=[
   ['strand-trick','Strandbar: ein Stich',[360,390,1280],strandView((d,w)=>trickTable(d,w,{felt:restingTrick(d),annaLast:true,felixTricks:1}),{360:{shell:[41,424]}}),
     ['Der Stich liegt mit seinen Namen auf dem Tisch: Annas Pik-König, Novas Sieben, Felix’ Ass. Neben Annas Stuhl liegt ihr Stapel mit dem letzten Stich und dem hellen Rand, neben Felix sein erster.',SEA_CAPTION]],
   ['strand-result','Strandbar: das Ergebnis',[360,390,1280],strandView((d)=>endScene(d,OWN_WIN,tapButton,1,declarerWinsConfetti(d)),{glass:[336,590],shell:[54,596]}),
-    ['Die Ergebniskarte bleibt dunkles Glas mit hellem Text, die Strohuntersetzer tragen die Punkte.',SEA_CAPTION]],
+    ['Die Ergebniskarte bleibt dunkles Glas mit hellem Text, die Strohuntersetzer tragen die Punkte; „Weiter“ bleibt hell in der Farbe des Tisches wie in Klassik.',SEA_CAPTION]],
   ['strand-choose','Strandbar: der Stil am Tisch',[360,390,1280],strandView((d,w)=>soundTable(d,w,{over:stylePanel(d,'Strandbar')}).replace(menuKey(d),styleKey(d,{open:true}))),
     ['Wer am Tisch sitzt, wählt den Stil mit der Zeile „Stil“ im Menü „⋯“; das Menü schließt sich, und die Tafel hängt unter „⋯“: Klassik oder Strandbar, je mit einer kleinen Vorschau; die gewählte trägt Haken und Farbe. Der Stil gehört dem Tisch und nicht der Person: Er ändert sich für alle am Tisch sofort, auch für die Zuschauer, die selbst keine Taste dafür haben. Die Tafel „Ton und Bewegung“ behält nur Ton, Lautstärke und die Sets; Lautstärke und Stumm bleiben je Gerät.',SEA_CAPTION]],
 ];
 soundScenes(STRAND_SCENES,'strand');
+/* ===== a game decided before its tenth trick: the deciding trick lands and rests, the card that took it lifts with a red rim when the declarer loses and a gold one when he wins, then the result rises ===== */
+/* Felix plays Null Hand; in the third trick Anna leads the ♥ 8, Nova adds the 7, and Felix must take it with the queen */
+const NULL_DECIDING=[['8','h','anna','left'],['7','h','nova','right'],['D','h','felix','near']];
+/* the tenth trick of Felix's won Kreuz: he takes Anna's ♠ king with the ace, the last of his cards */
+const TENTH_TRICK=THIRD_TRICK;
+const decidingTrick=(d,trick,rim)=>trick.map(([r,s,k,slot])=>played(r,s,k,{...slotOf(d,slot),fx:'0px',fy:'120px',fr:'0deg'})
+  .replace('class="play ',k==='felix'?`class="play took ${rim} `:'class="play ')).join('');
+const decidingTable=(d,w,o)=>{const L=seatsOf(d);
+  return tableOf(d,{fans:o.fans,count:true})+plaque(mid(d),plaqueY(d),o.game)+o.felt+pile(d,'anna',o.annaTricks,{last:true})+(o.felixTricks?pile(d,'felix',o.felixTricks,{}):'')
+    +seat('anna',L.anna)+seat('nova',L.nova)+seat('felix',{...L.you,marks:['decl']})+chairCoasters(L,TOTALS_BEFORE)
+    +ownCards(d,o.hand)+stripOf(d,{lead:GIVE_UP,pill:agentPill(d)})+soundTop(d,w);};
+const NULL_LOST={...NULL_HAND,winners:['anna','ben'],adds:[40,40,-120],won:false,word:'Verloren',calc:{label:'Null Hand',fixed:35,steps:[],won:false}};
+/* with motion still the result rises at once and carries the deciding trick as a static row under the game, the card that took it in the rim; at the result table Nova's chair is Ben's */
+const decidingRow=(trick,rim)=>`<div class="deciding ${rim}" aria-label="Entscheidender Stich">${trick.map(([r,s,k])=>`<span class="dc ${k==='felix'?'took':''}">${card(r,s,'',at({'--w':34}))}${faceTag(k==='nova'?'ben':k)}</span>`).join('')}</div>`;
+const stillEnd=(d,o,trick,rim)=>endScene(d,o,tapButton).replace(/(<div class="sub"><div class="game">[\s\S]*?<\/div>[\s\S]*?<\/div>)/,`$1${decidingRow(trick,rim)}`);
+/* the key the table waits on from the viewer pops once when his turn begins and carries the sheen while it stays open */
+const turnKey=(html,find)=>html.replace(find,(m)=>m.replace('class="','class="turnkey mo ').replace(/>$/,' style="--k:.3s"><span class="sheen" aria-hidden="true"></span>'));
+const DECIDING_SCENES=[
+  ['deciding-lost','Früh verloren: der entscheidende Stich',[360,390,1280],(d,w)=>decidingTable(d,w,{felt:decidingTrick(d,NULL_DECIDING,'lost'),game:gameLine('','Null Hand'),fans:7,annaTricks:2,felixTricks:0,hand:AFTER_HAND}),
+    ['Ein Spiel, das vor dem zehnten Stich entschieden ist, endet nicht mit dem Ergebnis: Felix spielt Null Hand und muss im dritten Stich Annas Herz-Acht mit der Dame nehmen. Der Stich landet und liegt still wie jeder Stich; die Dame, die ihn nahm, hebt sich mit rotem Rand, denn der Alleinspieler verliert. Erst dann steigt die Karte „Verloren“; Felix behält bis dahin seine übrigen sieben Karten.']],
+  ['deciding-won','Der letzte Stich eines gewonnenen Spiels',[390,1280],(d,w)=>decidingTable(d,w,{felt:decidingTrick(d,TENTH_TRICK,'won'),game:gameLine('c','Kreuz'),fans:0,annaTricks:3,felixTricks:6,hand:[]}),
+    ['Gewinnt der Alleinspieler, trägt die Karte, die den entscheidenden Stich nahm, einen goldenen Rand: hier Felix’ Pik-Ass im zehnten Stich seines Kreuz. Danach steigt „Gewonnen!“.']],
+  ['deciding-still','Früh verloren, Bewegung reduziert',[360,390,1280],(d)=>stillEnd(d,NULL_LOST,NULL_DECIDING,'lost'),
+    ['Mit reduzierter Bewegung oder im verborgenen Fenster steht das Ergebnis sofort da; unter dem Spiel zeigt die Karte den entscheidenden Stich als stille Reihe in der gespielten Folge, die Karte, die ihn nahm, im roten Rand des verlorenen Spiels.']],
+  ['turn-pop','Du bist dran: die Taste',[390,1280],(d)=>turnKey(BID_SCENES.find(([id])=>id==='bid-middle')[2](d),/<span class="button button-stage">/),
+    ['Wenn Felix dran ist, springt die Taste, auf die der Tisch von ihm wartet, einmal kurz auf, und ein Ring um sie verblasst; solange er dran bleibt, läuft langsam ein heller Glanz über sie. Das gilt für „Weiter“, das Reizen, Kontra und „Ansagen“. Mit reduzierter Bewegung steht die Taste nur hell da.']],
+  ['strand-turn-pop','Strandbar: du bist dran',[390,1280],strandView((d)=>turnKey(BID_SCENES.find(([id])=>id==='bid-middle')[2](d),/<span class="button button-stage">/)),
+    ['Auch in der Strandbar bleibt die Taste, auf die der Tisch wartet, hell in der Farbe des Tisches und ist nie dunkles Glas: „Weiter“, das Reizen, Kontra und „Ansagen“ sehen nie ausgegraut aus. Sie springt und glänzt wie in Klassik.',SEA_CAPTION]],
+];
+soundScenes(DECIDING_SCENES);
 
 /* ===== S15.11: the tapped bell: a cowbell swings in over the chair the table waits for and rings, the chair shakes, the nudged one grumbles in a bubble ===== */
 /* Anna holds the turn and stays silent; Felix tapped the bell at her chair. Every page at the table sees the same moment; the tap's own green tick is gone */
@@ -3220,6 +3251,30 @@ if(panels.length){hangPanels();document.fonts.ready.then(hangPanels);}}
 .setsheet .btns{position:static;transform:none}
 .setsheet .btns .button{flex:1;min-width:0}
 .takeback{flex:none;font-size:13px;color:var(--on-stage-soft);text-align:center}
+</style>
+<style>
+/* ---------- the deciding trick: the card that took it lifts with a red rim when the declarer loses, a gold one when he wins; with motion still it stands as a row on the result card ---------- */
+.play.took .card{translate:0 -14px;outline:3px solid var(--rim-c);outline-offset:2px}
+.play.took.lost{--rim-c:var(--leave)}
+.play.took.won{--rim-c:var(--brass-hi)}
+.result .deciding{display:flex;justify-content:center;gap:8px;margin:8px 0 2px}
+.result .deciding .dc{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--on-stage-soft)}
+.result .deciding .dc.took .card{outline:2px solid var(--rim-c);outline-offset:2px}
+.result .deciding.lost{--rim-c:var(--leave)}
+.result .deciding.won{--rim-c:var(--brass-hi)}
+/* the decision key the table waits on from the viewer: bright in every style; at the viewer's turn it pops once (a short scale and a fading ring), and while the turn stays open a slow sheen runs over it */
+.turnkey{position:relative;overflow:visible;isolation:isolate}
+.turnkey::before{content:"";position:absolute;inset:-6px;border-radius:inherit;box-shadow:0 0 0 3px var(--accent-stage);opacity:.55;pointer-events:none}
+.turnkey .sheen{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none}
+.turnkey .sheen::after{content:"";position:absolute;top:0;bottom:0;left:0;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);translate:60% 0}
+@media (prefers-reduced-motion:no-preference){
+  .turnkey.mo{animation:key-pop .42s cubic-bezier(.3,1.6,.5,1) var(--k,.3s) both}
+  .turnkey.mo::before{animation:key-ring .7s ease-out var(--k,.3s) both}
+  .turnkey.mo .sheen::after{animation:key-sheen 2.8s ease-in-out calc(var(--k,.3s) + .5s) infinite}
+  @keyframes key-pop{0%{scale:1}45%{scale:1.12}100%{scale:1}}
+  @keyframes key-ring{0%{scale:.92;opacity:.9}100%{scale:1.25;opacity:0}}
+  @keyframes key-sheen{0%{translate:-120% 0}55%,100%{translate:260% 0}}
+}
 </style>
 </body>
 </html>
