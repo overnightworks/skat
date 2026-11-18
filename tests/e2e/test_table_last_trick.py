@@ -12,10 +12,11 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, holds, passes
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
 from tests.e2e.support.turn_key import POPS_RINGS_AND_SHINES, motion_of
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -43,6 +44,9 @@ DECIDING_ROW_CARD = ".result .deciding .deciding-card"
 DECIDING_TRICK = text(SOURCE_LANGUAGE, "result.decidingTrick")
 # The thirtieth card ends the hand.
 CARDS_IN_A_HAND = 30
+# In this deal the forehand's Null, his strongest card on each trick against the opponents' weakest, falls in trick 3.
+DEAL_WHERE_THE_FOREHANDS_NULL_FALLS_IN_THE_THIRD_TRICK = 12
+CARDS_UNTIL_THE_DECIDING_TRICK_ENDS = 3 * CARDS_IN_A_TRICK
 # An installed clock keeps ticking until paused, and pausing only moves time forward, so it stops this far ahead.
 CLOCK_HOLD_LEAD = timedelta(seconds=5)
 
@@ -59,6 +63,14 @@ class DeclarerLeadsTable(DeclaringTable):
     )
 
 
+@pytest.fixture(scope="module")
+def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
+    """This module's Skat, which deals every hand alike, so a Null lost early falls in the same trick each run."""
+    random_source = AlwaysTheSameDeal(DEAL_WHERE_THE_FOREHANDS_NULL_FALLS_IN_THE_THIRD_TRICK)
+    with skat_on_new_database(tmp_path_factory, random_source=random_source) as server:
+        yield server
+
+
 @pytest.fixture
 def null_table(
     open_person: Callable[..., Page],
@@ -67,7 +79,7 @@ def null_table(
     page_errors: list[str],
     form_factor: dict[str, Any],
 ) -> PlayingTable:
-    """A Null the declarer leads; he plays his strongest cards, so his first trick decides it early."""
+    """A Null the declarer leads; he plays his strongest cards, so his first trick, the third, decides it early."""
     return deal_playing_table(
         open_person, e2e_server, member_of, page_errors, form_factor, game="null", declaring=DeclarerLeadsTable
     )
@@ -468,7 +480,7 @@ def test_a_null_lost_early_rests_its_deciding_trick_then_lifts_the_declarers_car
 
     played = null_table.play_until_the_declarer_takes_a_trick()
 
-    assert played < CARDS_IN_A_HAND
+    assert played == CARDS_UNTIL_THE_DECIDING_TRICK_ENDS
     expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
     expect(watcher.locator(RESULT_CARD)).to_have_count(0)
     expect(watcher.locator(f"{FELT_CARD}.took")).to_have_count(0)
