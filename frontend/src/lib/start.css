@@ -91,14 +91,14 @@ body {
     overscroll-behavior: contain;
 }
 
-/* The block's stacking level, which holds the opening sheet, is 2, so a tall sheet covers whatever scrolls under it. */
+/* The block's stacking level, which holds the opening sheet, is 2, so a tall sheet covers whatever scrolls under it; a short lobby leaves it the space above, so it still stands at the screen's foot. */
 .with-lobby .start-main {
     --fade: rgba(14, 9, 7, 0.97);
 
     position: sticky;
     bottom: 0;
     z-index: 2;
-    order: 2;
+    margin-top: auto;
     display: flex;
     flex: none;
     justify-content: center;
