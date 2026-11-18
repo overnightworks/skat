@@ -12,7 +12,8 @@
 
     // `live` is the table while it runs: its watchers, the rules it was opened with, its Bock games and the series' count,
     // whose list reads again at each version of table `id`. `menu` is the table's menu, which stands at the bar's end. In a
-    // call the wordmark stands in for the link to the Lobby, and the call's own strip carries the speaker and the menu.
+    // call the wordmark stands in for the link to the Lobby, and the call's own strip carries the speaker and the menu of
+    // a running table; a table that does not run has no strip, so the bar carries its menu.
     let {
         callMode,
         attention,
@@ -77,5 +78,7 @@
         {#if !callMode}
             {@render menu()}
         {/if}
+    {:else}
+        {@render menu()}
     {/if}
 </header>

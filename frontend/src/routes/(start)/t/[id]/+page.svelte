@@ -18,7 +18,6 @@
         type GiveUpAnswer,
     } from "#lib/giveUp.ts";
     import { firstCardWait, keyWord, type Stamp } from "#lib/kontra.ts";
-    import { legalLinks } from "#lib/legal.ts";
     import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
     import {
         bidLineOfGameDeclaredInTheStage,
@@ -30,7 +29,7 @@
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import { resultOnStage, seriesCountText, seriesEndAsk, seriesOver, standingsView } from "#lib/series.ts";
     import { declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
-    import { AiMark, LegalLinks, Marked } from "overnightworks-design";
+    import { AiMark, Marked } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AnswerMarks from "#lib/ui/AnswerMarks.svelte";
     import AskPlaque from "#lib/ui/AskPlaque.svelte";
@@ -72,6 +71,7 @@
     import WaitingPlaque from "#lib/ui/WaitingPlaque.svelte";
     import TrickStage from "#lib/ui/TrickStage.svelte";
     import TableBar from "#lib/ui/TableBar.svelte";
+    import MenuKey from "#lib/ui/MenuKey.svelte";
     import TableMenu from "#lib/ui/TableMenu.svelte";
     import WeiterKey from "#lib/ui/WeiterKey.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
@@ -376,6 +376,8 @@
             watchers={streamedWatchers}
             kitWords={data.kitWords}
         />
+    {:else if outcome !== null}
+        <MenuKey {place} kitWords={data.kitWords} />
     {/if}
 {/snippet}
 
@@ -775,10 +777,4 @@
     <div class="reconnect" role="status" hidden={connected}>
         <span class="spin"></span>{streamsFull ? words["table.tooManyStreams"] : words["table.reconnecting"]}
     </div>
-    <!-- The table menu holds the account and its legal links; a closed or failed table has no menu, so its page carries them. -->
-    {#if outcome !== null && !(outcome.kind === "table" && outcome.table.ended === null)}
-        <footer class="legal">
-            <LegalLinks links={legalLinks(words)} newTab words={data.kitWords} />
-        </footer>
-    {/if}
 </div>

@@ -2658,12 +2658,12 @@ const seriesEndStandings=(d,rows)=>`<div class="result standing" role="status" s
   <h3>${I.trophy}Serie zu Ende</h3><div class="sub">36 Spiele</div><div class="ranks">${rows.map(seriesEndRank).join('')}</div>${nextLine()}</div>`;
 const NEW_SERIES_KEY=barKey('',I.check,'Neue Serie');
 const STOP_KEY=barKey('glass',I.stand,'Aufhören');
-/* the ended table's link: the empty chairs, the final standings, the games to read, a new table */
+/* the ended table's link: the empty chairs, the final standings, the games to read, a new table, and „⋯“, which holds only „Konto“ */
 const lastGames=()=>[...GAMES_PLAYED].reverse().slice(0,7).map(([n,k,...rest])=>{const who=k==='felix'?'mozart':k,p=P[who],row=gameRow([n+16,who==='mozart'?'anna':who,...rest]);
   return who==='mozart'?row.replace(/<span class="dot" style="[^"]*">A<\/span>/,`<span class="dot agent">${dotInner(p)}</span>`).replace('<b>Anna</b>',`<b>${p.n}${aiMark()}</b>`):row;}).join('');
 const CLOSED_ROWS=[['anna',1,502],['ben',2,365],['mozart',3,233]];
 const closedTable=(d)=>(d?emptyChair(DE.anna,'anna',-7)+emptyChair(DE.right,'ben',7)+emptyChair(DE.you,'felix',4)+table(DB.table)
-  :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table))+homeButton(d,homeBadge)
+  :emptyChair(PE.anna,'anna',-7)+emptyChair(PE.right,'ben',7)+emptyChair(PE.you,'felix',4)+table(PB.table))+homeButton(d,homeBadge)+menuKey(d)
   +`<div class="result standing closedseries" role="status" style="${at(d?{left:640,top:40,width:500}:{left:195,top:64,width:358})}"><h3>${I.trophy}Serie beendet</h3><div class="sub">36 Spiele</div>
   <div class="ranks">${CLOSED_ROWS.map(seriesEndRank).join('')}</div><div class="gamesbox"><span class="lbl">Spiele</span><div class="rows">${lastGames()}</div></div>
   <div class="btns"><span class="button button-stage">${I.plus}Neuer Tisch</span></div></div>`;
@@ -2707,7 +2707,7 @@ const SERIES_END_SCENES=[
   ['seriesend-settings','Nächste Serie ändern',(d)=>SERIES_END_SCENE(d)+seriesSheet(d),
     ['„Ändern“ öffnet die Einstellungen der nächsten Serie, gefüllt mit denen der letzten. Speichern nimmt Annas und Mozarts „Neue Serie“ zurück, denn sie haben die alten Einstellungen gewählt.']],
   ['seriesend-closed','Der Link eines beendeten Tisches',(d)=>closedTable(d),
-    ['Wer den Link eines beendeten Tisches öffnet, sieht die Rangliste mit Platz und Punkten und kann jedes Spiel der Serie nachlesen; wer den Tisch beendet hat, steht nirgends.']],
+    ['Wer den Link eines beendeten Tisches öffnet, sieht die Rangliste mit Platz und Punkten und kann jedes Spiel der Serie nachlesen; wer den Tisch beendet hat, steht nirgends. Oben rechts hält „⋯“ allein „Konto“ mit den Rechtslinks; die Seite hat keine Fußzeile.']],
 ];
 scenes(SERIES_END_SCENES);
 ORDER.push(...SERIES_END_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));

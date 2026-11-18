@@ -4292,13 +4292,6 @@ body {
     color: var(--on-stage-soft);
 }
 
-/* The footer of a page without the table menu; the account menu's legal row keeps the kit's look. */
-.room > .legal {
-    display: flex;
-    justify-content: center;
-    padding: 14px;
-}
-
 @media (min-width: 900px) {
     .room .bar {
         padding: 22px 24px;
