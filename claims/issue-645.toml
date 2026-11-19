@@ -1,0 +1,8 @@
+claim_id = "e3186ff422604ecda385304ff0af84fe"
+agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
+role = "builder"
+base = "a99fe0b25cfbddc0f607b015e455e7f76f447e16"
+branch = "claude/issue-645-the-series-ends-by-everyone-s-yes-offers"
+scope = ["docs/mockups/table.html", "frontend/src", "src/skat/store", "src/skat/table", "src/skat/web", "tests"]
+opened_commit = "af21722035a8d1e34cde62cd3a0628775c41fe59"
+whole_reason = "The series' end travels from the rule through the store, the member tools and the view to every page and removes the close path; the proposal, the end choice and the next settings each need the one before and share the same rows, tools and components."
