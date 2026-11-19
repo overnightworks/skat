@@ -46,7 +46,7 @@ CARD_SLOT = ".trick .lead-slot"
 CARDS_IN_A_HAND = 10
 CARDS_IN_A_TRICK = 3
 # The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
-INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
+INSIDE_THE_VISIBLE_STRIP = {"x": 15, "y": 40}
 # A card on the felt lies toward its player: seen from the trick's middle, it points at that player's chair
 # more closely than at any other chair.
 TOWARD_CHAIR = """(play) => {
