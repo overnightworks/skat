@@ -5459,7 +5459,7 @@ body {
     }
 }
 
-/* The sound: the round speaker (a twin of the Lobby button) in the table's top row or, in a call, in the strip, and the panel it opens. The table's tokens stand for the pictures' own: the picture's text is --on-stage, its muted text --on-stage-soft, its hairline --glass declared on the panel, the knob's mark --stage-ink. Nothing here moves. */
+/* The sound: the round speaker (a twin of the Lobby button) in the table's top row or, in a call, in the strip, and the panel it opens. The table's tokens stand for the pictures' own: the picture's text is --on-stage, its muted text --on-stage-soft, its hairline the family's --glass, the knob's mark --stage-ink. Nothing here moves. */
 .room .sound-button {
     flex: none;
     display: inline-flex;
