@@ -28,7 +28,6 @@ class StreamLeases(Protocol):  # pragma: no cover - a port's method bodies are s
         self,
         handle: Callable[[Lapse], Awaitable[None]],  # noqa: V107 the port's parameter names are tandem's
         *,
-        claimer: str,  # noqa: V107 the port's parameter names are tandem's
         every: timedelta,
     ) -> NoReturn: ...
 

@@ -59,8 +59,12 @@ class TestTheControlReadsWhoListensAgainAtEveryResync(CallingTable):
         self, skat, issuer, changes, felix, table_id
     ):
         Agent(skat, issuer, NOVA, agent_owner=felix.id, agent_name="Nova").listed_resources()
-        changes.store.record_without_turn(
-            "a-stream-of-another-pod", principal_of(skat, NOVA), [STANDING_URI], timedelta(minutes=5)
+        skat.client.portal.call(
+            changes.store.record_without_turn,
+            "a-stream-of-another-pod",
+            principal_of(skat, NOVA),
+            [STANDING_URI],
+            timedelta(minutes=5),
         )
         rows_before = names_of_rows(skat, felix, table_id)
 

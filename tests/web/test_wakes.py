@@ -4,21 +4,19 @@ import pytest
 import structlog
 from logline import current_traceparent, unit_trace
 from structlog.testing import capture_logs
-from tandem import Resubscribed, StoreError, Wake
+from tandem import StoreError
+from tandem.testing import FakeWakeBus
 
 from skat.web import wakes as wakes_module
 from skat.web.secret_files import StartRefusedError
 from skat.web.wakes import AccountTopic, OpenTablesTopic, TableTopic
 from tests.support.idle_presence import idle_wakes
 from tests.support.log_lines import lines_of, logged
-from tests.support.loopback_wake_channel import LoopbackWakeBus
 from tests.web.support.presence import Wakes
 from tests.web.support.wake_pods import ARRIVAL_SECONDS, Pod, run_pods
 
 FIRST_TABLE = TableTopic("a" * 32)
 SECOND_TABLE = TableTopic("b" * 32)
-# More event-loop turns than leaving takes, so that only waiting for the publish lets it arrive.
-SLOW_PUBLISH_TURNS = 50
 ANNA = AccountTopic("account-anna")
 HANDLED = "test.wake_handled"
 OTHER_ACCOUNT = AccountTopic("account-other")
@@ -81,17 +79,15 @@ class TestWakeList:
 
 
 def between_pods(scenario, *, pods=2):
-    """Runs `scenario(bus, *pods)` on pods that follow one bus."""
-    bus = LoopbackWakeBus()
-    channels = [bus.pod() for _ in range(pods)]
-    run_pods(channels, lambda *pod_list: scenario(bus, *pod_list))
-    return bus
+    """Runs `scenario(*pods)` on pods that follow one bus."""
+    bus = FakeWakeBus()
+    run_pods([bus.pod() for _ in range(pods)], scenario)
 
 
 class TestSharedWakes:
     @pytest.mark.parametrize("topic", [FIRST_TABLE, ANNA, OpenTablesTopic()], ids=["table", "account", "open-tables"])
     def test_a_wake_at_one_pod_wakes_the_registrations_of_its_topic_at_the_other_and_no_other(self, topic):
-        async def scenario(_bus, first, second):
+        async def scenario(first, second):
             second.listen("same topic", topic)
             second.listen("other topic", OTHER_ACCOUNT)
             second.listen("marker", SECOND_TABLE)
@@ -105,7 +101,7 @@ class TestSharedWakes:
         between_pods(scenario)
 
     def test_a_wake_wakes_the_registrations_of_the_pod_that_woke_at_once_and_spares_the_one_it_names(self):
-        async def scenario(_bus, first, second):
+        async def scenario(first, second):
             spared = first.listen("spared", FIRST_TABLE)
             first.listen("local", FIRST_TABLE)
             second.listen("second", FIRST_TABLE)
@@ -120,7 +116,7 @@ class TestSharedWakes:
     def test_a_wake_is_handled_in_the_trace_of_the_request_that_sent_it(self, capsys):
         sent_in = []
 
-        async def scenario(_bus, first, second):
+        async def scenario(first, second):
             second.wake_list.register([FIRST_TABLE], lambda: structlog.get_logger().info(HANDLED))
             second.listen("second", FIRST_TABLE)
 
@@ -135,7 +131,7 @@ class TestSharedWakes:
         assert [line["trace_id"] for line in lines_of(lines, HANDLED)] == sent_in
 
     def test_a_wake_sent_outside_any_trace_is_handled_in_a_trace_of_its_own(self, capsys):
-        async def scenario(_bus, first, second):
+        async def scenario(first, second):
             second.wake_list.register([FIRST_TABLE], lambda: structlog.get_logger().info(HANDLED))
             second.listen("second", FIRST_TABLE)
 
@@ -148,10 +144,19 @@ class TestSharedWakes:
         (line,) = lines_of(lines, HANDLED)
         assert line["trace_id"]
 
-    def test_a_wake_that_arrives_wakes_locally_and_is_published_no_more(self):
-        async def scenario(bus, first, second):
+    def test_a_wake_that_arrives_wakes_locally_and_is_published_no_more(self, monkeypatch):
+        async def scenario(first, second):
             first.listen("first", FIRST_TABLE)
             second.listen("second", FIRST_TABLE)
+            published = []
+            for pod in (first, second):
+                publish = pod.channel.publish
+
+                async def counting(address, publish=publish):
+                    published.append(address)
+                    await publish(address)
+
+                monkeypatch.setattr(pod.channel, "publish", counting)
 
             first.wake_list.wake(FIRST_TABLE)
             await second.arrival_of("second")
@@ -159,16 +164,16 @@ class TestSharedWakes:
             await first.shared.drain()
             await second.shared.drain()
 
-            assert len(bus.published) == 1
+            assert len(published) == 1
 
         between_pods(scenario)
 
     def test_a_resubscribe_wakes_every_registration_whatever_its_topic(self):
-        async def scenario(_bus, first, _second):
+        async def scenario(first, _second):
             first.listen("table", FIRST_TABLE)
             first.listen("account", ANNA)
 
-            first.channel.inbox.put_nowait(Resubscribed())
+            first.channel.resync()
 
             await first.arrival_of("table")
             await first.arrival_of("account")
@@ -176,10 +181,10 @@ class TestSharedWakes:
         between_pods(scenario)
 
     def test_an_address_that_names_no_topic_wakes_nothing_and_the_next_wake_still_arrives(self):
-        async def scenario(_bus, first, second):
+        async def scenario(first, second):
             second.listen("second", FIRST_TABLE)
 
-            second.channel.inbox.put_nowait(Wake("not-a-topic"))
+            await first.channel.publish("not-a-topic")
             first.wake_list.wake(FIRST_TABLE)
             await second.arrival_of("second")
 
@@ -187,60 +192,48 @@ class TestSharedWakes:
 
         between_pods(scenario)
 
-    def test_a_publish_that_fails_once_is_logged_by_its_type_and_sent_again(self):
-        async def scenario(bus, first, second):
-            second.listen("second", FIRST_TABLE)
-            first.channel.failures_before_publishing.append(StoreError("secret detail"))
-
-            with capture_logs() as logged:
-                first.wake_list.wake(FIRST_TABLE)
-                await second.arrival_of("second")
-
-            assert [(entry["event"], entry["log_level"], entry["error_type"]) for entry in logged] == [
-                ("wake_publish.failed", "warning", "StoreError")
-            ]
-            assert "secret detail" not in str(logged)
-            assert len(bus.published) == 1
-
-        between_pods(scenario)
-
-    def test_a_publish_that_fails_twice_is_logged_and_the_change_stands(self):
-        async def scenario(bus, first, _second):
+    def test_a_publish_that_fails_is_logged_once_by_its_type_and_the_change_stands(self):
+        async def scenario(first, second):
             first.listen("local", FIRST_TABLE)
-            first.channel.failures_before_publishing.extend([StoreError("one"), StoreError("two")])
+            second.listen("second", FIRST_TABLE)
+            first.channel.fail_publishes(StoreError("secret detail"))
 
             with capture_logs() as logged:
                 first.wake_list.wake(FIRST_TABLE)
                 await first.shared.drain()
 
             assert first.woken == {"local": 1}
-            assert [(entry["event"], entry["log_level"]) for entry in logged] == [
-                ("wake_publish.failed", "warning"),
-                ("wake_publish.failed", "error"),
+            assert second.woken == {}
+            assert [(entry["event"], entry["log_level"], entry["error_type"]) for entry in logged] == [
+                ("wake_publish.failed", "error", "StoreError")
             ]
-            assert bus.published == []
+            assert "secret detail" not in str(logged)
 
         between_pods(scenario)
 
-    def test_leaving_waits_for_the_publishes_that_are_pending(self):
-        async def scenario(_bus, first, _second):
-            first.channel.turns_before_publishing = SLOW_PUBLISH_TURNS
+    def test_leaving_waits_for_the_publishes_that_are_pending(self, monkeypatch):
+        finished = []
+
+        async def scenario(first, _second):
+            publish = first.channel.publish
+
+            async def recording(address):
+                await publish(address)
+                finished.append(address)
+
+            monkeypatch.setattr(first.channel, "publish", recording)
+            hold = first.channel.hold_publishes()
             first.wake_list.wake(FIRST_TABLE)
+            asyncio.get_running_loop().call_later(0.01, hold.release)
 
-        bus = between_pods(scenario)
+        between_pods(scenario)
 
-        assert len(bus.published) == 1
+        assert len(finished) == 1
 
-    def test_the_channel_ending_with_a_store_error_after_the_start_is_logged_by_its_type_and_ends_the_process(self):
-        async def scenario(_bus, first, _second):
-            with capture_logs() as logged:
-                first.channel.inbox.put_nowait(StoreError("secret detail"))
-                await asyncio.wait_for(first.ended.wait(), ARRIVAL_SECONDS)
-
-            assert [(entry["event"], entry["log_level"], entry["error_type"]) for entry in logged] == [
-                ("wake_channel.failed", "error", "StoreError")
-            ]
-            assert "secret detail" not in str(logged)
+    def test_the_channel_failing_after_the_start_ends_the_process(self):
+        async def scenario(first, _second):
+            first.channel.refuse()
+            await asyncio.wait_for(first.ended.wait(), ARRIVAL_SECONDS)
 
         between_pods(scenario)
 
@@ -248,7 +241,9 @@ class TestSharedWakes:
 class TestStartingToFollow:
     @staticmethod
     def silent_pod():
-        return Pod(LoopbackWakeBus().pod(acknowledging=False))
+        channel = FakeWakeBus().pod()
+        channel.withhold_confirmation()
+        return Pod(channel)
 
     def test_serving_waits_for_the_first_resubscribe(self):
         async def run():
@@ -263,7 +258,7 @@ class TestStartingToFollow:
             for _ in range(5):
                 await asyncio.sleep(0)
             waiting = list(entered)
-            pod.channel.inbox.put_nowait(Resubscribed())
+            pod.channel.resync()
             await asyncio.wait_for(serving, ARRIVAL_SECONDS)
 
             assert (waiting, entered) == ([], [True])
@@ -282,12 +277,12 @@ class TestStartingToFollow:
 
         asyncio.run(run())
 
-    def test_a_start_whose_channel_fails_before_the_first_resubscribe_fails_with_that_error_and_ends_no_process(self):
+    def test_a_start_whose_channel_fails_before_the_first_resubscribe_is_refused_and_ends_no_process(self):
         async def run():
             pod = self.silent_pod()
-            pod.channel.inbox.put_nowait(StoreError("refused"))
+            pod.channel.refuse()
             following = pod.shared.following(pod.wake_list)
-            with pytest.raises(StoreError):
+            with pytest.raises(StartRefusedError):
                 async with following:
                     pytest.fail("served without a subscription")
 

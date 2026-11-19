@@ -1,21 +1,21 @@
 import asyncio
-from contextlib import asynccontextmanager, suppress
+from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import TYPE_CHECKING, Final, Protocol
 
 import structlog
-from logline import unit_trace
-from tandem import Resubscribed, StoreError, Wake
+from tandem import StoreError, Wake
 
 from skat.web.secret_files import StartRefusedError
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, AsyncIterator, Callable, Iterable
+    from collections.abc import AsyncGenerator, Callable, Iterable
+    from contextlib import AbstractAsyncContextManager
 
 # How long a pod waits at its start for its first subscription to the channel, so that a wrong URL fails loud instead
 # of hanging; the platform's liveness window is longer.
 STARTUP_SECONDS: Final = 10
-_PUBLISH_ATTEMPTS: Final = 2
 
 log = structlog.get_logger()
 
@@ -121,7 +121,14 @@ class WakeChannel(Protocol):  # pragma: no cover - a port's method bodies are si
 
     async def publish(self, address: str) -> None: ...
 
-    def received(self) -> AsyncIterator[Wake | Resubscribed]: ...
+    def following(
+        self,
+        *,
+        on_resync: Callable[[], None],
+        on_wake: Callable[[Wake], None],
+        on_failed: Callable[[Exception], None],
+        ready_within: timedelta,
+    ) -> AbstractAsyncContextManager[None]: ...
 
 
 class SharedWakes:
@@ -149,59 +156,35 @@ class SharedWakes:
 
     @asynccontextmanager
     async def following(self, wakes: WakeList) -> AsyncGenerator[None]:
-        """Follow the channel into `wakes` while the body runs; it starts once the first subscription is acknowledged,
-        before which this pod is deaf to wakes, and refuses to start without one within `STARTUP_SECONDS`.
+        """Follow the channel into `wakes` while the body runs. Before the subscription is confirmed a channel failure
+        refuses the start, as does no confirmation within `STARTUP_SECONDS`; after it a failure ends the process.
         """
-        subscribed = asyncio.Event()
-        follower = asyncio.create_task(self._follow(wakes, subscribed))
-        try:
-            await self._until_subscribed(follower, subscribed)
-            yield
-        finally:
-            follower.cancel()
-            # A failure of the channel is logged where it happened.
-            with suppress(asyncio.CancelledError, StoreError):
-                await follower
-            await self.drain()
 
-    async def _until_subscribed(self, follower: asyncio.Task[None], subscribed: asyncio.Event) -> None:
-        acknowledged = asyncio.create_task(subscribed.wait())
-        try:
-            await asyncio.wait({follower, acknowledged}, timeout=STARTUP_SECONDS, return_when=asyncio.FIRST_COMPLETED)
-        finally:
-            acknowledged.cancel()
-        if follower.done():
-            # The channel failed before it was ready: its error stops the start.
-            follower.result()
-        if not subscribed.is_set():
-            message = "the wake channel did not acknowledge its subscription: check redis_url"
-            raise StartRefusedError(message)
+        def wake_locally(wake: Wake) -> None:
+            if (topic := _topic_of(wake.address)) is not None:
+                wakes.wake_locally(topic)
 
-    async def _follow(self, wakes: WakeList, subscribed: asyncio.Event) -> None:
-        try:
-            async for event in self._channel.received():
-                if isinstance(event, Resubscribed):
-                    subscribed.set()
-                    wakes.wake_all()
-                elif (topic := _topic_of(event.address)) is not None:
-                    # The wake's own handling runs under the sender's trace; the woken streams keep their own traces.
-                    with unit_trace(event.traceparent):
-                        wakes.wake_locally(topic)
-        except StoreError as failure:
-            # The failure's message may carry an address, so only its type is logged.
-            log.error("wake_channel.failed", error_type=type(failure).__name__)
-            if subscribed.is_set():
-                self._end_process()
-            raise
+        async with AsyncExitStack() as stack:
+            try:
+                await stack.enter_async_context(
+                    self._channel.following(
+                        on_resync=wakes.wake_all,
+                        on_wake=wake_locally,
+                        on_failed=lambda _failure: self._end_process(),
+                        ready_within=timedelta(seconds=STARTUP_SECONDS),
+                    )
+                )
+            except StoreError as failure:
+                message = f"the wake channel was not ready ({type(failure).__name__}): check redis_url"
+                raise StartRefusedError(message) from failure
+            try:
+                yield
+            finally:
+                await self.drain()
 
     async def _publish(self, address: str) -> None:
-        for attempt in range(_PUBLISH_ATTEMPTS):
-            try:
-                await self._channel.publish(address)
-            except StoreError as failure:
-                # A failure leaves the delivery uncertain, and a duplicate wake is harmless.
-                last = attempt == _PUBLISH_ATTEMPTS - 1
-                report = log.error if last else log.warning
-                report("wake_publish.failed", error_type=type(failure).__name__)
-            else:
-                return
+        try:
+            await self._channel.publish(address)
+        except StoreError as failure:
+            # The failure's message may carry an address, so only its type is logged.
+            log.error("wake_publish.failed", error_type=type(failure).__name__)
