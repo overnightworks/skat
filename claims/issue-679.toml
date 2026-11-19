@@ -1,0 +1,8 @@
+claim_id = "1b3bd43984c04cb6a552e77fd8f26d85"
+agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
+role = "builder"
+base = "a99fe0b25cfbddc0f607b015e455e7f76f447e16"
+branch = "claude/issue-679-skat-follows-wakes-and-places-through-ta"
+scope = ["pyproject.toml", "src/skat", "tests", "uv.lock"]
+opened_commit = "8fb80d0f574c7ba58a27f4d0576dd4dad637e6ae"
+whole_reason = "the wake channel, place store and lapse ports move together across web, host and tests"
