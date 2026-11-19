@@ -31,6 +31,7 @@ import structlog
 from agents.mcp_server import PersonRequest, PersonTool, ResourceChanges
 from agents.member import (
     ACCEPT_INVITATION_TOOL,
+    SET_TURN_STATE_TOOL,
     STANDING_URI,
     AcceptInvitationArguments,
     AcceptInvitationRefusal,
@@ -41,6 +42,9 @@ from agents.member import (
     PlaceRef,
     PlaceView,
     PlaceWindow,
+    SetTurnStateArguments,
+    SetTurnStateRefusal,
+    SetTurnStateRefused,
     Standing,
     StandingState,
     member_arguments,
@@ -99,6 +103,18 @@ ACCEPT_INVITATION_DECLARATION: Final = ToolDeclaration(
         "is not at the table, or no chair is free for you, the chair you held in the running hand being taken included."
     ),
     parameters=tool_parameters(AcceptInvitationArguments),
+    effect=ToolEffect.SIDE_EFFECTING,
+)
+
+
+SET_TURN_STATE_DECLARATION: Final = ToolDeclaration(
+    name=SET_TURN_STATE_TOOL,
+    description=(
+        "State at a table you sit at whether a turn of yours is running: thinking true when one starts, and after it "
+        "ends none, or why your turns there stop. Everyone at the table sees it beside your name until your next "
+        "statement there. It is refused as not_held when you hold no chair there."
+    ),
+    parameters=tool_parameters(SetTurnStateArguments),
     effect=ToolEffect.SIDE_EFFECTING,
 )
 
@@ -338,6 +354,27 @@ def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTo
     return PersonTool(ACCEPT_INVITATION_DECLARATION, handler)
 
 
+def set_turn_state_tool(tables: TableService, presence: Presence) -> PersonTool:
+    """What the agent states about its turns at a table as a tool of the front: kept for the chair it holds there, or
+    refused as `not_held`; the table's streams and the lobby's are woken as after a move, and the version stays.
+    """
+
+    async def handler(request: PersonRequest, arguments: JsonObject) -> ToolOutcome:
+        stating = member_arguments(SetTurnStateArguments, arguments)
+        account_id = resource_person(HTTPConnection(request.scope)).id
+        stopped = None if stating.stopped is None else stating.stopped.value
+        kept = stating.place.kind == TABLE_PLACE_KIND and await run_in_threadpool(
+            tables.set_turn_state, account_id, stating.place.id, stopped, stating.thinking
+        )
+        if not kept:
+            refused = SetTurnStateRefused(refused=SetTurnStateRefusal.NOT_HELD)
+            return ToolOutcome(refused.model_dump_json(), is_error=True)
+        presence.wake_table(stating.place.id)
+        return ToolOutcome("{}", is_error=False)
+
+    return PersonTool(SET_TURN_STATE_DECLARATION, handler)
+
+
 def _pulse(
     issuer: str, accounts: frozenset[str], change: Callable[[Principal], Coroutine[object, object, None]]
 ) -> None:
@@ -408,9 +445,10 @@ def view_signal(changes: ResourceChanges, issuer: str) -> ViewSignal:
 
 @dataclass(frozen=True)
 class MemberFront:
-    """What the person front serves beside the routes' tools: the accept, the standing and the way it is signalled."""
+    """What the person front serves beside the routes' tools: the accept and the turn state, the standing and the way it
+    is signalled."""
 
-    tool: PersonTool
+    tools: tuple[PersonTool, ...]
     resources: MemberResources
     changes: ResourceChanges
     moments_of: Callable[[Principal], Awaitable[frozenset[TableMoment]]]
@@ -423,7 +461,7 @@ def member_front(
         return await run_in_threadpool(tables.moments_of, principal.sub)
 
     return MemberFront(
-        accept_invitation_tool(tables, presence),
+        (accept_invitation_tool(tables, presence), set_turn_state_tool(tables, presence)),
         MemberStandings(tables, presence, asks, scheduler, changes),
         changes,
         moments_of,

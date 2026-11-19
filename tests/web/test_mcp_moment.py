@@ -25,14 +25,20 @@ from skat.web.mcp import (
     THROW_REACTION_TOOL,
     TOOLS_OF_MOMENT,
 )
-from skat.web.member_place import ACCEPT_INVITATION_DECLARATION
+from skat.web.member_place import ACCEPT_INVITATION_DECLARATION, SET_TURN_STATE_DECLARATION
 from tests.web.support.agent import Agent, person_passes, person_steps, view_uri_of, window_uri_of
 from tests.web.support.calling import running_skat
 from tests.web.support.playing import MIDDLEHAND, REARHAND
 from tests.web.support.sdk_agent import TOOLS_CHANGED, SdkAgent
 
 READS = {READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, READ_PAUSED_TABLES_TOOL, READ_RULE_SETS_TOOL}
-SEATED = READS | {STAND_UP_TOOL, NUDGE_SEAT_TOOL, THROW_REACTION_TOOL, ACCEPT_INVITATION_DECLARATION.name}
+SEATED = READS | {
+    STAND_UP_TOOL,
+    NUDGE_SEAT_TOOL,
+    THROW_REACTION_TOOL,
+    ACCEPT_INVITATION_DECLARATION.name,
+    SET_TURN_STATE_DECLARATION.name,
+}
 NOT_OFFERED = "the tool is not offered now"
 
 

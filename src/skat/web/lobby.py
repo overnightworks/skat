@@ -23,6 +23,7 @@ from skat.web.streams import (
 )
 from skat.web.table_options import OptionsAnswer, options_answer_of
 from skat.web.tables import actor_of
+from skat.web.turn_state_answer import TurnStateAnswer, turn_state_answer_of
 from skat.web.wakes import AccountTopic, OpenTablesTopic, TableTopic
 
 if TYPE_CHECKING:
@@ -51,6 +52,7 @@ class LobbyChairAnswer(BaseModel):
     is_away: bool
     is_turn: bool
     hold_seconds_left: int | None
+    turn_state: TurnStateAnswer | None = None
 
 
 class LobbyTableAnswer(BaseModel):
@@ -78,6 +80,7 @@ class OpenChairAnswer(BaseModel):
     occupant_kind: OccupantKind | None
     is_away: bool
     hold_seconds_left: int | None
+    turn_state: TurnStateAnswer | None = None
 
 
 class OpenTableAnswer(BaseModel):
@@ -122,6 +125,7 @@ def _table_answer_of(entry: LobbyEntryView) -> LobbyTableAnswer:
                 is_away=chair.is_away,
                 is_turn=chair.is_turn,
                 hold_seconds_left=chair.hold_seconds_left,
+                turn_state=turn_state_answer_of(chair.turn_state),
             )
             for chair in entry.chairs
         ],
@@ -147,6 +151,7 @@ def _open_answer_of(entry: OpenEntryView) -> OpenTableAnswer:
                 occupant_kind=chair.occupant_kind,
                 is_away=chair.is_away,
                 hold_seconds_left=chair.hold_seconds_left,
+                turn_state=turn_state_answer_of(chair.turn_state),
             )
             for chair in entry.chairs
         ],
@@ -154,12 +159,13 @@ def _open_answer_of(entry: OpenEntryView) -> OpenTableAnswer:
 
 
 class _TableStanding(NamedTuple):
-    """What a read stands on at one table: its version, who is connected there and which of its sitters are agents
-    whose lease runs, who count as present without a stream.
+    """What a read stands on at one table: its version, the time of its latest turn statement, who is connected there
+    and which of its sitters are agents whose lease runs, who count as present without a stream.
     """
 
     table_id: str
     version: int
+    turn_stated_at: datetime | None
     connected: frozenset[str]
     leased: frozenset[str]
 
@@ -172,11 +178,11 @@ class _TopicHoldingSource(ABC):
     after the swap, so a commit before it is in the read and a commit after it wakes the stream. The `standing`
     topics are held from `open` on, before the first read.
 
-    A read stands on the list it was made from and, at each table, its version, who is connected and which sitters have
-    a running lease. A heartbeat asks again for the list and the versions, one or two cheap reads of the index, and
-    for the leased sitters, a read of the chairs only while some lease runs; the source has moved only when that or
-    who is connected differs from what the last read stood on. A lease of an account that sits at none of the tables
-    moves nothing.
+    A read stands on the list it was made from and, at each table, its version, its latest turn statement, who is
+    connected and which sitters have a running lease. A heartbeat asks again for the list with the versions and the
+    statements, one or two cheap reads of the index, and for the leased sitters, a read of the chairs only while some
+    lease runs; the source has moved only when that or who is connected differs from what the last read stood on. A
+    lease of an account that sits at none of the tables moves nothing.
     """
 
     def __init__(
@@ -223,6 +229,7 @@ class _TopicHoldingSource(ABC):
             _TableStanding(
                 table.table_id.value,
                 table.version,
+                table.turn_stated_at,
                 connected[table.table_id.value],
                 frozenset(seat.account_id for seat in seats if seat.table_id == table.table_id),
             )

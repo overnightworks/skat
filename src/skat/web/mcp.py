@@ -4,8 +4,8 @@ A route becomes a tool only by carrying `agent_tool` as its `openapi_extra`; eve
 with its reason, and an undecided route stops the build. A tool calls its route in-process through the whole app, so
 every middleware and every check of the route applies to it as to a browser; the actor is the account the bearer
 gate admitted, never a name the tool's caller gives. A table move's tool answers with what the move did and not with
-the table. The one tool that is no route is `accept_invitation`, whose arguments are the agents library's and not a
-route's body; the front also serves the agent's standing as a resource.
+the table. The tools that are no route are `accept_invitation` and `set_turn_state`, whose arguments are the agents
+library's and not a route's body; the front also serves the agent's standing as a resource.
 """
 
 import json
@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Final
 
 from agents.mcp_server import McpPersonFront, OfferedTools, PersonTool, route_tools
 from agents.mcp_wire import MCP_ENDPOINT_PATH
-from agents.member import ACCEPT_INVITATION_TOOL
+from agents.member import ACCEPT_INVITATION_TOOL, SET_TURN_STATE_TOOL
 from agents.tools import Principal, ToolEffect, ToolOutcome, agent_tool, not_an_agent_tool
 from logline import set_route
 from pydantic import BaseModel
@@ -190,10 +190,16 @@ TABLE_COMMAND_TOOLS: Final = frozenset(
 
 
 # Every moment offers the reads, so an agent finds out what it needs whatever its table is doing; a seated moment adds
-# leaving the chair, nudging a seat that holds up the table, throwing a reaction and taking an invitation to another
-# table.
+# leaving the chair, nudging a seat that holds up the table, throwing a reaction, taking an invitation to another
+# table and stating what its turns do.
 _READ_TOOLS: Final = frozenset({READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, READ_PAUSED_TABLES_TOOL, READ_RULE_SETS_TOOL})
-_SEATED_TOOLS: Final = _READ_TOOLS | {STAND_UP_TOOL, NUDGE_SEAT_TOOL, THROW_REACTION_TOOL, ACCEPT_INVITATION_TOOL}
+_SEATED_TOOLS: Final = _READ_TOOLS | {
+    STAND_UP_TOOL,
+    NUDGE_SEAT_TOOL,
+    THROW_REACTION_TOOL,
+    ACCEPT_INVITATION_TOOL,
+    SET_TURN_STATE_TOOL,
+}
 _ABORT_TOOLS: Final = frozenset({AGREE_TO_ABORT_HAND_TOOL, REFUSE_TO_ABORT_HAND_TOOL})
 _PLAY_TOOLS: Final = frozenset(
     {
@@ -347,7 +353,7 @@ def mount_mcp(
     def resolve_person(scope: Scope) -> Principal:
         return Principal(iss=issuer, sub=resource_person(HTTPConnection(scope)).id)
 
-    served_tools = (*(_done_answering(each) for each in tools.tools), member.tool)
+    served_tools = (*(_done_answering(each) for each in tools.tools), *member.tools)
     front = McpPersonFront(
         served_tools,
         resolve_person=resolve_person,
