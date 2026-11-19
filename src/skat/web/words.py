@@ -735,7 +735,7 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'table.sheetDecided': 'Entschieden',
         'table.sheetDurchmarsch': 'Durchmarsch',
         'table.newSeries': 'Neue Serie',
-        'table.wantsToEndSeries': '{name} will die Serie beenden',
+        'table.wantsToEndSeries': '{name} möchte die Serie beenden',
         'table.endSeries': 'Serie beenden',
         'table.endSeriesSure': 'Wirklich beenden?',
         'table.yes': 'Ja',

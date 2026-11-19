@@ -608,7 +608,7 @@ msgid "Neue Serie"
 msgstr "New series"
 
 msgctxt "table.wantsToEndSeries"
-msgid "{name} will die Serie beenden"
+msgid "{name} möchte die Serie beenden"
 msgstr "{name} wants to end the series"
 
 msgctxt "table.endSeries"

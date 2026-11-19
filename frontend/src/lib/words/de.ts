@@ -751,7 +751,7 @@ export const words: Words = {
     "table.sheetDecided": "Entschieden",
     "table.sheetDurchmarsch": "Durchmarsch",
     "table.newSeries": "Neue Serie",
-    "table.wantsToEndSeries": (gaps: { readonly name: string }) => gaps.name + " will die Serie beenden",
+    "table.wantsToEndSeries": (gaps: { readonly name: string }) => gaps.name + " möchte die Serie beenden",
     "table.endSeries": "Serie beenden",
     "table.endSeriesSure": "Wirklich beenden?",
     "table.yes": "Ja",
