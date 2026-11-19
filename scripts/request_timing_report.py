@@ -53,6 +53,10 @@ def main(directory: Path) -> None:
         for label, values in measures.items():
             summary(label, values)
     summary("server loop lag over 50 ms (ms)", [row["lag_ms"] for row in rows if row["kind"] == "loop_lag"])
+    stalls = [row for row in rows if row["kind"] == "stall"]
+    print(f"stalls over 300 ms: {len(stalls)}")
+    for row in stalls[:12]:
+        print(json.dumps({key: row[key] for key in ("stale_ms", "loop_cpu_ms_since_beat", "load", "stacks")}))
     print(f"lag events: {sum(row['kind'] == 'loop_lag' for row in rows)}; browser requests: {sum(row['kind'] == 'browser' for row in rows)}")
 
 
