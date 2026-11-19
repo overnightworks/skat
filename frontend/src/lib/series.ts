@@ -65,7 +65,7 @@ export function seriesEndMarks(table: Table): ReadonlyMap<number, AnswerMark> {
 // The line that names who refused the proposal, until the next hand; null while none did or one stands.
 export function seriesRefusalNotice(table: Table): SeatNotice | null {
     const series = table.series;
-    if (!series || series.end_proposal !== null || series.end_refused_seats.length === 0) return null;
+    if (series?.end_proposal !== null || series.end_refused_seats.length === 0) return null;
     const faces = facesOf(table.chairs, series.end_refused_seats);
     if (faces.length === 0) return null;
     const names = namesOf(faces);
