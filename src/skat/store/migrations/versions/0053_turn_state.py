@@ -1,8 +1,8 @@
 """A seat's last `set_turn_state` statement lives on its chair: the stated outcome, whether a turn runs, the account
 that stated it and the time.
 
-Expand only: nullable columns and one with a default, so the release before this one serves on the new schema. It does
-not name them when it frees a chair, so a value it leaves behind is read only while its account still sits there.
+Expand only: nullable columns, so the release before this one serves on the new schema. It does not name them when
+it frees a chair, so a value it leaves behind is read only while its account still sits there.
 """
 
 from alembic import op
@@ -16,6 +16,6 @@ def upgrade() -> None:
         "ALTER TABLE chairs"
         " ADD COLUMN turn_state_account text,"
         " ADD COLUMN turn_state_stopped text,"
-        " ADD COLUMN turn_state_thinking boolean NOT NULL DEFAULT false,"
+        " ADD COLUMN turn_state_thinking boolean,"
         " ADD COLUMN turn_state_at timestamptz"
     )

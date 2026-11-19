@@ -129,7 +129,7 @@ def _turn_state_of(seat: Row[*tuple[Any, ...]]) -> TurnStatement | None:
     """The statement of the chair, read only while the account that stated it still sits there."""
     if seat.turn_state_account is None or seat.turn_state_account != seat.account_id:
         return None
-    return TurnStatement(seat.turn_state_stopped, seat.turn_state_thinking, seat.turn_state_at)
+    return TurnStatement(seat.turn_state_stopped, bool(seat.turn_state_thinking), seat.turn_state_at)
 
 
 def _turn_state_values(chair: Chair) -> dict[str, Any]:
@@ -139,7 +139,7 @@ def _turn_state_values(chair: Chair) -> dict[str, Any]:
         return {
             "turn_state_account": None,
             "turn_state_stopped": None,
-            "turn_state_thinking": False,
+            "turn_state_thinking": None,
             "turn_state_at": None,
         }
     return {

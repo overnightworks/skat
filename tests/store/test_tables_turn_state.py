@@ -88,7 +88,7 @@ def test_the_columns_are_cleared_when_the_seat_ends(service, engine, table_id):
 
     service.stand(MEMBER, StandUp("stand-member", table_id.value), NOBODY_CONNECTED)
 
-    assert statement_columns(engine, table_id)[MEMBERS_SEAT] == (None, None, False, None)
+    assert statement_columns(engine, table_id)[MEMBERS_SEAT] == (None, None, None, None)
 
 
 def test_a_statement_of_an_account_that_no_longer_sits_there_is_not_read_and_the_next_save_clears_it(
@@ -105,7 +105,7 @@ def test_a_statement_of_an_account_that_no_longer_sits_there_is_not_read_and_the
 
     service.stand(OPENER, StandUp("stand-opener", table_id.value), NOBODY_CONNECTED)
 
-    assert statement_columns(engine, table_id)[MEMBERS_SEAT] == (None, None, False, None)
+    assert statement_columns(engine, table_id)[MEMBERS_SEAT] == (None, None, None, None)
 
 
 def test_the_index_reads_tell_the_latest_statement_time_of_a_table_while_its_account_sits_there(

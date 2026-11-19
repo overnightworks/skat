@@ -380,7 +380,7 @@ chairs = Table(
     # since a release that frees a chair without naming these columns leaves them behind.
     Column("turn_state_account", Text),
     Column("turn_state_stopped", Text),
-    Column("turn_state_thinking", Boolean, nullable=False, server_default=false()),
+    Column("turn_state_thinking", Boolean),
     Column("turn_state_at", DateTime(timezone=True)),
     CheckConstraint("account_id IS NOT NULL OR NOT ready", name="chairs_ready_only_when_occupied"),
     CheckConstraint("array_position(held_in_hand, NULL) IS NULL", name="chairs_held_in_hand_has_no_null"),
