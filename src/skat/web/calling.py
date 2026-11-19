@@ -312,26 +312,20 @@ def _table_of(table_id: str) -> TableId:
     return parsed
 
 
+@dataclass(frozen=True)
 class _Calling:
     """The facts, the control, the call and the send-away of the person routes, over one app's service, presence,
     roster and membership.
     """
 
-    def __init__(
-        self,
-        tables: TableService,
-        presence: Presence,
-        roster: AgentRoster,
-        membership: CallerMembership,
-    ) -> None:
-        self._tables = tables
-        self._presence = presence
-        self._roster = roster
-        self._membership = membership
+    tables: TableService
+    presence: Presence
+    roster: AgentRoster
+    membership: CallerMembership
 
     async def _at_the_table(self, table_id: TableId) -> frozenset[str]:
         return await run_in_threadpool(
-            self._tables.accounts_at_the_table, table_id, await self._presence.connected(table_id.value)
+            self.tables.accounts_at_the_table, table_id, await self.presence.connected(table_id.value)
         )
 
     async def _offered(self, request: Request, table_id: TableId, *, viewer_is_member: bool) -> list[_Offered]:
@@ -339,7 +333,7 @@ class _Calling:
         the table.
         """
         viewer = actor_of(request).account_id
-        streams = await self._presence.connected(table_id.value)
+        streams = await self.presence.connected(table_id.value)
         viewer_present = viewer in await self._at_the_table(table_id)
         calls = [
             (
@@ -354,7 +348,7 @@ class _Calling:
                     viewer_is_member=viewer_is_member,
                 ),
             )
-            for account, entry in (await self._roster.entries()).items()
+            for account, entry in (await self.roster.entries()).items()
         ]
 
         def seated_facts(account: str) -> CallFacts:
@@ -363,7 +357,7 @@ class _Calling:
             )
 
         offers = await run_in_threadpool(
-            self._tables.offers_at, table_id, [facts for _, _, facts in calls], seated_facts
+            self.tables.offers_at, table_id, [facts for _, _, facts in calls], seated_facts
         )
         if offers is None:
             raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
@@ -374,7 +368,7 @@ class _Calling:
         seated = [
             _Offered(
                 seated.account,
-                self._roster.key_of(seated.account),
+                self.roster.key_of(seated.account),
                 seated.name,
                 seated_facts(seated.account),
                 seated.offer,
@@ -385,7 +379,7 @@ class _Calling:
 
     async def control_of(self, request: Request, table_id: TableId) -> AgentControlAnswer:
         viewer_present = actor_of(request).account_id in await self._at_the_table(table_id)
-        viewer_is_member = viewer_present and await self._membership.displayed(request)
+        viewer_is_member = viewer_present and await self.membership.displayed(request)
         offered = await self._offered(request, table_id, viewer_is_member=viewer_is_member)
         rows = [row for agent in offered if (row := _row_of(agent))]
         sends_agent_away = any(row.state is OfferState.HERE for row in rows)
@@ -410,11 +404,11 @@ class _Calling:
             return CallRefusal.AGENT_UNAVAILABLE
         if isinstance(answer, InviteRefusal):
             return REFUSAL_TOKENS[answer]
-        fresh = await self._membership.fresh(request)
+        fresh = await self.membership.fresh(request)
         if isinstance(fresh, AccessTokenRefusal):
             return CallRefusal.TRY_AGAIN
         written = await run_in_threadpool(
-            self._tables.invite_agent,
+            self.tables.invite_agent,
             table_id,
             replace(chosen.facts, viewer_is_member=fresh),
             timedelta(seconds=INVITATION_SECONDS),
@@ -433,7 +427,7 @@ class _Calling:
         sendable = await self._sendable(request, table_id, key, viewer_is_member=True)
         is_member = True
         if isinstance(sendable, _Offered):
-            fresh = await self._membership.fresh(request)
+            fresh = await self.membership.fresh(request)
             is_member = fresh is True
             sendable = await self._sendable(request, table_id, key, viewer_is_member=is_member)
             if sendable is CallRefusal.NOT_ALLOWED and isinstance(fresh, AccessTokenRefusal):
@@ -443,16 +437,16 @@ class _Calling:
         if not isinstance(sendable, _Offered):
             return sendable
         command = SendAway(command_id, table_id.value, sendable.account)
-        connected = await self._presence.connected(table_id.value)
+        connected = await self.presence.connected(table_id.value)
         try:
-            sent = await run_in_threadpool(self._tables.send_away, actor_of(request), command, connected, is_member)
+            sent = await run_in_threadpool(self.tables.send_away, actor_of(request), command, connected, is_member)
         except CommandIdReusedError:
             return CallRefusal.TRY_AGAIN
         if sent is None:
             raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
         if sent.refusal is not None:
             return CallRefusal.AGENT_UNAVAILABLE
-        self._presence.wake_table(table_id.value)
+        self.presence.wake_table(table_id.value)
         return None
 
     async def _sendable(
@@ -483,11 +477,11 @@ class _Calling:
     ) -> CallRefusal | None:
         try:
             replayed = await run_in_threadpool(
-                self._tables.replayed_send_away,
+                self.tables.replayed_send_away,
                 actor_of(request),
                 command_id,
                 table_id.value,
-                lambda account: self._roster.key_of(account) == key,
+                lambda account: self.roster.key_of(account) == key,
             )
         except CommandIdReusedError:
             return CallRefusal.TRY_AGAIN
