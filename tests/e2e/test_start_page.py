@@ -76,6 +76,10 @@ def test_the_start_page_head_centres_the_wordmark_over_four_suits_and_shows_the_
     wordmark = person.locator(START_WORDMARK).bounding_box()
     assert wordmark is not None
     assert abs(wordmark["x"] + wordmark["width"] / 2 - form_factor["viewport"]["width"] / 2) <= 1
+    mark_top = person.evaluate(
+        "parseFloat(getComputedStyle(document.querySelector('.start-head')).getPropertyValue('--mark-top'))"
+    )
+    assert abs(wordmark["y"] - mark_top) <= 1
     expect(person.locator(START_PIPS)).to_have_count(4)
     expect(person.locator(ACCOUNT_NAME)).to_be_visible(visible=name_shown)
     if name_shown:

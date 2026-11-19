@@ -26,8 +26,8 @@
 </svelte:head>
 
 <div class="start" class:with-lobby={lobbyShown} data-theme="dark">
+    <CardSprite />
     <header class="start-bar start-head">
-        <CardSprite />
         <StartMark />
         <button type="button" class="account-button" aria-label={words["account.title"]} popovertarget="accountMenu">
             <span class="account-avatar">
