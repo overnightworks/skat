@@ -12,7 +12,7 @@ from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE
 from skat.web.words import text as word_text
 from tests.e2e.support.browser import sign_in_at_issuer
-from tests.e2e.support.hands import PlayingTable, deal_playing_table
+from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.server import skat_on_new_database
 from tests.e2e.support.sessions import holds_a_session
@@ -33,10 +33,8 @@ FACES = "(faces) => faces.map((face) => face.dataset.suit + face.dataset.rank).s
 FELT_CARD = ".trick .laid"
 # What uvicorn logs when its graceful wait ends with a stream still running: a task cancelled, or its error.
 STREAM_CANCELLED = re.compile(r"Cancel [1-9]\d* running task|CancelledError|Exception in ASGI application")
-# The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
 # The reloaded page signs in again and draws the table only after the answer; four workers' load stretches that.
 BACK_AT_THE_TABLE_MILLISECONDS = 30_000
-INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
 
 
 @dataclass(frozen=True)
