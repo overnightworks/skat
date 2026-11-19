@@ -1446,10 +1446,10 @@ const BID_SCENES=[
   ['bid-runs','Das Limit läuft',(d)=>hearRoom(d,{glow:novaTurn(d)})+auction(d)+novaSays(d,'30')+felixHolds(d,30)
     +reizScale(d,{at:{v:30,mine:true},from:30,limit:36})+tableRuns(d)+tail(d),
     ['Keine Tasten: der Tisch sagt für dich „Ja“, sofort und als dein Wort („✓ 30“). Die Messingschiene läuft vom gehaltenen Wert bis 36. Nur du siehst sie.']],
-  ['bid-raises','Das Limit steigt für dich',(d)=>room(d,{left:10,annaOut:true,glow:novaTurn(d)})+auction(d)
+  ['bid-raises','Das Limit steigt für dich',(d)=>room(d,{left:10,glow:novaTurn(d)})+auction(d)
     +bubble('felix','22',d?{x:556,y:416,tail:'30%',bottom:true}:{x:150,y:436,tail:'30%',bottom:true})
     +reizScale(d,{at:{v:22,mine:true},from:22,first:d?0:3,limit:36})
-    +seats(d,{video:true,anna:['Hinterhand','pass'],annaOut:true,nova:d?['Vorhand','think']:['Vorhand','think'],you:['Mittelhand'],score:[148,62,55]})+tail(d),
+    +seats(d,{video:true,anna:['Hinterhand'],nova:['Vorhand','think'],you:['Mittelhand'],score:[148,62,55]})+tail(d),
     ['Als Reizer steigt der Tisch für dich auf den nächsten gültigen Wert, solange er das Limit nicht übersteigt: „22“ ist dein Wort, ohne Taste. Dasselbe Limit hält und reizt.']],
   ['bid-change','Limit ändern',(d)=>hearRoom(d,{glow:novaTurn(d)})+auction(d)+novaSays(d,'30')
     +reizScale(d,{at:{v:30,mine:true},from:30,limit:36,sel:40})+keyRow(d,[K.bis(40)])+tableRuns(d)+tail(d),
