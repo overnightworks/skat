@@ -33,7 +33,7 @@ from skat.web.abort import create_abort_router
 from skat.web.account import create_account_router
 from skat.web.auction import create_auction_router
 from skat.web.call import create_call_router
-from skat.web.calling import AgentRoster, CallerMembership, create_calling_router
+from skat.web.calling import AgentRecords, AgentRoster, CallerMembership, create_calling_router
 from skat.web.closing import create_closing_router
 from skat.web.constants import (
     HEALTH_PATH,
@@ -95,7 +95,6 @@ if TYPE_CHECKING:
 
     from skat.table.rule_sets import RuleSetService
     from skat.table.service import TableService
-    from skat.web.agent_records import AgentRecords
     from skat.web.page_build import PageBuild
     from skat.web.presence_roster import StreamLeases
     from skat.web.settings import ServerSettings

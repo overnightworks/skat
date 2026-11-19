@@ -21,7 +21,7 @@ import hmac
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from enum import StrEnum
-from typing import TYPE_CHECKING, Final, Literal
+from typing import TYPE_CHECKING, Final, Literal, Protocol
 
 import structlog
 from agents.member import INVITATION_SECONDS, STANDING_URI
@@ -47,7 +47,7 @@ from skat.web.mcp import Exclusion, excluded
 from skat.web.tables import TABLES_PATH, CommandRequest, actor_of
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Collection
+    from collections.abc import Awaitable, Callable, Collection, Mapping
 
     from agents.tools import Principal
     from webauth.config import WebAuthConfig
@@ -56,7 +56,6 @@ if TYPE_CHECKING:
 
     from skat.table.member_place import CallOffer
     from skat.table.service import TableService
-    from skat.web.agent_records import AgentRecords
     from skat.web.presence import Presence
 
 # The control, its call and its send-away: `TABLES_PATH/{table_id}` plus the first, and plus `/agents/{key}` and the
@@ -128,6 +127,20 @@ class CallRefusalAnswer(BaseModel):
 
 class SendAwayRequest(CommandRequest):
     """The body of a send-away: only its retry key."""
+
+
+class AgentRecords(Protocol):  # pragma: no cover - a port's method bodies are signatures; `RedisAgentRecords` runs
+    """One short-lived record per agent account, which every pod writes and reads: what the agent's signed token said
+    of its name and its owner. A call that fails raises, whatever the store raises.
+    """
+
+    async def write(self, account_id: str, facts: AgentFacts) -> None:
+        """Keeps the facts for the account from now on, in place of any earlier record."""
+        ...
+
+    async def read(self, account_ids: Collection[str]) -> Mapping[str, AgentFacts]:
+        """The record of each account that has a readable one; an account without one is left out."""
+        ...
 
 
 @dataclass(frozen=True)
