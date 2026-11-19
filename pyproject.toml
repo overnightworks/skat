@@ -9,7 +9,7 @@ dependencies = [
     "fastapi>=0.123.7",
     "overnightworks-agents[mcp-server] @ git+https://github.com/overnightworks/agents@v0.60.0",
     "overnightworks-logline @ git+https://github.com/overnightworks/logline@v0.5.0",
-    "overnightworks-tandem @ git+https://github.com/overnightworks/tandem@v0.12.1",
+    "overnightworks-tandem @ git+https://github.com/overnightworks/tandem@v0.13.0",
     "overnightworks-webauth[redis] @ git+https://github.com/overnightworks/webauth@v0.40.1",
     "psycopg[binary]>=3.2",
     "pydantic>=2.10",
