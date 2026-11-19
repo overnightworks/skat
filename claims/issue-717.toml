@@ -1,8 +1,0 @@
-claim_id = "44432b7e9f8e406c98082f61af153684"
-agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
-role = "builder"
-base = "4c8643c8f5bfbae52b0f860d078a9aab23e9af90"
-branch = "claude/issue-717-take-agents-v0-62-0-the-tools-notice-bef"
-scope = ["pyproject.toml", "src/skat/table/server_steps.py", "src/skat/table/service.py", "src/skat/web/member_place.py", "tests/table", "tests/web", "uv.lock"]
-opened_commit = "b68c70b846c619675577aa14490bd788554c6f61"
-whole_reason = "A pin and one order of two tellings in the service, pinned by tests in two test directories."
