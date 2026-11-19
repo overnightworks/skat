@@ -1,8 +1,0 @@
-claim_id = "385fd0d2f6f44058840b6e75bfbe8ac2"
-agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
-role = "builder"
-base = "46931fe6224076fe94c91b3b78b25daa2942a26c"
-branch = "claude/issue-516-aufmachen-sometimes-never-appears-after"
-scope = ["frontend/src/lib/start.css", "frontend/src/routes/(start)", "tests/e2e/support", "tests/e2e/support/tables.py", "tests/e2e/test_start_page.py", "tests/e2e/test_table_declaring.py", "tests/e2e/test_table_playing.py", "tests/e2e/test_table_ramsch_push.py", "tests/e2e/test_table_restart.py", "tests/e2e/test_table_result.py", "tests/e2e/test_table_shorten.py"]
-opened_commit = "348b7adc0ec6fea830c4665b2a65bfda21b0ed3c"
-whole_reason = "the flake sits either in the start page or in the test support that drives it, and both are read together"
