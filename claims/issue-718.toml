@@ -1,8 +1,0 @@
-claim_id = "cecde39cd3504e0eb7dca73b3e996cda"
-agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
-role = "builder"
-base = "4c8643c8f5bfbae52b0f860d078a9aab23e9af90"
-branch = "claude/issue-718-the-taken-notice-test-waits-for-the-lose"
-scope = ["tests/e2e/support", "tests/e2e/test_table_seats.py"]
-opened_commit = "500e814a5c2d2e40f97331941694321de3722c00"
-whole_reason = "The helper may live in the test module or in its support directory, known only at the edit"
