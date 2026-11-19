@@ -586,8 +586,8 @@ class TestEndingEarly:
             engine,
             text(
                 "UPDATE series SET ended_early = false, end_proposer = 1, end_asked_at = now() "
-                f"WHERE table_id = '{moved_on}' AND number = 1"
-            ),
+                "WHERE table_id = :table_id AND number = 1"
+            ).bindparams(table_id=moved_on),
         )
 
         assert set(service.pending_end_answers()) == {between_games}
