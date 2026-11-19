@@ -161,7 +161,7 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         ...
 
     def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
-        """The live tables the account holds a chair at, each with its version and latest turn statement, in id order;
+        """The live tables the account holds a chair at, each with its version and turn statement times, in id order;
         no row is locked, so the list is a candidate list: a table may end or a chair move before the caller uses it,
         and a caller that shows more than the table ids reads each table again under its lock.
         """
@@ -174,7 +174,7 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         ...
 
     def versions_of(self, table_ids: Iterable[TableId]) -> tuple[TableVersion, ...]:
-        """The version and latest turn statement of each live table among `table_ids`, in id order; no row is locked."""
+        """The version and turn statement times of each live table among `table_ids`, in id order; no row is locked."""
         ...
 
     def chairs_taken_by(self, table_ids: Iterable[TableId], account_ids: frozenset[str]) -> frozenset[OccupiedChair]:
@@ -221,11 +221,11 @@ class HeldChair:
 
 @dataclass(frozen=True)
 class TableVersion:
-    """A live table with the version it had at the read and the time of the latest turn statement of a chair at it, None
-    while no chair holds one: a statement leaves the version as it is, so a reader that asks cheaply whether the table
-    changed asks both.
+    """A live table with the version it had at the read and the time of each turn statement of its chairs, in seat
+    order: a statement leaves the version as it is and each chair keeps its own time, so a reader that asks cheaply
+    whether the table changed asks both, and no chair's statement hides another's.
     """
 
     table_id: TableId
     version: int
-    turn_stated_at: datetime | None = None
+    turn_statement_times: tuple[datetime, ...]

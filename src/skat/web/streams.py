@@ -124,7 +124,7 @@ class TableSource:
         self._account_id = account_id
         self._subscription: Subscription | None = None
         self._first_read = True
-        self._read_standing: tuple[int, datetime | None, frozenset[str], frozenset[str]] | None = None
+        self._read_standing: tuple[int, tuple[datetime, ...], frozenset[str], frozenset[str]] | None = None
 
     async def open(self, wake: Callable[[], None]) -> None:
         self._subscription = await self._presence.subscribe(self._table_id, self._account_id, wake)
@@ -133,7 +133,7 @@ class TableSource:
         leased = await self._read_leased()
         # Read before the view, so a statement made after it makes the next heartbeat read again.
         stamp = await self._read_version()
-        stated = None if stamp is None else stamp.turn_stated_at
+        stated = () if stamp is None else stamp.turn_statement_times
         with self._presence.waits.reading(self._table_id):
             connected = await self._presence.connected(self._table_id)
             view = await self._read_view(actor, connected)
@@ -154,7 +154,7 @@ class TableSource:
             return True
         standing = (
             current.version,
-            current.turn_stated_at,
+            current.turn_statement_times,
             await self._presence.connected(self._table_id),
             await self._read_leased(),
         )

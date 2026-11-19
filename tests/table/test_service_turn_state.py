@@ -223,10 +223,10 @@ def test_the_lobby_tells_the_stated_value_of_a_chair_in_the_accounts_tables_and_
     assert [chair.turn_state for chair in open_ones[0].chairs] == [None, expected, None]
 
 
-def test_the_latest_statement_of_a_table_moves_with_each_statement_and_not_with_the_version():
+def test_the_statement_times_of_a_table_move_with_each_statement_and_not_with_the_version():
     scene = Scene()
     table = TableId(scene.table_id)
-    assert scene.service.table_versions([table])[0].turn_stated_at is None
+    assert scene.service.table_versions([table])[0].turn_statement_times == ()
     version = scene.table.version
 
     scene.state(BEN, "busy")
@@ -234,4 +234,4 @@ def test_the_latest_statement_of_a_table_moves_with_each_statement_and_not_with_
     scene.state(ANNA)
 
     [stamp] = scene.service.table_versions([table])
-    assert (stamp.version, stamp.turn_stated_at) == (version, START + timedelta(seconds=5))
+    assert (stamp.version, stamp.turn_statement_times) == (version, (START + timedelta(seconds=5), START))

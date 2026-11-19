@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 from sqlalchemy import Integer, delete, exists, func, insert, literal, select, update
+from sqlalchemy.dialects.postgresql import aggregate_order_by, array_agg
 from sqlalchemy.dialects.postgresql import insert as upsert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
@@ -259,11 +260,13 @@ def _forget_played_hand(connection: Connection, table_id: str) -> None:
         connection.execute(delete(rows).where(rows.c.table_id == table_id))
 
 
-def _latest_turn_statement_of_table() -> ScalarSelect[datetime]:
-    """The time of the latest statement among the table's chairs that its sitters stated, as a correlated subquery."""
+def _turn_statement_times_of_table() -> ScalarSelect[list[datetime]]:
+    """The time of each statement among the table's chairs that its sitters stated, in seat order, as a correlated
+    subquery: every chair keeps its own time, so a statement stamped earlier than another chair's still shows.
+    """
     chair = aliased(chairs)
     return (
-        select(func.max(chair.c.turn_state_at))
+        select(array_agg(aggregate_order_by(chair.c.turn_state_at, chair.c.seat)))
         .where(chair.c.table_id == tables.c.id, chair.c.turn_state_account == chair.c.account_id)
         .scalar_subquery()
     )
@@ -571,9 +574,9 @@ class _PostgresTableTransaction:
 
     def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
         return tuple(
-            TableVersion(TableId(row.id), row.version, row.turn_stated_at)
+            TableVersion(TableId(row.id), row.version, tuple(row.turn_statement_times or ()))
             for row in self._connection.execute(
-                select(tables.c.id, tables.c.version, _latest_turn_statement_of_table().label("turn_stated_at"))
+                select(tables.c.id, tables.c.version, _turn_statement_times_of_table().label("turn_statement_times"))
                 .join(chairs, chairs.c.table_id == tables.c.id)
                 .where(chairs.c.account_id == account_id, tables.c.end_reason.is_(None))
                 .order_by(tables.c.id)
@@ -592,9 +595,9 @@ class _PostgresTableTransaction:
 
     def versions_of(self, table_ids: Iterable[TableId]) -> tuple[TableVersion, ...]:
         return tuple(
-            TableVersion(TableId(row.id), row.version, row.turn_stated_at)
+            TableVersion(TableId(row.id), row.version, tuple(row.turn_statement_times or ()))
             for row in self._connection.execute(
-                select(tables.c.id, tables.c.version, _latest_turn_statement_of_table().label("turn_stated_at"))
+                select(tables.c.id, tables.c.version, _turn_statement_times_of_table().label("turn_statement_times"))
                 .where(tables.c.id.in_([table_id.value for table_id in table_ids]), tables.c.end_reason.is_(None))
                 .order_by(tables.c.id)
             )

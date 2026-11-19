@@ -221,8 +221,8 @@ class FakeTableStore:
 
     @staticmethod
     def _version_of(table: TableRecord) -> TableVersion:
-        stated = [chair.turn_state.stated_at for chair in table.chairs if chair.turn_state is not None]
-        return TableVersion(table.id, table.version, max(stated, default=None))
+        stated = tuple(chair.turn_state.stated_at for chair in table.chairs if chair.turn_state is not None)
+        return TableVersion(table.id, table.version, stated)
 
     def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
         return tuple(

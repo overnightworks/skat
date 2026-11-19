@@ -159,13 +159,13 @@ def _open_answer_of(entry: OpenEntryView) -> OpenTableAnswer:
 
 
 class _TableStanding(NamedTuple):
-    """What a read stands on at one table: its version, the time of its latest turn statement, who is connected there
+    """What a read stands on at one table: its version, the times of its turn statements, who is connected there
     and which of its sitters are agents whose lease runs, who count as present without a stream.
     """
 
     table_id: str
     version: int
-    turn_stated_at: datetime | None
+    turn_statement_times: tuple[datetime, ...]
     connected: frozenset[str]
     leased: frozenset[str]
 
@@ -178,7 +178,7 @@ class _TopicHoldingSource(ABC):
     after the swap, so a commit before it is in the read and a commit after it wakes the stream. The `standing`
     topics are held from `open` on, before the first read.
 
-    A read stands on the list it was made from and, at each table, its version, its latest turn statement, who is
+    A read stands on the list it was made from and, at each table, its version, its turn statement times, who is
     connected and which sitters have a running lease. A heartbeat asks again for the list with the versions and the
     statements, one or two cheap reads of the index, and for the leased sitters, a read of the chairs only while some
     lease runs; the source has moved only when that or who is connected differs from what the last read stood on. A
@@ -229,7 +229,7 @@ class _TopicHoldingSource(ABC):
             _TableStanding(
                 table.table_id.value,
                 table.version,
-                table.turn_stated_at,
+                table.turn_statement_times,
                 connected[table.table_id.value],
                 frozenset(seat.account_id for seat in seats if seat.table_id == table.table_id),
             )
