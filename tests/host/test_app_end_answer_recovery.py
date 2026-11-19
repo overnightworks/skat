@@ -25,15 +25,14 @@ class Unreadable(TableService):
 
 @pytest.fixture
 def unplayed(sign_in_settings):
-    Unreadable.reading = False
     return UnplayedTables(sign_in_settings, Unreadable)
 
 
 class TestTheEndAnswerRecovery:
-    def test_a_failed_read_is_logged_by_its_type_and_the_next_round_is_asked_for(self, unplayed, capsys):
+    def test_a_failed_read_is_logged_by_its_type_and_the_next_round_is_asked_for(self, unplayed, capsys, monkeypatch):
         with TestClient(unplayed.app()) as client:
             ((_, round_),) = unplayed.scheduler.recoveries()
-            Unreadable.reading = True
+            monkeypatch.setattr(Unreadable, "reading", True)
             with logged(capsys) as lines:
                 client.portal.call(round_)
 
