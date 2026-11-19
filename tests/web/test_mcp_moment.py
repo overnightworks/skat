@@ -2,8 +2,15 @@
 token is offered every tool.
 """
 
-import pytest
+from contextlib import nullcontext
+from dataclasses import replace
+from datetime import timedelta
 
+import pytest
+from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI
+from starlette.concurrency import run_in_threadpool
+
+from skat.table.records import Series, TableId
 from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.mcp import (
     AUCTION_BID_TOOL,
@@ -26,10 +33,14 @@ from skat.web.mcp import (
     TOOLS_OF_MOMENT,
 )
 from skat.web.member_place import ACCEPT_INVITATION_DECLARATION, SET_TURN_STATE_DECLARATION
-from tests.web.support.agent import Agent, person_passes, person_steps, view_uri_of, window_uri_of
+from tests.support.calls import call_facts
+from tests.support.played_game import a_whole_game
+from tests.web.support.agent import Agent, agent_account_id, person_passes, person_steps, view_uri_of, window_uri_of
 from tests.web.support.calling import running_skat
-from tests.web.support.playing import MIDDLEHAND, REARHAND
+from tests.web.support.playing import FOREHAND, MIDDLEHAND, REARHAND
 from tests.web.support.sdk_agent import TOOLS_CHANGED, SdkAgent
+from tests.web.support.series import headers_of, tap_weiter
+from tests.web.support.skat import AgentTable, streams_of
 
 READS = {READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, READ_PAUSED_TABLES_TOOL, READ_RULE_SETS_TOOL}
 SEATED = READS | {
@@ -54,16 +65,6 @@ def sdk(skat, issuer):
 
 def a_person(skat, issuer):
     return Agent(skat, issuer, skat.member()[1].id, agent_owner=None, agent_name=None, groups=[MCP_GROUP])
-
-
-def events_until_the_notice(events, within=4):
-    """The events up to and including the notice that the tool list changed; the notice is not among them if none of
-    the first `within` events is it.
-    """
-    seen = []
-    while len(seen) < within and TOOLS_CHANGED not in seen:
-        seen.append(events.next_kind())
-    return seen
 
 
 class TestTheListFollowsTheMoment:
@@ -134,22 +135,109 @@ class TestTheAgentIsToldWhenTheListChanges:
             )
             second = [events.next_kind() for _ in range(2)]
             person_passes(table, REARHAND)
-            ending = sorted(events.next_kind() for _ in range(3))
+            ending = [events.next_kind() for _ in range(3)]
             person_steps(table, MIDDLEHAND, TABLE_DECLARING_TAKE_SUFFIX)
             after = [events.next_kind() for _ in range(2)]
 
         assert (first, second, ending, after) == (
             [window, view],
             [window, view],
-            sorted([window, view, TOOLS_CHANGED]),
+            [TOOLS_CHANGED, window, view],
             [window, view],
         )
 
-    def test_the_notice_comes_when_the_agent_sits_down_and_when_it_stands_up(self, sdk, agent):
+    def test_the_notice_comes_before_the_standing_when_the_agent_sits_down_and_when_it_stands_up(self, sdk, agent):
         with sdk.connected() as session, session.listening(tools_list_changed=True) as events:
             table_id = agent.open_table().json()["id"]
-            sitting = events_until_the_notice(events)
+            sitting = [events.next_kind() for _ in range(2)]
             agent.stand_up(table_id)
-            leaving = events_until_the_notice(events)
+            leaving = [events.next_kind() for _ in range(2)]
 
-        assert (sitting[-1], leaving[-1]) == (TOOLS_CHANGED, TOOLS_CHANGED)
+        assert (sitting, leaving) == ([TOOLS_CHANGED, STANDING_URI], [TOOLS_CHANGED, STANDING_URI])
+
+
+def on_the_apps_worker(skat, step, *arguments):
+    """Runs a server step of the service the app wired on a worker of its loop, where the pulses it tells are heard."""
+
+    async def run():
+        return await run_in_threadpool(step, *arguments)
+
+    return skat.client.portal.call(run)
+
+
+def _a_move(skat, agent):
+    table = AgentTable(skat, agent, FOREHAND)
+    table.middlehand_bids()
+    agent.take_step(AUCTION_PASS_TOOL, table, command_id="agent-pass")
+    return lambda _session: person_passes(table, REARHAND)
+
+
+def _a_sit_that_deals(skat, agent):
+    table_id = agent.open_table().json()["id"]
+    first, second = skat.member()[0], skat.member()[0]
+    skat.sit(first, table_id, 2, command_id="command-sit-2")
+    return lambda _session: skat.sit(second, table_id, 3, command_id="command-sit-3")
+
+
+def _the_deal_after_the_third_continue(skat, agent):
+    table = AgentTable(skat, agent, FOREHAND)
+    skat.store.tables[table.table_id] = replace(table.record, series=Series(3, 1))
+    table.declared_hand_game()
+    table.played_out(each.card for each in a_whole_game(table.record))
+    for number, headers in enumerate(headers_of(table), start=1):
+        assert tap_weiter(skat, headers, table.table_id, f"weiter-{number}").status_code == 200
+    everyone = frozenset(chair.occupant.account_id for chair in table.record.chairs)
+    return lambda _session: on_the_apps_worker(
+        skat, skat.tables.deal_next, TableId(table.table_id), nullcontext(everyone)
+    )
+
+
+def _a_freed_chair(skat, agent):
+    agent.admitted()
+    table_id = skat.create(skat.member()[0]).json()["id"]
+    agent.sit_down(table_id, 2)
+    skat.store.hold_due(table_id, agent_account_id(skat))
+    return lambda _session: on_the_apps_worker(
+        skat, skat.tables.free_held_chair, TableId(table_id), agent_account_id(skat), nullcontext(True)
+    )
+
+
+class TestTheNoticeComesBeforeTheTellingsOfTheSameChange:
+    @pytest.mark.parametrize(
+        "arrange", [_a_move, _a_sit_that_deals, _the_deal_after_the_third_continue, _a_freed_chair]
+    )
+    def test_the_stream_writes_the_notice_before_the_window_and_the_view_of_the_change(self, skat, sdk, agent, arrange):
+        act = arrange(skat, agent)
+
+        with sdk.connected() as session, session.listening(tools_list_changed=True) as events:
+            act(session)
+            told = [events.next_kind() for _ in range(2)]
+
+        assert (told[0], told[1] != TOOLS_CHANGED) == (TOOLS_CHANGED, True)
+
+    def test_the_stream_writes_the_notice_of_an_accepted_invitation_before_the_window_and_the_view(self, skat, issuer):
+        owner = skat.member()
+        agent = Agent(skat, issuer, agent_owner=owner[1].id)
+        sdk = SdkAgent(skat, issuer, agent_owner=owner[1].id)
+        agent.admitted()
+        table_id = skat.create(owner[0]).json()["id"]
+        skat.client.cookies.clear()
+        offer = on_the_apps_worker(
+            skat,
+            skat.tables.invite_agent,
+            TableId(table_id),
+            call_facts(agent.subject, owner[1].id, owner[1].id),
+            timedelta(minutes=10),
+        )
+
+        with (
+            streams_of(skat, table_id, [(owner[0], None)]),
+            sdk.connected() as session,
+            session.listening(tools_list_changed=True) as events,
+        ):
+            answer = session.call(
+                ACCEPT_INVITATION_TOOL, place={"kind": "table", "id": table_id}, invitation=offer.id, epoch=offer.epoch
+            )
+            told = [events.next_kind() for _ in range(2)]
+
+        assert (answer.is_error, told[0], told[1] != TOOLS_CHANGED) == (False, TOOLS_CHANGED, True)

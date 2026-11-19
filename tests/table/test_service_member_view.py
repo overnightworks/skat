@@ -471,3 +471,67 @@ class TestTheToolsSignal:
 
         assert isinstance(offer, InvitationOffer)
         assert told == []
+
+
+def _a_move(scene):
+    scene.seat_three()
+
+    def on_turn():
+        return next(actor for actor in (ANNA, MOZART, BACH) if scene.view_of(actor.account_id).awaits_you)
+
+    auction_bid(scene.service, on_turn(), scene.table_id, scene.table.version)
+    auction_pass(scene.service, on_turn(), scene.table_id, scene.table.version)
+    return lambda: auction_pass(scene.service, on_turn(), scene.table_id, scene.table.version)
+
+
+def _a_sit_that_deals(scene):
+    scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
+    scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
+    return lambda: scene.service.sit(BACH, SitDown("command-bach", scene.table_id, 3), NOBODY)
+
+
+def _an_accepted_invitation(scene):
+    scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
+    scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
+    offer = scene.service.invite_agent(
+        TableId(scene.table_id), call_facts(BACH.account_id, ANNA.account_id), timedelta(hours=1)
+    )
+    acceptance = Acceptance(scene.table_id, offer.id, offer.epoch)
+    return lambda: scene.service.accept_invitation(BACH, ANNA.account_id, acceptance, frozenset({ANNA.account_id}))
+
+
+def _the_deal_after_the_third_continue(scene):
+    scene.put(with_agents(between_games(1, 2, 3), 2, 3))
+    everyone = frozenset(chair.occupant.account_id for chair in scene.table.chairs)
+    return lambda: scene.service.deal_next(TableId(scene.table_id), nullcontext(everyone))
+
+
+def _a_freed_chair(scene):
+    scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
+    scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
+    scene.service.stand(ANNA, StandUp("command-anna-stand", scene.table_id), NOBODY)
+    scene.service.sit(BACH, SitDown("command-bach", scene.table_id, 3), NOBODY)
+    scene.store.hold_due(scene.table_id, MOZART.account_id)
+    return lambda: scene.service.free_held_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True))
+
+
+class TestTheOrderOfTheTellings:
+    @pytest.mark.parametrize(
+        "arrange",
+        [_a_move, _a_sit_that_deals, _an_accepted_invitation, _the_deal_after_the_third_continue, _a_freed_chair],
+    )
+    def test_the_tools_notice_of_a_change_precedes_every_other_telling_of_it(self, arrange):
+        told = []
+        scene = Scene()
+        scene.service = (
+            scene.service.with_view_signal(lambda _table, _accounts: told.append("view"))
+            .with_standing_signal(lambda _accounts: told.append("standing"))
+            .with_tools_signal(lambda _accounts: told.append("tools"))
+        )
+        act = arrange(scene)
+        told.clear()
+
+        act()
+
+        assert "tools" in told
+        assert told == sorted(told, key=lambda kind: kind != "tools")
