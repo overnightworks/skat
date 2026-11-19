@@ -1,0 +1,7 @@
+claim_id = "a2c571453c6f493b89996afe75c601fc"
+agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
+role = "builder"
+base = "f51008eec9ef5b31cc37ac6a1c727a314e4566bb"
+branch = "dependabot/npm_and_yarn/frontend/vite-8.3.8"
+scope = ["frontend/package.json", "frontend/pnpm-lock.yaml"]
+opened_commit = "820094d7bcc1940d3246d00dc11a92431fd23595"
