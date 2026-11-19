@@ -26,6 +26,7 @@ from skat.web.result_answer import RamschResultAnswer, ResultAnswer, result_answ
 from skat.web.routes import READ_METHODS, built_page_response
 from skat.web.series_answer import SeriesAnswer, StandingAnswer, series_answer_of, standing_answer_of
 from skat.web.table_options import OptionsAnswer, options_answer_of
+from skat.web.turn_state_answer import TurnStateAnswer, turn_state_answer_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -341,6 +342,7 @@ class ChairAnswer(BaseModel):
     former_holder_name: str | None
     is_mine_to_return: bool
     nudge: NudgeAnswer | None
+    turn_state: TurnStateAnswer | None = None
 
 
 class NextDealerAnswer(BaseModel):
@@ -575,6 +577,7 @@ def answer_of(view: TableView, nudges: Mapping[int, NudgeState], reactions: Sequ
                 former_holder_name=c.former_holder_name,
                 is_mine_to_return=c.is_mine_to_return,
                 nudge=nudge_answer_of(view, nudges.get(c.seat)),
+                turn_state=turn_state_answer_of(c.turn_state),
             )
             for c in view.chairs
         ],

@@ -499,6 +499,7 @@ CHAIR_FIELDS = {
     "is_away",
     "is_turn",
     "hold_seconds_left",
+    "turn_state",
 }
 EMPTY = {"tables": []}
 HEARTBEAT_LINE = ": "

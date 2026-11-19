@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from skat.table.game_cards import GameCards
-    from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord
+    from skat.table.records import Chair, EndedTable, Ending, Receipt, Replay, TableId, TableRecord
 
 __all__ = [
     "DuplicateReceiptError",
@@ -66,6 +66,13 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         the hand of a table without Ramsch. A list that does not continue the stored one raises, unless the record is
         of a later series than the stored one: the stored rows of the earlier series stay and the table reads only
         its current series; a free chair that is ready raises too.
+        """
+        ...
+
+    def save_turn_state(self, table_id: TableId, chair: Chair) -> None:
+        """Write the chair's turn statement alone, with the account that sits there as the one that stated it: no
+        version, no other column. The table's row is locked by this transaction, as it is for every write, so a move
+        saved at the same moment is saved before or after it and keeps it.
         """
         ...
 
@@ -154,9 +161,9 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         ...
 
     def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
-        """The live tables the account holds a chair at, each with its version, in id order; no row is locked, so the
-        list is a candidate list: a table may end or a chair move before the caller uses it, and a caller that shows
-        more than the table ids reads each table again under its lock.
+        """The live tables the account holds a chair at, each with its version and turn statement times, in id order;
+        no row is locked, so the list is a candidate list: a table may end or a chair move before the caller uses it,
+        and a caller that shows more than the table ids reads each table again under its lock.
         """
         ...
 
@@ -167,7 +174,7 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         ...
 
     def versions_of(self, table_ids: Iterable[TableId]) -> tuple[TableVersion, ...]:
-        """The version of each live table among `table_ids`, in id order; no row is locked."""
+        """The version and turn statement times of each live table among `table_ids`, in id order; no row is locked."""
         ...
 
     def chairs_taken_by(self, table_ids: Iterable[TableId], account_ids: frozenset[str]) -> frozenset[OccupiedChair]:
@@ -214,7 +221,11 @@ class HeldChair:
 
 @dataclass(frozen=True)
 class TableVersion:
-    """A live table with the version it had at the read."""
+    """A live table with the version it had at the read and the time of each turn statement of its chairs, in seat
+    order: a statement leaves the version as it is and each chair keeps its own time, so a reader that asks cheaply
+    whether the table changed asks both, and no chair's statement hides another's.
+    """
 
     table_id: TableId
     version: int
+    turn_statement_times: tuple[datetime, ...]

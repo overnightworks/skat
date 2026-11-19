@@ -11,6 +11,8 @@ from skat.engine.schieberamsch import GrandHandRule, PushOptions, PushRefusal
 from skat.engine.tricks import PlayRefusal
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from skat.engine.bidding import AuctionStep
     from skat.engine.bock import BockOptions, BockRounds
     from skat.engine.deal import Deal, Position
@@ -270,14 +272,32 @@ class Occupant:
 
 
 @dataclass(frozen=True)
+class TurnStatement:
+    """The last `set_turn_state` statement of the member at a chair: why its turns there stop, as the token of the
+    outcome the agents library names, or None when they answer; whether a turn of its runs; and when it stated it.
+
+    A statement says `thinking` or a stop and never both.
+    """
+
+    stopped: str | None
+    thinking: bool
+    stated_at: datetime
+
+
+@dataclass(frozen=True)
 class Chair:
     """A chair and who sits on it; `ready` says its occupant is ready for the next hand,
     by a tap of „Weiter“, by sitting down while a result is pending, or, after a series' end, by a tap of
-    „Neue Serie“."""
+    „Neue Serie“.
+
+    `turn_state` is what the occupant last stated about its turns, its own field and no part of the occupant; a chair
+    changes hands only through `with_occupant`, which leaves the new chair with none.
+    """
 
     seat: int
     occupant: Occupant | None
     ready: bool = False
+    turn_state: TurnStatement | None = None
 
 
 @dataclass(frozen=True)

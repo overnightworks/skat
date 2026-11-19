@@ -61,6 +61,10 @@ LATER_COLUMNS = (
     "ramsch_jungfrau",
     "ramsch_durchmarsch",
     "ramsch_pushing",
+    "turn_state_account",
+    "turn_state_stopped",
+    "turn_state_thinking",
+    "turn_state_at",
 )
 RUNNING_HAND_TABLES = ("tables", "chairs", "hand_cards", "auction_actions")
 

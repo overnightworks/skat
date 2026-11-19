@@ -171,6 +171,14 @@ async def closed_the_table(service, presence, table_id):
     service.close(OPENER, CloseTable("command-close", table_id))
 
 
+async def stated_a_turn(service, presence, table_id):
+    service.set_turn_state(OPENER.account_id, table_id, "busy", False)
+
+
+async def a_stranger_stated_a_turn(service, presence, table_id):
+    service.set_turn_state(VISITOR.account_id, table_id, "busy", False)
+
+
 async def did_nothing(service, presence, table_id):
     pass
 
@@ -181,13 +189,15 @@ class TestTheTableSourceMoves:
         [
             pytest.param(did_nothing, False, id="nothing"),
             pytest.param(sat_down, True, id="a-commit"),
+            pytest.param(stated_a_turn, True, id="a-turn-statement-that-leaves-the-version"),
+            pytest.param(a_stranger_stated_a_turn, False, id="a-refused-turn-statement"),
             pytest.param(connected_a_watcher, True, id="a-watcher"),
             pytest.param(started_the_lease_of_a_sitter, True, id="the-lease-of-a-sitter"),
             pytest.param(started_the_lease_of_a_stranger, False, id="the-lease-of-an-account-that-sits-elsewhere"),
             pytest.param(closed_the_table, True, id="the-end"),
         ],
     )
-    def test_a_table_source_has_moved_since_its_read_when_the_version_or_who_is_present_changed(
+    def test_a_table_source_has_moved_since_its_read_when_the_version_a_statement_or_who_is_present_changed(
         self, service, table_id, happens, moved
     ):
         async def scenario():

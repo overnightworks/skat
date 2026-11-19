@@ -34,7 +34,9 @@ def test_an_accounts_live_tables_come_with_their_versions_in_id_order(service, t
     held = tables_of(transactions, ANNA.account_id)
 
     held_ids = sorted((*kept, other), key=lambda table_id: table_id.value)
-    assert held == tuple(TableVersion(table_id, stored(transactions, table_id.value).version) for table_id in held_ids)
+    assert held == tuple(
+        TableVersion(table_id, stored(transactions, table_id.value).version, ()) for table_id in held_ids
+    )
 
 
 def test_an_account_that_holds_no_chair_has_no_tables(service, transactions):
@@ -51,7 +53,7 @@ def test_the_versions_of_named_tables_leave_out_an_ended_one_and_any_that_was_no
     with transactions.begin() as transaction:
         versions = transaction.versions_of([named, ended, TableId("0" * 32)])
 
-    assert versions == (TableVersion(named, stored(transactions, named.value).version),)
+    assert versions == (TableVersion(named, stored(transactions, named.value).version, ()),)
 
 
 def test_the_chairs_taken_by_named_accounts_at_named_tables_leave_out_other_tables_and_other_sitters(
