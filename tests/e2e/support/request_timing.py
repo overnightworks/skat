@@ -1,6 +1,7 @@
 """Temporary measurement of where a request's time goes between the browser and the app (item 712)."""
 
 import asyncio
+import gc
 import json
 import os
 import sys
@@ -27,11 +28,28 @@ def record(kind: str, **fields: Any) -> None:
 def watch_for_stalls(state: dict[str, Any]) -> None:
     """Names what every thread runs while the server's loop has not ticked for 300 ms."""
     loop_clock = time.pthread_getcpuclockid(state["thread"])
+    main_clock = time.pthread_getcpuclockid(threading.main_thread().ident)
     reported_beat = None
+    previous = (time.perf_counter(), time.clock_gettime(main_clock))
+    gc_started = []
+
+    def note_gc(phase: str, info: dict[str, Any]) -> None:
+        if phase == "start":
+            gc_started.append(time.perf_counter())
+        elif gc_started:
+            took = time.perf_counter() - gc_started.pop()
+            if took > 0.05:
+                record("gc", at=time.time(), ms=round(took * 1000), generation=info["generation"])
+
+    gc.callbacks.append(note_gc)
     while True:
         time.sleep(0.05)
         beat = state["beat"]
-        if time.perf_counter() - beat < 0.3 or beat == reported_beat:
+        now = time.perf_counter()
+        main_cpu = time.clock_gettime(main_clock)
+        before = previous
+        previous = (now, main_cpu)
+        if now - beat < 0.3 or beat == reported_beat:
             continue
         reported_beat = beat
         stacks = {
@@ -45,6 +63,8 @@ def watch_for_stalls(state: dict[str, Any]) -> None:
             at=time.time(),
             stale_ms=round((time.perf_counter() - beat) * 1000),
             loop_cpu_ms_since_beat=round((time.clock_gettime(loop_clock) - state["beat_cpu"]) * 1000),
+            watchdog_tick_ms=round((now - before[0]) * 1000),
+            main_cpu_ms_in_tick=round((main_cpu - before[1]) * 1000),
             load=os.getloadavg(),
             stacks=stacks,
         )

@@ -56,7 +56,13 @@ def main(directory: Path) -> None:
     stalls = [row for row in rows if row["kind"] == "stall"]
     print(f"stalls over 300 ms: {len(stalls)}")
     for row in stalls[:12]:
-        print(json.dumps({key: row[key] for key in ("stale_ms", "loop_cpu_ms_since_beat", "load", "stacks")}))
+        print(json.dumps({key: row[key] for key in ("stale_ms", "loop_cpu_ms_since_beat", "watchdog_tick_ms", "main_cpu_ms_in_tick")}))
+    summary("stalls: stale ms", [row["stale_ms"] for row in stalls])
+    summary("stalls: main thread cpu ms in the stalled tick", [row["main_cpu_ms_in_tick"] for row in stalls])
+    summary("stalls: loop thread cpu ms since beat", [row["loop_cpu_ms_since_beat"] for row in stalls])
+    summary("stalls: watchdog tick ms", [row["watchdog_tick_ms"] for row in stalls])
+    garbage = [row for row in rows if row["kind"] == "gc"]
+    summary("gc over 50 ms (ms)", [row["ms"] for row in garbage])
     print(f"lag events: {sum(row['kind'] == 'loop_lag' for row in rows)}; browser requests: {sum(row['kind'] == 'browser' for row in rows)}")
 
 
