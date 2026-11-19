@@ -8,7 +8,7 @@ from skat.engine.bidding import Bid, Pass
 from skat.engine.deal import Position
 from skat.table.member_view import moment_at, moment_recipients
 from skat.table.moment import TableMoment, moment_of
-from skat.table.records import EndProposal, HandProgress, Series
+from skat.table.records import HandProgress, Series
 from skat.table.views import view_of
 from tests.support.open_chairs import (
     REARHAND_SEAT,
@@ -20,7 +20,7 @@ from tests.support.open_chairs import (
     in_the_auction,
     sent_away,
 )
-from tests.support.played_game import between_games, table_in, with_agents
+from tests.support.played_game import an_end_proposal, between_games, table_in, with_agents
 
 DECLARER, OPPONENT = "account-middlehand", "account-rearhand"
 
@@ -67,7 +67,7 @@ class TestTheMomentOfASeat:
         assert moment_of(view_of(table, account, frozenset())) is moment
 
     def test_a_pending_early_end_proposal_is_a_moment_of_the_result(self):
-        table = between_games(1, 2, 3, proposal=EndProposal(1))
+        table = between_games(1, 2, 3, proposal=an_end_proposal(1))
 
         assert moment_of(view_of(table, OPPONENT, frozenset())) is TableMoment.RESULT
 

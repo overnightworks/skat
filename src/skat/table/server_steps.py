@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Final
 
 from skat.table.member_place import agents_seated_at
 from skat.table.member_view import moment_recipients, view_recipients
-from skat.table.records import Ending
+from skat.table.records import Ending, TableRecord
 from skat.table.rules import (
     PresenceStep,
     ResumeStep,
@@ -22,6 +22,7 @@ from skat.table.rules import (
     present_at,
     resume_step,
 )
+from skat.table.series_end import answer_left, decide_end_answer_lapse, end_answer_left
 
 if TYPE_CHECKING:
     import random
@@ -30,7 +31,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from skat.table.member_view import ViewSignal
-    from skat.table.records import TableId, TableRecord
+    from skat.table.records import TableId
     from skat.table.transactions import HeldChair, TableTransaction, TableTransactions
 
 # The most due holds one sweep frees; the rest wait for the next.
@@ -163,6 +164,35 @@ class ServerSteps:
             transaction.end_table(table_id, self._now(), Ending.empty(empty_seconds))
         self._tell(members)
         return True
+
+    def lapse_end_answers(self, table_id: TableId) -> float | None:
+        """End the table's standing proposal to end the series if its minute is over, on the server's own account, with
+        no actor, command id or receipt; the decision re-reads the table under the row lock, so a repeat, an answer
+        that came meanwhile or a table that ended changes nothing. The seconds a proposal that still stands has left,
+        None when none stands any more.
+        """
+        now = self._now()
+        with self._transactions.begin() as transaction:
+            table = transaction.locked_table(table_id)
+            if table is None:
+                return None
+            decision = decide_end_answer_lapse(table, now)
+            left = end_answer_left(table, now)
+            if decision.table.version == table.version:
+                return None if left is None else max(0.0, left.total_seconds())
+            transaction.save_table(decision.table, played_at=None)
+        self._tell_view(table_id, view_recipients(table, decision.table))
+        self._tell_moments(moment_recipients(table, decision.table))
+        return None
+
+    def pending_end_answers(self) -> dict[str, float]:
+        """At the server's start: the seconds each live table's standing proposal still waits for its answers, zero
+        for one whose minute is over.
+        """
+        now = self._now()
+        with self._transactions.begin() as transaction:
+            asks = transaction.live_end_asks()
+        return {ask.table_id.value: max(0.0, answer_left(ask.asked_at, now).total_seconds()) for ask in asks}
 
     def note_presence(
         self,

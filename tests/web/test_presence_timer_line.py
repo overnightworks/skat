@@ -15,6 +15,7 @@ from skat.web.presence import (
     NEXT_DEAL_PAUSE_SECONDS,
     AgentLease,
     EmptyTable,
+    EndAnswers,
     NextDeal,
     Presence,
 )
@@ -50,10 +51,11 @@ class Timers:
     ends: Any
     deals: Any
     holds: Any
+    lapses: Any
 
 
 @pytest.fixture
-def timers(time, holds, deals, ends):
+def timers(time, holds, deals, ends, lapses):
     leases, notes, roster = Leases(), Notes(), InMemoryLeases()
     presence = Presence(
         chair_hold(time, holds),
@@ -62,8 +64,9 @@ def timers(time, holds, deals, ends):
         AgentLease(LEASE_SECONDS, leases.seated_tables),
         idle_wakes(),
         roster,
+        EndAnswers(lapses.lapse),
     )
-    return Timers(presence, time, leases, roster, notes, ends, deals, holds)
+    return Timers(presence, time, leases, roster, notes, ends, deals, holds, lapses)
 
 
 def fail_the_next_runs(world, timer, count):
@@ -76,6 +79,7 @@ def fail_the_next_runs(world, timer, count):
         PresenceTimer.HOLD_SWEEP: (world.holds, "due_failures"),
         PresenceTimer.LEAVE_WRITE: (world.holds, "leave_failures"),
         PresenceTimer.HOLD_CLEAR: (world.holds, "clear_failures"),
+        PresenceTimer.END_ANSWER_LAPSE: (world.lapses, "failures"),
     }[timer]
     setattr(store, failures, [ConnectionError(FAILURE_NAMING_AN_ACCOUNT) for _ in range(count)])
 
@@ -95,6 +99,9 @@ def first_run(world, timer, leaving):
         run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
     elif timer is PresenceTimer.HOLD_CLEAR:
         connect(presence, TABLE, MEMBER, lambda: None)
+    elif timer is PresenceTimer.END_ANSWER_LAPSE:
+        presence.watch_end_answers(TABLE, 0)
+        run(time.advance(0))
     else:
         world.holds.due_now = [(TABLE, MEMBER)]
         presence.start_hold_sweeps()

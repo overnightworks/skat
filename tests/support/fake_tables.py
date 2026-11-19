@@ -8,7 +8,15 @@ from typing import TYPE_CHECKING
 from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord, Visibility
 from skat.table.rules import CREATE_TABLE_COMMAND, played_series_of
 from skat.table.service import TableService
-from skat.table.transactions import DuplicateReceiptError, HeldChair, LiveWait, OccupiedChair, PausedFacts, TableVersion
+from skat.table.transactions import (
+    DuplicateReceiptError,
+    HeldChair,
+    LiveAsk,
+    LiveWait,
+    OccupiedChair,
+    PausedFacts,
+    TableVersion,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
@@ -172,6 +180,13 @@ class FakeTableStore:
             LiveWait(table.id, table.dealer, self.empty_since_by_table.get(table.id.value))
             for table in self.tables.values()
             if isinstance(table, TableRecord)
+        )
+
+    def live_end_asks(self) -> tuple[LiveAsk, ...]:
+        return tuple(
+            LiveAsk(table.id, table.series.end_proposal.asked_at)
+            for table in self.tables.values()
+            if isinstance(table, TableRecord) and table.series is not None and table.series.end_proposal is not None
         )
 
     def hold_due(self, table_id: str, account_id: str) -> None:

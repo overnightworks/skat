@@ -13,7 +13,7 @@ from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, Kontr
 from skat.store.game_list import game_list
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError, hand_cards, options_of, series, tables
-from skat.store.series import SeriesSettingsChangedError
+from skat.store.series import UNSTAMPED, SeriesSettingsChangedError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.ready import NewSeriesCommand
@@ -21,7 +21,6 @@ from skat.table.records import (
     Actor,
     CreateTable,
     Ending,
-    EndProposal,
     HandProgress,
     Refusal,
     Series,
@@ -34,7 +33,7 @@ from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.migrations import run_in_transaction
-from tests.support.played_game import after_a_game, after_the_first_game, an_entry
+from tests.support.played_game import END_ASKED_AT, after_a_game, after_the_first_game, an_end_proposal, an_entry
 
 pytestmark = pytest.mark.postgres
 
@@ -363,15 +362,13 @@ class TestEndingEarly:
     def test_a_proposal_an_acceptance_and_the_early_end_read_back_across_a_restart(
         self, service, transactions, database_url, between_games
     ):
-        for seat, expected in (
-            (1, Series(3, 1, end_proposal=EndProposal(1))),
-            (2, Series(3, 1, end_proposal=EndProposal(1, 2))),
-            (3, Series(3, 1, ended_early=True)),
-        ):
+        for seat, yes_of in ((1, {1}), (2, {1, 2}), (3, None)):
             assert say_yes(service, seat, between_games).refusal is None
             restarted_engine = create_store_engine(database_url)
             try:
-                assert series_of(PostgresTableTransactions(restarted_engine), between_games) == expected
+                read = series_of(PostgresTableTransactions(restarted_engine), between_games)
+                assert (None if read.end_proposal is None else read.end_proposal.agreed) == yes_of
+                assert read.ended_early is (yes_of is None)
             finally:
                 restarted_engine.dispose()
 
@@ -444,13 +441,40 @@ class TestEndingEarly:
         )
 
         outcome = (
-            series_of(transactions, between_games),
+            at_the_asked_instant(series_of(transactions, between_games)),
             answers["first"].refusal,
             answers["second"].refusal,
         )
         assert outcome in (
             (Series(3, 1, ended_early=True), None, Refusal.NO_PROPOSAL),
-            (Series(3, 1, end_proposal=EndProposal(3)), None, None),
+            (Series(3, 1, end_proposal=an_end_proposal(3)), None, None),
+        )
+
+    def test_a_proposal_its_instant_and_the_refusal_that_ended_it_read_back(self, service, transactions, between_games):
+        before = datetime.now(UTC)
+        say_yes(service, 1, between_games)
+
+        proposal = series_of(transactions, between_games).end_proposal
+        say_no(service, 2, between_games)
+
+        assert (proposal.proposer, proposal.agreed, before <= proposal.asked_at <= datetime.now(UTC)) == (
+            1,
+            frozenset({1}),
+            True,
+        )
+        assert series_of(transactions, between_games) == Series(3, 1, end_refused_by=frozenset({2}))
+
+    def test_a_proposal_the_release_before_wrote_reads_with_its_accepter_as_a_yes_and_its_minute_over(
+        self, engine, transactions, between_games
+    ):
+        run_in_transaction(engine, text("UPDATE series SET end_proposer = 1, end_accepter = 2"))
+
+        proposal = series_of(transactions, between_games).end_proposal
+
+        assert (proposal.proposer, proposal.agreed, proposal.asked_at) == (
+            1,
+            frozenset({1, 2}),
+            UNSTAMPED,
         )
 
     def test_the_first_deal_of_the_next_series_clears_the_flag_and_keeps_the_rows(
@@ -465,6 +489,14 @@ class TestEndingEarly:
         assert read(transactions, between_games).series == Series(3, 1, number=2)
         assert read(transactions, between_games).game_list == ()
         assert rows_of(engine, game_list) == 1
+
+
+def at_the_asked_instant(series):
+    """The series with its standing proposal made at the instant the tests use, since a service stamps its own."""
+    proposal = series.end_proposal
+    if proposal is None:
+        return series
+    return replace(series, end_proposal=replace(proposal, asked_at=END_ASKED_AT))
 
 
 def kontra_options(reach):

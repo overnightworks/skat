@@ -26,6 +26,7 @@ class PresenceTimer(StrEnum):
     HOLD_SWEEP = "hold_sweep"
     LEAVE_WRITE = "leave_write"
     HOLD_CLEAR = "hold_clear"
+    END_ANSWER_LAPSE = "end_answer_lapse"
 
 
 class TimerRun:

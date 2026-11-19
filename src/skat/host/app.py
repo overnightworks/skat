@@ -56,6 +56,7 @@ from skat.web.presence import (
     AgentLease,
     ChairHold,
     EmptyTable,
+    EndAnswers,
     LoopScheduler,
     NextDeal,
     Presence,
@@ -259,6 +260,13 @@ def _next_deal(tables: TableService) -> NextDeal:
     return NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal)
 
 
+def _end_answers(tables: TableService) -> EndAnswers:
+    async def lapse(table_id: str) -> float | None:
+        return await run_in_threadpool(tables.lapse_end_answers, TableId(table_id))
+
+    return EndAnswers(lapse)
+
+
 def _empty_table(settings: ServerSettings, tables: TableService) -> EmptyTable:
     async def end(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
         return await run_in_threadpool(
@@ -288,6 +296,7 @@ def _presence(
         _agent_lease(tables),
         wakes,
         stream_leases,
+        _end_answers(tables),
     )
 
 
@@ -462,6 +471,7 @@ def _serving(
             presence.watch_empty_tables(
                 await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds)
             )
+            presence.watch_all_end_answers(await run_in_threadpool(tables.pending_end_answers))
             await _end_unplayed_tables(settings, tables, presence, at_start=True)
             await _forget_ended_tables(settings, tables)
             forget_expired_sessions = _session_forgetter(serving, sessions)

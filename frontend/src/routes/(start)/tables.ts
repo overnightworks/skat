@@ -300,8 +300,9 @@ export type Standing = {
     lost: number;
     place: number;
 };
-// The seat that proposed ending the series early and the one that has said yes so far.
-export type EndProposal = { proposer_seat: number; accepter_seat: number | null };
+// The seat that proposed ending the series early, the seats that have said yes so far and the instant a seat that
+// stays silent counts as no.
+export type EndProposal = { proposer_seat: number; agreed_seats: number[]; answer_by: string };
 // Which series of the table this is, 1 for the first, which of its games runs (0 before the first deal) and whether it
 // is over; the standings come once it is, the same for every viewer.
 export type Series = {
@@ -311,6 +312,8 @@ export type Series = {
     over: boolean;
     standings: Standing[] | null;
     end_proposal: EndProposal | null;
+    // The seats whose no, or silence, ended the last proposal; empty after the next hand is dealt.
+    end_refused_seats: number[];
 };
 export type TableStyle = (typeof TABLE_STYLE_TOKENS)[number];
 

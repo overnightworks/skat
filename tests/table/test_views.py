@@ -16,7 +16,6 @@ from skat.table.records import (
     Chair,
     EndedTable,
     Ending,
-    EndProposal,
     HandProgress,
     Occupant,
     OccupantKind,
@@ -28,6 +27,7 @@ from skat.table.records import (
     Visibility,
 )
 from skat.table.views import view_of
+from tests.support.played_game import an_end_proposal
 
 ANNA, BEN, CLEO, DORA = "account-anna", "account-ben", "account-cleo", "account-dora"
 NOBODY_CONNECTED = frozenset[str]()
@@ -374,11 +374,11 @@ class TestChairTotals:
 
 class TestEndProposalInTheSeries:
     def test_a_standing_proposal_shows_its_seats_to_every_viewer(self):
-        table = replace(seated_table(2), series=Series(12, 2, end_proposal=EndProposal(1, 3)))
+        table = replace(seated_table(2), series=Series(12, 2, end_proposal=an_end_proposal(1, 3)))
 
         views = [view_of(table, viewer, NOBODY_CONNECTED).series for viewer in (ANNA, BEN, DORA)]
 
-        assert [view.end_proposal for view in views] == [EndProposal(1, 3)] * 3
+        assert [view.end_proposal for view in views] == [an_end_proposal(1, 3)] * 3
 
     def test_an_early_end_is_over_with_no_proposal_below_the_game_count(self):
         table = replace(seated_table(2), series=Series(12, 2, ended_early=True))

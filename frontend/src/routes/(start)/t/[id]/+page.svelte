@@ -27,10 +27,20 @@
         type PlayingHand,
     } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
-    import { resultOnStage, seriesCountText, seriesEndAsk, seriesOver, standingsView } from "#lib/series.ts";
+    import {
+        resultOnStage,
+        seriesCountText,
+        seriesEndAnswerBy,
+        seriesEndAsk,
+        seriesEndMarks,
+        seriesOver,
+        seriesRefusalNotice,
+        standingsView,
+    } from "#lib/series.ts";
     import { declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, Marked } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
+    import AnswerClock from "#lib/ui/AnswerClock.svelte";
     import AnswerMarks from "#lib/ui/AnswerMarks.svelte";
     import AskPlaque from "#lib/ui/AskPlaque.svelte";
     import AwayMark from "#lib/ui/AwayMark.svelte";
@@ -470,7 +480,11 @@
                     onanswer={(answer: SeriesEndAnswer) => {
                         void send(table, answerSeriesEnd(id, crypto.randomUUID(), answer));
                     }}
-                />
+                >
+                    {#if seriesEndAnswerBy(table) !== null}
+                        <AnswerClock until={seriesEndAnswerBy(table) as string} />
+                    {/if}
+                </AskPlaque>
             {:else if onResult}
                 <!-- The card carries the game and the points, so the plaque stays out while a result stands. -->
             {:else if abort.ask !== null}
@@ -628,6 +642,7 @@
                                 {/if}
                                 <AnswerMarks
                                     mark={(giveUp?.marks ?? abort.marks).get(chair.seat) ??
+                                        seriesEndMarks(current).get(chair.seat) ??
                                         openCardsMark(current, chair.seat)}
                                 />
                                 <AnswerMarks mark={wait?.marks.get(chair.seat)} />
@@ -753,6 +768,8 @@
             </div>
             {#if seatNote !== null}
                 <SeatNoticeLine notice={seatNote} />
+            {:else if seriesRefusalNotice(current) !== null}
+                <SeatNoticeLine notice={seriesRefusalNotice(current) as SeatNotice} />
             {/if}
             {@const asked = waits
                 ? outcome.table.chairs.find((chair) => chair.seat === asking && chair.occupant_name === null)

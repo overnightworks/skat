@@ -1,4 +1,5 @@
 from dataclasses import replace
+from datetime import UTC, datetime
 
 from skat.engine.bidding import Bid, Pass
 from skat.engine.bock import BockRounds
@@ -143,6 +144,14 @@ def a_ramsch_entry(
         bock_factor=1,
         pushes=0,
     )
+
+
+END_ASKED_AT = datetime(2026, 11, 19, 12, 0, tzinfo=UTC)
+
+
+def an_end_proposal(proposer: int, *others: int) -> EndProposal:
+    """The proposal of `proposer`, with the yes of each of `others`, made at `END_ASKED_AT`."""
+    return EndProposal(proposer, frozenset({proposer, *others}), END_ASKED_AT)
 
 
 def between_games(*ready_seats: int, series: Series | None = None, proposal: EndProposal | None = None) -> TableRecord:

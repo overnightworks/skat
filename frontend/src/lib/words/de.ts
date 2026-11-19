@@ -540,6 +540,9 @@ export type Words = {
     readonly "table.objectShell": string;
     readonly "table.objectCoaster": string;
     readonly "table.objectLamp": string;
+    readonly "table.answerClock": (gaps: { readonly time: string }) => string;
+    readonly "table.refusedToEndOne": (gaps: { readonly names: string }) => string;
+    readonly "table.refusedToEndMany": (gaps: { readonly names: string }) => string;
 };
 // prettier-ignore
 export const words: Words = {
@@ -1176,5 +1179,8 @@ export const words: Words = {
     "table.objectShell": "Muschel",
     "table.objectCoaster": "Untersetzer",
     "table.objectLamp": "Lampe",
+    "table.answerClock": (gaps: { readonly time: string }) => "ohne Antwort in " + gaps.time + " = Nein",
+    "table.refusedToEndOne": (gaps: { readonly names: string }) => gaps.names + " möchte weiterspielen",
+    "table.refusedToEndMany": (gaps: { readonly names: string }) => gaps.names + " möchten weiterspielen",
 };
 export type Key = keyof Words;

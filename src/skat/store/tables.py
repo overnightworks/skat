@@ -32,7 +32,7 @@ from skat.store.schema import (
     series,
     tables,
 )
-from skat.store.series import bock_of, insert_series, last_played_series, save_series, series_of, series_row
+from skat.store.series import UNSTAMPED, bock_of, insert_series, last_played_series, save_series, series_of, series_row
 from skat.table.hand_state import auction_of
 from skat.table.records import (
     Chair,
@@ -57,6 +57,7 @@ from skat.table.rules import CREATE_TABLE_COMMAND, series_number_of
 from skat.table.transactions import (
     DuplicateReceiptError,
     HeldChair,
+    LiveAsk,
     LiveWait,
     OccupiedChair,
     PausedFacts,
@@ -466,6 +467,17 @@ class _PostgresTableTransaction:
                 .where(tables.c.end_reason.is_(None))
                 .order_by(tables.c.id)
                 .with_for_update()
+            )
+        )
+
+    def live_end_asks(self) -> tuple[LiveAsk, ...]:
+        return tuple(
+            LiveAsk(TableId(row.table_id), row.end_asked_at or UNSTAMPED)
+            for row in self._connection.execute(
+                select(series.c.table_id, series.c.end_asked_at)
+                .join(tables, (tables.c.id == series.c.table_id) & (tables.c.series_number == series.c.number))
+                .where(tables.c.end_reason.is_(None), series.c.end_proposer.is_not(None))
+                .order_by(series.c.table_id)
             )
         )
 

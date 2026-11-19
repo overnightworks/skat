@@ -355,11 +355,6 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
     propose_the_end(first)
     expect_the_proposal_asked(table)
 
-    answer_the_ask(second, NO)
-    for person in table.everyone:
-        expect(person.locator(ASK)).to_have_count(0)
-
-    propose_the_end(first)
     answer_the_ask(second, YES)
     expect(second.locator(ASK)).to_contain_text(waiting_for([table.names[3]]))
     answer_the_ask(third, YES)
@@ -389,6 +384,28 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
         expect(person.locator(COUNT)).to_have_text(game_count(1))
         expect(person.locator(STANDING)).to_have_count(0)
         expect(person.locator(".chair .coaster")).to_have_text(["0", "0", "0"])
+    assert page_errors == []
+
+
+def test_a_no_ends_the_proposal_names_its_refuser_at_the_chair_and_offers_no_new_proposal(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, PHONE)
+    table.pass_all()
+    table.play_out()
+    first, second = table.pages[1], table.pages[2]
+    propose_the_end(first)
+    expect_the_proposal_asked(table)
+
+    answer_the_ask(second, NO)
+
+    for person in table.everyone:
+        expect(person.locator(ASK)).to_have_count(0)
+        expect(person.locator(".chair[data-seat='2'] .mark.declined")).to_have_count(1)
+    expect(open_table_menu(first).locator(END_KEY)).to_have_count(0)
     assert page_errors == []
 
 

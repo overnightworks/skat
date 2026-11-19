@@ -27,6 +27,7 @@ def test_the_series_of_a_table_reads_at_the_tool_as_the_route_gives_it(skat, age
         "over": False,
         "standings": None,
         "end_proposal": None,
+        "end_refused_seats": [],
     }
     assert view == skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
 
@@ -47,10 +48,8 @@ class TestEndingTheSeriesEarly:
         proposed = agent.call(AGREE_TO_END_SERIES_TOOL, table_id=between_games.table_id, command_id="agent-agree-0001")
 
         assert not proposed.is_error, proposed.text
-        assert agent.read(between_games.table_id).json()["series"]["end_proposal"] == {
-            "proposer_seat": 1,
-            "accepter_seat": None,
-        }
+        proposal = agent.read(between_games.table_id).json()["series"]["end_proposal"]
+        assert (proposal["proposer_seat"], proposal["agreed_seats"]) == (1, [1])
 
         refused = agent.call(REFUSE_TO_END_SERIES_TOOL, table_id=between_games.table_id, command_id="agent-refuse-0001")
 

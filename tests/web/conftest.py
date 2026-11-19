@@ -7,7 +7,7 @@ from tests.support.fake_issuer import FakeIssuer
 from tests.support.idle_presence import idle_agent_lease, idle_presence, idle_wakes, note_nothing
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.web.support.agent import Agent
-from tests.web.support.presence import Deals, Holds, Wakes, chair_hold, on_a_worker
+from tests.web.support.presence import Deals, Holds, Lapses, Wakes, chair_hold, on_a_worker
 from tests.web.support.skat import AgentTable, FakeTime, Skat
 
 FOREHAND, MIDDLEHAND = Position.FOREHAND, Position.MIDDLEHAND
@@ -98,6 +98,11 @@ class Ends:
         outcome = self.ended and connected is not None
         self.outcomes.append(outcome)
         return outcome
+
+
+@pytest.fixture
+def lapses():
+    return Lapses()
 
 
 @pytest.fixture

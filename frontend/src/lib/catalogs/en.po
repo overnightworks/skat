@@ -2201,3 +2201,15 @@ msgctxt "table.objectLamp"
 msgid "Lampe"
 msgstr "Lamp"
 
+msgctxt "table.answerClock"
+msgid "ohne Antwort in {time} = Nein"
+msgstr "no answer in {time} = no"
+
+msgctxt "table.refusedToEndOne"
+msgid "{names} möchte weiterspielen"
+msgstr "{names} wants to play on"
+
+msgctxt "table.refusedToEndMany"
+msgid "{names} möchten weiterspielen"
+msgstr "{names} want to play on"
+

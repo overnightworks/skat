@@ -12,10 +12,11 @@ from skat.store.schema import metadata
 from skat.store.tables import PostgresTableTransactions
 from skat.table.game_list import bock_factor_of
 from skat.table.ready import NewSeriesCommand
-from skat.table.records import Actor, EndedTable, EndProposal, Series, TableId
+from skat.table.records import Actor, EndedTable, Series, TableId
 from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
 from tests.support.migrations import list_row, migrated_from, only_row, run_in_transaction
+from tests.support.played_game import an_end_proposal
 from tests.support.postgres import created_database
 
 pytestmark = pytest.mark.postgres
@@ -274,7 +275,8 @@ class TestFromTablesAtTheRevisionBefore:
         assert series_row(migrated, "second", 1)[1] == LENGTH
 
     def test_a_standing_proposal_stays_on_its_row_and_a_third_yes_ends_the_series(self, migrated, service):
-        assert record_of(migrated, PROPOSED).series.end_proposal == EndProposal(1, 2)
+        standing = record_of(migrated, PROPOSED).series.end_proposal
+        assert (standing.proposer, standing.agreed) == (1, frozenset({1, 2}))
 
         answer = service.agree_to_end_series(PEOPLE[3], SeriesEndCommand("yes-3", PROPOSED), ALL_THREE)
 
@@ -301,7 +303,7 @@ class TestFromTablesAtTheRevisionBefore:
         dealt = record_of(migrated, EARLY)
         with PostgresTableTransactions(migrated).begin() as transaction:
             transaction.save_table(
-                replace(dealt, series=replace(dealt.series, end_proposal=EndProposal(1))), played_at=None
+                replace(dealt, series=replace(dealt.series, end_proposal=an_end_proposal(1))), played_at=None
             )
 
         assert numbers_of(migrated, EARLY) == [1, 2, 3]

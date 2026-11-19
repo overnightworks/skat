@@ -215,14 +215,12 @@ def _former_holders_after(table: TableRecord, seat: int, occupant: Occupant | No
 
 
 def _proposal_without(proposal: EndProposal | None, seat: int) -> EndProposal | None:
-    """A chair's change takes its holder's part of the proposal: the proposer's goes with the proposal, an accepter's
-    acceptance alone, anyone else's changes nothing.
+    """A chair's change takes its holder's part of the proposal: the proposer's goes with the proposal, another seat's
+    yes alone, a seat that never answered changes nothing.
     """
     if proposal is None or proposal.proposer == seat:
         return None
-    if proposal.accepter == seat:
-        return EndProposal(proposal.proposer)
-    return proposal
+    return replace(proposal, agreed=proposal.agreed - {seat})
 
 
 def _give_up_without(table: TableRecord, seat: int) -> GiveUpAsked | None:
@@ -399,6 +397,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
             deals=1 if starts_series else series.deals + 1,
             ended_early=False,
             end_proposal=None,
+            end_refused_by=frozenset(),
             number=series.number + 1 if starts_series else series.number,
         )
     return TableRecord(

@@ -466,7 +466,7 @@ class TableService(LobbyReads, GameListReads):
             command.command_id,
             AGREE_TO_END_SERIES_COMMAND,
             series_end_payload(command),
-            lambda table: decide_agree_to_end(table, actor),
+            lambda table: decide_agree_to_end(table, actor, self._now()),
         )
 
     def refuse_to_end_series(
@@ -543,6 +543,14 @@ class TableService(LobbyReads, GameListReads):
     def resume_empty_waits(self, empty_seconds: int) -> dict[str, float]:
         """The server's step at its start; see `ServerSteps.resume_empty_waits`."""
         return self._server_steps().resume_empty_waits(empty_seconds)
+
+    def lapse_end_answers(self, table_id: TableId) -> float | None:
+        """The server's step of ending a proposal whose minute is over; see `ServerSteps.lapse_end_answers`."""
+        return self._server_steps().lapse_end_answers(table_id)
+
+    def pending_end_answers(self) -> dict[str, float]:
+        """The server's step at its start; see `ServerSteps.pending_end_answers`."""
+        return self._server_steps().pending_end_answers()
 
     def _server_steps(self) -> ServerSteps:
         return ServerSteps(

@@ -139,6 +139,21 @@ class Deals:
         return self.dealt
 
 
+class Lapses:
+    """The step the presence asks: it raises what `failures` holds, then answers what `left` holds, then none."""
+
+    def __init__(self):
+        self.asked = []
+        self.failures = []
+        self.left = []
+
+    async def lapse(self, table_id):
+        self.asked.append(table_id)
+        if self.failures:
+            raise self.failures.pop(0)
+        return self.left.pop(0) if self.left else None
+
+
 class Notes:
     """The note command as the presence calls it: who was connected when each write held the row."""
 

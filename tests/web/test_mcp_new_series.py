@@ -136,6 +136,7 @@ class TestStartNewSeries:
             "over": False,
             "standings": None,
             "end_proposal": None,
+            "end_refused_seats": [],
         }
         assert view["hand"] is not None
         assert table.record.game_list == ()

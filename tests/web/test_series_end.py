@@ -1,10 +1,12 @@
 import json
 from contextlib import nullcontext
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from skat.table.records import EndProposal, Refusal, Series, TableId
+from skat.table.records import Refusal, Series, TableId
+from skat.table.series_end import END_ANSWER_SECONDS
 from skat.table.service import TableService
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.settings import DEFAULT_STREAMS_PER_ACCOUNT
@@ -24,7 +26,15 @@ SERIES_LENGTH = 12
 
 
 def proposal_of(answer):
-    return answer.json()["series"]["end_proposal"]
+    """The proposal an answer reads, without the instant its minute ends at."""
+    proposal = answer.json()["series"]["end_proposal"]
+    return None if proposal is None else {key: value for key, value in proposal.items() if key != "answer_by"}
+
+
+def standing_of(table):
+    """The proposer and the yeses of the proposal the table stores."""
+    proposal = table.record.series.end_proposal
+    return None if proposal is None else (proposal.proposer, proposal.agreed)
 
 
 def accounts_of(table):
@@ -79,7 +89,10 @@ class TestTheProposal:
         assert answer.status_code == 200
         for headers in (*headers_of(table), table.watcher):
             seen = table.read_as(headers).json()["series"]
-            assert seen["end_proposal"] == {"proposer_seat": 1, "accepter_seat": None}
+            assert {key: seen["end_proposal"][key] for key in ("proposer_seat", "agreed_seats")} == {
+                "proposer_seat": 1,
+                "agreed_seats": [1],
+            }
             assert (seen["over"], seen["standings"]) == (False, None)
         assert table.read_as(table.watcher).json()["result"] == before["result"]
 
@@ -89,7 +102,7 @@ class TestTheProposal:
 
         answer = yes(skat, table, 2)
 
-        assert proposal_of(answer) == {"proposer_seat": 1, "accepter_seat": 2}
+        assert proposal_of(answer) == {"proposer_seat": 1, "agreed_seats": [1, 2]}
         assert answer.json()["series"]["over"] is False
 
     def test_the_third_yes_ends_the_series_at_once_with_the_games_so_far(self, skat, mid_series):
@@ -161,7 +174,7 @@ class TestTheProposal:
 
         during = [table.read_as(each).json()["series"] for each in (*headers_of(table), table.watcher)]
         assert all(view == during[0] for view in during)
-        assert set(during[0]["end_proposal"]) == {"proposer_seat", "accepter_seat"}
+        assert set(during[0]["end_proposal"]) == {"proposer_seat", "agreed_seats", "answer_by"}
         assert len(entries_of(skat, table)) == 2
 
         assert yes(skat, table, 3).status_code == 200
@@ -172,7 +185,7 @@ class TestTheProposal:
 
 
 class TestTheNo:
-    @pytest.mark.parametrize("refuser", [1, 2, 3], ids=["the-proposer", "an-accepter", "the-other"])
+    @pytest.mark.parametrize("refuser", [1, 2, 3], ids=["the-proposer", "a-seat-that-agreed", "the-other"])
     def test_any_seated_no_clears_the_proposal_and_the_series_plays_on(self, skat, mid_series, refuser):
         table = mid_series
         yes(skat, table, 1)
@@ -181,6 +194,7 @@ class TestTheNo:
         answer = no(skat, table, refuser)
 
         assert (answer.status_code, proposal_of(answer), answer.json()["series"]["over"]) == (200, None, False)
+        assert answer.json()["series"]["end_refused_seats"] == [refuser]
 
     def test_a_no_with_no_proposal_is_refused(self, skat, mid_series):
         table = mid_series
@@ -198,17 +212,17 @@ class TestTheNo:
         answer = refuse_to_end(skat, table.watcher, table.table_id, "no-watcher")
 
         assert (answer.status_code, answer.json()["reason"]) == (409, Refusal.NOT_SEATED)
-        assert table.record.series.end_proposal == EndProposal(1)
+        assert standing_of(table) == (1, {1})
 
-    def test_a_yes_after_a_no_proposes_anew_by_its_sender(self, skat, mid_series):
+    def test_a_yes_after_a_no_is_refused_until_the_next_hand(self, skat, mid_series):
         table = mid_series
         yes(skat, table, 1)
-        yes(skat, table, 2)
-        no(skat, table, 1)
+        no(skat, table, 2)
 
         answer = yes(skat, table, 3)
 
-        assert proposal_of(answer) == {"proposer_seat": 3, "accepter_seat": None}
+        assert (answer.status_code, answer.json()["reason"]) == (409, Refusal.END_REFUSED)
+        assert table.record.series.end_proposal is None
 
     def test_a_no_after_the_end_finds_no_proposal(self, skat, mid_series):
         table = mid_series
@@ -232,12 +246,21 @@ class TestTheNextDeal:
         series = table.read_as(table.watcher).json()["series"]
         assert (series["game_number"], series["end_proposal"]) == (3, None)
 
+    def test_the_next_hand_takes_the_refusal_away_and_allows_a_new_proposal(self, skat, mid_series):
+        table = mid_series
+        yes(skat, table, 1)
+        no(skat, table, 2)
+        for seat in (1, 2, 3):
+            tap_weiter(skat, headers_of(table)[seat - 1], table.table_id, f"weiter-{seat}", 2)
+        assert deal_next(skat, table.table_id, accounts_of(table))
+        assert table.read_as(table.watcher).json()["series"]["end_refused_seats"] == []
+
     def test_a_proposal_after_a_passed_in_hand_is_accepted_and_the_pauses_deal_clears_it(
         self, skat, after_a_passed_in_hand
     ):
         table = after_a_passed_in_hand
         yes(skat, table, 1)
-        assert proposal_of(yes(skat, table, 2)) == {"proposer_seat": 1, "accepter_seat": 2}
+        assert proposal_of(yes(skat, table, 2)) == {"proposer_seat": 1, "agreed_seats": [1, 2]}
 
         assert deal_next(skat, table.table_id, accounts_of(table))
 
@@ -268,10 +291,10 @@ class TestChairsChangingHands:
         yes(skat, table, 1)
         yes(skat, table, 2)
         skat.stand(headers_of(table)[1], table.table_id, command_id="stand-ben")
-        assert table.record.series.end_proposal == EndProposal(1)
+        assert standing_of(table) == (1, {1})
         assert skat.sit(table.watcher, table.table_id, 2, command_id="sit-dora").status_code == 200
 
-        assert proposal_of(yes(skat, table, 3)) == {"proposer_seat": 1, "accepter_seat": 3}
+        assert proposal_of(yes(skat, table, 3)) == {"proposer_seat": 1, "agreed_seats": [1, 3]}
         ended = agree_to_end(skat, table.watcher, table.table_id, "yes-dora")
 
         assert ended.json()["series"]["over"] is True
@@ -288,7 +311,7 @@ class TestChairsChangingHands:
         )
 
         assert freed is False
-        assert table.record.series.end_proposal == EndProposal(1, 2)
+        assert standing_of(table) == (1, {1, 2})
 
     def test_a_sitter_after_the_early_end_is_not_ready_and_the_sit_that_fills_the_last_chair_deals_nothing(
         self, skat, mid_series
@@ -421,3 +444,56 @@ class TestTheStreamOfAnEndedSeries:
 
                 assert status == 200
                 assert (message["ended"], message["series"]["over"]) == (None, True)
+
+
+class TestTheSilentMinute:
+    def lapse(self, skat, table, seconds):
+        later = datetime.now(UTC) + timedelta(seconds=seconds)
+        return TableService(skat.store, now=lambda: later).lapse_end_answers(TableId(table.table_id))
+
+    def test_a_proposal_left_unanswered_for_a_minute_ends_and_names_the_silent_seats(self, skat, mid_series):
+        table = mid_series
+        yes(skat, table, 1)
+        yes(skat, table, 2)
+
+        assert self.lapse(skat, table, END_ANSWER_SECONDS + 1) is None
+
+        series = table.read_as(table.watcher).json()["series"]
+        assert (series["end_proposal"], series["end_refused_seats"], series["over"]) == (None, [3], False)
+
+    def test_a_proposal_inside_its_minute_stands_and_says_how_long_it_has_left(self, skat, mid_series):
+        table = mid_series
+        yes(skat, table, 1)
+
+        left = self.lapse(skat, table, END_ANSWER_SECONDS - 10)
+
+        assert 0 < left <= 10
+        assert standing_of(table) == (1, {1})
+
+    def test_a_yes_that_came_in_time_is_no_silence(self, skat, mid_series):
+        table = mid_series
+        yes(skat, table, 1)
+        yes(skat, table, 2)
+        yes(skat, table, 3)
+
+        assert self.lapse(skat, table, END_ANSWER_SECONDS + 1) is None
+
+        assert table.read_as(table.watcher).json()["series"]["over"] is True
+
+    def test_a_restart_finds_each_standing_proposal_with_the_seconds_its_minute_has_left(self, skat, mid_series):
+        table = mid_series
+        yes(skat, table, 1)
+        later = datetime.now(UTC) + timedelta(seconds=20)
+
+        left = TableService(skat.store, now=lambda: later).pending_end_answers()
+
+        assert 0 < left[table.table_id] <= END_ANSWER_SECONDS - 19
+
+    def test_a_restart_finds_a_proposal_whose_minute_ran_out_while_no_server_ran_with_none_left(self, skat, mid_series):
+        table = mid_series
+        yes(skat, table, 1)
+        later = datetime.now(UTC) + timedelta(seconds=END_ANSWER_SECONDS * 5)
+
+        left = TableService(skat.store, now=lambda: later).pending_end_answers()
+
+        assert left[table.table_id] == 0.0
