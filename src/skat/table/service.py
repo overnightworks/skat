@@ -608,12 +608,12 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
                 transaction.save_book_entry(decision.entry)
             if decision.table is not table:
                 self._save_decided(transaction, SIT_DOWN_COMMAND, table, decision.table)
-        if decision.entry != entry:
-            self._tell(frozenset({agent.account_id}))
-        self._tell_view(table_id, view_recipients(table, decision.table))
         self._tell_moments(
             moment_recipients(table, decision.table) | (agents_seated_at(decision.table) - agents_seated_at(table))
         )
+        if decision.entry != entry:
+            self._tell(frozenset({agent.account_id}))
+        self._tell_view(table_id, view_recipients(table, decision.table))
         return AcceptResult(decision.refusal, result_pending(decision.table))
 
     def standings_of(self, agent_account: str) -> tuple[TableStanding, ...]:
@@ -624,9 +624,11 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             self._standings_changed(accounts)
 
     def _tell_seats(self, accounts: frozenset[str]) -> None:
-        """Tell agents that sat down or left: their standing changed and, with it, the tools they are offered."""
-        self._tell(accounts)
+        """Tell agents that sat down or left: the tools they are offered changed and, with them, their standing; the
+        tools notice goes first, so a stream writes it before the `changed` of the same change.
+        """
         self._tell_moments(accounts)
+        self._tell(accounts)
 
     def _tell_view(self, table_id: TableId, accounts: frozenset[str]) -> None:
         if accounts:
@@ -699,9 +701,9 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
                 decision.holder,
                 seated_when_hand_ended,
             )
+        self._tell_moments(moved_on)
         self._tell_seats(told)
         self._tell_view(identifier, viewers)
-        self._tell_moments(moved_on)
         return result
 
     def _save_decided(
