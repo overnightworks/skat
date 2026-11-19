@@ -35,7 +35,7 @@ export function seriesEndAsk(table: Table): AskView<SeriesEndAnswer> | null {
         const faces = facesOf(table.chairs, waitingSeats);
         const names = namesOf(faces);
         const text = faces.length > 0 ? words["table.waitingFor"]({ names }) : words["table.waitingForPlayers"];
-        return { text, faces, waits: true, buttons: [] };
+        return { text, faces, waits: true, buttons: [], answerBy: proposal.answer_by };
     }
     // The proposal goes with its proposer's chair, so a standing one names a seated proposer.
     const proposers = facesOf(table.chairs, [proposal.proposer_seat]);
@@ -44,6 +44,7 @@ export function seriesEndAsk(table: Table): AskView<SeriesEndAnswer> | null {
         faces: proposers,
         waits: false,
         buttons: viewerSeat === undefined ? [] : SERIES_END_BUTTONS,
+        answerBy: proposal.answer_by,
     };
 }
 
@@ -77,15 +78,27 @@ export function seriesRefusalNotice(table: Table): SeatNotice | null {
     };
 }
 
-// The instant a seat silent on the standing proposal counts as no; null while none stands.
-export function seriesEndAnswerBy(table: Table): string | null {
-    return table.series?.end_proposal?.answer_by ?? null;
-}
-
 // A proposal stands or has just been refused: the table shows that question in place of the last game's result.
 export function seriesEndOnStage(table: Table): boolean {
     const series = table.series;
     return series !== null && (series.end_proposal !== null || series.end_refused_seats.length > 0);
+}
+
+export type SeriesEndView = {
+    ask: AskView<SeriesEndAnswer> | null;
+    marks: ReadonlyMap<number, AnswerMark>;
+    onStage: boolean;
+    refusal: SeatNotice | null;
+};
+
+// What the table draws of a proposal to end the series and of its refusal.
+export function seriesEndView(table: Table): SeriesEndView {
+    return {
+        ask: seriesEndAsk(table),
+        marks: seriesEndMarks(table),
+        onStage: seriesEndOnStage(table),
+        refusal: seriesRefusalNotice(table),
+    };
 }
 
 // The key that proposes the end: a seated member between two games, when no proposal stands.
