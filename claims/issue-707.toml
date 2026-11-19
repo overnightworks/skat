@@ -3,6 +3,6 @@ agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
 role = "builder"
 base = "c4985490a37d6500f5237cb78f03cf012ea6c55c"
 branch = "claude/issue-707-skat-keeps-each-seat-s-set-turn-state-in"
-scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "frontend/src/lib/wire.ts", "frontend/src/routes/(start)/lobby.ts", "frontend/src/routes/(start)/tables.ts", "src/skat/host/app.py", "src/skat/store", "src/skat/table", "src/skat/web", "tests/store", "tests/support", "tests/table", "tests/web"]
+scope = [".aco/ahead-of-caller.toml", "docs/ARCHITECTURE.md", "frontend/src/lib/wire.ts", "frontend/src/routes/(start)/lobby.ts", "frontend/src/routes/(start)/tables.ts", "quality/baseline.toml", "src/skat/host/app.py", "src/skat/store", "src/skat/table", "src/skat/web", "tests/store", "tests/support", "tests/table", "tests/web"]
 opened_commit = "5b9381e18ec3cca621b33661721fefea7896017d"
 whole_reason = "The stored value, the tool that writes it and the answers that carry it are one contract from the wire to the store."
