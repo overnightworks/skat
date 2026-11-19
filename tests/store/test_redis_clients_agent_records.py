@@ -62,7 +62,10 @@ class TestARecordOnARealRedis:
     def test_a_redis_that_does_not_answer_raises_at_a_write_and_at_a_read(self):
         records = shared_agent_records(UNREACHABLE_URL)
 
+        write = records.write(NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+        read = records.read([NOVA])
+
         with pytest.raises(RedisError):
-            run(records.write(NOVA, AgentFacts(owner="owner-felix", name="Nova")))
+            run(write)
         with pytest.raises(RedisError):
-            run(records.read([NOVA]))
+            run(read)
