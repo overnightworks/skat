@@ -20,3 +20,7 @@ class AgentRecords(Protocol):  # pragma: no cover - a port's method bodies are s
     async def read(self, account_ids: Collection[str]) -> Mapping[str, AgentFacts]:
         """The record of each account that has a readable one; an account without one is left out."""
         ...
+
+    async def delete(self, account_id: str) -> None:
+        """Drops the account's record, so the agent is not listed until a write succeeds."""
+        ...

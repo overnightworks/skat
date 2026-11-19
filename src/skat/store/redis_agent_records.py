@@ -50,5 +50,8 @@ class RedisAgentRecords:
         read = {account: _facts_of(each) for account, each in zip(accounts, stored, strict=True) if each is not None}
         return {account: facts for account, facts in read.items() if facts is not None}
 
+    async def delete(self, account_id: str) -> None:
+        await self._client.delete(self._key(account_id))
+
     def _key(self, account_id: str) -> str:
         return record_key(self._key_prefix, account_id)
