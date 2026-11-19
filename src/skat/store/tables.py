@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 from sqlalchemy import Integer, delete, exists, func, insert, literal, select, update
-from sqlalchemy.dialects.postgresql import aggregate_order_by, array_agg
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.dialects.postgresql import insert as upsert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
@@ -266,7 +266,7 @@ def _turn_statement_times_of_table() -> ScalarSelect[list[datetime]]:
     """
     chair = aliased(chairs)
     return (
-        select(array_agg(aggregate_order_by(chair.c.turn_state_at, chair.c.seat)))
+        select(func.array_agg(aggregate_order_by(chair.c.turn_state_at, chair.c.seat)))
         .where(chair.c.table_id == tables.c.id, chair.c.turn_state_account == chair.c.account_id)
         .scalar_subquery()
     )
