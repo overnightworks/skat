@@ -63,6 +63,7 @@ def main(directory: Path) -> None:
     summary("stalls: watchdog tick ms", [row["watchdog_tick_ms"] for row in stalls])
     garbage = [row for row in rows if row["kind"] == "gc"]
     summary("gc over 50 ms (ms)", [row["ms"] for row in garbage])
+    print("gc generations over 50 ms:", {generation: sum(row["generation"] == generation for row in garbage) for generation in (0, 1, 2)})
     print(f"lag events: {sum(row['kind'] == 'loop_lag' for row in rows)}; browser requests: {sum(row['kind'] == 'browser' for row in rows)}")
 
 

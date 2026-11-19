@@ -46,7 +46,11 @@ def watch_for_stalls(state: dict[str, Any]) -> None:
         time.sleep(0.05)
         beat = state["beat"]
         now = time.perf_counter()
-        main_cpu = time.clock_gettime(main_clock)
+        try:
+            main_cpu = time.clock_gettime(main_clock)
+            loop_cpu = time.clock_gettime(loop_clock)
+        except OSError:
+            return
         before = previous
         previous = (now, main_cpu)
         if now - beat < 0.3 or beat == reported_beat:
@@ -62,7 +66,7 @@ def watch_for_stalls(state: dict[str, Any]) -> None:
             "stall",
             at=time.time(),
             stale_ms=round((time.perf_counter() - beat) * 1000),
-            loop_cpu_ms_since_beat=round((time.clock_gettime(loop_clock) - state["beat_cpu"]) * 1000),
+            loop_cpu_ms_since_beat=round((loop_cpu - state["beat_cpu"]) * 1000),
             watchdog_tick_ms=round((now - before[0]) * 1000),
             main_cpu_ms_in_tick=round((main_cpu - before[1]) * 1000),
             load=os.getloadavg(),

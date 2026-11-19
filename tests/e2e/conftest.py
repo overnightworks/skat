@@ -1,3 +1,4 @@
+import gc
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -31,6 +32,27 @@ PAGE_NAVIGATED_AWAY = "net::ERR_ABORTED"
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     select_shard(config, items, Path(__file__).parent)
+
+
+@pytest.fixture(scope="session")
+def garbage_collection_held_back() -> Iterator[None]:
+    """The interpreter collects cyclic garbage only between tests.
+
+    The server runs as a thread of this process, and a collection holds the interpreter for 0.4 to 2.4 s while the
+    Playwright client's objects are on the heap, so a request that arrives meanwhile is answered that much later and a
+    short wait of a test runs out. What the objects built before the first test hold stays out of every collection.
+    """
+    gc.collect()
+    gc.freeze()
+    gc.disable()
+    yield
+    gc.enable()
+    gc.unfreeze()
+
+
+@pytest.fixture(autouse=True)
+def garbage_collected_before_the_test(garbage_collection_held_back: None) -> None:
+    gc.collect()
 
 
 @pytest.fixture(scope="session")

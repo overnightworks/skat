@@ -173,18 +173,13 @@ jobs:
           SKAT_E2E_SHARD: ${{ matrix.shard }}
           SKAT_E2E_SHARDS: ${{ strategy.job-total }}
           SKAT_TEST_POSTGRES_URL: postgresql+psycopg://postgres@localhost:5432/postgres
-          SKAT_BROWSER_COVERAGE_DIR: ${{ matrix.shard < 8 && format('{0}/browser-coverage-raw', runner.temp) || '' }}
-          PYTEST_ADDOPTS: ${{ matrix.shard >= 4 && matrix.shard < 8 && '--no-cov' || '' }}
+          SKAT_BROWSER_COVERAGE_DIR: ${{ runner.temp }}/browser-coverage-raw
           SKAT_E2E_TIMING_DIR: ${{ runner.temp }}/request-timing
         run: pytest -m e2e -n auto --durations=20 --tracing retain-on-failure --screenshot only-on-failure --output test-results
 
       - name: Report the request timing
         if: ${{ !cancelled() }}
-        env:
-          SKAT_BROWSER_COVERAGE_DIR: ${{ matrix.shard < 8 && 'on' || 'off' }}
-          PYTEST_ADDOPTS: ${{ matrix.shard >= 4 && matrix.shard < 8 && '--no-cov' || '' }}
         run: |
-          echo "shard ${{ matrix.shard }}: browser coverage '${SKAT_BROWSER_COVERAGE_DIR}' addopts '${PYTEST_ADDOPTS}'"
           python scripts/request_timing_report.py "${RUNNER_TEMP}/request-timing"
 
       - name: Upload the end-to-end coverage data
