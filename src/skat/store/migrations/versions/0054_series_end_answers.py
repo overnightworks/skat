@@ -8,8 +8,8 @@ proposal standing at the migration gets its yes list and starts its minute now.
 
 from alembic import op
 
-revision = "0052"
-down_revision = "0051"
+revision = "0054"
+down_revision = "0053"
 
 
 def upgrade() -> None:
