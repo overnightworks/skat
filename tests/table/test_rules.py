@@ -481,6 +481,10 @@ class TestSeries:
         with pytest.raises(ValueError, match="numbered from one"):
             Series(3, 1, number=0)
 
+    def test_refuses_a_standing_proposal_beside_a_refusal(self):
+        with pytest.raises(ValueError, match="follows no refusal"):
+            Series(12, 2, end_proposal=an_end_proposal(1), end_refused_by=frozenset({2}))
+
     @pytest.mark.parametrize("length", [3, 12, 99])
     def test_takes_each_length_the_rules_name(self, length):
         assert Series(length, length).length == length

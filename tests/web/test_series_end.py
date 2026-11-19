@@ -476,6 +476,9 @@ class TestTheSilentMinute:
         assert 0 < left <= 10
         assert standing_of(table) == (1, {1})
 
+    def test_a_table_that_is_gone_has_no_minute_left(self, skat):
+        assert TableService(skat.store).lapse_end_answers(TableId("0" * 32)) is None
+
     def test_a_yes_that_came_in_time_is_no_silence(self, skat, mid_series):
         table = mid_series
         yes(skat, table, 1)

@@ -100,6 +100,19 @@ def test_a_deadline_found_earlier_than_the_waiting_timers_is_kept(presence, time
     assert lapses.asked == [TABLE]
 
 
+def test_a_timer_that_fell_due_after_a_newer_one_was_armed_leaves_the_newer_one_standing(presence, time, lapses):
+    presence.end_answer_watch.watch(TABLE, MINUTE)
+    presence.end_answer_watch.watch_all({TABLE: 45.0})
+    run(time.advance(45))
+    presence.end_answer_watch.watch(TABLE, MINUTE)
+
+    run(time.advance(15))
+    presence.end_answer_watch.watch(TABLE, 45.0)
+    run(time.advance(45))
+
+    assert lapses.asked == [TABLE, TABLE, TABLE]
+
+
 def test_a_table_is_timed_again_once_its_timer_has_run(presence, time, lapses):
     presence.end_answer_watch.watch(TABLE, MINUTE)
     run(time.advance(MINUTE))
