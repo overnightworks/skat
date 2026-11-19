@@ -1,0 +1,8 @@
+claim_id = "2fd5162b840148908849469010e6039d"
+agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
+role = "builder"
+base = "7158eb3ce2e354587cd9d810fd83782822294807"
+branch = "claude/issue-712-the-reaction-test-s-one-second-wait-time"
+scope = [".github/workflows", "Makefile", "scripts", "tests/conftest.py", "tests/e2e"]
+opened_commit = "c794ddaf2cd5291360e6be3e6cdbac55dc18d24b"
+whole_reason = "The e2e harness spans its support directory, the suite fixtures, the workflow that runs it and the script that starts its stores."
