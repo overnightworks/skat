@@ -1,6 +1,7 @@
 import { isFramedInCallMode } from "#lib/callFrame.ts";
 import { openStream, type StreamRefusal } from "#lib/stream.ts";
 import { handWaits } from "#lib/openChair.ts";
+import { tableOfWire, type WireTable } from "#lib/wireTable.ts";
 import {
     type AUCTION_ACTION_TOKENS,
     AUTH_START_PATH,
@@ -301,8 +302,8 @@ export type Standing = {
     place: number;
 };
 // The seat that proposed ending the series early, the seats that have said yes so far and the instant a seat that
-// stays silent counts as no.
-export type EndProposal = { proposer_seat: number; agreed_seats: number[]; answer_by: string };
+// stays silent counts as no, which a proposal made on the release before has not.
+export type EndProposal = { proposer_seat: number; agreed_seats: number[]; answer_by: string | null };
 // Which series of the table this is, 1 for the first, which of its games runs (0 before the first deal) and whether it
 // is over; the standings come once it is, the same for every viewer.
 export type Series = {
@@ -374,7 +375,7 @@ export async function ask(path: string, init?: RequestInit): Promise<Outcome> {
     if (answer.status === NOT_FOUND_STATUS) return { kind: "missing" };
     try {
         const body: unknown = await answer.json();
-        if (answer.ok) return { kind: "table", table: body as Table };
+        if (answer.ok) return { kind: "table", table: tableOfWire(body as WireTable) };
         // Any other refusal means the page showed a stale table: its stream is about to correct it.
         if (answer.status === CONFLICT_STATUS && isTakenChair(body)) return { kind: "taken", holder: body.holder_name };
         return { kind: "failed" };
@@ -576,7 +577,7 @@ export function watchTable(
     return openStream(`${path}${TABLE_EVENTS_SUFFIX}`, {
         events: {
             message: (data, end) => {
-                const table = JSON.parse(data) as Table;
+                const table = tableOfWire(JSON.parse(data) as WireTable);
                 // An ended table sends nothing more: the stream closes here, so it never reconnects to a table that has ended.
                 if (table.ended !== null) end();
                 onTable(table);
