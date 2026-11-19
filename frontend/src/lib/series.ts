@@ -66,6 +66,7 @@ export function seriesRefusalNotice(table: Table): SeatNotice | null {
     const series = table.series;
     if (!series || series.end_proposal !== null || series.end_refused_seats.length === 0) return null;
     const faces = facesOf(table.chairs, series.end_refused_seats);
+    if (faces.length === 0) return null;
     const names = namesOf(faces);
     return {
         text:
@@ -79,6 +80,12 @@ export function seriesRefusalNotice(table: Table): SeatNotice | null {
 // The instant a seat silent on the standing proposal counts as no; null while none stands.
 export function seriesEndAnswerBy(table: Table): string | null {
     return table.series?.end_proposal?.answer_by ?? null;
+}
+
+// A proposal stands or has just been refused: the table shows that question in place of the last game's result.
+export function seriesEndOnStage(table: Table): boolean {
+    const series = table.series;
+    return series !== null && (series.end_proposal !== null || series.end_refused_seats.length > 0);
 }
 
 // The key that proposes the end: a seated member between two games, when no proposal stands.

@@ -9,6 +9,7 @@ import {
     seriesEndAsk,
     seriesEndMarks,
     seriesEndOffered,
+    seriesEndOnStage,
     seriesRefusalNotice,
     seriesOver,
     standingsView,
@@ -144,6 +145,10 @@ describe("what a proposal puts at the chairs", () => {
         expect(seriesEndMarks(tableBetweenGames(1, seriesAt())).size).toBe(0);
     });
 
+    it("marks no seat of a table without a series", () => {
+        expect(seriesEndMarks(tableBetweenGames(1, null)).size).toBe(0);
+    });
+
     it("names the seats that refused, one or several, and none while a proposal stands", () => {
         expect(seriesRefusalNotice(tableBetweenGames(1, seriesAt({ end_refused_seats: [2] })))?.text).toBe(
             words["table.refusedToEndOne"]({ names: "player 2" }),
@@ -153,6 +158,25 @@ describe("what a proposal puts at the chairs", () => {
         );
         expect(seriesRefusalNotice(tableBetweenGames(1, proposed))).toBeNull();
         expect(seriesRefusalNotice(tableBetweenGames(1, seriesAt()))).toBeNull();
+    });
+
+    it("names nobody when the seats that refused have no one seated", () => {
+        const table = tableBetweenGames(1, refused);
+        const vacated = table.chairs.map((chair) => ({
+            ...chair,
+            occupant_name: chair.seat === 1 ? chair.occupant_name : null,
+        }));
+
+        expect(seriesRefusalNotice({ ...table, chairs: vacated })).toBeNull();
+    });
+
+    it.each([
+        { name: "a standing proposal", series: proposed, expected: true },
+        { name: "a refusal", series: refused, expected: true },
+        { name: "neither", series: seriesAt(), expected: false },
+        { name: "no series", series: null, expected: false },
+    ])("takes the stage of the last result for $name: $expected", ({ series, expected }) => {
+        expect(seriesEndOnStage(tableBetweenGames(1, series))).toBe(expected);
     });
 
     it("gives the instant a silent seat counts as no only while a proposal stands", () => {

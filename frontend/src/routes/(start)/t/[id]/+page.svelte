@@ -33,6 +33,7 @@
         seriesEndAnswerBy,
         seriesEndAsk,
         seriesEndMarks,
+        seriesEndOnStage,
         seriesOver,
         seriesRefusalNotice,
         standingsView,
@@ -458,8 +459,9 @@
             {@const wait = firstCardWait(outcome.table)}
             {@const turnSeat = waits || wait || trickIsMoving() ? undefined : inPlay?.playing.turn_seat}
             {@const declared = declaredResult(outcome.table)}
-            {@const view = declared === null ? null : resultView(outcome.table)}
-            {@const ramschView = ramschResultView(outcome.table)}
+            {@const endOnStage = seriesEndOnStage(outcome.table)}
+            {@const view = declared === null || endOnStage ? null : resultView(outcome.table)}
+            {@const ramschView = endOnStage ? null : ramschResultView(outcome.table)}
             {@const standing = standingsView(outcome.table)}
             {@const onResult = resultOnStage(outcome.table)}
             {@const winners =
@@ -675,7 +677,7 @@
                                     grumble={grumblingAt(chair.seat)}
                                 />
                             {/if}
-                            {#if onResult}
+                            {#if onResult && !endOnStage}
                                 <AnswerMarks mark={chair.ready ? "ready" : "unready"} />
                             {/if}
                             {#if chair.is_away}
