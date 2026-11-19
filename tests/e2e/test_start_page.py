@@ -18,7 +18,7 @@ from tests.e2e.support.browser import (
     record_page_errors,
 )
 from tests.e2e.support.kit_words import kit_text
-from tests.e2e.support.people import DESKTOP, FORM_FACTORS
+from tests.e2e.support.people import DESKTOP, FORM_FACTORS, PHONE
 from tests.e2e.support.table_menu import open_account_panel
 from tests.e2e.support.tables import open_new_table
 from tests.support.sign_in_settings import TEST_ISSUER
@@ -33,6 +33,10 @@ pytestmark = pytest.mark.e2e
 
 ACCOUNT_ROUTE = f"**{ACCOUNT_PATH}"
 UNAUTHORIZED = 401
+START_WORDMARK = ".start-wordmark"
+START_PIPS = ".start-pips span"
+ACCOUNT_NAME = ".account-name"
+ACCOUNT_AVATAR_FACE = ".account-avatar"
 
 
 def open_start_page(
@@ -70,10 +74,46 @@ def test_the_start_page_shows_the_wordmark_the_account_button_and_the_new_table_
     person = open_start_page(open_person, e2e_server, page_errors, **form_factor)
 
     expect(person).to_have_title(text(SOURCE_LANGUAGE, "app.name"))
-    expect(person.locator(".wordmark")).to_have_text(text(SOURCE_LANGUAGE, "app.name"))
+    expect(person.locator(START_WORDMARK)).to_have_text(text(SOURCE_LANGUAGE, "app.name"))
     expect(person.locator(ACCOUNT_AVATAR)).to_be_visible()
     expect(person.locator("body")).to_have_css("margin", "0px")
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+@pytest.mark.parametrize(("form_factor", "name_shown"), [(DESKTOP, True), (PHONE, False)], ids=["desktop", "phone"])
+def test_the_start_page_head_centres_the_wordmark_over_four_suits_and_shows_the_account_as_avatar_with_name_on_desktop(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    name_shown: bool,
+) -> None:
+    person = record_page_errors(open_person(username="felix.hummert", **form_factor), page_errors)
+    person.goto(f"{e2e_server.base_url}/")
+    expect(person.locator(ACCOUNT_AVATAR_FACE)).to_have_text("F")
+
+    wordmark = person.locator(START_WORDMARK).bounding_box()
+    assert wordmark is not None
+    assert abs(wordmark["x"] + wordmark["width"] / 2 - form_factor["viewport"]["width"] / 2) <= 1
+    mark_top = person.evaluate(
+        "parseFloat(getComputedStyle(document.querySelector('.start-head')).getPropertyValue('--mark-top'))"
+    )
+    assert abs(wordmark["y"] - mark_top) <= 1
+    expect(person.locator(START_PIPS)).to_have_count(4)
+    expect(person.locator(ACCOUNT_NAME)).to_be_visible(visible=name_shown)
+    if name_shown:
+        expect(person.locator(ACCOUNT_NAME)).to_have_text("felix.hummert")
+
+
+def test_the_start_page_head_shows_a_person_mark_in_the_avatar_while_the_account_is_unnamed(
+    open_person: Callable[..., Page], e2e_server: RunningServer
+) -> None:
+    person = open_person(**DESKTOP)
+    person.route(ACCOUNT_ROUTE, lambda route: route.fulfill(status=500, body="{}"))
+    person.goto(f"{e2e_server.base_url}/")
+
+    expect(person.locator(ACCOUNT_AVATAR_FACE).locator("svg")).to_be_visible()
+    expect(person.locator(ACCOUNT_NAME)).to_have_count(0)
 
 
 def open_the_start_pages_account_menu(person: Page, e2e_server: RunningServer) -> Locator:

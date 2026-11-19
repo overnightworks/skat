@@ -4,7 +4,9 @@
     import Lobby from "./Lobby.svelte";
     import NewTableButton from "./NewTableButton.svelte";
     import AccountMark from "#lib/ui/AccountMark.svelte";
-    import { readAccount } from "#lib/ui/account.svelte.ts";
+    import { knownName, readAccount } from "#lib/ui/account.svelte.ts";
+    import CardSprite from "#lib/ui/CardSprite.svelte";
+    import StartMark from "#lib/ui/StartMark.svelte";
     import SkatAccountMenu from "#lib/ui/SkatAccountMenu.svelte";
     import { words } from "#lib/words.ts";
 
@@ -23,10 +25,27 @@
 </svelte:head>
 
 <div class="start with-lobby" data-theme="dark">
-    <header class="start-bar">
-        <span class="wordmark">{words["app.name"]}</span>
+    <CardSprite />
+    <header class="start-bar start-head">
+        <StartMark />
         <button type="button" class="account-button" aria-label={words["account.title"]} popovertarget="accountMenu">
-            <AccountMark />
+            <span class="account-avatar">
+                {#if knownName() === null}
+                    <AccountMark />
+                {:else}
+                    {knownName()?.charAt(0).toUpperCase()}
+                {/if}
+            </span>
+            {#if knownName() !== null}<span class="account-name">{knownName()}</span>{/if}
+            <svg
+                class="account-chevron"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg
+            >
         </button>
     </header>
     <div id="accountMenu" class="account-menu" popover bind:this={accountMenu}>

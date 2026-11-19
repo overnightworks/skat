@@ -9,6 +9,11 @@ export function menuName(): string {
     return account.name ?? words["account.title"];
 }
 
+// The signed-in person's name once the server has told it, else null.
+export function knownName(): string | null {
+    return account.name;
+}
+
 // A session that ended while the page was open goes through the sign-in again; any other failure
 // leaves the menu with its unnamed label, which is visible and harmless.
 export async function readAccount(): Promise<void> {
