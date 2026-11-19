@@ -771,7 +771,7 @@
             {#if seatNote !== null}
                 <SeatNoticeLine notice={seatNote} />
             {:else if seriesRefusalNotice(current) !== null}
-                <SeatNoticeLine notice={seriesRefusalNotice(current) as SeatNotice} />
+                <SeatNoticeLine notice={seriesRefusalNotice(current) as SeatNotice} below />
             {/if}
             {@const asked = waits
                 ? outcome.table.chairs.find((chair) => chair.seat === asking && chair.occupant_name === null)
