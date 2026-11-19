@@ -125,8 +125,8 @@ from skat.table.rules import (
 from skat.table.send_away import (
     SEND_AWAY_COMMAND,
     decide_send_away_by,
+    earlier_send_away,
     save_book_after_send_away,
-    send_away_agent_of,
     send_away_payload,
 )
 from skat.table.series_end import (
@@ -277,18 +277,8 @@ class TableService(LobbyReads, GameListReads):
     def replayed_send_away(
         self, actor: Actor, command_id: str, table_id: str, is_agent: Callable[[str], bool]
     ) -> Decision | None:
-        """The outcome of this person's earlier send-away under the command id, None if none; it writes nothing and
-        raises `CommandIdReusedError` for another request under the id, which includes a send-away of an agent that
-        `is_agent` does not accept.
-        """
-        with self._transactions.begin() as transaction:
-            replay = transaction.replay(actor.account_id, command_id)
-        if replay is None:
-            return None
-        agent = send_away_agent_of(replay.payload, table_id)
-        if agent is None or not is_agent(agent):
-            raise CommandIdReusedError
-        return replayed_decision(replay, SEND_AWAY_COMMAND, send_away_payload(SendAway(command_id, table_id, agent)))
+        """The earlier outcome of this person's send-away under the command id; see `earlier_send_away`."""
+        return earlier_send_away(self._transactions, actor, command_id, table_id, is_agent)
 
     def take_auction_step(
         self, actor: Actor, command: AuctionCommand, connected_accounts: frozenset[str]
