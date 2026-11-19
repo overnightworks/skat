@@ -36,14 +36,12 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 @pytest.fixture(scope="session")
 def garbage_collection_held_back() -> Iterator[None]:
-    """The interpreter collects cyclic garbage only between tests.
+    """The interpreter collects cyclic garbage only between tests, never while one waits.
 
     The server runs as a thread of this process, and a collection holds the interpreter for 0.4 to 2.4 s while the
     Playwright client's objects are on the heap, so a request that arrives meanwhile is answered that much later and a
-    short wait of a test runs out. What the objects built before the first test hold stays out of every collection.
+    short wait of a test runs out.
     """
-    gc.collect()
-    gc.freeze()
     gc.disable()
     yield
     gc.enable()
@@ -52,7 +50,9 @@ def garbage_collection_held_back() -> Iterator[None]:
 
 @pytest.fixture(autouse=True)
 def garbage_collected_before_the_test(garbage_collection_held_back: None) -> None:
+    """Collects what the last test left, then moves the survivors, which the session keeps, out of later collections."""
     gc.collect()
+    gc.freeze()
 
 
 @pytest.fixture(scope="session")

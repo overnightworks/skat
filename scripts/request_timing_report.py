@@ -16,6 +16,10 @@ def summary(label: str, values: list[float]) -> None:
     print(f"{label:55s} n={len(values):6d} p50={percentile(values, .5):7.0f} p95={percentile(values, .95):7.0f} p99={percentile(values, .99):7.0f} max={max(values, default=float('nan')):7.0f}")
 
 
+def over(values: list[float], limit: float) -> int:
+    return sum(value > limit for value in values)
+
+
 def main(directory: Path) -> None:
     rows = [json.loads(line) for path in directory.glob("*.jsonl") for line in path.read_text().splitlines()]
     app_by_target = defaultdict(list)
@@ -52,6 +56,7 @@ def main(directory: Path) -> None:
         print(f"== {group} (ms)")
         for label, values in measures.items():
             summary(label, values)
+            print(f"{'':55s} over 300 ms: {over(values, 300)}, over 1000 ms: {over(values, 1000)}")
     summary("server loop lag over 50 ms (ms)", [row["lag_ms"] for row in rows if row["kind"] == "loop_lag"])
     stalls = [row for row in rows if row["kind"] == "stall"]
     print(f"stalls over 300 ms: {len(stalls)}")
