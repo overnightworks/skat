@@ -33,8 +33,8 @@ from skat.table.member_place import (
     decide_accept,
     decide_invite,
     keep_turn_state,
+    offers_at,
     standings_of,
-    table_offers_of,
 )
 from skat.table.member_view import (
     MemberActs,
@@ -607,14 +607,8 @@ class TableService(LobbyReads, GameListReads):
     def offers_at(
         self, table_id: TableId, calls: Sequence[CallFacts], seated_facts: Callable[[str], CallFacts]
     ) -> TableOffers | None:
-        """Each call's offer and, from the same read of the table and the agents' rows, the offer of each seated agent
-        no call names, on the facts `seated_facts` gives for its account; None when no live table has the id.
-        """
-        with self._transactions.begin() as transaction:
-            if not isinstance(table := transaction.table(table_id), TableRecord):
-                return None
-            entries = [transaction.locked_book_entry(table_id, call.agent_account) for call in calls]
-        return table_offers_of(table, calls, entries, seated_facts, self._now())
+        """Each call's offer and each seated agent's; see `offers_at`."""
+        return offers_at(self._transactions, table_id, calls, seated_facts, self._now())
 
     def accept_invitation(
         self, agent: Actor, owner_account: str | None, acceptance: Acceptance, connected_accounts: frozenset[str]

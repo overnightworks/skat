@@ -49,6 +49,7 @@ __all__ = [
     "forgotten_if_expired",
     "keep_turn_state",
     "offer_of",
+    "offers_at",
     "open_invitation",
     "seated_agents",
     "seated_call_facts",
@@ -404,6 +405,23 @@ def table_offers_of(
             if agent.account not in named
         ),
     )
+
+
+def offers_at(
+    transactions: TableTransactions,
+    table_id: TableId,
+    calls: Sequence[CallFacts],
+    seated_facts: Callable[[str], CallFacts],
+    now: datetime,
+) -> TableOffers | None:
+    """Each call's offer and, from the same read of the table and the agents' rows, the offer of each seated agent no
+    call names, on the facts `seated_facts` gives for its account; None when no live table has the id.
+    """
+    with transactions.begin() as transaction:
+        if not isinstance(table := transaction.table(table_id), TableRecord):
+            return None
+        entries = [transaction.locked_book_entry(table_id, call.agent_account) for call in calls]
+    return table_offers_of(table, calls, entries, seated_facts, now)
 
 
 def decide_invite(
