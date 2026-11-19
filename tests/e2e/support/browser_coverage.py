@@ -10,6 +10,7 @@ with a 204, takes the page's coverage and re-issues the URL; the re-issue goes t
 import json
 import os
 import re
+import time
 from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -17,6 +18,8 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 from playwright.sync_api import Error as PlaywrightError
+
+from tests.e2e.support import request_timing
 
 if TYPE_CHECKING:
     from playwright.sync_api import BrowserContext, CDPSession, Frame, Page, Request, Route
@@ -105,6 +108,13 @@ class BrowserCoverage:
             self._with_app_code.add(frame.page)
 
     def _on_request(self, route: Route) -> None:
+        entered = time.time()
+        try:
+            self._on_request_untimed(route)
+        finally:
+            request_timing.record("route", url=route.request.url, entry=entered, exit=time.time())
+
+    def _on_request_untimed(self, route: Route) -> None:
         request = route.request
         frame = frame_of(request)
         if (
