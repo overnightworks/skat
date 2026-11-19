@@ -6,8 +6,7 @@ Every write here happens in a transaction that holds the table's row lock (`_tab
 the `tables` rows in id order.
 """
 
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import insert, select, update
 
@@ -30,10 +29,6 @@ class SeriesSettingsChangedError(Exception):
     """
 
 
-# The instant of a proposal the release before wrote, which stored none: its minute is long over.
-UNSTAMPED: Final = datetime.min.replace(tzinfo=UTC)
-
-
 def _counters_of(table: TableRecord) -> dict[str, object]:
     """The columns that change while the series is played: its deals, early end, standing proposal and Bock rounds."""
     current = table.series
@@ -42,13 +37,20 @@ def _counters_of(table: TableRecord) -> dict[str, object]:
         "deals": None if current is None else current.deals,
         "ended_early": current is not None and current.ended_early,
         "end_proposer": None if proposal is None else proposal.proposer,
-        "end_accepter": None,
+        "end_accepter": None if proposal is None else _accepter_of(proposal),
         "end_agreed": [] if proposal is None else sorted(proposal.agreed),
         "end_asked_at": None if proposal is None else proposal.asked_at,
         "end_refused_by": [] if current is None else sorted(current.end_refused_by),
         "bock_rounds": list(table.bock.remaining),
         "ramsch_round_games": table.bock.ramsch_games,
     }
+
+
+def _accepter_of(proposal: EndProposal) -> int | None:
+    """The one seat besides the proposer that said yes, as the release before stores it; every seat saying yes ends the
+    series, so no proposal holds two.
+    """
+    return next(iter(proposal.agreed - {proposal.proposer}), None)
 
 
 def _length_of(table: TableRecord) -> int | None:
@@ -113,18 +115,9 @@ def series_of(row: Row[Any]) -> Series | None:
 
 
 def _proposal_of(row: Row[Any]) -> EndProposal | None:
-    """The standing proposal. While the release before serves beside this one, it writes `end_proposer` and
-    `end_accepter` and leaves the yes list and the instant as they were, so the yes list counts only when it holds the
-    proposer and the instant is set; any other row is read in the shape of the release before, with the proposer and
-    the accepter as the yeses and the minute over.
-    """
-    proposer = row.end_proposer
-    if proposer is None:
+    if row.end_proposer is None:
         return None
-    if row.end_asked_at is not None and proposer in row.end_agreed:
-        return EndProposal(proposer, frozenset(row.end_agreed), row.end_asked_at)
-    accepter = () if row.end_accepter is None else (row.end_accepter,)
-    return EndProposal(proposer, frozenset({proposer, *accepter}), UNSTAMPED)
+    return EndProposal(row.end_proposer, frozenset(row.end_agreed), row.end_asked_at)
 
 
 def bock_of(row: Row[Any]) -> BockRounds:

@@ -32,7 +32,7 @@ from skat.store.schema import (
     series,
     tables,
 )
-from skat.store.series import UNSTAMPED, bock_of, insert_series, last_played_series, save_series, series_of, series_row
+from skat.store.series import bock_of, insert_series, last_played_series, save_series, series_of, series_row
 from skat.table.hand_state import auction_of
 from skat.table.records import (
     Chair,
@@ -472,7 +472,7 @@ class _PostgresTableTransaction:
 
     def live_end_asks(self) -> tuple[LiveAsk, ...]:
         return tuple(
-            LiveAsk(TableId(row.table_id), row.end_asked_at or UNSTAMPED)
+            LiveAsk(TableId(row.table_id), row.end_asked_at)
             for row in self._connection.execute(
                 select(series.c.table_id, series.c.end_asked_at)
                 .join(tables, (tables.c.id == series.c.table_id) & (tables.c.series_number == series.c.number))

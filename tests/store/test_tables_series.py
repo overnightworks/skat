@@ -14,7 +14,7 @@ from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, Kontr
 from skat.store.game_list import game_list
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError, hand_cards, options_of, series, tables
-from skat.store.series import UNSTAMPED, SeriesSettingsChangedError
+from skat.store.series import SeriesSettingsChangedError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.ready import NewSeriesCommand
@@ -476,17 +476,18 @@ class TestEndingEarly:
         )
         assert series_of(transactions, between_games) == Series(3, 1, end_refused_by=frozenset({2}))
 
-    def test_a_proposal_the_release_before_wrote_reads_with_its_accepter_as_a_yes_and_its_minute_over(
+    def test_a_proposal_the_release_before_wrote_reads_with_its_accepter_as_a_yes_and_its_minute_from_the_write(
         self, engine, transactions, between_games
     ):
+        before = datetime.now(UTC)
         run_in_transaction(engine, text("UPDATE series SET end_proposer = 1, end_accepter = 2"))
 
         proposal = series_of(transactions, between_games).end_proposal
 
-        assert (proposal.proposer, proposal.agreed, proposal.asked_at) == (
+        assert (proposal.proposer, proposal.agreed, before <= proposal.asked_at <= datetime.now(UTC)) == (
             1,
             frozenset({1, 2}),
-            UNSTAMPED,
+            True,
         )
 
     @pytest.mark.parametrize(
@@ -497,25 +498,32 @@ class TestEndingEarly:
                 ["UPDATE series SET end_proposer = 1"],
                 1,
                 {1},
-                id="an-agree-after-a-refusal-the-old-release-does-not-clear",
+                id="an-agree-after-a-refusal",
             ),
             pytest.param(
                 [(say_yes, 1), (say_yes, 2)],
-                ["UPDATE series SET end_proposer = NULL", "UPDATE series SET end_proposer = 3"],
+                ["UPDATE series SET end_proposer = NULL, end_accepter = NULL", "UPDATE series SET end_proposer = 3"],
                 3,
                 {3},
-                id="an-agree-after-the-old-release-refused-a-proposal-with-two-yes",
+                id="an-agree-by-another-seat-after-the-old-release-refused-a-proposal-with-two-yes",
             ),
             pytest.param(
                 [(say_yes, 1), (say_yes, 2)],
+                ["UPDATE series SET end_proposer = NULL, end_accepter = NULL", "UPDATE series SET end_proposer = 1"],
+                1,
+                {1},
+                id="an-agree-by-the-same-seat-after-the-old-release-refused-a-proposal-with-two-yes",
+            ),
+            pytest.param(
+                [(say_yes, 1)],
                 ["UPDATE series SET end_accepter = 3"],
                 1,
-                {1, 2},
-                id="an-accept-the-old-release-writes-beside-the-yes-list",
+                {1, 3},
+                id="an-accept-the-old-release-writes",
             ),
         ],
     )
-    def test_a_row_the_release_before_wrote_after_this_release_reads_as_a_proposal(
+    def test_a_row_the_release_before_wrote_after_this_release_reads_as_the_proposal_it_wrote(
         self, service, engine, transactions, between_games, answers, old_release_writes, proposer, yes_of
     ):
         for answer, seat in answers:
@@ -530,6 +538,19 @@ class TestEndingEarly:
             yes_of,
             frozenset(),
         )
+
+    def test_a_yes_does_not_end_the_series_after_the_old_release_replaced_a_proposal_that_had_two_yes(
+        self, service, engine, transactions, between_games
+    ):
+        say_yes(service, 1, between_games)
+        say_yes(service, 2, between_games)
+        run_in_transaction(engine, text("UPDATE series SET end_proposer = NULL, end_accepter = NULL"))
+        run_in_transaction(engine, text("UPDATE series SET end_proposer = 1"))
+
+        say_yes(service, 3, between_games)
+
+        read_back = series_of(transactions, between_games)
+        assert (read_back.ended_early, read_back.end_proposal.agreed) == (False, frozenset({1, 3}))
 
     def test_a_restart_rearms_only_the_proposals_standing_on_a_live_tables_current_series(
         self, service, transactions, engine, between_games
