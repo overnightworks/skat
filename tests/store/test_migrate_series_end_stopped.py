@@ -18,8 +18,10 @@ class TestFromAClosedTombstoneAndAnOverSeriesAtTheRevisionBefore:
                     " VALUES ('closed', 3, now(), 'closed', 'Anna')"
                 )
             )
-            connection.execute(text("INSERT INTO tables (id, version, dealer) VALUES ('over', 8, 2)"))
-            connection.execute(text("UPDATE series SET length = 12, deals = 12 WHERE table_id = 'over'"))
+            connection.execute(
+                text("INSERT INTO tables (id, version, dealer, last_played_at) VALUES ('over', 8, 2, now())")
+            )
+            connection.execute(text("INSERT INTO series (table_id, number, length, deals) VALUES ('over', 1, 12, 12)"))
         migrate(unmigrated_engine)
         return unmigrated_engine
 
@@ -31,14 +33,19 @@ class TestFromAClosedTombstoneAndAnOverSeriesAtTheRevisionBefore:
 
     def test_an_over_series_has_asked_for_no_new_series_yet(self, migrated):
         with migrated.connect() as connection:
-            asked = connection.execute(text("SELECT new_series_asked_at FROM series WHERE table_id = 'over'")).scalar()
+            asked = connection.execute(
+                text("SELECT new_series_asked_at FROM series WHERE table_id = 'over'")
+            ).scalar_one()
 
         assert asked is None
 
     def test_a_table_may_end_as_stopped_with_no_further_fact(self, migrated):
         run_in_transaction(
             migrated,
-            text("UPDATE tables SET ended_at = now(), end_reason = 'stopped', dealer = NULL WHERE id = 'over'"),
+            text(
+                "UPDATE tables SET ended_at = now(), end_reason = 'stopped', dealer = NULL, last_played_at = NULL"
+                " WHERE id = 'over'"
+            ),
         )
 
         with migrated.connect() as connection:
@@ -51,7 +58,9 @@ class TestFromAClosedTombstoneAndAnOverSeriesAtTheRevisionBefore:
         run_in_transaction(migrated, text("UPDATE series SET deals = 1 WHERE table_id = 'over'"))
 
         with migrated.connect() as connection:
-            asked = connection.execute(text("SELECT new_series_asked_at FROM series WHERE table_id = 'over'")).scalar()
+            asked = connection.execute(
+                text("SELECT new_series_asked_at FROM series WHERE table_id = 'over'")
+            ).scalar_one()
         assert asked is None
 
     def test_a_write_that_keeps_the_deals_keeps_the_instant(self, migrated):
@@ -60,5 +69,20 @@ class TestFromAClosedTombstoneAndAnOverSeriesAtTheRevisionBefore:
         run_in_transaction(migrated, text("UPDATE series SET ended_early = false WHERE table_id = 'over'"))
 
         with migrated.connect() as connection:
-            asked = connection.execute(text("SELECT new_series_asked_at FROM series WHERE table_id = 'over'")).scalar()
+            asked = connection.execute(
+                text("SELECT new_series_asked_at FROM series WHERE table_id = 'over'")
+            ).scalar_one()
+        assert asked is not None
+
+    def test_a_write_that_sets_the_instant_with_the_deals_keeps_it(self, migrated):
+        run_in_transaction(migrated, text("UPDATE series SET deals = 11 WHERE table_id = 'over'"))
+
+        run_in_transaction(
+            migrated, text("UPDATE series SET deals = 12, new_series_asked_at = now() WHERE table_id = 'over'")
+        )
+
+        with migrated.connect() as connection:
+            asked = connection.execute(
+                text("SELECT new_series_asked_at FROM series WHERE table_id = 'over'")
+            ).scalar_one()
         assert asked is not None

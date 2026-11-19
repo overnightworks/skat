@@ -168,7 +168,8 @@ class TestNewSeries:
     ):
         tap_all(service, ended_series)
         assert rows_of(engine, game_list) == 1
-        assert read(transactions, ended_series).series == Series(3, 3)
+        asked = read(transactions, ended_series).series
+        assert (replace(asked, new_series_asked_at=None), asked.new_series_asked_at is not None) == (Series(3, 3), True)
 
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is True
 
@@ -185,7 +186,8 @@ class TestNewSeries:
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is False
 
         assert rows_of(engine, game_list) == 1
-        assert read(transactions, ended_series).series == Series(3, 3)
+        asked = read(transactions, ended_series).series
+        assert (replace(asked, new_series_asked_at=None), asked.new_series_asked_at is not None) == (Series(3, 3), True)
 
     def test_a_failed_deal_keeps_the_old_list_the_count_and_the_marks_and_deals_no_hand(
         self, service, transactions, engine, ended_series

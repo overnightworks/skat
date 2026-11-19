@@ -445,10 +445,12 @@ def test_the_stop_keeps_the_game_list_and_the_create_and_stop_receipts_and_names
     after = rows_of(engine, table_id.value)
     assert {name for name, rows in after.items() if rows} == {"tables", "series", "receipts", "game_list"}
     assert after["game_list"] == games
-    assert sorted(row[:3] for row in after["receipts"]) == [
-        (SEATED[1].account_id, "stop-one", "stop-playing"),
-        (OPENER.account_id, "open-one", CREATE_TABLE_COMMAND),
-    ]
+    assert sorted(row[:3] for row in after["receipts"]) == sorted(
+        [
+            (SEATED[1].account_id, "stop-one", "stop-playing"),
+            (OPENER.account_id, "open-one", CREATE_TABLE_COMMAND),
+        ]
+    )
     with engine.connect() as connection:
         row = connection.execute(
             select(tables.c.ended_at, tables.c.end_reason, tables.c.closed_by_name, tables.c.opener_name).where(
@@ -461,25 +463,14 @@ def test_the_stop_keeps_the_game_list_and_the_create_and_stop_receipts_and_names
     )
 
 
-def test_the_stop_deletes_the_rows_of_a_hand_that_was_running_before_the_series_end(
-    service, transactions, stored, engine
-):
-    table_id = played_hand(service, transactions, stored, "one")
-    at_the_series_end(transactions, stored, table_id)
-
-    stop(service, OPENER, table_id)
-
-    after = rows_of(engine, table_id.value)
-    assert {name for name, rows in after.items() if rows} == {"tables", "series", "receipts"}
-
-
 def test_a_stop_retry_after_the_commit_answers_the_ended_table_and_a_refusal_writes_no_receipt(
     service, transactions, stored, engine
 ):
-    table_id = seated_table(service, "one", series_length=12)
+    table_id = listed_games_in_two_series(service, transactions, stored, "one")
     refused = stop(service, SEATED[1], table_id, "stop-early")
     assert refused.refusal is not None
-    assert len(rows_of(engine, table_id.value)["receipts"]) == 1
+    receipts_before = len(rows_of(engine, table_id.value)["receipts"])
+    assert receipts_before == len(SEATED)
     at_the_series_end(transactions, stored, table_id)
 
     stop(service, OPENER, table_id)

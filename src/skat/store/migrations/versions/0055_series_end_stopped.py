@@ -1,7 +1,7 @@
 """A table ends at its series' end by „Aufhören“ or by a seat silent for the minute: the end reason `stopped` joins
 the others, and a series that is over stores the instant of its first „Neue Serie“, from which a silent seat counts
 as no. The release before never writes the instant, so a trigger clears the one a deal or a proposal of the release
-before left behind.
+before left behind; a write that sets the instant itself keeps it.
 """
 
 from alembic import op
@@ -20,7 +20,8 @@ def upgrade() -> None:
         """
         CREATE FUNCTION series_new_series_ask_ends_with_the_series_end() RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN
-            IF NEW.deals IS DISTINCT FROM OLD.deals OR NEW.end_proposer IS NOT NULL THEN
+            IF NEW.new_series_asked_at IS NOT DISTINCT FROM OLD.new_series_asked_at
+               AND (NEW.deals IS DISTINCT FROM OLD.deals OR NEW.end_proposer IS NOT NULL) THEN
                 NEW.new_series_asked_at := NULL;
             END IF;
             RETURN NEW;
