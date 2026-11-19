@@ -159,12 +159,7 @@ def _content_security_policy(page_build: PageBuild, call_origin: str | None) -> 
 
 
 def _install_web_auth(
-    app: FastAPI,
-    sessions: SessionRecordStore,
-    page_build: PageBuild,
-    call_origin: str | None,
-    mcp: McpAccess,
-    trusted_proxies: TrustedProxies,
+    app: FastAPI, sessions: SessionRecordStore, page_build: PageBuild, call_origin: str | None, mcp: McpAccess
 ) -> None:
     install_web_auth_middleware(
         app,
@@ -179,6 +174,9 @@ def _install_web_auth(
         bearer_gate=mcp.bearer_gate,
         session_gate=session_gate(sessions, mcp.public_rule),
     )
+
+
+def _install_request_line(app: FastAPI, trusted_proxies: TrustedProxies) -> None:
     # Added after the library stack, these sit outside it and see every request, a refused one included; the writer
     # sits directly inside logline's middleware because webauth cannot see one placed inside another answering layer.
     app.add_middleware(ClientAddressMiddleware, trusted_proxies=trusted_proxies)
@@ -552,7 +550,6 @@ def _install_agent_front(
     relying_party: OidcRelyingParty,
     stores: SignInPorts,
     page_build: PageBuild,
-    trusted_proxies: TrustedProxies,
 ) -> None:
     mcp = mount_mcp(
         app,
@@ -563,7 +560,7 @@ def _install_agent_front(
         member_front(tables, presence, changes, scheduler, presence.waits),
     )
     app.state.mcp_front = mcp.front
-    _install_web_auth(app, stores.sessions, page_build, settings.call_origin, mcp, trusted_proxies)
+    _install_web_auth(app, stores.sessions, page_build, settings.call_origin, mcp)
 
 
 def create_app(
@@ -621,18 +618,7 @@ def create_app(
     app.include_router(create_nudging_router(tables, presence, nudge_signal(changes, relying_party.issuer)))
     _include_stream_routers(app, settings, tables, presence, wakes, slots, stores.sessions, heartbeat_seconds)
     _install_sign_in(app, sign_in_configs, relying_party, stores, page_build)
-    _install_agent_front(
-        app,
-        settings,
-        tables,
-        presence,
-        scheduler,
-        roster,
-        changes,
-        relying_party,
-        stores,
-        page_build,
-        sign_in_configs.trusted_proxies,
-    )
+    _install_agent_front(app, settings, tables, presence, scheduler, roster, changes, relying_party, stores, page_build)
+    _install_request_line(app, sign_in_configs.trusted_proxies)
 
     return app
