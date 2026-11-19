@@ -35,6 +35,16 @@ describe("readAccount", () => {
         expect(fetch).toHaveBeenCalledWith(ACCOUNT_PATH);
     });
 
+    it("tells no name until the server has named the account, then the name", async () => {
+        const { knownName, readAccount } = await freshAccount();
+        answerWith(JSON.stringify({ name: "anna" }));
+
+        expect(knownName()).toBeNull();
+        await readAccount();
+
+        expect(knownName()).toBe("anna");
+    });
+
     it.each([
         ["an answer without a name", JSON.stringify({}), 200],
         ["a refusal other than a missing session", null, 500],
