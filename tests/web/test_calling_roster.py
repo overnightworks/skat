@@ -132,7 +132,10 @@ class TestAFailedWriteOfTheRecord:
 
 class TestARowKeyIsDerivedFromTheSessionSecret:
     def test_every_pod_with_the_secret_derives_the_same_key(self, listeners, records):
-        assert roster_of(listeners, records).key_of(NOVA.sub) == roster_of(listeners, records).key_of(NOVA.sub)
+        one_pod = roster_of(listeners, records)
+        another_pod = roster_of(listeners, records)
+
+        assert one_pod.key_of(NOVA.sub) == another_pod.key_of(NOVA.sub)
 
     def test_another_secret_or_another_account_derives_another_key(self, listeners, records):
         roster = roster_of(listeners, records)
