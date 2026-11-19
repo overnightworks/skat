@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from webauth.config import install_web_auth_config, installed_web_auth_config
 
-from skat.host.app import UNPLAYED_SWEEP_SECONDS, create_app
+from skat.host.app import END_ANSWER_RECOVERY_SECONDS, UNPLAYED_SWEEP_SECONDS, create_app
 from skat.table.records import Actor, CreateTable, SitDown, TableId
 from skat.table.service import TableService
 from tests.support.fake_rule_sets import in_memory_rule_sets
@@ -36,6 +36,10 @@ class RecordedScheduler:
     def sweeps(self):
         """The runs asked for the hourly end of unplayed tables, each as its delay and action."""
         return [(delay, action) for delay, action in self.actions if delay == UNPLAYED_SWEEP_SECONDS]
+
+    def recoveries(self):
+        """The runs asked for the recovery of the stored end proposals, each as its delay and action."""
+        return [(delay, action) for delay, action in self.actions if delay == END_ANSWER_RECOVERY_SECONDS]
 
 
 UNPLAYED_DAYS = 7
