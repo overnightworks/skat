@@ -100,28 +100,31 @@ def series_of(row: Row[Any]) -> Series | None:
     """The series a row holds, None for the row of a table with no series."""
     if row.length is None:
         return None
+    proposal = _proposal_of(row)
     return Series(
         row.length,
         row.deals,
         number=row.number,
         ended_early=row.ended_early,
-        end_proposal=_proposal_of(row),
-        end_refused_by=frozenset(row.end_refused_by),
+        end_proposal=proposal,
+        # The release before keeps writing the proposal beside a refusal it never clears, so a standing proposal wins.
+        end_refused_by=frozenset() if proposal is not None else frozenset(row.end_refused_by),
     )
 
 
 def _proposal_of(row: Row[Any]) -> EndProposal | None:
-    """The standing proposal; one the release before wrote has no yes list and no instant, so its proposer and
-    accepter are the yeses and its minute is already over.
+    """The standing proposal. While the release before serves beside this one, it writes `end_proposer` and
+    `end_accepter` and leaves the yes list and the instant as they were, so the yes list counts only when it holds the
+    proposer and the instant is set; any other row is read in the shape of the release before, with the proposer and
+    the accepter as the yeses and the minute over.
     """
-    if row.end_proposer is None:
+    proposer = row.end_proposer
+    if proposer is None:
         return None
+    if row.end_asked_at is not None and proposer in row.end_agreed:
+        return EndProposal(proposer, frozenset(row.end_agreed), row.end_asked_at)
     accepter = () if row.end_accepter is None else (row.end_accepter,)
-    return EndProposal(
-        row.end_proposer,
-        frozenset({row.end_proposer, *row.end_agreed, *accepter}),
-        UNSTAMPED if row.end_asked_at is None else row.end_asked_at,
-    )
+    return EndProposal(proposer, frozenset({proposer, *accepter}), UNSTAMPED)
 
 
 def bock_of(row: Row[Any]) -> BockRounds:

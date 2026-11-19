@@ -3,6 +3,7 @@ import threading
 from contextlib import nullcontext
 from dataclasses import replace
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import func, select, text
@@ -33,7 +34,7 @@ from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.migrations import run_in_transaction
-from tests.support.played_game import END_ASKED_AT, after_a_game, after_the_first_game, an_end_proposal, an_entry
+from tests.support.played_game import after_a_game, after_the_first_game, an_entry
 
 pytestmark = pytest.mark.postgres
 
@@ -332,15 +333,26 @@ def between_games(service, transactions, table_id):
     return table_id
 
 
+def a_table_between_games(service, transactions):
+    """Another table of three games, its first game played, seated by the same three people."""
+    table_id = service.create(OPENER, CreateTable(command_id=f"open-{uuid4().hex}", series_length=3)).id
+    service.sit(VISITOR, SitDown(f"visitor-{uuid4().hex}", table_id, 2), frozenset())
+    service.sit(THIRD_PLAYER, SitDown(f"third-{uuid4().hex}", table_id, 3), frozenset())
+    record = read(transactions, table_id)
+    with transactions.begin() as transaction:
+        transaction.save_table(replace(after_the_first_game(record), version=record.version + 1), played_at=None)
+    return table_id
+
+
 def say_yes(service, seat, table_id, service_for=None):
     return (service_for or service).agree_to_end_series(
-        PEOPLE[seat], SeriesEndCommand(f"yes-{seat}", table_id), ALL_THREE
+        PEOPLE[seat], SeriesEndCommand(f"yes-{seat}-{table_id}", table_id), ALL_THREE
     )
 
 
 def say_no(service, seat, table_id, service_for=None):
     return (service_for or service).refuse_to_end_series(
-        PEOPLE[seat], SeriesEndCommand(f"no-{seat}", table_id), ALL_THREE
+        PEOPLE[seat], SeriesEndCommand(f"no-{seat}-{table_id}", table_id), ALL_THREE
     )
 
 
@@ -441,13 +453,13 @@ class TestEndingEarly:
         )
 
         outcome = (
-            at_the_asked_instant(series_of(transactions, between_games)),
+            series_of(transactions, between_games),
             answers["first"].refusal,
             answers["second"].refusal,
         )
         assert outcome in (
             (Series(3, 1, ended_early=True), None, Refusal.NO_PROPOSAL),
-            (Series(3, 1, end_proposal=an_end_proposal(3)), None, None),
+            (Series(3, 1, end_refused_by=frozenset({1})), Refusal.END_REFUSED, None),
         )
 
     def test_a_proposal_its_instant_and_the_refusal_that_ended_it_read_back(self, service, transactions, between_games):
@@ -477,6 +489,71 @@ class TestEndingEarly:
             UNSTAMPED,
         )
 
+    @pytest.mark.parametrize(
+        ("answers", "old_release_writes", "proposer", "yes_of"),
+        [
+            pytest.param(
+                [(say_yes, 1), (say_no, 2)],
+                ["UPDATE series SET end_proposer = 1"],
+                1,
+                {1},
+                id="an-agree-after-a-refusal-the-old-release-does-not-clear",
+            ),
+            pytest.param(
+                [(say_yes, 1), (say_yes, 2)],
+                ["UPDATE series SET end_proposer = NULL", "UPDATE series SET end_proposer = 3"],
+                3,
+                {3},
+                id="an-agree-after-the-old-release-refused-a-proposal-with-two-yes",
+            ),
+            pytest.param(
+                [(say_yes, 1), (say_yes, 2)],
+                ["UPDATE series SET end_accepter = 3"],
+                1,
+                {1, 2},
+                id="an-accept-the-old-release-writes-beside-the-yes-list",
+            ),
+        ],
+    )
+    def test_a_row_the_release_before_wrote_after_this_release_reads_as_a_proposal(
+        self, service, engine, transactions, between_games, answers, old_release_writes, proposer, yes_of
+    ):
+        for answer, seat in answers:
+            assert answer(service, seat, between_games).refusal is None
+        for statement in old_release_writes:
+            run_in_transaction(engine, text(statement))
+
+        read_back = series_of(transactions, between_games)
+
+        assert (read_back.end_proposal.proposer, read_back.end_proposal.agreed, read_back.end_refused_by) == (
+            proposer,
+            yes_of,
+            frozenset(),
+        )
+
+    def test_a_restart_rearms_only_the_proposals_standing_on_a_live_tables_current_series(
+        self, service, transactions, engine, between_games
+    ):
+        say_yes(service, 1, between_games)
+        ended = a_table_between_games(service, transactions)
+        say_yes(service, 1, ended)
+        with transactions.begin() as transaction:
+            transaction.end_table(TableId(ended), datetime(2026, 11, 9, 12, 0, tzinfo=UTC), Ending.closed("Anna"))
+        moved_on = a_table_between_games(service, transactions)
+        for seat in (1, 2, 3):
+            say_yes(service, seat, moved_on)
+        tap_all(service, moved_on)
+        assert service.deal_next(TableId(moved_on), nullcontext(ALL_THREE)) is True
+        run_in_transaction(
+            engine,
+            text(
+                "UPDATE series SET ended_early = false, end_proposer = 1, end_asked_at = now() "
+                f"WHERE table_id = '{moved_on}' AND number = 1"
+            ),
+        )
+
+        assert set(service.pending_end_answers()) == {between_games}
+
     def test_the_first_deal_of_the_next_series_clears_the_flag_and_keeps_the_rows(
         self, service, transactions, engine, between_games
     ):
@@ -489,14 +566,6 @@ class TestEndingEarly:
         assert read(transactions, between_games).series == Series(3, 1, number=2)
         assert read(transactions, between_games).game_list == ()
         assert rows_of(engine, game_list) == 1
-
-
-def at_the_asked_instant(series):
-    """The series with its standing proposal made at the instant the tests use, since a service stamps its own."""
-    proposal = series.end_proposal
-    if proposal is None:
-        return series
-    return replace(series, end_proposal=replace(proposal, asked_at=END_ASKED_AT))
 
 
 def kontra_options(reach):

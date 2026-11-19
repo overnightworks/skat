@@ -14,4 +14,7 @@ def upgrade() -> None:
     op.execute("ALTER TABLE series ADD COLUMN end_agreed smallint[] NOT NULL DEFAULT '{}'")
     op.execute("ALTER TABLE series ADD COLUMN end_asked_at timestamptz")
     op.execute("ALTER TABLE series ADD COLUMN end_refused_by smallint[] NOT NULL DEFAULT '{}'")
-    op.execute("UPDATE series SET end_asked_at = now() WHERE end_proposer IS NOT NULL")
+    op.execute(
+        "UPDATE series SET end_asked_at = now(), end_agreed = array_remove(ARRAY[end_proposer, end_accepter], NULL) "
+        "WHERE end_proposer IS NOT NULL"
+    )

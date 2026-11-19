@@ -1,5 +1,6 @@
 from contextlib import nullcontext
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import text
@@ -13,7 +14,7 @@ from skat.store.tables import PostgresTableTransactions
 from skat.table.game_list import bock_factor_of
 from skat.table.ready import NewSeriesCommand
 from skat.table.records import Actor, EndedTable, Series, TableId
-from skat.table.series_end import SeriesEndCommand
+from skat.table.series_end import END_ANSWER_SECONDS, SeriesEndCommand, answer_left
 from skat.table.service import TableService
 from tests.support.migrations import list_row, migrated_from, only_row, run_in_transaction
 from tests.support.played_game import an_end_proposal
@@ -274,9 +275,12 @@ class TestFromTablesAtTheRevisionBefore:
         assert series_row(migrated, "second", 2)[1] == 4
         assert series_row(migrated, "second", 1)[1] == LENGTH
 
-    def test_a_standing_proposal_stays_on_its_row_and_a_third_yes_ends_the_series(self, migrated, service):
+    def test_a_standing_proposal_stays_on_its_row_with_a_fresh_minute_and_a_third_yes_ends_the_series(
+        self, migrated, service
+    ):
         standing = record_of(migrated, PROPOSED).series.end_proposal
         assert (standing.proposer, standing.agreed) == (1, frozenset({1, 2}))
+        assert timedelta(0) < answer_left(standing.asked_at, datetime.now(UTC)) <= timedelta(seconds=END_ANSWER_SECONDS)
 
         answer = service.agree_to_end_series(PEOPLE[3], SeriesEndCommand("yes-3", PROPOSED), ALL_THREE)
 
