@@ -108,6 +108,34 @@ def test_a_statement_of_an_account_that_no_longer_sits_there_is_not_read_and_the
     assert statement_columns(engine, table_id)[MEMBERS_SEAT] == (None, None, False, None)
 
 
+def test_the_index_reads_tell_the_latest_statement_time_of_a_table_while_its_account_sits_there(
+    service, engine, transactions, stored, table_id
+):
+    def stamp_of(read):
+        with transactions.begin() as transaction:
+            return read(transaction)[0].turn_stated_at
+
+    def of_the_table(transaction):
+        return transaction.versions_of([table_id])
+
+    def of_the_members_tables(transaction):
+        return transaction.tables_of(MEMBER.account_id)
+
+    assert stamp_of(of_the_table) is None
+    service.set_turn_state(MEMBER.account_id, table_id.value, "busy", False)
+    stated_at = statement_of(stored, transactions, table_id).stated_at
+
+    assert (stamp_of(of_the_table), stamp_of(of_the_members_tables)) == (stated_at, stated_at)
+
+    with engine.begin() as connection:
+        connection.execute(
+            text("UPDATE chairs SET account_id = 'account-dora', display_name = 'Dora' WHERE seat = :seat"),
+            {"seat": MEMBERS_SEAT},
+        )
+
+    assert stamp_of(of_the_table) is None
+
+
 def test_the_statement_time_is_stored_as_given(service, engine, transactions, stored, table_id):
     service.set_turn_state(MEMBER.account_id, table_id.value, None, True)
 
