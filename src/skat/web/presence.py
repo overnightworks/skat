@@ -1,4 +1,5 @@
 import asyncio
+import math
 import threading
 import uuid
 from concurrent.futures import CancelledError
@@ -244,7 +245,7 @@ class Presence:
         end_answers: EndAnswers,
     ) -> None:
         self._end_answers = end_answers
-        self._end_answer_timers: set[str] = set()
+        self._end_answer_dues: dict[str, float] = {}
         self._lease = lease
         self._stream_leases = stream_leases
         self._claimer = uuid.uuid4().hex
@@ -634,13 +635,15 @@ class Presence:
 
     def watch_end_answers(self, table_id: str, seconds_left: float) -> None:
         """Ask once `seconds_left` have passed whether the table's proposal to end the series has lapsed; the step
-        re-reads the table, so a timer for a proposal that is gone, answered or replaced does nothing, and a table
-        with a timer waiting here gets no second one, since its step reports what a later proposal still has left.
+        re-reads the table, so a timer for a proposal that is gone, answered or replaced does nothing. A table with a
+        timer waiting that falls due no later gets no second one, while a deadline found earlier than the waiting
+        timer's, a later yes having timed a full minute, gets its own, so the minute the store holds is the minute kept.
         """
-        if self._stopped or table_id in self._end_answer_timers:
+        due = self._hold.clock() + seconds_left
+        if self._stopped or self._end_answer_dues.get(table_id, math.inf) <= due:
             return
-        self._end_answer_timers.add(table_id)
-        self._hold.scheduler.schedule(seconds_left, partial(self._lapse_end_answers, table_id))
+        self._end_answer_dues[table_id] = due
+        self._hold.scheduler.schedule(seconds_left, partial(self._lapse_end_answers, table_id, due))
 
     def watch_all_end_answers(self, seconds_left_by_table: Mapping[str, float]) -> None:
         """Start the minute of each live table's standing proposal found in the store, at the server's start and again
@@ -649,8 +652,9 @@ class Presence:
         for table_id, seconds_left in seconds_left_by_table.items():
             self.watch_end_answers(table_id, seconds_left)
 
-    async def _lapse_end_answers(self, table_id: str) -> None:
-        self._end_answer_timers.discard(table_id)
+    async def _lapse_end_answers(self, table_id: str, due: float) -> None:
+        if self._end_answer_dues.get(table_id) == due:
+            del self._end_answer_dues[table_id]
         run = self._timer_runs.start(PresenceTimer.END_ANSWER_LAPSE, table_id, table_id=table_id)
         try:
             left = await self._end_answers.lapse(table_id)

@@ -82,11 +82,20 @@ def test_the_server_start_arms_the_minute_each_stored_proposal_has_left(presence
     assert lapses.asked == [TABLE, ANOTHER_TABLE]
 
 
-def test_a_table_with_a_timer_waiting_gets_no_second_one(presence, time, lapses):
-    presence.watch_end_answers(TABLE, MINUTE)
-    presence.watch_all_end_answers({TABLE: 0.0})
+def test_a_table_with_a_timer_waiting_that_falls_due_no_later_gets_no_second_one(presence, time, lapses):
+    presence.watch_end_answers(TABLE, MINUTE / 2)
+    presence.watch_all_end_answers({TABLE: MINUTE})
 
     run(time.advance(MINUTE))
+
+    assert lapses.asked == [TABLE]
+
+
+def test_a_deadline_found_earlier_than_the_waiting_timers_is_kept(presence, time, lapses):
+    presence.watch_end_answers(TABLE, MINUTE)
+
+    presence.watch_all_end_answers({TABLE: 45.0})
+    run(time.advance(45))
 
     assert lapses.asked == [TABLE]
 
