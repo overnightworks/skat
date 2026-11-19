@@ -38,6 +38,7 @@ CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 DORA = Actor(account_id="account-dora", display_name="Dora")
 TABLE_VERSION = 9
 LATER = END_ASKED_AT + timedelta(seconds=10)
+MINUTE = timedelta(seconds=END_ANSWER_SECONDS)
 
 
 def between_games(
@@ -102,6 +103,24 @@ class TestDecideAgreeToEnd:
 
         assert decision.table.bock == BockRounds.start()
         assert bock_view_of(decision.table).games_left == 0
+
+    @pytest.mark.parametrize(
+        ("proposal", "actor", "refused_by"),
+        [
+            pytest.param(an_end_proposal(1, 2), CLEO, {3}, id="the-last-seat-to-answer"),
+            pytest.param(an_end_proposal(1), BEN, {2, 3}, id="the-second-seat-to-answer"),
+        ],
+    )
+    def test_a_yes_after_the_minute_ends_the_proposal_by_the_silent_seats_instead_of_the_series(
+        self, proposal, actor, refused_by
+    ):
+        decision = decide_agree_to_end(
+            between_games(proposal), actor, proposal.asked_at + MINUTE + timedelta(seconds=1)
+        )
+
+        assert decision.refusal is None
+        assert proposal_of(decision.table) is None
+        assert decision.table.series == Series(12, 2, end_refused_by=frozenset(refused_by))
 
     @pytest.mark.parametrize(
         ("proposal", "actor"),
@@ -224,6 +243,24 @@ class TestDecideEndAnswerLapse:
         decision = decide_end_answer_lapse(between_games(an_end_proposal(1)), self.MINUTE_OVER)
 
         assert decision.table.series.end_refused_by == frozenset({2, 3})
+
+    @pytest.mark.parametrize(
+        ("emptied_seats", "refused_by"),
+        [
+            pytest.param((3,), {2}, id="an-empty-chair-is-no-refuser"),
+            pytest.param((2, 3), set(), id="no-seated-refuser-lapses-the-proposal-with-none-named"),
+        ],
+    )
+    def test_an_empty_chair_never_counts_as_a_refuser(self, emptied_seats, refused_by):
+        table = between_games(an_end_proposal(1))
+        chairs = tuple(
+            replace(chair, occupant=None) if chair.seat in emptied_seats else chair for chair in table.chairs
+        )
+
+        decision = decide_end_answer_lapse(replace(table, chairs=chairs), self.MINUTE_OVER)
+
+        assert proposal_of(decision.table) is None
+        assert decision.table.series.end_refused_by == frozenset(refused_by)
 
     @pytest.mark.parametrize(
         "table",

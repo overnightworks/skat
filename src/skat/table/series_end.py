@@ -33,7 +33,8 @@ def series_end_payload(command: SeriesEndCommand) -> str:
 def decide_agree_to_end(table: TableRecord, actor: Actor, now: datetime) -> Decision:
     """Yes to ending the series: the first yes proposes at `now`, and the series ends once every seat said yes; no
     chair, no series, a series already over, a running hand, no game yet, then a proposal refused since the last deal.
-    A seat that already said yes changes nothing.
+    A seat that already said yes changes nothing, and a yes that comes after the minute is over finds the proposal
+    ended by the silent seats instead of adding to it.
     """
     chair = seat_of(table, actor.account_id)
     if chair is None:
@@ -52,6 +53,8 @@ def decide_agree_to_end(table: TableRecord, actor: Actor, now: datetime) -> Deci
         if series.end_refused_by:
             return Decision(table, Refusal.END_REFUSED)
         return _with_proposal(table, series, EndProposal.by(chair.seat, now))
+    if answer_left(proposal.asked_at, now) <= timedelta(0):
+        return decide_end_answer_lapse(table, now)
     if chair.seat in proposal.agreed:
         return Decision(table)
     agreed = proposal.agreed | {chair.seat}
@@ -84,13 +87,15 @@ def end_answer_left(table: TableRecord, now: datetime) -> timedelta | None:
 
 
 def decide_end_answer_lapse(table: TableRecord, now: datetime) -> Decision:
-    """A proposal whose minute is over ends and names the seats that never said yes as its refusers; any other table
-    stays as it was.
+    """A proposal whose minute is over ends and names the seated seats that never said yes as its refusers, none when
+    every silent chair is empty; any other table stays as it was.
     """
-    left = end_answer_left(table, now)
-    if table.series is None or table.series.end_proposal is None or left is None or left > timedelta(0):
+    series = table.series
+    proposal = None if series is None else series.end_proposal
+    if series is None or proposal is None or answer_left(proposal.asked_at, now) > timedelta(0):
         return Decision(table)
-    return _refused(table, table.series, frozenset(SEATS) - table.series.end_proposal.agreed)
+    seated = frozenset(chair.seat for chair in table.chairs if chair.occupant is not None)
+    return _refused(table, series, seated - proposal.agreed)
 
 
 def _refused(table: TableRecord, series: Series, refused_by: frozenset[int]) -> Decision:
