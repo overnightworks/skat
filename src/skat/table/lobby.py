@@ -21,6 +21,7 @@ from skat.table.rules import (
     unplayed_end,
     waiting_seat_of,
 )
+from skat.table.turn_state import TurnStateView, turn_state_view_of
 from skat.table.views import paused_entry_of, turn_seat_of
 
 if TYPE_CHECKING:
@@ -64,17 +65,20 @@ class LobbyChairView:
     is_away: bool
     is_turn: bool
     hold_seconds_left: int | None
+    turn_state: TurnStateView | None
 
 
 @dataclass(frozen=True)
 class OpenChairView:
-    """A chair of an open table: who sits there, whether they are away and how long their hold has left."""
+    """A chair of an open table: who sits there, whether they are away, how long their hold has left and what they
+    last stated about their turns."""
 
     seat: int
     occupant_name: str | None
     occupant_kind: OccupantKind | None
     is_away: bool
     hold_seconds_left: int | None
+    turn_state: TurnStateView | None
 
 
 @dataclass(frozen=True)
@@ -128,11 +132,12 @@ class LobbyEntryView:
 class LobbyReads:
     """The reads behind the lobby's lists; the table service is built on them.
 
-    A subclass sets the transactions and the live-lease read these reads use.
+    A subclass sets the transactions, the live-lease read and the clock these reads use.
     """
 
     _transactions: TableTransactions
     _live_leases: Callable[[], frozenset[str]]
+    _now: Callable[[], datetime]
 
     def held_tables(self, account_id: str) -> tuple[TableVersion, ...]:
         """The tables the account holds a chair at, each once with its version, in id order; an unlocked read, so a
@@ -183,6 +188,7 @@ class LobbyReads:
         member's chair shows the seconds its stored hold has left, read in the same transaction.
         """
         live_leases = self._live_leases()
+        now = self._now()
         entries: list[LobbyEntryView] = []
         with self._transactions.begin() as transaction:
             for table_id in held_ids:
@@ -190,7 +196,7 @@ class LobbyReads:
                 if not isinstance(table, TableRecord):
                     continue
                 present = present_at(table, connected_by_table.get(table_id.value, frozenset()), live_leases)
-                member = member_view_of(table, account_id, present, transaction.opener_account(table_id))
+                member = member_view_of(table, account_id, present, transaction.opener_account(table_id), now)
                 if member is not None:
                     holds = transaction.hold_seconds_left(table_id)
                     entries.append(_entry_of(table, member, present, holds, transaction.paused_facts(table_id), days))
@@ -211,6 +217,7 @@ class LobbyReads:
         skipped. The other parameters are those of `my_tables`.
         """
         live_leases = self._live_leases()
+        now = self._now()
         entries: list[OpenEntryView] = []
         with self._transactions.begin() as transaction:
             for table_id in listed_ids:
@@ -223,7 +230,7 @@ class LobbyReads:
                 present = present_at(table, connected, live_leases)
                 holds = transaction.hold_seconds_left(table_id)
                 facts = transaction.paused_facts(table_id)
-                entries.append(_open_entry_of(table, connected, present, holds, facts, days))
+                entries.append(_open_entry_of(table, connected, present, holds, facts, days, now))
         return tuple(sorted(entries, key=_open_order_of))
 
     def paused_tables(self, actor: Actor, days: int) -> tuple[PausedEntryView, ...]:
@@ -284,6 +291,7 @@ def _entry_of(
                 is_away=chair.is_away,
                 is_turn=chair.seat == turn_seat,
                 hold_seconds_left=_hold_left_of(table.chairs[chair.seat - 1], table, present, holds),
+                turn_state=chair.turn_state,
             )
             for chair in view.chairs
         ),
@@ -297,6 +305,7 @@ def _open_entry_of(
     holds: Mapping[str, int],
     facts: PausedFacts,
     days: int,
+    now: datetime,
 ) -> OpenEntryView:
     seated = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
     return OpenEntryView(
@@ -317,6 +326,7 @@ def _open_entry_of(
                 occupant_kind=None if chair.occupant is None else chair.occupant.kind,
                 is_away=chair.occupant is not None and chair.occupant.account_id not in present,
                 hold_seconds_left=_hold_left_of(chair, table, present, holds),
+                turn_state=turn_state_view_of(chair.turn_state, now),
             )
             for chair in table.chairs
         ),

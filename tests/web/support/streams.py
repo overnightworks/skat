@@ -22,7 +22,7 @@ def reader(service, table_id):
 def version_reader(service, table_id):
     async def read_version():
         versions = service.table_versions([TableId(table_id)])
-        return versions[0].version if versions else None
+        return versions[0] if versions else None
 
     return read_version
 

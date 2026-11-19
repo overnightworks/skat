@@ -2,7 +2,7 @@ import logline
 import pytest
 import structlog.testing
 from agents.mcp_wire import MCP_ENDPOINT_PATH
-from agents.member import ACCEPT_INVITATION_TOOL
+from agents.member import ACCEPT_INVITATION_TOOL, SET_TURN_STATE_TOOL
 
 from skat.engine.bidding import VALID_BIDS, Awaiting, Bid, BidRefusal, Declared, Hold, Pass
 from skat.engine.deal import Position, seats_from
@@ -93,6 +93,7 @@ class TestTools:
             set(tools)
             == {
                 ACCEPT_INVITATION_TOOL,
+                SET_TURN_STATE_TOOL,
                 READ_TABLE_TOOL,
                 READ_SERIES_LIST_TOOL,
                 READ_PAUSED_TABLES_TOOL,

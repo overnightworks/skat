@@ -9,7 +9,7 @@ from datetime import timedelta
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Protocol
 
-from skat.table.records import Chair, Occupant, OpaqueId, TableId, TableRecord
+from skat.table.records import Chair, Occupant, OpaqueId, TableId, TableRecord, TurnStatement
 from skat.table.rules import decide_sit, free_seat_for, seat_of
 
 if TYPE_CHECKING:
@@ -47,6 +47,7 @@ __all__ = [
     "decide_accept",
     "decide_invite",
     "forgotten_if_expired",
+    "keep_turn_state",
     "offer_of",
     "open_invitation",
     "seated_agents",
@@ -497,3 +498,26 @@ def standings_of(transactions: TableTransactions, agent_account: str, now: datet
                 transaction.save_book_entry(after)
         held = [each.table_id for each in transaction.tables_of(agent_account)]
     return standings_among(kept, held, now)
+
+
+def keep_turn_state(
+    transactions: TableTransactions,
+    account_id: str,
+    table_id: str,
+    stopped: str | None,
+    thinking: bool,
+    now: datetime,
+) -> bool:
+    """Keep what the account states about its turns at the table for the chair it sits at, in place of its last
+    statement, under the table's row lock and without raising the version; False, and nothing kept, when the account
+    holds no chair at a live table with that id.
+    """
+    if (identifier := TableId.parse(table_id)) is None:
+        return False
+    with transactions.begin() as transaction:
+        table = transaction.locked_table(identifier)
+        own = None if table is None else seat_of(table, account_id)
+        if own is None:
+            return False
+        transaction.save_turn_state(identifier, replace(own, turn_state=TurnStatement(stopped, thinking, now)))
+    return True

@@ -1,0 +1,14 @@
+[[code]]
+path = "src/skat/web/turn_state_answer.py"
+item = "#581"
+reason = "The turn state that the table's and the lobby's answers carry is drawn by no page until #581's page slice."
+
+[[code]]
+path = "frontend/src/routes/(start)/tables.ts"
+item = "#581"
+reason = "TurnState and a chair's turn_state are read by no page code until #581's page slice draws them."
+
+[[code]]
+path = "frontend/src/routes/(start)/lobby.ts"
+item = "#581"
+reason = "A lobby chair's turn_state is read by no page code until #581's page slice draws it."

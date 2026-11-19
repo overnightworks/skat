@@ -7,6 +7,7 @@ the table's version and the asks due. Its acts are the lines of the window besid
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from skat.table.acts import Act, acts_of, next_seq_of
 from skat.table.awaiting import awaits_you
@@ -15,6 +16,9 @@ from skat.table.moment import TableMoment, moment_of
 from skat.table.records import TableId, TableRecord
 from skat.table.rules import seat_of
 from skat.table.views import TableView, view_of
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 __all__ = [
     "MemberActs",
@@ -51,14 +55,14 @@ class MemberActs:
 
 
 def member_view_of(
-    table: TableRecord, account_id: str, present: frozenset[str], opener_account: str | None
+    table: TableRecord, account_id: str, present: frozenset[str], opener_account: str | None, now: datetime
 ) -> MemberView | None:
-    """The view of the account that holds a chair at the table, `opener_account` being the account that opened it;
-    None for an account that holds no chair.
+    """The view of the account that holds a chair at the table, `opener_account` being the account that opened it and
+    `now` the clock the chairs' statements are read on; None for an account that holds no chair.
     """
     if account_id not in {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}:
         return None
-    view = view_of(table, account_id, present, opener_account)
+    view = view_of(table, account_id, present, opener_account, now=now)
     return MemberView(view, awaits_you(view))
 
 

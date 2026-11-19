@@ -67,9 +67,6 @@ create_declaring_router = [["src/skat/web/pushing.py", "create_pushing_router"]]
 create_kontra_router = [["src/skat/web/ready.py", "create_ready_router"]]
 "create_kontra_router.say_kontra" = [["src/skat/web/playing.py", "_add_agree_to_give_up.agree_to_give_up"], ["src/skat/web/playing.py", "_add_decline_give_up.decline_give_up"], ["src/skat/web/playing.py", "_add_give_up.give_up_game"], ["src/skat/web/playing.py", "_add_throw_down.throw_down_cards"], ["src/skat/web/ready.py", "create_ready_router.start_new_series"], ["src/skat/web/ready.py", "create_ready_router.tap_weiter"], ["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]
 
-[clones."src/skat/web/lobby.py"]
-_table_answer_of = [["src/skat/web/paused.py", "_table_answer_of"]]
-
 [clones."src/skat/web/playing.py"]
 "_add_agree_to_give_up.agree_to_give_up" = [["src/skat/web/ready.py", "create_ready_router.start_new_series"], ["src/skat/web/ready.py", "create_ready_router.tap_weiter"], ["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]
 "_add_decline_give_up.decline_give_up" = [["src/skat/web/ready.py", "create_ready_router.start_new_series"], ["src/skat/web/ready.py", "create_ready_router.tap_weiter"], ["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]

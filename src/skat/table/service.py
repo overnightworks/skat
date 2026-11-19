@@ -32,6 +32,7 @@ from skat.table.member_place import (
     at_the_table,
     decide_accept,
     decide_invite,
+    keep_turn_state,
     standings_of,
     table_offers_of,
 )
@@ -509,6 +510,9 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             lambda table: decide_refuse_to_abort(table, actor),
         )
 
+    def set_turn_state(self, account_id: str, table_id: str, stopped: str | None, thinking: bool) -> bool:
+        return keep_turn_state(self._transactions, account_id, table_id, stopped, thinking, self._now())
+
     def _server_steps(self) -> ServerSteps:
         return ServerSteps(
             self._transactions,
@@ -692,7 +696,7 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             if replay is None:
                 seated_when_hand_ended = seated_if_hand_ended(table, decision.table)
             result = CommandResult(
-                view_of(decision.table, actor.account_id, present, transaction.opener_account(identifier)),
+                view_of(decision.table, actor.account_id, present, transaction.opener_account(identifier), self._now()),
                 decision.refusal,
                 decision.holder,
                 seated_when_hand_ended,
@@ -719,7 +723,7 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             if isinstance(table, EndedTable)
             else present_at(table, connected_accounts, self._live_leases())
         )
-        return view_of(table, actor.account_id, present, opener)
+        return view_of(table, actor.account_id, present, opener, self._now())
 
     def accounts_at_the_table(self, table_id: TableId, connected_accounts: frozenset[str]) -> frozenset[str]:
         """Who is at the live table for a call; an ended or missing table counts the open streams only."""
@@ -734,7 +738,7 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
         if not isinstance(table, TableRecord):
             return None
         present = present_at(table, connected_accounts, self._live_leases())
-        return member_view_of(table, account_id, present, opener)
+        return member_view_of(table, account_id, present, opener, self._now())
 
     def member_acts(self, account_id: str, table_id: str) -> MemberActs | None:
         """The acts of the live table's latest hand for the account that holds a chair there; None for any other
@@ -757,6 +761,4 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
         a table that ended and a table that is not there.
         """
         table = self._table_read(table_id)
-        if not isinstance(table, TableRecord):
-            return None
-        return agent_in_chair(table, seat)
+        return agent_in_chair(table, seat) if isinstance(table, TableRecord) else None
