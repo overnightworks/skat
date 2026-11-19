@@ -217,9 +217,11 @@ _PLAY_TOOLS: Final = frozenset(
 
 # The tools an agent is offered in each moment of its table: what it can use there, whoever's turn it is. The offer is a
 # display filter and no right; the routes refuse an act the table does not allow. An agent at several tables is
-# offered the union; a token without agent facts is offered every tool.
+# offered the union; a token without agent facts is offered every tool. The lobby moment offers the turn state too, so
+# an agent that holds no chair gets the tool's own refusal and not a not-offered text.
 TOOLS_OF_MOMENT: Final[Mapping[TableMoment, frozenset[str]]] = {
-    TableMoment.LOBBY: _READ_TOOLS | {ACCEPT_INVITATION_TOOL, OPEN_TABLE_TOOL, SIT_DOWN_TOOL, SAVE_RULE_SET_TOOL},
+    TableMoment.LOBBY: _READ_TOOLS
+    | {ACCEPT_INVITATION_TOOL, SET_TURN_STATE_TOOL, OPEN_TABLE_TOOL, SIT_DOWN_TOOL, SAVE_RULE_SET_TOOL},
     TableMoment.WAITING: _SEATED_TOOLS,
     TableMoment.AUCTION: _SEATED_TOOLS | {AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, AUCTION_PASS_TOOL, AUCTION_PLAY_TOOL},
     TableMoment.DECLARING: _SEATED_TOOLS | {TAKE_SKAT_TOOL, PUT_BACK_CARDS_TOOL, DECLARE_GAME_TOOL},

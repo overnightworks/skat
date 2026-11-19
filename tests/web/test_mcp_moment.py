@@ -75,6 +75,7 @@ class TestTheListFollowsTheMoment:
             SIT_DOWN_TOOL,
             SAVE_RULE_SET_TOOL,
             ACCEPT_INVITATION_DECLARATION.name,
+            SET_TURN_STATE_DECLARATION.name,
         }
 
     def test_a_seated_agent_in_the_auction_is_offered_the_four_auction_tools_and_the_seated_ones(

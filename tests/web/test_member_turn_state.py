@@ -94,6 +94,15 @@ def test_an_agent_without_a_chair_at_the_table_is_refused_as_not_held_and_nothin
     assert statement_at(skat, seated) is None
 
 
+def test_an_agent_that_left_its_only_chair_is_refused_as_not_held(skat, agent, seated):
+    agent.stand_up(seated)
+
+    answer = state(agent, seated, stopped="busy")
+
+    assert (answer.is_error, answer.json()) == (True, NOT_HELD)
+    assert statement_at(skat, seated) is None
+
+
 @pytest.mark.parametrize(
     "place",
     [{"kind": "call", "id": "any"}, {"kind": "table", "id": "0" * 32}, {"kind": "table", "id": "no table id"}],
