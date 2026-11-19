@@ -7,17 +7,23 @@
     import LockIcon from "#lib/ui/LockIcon.svelte";
     import RuleMark from "#lib/ui/RuleMark.svelte";
     import { words } from "#lib/words.ts";
+    import EmptyTable from "./EmptyTable.svelte";
     import {
         cardOf,
         openCardOf,
+        sceneOf,
         watchLobby,
         type Card,
         type ChipKind,
         type LobbyTable,
         type OpenTable,
+        type Scene,
         type SeatCard,
     } from "./lobby.ts";
     import { sitDown } from "./tables.ts";
+
+    // The page's scene follows the lists: the lobby draws the open scene and the empty table, and the page the rest.
+    let { scene = $bindable("pending") }: { scene?: Scene } = $props();
 
     const COUNTDOWN_MILLISECONDS = 1_000;
     const WIDEST_ROW = 3;
@@ -51,7 +57,9 @@
     // Both sections share the row's width, so the longer list sets the columns.
     const columns = $derived(Math.min(Math.max(mine.length, open?.length ?? 0, 1), WIDEST_ROW));
 
-    const shown = $derived(mine.length > 0 || open !== null);
+    $effect.pre(() => {
+        scene = sceneOf(tables, openTables);
+    });
 
     // The page counts a hold down with its own stopwatch, which no clock change moves; a new list replaces the count.
     function tickClocks(): number {
@@ -272,7 +280,10 @@
     {/if}
 {/snippet}
 
-{#if shown}
+{#if scene === "empty"}
+    <EmptyTable stale={!connected} />
+{/if}
+{#if scene === "open"}
     <div class="lobby-lists" class:stale={!connected} data-columns={columns}>
         {#if mine.length > 0}
             <section class="lobby-section" aria-labelledby="my-tables-heading">
@@ -310,9 +321,9 @@
             <p class="lobby-quiet" role="alert">{words["lobby.sitFailed"]}</p>
         {/if}
     </div>
-    {#if !connected}
-        <div class="reconnect" role="status">
-            <span class="spin"></span>{streamsFull ? words["app.tooManyStreams"] : words["app.reconnecting"]}
-        </div>
-    {/if}
+{/if}
+{#if scene !== "pending" && !connected}
+    <div class="reconnect" role="status">
+        <span class="spin"></span>{streamsFull ? words["app.tooManyStreams"] : words["app.reconnecting"]}
+    </div>
 {/if}

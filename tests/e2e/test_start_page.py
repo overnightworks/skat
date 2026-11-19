@@ -18,6 +18,7 @@ from tests.e2e.support.browser import (
     record_page_errors,
 )
 from tests.e2e.support.kit_words import kit_text
+from tests.e2e.support.lobby_stream import open_table_answer, serve_streams_in_turn, stream_of
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, PHONE
 from tests.e2e.support.table_menu import open_account_panel
 from tests.e2e.support.tables import open_new_table
@@ -37,6 +38,10 @@ START_WORDMARK = ".start-wordmark"
 START_PIPS = ".start-pips span"
 ACCOUNT_NAME = ".account-name"
 ACCOUNT_AVATAR_FACE = ".account-avatar"
+# One jack of each suit.
+FOUR_JACKS = 4
+# The lobby scene draws one sticky bar at the screen's foot; its button ends in the lowest quarter.
+LOWEST_QUARTER = 0.75
 
 
 def open_start_page(
@@ -48,23 +53,118 @@ def open_start_page(
     return person
 
 
+def box_of(locator: Locator) -> dict[str, float]:
+    box = locator.bounding_box()
+    assert box is not None
+    return box
+
+
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
-def test_the_new_table_button_keeps_its_place_when_the_lobby_answers(
+def test_until_the_lobby_answers_the_page_draws_the_head_and_no_button(
     open_person: Callable[..., Page], e2e_server: RunningServer, form_factor: dict[str, Any]
 ) -> None:
     waiting = open_person(**form_factor)
     # The lobby's stream stays unanswered, so this page is the one a person sees before the lobby has answered.
     waiting.route(f"**{LOBBY_EVENTS_PATH}", lambda _route: None)
+
     waiting.goto(f"{e2e_server.base_url}/")
-    before = waiting.get_by_role("button", name=NEW_TABLE_BUTTON)
-    expect(before).to_be_visible()
 
-    answered = open_person(**form_factor)
-    answered.goto(f"{e2e_server.base_url}/")
-    expect(answered.locator(".lobby-lists")).to_be_visible()
-    after = answered.get_by_role("button", name=NEW_TABLE_BUTTON)
+    expect(waiting.locator(START_WORDMARK)).to_be_visible()
+    expect(waiting.locator(ACCOUNT_AVATAR)).to_be_visible()
+    expect(waiting.get_by_role("button", name=NEW_TABLE_BUTTON)).to_have_count(0)
+    expect(waiting.locator(".start-table, .lobby-lists")).to_have_count(0)
 
-    assert after.bounding_box() == before.bounding_box()
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_with_no_open_table_the_start_page_draws_the_table_the_lull_line_the_jacks_and_the_button_on_the_felt(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    expected_request_failures: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
+    person = open_person(**form_factor)
+    serve_streams_in_turn(person, [stream_of(open_tables=[])])
+
+    person.goto(f"{e2e_server.base_url}/")
+
+    table = person.locator(".start-table")
+    lull = person.get_by_role("status").filter(has_text=text(SOURCE_LANGUAGE, "lobby.nobodyPlays"))
+    expect(lull).to_be_visible()
+    expect(person.locator(".start-chair")).to_have_count(2)
+    expect(person.locator(".start-jack")).to_have_count(FOUR_JACKS)
+    assert (
+        person.locator(".start-jack .card-face").evaluate_all("faces => faces.map(face => face.dataset.rank)")
+        == ["jack"] * FOUR_JACKS
+    )
+    expect(person.locator(".lobby-lists")).to_have_count(0)
+    button = person.get_by_role("button", name=NEW_TABLE_BUTTON)
+    expect(button).to_be_visible()
+    table_box, lull_box, button_box = box_of(table), box_of(lull), box_of(button)
+    jacks_bottom = max(box["y"] + box["height"] for box in map(box_of, person.locator(".start-jack").all()))
+    assert [table_box["x"], table_box["y"]] <= [button_box["x"], button_box["y"]]
+    assert button_box["y"] + button_box["height"] <= table_box["y"] + table_box["height"]
+    assert button_box["x"] + button_box["width"] <= table_box["x"] + table_box["width"]
+    assert abs(button_box["x"] + button_box["width"] / 2 - (table_box["x"] + table_box["width"] / 2)) <= 1
+    assert lull_box["y"] + lull_box["height"] <= button_box["y"]
+    assert jacks_bottom <= button_box["y"]
+    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+@pytest.mark.parametrize("scene", ["empty", "open"])
+def test_the_new_table_button_keeps_its_place_while_its_scene_stays_the_same(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    expected_request_failures: list[str],
+    form_factor: dict[str, Any],
+    scene: str,
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
+    person = open_person(**form_factor)
+    one = [open_table_answer("Ina", names=("Ina", None, None))]
+    three = [
+        *one,
+        open_table_answer("Jan", names=("Jan", "Jo", None)),
+        open_table_answer("Kim", names=("Kim", None, None)),
+    ]
+    first, then = ([], []) if scene == "empty" else (one, three)
+    serve_streams_in_turn(person, [stream_of(open_tables=first), stream_of(open_tables=then)])
+
+    person.goto(f"{e2e_server.base_url}/")
+    button = person.get_by_role("button", name=NEW_TABLE_BUTTON)
+    expect(button).to_be_visible()
+    # A web font that arrives later widens the label, which is no move of the scene.
+    person.evaluate("document.fonts.ready.then(() => true)")
+    before = box_of(button)
+    # The first stream ends with its list: the page shows the lost line, then the next list arrives.
+    expect(person.get_by_role("status").filter(has_text=text(SOURCE_LANGUAGE, "app.reconnecting"))).to_be_visible()
+    if scene == "open":
+        expect(person.locator(".lobby-card")).to_have_count(len(three))
+
+    assert box_of(button) == before
+
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_a_table_opening_on_the_empty_page_changes_the_scene_to_the_lobby_with_the_button_at_the_foot(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    expected_request_failures: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
+    person = open_person(**form_factor)
+    serve_streams_in_turn(
+        person,
+        [stream_of(open_tables=[]), stream_of(open_tables=[open_table_answer("Ina", names=("Ina", None, None))])],
+    )
+
+    person.goto(f"{e2e_server.base_url}/")
+
+    expect(person.locator(".lobby-card")).to_have_count(1)
+    expect(person.locator(".start-table")).to_have_count(0)
+    box = box_of(person.get_by_role("button", name=NEW_TABLE_BUTTON))
+    assert box["y"] + box["height"] >= form_factor["viewport"]["height"] * LOWEST_QUARTER
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
