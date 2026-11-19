@@ -1,6 +1,7 @@
 from agents.member import LEASE_SECONDS
 
-from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, AgentLease, ChairHold, EmptyTable, EndAnswers, NextDeal, Presence
+from skat.web.end_answers import EndAnswers
+from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, AgentLease, ChairHold, EmptyTable, NextDeal, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from skat.web.wakes import Topic, WakeList
 from tests.support.in_memory_leases import InMemoryLeases

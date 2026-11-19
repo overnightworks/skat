@@ -1,5 +1,4 @@
 import asyncio
-import math
 import threading
 import uuid
 from concurrent.futures import CancelledError
@@ -12,6 +11,7 @@ from typing import TYPE_CHECKING, Final, NoReturn, Protocol
 import structlog
 from logline import unit_trace
 
+from skat.web.end_answers import EndAnswers, EndAnswerWatch
 from skat.web.presence_line import PresenceTimer, TimerRuns
 from skat.web.presence_roster import PresenceUnknownError, Present, StreamLeases
 from skat.web.reaction_log import ReactionLog
@@ -170,17 +170,6 @@ class EmptyTable:
     note: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
 
 
-@dataclass(frozen=True)
-class EndAnswers:
-    """The step that ends a proposal to end the series once its minute is over.
-
-    `lapse(table_id)` answers the seconds the table's proposal still has to wait, None once none stands, and raises
-    when the store fails.
-    """
-
-    lapse: Callable[[str], Awaitable[float | None]]
-
-
 class Presence:
     """Who is connected to which table on any pod, and when an away member's chair hold runs out.
 
@@ -244,8 +233,6 @@ class Presence:
         stream_leases: StreamLeases,
         end_answers: EndAnswers,
     ) -> None:
-        self._end_answers = end_answers
-        self._end_answer_dues: dict[str, float] = {}
         self._lease = lease
         self._stream_leases = stream_leases
         self.waits = AskClock(hold.clock)
@@ -260,6 +247,15 @@ class Presence:
         self._pauses: dict[str, object] = {}
         self._empty_waits: dict[str, object] = {}
         self._timer_runs = TimerRuns()
+        self.end_answer_watch = EndAnswerWatch(
+            end_answers,
+            hold.clock,
+            hold.scheduler.schedule,
+            self._timer_runs,
+            self.wake_table,
+            lambda: self._stopped,
+            CHAIR_RELEASE_RETRY_SECONDS,
+        )
         self._state = threading.Lock()
         self._writing: set[asyncio.Event] = set()
         self._reads: set[Future[Present]] = set()
@@ -631,40 +627,6 @@ class Presence:
         run.succeeded()
         if dealt:
             self.wake_table(table_id)
-
-    def watch_end_answers(self, table_id: str, seconds_left: float) -> None:
-        """Ask once `seconds_left` have passed whether the table's proposal to end the series has lapsed; the step
-        re-reads the table, so a timer for a proposal that is gone, answered or replaced does nothing. A table with a
-        timer waiting that falls due no later gets no second one, while a deadline found earlier than the waiting
-        timer's, a later yes having timed a full minute, gets its own, so the minute the store holds is the minute kept.
-        """
-        due = self._hold.clock() + seconds_left
-        if self._stopped or self._end_answer_dues.get(table_id, math.inf) <= due:
-            return
-        self._end_answer_dues[table_id] = due
-        self._hold.scheduler.schedule(seconds_left, partial(self._lapse_end_answers, table_id, due))
-
-    def watch_all_end_answers(self, seconds_left_by_table: Mapping[str, float]) -> None:
-        """Start the minute of each live table's standing proposal found in the store, at the server's start and again
-        while it serves, which recovers the proposals whose timer ran on a pod that is gone.
-        """
-        for table_id, seconds_left in seconds_left_by_table.items():
-            self.watch_end_answers(table_id, seconds_left)
-
-    async def _lapse_end_answers(self, table_id: str, due: float) -> None:
-        if self._end_answer_dues.get(table_id) == due:
-            del self._end_answer_dues[table_id]
-        run = self._timer_runs.start(PresenceTimer.END_ANSWER_LAPSE, table_id, table_id=table_id)
-        try:
-            left = await self._end_answers.lapse(table_id)
-        except Exception as failure:
-            run.failed(failure)
-            self.watch_end_answers(table_id, CHAIR_RELEASE_RETRY_SECONDS)
-            return
-        run.succeeded()
-        self.wake_table(table_id)
-        if left is not None:
-            self.watch_end_answers(table_id, left)
 
     def _start_empty_wait(self, table_id: str, seconds: float | None = None) -> None:
         if self._stopped:

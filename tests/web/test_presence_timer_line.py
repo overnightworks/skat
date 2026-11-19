@@ -9,13 +9,13 @@ import pytest
 from agents.member import LEASE_SECONDS
 from logline import Outcome
 
+from skat.web.end_answers import EndAnswers
 from skat.web.presence import (
     CHAIR_RELEASE_RETRY_SECONDS,
     HOLD_SWEEP_EVERY_SECONDS,
     NEXT_DEAL_PAUSE_SECONDS,
     AgentLease,
     EmptyTable,
-    EndAnswers,
     NextDeal,
     Presence,
 )
@@ -100,7 +100,7 @@ def first_run(world, timer, leaving):
     elif timer is PresenceTimer.HOLD_CLEAR:
         connect(presence, TABLE, MEMBER, lambda: None)
     elif timer is PresenceTimer.END_ANSWER_LAPSE:
-        presence.watch_end_answers(TABLE, 0)
+        presence.end_answer_watch.watch(TABLE, 0)
         run(time.advance(0))
     else:
         world.holds.due_now = [(TABLE, MEMBER)]

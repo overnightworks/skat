@@ -54,7 +54,7 @@ def create_series_end_router(tables: TableService, presence: Presence) -> APIRou
         )
         # Another timer for the same proposal finds its minute not over yet, or the proposal gone.
         if isinstance(answer, TableAnswer) and answer.series is not None and answer.series.end_proposal is not None:
-            presence.watch_end_answers(table_id, END_ANSWER_SECONDS)
+            presence.end_answer_watch.watch(table_id, END_ANSWER_SECONDS)
         return answer
 
     @router.post(

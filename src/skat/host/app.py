@@ -42,6 +42,7 @@ from skat.web.constants import (
     STREAM_HEARTBEAT_SECONDS,
 )
 from skat.web.declaring import create_declaring_router
+from skat.web.end_answers import EndAnswers
 from skat.web.game_list import create_game_list_router
 from skat.web.gate import session_gate
 from skat.web.kontra import create_kontra_router
@@ -56,7 +57,6 @@ from skat.web.presence import (
     AgentLease,
     ChairHold,
     EmptyTable,
-    EndAnswers,
     LoopScheduler,
     NextDeal,
     Presence,
@@ -386,7 +386,7 @@ async def _end_unplayed_tables(
 
 
 async def _watch_pending_end_answers(tables: TableService, presence: Presence) -> None:
-    presence.watch_all_end_answers(await run_in_threadpool(tables.pending_end_answers))
+    presence.end_answer_watch.watch_all(await run_in_threadpool(tables.pending_end_answers))
 
 
 def _recover_end_answers(tables: TableService, presence: Presence, scheduler: Scheduler, period_seconds: float) -> None:
@@ -524,6 +524,30 @@ def _new_app(lifespan: Callable[[FastAPI], AbstractAsyncContextManager[None]]) -
     return app
 
 
+def _install_agent_front(
+    app: FastAPI,
+    settings: ServerSettings,
+    tables: TableService,
+    presence: Presence,
+    scheduler: Scheduler,
+    roster: AgentRoster,
+    changes: ResourceChanges,
+    relying_party: OidcRelyingParty,
+    stores: SignInPorts,
+    page_build: PageBuild,
+) -> None:
+    mcp = mount_mcp(
+        app,
+        relying_party,
+        stores.transaction,
+        settings.public_origin,
+        _agent_heard(presence, roster),
+        member_front(tables, presence, changes, scheduler, presence.waits),
+    )
+    app.state.mcp_front = mcp.front
+    _install_web_auth(app, stores.sessions, page_build, settings.call_origin, mcp)
+
+
 def create_app(
     settings: ServerSettings,
     *,
@@ -580,15 +604,6 @@ def create_app(
     app.include_router(create_nudging_router(tables, presence, nudge_signal(changes, relying_party.issuer)))
     _include_stream_routers(app, settings, tables, presence, wakes, slots, stores.sessions, heartbeat_seconds)
     _install_sign_in(app, sign_in_configs, relying_party, stores, page_build)
-    mcp = mount_mcp(
-        app,
-        relying_party,
-        stores.transaction,
-        settings.public_origin,
-        _agent_heard(presence, roster),
-        member_front(tables, presence, changes, scheduler, presence.waits),
-    )
-    app.state.mcp_front = mcp.front
-    _install_web_auth(app, stores.sessions, page_build, settings.call_origin, mcp)
+    _install_agent_front(app, settings, tables, presence, scheduler, roster, changes, relying_party, stores, page_build)
 
     return app
