@@ -9,6 +9,7 @@ from skat.engine.bidding import VALID_BIDS
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, WORDS, text
 from tests.e2e.support.audio import (
+    RECORDING_COUNT,
     recordings_started,
     tap,
     voices_started,
@@ -36,8 +37,6 @@ SOUND_PANEL = text(SOURCE_LANGUAGE, "sound.panelName")
 VOICE = text(SOURCE_LANGUAGE, "sound.voice")
 # The file of a recording is named by its catalog key and a hash of its bytes, after a dot.
 RECORDED_KEY = re.compile(r"/(voice\.\w+)\.[\w-]+\.mp3$")
-# The recordings of the page's language, which the page decodes once its voice is on.
-RECORDING_COUNT = sum(key.startswith("voice.") for key in WORDS[SOURCE_LANGUAGE])
 # The confirmations the voice says for a hold instead of its number.
 CONFIRMATIONS = {key for key in WORDS[SOURCE_LANGUAGE] if key.startswith("voice.hold")}
 SOUND_SETS = ("leise", "stammtisch", "funkeln")
@@ -70,7 +69,8 @@ def table_with_settings(stored: dict[str, object], *, kontra: bool = False) -> t
             )
             reload_and_wait(self.watcher)
             tap(self.watcher)
-            if stored.get("voice"):
+            # A device that never chose the voice has it on.
+            if stored.get("voice") is not False:
                 wait_for_recordings_decoded(self.watcher, RECORDING_COUNT)
             self.step(seat_at["middlehand"], TABLE_AUCTION_BID_SUFFIX, value=OPENING_BID)
             self.step(seat_at["forehand"], TABLE_AUCTION_HOLD_SUFFIX)
@@ -109,14 +109,14 @@ def keys_said(page: Page) -> list[str]:
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_with_the_voice_on_the_watcher_hears_each_bid_pass_and_a_confirmation_for_the_hold_from_its_recording(
+def test_on_a_device_that_never_chose_the_voice_the_watcher_hears_each_bid_pass_and_a_confirmation_for_the_hold(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
     form_factor: dict[str, Any],
 ) -> None:
-    table = deal(open_person, e2e_server, member_of, page_errors, {"voice": True}, form_factor=form_factor)
+    table = deal(open_person, e2e_server, member_of, page_errors, {}, form_factor=form_factor)
 
     wait_for_recordings_started(table.watcher, WORDS_OF_THE_DEAL)
     opening, hold, raised, *passes_and_game = keys_said(table.watcher)
@@ -133,8 +133,8 @@ def test_with_the_voice_on_the_watcher_hears_each_bid_pass_and_a_confirmation_fo
 
 @pytest.mark.parametrize(
     "stored",
-    [{"voice": False}, {"voice": True, "muted": True}, {}],
-    ids=["voice off", "sound off", "default"],
+    [{"voice": False}, {"voice": True, "muted": True}],
+    ids=["voice off", "sound off"],
 )
 def test_without_the_voice_or_without_the_sound_nothing_is_said(
     open_person: Callable[..., Page],
@@ -187,7 +187,7 @@ def test_a_word_of_kontra_knocks_in_every_sound_set_and_is_said_with_the_voice_o
     assert page_errors == []
 
 
-def test_the_switch_in_the_sound_panel_turns_the_voice_on_and_keeps_the_choice(
+def test_the_switch_in_the_sound_panel_turns_the_voice_off_and_keeps_the_choice(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -198,10 +198,10 @@ def test_the_switch_in_the_sound_panel_turns_the_voice_on_and_keeps_the_choice(
     switch = watcher.get_by_role("switch", name=VOICE)
 
     watcher.locator(".sound-button").click()
-    expect(switch).not_to_be_checked()
-    switch.set_checked(True)
+    expect(switch).to_be_checked()
+    switch.set_checked(False)
     reload_and_wait(watcher)
     watcher.locator(".sound-button").click()
 
-    expect(watcher.get_by_role("switch", name=VOICE)).to_be_checked()
-    assert json.loads(watcher.evaluate("key => localStorage.getItem(key)", SETTINGS_KEY))["voice"] is True
+    expect(watcher.get_by_role("switch", name=VOICE)).not_to_be_checked()
+    assert json.loads(watcher.evaluate("key => localStorage.getItem(key)", SETTINGS_KEY))["voice"] is False

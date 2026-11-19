@@ -378,7 +378,8 @@ def test_the_official_rules_stay_offered_with_a_notice_when_the_own_sets_cannot_
 
     sheet_of(person, e2e_server)
 
-    expect(person.get_by_role("status")).to_have_text(word("start.setsUnreadable"))
+    sheet = person.get_by_role("dialog", name=word("start.newTable"))
+    expect(sheet.get_by_role("status")).to_have_text(word("start.setsUnreadable"))
     expect(set_pill(person, OFFICIAL)).to_be_checked()
     person.get_by_role("button", name=OPEN_TABLE).click()
     expect(person).to_have_url(TABLE_URL)

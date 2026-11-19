@@ -20,7 +20,8 @@ const CARD_PLAYED: Cue = { kind: "card-played", seat: TAKER_SEAT, card: { suit: 
 const AUCTION_ENDED: Cue = { kind: "auction-ended" };
 const TURN: Cue = { kind: "turn-came" };
 const DEALT: Cue = { kind: "dealt" };
-// The leise set's turn is two voices; its sweep is one.
+// Each page plays the leise set, whose turn is two voices and whose sweep is one.
+const SOUND_SET = { soundSet: "leise" };
 const TURN_VOICES = 2;
 const SWEEP_VOICES = 1;
 const PLAYING = { turn_seat: TAKER_SEAT } as Playing;
@@ -39,7 +40,7 @@ async function stageOnAPage(
     vi.resetModules();
     const { started, listeners } = stubBrowser({
         reducedMotion: true,
-        stored: JSON.stringify(stored),
+        stored: JSON.stringify({ ...SOUND_SET, ...stored }),
         hidden: options.hidden,
         vibrate: options.vibrate,
     });

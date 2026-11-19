@@ -107,7 +107,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     runs-on: ubuntu-24.04
     needs: frontend
     timeout-minutes: 15
@@ -275,7 +275,7 @@ jobs:
           duration() {
             local run_id=$1
             gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs" --jq \
-              '[.jobs[] | select(.name | test("^End-to-end( shard .)?$")) | (.completed_at // (now | todate) | fromdate) - (.started_at | fromdate)] | max'
+              '[.jobs[] | select(.name | test("^End-to-end( shard [0-9]+)?$")) | (.completed_at // (now | todate) | fromdate) - (.started_at | fromdate)] | max'
           }
           main_run=$(gh run list --branch main --workflow ci.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId')
           this_duration=$(duration "${GITHUB_RUN_ID}")

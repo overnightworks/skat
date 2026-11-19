@@ -11,7 +11,7 @@ from playwright.sync_api import Page, expect
 from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.table.records import TableStyle
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.audio import tap, voices_started
+from tests.e2e.support.audio import RECORDING_COUNT, tap, voices_started, wait_for_recordings_decoded
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
 from tests.e2e.support.style import ROOM, give_the_table_its_style
@@ -125,9 +125,15 @@ def wait_until_still(table: PlayingTable) -> None:
 
 
 def ready_to_hear(table: PlayingTable) -> dict[Page, int]:
-    """A tap wakes the sound of every page; the voices each has started by now."""
+    """A tap wakes the sound of every page; the voices each has started by now.
+
+    The tap also fetches the voice's recordings, which a device that never chose the voice has on, so each page has
+    decoded them before a reaction is timed against its second.
+    """
     for person in table.everyone:
         tap(person)
+    for person in table.everyone:
+        wait_for_recordings_decoded(person, RECORDING_COUNT)
     return {person: len(voices_started(person)) for person in table.everyone}
 
 
