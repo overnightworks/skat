@@ -1,8 +1,0 @@
-claim_id = "bf6139823a814dacae8a32dac2c5bdb7"
-agent = "Claude 0c36d127-87ae-405b-9bdd-5b8e7cbf9e5b"
-role = "builder"
-base = "eaa0054f6b5d3a6ea3720ad07d053a6e0b63e9a9"
-branch = "claude/issue-695-skat-takes-design-v0-37-0-and-drops-its"
-scope = ["frontend/package.json", "frontend/pnpm-lock.yaml", "frontend/src/lib/reactions.css", "frontend/src/lib/start.css", "frontend/src/lib/strand.css", "frontend/src/lib/words", "frontend/src/routes/(start)/+page.svelte", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/+error.svelte", "pyproject.toml", "src/skat/web/words.py", "uv.lock"]
-opened_commit = "78d15ec1cee16a29437c8410debea6541d4d7d37"
-whole_reason = "One design release taken whole: the pin and the copies it makes redundant in the same stylesheets and routes."
