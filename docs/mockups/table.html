@@ -455,7 +455,7 @@ body.solo section.shot .rule{display:none}
 .mark.waits{gap:0;padding:0 7px 0 5px;background:var(--glass-dark);backdrop-filter:blur(12px)}
 /* the declarer whose turn it is wears both marks: the star stays right, the turn badge moves left */
 .mark.decl + .mark:is(.turn,.ready,.waits){right:auto;left:calc(var(--pad) + 6px)}
-/* a game to pick: a glass chip; the picked one is lit like the bid on the ladder */
+/* a game to pick: a glass chip; the picked one is lit like the bid on the scale */
 .button.pick{height:46px;padding:0 18px}
 .button.pick.round{width:52px;height:52px;padding:0}
 .button.pick .game{font-size:16px}
@@ -465,6 +465,32 @@ body.solo section.shot .rule{display:none}
 .p390 .ladder.words{gap:5px}
 .p390 .ladder.words span{padding:0 7px}
 .p390 .ladder.words span.now{font-size:17px}
+/* declaring: six games in one row, then the levels the picked game has, then what it is worth */
+.btns.six{gap:8px}
+.p390 .btns.six{gap:6px}
+.p390 .btns.six .button.pick{height:44px;padding:0 13px}
+.p390 .btns.six .button.pick.round{width:44px;height:44px;padding:0}
+.stairs{transform:translateX(-50%);display:flex;align-items:flex-end;gap:3px;width:max-content}
+.stairs span{position:relative;display:inline-flex;align-items:flex-end;justify-content:center;gap:3px;padding:0 11px 9px;line-height:1;font-size:14.5px;font-weight:600;color:var(--on-stage);
+  background:rgba(255,255,255,.15);border-radius:6px;height:calc(34px + var(--n) * 4px)}
+.stairs span:first-child{border-radius:12px 6px 6px 12px}
+.stairs span:last-child{border-radius:6px 12px 12px 6px}
+.stairs span:only-child{border-radius:12px}
+.stairs span svg{width:13px;height:13px;color:var(--ok-stage);flex:none;margin-bottom:1px}
+.stairs span.in{background:rgba(0,0,0,.42);box-shadow:inset 0 -3px 0 var(--ok-stage)}
+.stairs span.top{background:var(--cream);color:var(--ink);box-shadow:0 0 0 3px var(--accent-stage),0 8px 18px -6px rgba(0,0,0,.7)}
+.stairs span.top svg{color:#1c8a55}
+.p390 .stairs span{padding:0 8px 9px;font-size:14px}
+/* the reckoning before the game, in the result sheet's own words */
+.reckon{transform:translateX(-50%);display:flex;align-items:center;gap:5px;width:max-content;font-variant-numeric:tabular-nums}
+.reckon span{height:24px;padding:0 8px;border-radius:999px;display:inline-flex;align-items:center;background:rgba(0,0,0,.34);color:var(--on-stage-soft);font-size:12.5px;font-weight:600;white-space:nowrap}
+.reckon b{margin-left:4px;font-size:22px;font-weight:700;color:var(--cream)}
+.reckon b::before{content:"= ";font-weight:500;color:var(--on-stage-soft)}
+.reckon .ok{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:rgba(76,195,138,.22);color:var(--ok-stage)}
+.reckon .ok svg{width:13px;height:13px}
+.plaque .with{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.plaque .with span{display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 8px 0 6px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--on-stage);font-size:12.5px;font-weight:600}
+.plaque .with svg{width:11px;height:11px;color:var(--ok-stage)}
 .seat:not(.sm) .mark.waits .dot{width:20px;height:20px;font-size:11px}
 @media (prefers-reduced-motion:no-preference){
   /* the second card is picked, and only then the button lights */
@@ -506,17 +532,50 @@ body.solo section.shot .rule{display:none}
 .p390 .sbar .wait{display:none}
 </style>
 <style>
-/* ---------- the auction: the bidder's ladder offers every higher value, a held value shows its tick, the winner's star lands ---------- */
-.ladder.up span:not(.held):not(.now){background:var(--glass);color:var(--on-stage)}
-.ladder.up span.more{opacity:.45}
-/* the long ladder: the held value and the next one stay put; the higher ones roll along a strip whose end is the top value */
-.ladder.up .higher{overflow:hidden;width:var(--strip);mask-image:linear-gradient(90deg,transparent,#000 26px)}
-.ladder.up .roll{display:flex;gap:6px;width:max-content;transform:translateX(calc(var(--strip) - 100%))}
+/* ---------- the auction: one scale of every value; the picked value turns the keys into what the player says now (blue) or the stop the table keeps for him (brass) ---------- */
+/* the scale: one brass-rimmed band of every value; left the standing value, then all that lie above it */
+.scale{transform:translateX(-50%);display:flex;align-items:center;height:56px;padding:0 0 0 6px;border-radius:18px;
+  background:linear-gradient(180deg,rgba(4,9,7,.62),rgba(10,18,14,.46));box-shadow:inset 0 0 0 1.2px rgba(201,164,100,.55),inset 0 3px 10px rgba(0,0,0,.55),0 10px 22px -12px rgba(0,0,0,.8)}
+.scale .at{flex:none;min-width:46px;height:44px;margin-right:6px;padding:0 6px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;gap:3px;
+  font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--on-stage);background:rgba(255,255,255,.1)}
+.scale .at:empty{display:none}
+.scale .at svg{width:13px;height:13px;color:var(--ok-stage)}
+.scale .at.lit{min-width:54px;font-size:23px;background:var(--cream);color:var(--ink);box-shadow:0 0 0 3px var(--accent-stage),0 8px 18px -6px rgba(0,0,0,.7)}
+.scale .track{flex:1;min-width:0;height:100%;display:flex;align-items:center;overflow:hidden;border-radius:0 18px 18px 0;
+  mask-image:linear-gradient(90deg,var(--lfade,#000),#000 20px,#000 calc(100% - 30px),transparent)}
+.scale .run{position:relative;display:flex;align-items:center;gap:4px;width:max-content;padding-left:3px}
+.scale .run span{position:relative;z-index:1;flex:none;width:40px;height:44px;display:grid;place-items:center;border-radius:12px;
+  font-size:16.5px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--on-stage)}
+/* the scale's graduation: a brass tick under every value */
+.scale .run span::before{content:"";position:absolute;left:50%;bottom:1px;width:2px;height:5px;margin-left:-1px;border-radius:1px;background:rgba(241,216,152,.5)}
+.scale .run span:is(.now,.sel,.mine)::before{display:none}
+.scale .run span:is(.now,.sel,.mine){width:50px;font-size:22px;font-weight:700}
+.scale .run span.now{background:var(--cream);color:var(--ink);box-shadow:0 0 0 3px var(--accent-stage),0 8px 18px -6px rgba(0,0,0,.7)}
+/* a picked value: lifted, cream, brass-ringed; the keys below now speak it */
+.scale .run span.sel{background:var(--cream);color:var(--ink);translate:0 -3px;box-shadow:0 0 0 3px var(--brass-hi),0 10px 18px -6px rgba(0,0,0,.8)}
+.scale .run span.mine{color:#2b1d05;background:linear-gradient(180deg,var(--brass-hi),var(--brass) 55%,#a6823f);box-shadow:0 0 0 2px rgba(241,216,152,.45),0 8px 18px -6px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.6)}
+.scale .run span.way{color:var(--brass-hi)}
+.scale .run span.far:not(.sel){color:rgba(244,246,248,.42)}
+.scale .rail{position:absolute;z-index:0;left:-10px;bottom:1px;height:5px;border-radius:3px;background:linear-gradient(90deg,rgba(201,164,100,.45),var(--brass-hi));box-shadow:0 0 10px rgba(241,216,152,.5)}
+.scale.set .run span.way::before{display:none}
+.scale .x{position:absolute;right:-6px;top:-5px;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;background:#1c2024;color:var(--brass-hi);box-shadow:0 0 0 1.5px var(--brass)}
+.scale .x svg{width:10px;height:10px}
+/* what my hand makes: the suit rides above its value */
+.scale.pips{height:70px}
+.scale.pips .run span{height:60px;padding-top:18px}
+.scale .pip{position:absolute;left:50%;top:1px;translate:-50% 0;width:18px;height:18px;border-radius:50%;background:var(--cream);display:grid;place-items:center;box-shadow:inset 0 0 0 1.2px var(--brass)}
+.scale .pip svg{width:11px;height:11px}
+/* the keys: blue says, brass sets how far, glass passes */
+.button-brass{background:linear-gradient(180deg,var(--brass-hi),var(--brass) 55%,#a6823f);color:#2b1d05;box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 8px 18px -8px rgba(0,0,0,.8)}
+.btns.three{gap:8px}
+.p390 .btns.three .button{padding:0 15px;gap:7px}
+.tap::after{content:"";position:absolute;z-index:3;left:50%;top:50%;width:46px;height:46px;translate:-50% -50%;border-radius:50%;border:2px solid rgba(251,248,240,.85);box-shadow:0 0 0 8px rgba(251,248,240,.14);pointer-events:none}
+.button.tap{position:relative}
+.limit-stub{transform:translate(-50%,-50%);z-index:12;height:24px;padding:0 9px;border-radius:999px;display:inline-flex;align-items:center;white-space:nowrap;
+  font-size:12.5px;font-weight:700;color:#2b1d05;background:linear-gradient(180deg,var(--brass-hi),var(--brass) 55%,#a6823f);box-shadow:0 6px 14px -6px rgba(0,0,0,.8)}
 .bubble > svg{width:18px;height:18px;color:var(--ok-stage)}
 @media (prefers-reduced-motion:no-preference){
   .mark.decl.mo{animation:slam .6s cubic-bezier(.5,0,.7,1.4) var(--d,0s) both}
-  .ladder.up .roll{animation:climb 1.6s cubic-bezier(.3,.7,.2,1) .8s both}
-  @keyframes climb{from{transform:none}}
 }
 </style>
 <style>
@@ -857,6 +916,27 @@ const callBar=(desk,o={})=>desk
   ?`<div class="cbar"><span class="cb">${I.mic}</span><span class="cb">${I.cam}</span><span class="cb">${I.screen}</span><span class="gap"></span><span class="cb">${I.invite}</span><span class="cb">${I.chat}</span><span class="cb">${I.more}</span><span class="gap"></span><span class="cb leave">${I.leave}</span></div>`
   :`<div class="cbar"><span class="cb">${I.mic}</span><span class="cb">${I.cam}</span><span class="cb">${I.chat}</span><span class="cb">${I.more}</span><span class="cb leave">${I.leave}</span></div>`;
 const soloBar=()=>`<div class="sbar"><span class="cb wide">${I.cam}Anruf</span><span class="cb">${I.more}</span></div>`;
+/* every value a bid can name: the suit bases times 2 to 18, Grand times 2 to 11, the four Null values */
+const multiples=(base,top)=>Array.from({length:top-1},(_,i)=>base*(i+2));
+const BID_VALUES=[...new Set([...[9,10,11,12].flatMap(base=>multiples(base,18)),...multiples(24,11),23,35,46,59])].sort((a,b)=>a-b);
+I.limit=sv('<path d="M5 4.5h14"/><path d="M12 20V9M7.5 13.5 12 9l4.5 4.5"/>',2.4);
+const valuesAbove=(v)=>BID_VALUES.filter(x=>x>v);
+const SCALE_PITCH=44;
+/* the scale: left the standing value (lit when it is asked of the player, ticked when he held it), then every higher value;
+   `now` is the value the say key names, `sel` a picked value, `limit` the brass stop with the rail up to it, `pips` the games the hand reaches */
+const reizScale=(d,o)=>{const values=valuesAbove(o.from),first=o.first??0,mine=o.limit?values.indexOf(o.limit):-1;
+  const state=(v,k)=>[v===o.now?'now':'',v===o.sel?'sel':'',mine<0?'':k<mine?'way':k===mine?'mine':'far',v===o.tap?'tap':''].filter(Boolean).join(' ');
+  const pip=(v)=>o.pips&&o.pips[v]?`<i class="pip">${suitIcon(o.pips[v])}</i>`:'';
+  const rail=mine>=0?`<i class="rail" style="width:${(mine-first)*SCALE_PITCH+34}px"></i>`:'';
+  const standing=o.at?`<span class="at ${o.at.lit?'lit':''}">${o.at.mine?I.check:''}${o.at.v}</span>`:'';
+  return `<div class="scale ${mine>=0?'set':''} ${o.pips?'pips':''}" style="${at({left:d?640:195,top:(d?336:340)-(o.pips?14:0),width:d?600:354})}">${standing}`
+    +`<div class="track" style="--lfade:${first?'transparent':'#000'}"><div class="run">${rail}${
+      values.slice(first,first+16).map((v,k)=>`<span class="${state(v,k+first)}" role="button">${v}${pip(v)}${v===o.limit?`<i class="x">${I.cross}</i>`:''}</span>`).join('')}</div></div></div>`;};
+const keyRow=(d,keys)=>`<div class="btns ${keys.length>2?'three':''}" style="${at({left:d?640:195,top:d?410:412})}">${keys.join('')}</div>`;
+/* blue says, brass sets how far, glass passes */
+const K={ja:`<span class="button button-stage">${I.check}Ja</span>`,weg:`<span class="button button-glass">${I.cross}Weg</span>`,
+  say:(v)=>`<span class="button button-stage">${I.up}${v}</span>`,
+  bis:(v)=>`<span class="button button-brass">${I.limit}bis ${v}</span>`};
 const FRAMES=[];
 const seatBarPoints=(html)=>{const done=html.replace('<!--bar-points-->',ownBarPoints);ownBarDrawn=false;ownBarPoints='';return done;};
 const frame=(id,title,note,size,html,rules=[])=>FRAMES.push([id,`<section class="shot"><h2>${title}<small>${note}</small><button class="replay" type="button">Nochmal</button></h2><div class="frame ${size}" id="${id}">${seatBarPoints(html)}</div>${rules.map(r=>`<p class="rule">${r}</p>`).join('')}</section>`]);
@@ -910,8 +990,7 @@ frame('call-bid-390','Reizen im Anruf','Handy 390 px','p390',
   +back(at({position:'absolute',left:154,top:240,'--w':52,transform:'rotate(-8deg)'})).replace('class="card"','class="card deal" ')
   +back(at({position:'absolute',left:182,top:244,'--w':52,transform:'rotate(6deg)'}))
   +bubble('nova','20',{x:250,y:228,tail:'72%'})
-  +`<div class="ladder" style="${at({left:195,top:350})}"><span class="held">${I.check}18</span><span class="now">20</span><span>22</span><span>23</span></div>`
-  +`<div class="btns" style="${at({left:195,top:414})}"><span class="button button-stage">${I.check}Ja</span><span class="button button-glass">${I.cross}Weg</span></div>`
+  +reizScale(false,{at:{v:20,lit:true},from:20})+keyRow(false,[K.ja,K.weg])
   +pbSeats({video:true,anna:['pass'],you:['turn'],score:[148,62,55]})
   +hand(BID_HAND,{...PHONE_HAND,deal:420})+callBar(false));
 
@@ -967,8 +1046,7 @@ frame('call-bid-1280','Reizen im Anruf','Desktop 1280 px','d1280',
   +plaque(640,98,'<div class="game">Reizen</div>')
   +back(at({position:'absolute',left:584,top:190,'--w':80,transform:'rotate(-8deg)'}))+back(at({position:'absolute',left:620,top:196,'--w':80,transform:'rotate(6deg)'}))
   +bubble('nova','20',{x:1062,y:392,tail:'50%'})
-  +`<div class="ladder" style="${at({left:640,top:344})}"><span class="held">${I.check}18</span><span class="now">20</span><span>22</span><span>23</span><span>24</span></div>`
-  +`<div class="btns" style="${at({left:640,top:412})}"><span class="button button-stage">${I.check}Ja</span><span class="button button-glass">${I.cross}Weg</span></div>`
+  +reizScale(true,{at:{v:20,lit:true},from:20})+keyRow(true,[K.ja,K.weg])
   +dbSeats({video:true,anna:['pass'],you:['turn'],score:[148,62,55]})
   +hand(BID_HAND,{...DESK_HAND,deal:470})+callBar(true));
 
@@ -1087,11 +1165,6 @@ const bid=(d)=>plaque(d?640:195,d?98:176,'<div class="game">Reizwert 20</div>');
 const skat=(x,y,w)=>[[x,y,-8],[x+w*.5,y+4,6]].map(([l,t,r])=>back(at({position:'absolute',left:l,top:t,'--w':w,transform:`rotate(${r}deg)`}))).join('');
 const row=(x,y,html)=>`<div class="btns" style="${at({left:x,top:y})}">${html}</div>`;
 const pick=(label,inner,chosen,cls='')=>`<span class="button button-glass pick ${cls} ${chosen?'on':''}" role="button" aria-pressed="${chosen}" aria-label="${label}">${inner}</span>`;
-/* every game kind on two rows; the phone shows the suits by their pip alone */
-const games=(d,x,y,chosen)=>row(x,y,SUIT_GAMES.map(([s,n])=>pick(n,gameLine(s,d?n:''),n===chosen,d?'':'round')).join(''))
-  +row(x,y+(d?62:60),['Grand','Null','Null ouvert'].map(n=>pick(n,n,n===chosen)).join(''));
-/* the win levels of a Hand game: each step includes the ones below it */
-const levels=(x,y,chosen)=>`<div class="ladder words" style="${at({left:x,top:y})}"><span class="held">${I.check}Hand</span>${['Schneider','Schwarz','Ouvert'].map(l=>`<span class="${l===chosen?'now':''}">${l}</span>`).join('')}</div>`;
 const announce=(x,y)=>row(x,y,`<span class="button button-stage">${I.check}Ansagen</span>`);
 const deciding=(d,hand)=>seats(d,{video:true,anna:['waits'],nova:['waits'],you:['decl','turn'],score:[148,62,55]})+ownHand(d,hand.cards,hand.o)+callBar(d);
 const BELOW_BID='Ein Spiel unter dem Reizwert bleibt wählbar und wird überreizt (ISkO 3.5.2); ob davor gewarnt wird, ist offen.';
@@ -1104,16 +1177,6 @@ const SKAT_SCENES=[
     +(d?ghost(596,300,80,I.down)+ghost(684,300,80,I.down):ghost(163,300,56,I.down)+ghost(227,300,56,I.down))
     +row(d?640:195,d?420:380,`<span class="button button-stage unlock">${I.down}Drücken</span>`)
     +deciding(d,{cards:TAKEN_HAND,o:d?{strip:{base:48,touch:70}}:{w:58,strip:{base:25,touch:38}}})],
-  ['skat-declare','Ansage nach Skat',(d)=>room(d,{left:10,glow:yourTurn(d)})+bid(d)
-    +(d?skat(330,470,56):skat(52,470,38))
-    +games(d,d?640:195,d?260:262,'Herz')+announce(d?640:195,400)
-    +deciding(d,{cards:DECLARE_HAND}),
-    ['Null ouvert steht hier als Spiel mit Skataufnahme, gelesen aus ISkO-Tabelle 2.1.2; 2.6.5 zählt es zu den offenen Spielen, das ist offen.',BELOW_BID]],
-  ['hand-declare','Ansage Hand',(d)=>room(d,{left:10,glow:yourTurn(d)})+bid(d)
-    +(d?skat(870,440,56):skat(296,436,34))
-    +games(d,d?640:195,d?232:262,'Herz')+levels(d?640:195,d?362:378,'Schneider')+announce(d?640:195,d?424:432)
-    +deciding(d,{cards:BID_HAND}),
-    ['Die Stufen bauen aufeinander auf: Schwarz angesagt schließt Schneider angesagt ein, Ouvert zählt als Schwarz angesagt (ISkO 2.5.8).',BELOW_BID]],
   ['skat-declared','Anna sagt an',(d)=>room(d,{left:10,glow:yourTurn(d)})
     +plaque(d?640:195,d?98:176,gameLine('h','Herz Hand'))
     +(d?skat(584,190,80):skat(154,290,52))
@@ -1347,39 +1410,59 @@ ORDER.splice(ORDER.indexOf('call-end-1280')+1,0,...END_SCENES.flatMap(([id])=>[`
 
 /* ===== the auction around the table: you bid as middlehand, then as rearhand; Nova wins it; all pass and the next dealer deals; a watcher sees every call ===== */
 MARK.won=MARK.decl.replace('mark decl','mark decl mo').replace('<span class','<span style="--d:.3s" class');
-/* the bidder's ladder: the value held so far, the next value lit, every higher one a tap away */
-const ladderAt=(d)=>at({left:d?640:195,top:d?344:350});
-const heldTile=(held)=>held?`<span class="held">${I.check}${held}</span>`:'';
-const bidLadder=(d,held,values)=>`<div class="ladder up" style="${ladderAt(d)}">${heldTile(held)}${
-  values.map((v,i)=>i?`<span class="${i===values.length-1?'more':''}" role="button">${v}</span>`:`<span class="now">${v}</span>`).join('')}</div>`;
-/* every value a bid can name: the suit bases times 2 to 18, Grand times 2 to 11, the four Null values */
-const multiples=(base,top)=>Array.from({length:top-1},(_,i)=>base*(i+2));
-const BID_VALUES=[...new Set([...[9,10,11,12].flatMap(base=>multiples(base,18)),...multiples(24,11),23,35,46,59])].sort((a,b)=>a-b);
-const longLadder=(d,held)=>{const [next,...higher]=BID_VALUES.filter(v=>v>held);
-  return `<div class="ladder up" style="${ladderAt(d)}">${heldTile(held)}<span class="now">${next}</span><div class="higher" style="--strip:${d?380:214}px"><div class="roll">${
-    higher.map(v=>`<span role="button">${v}</span>`).join('')}</div></div></div>`;};
-const bidButtons=(d,value)=>row(d?640:195,d?412:414,`<span class="button button-stage">${I.up}${value}</span><span class="button button-glass">${I.cross}Weg</span>`);
 const auction=(d)=>plaque(d?640:195,d?98:176,'<div class="game">Reizen</div>')+tableSkat(d);
-const JUMP_OPEN='Höhere Werte stehen antippbar in der Leiter, man darf also springen wie in ISkO 3.3.2; ob nur der nächste Wert geht, ist offen.';
 const novaTurn=(d)=>d?glow(980,270,220,260):glow(300,190,190,110);
+const novaSays=(d,v)=>bubble('nova',v,d?{x:1062,y:392,tail:'50%'}:{x:250,y:228,tail:'72%'});
+const felixHolds=(d,v)=>bubble('felix',`${I.check}${v}`,d?{x:556,y:416,tail:'30%',bottom:true,quiet:true}:{x:150,y:448,tail:'30%',bottom:true,quiet:true});
+const hearSeats=(d,o)=>seats(d,{video:true,anna:['Mittelhand','pass'],annaOut:true,nova:o.nova||['Hinterhand'],you:o.you||['Vorhand'],score:[148,62,55]});
+const hearRoom=(d,o={})=>room(d,{left:10,annaOut:true,glow:o.glow});
+const asked=(d)=>hearSeats(d,{nova:['Hinterhand','waits'],you:['Vorhand','turn']});
+const tableRuns=(d)=>hearSeats(d,{nova:d?['think']:['Hinterhand','think']});
+const sayScene=(d)=>seats(d,{video:true,anna:['Hinterhand'],nova:['Vorhand','waits'],you:['Mittelhand','turn'],score:[148,62,55]});
+const tail=(d)=>ownHand(d,BID_HAND)+callBar(d);
 const BID_SCENES=[
-  ['bid-middle','Du reizt',(d)=>room(d,{left:10,glow:yourTurn(d)})+auction(d)
-    +bidLadder(d,18,d?[20,22,23,24,27,30,33]:[20,22,23,24,27])+bidButtons(d,20)
-    +seats(d,{video:true,anna:['Hinterhand'],nova:['Vorhand','waits'],you:['Mittelhand','turn'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d),
-    [JUMP_OPEN]],
-  ['bid-rear','Hinterhand reizt',(d)=>room(d,{left:10,novaOut:true,glow:yourTurn(d)})+auction(d)
-    +bidLadder(d,20,d?[22,23,24,27,30,33,35]:[22,23,24,27,30])+bidButtons(d,22)
-    +seats(d,{video:true,anna:['Vorhand','waits'],nova:['Mittelhand','pass'],novaOut:true,you:['Hinterhand','turn'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d),
-    [JUMP_OPEN]],
-  ['bid-long','Hoch gereizt',(d)=>room(d,{left:10,glow:yourTurn(d)})+auction(d)
-    +longLadder(d,108)+bidButtons(d,110)
-    +seats(d,{video:true,anna:['Hinterhand'],nova:['Vorhand','waits'],you:['Mittelhand','turn'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d)],
+  ['bid-hear','Du hörst',(d)=>hearRoom(d,{glow:yourTurn(d)})+auction(d)+novaSays(d,'18')
+    +reizScale(d,{at:{v:18,lit:true},from:18})+keyRow(d,[K.ja,K.weg])+asked(d)+tail(d),
+    ['Die Skala trägt jeden gültigen Wert, links hell den, der gerade gefragt ist; sie steht auch beim Hören da. „Ja“ und „Weg“ gelten mit einem Tipp.']],
+  ['bid-middle','Du sagst',(d)=>room(d,{left:10,glow:yourTurn(d)})+auction(d)
+    +reizScale(d,{at:{v:18,mine:true},from:18,now:20})+keyRow(d,[K.say(20),K.weg])+sayScene(d)+tail(d),
+    ['Ohne gewählten Wert ist es dieselbe Skala: links, was du gehalten hast, hell der nächste Wert, und die blaue Taste sagt ihn. Ein Tipp auf einen Wert springt nicht mehr.']],
+  ['bid-fore','Vorhand sagt 18',(d)=>room(d,{left:10,annaOut:true,novaOut:true,glow:yourTurn(d)})+auction(d)
+    +reizScale(d,{from:17,now:18})+keyRow(d,[K.say(18),K.weg])
+    +seats(d,{video:true,anna:['Mittelhand','pass'],annaOut:true,nova:['Hinterhand','pass'],novaOut:true,you:['Vorhand','turn'],score:[148,62,55]})+tail(d),
+    ['Noch nichts gehalten: die Skala beginnt beim ersten Wert, und die Taste nennt ihn.']],
+  ['bid-pick','Gleich 50: wählen, dann sagen',(d)=>room(d,{left:10,glow:yourTurn(d)})+auction(d)
+    +reizScale(d,{at:{v:18,mine:true},from:18,first:d?6:11,sel:50})+keyRow(d,[K.say(50),K.bis(50),K.weg])+sayScene(d)+tail(d),
+    ['Ein Wisch über die Skala, ein Tipp auf 50: die Zahl hebt sich, und die Tasten sprechen sie. Blau sagt 50 sofort (der Sprung, ISkO 3.3.2), Messing hält den Tisch bis 50 für dich. „Weg“ bleibt ein Tipp.']],
+  ['bid-set','Halten bis 36',(d)=>hearRoom(d,{glow:yourTurn(d)})+auction(d)+novaSays(d,'18')
+    +reizScale(d,{at:{v:18,lit:true},from:18,first:d?0:4,sel:36})+keyRow(d,[K.ja,K.bis(36),K.weg])+asked(d)+tail(d),
+    ['Derselbe Griff beim Hören: 36 antippen, dann die Messingtaste. Ein Tipp auf die Skala allein setzt nichts, erst die Taste gilt.']],
+  ['bid-pre','Noch nicht dran',(d)=>room(d,{left:10,glow:novaTurn(d)})+auction(d)
+    +(d?bubble('anna','22',{x:44,y:392,tail:'50%'}):bubble('anna','22',{x:60,y:228,tail:'30%'}))
+    +bubble('nova',`${I.check}20`,d?{x:1062,y:392,tail:'50%',quiet:true}:{x:262,y:228,tail:'72%',quiet:true})
+    +reizScale(d,{at:{v:22},from:22})
+    +seats(d,{video:true,anna:['Mittelhand'],nova:['Vorhand','turn'],you:['Hinterhand'],score:[148,62,55]})+tail(d),
+    ['Die Skala steht vom Geben an, auch wenn andere reizen: das Limit setzt du, sobald du dein Blatt kennst.']],
+  ['bid-runs','Das Limit läuft',(d)=>hearRoom(d,{glow:novaTurn(d)})+auction(d)+novaSays(d,'30')+felixHolds(d,30)
+    +reizScale(d,{at:{v:30,mine:true},from:30,limit:36})+tableRuns(d)+tail(d),
+    ['Keine Tasten: der Tisch sagt für dich „Ja“, sofort und als dein Wort („✓ 30“). Die Messingschiene läuft vom gehaltenen Wert bis 36. Nur du siehst sie.']],
+  ['bid-change','Limit ändern',(d)=>hearRoom(d,{glow:novaTurn(d)})+auction(d)+novaSays(d,'30')
+    +reizScale(d,{at:{v:30,mine:true},from:30,limit:36,sel:40})+keyRow(d,[K.bis(40)])+tableRuns(d)+tail(d),
+    ['Ändern ist derselbe Griff: 40 antippen, „bis 40“.']],
+  ['bid-clear','Limit löschen',(d)=>hearRoom(d,{glow:novaTurn(d)})+auction(d)+novaSays(d,'30')
+    +reizScale(d,{at:{v:30,mine:true},from:30,limit:36,tap:36})+tableRuns(d)+tail(d),
+    ['Löschen ist ein Tipp auf den Messingwert; sein „✕“ zeigt es. Danach ist die Skala wieder glatt, und die Tasten kommen zurück, sobald du dran bist.']],
+  ['bid-bites','Über dem Limit: Weg',(d)=>hearRoom(d,{glow:novaTurn(d)})
+    +plaque(d?640:195,d?98:176,'<div class="game">Nova spielt, 40</div>')+tableSkat(d)+novaSays(d,'40')
+    +seats(d,{video:true,anna:['pass'],annaOut:true,nova:['won','turn'],you:['pass'],score:[148,62,55]})
+    +`<div class="limit-stub" style="${at(d?{left:806,top:494}:{left:214,top:497})}">bis 36</div>`+tail(d),
+    ['40 liegt über 36: der Tisch passt für dich. Die Messingmarke über deinem „Weg“ sagt dir beim Hinschauen, warum.']],
   ['bid-won','Nova spielt',(d)=>room(d,{left:10,annaOut:true,glow:novaTurn(d)})
     +plaque(d?640:195,d?98:176,'<div class="game">Nova spielt, 23</div>')+tableSkat(d)
     +seats(d,{video:true,anna:['pass'],annaOut:true,nova:['won','turn'],you:['pass'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d)],
-  ['bid-fore','Vorhand zu 18',(d)=>room(d,{left:10,annaOut:true,novaOut:true,glow:yourTurn(d)})+auction(d)
-    +bidLadder(d,null,[18])+bidButtons(d,18)
-    +seats(d,{video:true,anna:['Mittelhand','pass'],annaOut:true,nova:['Hinterhand','pass'],novaOut:true,you:['Vorhand','turn'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d)],
+  ['bid-pips','Dein Blatt auf der Skala',(d)=>hearRoom(d,{glow:yourTurn(d)})+auction(d)+novaSays(d,'18')
+    +reizScale(d,{at:{v:18,lit:true},from:18,first:d?0:3,pips:{27:'d',30:'h',33:'s',36:'c'},sel:30})+keyRow(d,[K.ja,K.bis(30),K.weg])+asked(d)+tail(d),
+    ['Über den Werten, die dein Blatt ohne Skat hergibt, sitzt die Farbe: ohne 2, Spiel 3, also Karo 27, Herz 30, Pik 33, Kreuz 36. Eine Rechenhilfe, kein Rat.']],
   ['bid-passed','Eingepasst',(d)=>room(d,{left:0})
     +plaque(d?640:195,d?98:176,`<div class="game">Eingepasst</div><div class="game">Nova gibt${waitDots()}</div>`)+deck(d)
     +seats(d,{video:true,anna:['pass'],nova:['drawn','pass'],you:['pass'],score:[148,62,55]})+callBar(d)],
@@ -1409,6 +1492,38 @@ const ANNOUNCE_SCENES=[
 ];
 scenes(ANNOUNCE_SCENES);
 ORDER.splice(ORDER.indexOf('call-play-1280')+1,0,...ANNOUNCE_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+
+/* ===== declaring: six games in one row, then the levels the picked game has, then what it is worth ===== */
+const games6=(d,x,y,chosen)=>`<div class="btns six" style="${at({left:x,top:y})}">${SUIT_GAMES.map(([s,n])=>pick(n,gameLine(s,d?n:''),n===chosen,d?'':'round')).join('')}${['Grand','Null'].map(n=>pick(n,n,n===chosen)).join('')}</div>`;
+/* a level is `in` (carried by a higher one), `top` (the highest chosen) or free */
+const gameLevels=(x,y,list)=>`<div class="stairs" role="group" style="${at({left:x,top:y})}">${list.map(([name,state],n)=>`<span class="${state||''}" style="--n:${n}" role="checkbox" aria-checked="${!!state}">${state?I.check:''}${name}</span>`).join('')}</div>`;
+/* the value in the result sheet's words; the tick says it reaches the bid */
+const valueLine=(x,y,chips,value,reaches=true)=>`<div class="reckon" style="${at({left:x,top:y})}">${chips.map(c=>`<span>${c}</span>`).join('')}<b>${value}</b>${reaches?`<i class="ok">${I.check}</i>`:''}</div>`;
+const NULL_SORTED=[['9','c'],['8','c'],['7','c'],['10','s'],['8','s'],['7','s'],['B','h'],['9','h'],['7','h'],['8','d']];
+const GRAND_OPEN=[['B','c'],['B','s'],['B','h'],['B','d'],['A','c'],['10','c'],['K','c'],['A','s'],['10','s'],['A','h']];
+const HERZ_SORTED=[['B','c'],['B','h'],['A','h'],['10','h'],['7','h'],['10','c'],['D','c'],['7','c'],['A','s'],['9','s']];
+const KARO_SORTED=[['B','c'],['B','h'],['A','d'],['10','d'],['7','d'],['A','h'],['10','h'],['7','h'],['A','s'],['9','s']];
+const declarePanel=(d,o)=>{const x=d?640:195,top=d?236:262,levelsAt=top+(d?62:56),valueAt=o.levels?levelsAt+(d?62:58):top+(d?66:62),sayAt=valueAt+40;
+  return room(d,{left:10,glow:yourTurn(d)})+bid(d)+(o.hand?(d?skat(870,440,56):skat(300,440,34)):(d?skat(330,470,56):skat(52,470,38)))
+    +games6(d,x,top,o.game)+(o.levels?gameLevels(x,levelsAt,o.levels):'')+valueLine(x,valueAt,o.chips,o.value,o.reaches)+announce(x,sayAt)+deciding(d,{cards:o.cards});};
+const DECLARE_SCENES=[
+  ['declare-suit','Ansage nach dem Skat: ein Spiel, sein Wert',(d)=>declarePanel(d,{game:'Herz',chips:['mit 1','Spiel 2','× 10'],value:20,cards:HERZ_SORTED}),
+    ['Sechs Spiele in einer Reihe, Null neben Grand. Darunter steht, was das gewählte Spiel wert ist, in den Worten der Ergebnisrechnung; der Haken heißt: reicht für den Reizwert. Das Blatt sortiert sich beim Antippen des Spiels.']],
+  ['declare-under','Ansage: der Wert reicht nicht',(d)=>declarePanel(d,{game:'Karo',chips:['mit 1','Spiel 2','× 9'],value:18,reaches:false,cards:KARO_SORTED}),
+    ['Ohne Haken: Karo ist hier 18 wert, der Reizwert ist 20. Das Spiel bleibt wählbar. '+BELOW_BID]],
+  ['declare-null','Ansage: Null, dann Ouvert',(d)=>declarePanel(d,{game:'Null',levels:[['Ouvert','top']],chips:['Null ouvert'],value:46,cards:NULL_SORTED}),
+    ['Null ist ein Spiel wie jedes andere. Nach dem Skat hat es eine Stufe: Ouvert. Karo bis Grand haben nach dem Skat keine, also steht dort keine.']],
+  ['declare-nullhand','Ansage: Null Hand, dann Ouvert',(d)=>declarePanel(d,{hand:true,game:'Null',levels:[['Hand','in'],['Ouvert','top']],chips:['Null ouvert Hand'],value:59,cards:NULL_SORTED}),
+    ['Ohne Skat trägt jedes Spiel „Hand“ schon abgehakt; Null hat dazu Ouvert. Vier Null-Werte, ein Griff: 23, 35, 46, 59.']],
+  ['declare-grand','Ansage: Grand Hand, dann Ouvert',(d)=>declarePanel(d,{hand:true,game:'Grand',levels:[['Hand','in'],['Schneider','in'],['Schwarz','in'],['Ouvert','top']],chips:['mit 4','Spiel 5','Stufen +6','× 24'],value:264,cards:GRAND_OPEN}),
+    ['Ein Tipp auf „Ouvert“ hakt Hand, Schneider und Schwarz mit ab (ISkO 2.5.8), und die Rechnung zählt sie mit: Hand, Schneider, Schneider angesagt, Schwarz, Schwarz angesagt und Ouvert sind sechs Stufen.']],
+  ['declare-said','Angesagt: die Tafel trägt die Stufen',(d)=>room(d,{left:10,glow:yourTurn(d)})
+    +widePlaque(d?640:195,d?98:176,`<div class="game">Grand Ouvert</div><div class="with"><span>${I.check}Hand</span><span>${I.check}Schneider</span><span>${I.check}Schwarz</span></div>`)
+    +seats(d,{video:true,anna:['waits'],nova:['waits'],you:['decl','turn'],score:[148,62,55]})+ownHand(d,GRAND_OPEN)+callBar(d),
+    ['Die Tafel nennt allen das ganze Spiel lang, was dabei ist.']],
+];
+scenes(DECLARE_SCENES);
+ORDER.splice(ORDER.indexOf('skat-discard-1280')+1,0,...DECLARE_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 
 const HERZ_ANGESAGT={suit:'h',base:10,mit:true,count:1,steps:['Spiel','Hand','Schneider','Schneider angesagt']};
 const ANNOUNCE_REACHED={...OWN_WIN,suit:'h',game:'Herz Hand',adds:[0,0,100],eyes:[94,26],calc:{...HERZ_ANGESAGT,won:true}};
@@ -3062,13 +3177,13 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .strand .reck.win{box-shadow:0 0 0 3px #f3cf7a,0 3px 0 #a9823f,0 10px 22px -6px rgba(243,207,122,.5)}
 /* text on the lighter top stays readable: dark glass behind light text */
 .strand .plaque,.strand .tag-glass,.strand .pass{background:rgba(28,17,22,.74)}
-.strand .ladder span,.strand .ladder.up span:not(.held):not(.now){background:rgba(28,17,22,.74);color:var(--on-stage)}
+.strand .ladder span{background:rgba(28,17,22,.74);color:var(--on-stage)}
 .strand .ladder span.held{background:rgba(28,17,22,.8);color:var(--on-stage)}
 .strand .ladder span.now{background:var(--cream);color:var(--ink)}
+.strand .scale{background:rgba(28,17,22,.74)}
 .strand .cbar,.strand .sbar{--glass:rgba(28,17,22,.66)}
-.strand .ladder.up span.more{opacity:.9}
-/* the 360 frame is 64 px shorter and its near stool steps up, so the bid's ladder and keys step up with it */
-.p360.strand > .ladder.up{translate:-15px -38px}
+/* the 360 frame is 64 px shorter and its near stool steps up, so the bid's scale and keys step up with it */
+.p360.strand > .scale{translate:-15px -38px}
 .p360.strand > .btns{translate:-15px -52px}
 .p360.strand .result.end{padding:10px 14px;gap:7px}
 .strand .button-glass{background:rgba(28,17,22,.62);color:var(--on-stage)}
