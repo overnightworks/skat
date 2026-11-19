@@ -2,7 +2,8 @@
 instant the proposal was made, from which a silent seat counts as no, and the seats whose no ended the last proposal.
 The proposer stays in `end_proposer` and the one other seat that said yes in `end_accepter`, as the release before wrote
 them, which serves beside this one; its writes leave the new columns as they were, so a trigger reads the proposal it
-wrote into them. A proposal standing at the migration gets its yes list and starts its minute now.
+wrote into them, and clears the refusers at the next proposal or deal of the release before, which never clears them. A
+proposal standing at the migration gets its yes list and starts its minute now.
 """
 
 from alembic import op
@@ -21,7 +22,7 @@ def upgrade() -> None:
     )
     # A write that moves the proposer or the accepter and leaves the yes list and the instant as they were is the
     # release before's: its proposal gets the yes list of its seats, a minute of its own if it is new, and none at all
-    # if it ended.
+    # if it ended. A proposal that stands or a deal clears the refusers of the proposal before.
     op.execute(
         """
         CREATE FUNCTION series_end_written_by_the_release_before() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -35,6 +36,9 @@ def upgrade() -> None:
                     WHEN NEW.end_proposer IS NOT DISTINCT FROM OLD.end_proposer THEN OLD.end_asked_at
                     ELSE now()
                 END;
+            END IF;
+            IF NEW.end_proposer IS NOT NULL OR NEW.deals IS DISTINCT FROM OLD.deals THEN
+                NEW.end_refused_by := '{}';
             END IF;
             RETURN NEW;
         END

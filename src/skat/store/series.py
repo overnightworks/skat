@@ -109,8 +109,7 @@ def series_of(row: Row[Any]) -> Series | None:
         number=row.number,
         ended_early=row.ended_early,
         end_proposal=proposal,
-        # The release before keeps writing the proposal beside a refusal it never clears, so a standing proposal wins.
-        end_refused_by=frozenset() if proposal is not None else frozenset(row.end_refused_by),
+        end_refused_by=frozenset(row.end_refused_by),
     )
 
 

@@ -552,6 +552,23 @@ class TestEndingEarly:
         read_back = series_of(transactions, between_games)
         assert (read_back.ended_early, read_back.end_proposal.agreed) == (False, frozenset({1, 3}))
 
+    @pytest.mark.parametrize(
+        "old_release_writes",
+        [
+            pytest.param("UPDATE series SET deals = deals + 1", id="a-deal"),
+            pytest.param("UPDATE series SET end_proposer = 1", id="a-proposal"),
+        ],
+    )
+    def test_a_refusal_ends_with_the_next_deal_or_proposal_the_release_before_writes(
+        self, service, engine, transactions, between_games, old_release_writes
+    ):
+        say_yes(service, 1, between_games)
+        say_no(service, 2, between_games)
+        run_in_transaction(engine, text(old_release_writes))
+        run_in_transaction(engine, text("UPDATE series SET end_proposer = NULL, end_accepter = NULL"))
+
+        assert series_of(transactions, between_games).end_refused_by == frozenset()
+
     def test_a_restart_rearms_only_the_proposals_standing_on_a_live_tables_current_series(
         self, service, transactions, engine, between_games
     ):
