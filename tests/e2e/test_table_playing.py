@@ -7,7 +7,7 @@ from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.table.records import TableStyle
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.hands import TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
+from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.style import (
     PLACE,
@@ -45,10 +45,6 @@ FELT_CARD = ".trick .laid"
 CARD_SLOT = ".trick .lead-slot"
 CARDS_IN_A_HAND = 10
 CARDS_IN_A_TRICK = 3
-# The fan shows each card's left strip, and the next card covers its middle, where a plain click lands. A touch within
-# a few pixels of a card's edge reaches the neighbouring card although the point lies on the aimed one, so the tap
-# aims at the strip's middle, where a finger lands too.
-INSIDE_THE_VISIBLE_STRIP = {"x": 15, "y": 40}
 # A card on the felt lies toward its player: seen from the trick's middle, it points at that player's chair
 # more closely than at any other chair.
 TOWARD_CHAIR = """(play) => {
