@@ -34,29 +34,19 @@ body {
     text-transform: uppercase;
 }
 
-/* The start page's head: the serif wordmark with the four suits on its rule, centred, and the account at the corner. The empty start stands lower and larger than the lobby's head, which leaves the room to the list. */
+/* The start page's head: the serif wordmark with the four suits on its rule, centred, and the account at the corner. */
 .start-bar.start-head {
-    --mark-top: 112px;
-    --mark-size: 84px;
-    --pip-size: 26px;
-    --rule-width: 44px;
-    --mark-gap: 12px;
-    --account-right: 12px;
-    --account-top: 12px;
-
-    position: relative;
-    display: block;
-    padding: var(--mark-top) 0 0;
-}
-
-.with-lobby .start-bar.start-head {
     --mark-top: 40px;
     --mark-size: 60px;
     --pip-size: 20px;
     --rule-width: 30px;
     --mark-gap: 8px;
+    --account-right: 12px;
+    --account-top: 12px;
 
-    padding-bottom: 6px;
+    position: relative;
+    display: block;
+    padding: var(--mark-top) 0 6px;
 }
 
 .start-mark {
@@ -178,16 +168,12 @@ body {
 }
 
 /* The page keeps its head and scrolls the lobby's list; the new-table button sticks to the bottom over a fade from the first paint, so it does not move when the lobby answers. */
-.start-body {
-    display: contents;
-}
-
-.start.with-lobby {
+.start:has(> .start-body) {
     height: 100dvh;
     min-height: 0;
 }
 
-.with-lobby .start-body {
+.start-body {
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -197,7 +183,7 @@ body {
 }
 
 /* The block's stacking level, which holds the opening sheet, is 2, so a tall sheet covers whatever scrolls under it; a short lobby leaves it the space above, so it still stands at the screen's foot. */
-.with-lobby .start-main {
+.start-body .start-main {
     --fade: rgba(14, 9, 7, 0.97);
 
     position: sticky;
@@ -4596,21 +4582,13 @@ body {
     }
 
     .start-bar.start-head {
-        --mark-top: 92px;
-        --mark-size: 132px;
-        --pip-size: 30px;
-        --rule-width: 90px;
-        --mark-gap: 16px;
-        --account-right: 20px;
-        --account-top: 16px;
-    }
-
-    .with-lobby .start-bar.start-head {
         --mark-top: 52px;
         --mark-size: 88px;
         --pip-size: 24px;
         --rule-width: 70px;
         --mark-gap: 12px;
+        --account-right: 20px;
+        --account-top: 16px;
     }
 
     .account-name {

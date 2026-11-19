@@ -24,7 +24,7 @@
     <title>{`${words["app.name"]}`}</title>
 </svelte:head>
 
-<div class="start with-lobby" data-theme="dark">
+<div class="start" data-theme="dark">
     <CardSprite />
     <header class="start-bar start-head">
         <StartMark />
