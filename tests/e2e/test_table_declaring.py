@@ -12,7 +12,7 @@ from skat.web.declaring import (
 )
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
-from tests.e2e.support.hands import PlayingTable
+from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, PlayingTable
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.turn_key import POPS_RINGS_AND_SHINES, let_it_move, motion_of
 
@@ -63,8 +63,6 @@ PRESSED = "aria-pressed"
 RISEN_OUT_OF_ITS_PLACE = (
     "(card) => card.getBoundingClientRect().top < card.closest('.card').getBoundingClientRect().top"
 )
-# The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
-INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
 
 
 def bid_value(value: int) -> str:

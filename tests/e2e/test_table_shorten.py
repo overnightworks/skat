@@ -23,7 +23,7 @@ from tests.e2e.support.early_end import (
     mark_on,
     opponents,
 )
-from tests.e2e.support.hands import PlayingTable, deal_playing_table
+from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
 from tests.e2e.support.result_card import CARD, waiting_for
 from tests.e2e.support.style import TOP, boxes_in_the_scene, boxes_on_the_page, expect_drawn_as_the_scene
@@ -157,8 +157,6 @@ REFUSED_SCENE = "shorten-refused"
 OWN_BAR = ".chair.mine"
 LEGAL_CARD = ".own-hand .card.ok"
 LIFTED_CARD = ".own-hand .card.touch"
-# The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
-INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
 
 
 def test_on_a_desktop_the_notice_that_play_goes_on_stands_as_the_scene_draws_it_and_a_lifted_card_clears_the_bar(
