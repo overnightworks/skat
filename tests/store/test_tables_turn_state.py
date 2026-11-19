@@ -10,7 +10,7 @@ from sqlalchemy import select, text
 
 from skat.store.schema import chairs
 from skat.store.tables import PostgresTableTransactions
-from skat.table.records import StandUp, TurnStatement
+from skat.table.records import StandUp
 from skat.table.rules import with_occupant
 from skat.table.service import TableService
 from tests.support.seated_tables import NOBODY_CONNECTED, OPENER, SEATED, seated_table
@@ -169,10 +169,7 @@ def test_a_statement_stamped_earlier_than_another_chairs_still_changes_the_state
     assert times_of(transactions, of_the_table) != after_the_opener
 
 
-def test_the_statement_time_is_stored_as_given(service, engine, transactions, stored, table_id):
-    service.set_turn_state(MEMBER.account_id, table_id.value, None, True)
+def test_the_statement_time_is_stored_as_given(timed_service, transactions, stored, table_id):
+    timed_service.set_turn_state(MEMBER.account_id, table_id.value, None, True)
 
-    statement = statement_of(stored, transactions, table_id)
-
-    assert isinstance(statement, TurnStatement)
-    assert statement.stated_at.tzinfo is not None
+    assert statement_of(stored, transactions, table_id).stated_at == STATED_AT
