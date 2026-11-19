@@ -172,25 +172,12 @@ def test_a_failed_write_of_the_record_lets_the_agents_call_through_and_lists_it_
         assert (unlisted, "standings" in standing, names_of_rows(pods[1], felix, table_id)) == ([], True, ["Nova"])
 
 
-def test_a_failed_write_of_the_record_unlists_an_agent_whose_earlier_write_succeeded(pods, issuer, felix, table_id):
-    with listening(pods[0], issuer, felix, "Nova", NOVA) as nova:
-        pods[0].shared.records.fails_writes = True
-        standing = nova.standing()
-        unlisted = names_of_rows(pods[1], felix, table_id)
-        pods[0].shared.records.fails_writes = False
-
-        nova.standing()
-
-        assert (unlisted, "standings" in standing, names_of_rows(pods[1], felix, table_id)) == ([], True, ["Nova"])
-
-
-def test_a_record_that_cannot_be_dropped_after_a_failed_write_still_lets_the_agents_call_through(
+def test_a_failed_write_of_the_record_leaves_an_agent_with_an_earlier_record_listed_as_before(
     pods, issuer, felix, table_id
 ):
     with listening(pods[0], issuer, felix, "Nova", NOVA) as nova:
         pods[0].shared.records.fails_writes = True
-        pods[0].shared.records.fails_deletes = True
 
         standing = nova.standing()
 
-        assert "standings" in standing
+        assert ("standings" in standing, names_of_rows(pods[1], felix, table_id)) == (True, ["Nova"])

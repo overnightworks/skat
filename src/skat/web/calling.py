@@ -75,7 +75,6 @@ NO_TABLE_DETAIL: Final = "table not found"
 
 LISTENING_READ_FAILED_EVENT: Final = "agent_listening_read.failed"
 AGENT_RECORD_WRITE_FAILED_EVENT: Final = "agent_record_write.failed"
-AGENT_RECORD_DELETE_FAILED_EVENT: Final = "agent_record_delete.failed"
 
 logger = structlog.get_logger()
 
@@ -159,19 +158,13 @@ class AgentRoster:
 
     async def heard(self, account_id: str, facts: AgentFacts) -> None:
         """An admitted call of the agent: its record follows its token. A write that fails is logged and the call goes
-        on, and the agent's earlier record is dropped, so it is not listed until a later call writes.
+        on. An agent without a record stays unlisted until a write succeeds, and an earlier record stands until its
+        `LEASE_SECONDS` life ends, so a changed name or owner can show stale for at most that long.
         """
         try:
             await self._records.write(account_id, facts)
         except Exception as failure:
             logger.warning(AGENT_RECORD_WRITE_FAILED_EVENT, error_type=type(failure).__name__)
-            await self._unlist(account_id)
-
-    async def _unlist(self, account_id: str) -> None:
-        try:
-            await self._records.delete(account_id)
-        except Exception as failure:
-            logger.warning(AGENT_RECORD_DELETE_FAILED_EVENT, error_type=type(failure).__name__)
 
     async def entries(self) -> dict[str, RosterEntry]:
         """One entry per listening agent that has a record; none while a store cannot answer."""

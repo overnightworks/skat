@@ -66,14 +66,3 @@ class TestARecordOnARealRedis:
             run(records.write(NOVA, AgentFacts(owner="owner-felix", name="Nova")))
         with pytest.raises(RedisError):
             run(records.read([NOVA]))
-        with pytest.raises(RedisError):
-            run(records.delete(NOVA))
-
-    def test_a_deleted_record_is_no_longer_read(self, redis_url):
-        async def scenario():
-            records = shared_agent_records(redis_url)
-            await records.write(NOVA, AgentFacts(owner="owner-felix", name="Nova"))
-            await records.delete(NOVA)
-            return await records.read([NOVA])
-
-        assert run(scenario()) == {}
