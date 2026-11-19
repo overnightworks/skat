@@ -69,7 +69,7 @@ body {
     padding: 24px;
 }
 
-/* With the lobby to show, the page keeps its head and scrolls its list; the new-table button sticks to the bottom over a fade. */
+/* The page keeps its head and scrolls the lobby's list; the new-table button sticks to the bottom over a fade from the first paint, so it does not move when the lobby answers. */
 .start-body {
     display: contents;
 }

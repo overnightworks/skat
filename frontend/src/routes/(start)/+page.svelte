@@ -11,7 +11,6 @@
     const { data }: PageProps = $props();
 
     let accountMenu: HTMLElement;
-    let lobbyShown = $state(false);
 
     onMount(() => {
         void readAccount();
@@ -23,7 +22,7 @@
     <title>{`${words["app.name"]}`}</title>
 </svelte:head>
 
-<div class="start" class:with-lobby={lobbyShown} data-theme="dark">
+<div class="start with-lobby" data-theme="dark">
     <header class="start-bar">
         <span class="wordmark">{words["app.name"]}</span>
         <button type="button" class="account-button" aria-label={words["account.title"]} popovertarget="accountMenu">
@@ -39,7 +38,7 @@
         />
     </div>
     <div class="start-body">
-        <Lobby bind:shown={lobbyShown} />
+        <Lobby />
         <main class="start-main">
             <NewTableButton />
         </main>

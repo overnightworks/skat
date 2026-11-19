@@ -45,6 +45,25 @@ def open_start_page(
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_the_new_table_button_keeps_its_place_when_the_lobby_answers(
+    open_person: Callable[..., Page], e2e_server: RunningServer, form_factor: dict[str, Any]
+) -> None:
+    waiting = open_person(**form_factor)
+    # The lobby's stream stays unanswered, so this page is the one a person sees before the lobby has answered.
+    waiting.route(f"**{LOBBY_EVENTS_PATH}", lambda _route: None)
+    waiting.goto(f"{e2e_server.base_url}/")
+    before = waiting.get_by_role("button", name=NEW_TABLE_BUTTON)
+    expect(before).to_be_visible()
+
+    answered = open_person(**form_factor)
+    answered.goto(f"{e2e_server.base_url}/")
+    expect(answered.locator(".lobby-lists")).to_be_visible()
+    after = answered.get_by_role("button", name=NEW_TABLE_BUTTON)
+
+    assert after.bounding_box() == before.bounding_box()
+
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
 def test_the_start_page_shows_the_wordmark_the_account_button_and_the_new_table_button(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
