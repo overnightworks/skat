@@ -8,6 +8,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from webauth.ports import AgentFacts
 
+from skat.store.redis_agent_records import record_key
 from skat.store.redis_clients import AGENT_RECORD_KEY_PREFIX, shared_agent_records
 
 pytestmark = pytest.mark.redis
@@ -45,7 +46,7 @@ class TestARecordOnARealRedis:
         async def scenario():
             await shared_agent_records(redis_url).write(NOVA, AgentFacts(owner="owner-felix", name="Nova"))
             async with Redis.from_url(redis_url) as client:  # pyright: ignore[reportUnknownMemberType]
-                return await client.ttl(f"{AGENT_RECORD_KEY_PREFIX}:{NOVA}")
+                return await client.ttl(record_key(AGENT_RECORD_KEY_PREFIX, NOVA))
 
         assert 0 < run(scenario()) <= LEASE_SECONDS
 
@@ -53,7 +54,7 @@ class TestARecordOnARealRedis:
     def test_a_value_that_is_no_record_is_left_out(self, redis_url, stored):
         async def scenario():
             async with Redis.from_url(redis_url) as client:  # pyright: ignore[reportUnknownMemberType]
-                await client.set(f"{AGENT_RECORD_KEY_PREFIX}:{NOVA}", stored)
+                await client.set(record_key(AGENT_RECORD_KEY_PREFIX, NOVA), stored)
             return await shared_agent_records(redis_url).read([NOVA])
 
         assert run(scenario()) == {}

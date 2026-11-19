@@ -25,6 +25,10 @@ def _facts_of(stored: bytes | str) -> AgentFacts | None:
     return AgentFacts(owner=read.owner, name=read.name)
 
 
+def record_key(key_prefix: str, account_id: str) -> str:
+    return f"{key_prefix}:{account_id}"
+
+
 class RedisAgentRecords:
     """Each record lasts `LEASE_SECONDS` from its latest write, so an agent that stops calling is forgotten a lease
     after its last call; the writer that comes last wins.
@@ -47,4 +51,4 @@ class RedisAgentRecords:
         return {account: facts for account, facts in read.items() if facts is not None}
 
     def _key(self, account_id: str) -> str:
-        return f"{self._key_prefix}:{account_id}"
+        return record_key(self._key_prefix, account_id)
