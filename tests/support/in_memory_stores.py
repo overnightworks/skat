@@ -8,6 +8,7 @@ from webauth.single_process_stores import SingleProcessStores
 
 from skat.host.app import PodLinks
 from skat.web.sign_in import LoggingAuditSink
+from tests.support.in_memory_agent_records import InMemoryAgentRecords
 from tests.support.in_memory_leases import InMemoryLeases
 
 if TYPE_CHECKING:
@@ -28,6 +29,7 @@ def single_pod(**overrides: object) -> dict[str, object]:
         rate_limits=in_process_rate_limits(),
         wake_channel=FakeWakeBus().pod(),
         place_store=InMemoryPlaceStore(),
+        agent_records=InMemoryAgentRecords(),
         stream_leases=InMemoryLeases(),
     )
     return {"pods": replace(links, **overrides)}

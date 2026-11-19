@@ -33,7 +33,7 @@ from skat.web.abort import create_abort_router
 from skat.web.account import create_account_router
 from skat.web.auction import create_auction_router
 from skat.web.call import create_call_router
-from skat.web.calling import AgentRoster, CallerMembership, create_calling_router
+from skat.web.calling import AgentRecords, AgentRoster, CallerMembership, create_calling_router
 from skat.web.closing import create_closing_router
 from skat.web.constants import (
     HEALTH_PATH,
@@ -119,13 +119,15 @@ def end_with_sigterm() -> None:
 @dataclass(frozen=True, kw_only=True)
 class PodLinks:
     """What the pods of one deployment share: the counts of their sign-in limits, the channel that carries their
-    wakes, the place store that tells them which agents listen and what changed for them, the leases that count who
-    watches which table, and how a pod stops itself when the wake channel cannot be heard.
+    wakes, the place store that tells them which agents listen and what changed for them, the record of each agent's
+    name and owner, the leases that count who watches which table, and how a pod stops itself when the wake channel
+    cannot be heard.
     """
 
     rate_limits: RateLimitBackend
     wake_channel: WakeChannel
     place_store: PlaceStore
+    agent_records: AgentRecords
     stream_leases: StreamLeases
     end_process: Callable[[], None] = end_with_sigterm
 
@@ -216,20 +218,18 @@ def _caller_membership(
     return CallerMembership(groups, sign_in_configs.web_auth, relying_party.issuer, clock)
 
 
-def _agent_changes(store: PlaceStore, roster: AgentRoster) -> ResourceChanges:
-    """The changes the pods tell their listening agents through `store`, and the roster that follows who listens."""
-    return ResourceChanges(
-        store, listening_changed=roster.listening_changed, listening_resynced=roster.listening_resynced
-    )
+def _agent_roster(
+    changes: ResourceChanges,
+    relying_party: OidcRelyingParty,
+    records: AgentRecords,
+    sign_in_configs: SignInConfigs,
+) -> AgentRoster:
+    return AgentRoster(changes.listeners, relying_party.issuer, records, sign_in_configs.web_auth.signing_key)
 
 
-def _roster_and_changes(
-    store: PlaceStore, resource_changes: Callable[[PlaceStore, AgentRoster], ResourceChanges]
-) -> tuple[AgentRoster, ResourceChanges]:
-    roster = AgentRoster()
-    changes = resource_changes(store, roster)
-    roster.follow(changes)
-    return roster, changes
+def _agent_changes(store: PlaceStore) -> ResourceChanges:
+    """The changes the pods tell their listening agents through `store`."""
+    return ResourceChanges(store)
 
 
 def _telling_agents(
@@ -244,10 +244,10 @@ def _telling_agents(
     )
 
 
-def _agent_heard(presence: Presence, roster: AgentRoster) -> Callable[[str, AgentFacts], None]:
-    def heard(account_id: str, facts: AgentFacts) -> None:
+def _agent_heard(presence: Presence, roster: AgentRoster) -> Callable[[str, AgentFacts], Awaitable[None]]:
+    async def heard(account_id: str, facts: AgentFacts) -> None:
         presence.renew_lease(account_id)
-        roster.heard(account_id, facts)
+        await roster.heard(account_id, facts)
 
     return heard
 
@@ -503,14 +503,15 @@ def create_app(
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
     unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
-    resource_changes: Callable[[PlaceStore, AgentRoster], ResourceChanges] = _agent_changes,
+    resource_changes: Callable[[PlaceStore], ResourceChanges] = _agent_changes,
     database_ready: Callable[[], Awaitable[bool]] = _always_ready,
 ) -> FastAPI:
     sign_in_configs = build_sign_in_configs(settings, pods.rate_limits)
 
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
-    roster, changes = _roster_and_changes(pods.place_store, resource_changes)
+    changes = resource_changes(pods.place_store)
+    roster = _agent_roster(changes, relying_party, pods.agent_records, sign_in_configs)
     # Wrapped first, so the timers' commands capture the service that counts leases and tells agents.
     tables = _telling_agents(tables, lambda: presence.live_leases(), changes, relying_party.issuer)
     # One scheduler and one clock of waits serve the presence and the member front, so stopping the presence cancels
@@ -529,7 +530,7 @@ def create_app(
     app.include_router(create_call_router(settings.call_origin))
     _include_table_routers(app, tables, page_build, presence, wakes, stores.sessions, sign_in_configs.web_auth)
     membership = _caller_membership(relying_party, sign_in_configs, stores.sessions, chair_clock)
-    app.include_router(create_calling_router(tables, presence, roster, changes, relying_party.issuer, membership))
+    app.include_router(create_calling_router(tables, presence, roster, membership))
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)
     app.include_router(create_nudging_router(tables, presence, nudge_signal(changes, relying_party.issuer)))

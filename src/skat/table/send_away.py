@@ -4,19 +4,37 @@ from typing import TYPE_CHECKING, Final
 
 from skat.table.member_place import BookEntry, InviteRefusal, at_the_table, offer_of, seated_call_facts
 from skat.table.records import Decision, Refusal, SendAway, TableId, TableRecord
-from skat.table.rules import seat_of, with_occupant
+from skat.table.rules import CommandIdReusedError, replayed_decision, seat_of, with_occupant
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from datetime import datetime
 
     from skat.table.member_place import MemberBook
     from skat.table.records import Actor
+    from skat.table.transactions import TableTransactions
 
 SEND_AWAY_COMMAND: Final = "send-away"
 
 
 def send_away_payload(command: SendAway) -> str:
     return f"{command.table_id}:{command.agent_account}"
+
+
+def earlier_send_away(
+    transactions: TableTransactions, actor: Actor, command_id: str, table_id: str, is_agent: Callable[[str], bool]
+) -> Decision | None:
+    """The outcome of the actor's earlier send-away under the command id, None if none; it writes nothing and raises
+    `CommandIdReusedError` for another request under the id, which includes a send-away of an agent `is_agent` refuses.
+    """
+    with transactions.begin() as transaction:
+        replay = transaction.replay(actor.account_id, command_id)
+    if replay is None:
+        return None
+    agent = replay.payload.removeprefix(f"{table_id}:")
+    if agent == replay.payload or not is_agent(agent):
+        raise CommandIdReusedError
+    return replayed_decision(replay, SEND_AWAY_COMMAND, send_away_payload(SendAway(command_id, table_id, agent)))
 
 
 def decide_send_away(table: TableRecord, account_id: str) -> Decision:

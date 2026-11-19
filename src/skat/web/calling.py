@@ -4,30 +4,27 @@ listening agents and the held answers of whether a session's person may call.
 `skat.table.member_place` decides who may call which agent and which agent is here; this module gathers the facts of a
 call (who is at the table, which agents listen, whether the person counts as a member of the calling group), runs that
 decision through `TableService` and maps its refusals onto the kit's reason tokens. Every route here is a person's act
-and no agent's tool, and every one runs on the event loop, which is also where the roster and the changes'
-`listens_to` live.
+and no agent's tool, and every one runs on the event loop.
 
-The roster holds an agent for as long as the library counts it as listening on its standing, on any pod: from its first
-acknowledged listen until the library's `LISTEN_ALLOWANCE_SECONDS` after its last listen ended, so a closed agent stays
-listed for that long and two agents of one owner with one name are two rows. Which agents listen follows the library's
-turns, which may repeat or come out of order, and is read again from the place store after every resync. It holds an
-agent under the name and owner its last token said, and a key per agent account, minted here at first need and kept in
-this process only, so a row keeps its key from the call to the seat, whether or not the agent listens. The held answers
-are one yes or no per session, kept in this process only: the display never reads the issuer per render, and a call or
-a send-away reads the person's groups fresh at the act.
+The roster is read from what every pod shares, at each control: an agent is listed while the place store says it
+listens on its standing under the issuer, which holds it until the library's `LISTEN_ALLOWANCE_SECONDS` after its last
+listen ended, and the record of its name and owner stands, which is written at each call of the agent and expires a
+lease after the last. Two agents of one owner with one name are two rows. A row's key is derived from the session
+secret and the agent's account, so every pod gives and accepts the same key whether or not the agent listens. The held
+answers are one yes or no per session, kept in this process only: the display never reads the issuer per render, and a
+call or a send-away reads the person's groups fresh at the act.
 """
 
-import asyncio
-import secrets
+import base64
+import hashlib
+import hmac
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from enum import StrEnum
-from typing import TYPE_CHECKING, Final, Literal
+from typing import TYPE_CHECKING, Final, Literal, Protocol
 
 import structlog
-from agents.mcp_server import PlaceStoreError
 from agents.member import INVITATION_SECONDS, STANDING_URI
-from agents.tools import Principal
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -46,13 +43,13 @@ from skat.table.member_place import (
 )
 from skat.table.records import SendAway, TableId
 from skat.table.service import CommandIdReusedError
-from skat.web.mcp import Exclusion, excluded, token_carries_agent_facts
+from skat.web.mcp import Exclusion, excluded
 from skat.web.tables import TABLES_PATH, CommandRequest, actor_of
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Collection
+    from collections.abc import Awaitable, Callable, Collection, Mapping
 
-    from agents.mcp_server import ResourceChanges
+    from agents.tools import Principal
     from webauth.config import WebAuthConfig
     from webauth.ports import AgentFacts
     from webauth.session_groups import SessionGroups
@@ -70,10 +67,13 @@ TABLE_AGENT_SEND_AWAY_SUFFIX: Final = "/send-away"
 AGENT_ADDERS_GROUP: Final = "/agent-adders"
 # How long a read of the groups the issuer refused counts as "not a member" before the next control read asks again.
 DISPLAY_REFUSAL_HOLD: Final = timedelta(minutes=5)
-ROSTER_KEY_BYTES: Final = 16
+# Domain separation of the row keys from webauth's own signatures with the same secret.
+ROW_KEY_LABEL: Final = b"skat-agent-row-key\x00"
+ROW_KEY_BYTES: Final = 16
 NO_TABLE_DETAIL: Final = "table not found"
 
 LISTENING_READ_FAILED_EVENT: Final = "agent_listening_read.failed"
+AGENT_RECORD_WRITE_FAILED_EVENT: Final = "agent_record_write.failed"
 
 logger = structlog.get_logger()
 
@@ -129,9 +129,23 @@ class SendAwayRequest(CommandRequest):
     """The body of a send-away: only its retry key."""
 
 
+class AgentRecords(Protocol):  # pragma: no cover - a port's method bodies are signatures; `RedisAgentRecords` runs
+    """One short-lived record per agent account, which every pod writes and reads: what the agent's signed token said
+    of its name and its owner. A call that fails raises, whatever the store raises.
+    """
+
+    async def write(self, account_id: str, facts: AgentFacts) -> None:
+        """Keeps the facts for the account from now on, in place of any earlier record."""
+        ...
+
+    async def read(self, account_ids: Collection[str]) -> Mapping[str, AgentFacts]:
+        """The record of each account that has a readable one; an account without one is left out."""
+        ...
+
+
 @dataclass(frozen=True)
 class RosterEntry:
-    """A listening agent as its token states it, and the key the page holds for it."""
+    """A listening agent as its record states it, and the key the page holds for it."""
 
     key: str
     name: str
@@ -139,91 +153,52 @@ class RosterEntry:
 
 
 class AgentRoster:
-    """The agents that listen on their standing right now, by account. Which agents listen follows the library's turns,
-    which every pod gets in order but may repeat, and a read of the place store after each resync, which replaces what a
-    turn lost while the subscription was down; the name and owner of an agent are the ones its last token said, and
-    every agent account the page has seen has one key for good. Only the front's event loop touches it.
+    """The agents that listen on their standing right now, by account, read from the place store and the record store
+    every pod shares; nothing of it is kept in this process.
     """
 
-    def __init__(self) -> None:
-        self._facts: dict[str, AgentFacts] = {}
-        self._listening: set[str] = set()
-        self._keys: dict[str, str] = {}
-        self._listeners: Callable[[str], Awaitable[frozenset[Principal]]] | None = None
-        self._rereading: asyncio.Task[None] | None = None
-        self._turns_during_read: list[tuple[str, bool]] | None = None
+    def __init__(
+        self,
+        listeners: Callable[[str], Awaitable[frozenset[Principal]]],
+        issuer: str,
+        records: AgentRecords,
+        signing_key: bytes,
+    ) -> None:
+        self._listeners = listeners
+        self._issuer = issuer
+        self._records = records
+        self._signing_key = signing_key
 
-    def follow(self, changes: ResourceChanges) -> None:
-        """Reads who listens from `changes` after each resync; call once, before the front runs."""
-        self._listeners = changes.listeners
-
-    def listening_changed(self, principal: Principal, uri: str, listens: bool) -> None:
-        """The callback `ResourceChanges` calls with each turn of the answer of `listens_to`; it does not block and may
-        be called again with the direction it already told.
+    async def heard(self, account_id: str, facts: AgentFacts) -> None:
+        """An admitted call of the agent: its record follows its token. A write that fails is logged and the call goes
+        on. An agent without a record stays unlisted until a write succeeds, and an earlier record stands until its
+        `LEASE_SECONDS` life ends, so a changed name or owner can show stale for at most that long.
         """
-        if uri != STANDING_URI:
-            return
-        facts = token_carries_agent_facts.get() if listens else None
-        if facts is not None:
-            self._facts[principal.sub] = facts
-        if self._turns_during_read is not None:
-            self._turns_during_read.append((principal.sub, listens))
-        else:
-            self._apply(principal.sub, listens)
+        try:
+            await self._records.write(account_id, facts)
+        except Exception as failure:
+            logger.warning(AGENT_RECORD_WRITE_FAILED_EVENT, error_type=type(failure).__name__)
 
-    def listening_resynced(self) -> None:
-        """The callback `ResourceChanges` calls after every confirmed subscription: a turn sent while it was down is
-        lost, so who listens is read again, and the turns that arrive meanwhile are applied after the read.
-        """
-        if self._listeners is None:
-            return
-        if self._rereading is not None:
-            self._rereading.cancel()
-        self._rereading = asyncio.create_task(self._read_listeners(self._listeners))
-
-    def heard(self, account_id: str, facts: AgentFacts) -> None:
-        """An admitted call of the agent: its name and owner follow its token. A silent agent is listed only once it
-        listens.
-        """
-        self._facts[account_id] = facts
-
-    def entries(self) -> dict[str, RosterEntry]:
+    async def entries(self) -> dict[str, RosterEntry]:
+        """One entry per listening agent that has a record; none while a store cannot answer."""
+        try:
+            listening = await self._listeners(STANDING_URI)
+            accounts = sorted(principal.sub for principal in listening if principal.iss == self._issuer)
+            records = await self._records.read(accounts)
+        except Exception as failure:
+            # An agent whose listen or record cannot be read is not offered, and the next control read asks again.
+            logger.warning(LISTENING_READ_FAILED_EVENT, error_type=type(failure).__name__)
+            return {}
         return {
-            account: RosterEntry(self.key_of(account), facts.name, facts.owner)
-            for account in self._listening
-            if (facts := self._facts.get(account)) is not None
+            account: RosterEntry(self.key_of(account), facts.name, facts.owner) for account, facts in records.items()
         }
 
     def key_of(self, account_id: str) -> str:
-        """The agent's key, made when it is first asked for."""
-        key = self._keys.get(account_id)
-        if key is None:
-            key = secrets.token_urlsafe(ROSTER_KEY_BYTES)
-            self._keys[account_id] = key
-        return key
-
-    def account_of(self, key: str) -> str | None:
-        """The account a key names, or None for a key no agent was given."""
-        return next((account for account, held in self._keys.items() if held == key), None)
-
-    def _apply(self, account_id: str, listens: bool) -> None:
-        if listens:
-            self._listening.add(account_id)
-        else:
-            self._listening.discard(account_id)
-
-    async def _read_listeners(self, listeners: Callable[[str], Awaitable[frozenset[Principal]]]) -> None:
-        if self._turns_during_read is None:
-            self._turns_during_read = []
-        try:
-            read = await listeners(STANDING_URI)
-        except Exception as failure:
-            logger.warning(LISTENING_READ_FAILED_EVENT, error_type=type(failure).__name__)
-        else:
-            self._listening = {principal.sub for principal in read}
-        turns, self._turns_during_read = self._turns_during_read, None
-        for account_id, listens in turns:
-            self._apply(account_id, listens)
+        """The agent's key: the same on every pod that has the session secret, and the account's own at every state of
+        its row.
+        """
+        digest = hmac.digest(self._signing_key, ROW_KEY_LABEL + account_id.encode(), hashlib.sha256)
+        return base64.urlsafe_b64encode(digest[:ROW_KEY_BYTES]).rstrip(b"=").decode()
 
 
 @dataclass(frozen=True)
@@ -306,7 +281,6 @@ def _facts_of(
     viewer: str,
     viewer_present: bool,
     streams: frozenset[str],
-    listens: bool,
     viewer_is_member: bool,
 ) -> CallFacts:
     return CallFacts(
@@ -314,7 +288,7 @@ def _facts_of(
         viewer_present=viewer_present,
         viewer_is_member=viewer_is_member,
         agent_account=account,
-        agent_listens=listens,
+        agent_listens=True,
         owner_account=entry.owner,
         owner_present=entry.owner in streams,
     )
@@ -324,6 +298,7 @@ def _facts_of(
 class _Offered:
     """An agent of the control with the key of its row, the facts of the person's call to it and what that comes to."""
 
+    account: str
     key: str
     name: str
     facts: CallFacts
@@ -350,28 +325,20 @@ def _table_of(table_id: str) -> TableId:
     return parsed
 
 
+@dataclass(frozen=True)
 class _Calling:
     """The facts, the control, the call and the send-away of the person routes, over one app's service, presence,
     roster and membership.
     """
 
-    def __init__(
-        self,
-        tables: TableService,
-        presence: Presence,
-        roster: AgentRoster,
-        listens: Callable[[str], Awaitable[bool]],
-        membership: CallerMembership,
-    ) -> None:
-        self._tables = tables
-        self._presence = presence
-        self._roster = roster
-        self._listens = listens
-        self._membership = membership
+    tables: TableService
+    presence: Presence
+    roster: AgentRoster
+    membership: CallerMembership
 
     async def _at_the_table(self, table_id: TableId) -> frozenset[str]:
         return await run_in_threadpool(
-            self._tables.accounts_at_the_table, table_id, await self._presence.connected(table_id.value)
+            self.tables.accounts_at_the_table, table_id, await self.presence.connected(table_id.value)
         )
 
     async def _offered(self, request: Request, table_id: TableId, *, viewer_is_member: bool) -> list[_Offered]:
@@ -379,10 +346,11 @@ class _Calling:
         the table.
         """
         viewer = actor_of(request).account_id
-        streams = await self._presence.connected(table_id.value)
+        streams = await self.presence.connected(table_id.value)
         viewer_present = viewer in await self._at_the_table(table_id)
         calls = [
             (
+                account,
                 entry,
                 _facts_of(
                     account,
@@ -390,11 +358,10 @@ class _Calling:
                     viewer=viewer,
                     viewer_present=viewer_present,
                     streams=streams,
-                    listens=await self._listens(account),
                     viewer_is_member=viewer_is_member,
                 ),
             )
-            for account, entry in self._roster.entries().items()
+            for account, entry in (await self.roster.entries()).items()
         ]
 
         def seated_facts(account: str) -> CallFacts:
@@ -402,22 +369,30 @@ class _Calling:
                 account, viewer_account=viewer, viewer_present=viewer_present, viewer_is_member=viewer_is_member
             )
 
-        offers = await run_in_threadpool(self._tables.offers_at, table_id, [facts for _, facts in calls], seated_facts)
+        offers = await run_in_threadpool(
+            self.tables.offers_at, table_id, [facts for _, _, facts in calls], seated_facts
+        )
         if offers is None:
             raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
         listed = [
-            _Offered(entry.key, entry.name, facts, offer)
-            for (entry, facts), offer in zip(calls, offers.listed, strict=True)
+            _Offered(account, entry.key, entry.name, facts, offer)
+            for (account, entry, facts), offer in zip(calls, offers.listed, strict=True)
         ]
         seated = [
-            _Offered(self._roster.key_of(seated.account), seated.name, seated_facts(seated.account), seated.offer)
+            _Offered(
+                seated.account,
+                self.roster.key_of(seated.account),
+                seated.name,
+                seated_facts(seated.account),
+                seated.offer,
+            )
             for seated in offers.seated
         ]
         return listed + seated
 
     async def control_of(self, request: Request, table_id: TableId) -> AgentControlAnswer:
         viewer_present = actor_of(request).account_id in await self._at_the_table(table_id)
-        viewer_is_member = viewer_present and await self._membership.displayed(request)
+        viewer_is_member = viewer_present and await self.membership.displayed(request)
         offered = await self._offered(request, table_id, viewer_is_member=viewer_is_member)
         rows = [row for agent in offered if (row := _row_of(agent))]
         sends_agent_away = any(row.state is OfferState.HERE for row in rows)
@@ -442,11 +417,11 @@ class _Calling:
             return CallRefusal.AGENT_UNAVAILABLE
         if isinstance(answer, InviteRefusal):
             return REFUSAL_TOKENS[answer]
-        fresh = await self._membership.fresh(request)
+        fresh = await self.membership.fresh(request)
         if isinstance(fresh, AccessTokenRefusal):
             return CallRefusal.TRY_AGAIN
         written = await run_in_threadpool(
-            self._tables.invite_agent,
+            self.tables.invite_agent,
             table_id,
             replace(chosen.facts, viewer_is_member=fresh),
             timedelta(seconds=INVITATION_SECONDS),
@@ -462,38 +437,35 @@ class _Calling:
         agent may, whether or not the issuer answers the read. An agent that is not here is no new act, but a command
         id the person used for it already replays its answer, as long as no other request used the id.
         """
-        refusal = await self._send_away_refusal(request, table_id, key, viewer_is_member=True)
+        sendable = await self._sendable(request, table_id, key, viewer_is_member=True)
         is_member = True
-        if refusal is None:
-            fresh = await self._membership.fresh(request)
+        if isinstance(sendable, _Offered):
+            fresh = await self.membership.fresh(request)
             is_member = fresh is True
-            refusal = await self._send_away_refusal(request, table_id, key, viewer_is_member=is_member)
-            if refusal is CallRefusal.NOT_ALLOWED and isinstance(fresh, AccessTokenRefusal):
+            sendable = await self._sendable(request, table_id, key, viewer_is_member=is_member)
+            if sendable is CallRefusal.NOT_ALLOWED and isinstance(fresh, AccessTokenRefusal):
                 return CallRefusal.TRY_AGAIN
-        account = self._roster.account_of(key)
-        if account is None:
-            return refusal
-        command = SendAway(command_id, table_id.value, account)
-        if refusal is CallRefusal.AGENT_UNAVAILABLE:
-            return await self._replayed_send_away(request, command)
-        if refusal is not None:
-            return refusal
-        connected = await self._presence.connected(table_id.value)
+        if sendable is CallRefusal.AGENT_UNAVAILABLE:
+            return await self._replayed_send_away(request, table_id, key, command_id)
+        if not isinstance(sendable, _Offered):
+            return sendable
+        command = SendAway(command_id, table_id.value, sendable.account)
+        connected = await self.presence.connected(table_id.value)
         try:
-            sent = await run_in_threadpool(self._tables.send_away, actor_of(request), command, connected, is_member)
+            sent = await run_in_threadpool(self.tables.send_away, actor_of(request), command, connected, is_member)
         except CommandIdReusedError:
             return CallRefusal.TRY_AGAIN
         if sent is None:
             raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
         if sent.refusal is not None:
             return CallRefusal.AGENT_UNAVAILABLE
-        self._presence.wake_table(table_id.value)
+        self.presence.wake_table(table_id.value)
         return None
 
-    async def _send_away_refusal(
+    async def _sendable(
         self, request: Request, table_id: TableId, key: str, *, viewer_is_member: bool
-    ) -> CallRefusal | None:
-        """None exactly when `offer_of` answers `here` for the agent of the key; the person's own refusals keep their
+    ) -> _Offered | CallRefusal:
+        """The agent of the key exactly when `offer_of` answers `here` for it; the person's own refusals keep their
         tokens and any other answer, an agent that holds no chair here, is `agent-unavailable`, never a call's reason.
         """
         chosen = next(
@@ -508,14 +480,22 @@ class _Calling:
             return CallRefusal.AGENT_UNAVAILABLE
         answer = chosen.offer.answer
         if answer is OfferState.HERE:
-            return None
+            return chosen
         if answer is InviteRefusal.NOT_PRESENT or answer is InviteRefusal.NOT_A_MEMBER:
             return REFUSAL_TOKENS[answer]
         return CallRefusal.AGENT_UNAVAILABLE
 
-    async def _replayed_send_away(self, request: Request, command: SendAway) -> CallRefusal | None:
+    async def _replayed_send_away(
+        self, request: Request, table_id: TableId, key: str, command_id: str
+    ) -> CallRefusal | None:
         try:
-            replayed = await run_in_threadpool(self._tables.replayed_send_away, actor_of(request), command)
+            replayed = await run_in_threadpool(
+                self.tables.replayed_send_away,
+                actor_of(request),
+                command_id,
+                table_id.value,
+                lambda account: self.roster.key_of(account) == key,
+            )
         except CommandIdReusedError:
             return CallRefusal.TRY_AGAIN
         if replayed is None or replayed.refusal is not None:
@@ -578,22 +558,9 @@ def _create_acts_router(calling: _Calling) -> APIRouter:
 
 
 def create_calling_router(
-    tables: TableService,
-    presence: Presence,
-    roster: AgentRoster,
-    changes: ResourceChanges,
-    issuer: str,
-    membership: CallerMembership,
+    tables: TableService, presence: Presence, roster: AgentRoster, membership: CallerMembership
 ) -> APIRouter:
-    async def listens(account_id: str) -> bool:
-        try:
-            return await changes.listens_to(Principal(iss=issuer, sub=account_id), STANDING_URI)
-        except PlaceStoreError as failure:
-            # An agent whose listen cannot be read is not offered, and the next control read asks again.
-            logger.warning(LISTENING_READ_FAILED_EVENT, error_type=type(failure).__name__)
-            return False
-
-    calling = _Calling(tables, presence, roster, listens, membership)
+    calling = _Calling(tables, presence, roster, membership)
     router = APIRouter()
 
     @router.get(

@@ -1,5 +1,6 @@
 """The clients of the Redis every pod shares: the limits webauth spends, the channel tandem wakes the pods on, the
-leases that count who watches a table and the place store agents keeps its listen record in.
+leases that count who watches a table, the place store agents keeps its listen record in and the record of what an
+agent's token says of it.
 """
 
 from datetime import timedelta
@@ -14,8 +15,11 @@ from redis.retry import Retry
 from tandem import Leases, WakeChannel
 from webauth.rate_limit import RedisRateLimitBackend
 
+from skat.store.redis_agent_records import RedisAgentRecords
+
 RATE_LIMIT_KEY_PREFIX: Final = "skat:rate"
 WAKE_KEY_PREFIX: Final = "skat"
+AGENT_RECORD_KEY_PREFIX: Final = "skat-agent-record"
 STREAM_LEASE_FAMILY: Final = "presence"
 # A pod that dies loses its people from every read once this has passed since their last renewal; a claim on a lapse
 # outlasts the slowest handling of it.
@@ -44,8 +48,8 @@ def shared_rate_limits(redis_url: str) -> RedisRateLimitBackend:
 
 
 def _shared_async_client(redis_url: str) -> AsyncRedis:
-    """The client of the wake channel and the place store. Its timeouts let a publish fail on a Redis that stays
-    silent, and its retry lets a pod's re-read at a resubscribe survive a Redis restart.
+    """The client of the wake channel, the place store and the agent records. Its timeouts let a publish fail on a
+    Redis that stays silent, and its retry lets a pod's re-read at a resubscribe survive a Redis restart.
     """
     return AsyncRedis.from_url(  # pyright: ignore[reportUnknownMemberType]
         redis_url,
@@ -76,3 +80,8 @@ def shared_place_store(redis_url: str) -> RedisPlaceStore:
     under `<WAKE_KEY_PREFIX>-agents`, apart from the pods' own.
     """
     return RedisPlaceStore(_shared_async_client(redis_url), key_prefix=WAKE_KEY_PREFIX)
+
+
+def shared_agent_records(redis_url: str) -> RedisAgentRecords:
+    """The record of each agent's name and owner, which every pod writes at an agent's call and reads for its list."""
+    return RedisAgentRecords(_shared_async_client(redis_url), key_prefix=AGENT_RECORD_KEY_PREFIX)

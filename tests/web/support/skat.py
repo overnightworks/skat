@@ -104,7 +104,9 @@ class WiredTableService(TableService):
 
 
 class Skat:
-    def __init__(self, sign_in_settings, store=None, stores=None, now=None, view_signal_through=None, **app_options):
+    def __init__(
+        self, sign_in_settings, store=None, stores=None, now=None, view_signal_through=None, pod=None, **app_options
+    ):
         self.stores = stores if stores is not None else in_memory_stores()
         self.store = store if store is not None else FakeTableStore()
         if isinstance(self.store, FakeTableStore) and "chair_clock" in app_options:
@@ -125,7 +127,7 @@ class Skat:
             rule_sets=RuleSetService(self.rule_set_store),
             stores=self.stores,
             **app_options,
-            **single_pod(),
+            **single_pod(**(pod or {})),
         )
         self.config = installed_web_auth_config(self.app)
         self.client = TestClient(self.app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)

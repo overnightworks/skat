@@ -1,306 +1,161 @@
-"""The roster holds an agent exactly while it listens on its standing, under what its own token says of it."""
+"""The roster lists an agent exactly while the shared place store says it listens on its standing under the issuer and
+its record is readable; its key is derived from the session secret.
+"""
 
 import asyncio
-from contextlib import contextmanager
-from types import SimpleNamespace
+import base64
 
 import pytest
-from agents.mcp_server import InMemoryPlaceStore, listen
-from agents.mcp_server.listen import ResourceChanges
-from agents.member import LISTEN_ALLOWANCE_SECONDS, STANDING_URI, PlaceRef, place_view_uri
+from agents.mcp_server import PlaceStoreError
 from agents.tools import Principal
 from webauth.ports import AgentFacts
 
 from skat.web.calling import AgentRoster
-from skat.web.mcp import token_carries_agent_facts
-from tests.web.support.changes import READ_WITHIN_SECONDS
+from tests.support.in_memory_agent_records import InMemoryAgentRecords
 
-NOVA = Principal(iss="an-issuer", sub="agent-nova")
-BACH = Principal(iss="an-issuer", sub="agent-bach")
-
-
-@contextmanager
-def token_of(facts):
-    marker = token_carries_agent_facts.set(facts)
-    try:
-        yield
-    finally:
-        token_carries_agent_facts.reset(marker)
+ISSUER = "an-issuer"
+NOVA = Principal(iss=ISSUER, sub="agent-nova")
+BACH = Principal(iss=ISSUER, sub="agent-bach")
+SIGNING_KEY = b"a-session-secret-of-the-test"
+BYTES_OF_A_KEY = 16
 
 
-def starts_to_listen(roster, principal, facts, uri=STANDING_URI):
-    with token_of(facts):
-        roster.listening_changed(principal, uri, True)
+class Listeners:
+    """The place store as the roster reads it: who listens now, or a store that does not answer."""
 
+    def __init__(self, *listening):
+        self.listening = frozenset(listening)
+        self.fails = False
 
-def pass_loop_time(seconds):
-    """Moves the running loop's clock on, which is the time the in-memory place store keeps its deadlines on."""
-    loop = asyncio.get_running_loop()
-    shifted_from = loop.time
-    loop.time = lambda: shifted_from() + seconds
-
-
-def listens_once_and_closes(roster, principal, facts, *, after_close):
-    """The agent's one listen on its standing through the library's own bookkeeping and a place store; `after_close`
-    runs once the stream has ended, and the allowance passes before the store lapses the stream.
-    """
-
-    async def listen_then_close():
-        dropped = asyncio.Event()
-
-        def dropped_when_no(principal, uri, listens):
-            roster.listening_changed(principal, uri, listens)
-            if not listens:
-                dropped.set()
-
-        store = InMemoryPlaceStore()
-        changes = ResourceChanges(store, listening_changed=dropped_when_no)
-        async with changes.following():
-            async with changes.opened(principal) as stream:
-                with token_of(facts):
-                    await changes.acknowledged(principal, stream, [STANDING_URI], tools=False)
-            after_close()
-            pass_loop_time(LISTEN_ALLOWANCE_SECONDS)
-            await store.lapse_due()
-            async with asyncio.timeout(READ_WITHIN_SECONDS):
-                await dropped.wait()
-
-    asyncio.run(listen_then_close())
+    async def __call__(self, uri):
+        if self.fails:
+            raise PlaceStoreError("the store does not answer")
+        return self.listening
 
 
 @pytest.fixture
-def roster():
-    return AgentRoster()
+def listeners():
+    return Listeners(NOVA)
 
 
-class TestAnEntryExistsWhileTheAgentListens:
-    def test_an_agent_that_starts_to_listen_has_an_entry_with_the_name_and_owner_of_its_token(self, roster):
-        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+@pytest.fixture
+def records():
+    return InMemoryAgentRecords()
 
-        entry = roster.entries()[NOVA.sub]
+
+def roster_of(listeners, records, *, signing_key=SIGNING_KEY):
+    return AgentRoster(listeners, ISSUER, records, signing_key)
+
+
+def entries_of(roster):
+    return asyncio.run(roster.entries())
+
+
+def heard(roster, principal, facts):
+    asyncio.run(roster.heard(principal.sub, facts))
+
+
+class TestAnEntryExistsWhileTheAgentListensAndItsRecordStands:
+    def test_the_entry_carries_the_name_and_owner_of_the_record(self, listeners, records):
+        roster = roster_of(listeners, records)
+        heard(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+
+        entry = entries_of(roster)[NOVA.sub]
 
         assert (entry.name, entry.owner) == ("Nova", "owner-felix")
 
-    def test_the_entry_is_dropped_when_the_agent_stops_listening(self, roster):
-        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+    def test_a_listener_without_a_record_has_no_entry(self, listeners, records):
+        assert entries_of(roster_of(listeners, records)) == {}
 
-        roster.listening_changed(NOVA, STANDING_URI, False)
+    def test_a_record_without_a_listener_has_no_entry(self, records):
+        roster = roster_of(Listeners(), records)
+        heard(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
 
-        assert roster.entries() == {}
+        assert entries_of(roster) == {}
 
-    def test_stopping_to_listen_without_an_entry_changes_nothing(self, roster):
-        roster.listening_changed(NOVA, STANDING_URI, False)
+    def test_a_listener_under_another_issuer_has_no_entry(self, records):
+        stranger = Principal(iss="another-issuer", sub=NOVA.sub)
+        roster = roster_of(Listeners(stranger), records)
+        heard(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
 
-        assert roster.entries() == {}
+        assert entries_of(roster) == {}
 
-    def test_a_listen_with_no_agent_facts_makes_no_entry(self, roster):
-        starts_to_listen(roster, NOVA, None)
+    def test_a_later_call_replaces_the_name_and_owner_and_keeps_the_key(self, listeners, records):
+        roster = roster_of(listeners, records)
+        heard(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+        key = entries_of(roster)[NOVA.sub].key
 
-        assert roster.entries() == {}
+        heard(roster, NOVA, AgentFacts(owner="owner-anna", name="Nova2"))
 
-    def test_a_listen_on_a_resource_other_than_the_standing_makes_no_entry(self, roster):
-        starts_to_listen(
-            roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"), place_view_uri(PlaceRef(kind="table", id="t"))
-        )
-
-        assert roster.entries() == {}
-
-    def test_each_agent_has_its_own_key_that_names_no_account(self, roster):
-        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
-        starts_to_listen(roster, BACH, AgentFacts(owner="owner-felix", name="Bach"))
-
-        keys = {account: entry.key for account, entry in roster.entries().items()}
-
-        assert len(set(keys.values())) == 2
-        assert all(account not in key for account, key in keys.items())
-
-
-class TestACallOfAnAgentWithFacts:
-    def test_keeps_the_entry_and_its_key_while_the_facts_stay_the_same(self, roster):
-        facts = AgentFacts(owner="owner-felix", name="Nova")
-        starts_to_listen(roster, NOVA, facts)
-        key = roster.entries()[NOVA.sub].key
-
-        roster.heard(NOVA.sub, facts)
-
-        assert roster.entries()[NOVA.sub].key == key
-
-    def test_replaces_the_name_and_owner_and_keeps_the_key_when_a_newer_token_says_otherwise(self, roster):
-        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
-        key = roster.entries()[NOVA.sub].key
-
-        roster.heard(NOVA.sub, AgentFacts(owner="owner-anna", name="Nova2"))
-
-        entry = roster.entries()[NOVA.sub]
+        entry = entries_of(roster)[NOVA.sub]
         assert (entry.owner, entry.name, entry.key) == ("owner-anna", "Nova2", key)
 
-    def test_makes_no_entry_for_an_agent_that_does_not_listen(self, roster):
-        roster.heard(NOVA.sub, AgentFacts(owner="owner-felix", name="Nova"))
+    def test_two_agents_of_one_owner_with_one_name_are_two_entries(self, records):
+        roster = roster_of(Listeners(NOVA, BACH), records)
+        for principal in (NOVA, BACH):
+            heard(roster, principal, AgentFacts(owner="owner-felix", name="Mozart"))
 
-        assert roster.entries() == {}
-
-
-class TestAnEntryOutlivesTheEndOfItsListenByTheLibrarysAllowance:
-    def test_the_entry_stays_when_the_listen_ends_and_is_dropped_once_the_allowance_passed(self, roster):
-        held_at_the_end = []
-
-        listens_once_and_closes(
-            roster,
-            NOVA,
-            AgentFacts(owner="owner-felix", name="Nova"),
-            after_close=lambda: held_at_the_end.append(set(roster.entries())),
-        )
-
-        assert (held_at_the_end, roster.entries()) == ([{NOVA.sub}], {})
-
-    def test_the_librarys_own_lapse_task_keeps_dropping_entries_as_listens_end_one_after_another(
-        self, roster, monkeypatch
-    ):
-        monkeypatch.setattr(listen, "LAPSE_POLL_SECONDS", 0.01)
-        dropped = asyncio.Queue()
-
-        def dropped_when_no(principal, uri, listens):
-            roster.listening_changed(principal, uri, listens)
-            if not listens:
-                dropped.put_nowait(principal)
-
-        async def listens_and_closes_then_is_dropped(changes, principal):
-            async with changes.opened(principal) as stream:
-                with token_of(AgentFacts(owner="owner-felix", name=principal.sub)):
-                    await changes.acknowledged(principal, stream, [STANDING_URI], tools=False)
-            pass_loop_time(LISTEN_ALLOWANCE_SECONDS)
-            async with asyncio.timeout(READ_WITHIN_SECONDS):
-                return await dropped.get()
-
-        async def two_listens_one_after_the_other():
-            changes = ResourceChanges(InMemoryPlaceStore(), listening_changed=dropped_when_no)
-            async with changes.following():
-                first = await listens_and_closes_then_is_dropped(changes, NOVA)
-                second = await listens_and_closes_then_is_dropped(changes, BACH)
-            return first, second
-
-        assert asyncio.run(two_listens_one_after_the_other()) == (NOVA, BACH)
-        assert roster.entries() == {}
-
-    def test_two_agents_of_one_owner_with_one_name_hold_one_entry_each(self, roster):
-        facts = AgentFacts(owner="owner-felix", name="Mozart")
-        starts_to_listen(roster, NOVA, facts)
-        starts_to_listen(roster, BACH, facts)
-
-        assert {(entry.name, entry.owner) for entry in roster.entries().values()} == {("Mozart", "owner-felix")}
-        assert set(roster.entries()) == {NOVA.sub, BACH.sub}
+        assert set(entries_of(roster)) == {NOVA.sub, BACH.sub}
 
 
-class TestAnAgentKeepsOneKey:
-    def test_the_key_of_an_account_is_made_at_first_need_and_names_no_account(self, roster):
-        key = roster.key_of(NOVA.sub)
+class TestAStoreThatDoesNotAnswer:
+    def test_a_place_store_that_does_not_answer_lists_no_agent_until_it_answers(self, listeners, records):
+        roster = roster_of(listeners, records)
+        heard(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+        listeners.fails = True
+        while_down = entries_of(roster)
+        listeners.fails = False
 
-        assert (roster.key_of(NOVA.sub) == key, NOVA.sub in key, roster.key_of(BACH.sub) != key) == (True, False, True)
+        assert (while_down, set(entries_of(roster))) == ({}, {NOVA.sub})
 
-    def test_an_entry_uses_the_key_the_account_already_has(self, roster):
-        key = roster.key_of(NOVA.sub)
+    def test_a_record_store_that_does_not_answer_lists_no_agent_until_it_answers(self, listeners, records):
+        roster = roster_of(listeners, records)
+        heard(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+        records.fails_reads = True
+        while_down = entries_of(roster)
+        records.fails_reads = False
 
-        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
-
-        assert roster.entries()[NOVA.sub].key == key
-
-    def test_the_key_stays_when_the_agent_stops_listening_and_listens_again(self, roster):
-        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
-        key = roster.entries()[NOVA.sub].key
-
-        roster.listening_changed(NOVA, STANDING_URI, False)
-        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
-
-        assert roster.entries()[NOVA.sub].key == key
+        assert (while_down, set(entries_of(roster))) == ({}, {NOVA.sub})
 
 
-def resynced_while_the_store_answers(roster, *, listeners, meanwhile):
-    """`listeners` is the read the resync makes, held until `meanwhile` has run; returns once it has answered."""
+class TestAFailedWriteOfTheRecord:
+    def test_is_not_raised_and_the_agent_is_listed_once_a_write_succeeds(self, listeners, records):
+        roster = roster_of(listeners, records)
+        records.fails_writes = True
+        heard(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+        while_failing = entries_of(roster)
+        records.fails_writes = False
+        heard(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
 
-    async def scenario():
-        read_started = asyncio.Event()
-        answered = asyncio.Event()
-        released = asyncio.Event()
-
-        async def read(uri):
-            read_started.set()
-            await released.wait()
-            answered.set()
-            return listeners
-
-        roster.follow(SimpleNamespace(listeners=read))
-        roster.listening_resynced()
-        await read_started.wait()
-        meanwhile()
-        released.set()
-        await answered.wait()
-
-    asyncio.run(scenario())
+        assert (while_failing, set(entries_of(roster))) == ({}, {NOVA.sub})
 
 
-class TestAResyncReadsWhoListensAgain:
-    def test_an_agent_the_read_names_is_listed_with_the_name_and_owner_of_its_last_call(self, roster):
-        roster.heard(NOVA.sub, AgentFacts(owner="owner-felix", name="Nova"))
+class TestARowKeyIsDerivedFromTheSessionSecret:
+    def test_every_pod_with_the_secret_derives_the_same_key(self, listeners, records):
+        one_pod = roster_of(listeners, records)
+        another_pod = roster_of(listeners, records)
 
-        resynced_while_the_store_answers(roster, listeners=frozenset({NOVA}), meanwhile=lambda: None)
+        assert one_pod.key_of(NOVA.sub) == another_pod.key_of(NOVA.sub)
 
-        assert [entry.name for entry in roster.entries().values()] == ["Nova"]
+    def test_another_secret_or_another_account_derives_another_key(self, listeners, records):
+        roster = roster_of(listeners, records)
 
-    def test_an_agent_the_read_does_not_name_is_dropped(self, roster):
-        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+        keys = {
+            roster.key_of(NOVA.sub),
+            roster.key_of(BACH.sub),
+            roster_of(listeners, records, signing_key=b"another-secret").key_of(NOVA.sub),
+        }
 
-        resynced_while_the_store_answers(roster, listeners=frozenset(), meanwhile=lambda: None)
+        assert len(keys) == 3
 
-        assert roster.entries() == {}
+    def test_the_key_names_no_account_and_keeps_at_least_128_bits(self, listeners, records):
+        key = AgentRoster(listeners, ISSUER, records, SIGNING_KEY).key_of(NOVA.sub)
 
-    def test_a_no_that_arrives_while_the_store_answers_wins_over_the_read(self, roster):
-        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
+        assert NOVA.sub not in key
+        assert len(base64.urlsafe_b64decode(key + "=" * (-len(key) % 4))) >= BYTES_OF_A_KEY
 
-        resynced_while_the_store_answers(
-            roster, listeners=frozenset({NOVA}), meanwhile=lambda: roster.listening_changed(NOVA, STANDING_URI, False)
-        )
+    def test_an_entry_has_the_key_of_its_account(self, listeners, records):
+        roster = roster_of(listeners, records)
+        heard(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
 
-        assert roster.entries() == {}
-
-    def test_a_yes_that_arrives_while_the_store_answers_wins_over_the_read(self, roster):
-        roster.heard(BACH.sub, AgentFacts(owner="owner-felix", name="Bach"))
-
-        resynced_while_the_store_answers(
-            roster, listeners=frozenset(), meanwhile=lambda: roster.listening_changed(BACH, STANDING_URI, True)
-        )
-
-        assert [entry.name for entry in roster.entries().values()] == ["Bach"]
-
-    def test_a_second_resync_while_the_store_answers_reads_again_and_keeps_the_turns_that_arrived_before_it(
-        self, roster
-    ):
-        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
-
-        def no_turn_and_another_resync():
-            roster.listening_changed(NOVA, STANDING_URI, False)
-            roster.listening_resynced()
-
-        resynced_while_the_store_answers(roster, listeners=frozenset({NOVA}), meanwhile=no_turn_and_another_resync)
-
-        assert roster.entries() == {}
-
-    def test_a_read_that_fails_in_any_way_leaves_the_roster_applying_the_turns_that_follow(self, roster):
-        async def scenario():
-            async def unreadable(uri):
-                raise RuntimeError("unreadable")
-
-            roster.follow(SimpleNamespace(listeners=unreadable))
-            roster.listening_resynced()
-            await asyncio.gather(*asyncio.all_tasks() - {asyncio.current_task()}, return_exceptions=True)
-            starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
-
-        asyncio.run(scenario())
-
-        assert [entry.name for entry in roster.entries().values()] == ["Nova"]
-
-    def test_a_resync_before_the_roster_follows_any_changes_reads_nothing(self, roster):
-        starts_to_listen(roster, NOVA, AgentFacts(owner="owner-felix", name="Nova"))
-
-        roster.listening_resynced()
-
-        assert set(roster.entries()) == {NOVA.sub}
+        assert entries_of(roster)[NOVA.sub].key == roster.key_of(NOVA.sub)
