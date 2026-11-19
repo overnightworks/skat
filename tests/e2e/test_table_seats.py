@@ -148,9 +148,13 @@ def lose_the_last_chair(
         expect(plate_of(winner, 3)).to_have_text(YOU)
         route.continue_()
 
-    loser.route(f"**{TABLES_PATH}/*{TABLE_SIT_SUFFIX}", let_the_winner_sit_first)
+    sit_request = f"**{TABLES_PATH}/*{TABLE_SIT_SUFFIX}"
+    loser.route(sit_request, let_the_winner_sit_first)
 
-    sit_in(loser, 3)
+    # The route handler runs inside the next Playwright call; waiting for the answer here keeps the
+    # notice's own expectation to the render alone.
+    with loser.expect_response(sit_request):
+        sit_in(loser, 3)
     return loser
 
 
