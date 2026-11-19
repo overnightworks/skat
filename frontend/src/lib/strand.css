@@ -92,6 +92,7 @@
     --rattan: #e9cf9b;
     --cream: #fbf6ea;
     --ink: #2b1b10;
+    /* The beach's warm tint of the stage's dark glass, for every mark and tag on it. */
     --glass-dark: rgba(28, 17, 22, 0.72);
 
     isolation: isolate;

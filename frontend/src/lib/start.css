@@ -4,9 +4,6 @@ body {
 
 /* The entry look: the dark lounge with its warm light pool and brass accents. */
 .start {
-    --on-stage: #f4f6f8;
-    --on-stage-soft: rgba(244, 246, 248, 0.72);
-    --glass-dark: rgba(12, 14, 17, 0.55);
     --brass: #c9a464;
     --ink: #14181d;
     display: flex;
@@ -122,12 +119,16 @@ body {
     margin-top: 12px;
 }
 
+/* The section heads are quiet body text, not the family's display headings. */
 .lobby-lists h2 {
     margin: 8px 0 12px;
     color: color-mix(in srgb, var(--brass) 80%, transparent);
+    font-family: inherit;
     font-size: 14px;
     font-weight: 600;
     line-height: 20px;
+    letter-spacing: normal;
+    text-transform: none;
 }
 
 .lobby-list {
@@ -619,7 +620,6 @@ body {
 }
 
 .sheet {
-    --glass: rgba(255, 255, 255, 0.15);
     position: fixed;
     z-index: 101;
     top: 50%;
@@ -929,13 +929,12 @@ body {
 }
 
 .room {
-    --on-stage: #f4f6f8;
-    --on-stage-soft: rgba(244, 246, 248, 0.72);
-    --glass-dark: rgba(12, 14, 17, 0.55);
     --brass: #c9a464;
     --cream: #fbf8f0;
     --ink: #14181d;
     --ok-stage: #4cc38a;
+    /* The round keys of the top row (Lobby, speaker, menu, reactions) are a brighter glass than the stage's. */
+    --round-key-tint: rgba(244, 246, 248, 0.26);
     /* The one red of leaving: white text on it meets 4.5:1, and the declined cross on the dark glass meets 3:1. */
     --leave: #d63a40;
     /* The pile and the last trick shown again. */
@@ -1105,11 +1104,15 @@ body {
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    --glass: rgba(244, 246, 248, 0.26);
     color: var(--on-stage);
     font-size: 14px;
     font-weight: 600;
     text-decoration: none;
+}
+
+/* The face is the round keys' brighter glass, not the glass of the other keys. */
+.room .lobby .lobby-face {
+    background: var(--round-key-tint);
 }
 
 .room .lobby-face {
@@ -1190,7 +1193,7 @@ body {
     border: 0;
     border-radius: 50%;
     color: var(--on-stage);
-    background: rgba(244, 246, 248, 0.26);
+    background: var(--round-key-tint);
     box-shadow:
         inset 0 0 0 1px rgba(255, 255, 255, 0.3),
         0 4px 10px -4px rgba(0, 0, 0, 0.7);
@@ -1683,7 +1686,6 @@ body {
 }
 
 .room .answers {
-    --glass: rgba(255, 255, 255, 0.15);
     display: flex;
     gap: 8px;
 }
@@ -2829,7 +2831,6 @@ body {
 }
 
 .room .bid {
-    --glass: rgba(255, 255, 255, 0.15);
     --strip: 214px;
     grid-column: 1 / 3;
     grid-row: 4;
@@ -5204,15 +5205,8 @@ body {
     cursor: default;
 }
 
-/* The kit's list in the agents' panel: its tokens are the dark ones, as the panel is dark glass. */
+/* The kit's list in the agents' panel takes the dark tokens of the room's dark region. */
 .room .agents-list {
-    --text: #e0e0e0;
-    --text-muted: #888;
-    --border: #333;
-    --surface-hover: #1a1a1a;
-    --fail: #f44;
-    --fail-soft: #3a1a1a;
-
     font-size: 14px;
     font-weight: 400;
     text-align: left;
@@ -5397,7 +5391,9 @@ body {
     font-size: 22px;
     font-weight: 700;
     line-height: 1.2;
+    letter-spacing: normal;
     text-align: center;
+    text-transform: none;
 }
 
 .room .closed .new-table {
@@ -5463,7 +5459,7 @@ body {
     }
 }
 
-/* The sound: the round speaker (a twin of the Lobby button) in the table's top row or, in a call, in the strip, and the panel it opens. The table's tokens stand for the pictures' own: the picture's text is --on-stage, its muted text --on-stage-soft, its hairline --glass declared on the panel, the knob's mark --stage-ink. Nothing here moves. */
+/* The sound: the round speaker (a twin of the Lobby button) in the table's top row or, in a call, in the strip, and the panel it opens. The table's tokens stand for the pictures' own: the picture's text is --on-stage, its muted text --on-stage-soft, its hairline the family's --glass, the knob's mark --stage-ink. Nothing here moves. */
 .room .sound-button {
     flex: none;
     display: inline-flex;
@@ -5490,7 +5486,7 @@ body {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: rgba(244, 246, 248, 0.26);
+    background: var(--round-key-tint);
     backdrop-filter: blur(14px);
     box-shadow:
         inset 0 0 0 1px rgba(255, 255, 255, 0.3),
@@ -5595,7 +5591,6 @@ body {
 
 /* Placed by script through --panel-width, --panel-left, --panel-caret, --panel-edge and --panel-room; above its button the edge counts from the viewport's bottom. */
 .room .anchored-panel {
-    --glass: rgba(255, 255, 255, 0.15);
     position: absolute;
     left: var(--panel-left);
     top: var(--panel-edge);
@@ -6562,7 +6557,6 @@ body {
 }
 
 .room .rules-sheet {
-    --glass: rgba(255, 255, 255, 0.15);
     box-sizing: border-box;
     width: min(354px, calc(100vw - 24px));
     max-height: calc(100dvh - 24px);
@@ -7055,7 +7049,6 @@ body {
 
 /* The list of every game scrolls inside its panel, never the page. */
 .room .game-list {
-    --glass: rgba(255, 255, 255, 0.15);
     box-sizing: border-box;
     width: min(354px, calc(100vw - 24px));
     height: min(660px, calc(100dvh - 24px));
