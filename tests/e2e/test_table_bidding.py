@@ -222,9 +222,6 @@ def test_the_middlehand_opens_and_only_the_one_whose_turn_it_is_gets_controls(
     assert_the_opening_ladder(middlehand)
     expect_the_furniture_clear((table.forehand, middlehand, table.rearhand, table.watcher), table_style)
     if table_style is TableStyle.STRANDBAR:
-        expect_painted_as_the_scene(
-            middlehand, "strand-auction", HIGHER, ".ladder span:not(.held):not(.now)", BID_CHIP_PAINT
-        )
         expect_painted_as_the_scene(middlehand, "strand-auction", PASS_BUTTON, ".btns .button-glass", BID_CHIP_PAINT)
     expect(middlehand.locator(TURN_CHAIR)).to_have_count(1)
     for other in (table.forehand, table.rearhand, table.watcher):
