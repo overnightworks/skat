@@ -7,7 +7,7 @@ from dataclasses import replace
 from datetime import timedelta
 
 import pytest
-from agents.member import ACCEPT_INVITATION_TOOL
+from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI
 from starlette.concurrency import run_in_threadpool
 
 from skat.table.records import Series, TableId
@@ -65,16 +65,6 @@ def sdk(skat, issuer):
 
 def a_person(skat, issuer):
     return Agent(skat, issuer, skat.member()[1].id, agent_owner=None, agent_name=None, groups=[MCP_GROUP])
-
-
-def events_until_the_notice(events, within=4):
-    """The events up to and including the notice that the tool list changed; the notice is not among them if none of
-    the first `within` events is it.
-    """
-    seen = []
-    while len(seen) < within and TOOLS_CHANGED not in seen:
-        seen.append(events.next_kind())
-    return seen
 
 
 class TestTheListFollowsTheMoment:
@@ -156,14 +146,14 @@ class TestTheAgentIsToldWhenTheListChanges:
             [window, view],
         )
 
-    def test_the_notice_comes_when_the_agent_sits_down_and_when_it_stands_up(self, sdk, agent):
+    def test_the_notice_comes_before_the_standing_when_the_agent_sits_down_and_when_it_stands_up(self, sdk, agent):
         with sdk.connected() as session, session.listening(tools_list_changed=True) as events:
             table_id = agent.open_table().json()["id"]
-            sitting = events_until_the_notice(events)
+            sitting = [events.next_kind() for _ in range(2)]
             agent.stand_up(table_id)
-            leaving = events_until_the_notice(events)
+            leaving = [events.next_kind() for _ in range(2)]
 
-        assert (sitting[-1], leaving[-1]) == (TOOLS_CHANGED, TOOLS_CHANGED)
+        assert (sitting, leaving) == ([TOOLS_CHANGED, STANDING_URI], [TOOLS_CHANGED, STANDING_URI])
 
 
 def on_the_apps_worker(skat, step, *arguments):
