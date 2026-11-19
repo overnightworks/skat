@@ -7728,6 +7728,34 @@ body {
     list-style: none;
 }
 
+/* The series' end: what the next series begins with under the ranks, and the minute left before a silent seat ends the table. */
+.room .result .nextline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 10px;
+    width: 100%;
+    padding-top: 4px;
+}
+
+.room .nextline .lbl {
+    color: var(--on-stage-soft);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.room .nextline .chip.len {
+    color: var(--on-stage);
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: none;
+}
+
+.room .result .plaque.timer {
+    margin: 0;
+    padding: 8px 14px;
+}
+
 .room .rank {
     display: flex;
     align-items: center;

@@ -24,10 +24,14 @@ describe("tableOfWire", () => {
         expect(tableOfWire(tableBetweenGames(1, null)).series).toBeNull();
     });
 
-    it("reads a series of the release before without a proposal as one with no refusals", () => {
+    it("reads a series of the release before without a proposal as one with no refusals and no minute running", () => {
         const series = tableOfWire(olderTable(null)).series;
 
-        expect([series?.end_proposal, series?.end_refused_seats]).toEqual([null, []]);
+        expect([series?.end_proposal, series?.end_refused_seats, series?.new_series_answer_by]).toEqual([
+            null,
+            [],
+            null,
+        ]);
     });
 
     it.each([

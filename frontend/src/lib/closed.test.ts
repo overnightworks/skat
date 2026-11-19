@@ -89,6 +89,21 @@ describe("the heading of a table its opener closed", () => {
     });
 });
 
+describe("the heading of a table whose series ended by „Aufhören“", () => {
+    it("says the series ended and names nobody", () => {
+        expect(
+            closedWords({
+                reason: "stopped",
+                empty_seconds: null,
+                unplayed_days: null,
+                closed_by_name: null,
+                standings: null,
+                game_count: null,
+            }),
+        ).toBe(words["closed.seriesEnded"]);
+    });
+});
+
 describe("the standings of an ended table", () => {
     const closedWith = { reason: "closed", empty_seconds: null, unplayed_days: null, closed_by_name: null } as const;
     const played: Ended = {

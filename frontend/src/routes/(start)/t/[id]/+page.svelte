@@ -1,5 +1,7 @@
 <script lang="ts">
     import { onMount, untrack } from "svelte";
+    import { goto } from "$app/navigation";
+    import { resolve } from "$app/paths";
     import { page } from "$app/state";
     import type { PageProps } from "./$types";
     import { chairMarks, decidingMarks, decidingPlaque, PASSED_IN_MARKS, passedInScene } from "#lib/auctionMarks.ts";
@@ -27,11 +29,21 @@
         type PlayingHand,
     } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
-    import { resultOnStage, seriesCountText, seriesEndView, seriesOver, standingsView } from "#lib/series.ts";
+    import {
+        nextSeriesLine,
+        resultOnStage,
+        seriesCountText,
+        seriesEndAnswerBy,
+        seriesEndView,
+        seriesOver,
+        standingsView,
+        stopOffered,
+    } from "#lib/series.ts";
     import { declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, Marked } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AnswerMarks from "#lib/ui/AnswerMarks.svelte";
+    import AnswerClock from "#lib/ui/AnswerClock.svelte";
     import AskPlaque from "#lib/ui/AskPlaque.svelte";
     import AwayMark from "#lib/ui/AwayMark.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
@@ -60,7 +72,9 @@
     import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SeatNoticeLine from "#lib/ui/SeatNoticeLine.svelte";
+    import NextSeriesLine from "#lib/ui/NextSeriesLine.svelte";
     import Standings from "#lib/ui/Standings.svelte";
+    import StopKey from "#lib/ui/StopKey.svelte";
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import KlassikDecor from "#lib/ui/KlassikDecor.svelte";
@@ -108,6 +122,7 @@
         sitDown,
         standUp,
         startNewSeries,
+        stopPlaying,
         takeAuctionStep,
         watchTable,
         type AbortAnswer,
@@ -203,6 +218,8 @@
         }
         if (table.result === null) countedOrdinal = null;
         outcome = { kind: "table", table };
+        // „Aufhören“ and a silent minute end the table at the series' end, and every page that watched returns to the lobby.
+        if (table.ended?.reason === "stopped") void goto(resolve("/(start)"));
         // The stage may show the result at once, so nothing of this table is set after it.
         receiveOnStage(previous, cues, closing);
     };
@@ -452,6 +469,8 @@
             {@const view = declared === null || seriesEnd.onStage ? null : resultView(outcome.table)}
             {@const ramschView = seriesEnd.onStage ? null : ramschResultView(outcome.table)}
             {@const standing = standingsView(outcome.table)}
+            {@const nextLine = nextSeriesLine(outcome.table)}
+            {@const answerBy = seriesEndAnswerBy(outcome.table)}
             {@const onResult = resultOnStage(outcome.table)}
             {@const winners =
                 standing?.winnerSeats ??
@@ -550,7 +569,14 @@
                 <ThrownEmotes chairs={outcome.table.chairs} />
             </div>
             {#if standing !== null}
-                <Standings view={standing} />
+                <Standings view={standing}>
+                    {#if nextLine !== null}
+                        <NextSeriesLine line={nextLine} />
+                    {/if}
+                    {#if answerBy !== null}
+                        <div class="plaque ask timer"><AnswerClock until={answerBy} ends /></div>
+                    {/if}
+                </Standings>
             {:else if view !== null}
                 <ResultCard
                     {view}
@@ -745,7 +771,13 @@
                         sent={sentFromVersion === current.version}
                         ontap={() => tapWeiter(current)}
                     />
-                    {#if callMode}
+                    {#if stopOffered(current)}
+                        <StopKey
+                            sent={sentFromVersion === current.version}
+                            ontap={() => send(current, stopPlaying(id, crypto.randomUUID()))}
+                        />
+                    {/if}
+                    {#if callMode && standing === null}
                         <SoundButton place="strip" />
                         {@render tableMenu("strip")}
                     {/if}

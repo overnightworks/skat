@@ -28,8 +28,8 @@ import {
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
     TABLE_SIT_SUFFIX,
-    TABLE_CLOSE_SUFFIX,
     TABLE_STAND_SUFFIX,
+    TABLE_STOP_PLAYING_SUFFIX,
     TABLES_PATH,
 } from "#lib/wire.ts";
 import {
@@ -44,7 +44,7 @@ import {
     startNewSeries,
     sitDown,
     standUp,
-    closeTable,
+    stopPlaying,
     takeDeclaringStep,
     takePushingStep,
     takeAuctionStep,
@@ -370,13 +370,13 @@ describe("asking for a table", () => {
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-1", seat: 2 });
     });
 
-    it("sends only the command id when closing the table", async () => {
+    it("sends only the command id when stopping play at the series' end", async () => {
         answerWith(Response.json(table));
 
-        expect(await closeTable(TABLE_ID, "command-3")).toEqual({ kind: "table", table });
+        expect(await stopPlaying(TABLE_ID, "command-3")).toEqual({ kind: "table", table });
 
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_CLOSE_SUFFIX}`);
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_STOP_PLAYING_SUFFIX}`);
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3" });
     });
 

@@ -54,7 +54,6 @@ function tableOf(hand: Hand | null, ...chairs: Chair[]): Table {
         version: 1,
         chairs,
         watchers: 0,
-        opened_by_me: false,
         reactions: [],
         hand,
         result: null,
