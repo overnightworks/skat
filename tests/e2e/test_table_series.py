@@ -167,6 +167,8 @@ def expect_the_proposal_asked(table: RamschTable) -> None:
         expect(person.locator(ASK)).to_contain_text(proposed)
     expect(table.pages[1].locator(ASK)).to_contain_text(waiting_for([table.names[2], table.names[3]]))
     expect(table.watcher.locator(ASK).get_by_role("button")).to_have_count(0)
+    for person in (table.pages[1], table.pages[2], table.pages[3]):
+        expect(person.get_by_role("button", name=WEITER, exact=True)).to_have_count(0)
 
 
 def expect_the_standings(person: Page, standings: list[dict[str, Any]]) -> None:
@@ -405,6 +407,7 @@ def test_a_no_ends_the_proposal_names_its_refuser_at_the_chair_and_offers_no_new
     for person in table.everyone:
         expect(person.locator(ASK)).to_have_count(0)
         expect(person.locator(".chair[data-seat='2'] .mark.declined")).to_have_count(1)
+    expect(first.get_by_role("button", name=WEITER, exact=True)).to_be_visible()
     expect(open_table_menu(first).locator(END_KEY)).to_have_count(0)
     assert page_errors == []
 
