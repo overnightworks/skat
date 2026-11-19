@@ -1,11 +1,12 @@
 from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 from skat.table.command_log import command_step, noted
-from skat.table.records import Actor, CloseTable, Ending, Receipt, Refusal, TableId, TableRecord
+from skat.table.records import Actor, Ending, Receipt, StopPlaying, TableId
 from skat.table.rules import CommandIdReusedError, ends_unplayed
+from skat.table.series_end import STOP_PLAYING_COMMAND, decide_stop_playing
 from skat.table.server_steps import members_of
 from skat.table.transactions import retried_on_duplicate_receipt
 from skat.table.views import CommandResult, view_of
@@ -15,26 +16,15 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
     from datetime import datetime
 
-    from skat.table.records import EndedTable, Replay
+    from skat.table.records import Replay
     from skat.table.transactions import TableTransactions
 
-__all__ = [
-    "CLOSE_TABLE_COMMAND",
-    "Closed",
-    "close_table",
-    "decide_close",
-    "end_unplayed_table",
-    "forget_ended_tables",
-    "table_with_opener",
-    "unplayed_tables",
-]
-
-CLOSE_TABLE_COMMAND: Final = "close-table"
+__all__ = ["Stopped", "end_unplayed_table", "forget_ended_tables", "stop_playing", "unplayed_tables"]
 
 
 @dataclass(frozen=True)
-class Closed:
-    """What a close did: the answer for the actor, and the agents whose standing the end changed, none for a refusal
+class Stopped:
+    """What a stop did: the answer for the actor, and the agents whose standing the end changed, none for a refusal
     and a replay.
     """
 
@@ -42,37 +32,30 @@ class Closed:
     members: frozenset[str]
 
 
-def decide_close(opener_account: str | None, actor: Actor) -> Refusal | None:
-    """Only the account that opened the table closes it: a person who sits or watches, and a table whose opener is
-    not known, are refused.
-    """
-    return None if opener_account == actor.account_id else Refusal.NOT_ALLOWED
-
-
-def _replayed_close(replay: Replay, actor: Actor, command: CloseTable) -> CommandResult:
-    """The ended table a close already made; any other request under its key is refused."""
-    if (replay.command, replay.payload) != (CLOSE_TABLE_COMMAND, command.table_id):
+def _replayed_stop(replay: Replay, actor: Actor, command: StopPlaying) -> CommandResult:
+    """The ended table a stop already made; any other request under its key is refused."""
+    if (replay.command, replay.payload) != (STOP_PLAYING_COMMAND, command.table_id):
         raise CommandIdReusedError
     return CommandResult(view_of(replay.table, actor.account_id, frozenset()))
 
 
-def close_table(
-    transactions: TableTransactions, actor: Actor, command: CloseTable, now: Callable[[], datetime]
-) -> Closed | None:
-    """Close the table for everyone in one transaction under its row lock, or None when no live table has the id.
+def stop_playing(
+    transactions: TableTransactions, actor: Actor, command: StopPlaying, now: Callable[[], datetime]
+) -> Stopped | None:
+    """End the table for everyone in one transaction under its row lock, or None when no live table has the id.
 
-    A retry under the command id finds the receipt of the close, which outlives the table, and answers the ended
-    table. A refusal writes no receipt, so the id stays free for the person who may close.
+    A retry under the command id finds the receipt of the stop, which outlives the table, and answers the ended
+    table. A refusal writes no receipt, so the id stays free.
     """
-    with command_step(CLOSE_TABLE_COMMAND, command.table_id) as step:
-        closed = retried_on_duplicate_receipt(lambda: _close_once(transactions, actor, command, now))
-        noted(step, None if closed is None else closed.result)
-    return closed
+    with command_step(STOP_PLAYING_COMMAND, command.table_id) as step:
+        stopped = retried_on_duplicate_receipt(lambda: _stop_once(transactions, actor, command, now))
+        noted(step, None if stopped is None else stopped.result)
+    return stopped
 
 
-def _close_once(
-    transactions: TableTransactions, actor: Actor, command: CloseTable, now: Callable[[], datetime]
-) -> Closed | None:
+def _stop_once(
+    transactions: TableTransactions, actor: Actor, command: StopPlaying, now: Callable[[], datetime]
+) -> Stopped | None:
     identifier = TableId.parse(command.table_id)
     if identifier is None:
         return None
@@ -80,34 +63,20 @@ def _close_once(
         table = transaction.locked_table(identifier)
         replay = transaction.replay(actor.account_id, command.command_id)
         if replay is not None:
-            return Closed(_replayed_close(replay, actor, command), frozenset())
+            return Stopped(_replayed_stop(replay, actor, command), frozenset())
         if table is None:
             return None
-        opener = transaction.opener_account(identifier)
-        refusal = decide_close(opener, actor)
+        refusal = decide_stop_playing(table, actor)
         if refusal is not None:
-            return Closed(CommandResult(view_of(table, actor.account_id, frozenset(), opener), refusal), frozenset())
+            return Stopped(CommandResult(view_of(table, actor.account_id, frozenset()), refusal), frozenset())
         members = members_of(transaction, table)
-        transaction.end_table(identifier, now(), Ending.closed(actor.display_name))
+        transaction.end_table(identifier, now(), Ending.stopped())
         transaction.add_receipt(
-            Receipt(actor.account_id, command.command_id, CLOSE_TABLE_COMMAND, command.table_id, identifier)
+            Receipt(actor.account_id, command.command_id, STOP_PLAYING_COMMAND, command.table_id, identifier)
         )
         ended = transaction.table(identifier)
     assert ended is not None  # noqa: S101 - narrows the type; the table this transaction ended is there as a tombstone
-    return Closed(CommandResult(view_of(ended, actor.account_id, frozenset())), members)
-
-
-def table_with_opener(
-    transactions: TableTransactions, table_id: str
-) -> tuple[TableRecord | EndedTable | None, str | None]:
-    """The table with the id and the account that opened it, an unlocked read; (None, None) for an id that names no
-    table.
-    """
-    identifier = TableId.parse(table_id)
-    if identifier is None:
-        return None, None
-    with transactions.begin() as transaction:
-        return transaction.table(identifier), transaction.opener_account(identifier)
+    return Stopped(CommandResult(view_of(ended, actor.account_id, frozenset())), members)
 
 
 def unplayed_tables(transactions: TableTransactions, days: int, now: datetime) -> tuple[TableId, ...]:

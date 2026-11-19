@@ -193,6 +193,7 @@ class TestTheNextSeries:
             "standings": None,
             "end_proposal": None,
             "end_refused_seats": [],
+            "new_series_answer_by": None,
         }
         assert (seen["result"], marks(table.read_as(table.watcher))) == (None, [False, False, False])
         assert seen["hand"] is not None

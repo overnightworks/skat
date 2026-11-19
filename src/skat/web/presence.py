@@ -253,6 +253,7 @@ class Presence:
             hold.scheduler.schedule,
             self._timer_runs,
             self.wake_table,
+            self.table_ended,
             lambda: self._stopped,
             CHAIR_RELEASE_RETRY_SECONDS,
         )

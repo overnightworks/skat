@@ -17,7 +17,6 @@ from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.ready import ReadyCommand
 from skat.table.records import (
     Actor,
-    CloseTable,
     CreateTable,
     GiveUpOptions,
     HandProgress,
@@ -35,6 +34,7 @@ from skat.table.style import StyleCommand
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
 from skat.web.tables import TABLES_PATH
+from tests.support.ended_tables import end_the_table
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -131,7 +131,7 @@ def test_a_visitor_without_a_chair_cannot_change_the_style_and_it_stays_after_a_
 
 def test_an_ended_open_table_is_listed_to_nobody(service):
     table_id = service.create(OPENER, CreateTable(command_id="command-1")).id
-    service.close(OPENER, CloseTable("command-close", table_id))
+    end_the_table(service, table_id)
 
     assert service.open_table_ids() == ()
 

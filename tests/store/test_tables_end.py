@@ -11,16 +11,19 @@ from skat.engine.deal import Position, positions_from
 from skat.store.schema import tables
 from skat.table.playing import PlayCardCommand
 from skat.table.records import (
-    CloseTable,
     CreateTable,
     EndedTable,
     Ending,
     EndReason,
     GiveUpAsked,
+    HandProgress,
     OccupantKind,
+    Series,
+    StopPlaying,
     TableRecord,
 )
 from skat.table.rules import CREATE_TABLE_COMMAND
+from skat.table.series_end import END_ANSWER_SECONDS
 from skat.table.service import TableService
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.faulty_tables import HANG_DEADLINE_SECONDS, FaultyTableTransactions
@@ -414,24 +417,35 @@ def test_the_unplayed_end_keeps_the_game_list_and_every_other_row_goes_and_store
     )
 
 
-CLOSED_AT = datetime(2026, 11, 13, 9, 0, tzinfo=UTC)
+STOPPED_AT = datetime(2026, 11, 13, 9, 0, tzinfo=UTC)
 
 
-def test_the_close_keeps_the_game_list_and_the_create_and_close_receipts_and_stores_the_closers_name(
+def at_the_series_end(transactions, stored, table_id):
+    """The table after its current series' last game: no hand, a game on the list and no game left to deal."""
+    record = stored(transactions, table_id.value)
+    save(transactions, replace(record, hand=None, progress=HandProgress(), series=Series(12, 12, number=2)))
+
+
+def stop(service, actor, table_id, command_id="stop-one"):
+    return service.stop_playing(actor, StopPlaying(command_id, table_id.value))
+
+
+def test_the_stop_keeps_the_game_list_and_the_create_and_stop_receipts_and_names_nobody(
     service, transactions, stored, engine
 ):
     table_id = listed_games_in_two_series(service, transactions, stored, "one")
+    at_the_series_end(transactions, stored, table_id)
     games = rows_of(engine, table_id.value)["game_list"]
     version = stored(transactions, table_id.value).version
 
-    result = TableService(transactions, now=lambda: CLOSED_AT).close(OPENER, CloseTable("close-one", table_id.value))
+    result = stop(TableService(transactions, now=lambda: STOPPED_AT), SEATED[1], table_id)
 
     assert result.refusal is None
     after = rows_of(engine, table_id.value)
     assert {name for name, rows in after.items() if rows} == {"tables", "series", "receipts", "game_list"}
     assert after["game_list"] == games
     assert sorted(row[:3] for row in after["receipts"]) == [
-        (OPENER.account_id, "close-one", "close-table"),
+        (SEATED[1].account_id, "stop-one", "stop-playing"),
         (OPENER.account_id, "open-one", CREATE_TABLE_COMMAND),
     ]
     with engine.connect() as connection:
@@ -440,49 +454,77 @@ def test_the_close_keeps_the_game_list_and_the_create_and_close_receipts_and_sto
                 tables.c.id == table_id.value
             )
         ).one()
-    assert tuple(row) == (CLOSED_AT, EndReason.CLOSED.value, OPENER.display_name, None)
+    assert tuple(row) == (STOPPED_AT, EndReason.STOPPED.value, None, None)
     assert replace(stored(transactions, table_id.value), last_series=None) == EndedTable(
-        table_id, version + 1, Ending.closed("Anna")
+        table_id, version + 1, Ending.stopped()
     )
 
 
-def test_the_close_deletes_the_rows_of_a_running_hand(service, transactions, stored, engine):
+def test_the_stop_deletes_the_rows_of_a_hand_that_was_running_before_the_series_end(
+    service, transactions, stored, engine
+):
     table_id = played_hand(service, transactions, stored, "one")
+    at_the_series_end(transactions, stored, table_id)
 
-    service.close(OPENER, CloseTable("close-one", table_id.value))
+    stop(service, OPENER, table_id)
 
     after = rows_of(engine, table_id.value)
     assert {name for name, rows in after.items() if rows} == {"tables", "series", "receipts"}
 
 
-def test_a_close_retry_after_the_commit_answers_the_ended_table_and_a_refusal_writes_no_receipt(
+def test_a_stop_retry_after_the_commit_answers_the_ended_table_and_a_refusal_writes_no_receipt(
     service, transactions, stored, engine
 ):
-    table_id = undealt_table(service, "one")
-    refused = service.close(SEATED[1], CloseTable("close-ben", table_id.value))
+    table_id = seated_table(service, "one", series_length=12)
+    refused = stop(service, SEATED[1], table_id, "stop-early")
     assert refused.refusal is not None
+    assert len(rows_of(engine, table_id.value)["receipts"]) == 1
+    at_the_series_end(transactions, stored, table_id)
+
+    stop(service, OPENER, table_id)
+    again = stop(service, OPENER, table_id)
+
+    assert again.view.ended.reason is EndReason.STOPPED
     assert len(rows_of(engine, table_id.value)["receipts"]) == 2
 
-    service.close(OPENER, CloseTable("close-one", table_id.value))
-    again = service.close(OPENER, CloseTable("close-one", table_id.value))
 
-    assert again.view.ended.reason is EndReason.CLOSED
-    assert len(rows_of(engine, table_id.value)["receipts"]) == 2
+def test_a_lapse_that_stops_the_table_ends_it_and_a_second_lapse_changes_nothing(service, transactions, stored, engine):
+    table_id = listed_games_in_two_series(service, transactions, stored, "one")
+    record = stored(transactions, table_id.value)
+    chairs = (replace(record.chairs[0], ready=True), *record.chairs[1:])
+    save(
+        transactions,
+        replace(
+            record,
+            hand=None,
+            progress=HandProgress(),
+            chairs=chairs,
+            series=Series(12, 12, number=2, new_series_asked_at=STOPPED_AT),
+        ),
+    )
+    later = TableService(transactions, now=lambda: STOPPED_AT + timedelta(seconds=END_ANSWER_SECONDS))
+
+    first, second = later.lapse_end_answers(table_id), later.lapse_end_answers(table_id)
+
+    assert (first.table_stopped, second.table_stopped) == (True, False)
+    assert stored(transactions, table_id.value).ending == Ending.stopped()
 
 
-def test_a_table_view_names_the_opener_from_the_create_receipt_that_outlives_the_end(
+def test_an_ask_for_new_series_is_found_with_its_instant_by_the_start_of_a_server(
     service, transactions, stored, engine
 ):
-    table_id = undealt_table(service, "one")
+    table_id = listed_games_in_two_series(service, transactions, stored, "one")
+    record = stored(transactions, table_id.value)
+    save(
+        transactions,
+        replace(
+            record, hand=None, progress=HandProgress(), series=Series(12, 12, number=2, new_series_asked_at=STOPPED_AT)
+        ),
+    )
 
-    seen_by = {actor.account_id: service.view(actor, table_id.value, NOBODY_CONNECTED) for actor in SEATED[:2]}
-    service.close(OPENER, CloseTable("close-one", table_id.value))
+    left = TableService(transactions, now=lambda: STOPPED_AT + timedelta(seconds=20)).pending_end_answers()
 
-    assert {account: view.opened_by_me for account, view in seen_by.items()} == {
-        OPENER.account_id: True,
-        SEATED[1].account_id: False,
-    }
-    assert service.view(OPENER, table_id.value, NOBODY_CONNECTED).ended.closed_by_name == "Anna"
+    assert left == {table_id.value: END_ANSWER_SECONDS - 20}
 
 
 def test_the_unplayed_end_deletes_the_rows_of_a_running_hand(service, transactions, stored, engine):
@@ -676,7 +718,8 @@ def test_two_expiries_that_meet_end_the_table_once(rivals):
 
 
 ENDINGS = (
-    pytest.param(Ending.closed("Anna"), id="closed"),
+    pytest.param(Ending(EndReason.CLOSED, closed_by_name="Anna"), id="closed"),
+    pytest.param(Ending.stopped(), id="stopped"),
     pytest.param(Ending.unplayed(UNPLAYED_DAYS), id="unplayed"),
     pytest.param(Ending.empty(DEFAULT_EMPTY_TABLE_SECONDS), id="empty"),
 )
@@ -708,7 +751,7 @@ class TestAnEndedTableThatFinishedAGame:
 
     def test_a_table_that_finished_no_game_keeps_its_closers_name_and_has_no_standings(self, service, transactions):
         table_id = undealt_table(service, "one")
-        ended_at(transactions, table_id, Ending.closed("Anna"))
+        ended_at(transactions, table_id, Ending(EndReason.CLOSED, closed_by_name="Anna"))
 
         ended = service.view(OPENER, table_id.value, NOBODY_CONNECTED).ended
 

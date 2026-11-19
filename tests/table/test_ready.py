@@ -1,6 +1,7 @@
 import itertools
 import random
 from dataclasses import replace
+from datetime import timedelta
 
 import pytest
 
@@ -24,9 +25,11 @@ from skat.table.records import (
     TableRecord,
     parsed_refusal,
 )
+from skat.table.series_end import END_ANSWER_SECONDS
 from skat.table.service import CommandIdReusedError, TableService
 from tests.support.fake_tables import FakeTableStore
 from tests.support.pending_table import ANNA, BEN, CLEO, DORA, TABLE_VERSION, pending
+from tests.support.played_game import END_ASKED_AT as ASKED
 from tests.support.played_game import an_entry
 
 
@@ -129,7 +132,7 @@ def at_the_end(*ready_seats: int, games: int = 3, number: int = 1) -> TableRecor
 
 class TestDecideNewSeries:
     def test_marks_only_the_actors_chair_and_bumps_the_version_once(self):
-        decision = decide_new_series(at_the_end(1), BEN, new_series())
+        decision = decide_new_series(at_the_end(1), BEN, new_series(), ASKED)
 
         assert decision.refusal is None
         assert ready_seats(decision.table) == [1, 2]
@@ -138,14 +141,14 @@ class TestDecideNewSeries:
     def test_marks_the_chair_after_a_passed_in_last_game(self):
         passed_in_last = replace(at_the_end(games=0), progress=HandProgress((Pass(Position.MIDDLEHAND),) * 3))
 
-        decision = decide_new_series(passed_in_last, CLEO, new_series())
+        decision = decide_new_series(passed_in_last, CLEO, new_series(), ASKED)
 
         assert (decision.refusal, ready_seats(decision.table)) == (None, [3])
 
     def test_a_chair_already_marked_is_accepted_and_changes_nothing(self):
         table = at_the_end(2)
 
-        decision = decide_new_series(table, BEN, new_series())
+        decision = decide_new_series(table, BEN, new_series(), ASKED)
 
         assert decision.refusal is None
         assert decision.table == table
@@ -158,7 +161,7 @@ class TestDecideNewSeries:
     def test_a_table_without_a_series_names_the_first_refusal_that_applies_and_changes_nothing(self, actor, refusal):
         table = replace(pending(), series=None)
 
-        decision = decide_new_series(table, actor, new_series())
+        decision = decide_new_series(table, actor, new_series(), ASKED)
 
         assert decision.refusal is refusal
         assert decision.table == table
@@ -179,7 +182,7 @@ class TestDecideNewSeries:
         ],
     )
     def test_a_series_not_over_is_named_and_changes_nothing(self, table):
-        decision = decide_new_series(table, ANNA, new_series())
+        decision = decide_new_series(table, ANNA, new_series(), ASKED)
 
         assert decision.refusal is Refusal.SERIES_NOT_OVER
         assert decision.table == table
@@ -188,25 +191,55 @@ class TestDecideNewSeries:
     def test_another_series_than_the_tables_is_stale_and_changes_nothing(self, series):
         table = at_the_end(1, number=2)
 
-        decision = decide_new_series(table, BEN, new_series(series))
+        decision = decide_new_series(table, BEN, new_series(series), ASKED)
 
         assert decision.refusal is Refusal.STALE_SERIES
         assert decision.table == table
 
     def test_the_tables_series_marks_the_chair(self):
-        decision = decide_new_series(at_the_end(number=2), BEN, new_series(2))
+        decision = decide_new_series(at_the_end(number=2), BEN, new_series(2), ASKED)
 
         assert (decision.refusal, ready_seats(decision.table)) == (None, [2])
 
     def test_another_series_is_named_before_a_series_not_over(self):
         table = replace(pending(), series=Series(6, 2, number=2))
 
-        assert decide_new_series(table, ANNA, new_series(1)).refusal is Refusal.STALE_SERIES
+        assert decide_new_series(table, ANNA, new_series(1), ASKED).refusal is Refusal.STALE_SERIES
 
     def test_a_table_without_a_series_has_no_series_whatever_is_named(self):
         table = replace(pending(), series=None)
 
-        assert decide_new_series(table, ANNA, new_series(7)).refusal is Refusal.NO_SERIES
+        assert decide_new_series(table, ANNA, new_series(7), ASKED).refusal is Refusal.NO_SERIES
+
+
+class TestTheMinuteOfNewSeries:
+    LATE = ASKED + timedelta(seconds=END_ANSWER_SECONDS)
+
+    def test_the_first_choice_starts_the_minute_at_the_instant_of_the_tap(self):
+        decision = decide_new_series(at_the_end(), ANNA, new_series(), ASKED)
+
+        assert decision.table.series.new_series_asked_at == ASKED
+
+    def test_a_later_choice_keeps_the_minute_the_first_started(self):
+        table = replace(at_the_end(1), series=replace(at_the_end().series, new_series_asked_at=ASKED))
+
+        decision = decide_new_series(table, BEN, new_series(), ASKED + timedelta(seconds=5))
+
+        assert (decision.refusal, ready_seats(decision.table)) == (None, [1, 2])
+        assert decision.table.series.new_series_asked_at == ASKED
+
+    def test_a_choice_after_the_minute_is_refused_because_the_silent_seats_end_the_table(self):
+        table = replace(at_the_end(1), series=replace(at_the_end().series, new_series_asked_at=ASKED))
+
+        decision = decide_new_series(table, BEN, new_series(), self.LATE)
+
+        assert decision.refusal is Refusal.ANSWER_TIME_OVER
+        assert decision.table == table
+
+    def test_a_chair_already_chosen_is_accepted_even_after_the_minute(self):
+        table = replace(at_the_end(1), series=replace(at_the_end().series, new_series_asked_at=ASKED))
+
+        assert decide_new_series(table, ANNA, new_series(), self.LATE).refusal is None
 
 
 class TestNewSeriesPayload:
@@ -225,7 +258,14 @@ class TestReadyPayload:
 class TestReadyRefusalTokens:
     @pytest.mark.parametrize(
         "refusal",
-        [Refusal.NO_RESULT, Refusal.STALE_RESULT, Refusal.STALE_SERIES, Refusal.NO_SERIES, Refusal.SERIES_NOT_OVER],
+        [
+            Refusal.NO_RESULT,
+            Refusal.STALE_RESULT,
+            Refusal.STALE_SERIES,
+            Refusal.NO_SERIES,
+            Refusal.SERIES_NOT_OVER,
+            Refusal.ANSWER_TIME_OVER,
+        ],
     )
     def test_a_stored_token_reads_back_to_its_refusal(self, refusal):
         assert parsed_refusal(refusal.value) is refusal

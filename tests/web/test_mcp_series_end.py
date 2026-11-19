@@ -30,6 +30,7 @@ def test_the_series_of_a_table_reads_at_the_tool_as_the_route_gives_it(skat, age
         "standings": None,
         "end_proposal": None,
         "end_refused_seats": [],
+            "new_series_answer_by": None,
     }
     assert view == skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers).json()
 

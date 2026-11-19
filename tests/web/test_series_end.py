@@ -6,7 +6,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from skat.host.app import END_ANSWER_RECOVERY_SECONDS, ServerRounds
-from skat.table.records import Actor, Refusal, Series, TableId
+from skat.table.ready import NewSeriesCommand
+from skat.table.records import Actor, Refusal, Series, TableId, TableRecord
 from skat.table.series_end import END_ANSWER_SECONDS, SeriesEndCommand
 from skat.table.service import TableService
 from skat.web.game_list import TABLE_LIST_SUFFIX
@@ -462,7 +463,7 @@ class TestTheSilentMinute:
         yes(skat, table, 1)
         yes(skat, table, 2)
 
-        assert self.lapse(skat, table, END_ANSWER_SECONDS + 1) is None
+        assert self.lapse(skat, table, END_ANSWER_SECONDS + 1).seconds_left is None
 
         series = table.read_as(table.watcher).json()["series"]
         assert (series["end_proposal"], series["end_refused_seats"], series["over"]) == (None, [3], False)
@@ -473,11 +474,11 @@ class TestTheSilentMinute:
 
         left = self.lapse(skat, table, END_ANSWER_SECONDS - 10)
 
-        assert 0 < left <= 10
+        assert 0 < left.seconds_left <= 10
         assert standing_of(table) == (1, {1})
 
     def test_a_table_that_is_gone_has_no_minute_left(self, skat):
-        assert TableService(skat.store).lapse_end_answers(TableId("0" * 32)) is None
+        assert TableService(skat.store).lapse_end_answers(TableId("0" * 32)).seconds_left is None
 
     def test_a_yes_that_came_in_time_is_no_silence(self, skat, mid_series):
         table = mid_series
@@ -485,7 +486,7 @@ class TestTheSilentMinute:
         yes(skat, table, 2)
         yes(skat, table, 3)
 
-        assert self.lapse(skat, table, END_ANSWER_SECONDS + 1) is None
+        assert self.lapse(skat, table, END_ANSWER_SECONDS + 1).seconds_left is None
 
         assert table.read_as(table.watcher).json()["series"]["over"] is True
 
@@ -535,6 +536,84 @@ class TestTheMinuteTheRouteStarts:
 
         series = series_of(mid_series)
         assert (series["end_proposal"], series["end_refused_seats"], series["over"]) == (None, [3], False)
+
+
+class TestTheMinuteOfNewSeries:
+    """At the series' end the first „Neue Serie“ starts a minute, after which a seated seat that stayed silent ends the
+    table.
+    """
+
+    @pytest.fixture
+    def skat(self, sign_in_settings, time):
+        skat = Skat(
+            sign_in_settings,
+            now=time.moment,
+            chair_clock=time.clock,
+            chair_scheduler=time,
+            rounds=ServerRounds(end_answer_recovery_seconds=END_ANSWER_SECONDS * 100),
+        )
+        with skat.client:
+            yield skat
+
+    @pytest.fixture
+    def ended(self, skat):
+        table, _ = play_a_series(skat, 3)
+        return table
+
+    def tap(self, skat, table, seat):
+        return tap_new_series(skat, headers_of(table)[seat - 1], table.table_id, f"tap-new-{seat}")
+
+    def test_the_first_tap_shows_the_minute_to_every_page_and_the_chairs_that_chose(self, skat, ended):
+        answer = self.tap(skat, ended, 1)
+
+        series = table_series = answer.json()["series"]
+        assert series["new_series_answer_by"] is not None
+        assert [chair["ready"] for chair in answer.json()["chairs"]] == [True, False, False]
+        assert ended.read_as(ended.watcher).json()["series"] == table_series
+
+    def test_a_seat_silent_for_the_minute_ends_the_table_and_the_link_shows_it_stopped(self, skat, time, ended):
+        self.tap(skat, ended, 1)
+        self.tap(skat, ended, 2)
+
+        skat.client.portal.call(time.advance, END_ANSWER_SECONDS - 1)
+        assert isinstance(skat.store.tables[ended.table_id], TableRecord)
+        skat.client.portal.call(time.advance, 1)
+
+        answer = ended.read_as(ended.watcher).json()
+        assert (answer["ended"]["reason"], answer["ended"]["game_count"]) == ("stopped", 3)
+
+    def test_every_seat_that_chose_in_time_deals_the_next_series_and_no_minute_ends_it(self, skat, time, ended):
+        for seat in (1, 2, 3):
+            assert self.tap(skat, ended, seat).status_code == 200
+        assert deal_next(skat, ended.table_id, [chair.occupant.account_id for chair in ended.record.chairs])
+
+        skat.client.portal.call(time.advance, END_ANSWER_SECONDS + 1)
+
+        table = skat.store.tables[ended.table_id]
+        assert isinstance(table, TableRecord)
+        assert table.series.number == 2
+
+    def test_a_tap_after_the_minute_is_refused_and_the_table_ends(self, skat, time, ended):
+        self.tap(skat, ended, 1)
+        skat.client.portal.call(time.advance, END_ANSWER_SECONDS - 1)
+
+        late = TableService(skat.store, now=lambda: time.moment() + timedelta(seconds=2))
+
+        answered = late.start_new_series(
+            Actor(account_id=ended.record.chairs[1].occupant.account_id, display_name="Ben"),
+            NewSeriesCommand("tap-late", ended.table_id, 1),
+            frozenset(),
+        )
+        assert answered.refusal is Refusal.ANSWER_TIME_OVER
+
+    def test_the_lapse_of_another_pod_ends_the_table_in_its_own_transaction(self, skat, time, ended):
+        self.tap(skat, ended, 1)
+        another_pod = TableService(skat.store, now=lambda: time.moment() + timedelta(seconds=END_ANSWER_SECONDS))
+
+        first = another_pod.lapse_end_answers(TableId(ended.table_id))
+
+        assert first.table_stopped
+        assert not isinstance(skat.store.tables[ended.table_id], TableRecord)
 
 
 class TestTheMinuteOfAProposalFoundInTheStore:

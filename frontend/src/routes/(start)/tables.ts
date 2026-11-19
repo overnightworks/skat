@@ -30,7 +30,7 @@ import {
     type TABLE_STYLE_TOKENS,
     SUIT_TOKENS,
     TABLE_CARD_SUFFIX,
-    TABLE_CLOSE_SUFFIX,
+    TABLE_STOP_PLAYING_SUFFIX,
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
@@ -255,14 +255,16 @@ export type Result = {
 export type PassedIn = { next_dealer_seat: number | null };
 export type EndReason = (typeof END_REASON_TOKENS)[number];
 // Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, the days nobody played,
-// or the name its opener had when closing it, which is null once the days of the link's reason have passed and for a
-// table that finished a game. Such a table carries the games its last series played and their standings, whatever the
+// or, for a table an opener closed before „Aufhören“, the name that opener had, which is null once the days of the
+// link's reason have passed and for a table that finished a game; a table whose series ended by „Aufhören“ or by a
+// silent seat names nobody. Such a table carries the games its last series played and their standings, whatever the
 // reason; one that finished none carries neither.
 type EndedPlayed = { standings: Standing[]; game_count: number } | { standings: null; game_count: null };
 export type Ended = EndedPlayed &
     (
         | { reason: Extract<EndReason, "empty">; empty_seconds: number; unplayed_days: null; closed_by_name: null }
         | { reason: Extract<EndReason, "unplayed">; empty_seconds: null; unplayed_days: number; closed_by_name: null }
+        | { reason: Extract<EndReason, "stopped">; empty_seconds: null; unplayed_days: null; closed_by_name: null }
         | {
               reason: Extract<EndReason, "closed">;
               empty_seconds: null;
@@ -321,6 +323,9 @@ export type Series = {
     end_proposal: EndProposal | null;
     // The seats whose no, or silence, ended the last proposal; empty after the next hand is dealt.
     end_refused_seats: number[];
+    // The instant a seat that has not chosen „Neue Serie“ ends the table, once the first has; null before and while
+    // the series runs.
+    new_series_answer_by: string | null;
 };
 export type TableStyle = (typeof TABLE_STYLE_TOKENS)[number];
 
@@ -341,8 +346,6 @@ export type Table = {
     style: TableStyle | null;
     bock: Bock | null;
     ended: Ended | null;
-    // True only for the account that opened the table, who may close it.
-    opened_by_me: boolean;
     // The reactions thrown at the table in the last seconds, oldest first.
     reactions: Thrown[];
 };
@@ -406,8 +409,9 @@ export function standUp(id: string, commandId: string): Promise<Outcome> {
     return post(id, TABLE_STAND_SUFFIX, { command_id: commandId });
 }
 
-export function closeTable(id: string, commandId: string): Promise<Outcome> {
-    return post(id, TABLE_CLOSE_SUFFIX, { command_id: commandId });
+// Ends the table once its series is over; it names nobody afterwards.
+export function stopPlaying(id: string, commandId: string): Promise<Outcome> {
+    return post(id, TABLE_STOP_PLAYING_SUFFIX, { command_id: commandId });
 }
 
 export type DeclaringStep =

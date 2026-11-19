@@ -60,6 +60,7 @@ class TestOpening:
             "standings": None,
             "end_proposal": None,
             "end_refused_seats": [],
+            "new_series_answer_by": None,
         }
 
     def test_a_table_opened_before_series_existed_reads_with_no_series_and_deals_on(self, skat):
@@ -238,6 +239,7 @@ class TestCounting:
             "standings": None,
             "end_proposal": None,
             "end_refused_seats": [],
+            "new_series_answer_by": None,
         }
 
     def test_a_passed_in_hand_counts_and_leaves_no_list_row(self, skat):
@@ -264,6 +266,7 @@ class TestCounting:
             "standings": [],
             "end_proposal": None,
             "end_refused_seats": [],
+            "new_series_answer_by": None,
         }
         assert answer["hand"] is None
         assert not deal_next(skat, table_id, people)
@@ -285,6 +288,7 @@ class TestCounting:
             "standings": None,
             "end_proposal": None,
             "end_refused_seats": [],
+            "new_series_answer_by": None,
         }
         assert answer["hand"] is not None
 
@@ -312,6 +316,7 @@ class TestCounting:
             "standings": None,
             "end_proposal": None,
             "end_refused_seats": [],
+            "new_series_answer_by": None,
         }
 
 
@@ -393,6 +398,7 @@ class TestTheAnswer:
             "standings",
             "end_proposal",
             "end_refused_seats",
+            "new_series_answer_by",
         }
 
 

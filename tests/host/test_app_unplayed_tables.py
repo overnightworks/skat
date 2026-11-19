@@ -8,8 +8,9 @@ from structlog.testing import capture_logs
 from webauth.config import installed_web_auth_config
 
 from skat.host.app import UNPLAYED_SWEEP_SECONDS
-from skat.table.records import CloseTable, EndReason
+from skat.table.records import EndReason
 from skat.table.service import TableService
+from tests.support.ended_tables import OLD_CLOSER, end_as_an_opener_closed_it
 from tests.support.signed_in import seed_member
 from tests.support.unplayed_tables import (
     ENDED_DAYS,
@@ -182,9 +183,9 @@ class TestUnplayedTables:
 class TestEndedTables:
     @pytest.fixture
     def closed(self, unplayed):
-        """A table its opener closed at NOW, which has no game in the history."""
+        """A table an opener closed at NOW, which has no game in the history."""
         table_id = unplayed.dealt("command-open")
-        assert unplayed.tables.close(OPENER, CloseTable("command-close", table_id.value)).refusal is None
+        end_as_an_opener_closed_it(unplayed.store, table_id.value, NOW)
         return table_id
 
     @pytest.mark.parametrize(
@@ -213,7 +214,7 @@ class TestEndedTables:
             client.portal.call(tick)
             after_the_days = unplayed.tables.view(OPENER, closed.value, frozenset())
 
-        assert before_the_days.ended.closed_by_name == OPENER.display_name
+        assert before_the_days.ended.closed_by_name == OLD_CLOSER
         assert after_the_days is None
 
     def test_a_store_failure_at_the_start_fails_the_start(self, sign_in_settings):
@@ -241,7 +242,7 @@ class TestEndedTables:
         FailingOnce.failing = False
         unplayed = UnplayedTables(sign_in_settings, FailingOnce)
         table_id = unplayed.dealt("command-open")
-        unplayed.tables.close(OPENER, CloseTable("command-close", table_id.value))
+        end_as_an_opener_closed_it(unplayed.store, table_id.value, NOW)
         with TestClient(unplayed.app()) as client:
             ((_, tick),) = unplayed.scheduler.sweeps()
             unplayed.play_on(ENDED_DAYS)

@@ -387,7 +387,8 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
 def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord:
     """The table with a new hand: its dealer, its cards, an empty auction, no chair ready and one more deal counted
     in its series; at a series' end this deal is the next series' first, so the list empties, the count starts at
-    one and the series' number rises. A deal clears the end proposal and the early end. Every deal goes through here.
+    one and the series' number rises. A deal clears the end proposal, the early end and
+    the minute of „Neue Serie“. Every deal goes through here.
     """
     starts_series = series_over(table)
     series = table.series
@@ -398,6 +399,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
             ended_early=False,
             end_proposal=None,
             end_refused_by=frozenset(),
+            new_series_asked_at=None,
             number=series.number + 1 if starts_series else series.number,
         )
     return TableRecord(

@@ -9,12 +9,12 @@ from urllib.parse import urlsplit
 
 import pytest
 from playwright.sync_api import Page, Request, Route, expect
+from skat.web.closing import TABLE_CLOSE_SUFFIX
 from sqlalchemy import delete, select, update
 
 from skat.store.game_list import append_game_list
 from skat.store.schema import metadata, tables
 from skat.table.records import OccupantKind
-from skat.web.closing import TABLE_CLOSE_SUFFIX
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.settings import DEFAULT_ENDED_TABLE_DAYS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH

@@ -15,25 +15,28 @@ from skat.table.playing import PlayCardCommand
 from skat.table.ready import ReadyCommand
 from skat.table.records import (
     Actor,
-    CloseTable,
     CreateTable,
     EndedTable,
     Ending,
     EndReason,
     HandProgress,
+    Occupant,
     OccupantKind,
     Refusal,
+    Series,
     SitDown,
     StandUp,
+    StopPlaying,
     TableId,
     TableRecord,
 )
-from skat.table.rules import CREATE_TABLE_COMMAND, ends_empty
+from skat.table.rules import CREATE_TABLE_COMMAND, ends_empty, played_series_of
+from skat.table.series_end import END_ANSWER_SECONDS, STOP_PLAYING_COMMAND
 from skat.table.service import CommandIdReusedError, TableService
 from skat.table.views import EndedView
 from tests.support.fake_tables import FakeTableStore
 from tests.support.faulty_tables import FaultyTableTransactions
-from tests.support.played_game import after_the_first_game
+from tests.support.played_game import after_the_first_game, an_entry
 
 OPENER = Actor(account_id="account-opener", display_name="Anna")
 VISITOR = Actor(account_id="account-visitor", display_name="Ben")
@@ -465,94 +468,114 @@ class TestUnplayedTables:
         assert service.unplayed_tables(UNPLAYED_DAYS) == (dealt_id,)
 
 
-def close(service, actor, table_id, command_id="command-close"):
-    return service.close(actor, CloseTable(command_id, table_id.value))
+def at_the_series_end(store, table_id):
+    """The dealt table after its series' last game: no hand, a game on the list and no game left to deal."""
+    record = store.tables[table_id.value]
+    store.tables[table_id.value] = replace(
+        record, hand=None, progress=HandProgress(), game_list=(an_entry(),), series=Series(12, 12)
+    )
+    return table_id
 
 
-class TestClose:
-    def test_ends_the_table_with_one_version_bump_and_the_closers_name(self, service, store, table_id):
-        before = store.tables[table_id.value]
+def stop(service, actor, table_id, command_id="command-stop"):
+    return service.stop_playing(actor, StopPlaying(command_id, table_id.value))
 
-        result = close(service, OPENER, table_id)
 
-        assert store.tables[table_id.value] == EndedTable(
-            table_id, before.version + 1, Ending.closed(OPENER.display_name)
-        )
-        assert store.ended_at[table_id.value] == ENDED_AT
+STOPPED_VIEW = EndedView(EndReason.STOPPED, None, None, None, None, None)
+
+
+class TestStopPlaying:
+    @pytest.fixture
+    def over_id(self, store, dealt_id):
+        return at_the_series_end(store, dealt_id)
+
+    def test_any_seated_person_ends_the_table_with_one_version_bump_and_no_name_kept(self, service, store, over_id):
+        before = store.tables[over_id.value]
+
+        result = stop(service, VISITOR, over_id)
+
         assert result.refusal is None
-        assert result.view.ended == EndedView(EndReason.CLOSED, None, None, OPENER.display_name, None, None)
+        assert store.tables[over_id.value] == EndedTable(
+            over_id, before.version + 1, Ending.stopped(), played_series_of(before)
+        )
+        assert store.ended_at[over_id.value] == ENDED_AT
+        assert result.view.ended.reason is EndReason.STOPPED
+        assert result.view.ended.closed_by_name is None
 
-    def test_ends_a_dealt_table_with_its_running_hand(self, service, store, dealt_id):
-        assert store.tables[dealt_id.value].hand is not None
+    def test_keeps_the_create_receipt_and_the_stop_receipt_and_deletes_the_others(self, service, store, over_id):
+        stop(service, OPENER, over_id)
 
-        close(service, OPENER, dealt_id)
+        assert sorted(receipt.command for receipt in store.receipts.values()) == sorted(
+            [STOP_PLAYING_COMMAND, CREATE_TABLE_COMMAND]
+        )
 
-        assert store.tables[dealt_id.value].ending == Ending.closed(OPENER.display_name)
-        assert dealt_id.value not in store.last_played_at
-
-    def test_keeps_the_create_receipt_and_the_close_receipt_and_deletes_the_others(self, service, store, dealt_id):
-        close(service, OPENER, dealt_id)
-
-        assert sorted(receipt.command for receipt in store.receipts.values()) == ["close-table", CREATE_TABLE_COMMAND]
-
-    def test_a_retry_with_the_same_command_id_answers_the_ended_view_and_changes_nothing(
-        self, service, store, table_id
-    ):
-        close(service, OPENER, table_id)
+    def test_a_retry_with_the_same_command_id_answers_the_ended_view_and_changes_nothing(self, service, store, over_id):
+        stop(service, OPENER, over_id)
         written = (dict(store.tables), dict(store.receipts))
 
-        again = close(service, OPENER, table_id)
+        again = stop(service, OPENER, over_id)
 
-        assert again.view.ended == EndedView(EndReason.CLOSED, None, None, OPENER.display_name, None, None)
+        assert again.view.ended.reason is EndReason.STOPPED
         assert written == (store.tables, store.receipts)
 
-    def test_the_command_id_is_refused_for_another_table(self, service, table_id):
-        other = TableId(service.create(OPENER, CreateTable(command_id="command-other")).id)
-        close(service, OPENER, table_id)
+    def test_a_second_person_after_the_end_finds_no_live_table(self, service, store, over_id):
+        stop(service, OPENER, over_id)
+        written = (dict(store.tables), dict(store.receipts))
+
+        assert stop(service, VISITOR, over_id, "command-stop-ben") is None
+        assert written == (store.tables, store.receipts)
+
+    def test_the_command_id_is_refused_for_another_table(self, service, store, over_id):
+        other = at_the_series_end(store, TableId(service.create(OPENER, CreateTable(command_id="command-other")).id))
+        stop(service, OPENER, over_id)
 
         with pytest.raises(CommandIdReusedError):
-            close(service, OPENER, other)
+            stop(service, OPENER, other)
 
-    def test_refuses_a_seated_person_who_did_not_open_the_table_and_writes_no_receipt(self, service, store, dealt_id):
-        written = (dict(store.tables), dict(store.receipts))
-
-        result = close(service, VISITOR, dealt_id)
-
-        assert result.refusal is Refusal.NOT_ALLOWED
-        assert written == (store.tables, store.receipts)
-
-    def test_the_command_id_is_refused_for_another_table_when_a_rival_close_commits_between_lookup_and_receipt(
-        self, store, service, table_id
+    def test_the_command_id_is_refused_for_another_table_when_a_rival_stop_commits_between_lookup_and_receipt(
+        self, store, service, over_id
     ):
-        other = TableId(service.create(OPENER, CreateTable(command_id="command-other")).id)
-        close(service, OPENER, table_id)
+        other = at_the_series_end(store, TableId(service.create(OPENER, CreateTable(command_id="command-other")).id))
+        stop(service, OPENER, over_id)
         blind = TableService(FaultyTableTransactions(store, blind_first_replay=True), now=lambda: ENDED_AT)
 
         with pytest.raises(CommandIdReusedError):
-            close(blind, OPENER, other)
+            stop(blind, OPENER, other)
 
         assert isinstance(store.tables[other.value], TableRecord)
 
-    def test_refuses_a_watcher_who_sits_nowhere(self, service, store, table_id):
-        stranger = Actor(account_id="account-stranger", display_name="Dora")
+    @pytest.mark.parametrize(
+        ("actor", "refusal"),
+        [(Actor("account-stranger", "Dora"), Refusal.NOT_SEATED)],
+        ids=["a-watcher-who-sits-nowhere"],
+    )
+    def test_a_refusal_changes_nothing_and_leaves_the_command_id_free(self, service, store, over_id, actor, refusal):
+        written = (dict(store.tables), dict(store.receipts))
 
-        assert close(service, stranger, table_id).refusal is Refusal.NOT_ALLOWED
-        assert isinstance(store.tables[table_id.value], TableRecord)
+        assert stop(service, actor, over_id).refusal is refusal
+        assert written == (store.tables, store.receipts)
+
+    def test_a_table_whose_series_is_not_over_is_refused(self, service, store, dealt_id):
+        store.tables[dealt_id.value] = replace(store.tables[dealt_id.value], series=Series(12, 2))
+
+        result = stop(service, OPENER, dealt_id)
+
+        assert result.refusal is Refusal.SERIES_NOT_OVER
+        assert isinstance(store.tables[dealt_id.value], TableRecord)
 
     def test_finds_no_table_for_an_unknown_or_an_ended_one(self, service, store, table_id):
         end_empty(service, table_id)
         written = (dict(store.tables), dict(store.receipts))
 
-        assert close(service, OPENER, table_id) is None
-        assert close(service, OPENER, TableId("0" * 32)) is None
-        assert service.close(OPENER, CloseTable("command-close", "not-an-id")) is None
+        assert stop(service, OPENER, table_id) is None
+        assert stop(service, OPENER, TableId("0" * 32)) is None
+        assert service.stop_playing(OPENER, StopPlaying("command-stop", "not-an-id")) is None
         assert written == (store.tables, store.receipts)
 
-    def test_the_closed_table_leaves_every_holders_paused_list(self, service, dealt_id):
+    def test_the_stopped_table_leaves_every_holders_paused_list(self, service, over_id):
         holders = (OPENER, VISITOR, THIRD)
-        assert all(service.paused_tables(holder, UNPLAYED_DAYS) for holder in holders)
 
-        close(service, OPENER, dealt_id)
+        stop(service, OPENER, over_id)
 
         assert [service.paused_tables(holder, UNPLAYED_DAYS) for holder in holders] == [(), (), ()]
 
@@ -561,13 +584,79 @@ class TestClose:
         service = TableService(store, now=lambda: ENDED_AT).with_standing_signal(told.append)
         agent = Actor("account-agent", "Nova", OccupantKind.AGENT, OPENER.account_id)
         service.sit(agent, SitDown("command-agent-sit", table_id.value, 2), NOBODY)
+        store.tables[table_id.value] = replace(
+            store.tables[table_id.value], series=Series(12, 12), game_list=(an_entry(),)
+        )
         told.clear()
 
-        close(service, OPENER, table_id)
-        close(service, OPENER, table_id)
+        stop(service, OPENER, table_id)
+        stop(service, OPENER, table_id)
 
         assert told == [frozenset({agent.account_id})]
 
-    def test_the_opener_is_the_open_tables_view_owner_and_nobody_else(self, service, table_id):
-        assert service.view(OPENER, table_id.value, NOBODY).opened_by_me is True
-        assert service.view(VISITOR, table_id.value, NOBODY).opened_by_me is False
+
+class TestTheLapseOfTheSeriesEndMinute:
+    """A table whose first „Neue Serie“ asked at `ENDED_AT` and whose minute ran out ends in the lapse's transaction."""
+
+    @pytest.fixture
+    def asked(self, store, dealt_id):
+        record = store.tables[dealt_id.value]
+        chairs = (replace(record.chairs[0], ready=True), *record.chairs[1:])
+        store.tables[dealt_id.value] = replace(
+            record,
+            hand=None,
+            progress=HandProgress(),
+            game_list=(an_entry(),),
+            chairs=chairs,
+            series=Series(12, 12, new_series_asked_at=ENDED_AT),
+        )
+        return dealt_id
+
+    def lapse(self, store, table_id, seconds):
+        later = ENDED_AT + timedelta(seconds=seconds)
+        return TableService(store, now=lambda: later).lapse_end_answers(table_id)
+
+    def test_a_seat_silent_for_the_minute_ends_the_table_with_the_stopped_reason(self, store, asked):
+        lapse = self.lapse(store, asked, END_ANSWER_SECONDS)
+
+        assert lapse.table_stopped
+        assert store.tables[asked.value].ending == Ending.stopped()
+        assert store.ended_at[asked.value] == ENDED_AT + timedelta(seconds=END_ANSWER_SECONDS)
+
+    def test_a_minute_with_time_left_changes_nothing_and_says_how_long_is_left(self, store, asked):
+        written = dict(store.tables)
+
+        lapse = self.lapse(store, asked, END_ANSWER_SECONDS - 10)
+
+        assert (lapse.table_stopped, 0 < lapse.seconds_left <= 10, store.tables) == (False, True, written)
+
+    def test_a_second_lapse_after_the_end_changes_nothing(self, store, asked):
+        self.lapse(store, asked, END_ANSWER_SECONDS)
+        written = dict(store.tables)
+
+        again = self.lapse(store, asked, END_ANSWER_SECONDS + 1)
+
+        assert (again.table_stopped, again.seconds_left, store.tables) == (False, None, written)
+
+    def test_a_silent_seat_that_stood_up_meanwhile_stops_no_table_and_the_next_tap_asks_again(self, store, asked):
+        record = store.tables[asked.value]
+        chairs = tuple(replace(chair, occupant=None) if chair.seat != 1 else chair for chair in record.chairs)
+        store.tables[asked.value] = replace(record, chairs=chairs)
+
+        lapse = self.lapse(store, asked, END_ANSWER_SECONDS)
+
+        assert (lapse.table_stopped, lapse.seconds_left) == (False, None)
+        assert store.tables[asked.value].series.new_series_asked_at is None
+
+    def test_tells_the_agents_of_the_table_after_the_commit(self, store, asked):
+        told = []
+        later = ENDED_AT + timedelta(seconds=END_ANSWER_SECONDS)
+        service = TableService(store, now=lambda: later).with_standing_signal(told.append)
+        record = store.tables[asked.value]
+        agent = Occupant("account-agent", "Nova", OccupantKind.AGENT, OPENER.account_id)
+        chairs = (*record.chairs[:2], replace(record.chairs[2], occupant=agent))
+        store.tables[asked.value] = replace(record, chairs=chairs)
+
+        service.lapse_end_answers(asked)
+
+        assert told == [frozenset({agent.account_id})]
