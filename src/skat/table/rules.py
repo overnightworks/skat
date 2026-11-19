@@ -220,7 +220,7 @@ def _proposal_without(proposal: EndProposal | None, seat: int) -> EndProposal | 
     """
     if proposal is None or proposal.proposer == seat:
         return None
-    return replace(proposal, agreed=proposal.agreed - {seat})
+    return EndProposal(proposal.proposer, proposal.agreed - {seat}, proposal.asked_at)
 
 
 def _give_up_without(table: TableRecord, seat: int) -> GiveUpAsked | None:
