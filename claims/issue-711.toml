@@ -1,0 +1,8 @@
+claim_id = "5ed3bb76d8564acaaaca24178b684f37"
+agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
+role = "builder"
+base = "4c8643c8f5bfbae52b0f860d078a9aab23e9af90"
+branch = "claude/issue-711-the-empty-start-page-draws-its-scene-fel"
+scope = ["frontend/src/lib/catalogs", "frontend/src/lib/start.css", "frontend/src/lib/ui", "frontend/src/routes/(start)", "tests/e2e/test_start_page.py"]
+opened_commit = "21162f488df8cade5460b82bd34e3ebd69b48232"
+whole_reason = "One scene of the start page across its route, its styles, its words and its browser test."
