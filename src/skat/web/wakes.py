@@ -124,10 +124,10 @@ class WakeChannel(Protocol):  # pragma: no cover - a port's method bodies are si
     def following(
         self,
         *,
-        on_resync: Callable[[], None],
-        on_wake: Callable[[Wake], None],
-        on_failed: Callable[[Exception], None],
-        ready_within: timedelta,
+        on_resync: Callable[[], None],  # noqa: V107 a port signature names the keywords its adapter takes
+        on_wake: Callable[[Wake], None],  # noqa: V107 a port signature names the keywords its adapter takes
+        on_failed: Callable[[Exception], None],  # noqa: V107 a port signature names the keywords its adapter takes
+        ready_within: timedelta,  # noqa: V107 a port signature names the keywords its adapter takes
     ) -> AbstractAsyncContextManager[None]: ...
 
 
