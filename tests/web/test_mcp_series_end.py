@@ -2,6 +2,7 @@ import pytest
 
 from skat.engine.deal import Position
 from skat.table.records import Refusal
+from skat.table.series_end import END_ANSWER_SECONDS
 from skat.web.mcp import AGREE_TO_END_SERIES_TOOL, GIVE_UP_GAME_TOOL, REFUSE_TO_END_SERIES_TOOL
 from skat.web.tables import TABLES_PATH
 from tests.web.support.skat import AgentTable, Skat
@@ -63,3 +64,35 @@ class TestEndingTheSeriesEarly:
         assert answer.json()["reason"] == Refusal.NO_PROPOSAL
         again = agent.call(AGREE_TO_END_SERIES_TOOL, table_id=between_games.table_id, command_id="agent-refuse-0001")
         assert "reused" in again.text
+
+
+class TestTheMinuteOfAnAgentsProposal:
+    @pytest.fixture
+    def skat(self, hold, issuer, time):
+        skat = Skat(
+            lambda: hold,
+            issuer_transports=issuer.transports,
+            now=time.moment,
+            chair_clock=time.clock,
+            chair_scheduler=time,
+            end_answer_recovery_seconds=END_ANSWER_SECONDS * 100,
+        )
+        with skat.client:
+            yield skat
+
+    def test_a_yes_through_the_tool_ends_the_proposal_a_minute_later_and_names_the_silent_seats(
+        self, skat, agent, time
+    ):
+        table = AgentTable(skat, agent, Position.MIDDLEHAND)
+        table.declared_hand_game()
+        skat.client.cookies.clear()
+        agent.call(
+            GIVE_UP_GAME_TOOL, table_id=table.table_id, command_id="agent-give-up-0001", version=table.record.version
+        )
+        proposed = agent.call(AGREE_TO_END_SERIES_TOOL, table_id=table.table_id, command_id="agent-agree-0001")
+        assert not proposed.is_error, proposed.text
+
+        skat.client.portal.call(time.advance, END_ANSWER_SECONDS)
+
+        series = agent.read(table.table_id).json()["series"]
+        assert (series["end_proposal"], series["end_refused_seats"]) == (None, [2, 3])

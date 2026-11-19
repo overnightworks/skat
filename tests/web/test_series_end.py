@@ -5,8 +5,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from skat.table.records import Refusal, Series, TableId
-from skat.table.series_end import END_ANSWER_SECONDS
+from skat.host.app import END_ANSWER_RECOVERY_SECONDS
+from skat.table.records import Actor, Refusal, Series, TableId
+from skat.table.series_end import END_ANSWER_SECONDS, SeriesEndCommand
 from skat.table.service import TableService
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.settings import DEFAULT_STREAMS_PER_ACCOUNT
@@ -21,6 +22,7 @@ from tests.web.support.series import (
     tap_new_series,
     tap_weiter,
 )
+from tests.web.support.skat import FakeTime, Skat
 
 SERIES_LENGTH = 12
 
@@ -29,6 +31,10 @@ def proposal_of(answer):
     """The proposal an answer reads, without the instant its minute ends at."""
     proposal = answer.json()["series"]["end_proposal"]
     return None if proposal is None else {key: value for key, value in proposal.items() if key != "answer_by"}
+
+
+def series_of(table):
+    return table.read_as(table.watcher).json()["series"]
 
 
 def standing_of(table):
@@ -497,3 +503,88 @@ class TestTheSilentMinute:
         left = TableService(skat.store, now=lambda: later).pending_end_answers()
 
         assert left[table.table_id] == 0.0
+
+
+class TestTheMinuteTheRouteStarts:
+    """The presence the app wires runs the minute a yes starts, here on the test's clock with no scan of the store."""
+
+    @pytest.fixture
+    def skat(self, sign_in_settings, time):
+        skat = Skat(
+            sign_in_settings,
+            now=time.moment,
+            chair_clock=time.clock,
+            chair_scheduler=time,
+            end_answer_recovery_seconds=END_ANSWER_SECONDS * 100,
+        )
+        with skat.client:
+            yield skat
+
+    def test_a_yes_posted_to_the_route_ends_the_proposal_a_minute_later_and_names_the_silent_seats(
+        self, skat, time, mid_series
+    ):
+        yes(skat, mid_series, 1)
+        yes(skat, mid_series, 2)
+
+        skat.client.portal.call(time.advance, END_ANSWER_SECONDS - 1)
+        assert series_of(mid_series)["end_proposal"] is not None
+        skat.client.portal.call(time.advance, 1)
+
+        series = series_of(mid_series)
+        assert (series["end_proposal"], series["end_refused_seats"], series["over"]) == (None, [3], False)
+
+
+class TestTheMinuteOfAProposalFoundInTheStore:
+    @pytest.fixture
+    def skat(self, sign_in_settings, time):
+        skat = Skat(sign_in_settings, now=time.moment, chair_clock=time.clock, chair_scheduler=time)
+        with skat.client:
+            yield skat
+
+    def test_a_proposal_whose_timer_ran_on_a_pod_that_is_gone_ends_while_the_server_runs(self, skat, time, mid_series):
+        first = mid_series.record.chairs[0].occupant
+        another_pod = TableService(skat.store, now=time.moment)
+        answered = another_pod.agree_to_end_series(
+            Actor(account_id=first.account_id, display_name=first.display_name),
+            SeriesEndCommand("command-yes-elsewhere", mid_series.table_id),
+            frozenset(accounts_of(mid_series)),
+        )
+        assert answered.refusal is None
+
+        skat.client.portal.call(time.advance, END_ANSWER_SECONDS + END_ANSWER_RECOVERY_SECONDS)
+
+        series = series_of(mid_series)
+        assert (series["end_proposal"], series["end_refused_seats"]) == (None, [2, 3])
+
+
+def test_a_restart_ends_the_stored_proposal_when_the_minute_it_has_left_is_over(sign_in_settings):
+    before_time, after_time = FakeTime(), FakeTime()
+    unscanned = END_ANSWER_SECONDS * 100
+    before = Skat(
+        sign_in_settings,
+        now=before_time.moment,
+        chair_clock=before_time.clock,
+        chair_scheduler=before_time,
+        end_answer_recovery_seconds=unscanned,
+    )
+    with before.client:
+        table, _ = play_a_series(before, SERIES_LENGTH, games_to_play=2)
+        yes(before, table, 1)
+    after_time.now = before_time.now + END_ANSWER_SECONDS - 10
+    after = Skat(
+        sign_in_settings,
+        store=before.store,
+        stores=before.stores,
+        now=after_time.moment,
+        chair_clock=after_time.clock,
+        chair_scheduler=after_time,
+        end_answer_recovery_seconds=unscanned,
+    )
+
+    with after.client:
+        after.client.portal.call(after_time.advance, 9)
+        assert after.store.tables[table.table_id].series.end_proposal is not None
+        after.client.portal.call(after_time.advance, 1)
+
+    series = after.store.tables[table.table_id].series
+    assert (series.end_proposal, series.end_refused_by) == (None, frozenset({2, 3}))

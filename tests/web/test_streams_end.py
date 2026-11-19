@@ -14,6 +14,7 @@ from tests.support.fake_tables import in_memory_tables
 from tests.support.idle_presence import (
     end_no_table,
     idle_agent_lease,
+    idle_end_answers,
     idle_hold,
     idle_next_deal,
     idle_presence,
@@ -114,7 +115,13 @@ class TestAStreamWhoseArrivalWriteFails:
 
         empty_table = EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_no_table, note)
         presence = Presence(
-            idle_hold(), idle_next_deal(), empty_table, idle_agent_lease(), idle_wakes(), InMemoryLeases()
+            idle_hold(),
+            idle_next_deal(),
+            empty_table,
+            idle_agent_lease(),
+            idle_wakes(),
+            InMemoryLeases(),
+            idle_end_answers(),
         )
 
         async def scenario():

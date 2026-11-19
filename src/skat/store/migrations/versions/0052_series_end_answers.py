@@ -1,7 +1,7 @@
 """Every seat answers a proposal to end the series, and the proposal's instant is stored: the seats that said yes, the
 instant the proposal was made, from which a silent seat counts as no, and the seats whose no ended the last proposal.
-The proposer's yes stays in `end_proposer`; `end_accepter` is no longer written and is read as one more yes for a
-proposal the release before wrote. A proposal standing at the migration starts its minute now.
+The proposer's yes stays in `end_proposer`; `end_accepter` is no longer written, though the release before, which serves
+beside this one, still writes it. A proposal standing at the migration gets its yes list and starts its minute now.
 """
 
 from alembic import op

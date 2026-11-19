@@ -241,9 +241,10 @@ class Presence:
         lease: AgentLease,
         wakes: WakeList,
         stream_leases: StreamLeases,
-        end_answers: EndAnswers | None = None,
+        end_answers: EndAnswers,
     ) -> None:
         self._end_answers = end_answers
+        self._end_answer_timers: set[str] = set()
         self._lease = lease
         self._stream_leases = stream_leases
         self._claimer = uuid.uuid4().hex
@@ -633,19 +634,23 @@ class Presence:
 
     def watch_end_answers(self, table_id: str, seconds_left: float) -> None:
         """Ask once `seconds_left` have passed whether the table's proposal to end the series has lapsed; the step
-        re-reads the table, so a timer for a proposal that is gone, answered or replaced does nothing.
+        re-reads the table, so a timer for a proposal that is gone, answered or replaced does nothing, and a table
+        with a timer waiting here gets no second one, since its step reports what a later proposal still has left.
         """
-        if self._stopped or self._end_answers is None:
+        if self._stopped or table_id in self._end_answer_timers:
             return
+        self._end_answer_timers.add(table_id)
         self._hold.scheduler.schedule(seconds_left, partial(self._lapse_end_answers, table_id))
 
     def watch_all_end_answers(self, seconds_left_by_table: Mapping[str, float]) -> None:
-        """Start the minute of each live table's standing proposal found at the server's start."""
+        """Start the minute of each live table's standing proposal found in the store, at the server's start and again
+        while it serves, which recovers the proposals whose timer ran on a pod that is gone.
+        """
         for table_id, seconds_left in seconds_left_by_table.items():
             self.watch_end_answers(table_id, seconds_left)
 
     async def _lapse_end_answers(self, table_id: str) -> None:
-        assert self._end_answers is not None  # noqa: S101 - narrows the type; only a presence with the step schedules it
+        self._end_answer_timers.discard(table_id)
         run = self._timer_runs.start(PresenceTimer.END_ANSWER_LAPSE, table_id, table_id=table_id)
         try:
             left = await self._end_answers.lapse(table_id)

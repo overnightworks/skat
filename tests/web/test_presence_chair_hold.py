@@ -13,7 +13,13 @@ from skat.web import presence as presence_module
 from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, HOLD_SWEEP_EVERY_SECONDS, AgentLease, Presence
 from skat.web.presence_line import EVENT, PresenceTimer
 from skat.web.stream_holder import StreamHolder
-from tests.support.idle_presence import idle_agent_lease, idle_empty_table, idle_next_deal, idle_wakes
+from tests.support.idle_presence import (
+    idle_agent_lease,
+    idle_empty_table,
+    idle_end_answers,
+    idle_next_deal,
+    idle_wakes,
+)
 from tests.support.log_lines import lines_of, logged
 from tests.web.support.presence import (
     OTHER_TABLE,
@@ -148,7 +154,13 @@ class TestALeave:
         self, holding, holds, leases, time
     ):
         other_pod = Presence(
-            chair_hold(time, holds), idle_next_deal(), idle_empty_table(), idle_agent_lease(), idle_wakes(), leases
+            chair_hold(time, holds),
+            idle_next_deal(),
+            idle_empty_table(),
+            idle_agent_lease(),
+            idle_wakes(),
+            leases,
+            idle_end_answers(),
         )
         here = connect(holding, TABLE, "anna", lambda: None)
         there = connect(other_pod, TABLE, "anna", lambda: None)
@@ -268,6 +280,7 @@ class TestALeave:
             AgentLease(LEASE_SECONDS, seated_at_both),
             idle_wakes(),
             leases,
+            idle_end_answers(),
         )
 
     @staticmethod

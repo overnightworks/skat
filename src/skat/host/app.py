@@ -104,6 +104,8 @@ if TYPE_CHECKING:
 
 
 UNPLAYED_SWEEP_SECONDS: Final = 3600
+# How often a pod re-reads the stored proposals to end a series, so one whose timer ran on a pod that is gone lapses.
+END_ANSWER_RECOVERY_SECONDS: Final = 15
 
 log = structlog.get_logger()
 
@@ -383,6 +385,26 @@ async def _end_unplayed_tables(
     return ended_count
 
 
+async def _watch_pending_end_answers(tables: TableService, presence: Presence) -> None:
+    presence.watch_all_end_answers(await run_in_threadpool(tables.pending_end_answers))
+
+
+def _recover_end_answers(tables: TableService, presence: Presence, scheduler: Scheduler, period_seconds: float) -> None:
+    """Every `period_seconds` arm the minute of each stored proposal that has no timer on this pod; a failed read is
+    logged by its type, and the next round reads again.
+    """
+
+    async def recover() -> None:
+        try:
+            await _watch_pending_end_answers(tables, presence)
+        except Exception as failure:
+            log.error("end_answers_read.failed", error_type=type(failure).__name__)
+        if not presence.stopped:
+            scheduler.schedule(period_seconds, recover)
+
+    scheduler.schedule(period_seconds, recover)
+
+
 async def _forget_ended_tables(settings: ServerSettings, tables: TableService) -> int:
     return await run_in_threadpool(tables.forget_ended_tables, settings.ended_table_days)
 
@@ -460,6 +482,7 @@ def _serving(
     scheduler: Scheduler,
     sessions: ExpirableSessions,
     unplayed_sweep_seconds: float,
+    end_answer_recovery_seconds: float,
     shared_wakes: SharedWakes,
     wakes: WakeList,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
@@ -471,7 +494,8 @@ def _serving(
             presence.watch_empty_tables(
                 await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds)
             )
-            presence.watch_all_end_answers(await run_in_threadpool(tables.pending_end_answers))
+            await _watch_pending_end_answers(tables, presence)
+            _recover_end_answers(tables, presence, scheduler, end_answer_recovery_seconds)
             await _end_unplayed_tables(settings, tables, presence, at_start=True)
             await _forget_ended_tables(settings, tables)
             forget_expired_sessions = _session_forgetter(serving, sessions)
@@ -513,6 +537,7 @@ def create_app(
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
     unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
+    end_answer_recovery_seconds: float = END_ANSWER_RECOVERY_SECONDS,
     resource_changes: Callable[[PlaceStore, AgentRoster], ResourceChanges] = _agent_changes,
     database_ready: Callable[[], Awaitable[bool]] = _always_ready,
 ) -> FastAPI:
@@ -532,7 +557,17 @@ def create_app(
     presence = _presence(settings, tables, chair_clock, scheduler, wakes, pods.stream_leases)
 
     app = _new_app(
-        _serving(settings, tables, presence, scheduler, stores.sessions, unplayed_sweep_seconds, shared_wakes, wakes)
+        _serving(
+            settings,
+            tables,
+            presence,
+            scheduler,
+            stores.sessions,
+            unplayed_sweep_seconds,
+            end_answer_recovery_seconds,
+            shared_wakes,
+            wakes,
+        )
     )
     app.include_router(create_router(page_build, stores.sessions, sign_in_configs.web_auth, database_ready))
     app.include_router(create_account_router(settings.oidc_issuer))
