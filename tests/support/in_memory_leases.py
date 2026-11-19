@@ -77,7 +77,6 @@ class InMemoryLeases:
         self,
         handle: Callable[[Lapse], Awaitable[None]],
         *,
-        claimer: str,
         every: timedelta,
     ) -> None:
         if self.serving_fails:
