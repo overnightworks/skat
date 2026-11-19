@@ -111,8 +111,9 @@ SET_TURN_STATE_DECLARATION: Final = ToolDeclaration(
     name=SET_TURN_STATE_TOOL,
     description=(
         "State at a table you sit at whether a turn of yours is running: thinking true when one starts, and after it "
-        "ends none, or why your turns there stop. Everyone at the table sees it beside your name until your next "
-        "statement there. It is refused as not_held when you hold no chair there."
+        "ends none, or why your turns there stop. The table and the lobby carry it for your chair there until your "
+        "next statement or until you leave the chair; thinking counts for a limited time only. It is refused as "
+        "not_held when you hold no chair there."
     ),
     parameters=tool_parameters(SetTurnStateArguments),
     effect=ToolEffect.SIDE_EFFECTING,
