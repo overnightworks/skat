@@ -276,12 +276,16 @@ class TestDecideEndAnswerLapse:
 
 class TestRecords:
     def test_the_proposer_agrees_to_its_own_proposal(self):
+        agreed = frozenset({1})
+
         with pytest.raises(ValueError, match="proposer of an end agrees"):
-            EndProposal(2, frozenset({1}), END_ASKED_AT)
+            EndProposal(2, agreed, END_ASKED_AT)
 
     def test_a_proposal_every_seat_agreed_to_is_no_proposal(self):
+        agreed = frozenset({1, 2, 3})
+
         with pytest.raises(ValueError, match="every seat agreed"):
-            EndProposal(1, frozenset({1, 2, 3}), END_ASKED_AT)
+            EndProposal(1, agreed, END_ASKED_AT)
 
     def test_a_series_that_ended_early_cannot_hold_a_proposal(self):
         proposal = an_end_proposal(1)
