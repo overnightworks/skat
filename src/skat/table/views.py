@@ -359,12 +359,10 @@ def view_of(
     viewer_account_id: str,
     connected_accounts: frozenset[str],
     opener_account: str | None = None,
-    *,
     now: datetime | None = None,
 ) -> TableView:
     """The table as one account sees it: only the viewer's own chair is marked mine, and the table only if the viewer
-    is `opener_account`, the account that opened it. A chair's occupant is shown thinking only when `now`, the clock
-    its statement was stamped on, says how long ago it began.
+    is `opener_account`, the account that opened it. A chair shows thinking only when given `now`, the stamping clock.
 
     The watchers are the connected accounts without a chair, each counted once. A chair is away when its occupant is not
     the viewer and has no connected stream; nothing is stored for it. While a hand runs, every chair shows its position
