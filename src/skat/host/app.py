@@ -219,6 +219,15 @@ def _caller_membership(
     return CallerMembership(groups, sign_in_configs.web_auth, relying_party.issuer, clock)
 
 
+def _agent_roster(
+    changes: ResourceChanges,
+    relying_party: OidcRelyingParty,
+    records: AgentRecords,
+    sign_in_configs: SignInConfigs,
+) -> AgentRoster:
+    return AgentRoster(changes.listeners, relying_party.issuer, records, sign_in_configs.web_auth.signing_key)
+
+
 def _agent_changes(store: PlaceStore) -> ResourceChanges:
     """The changes the pods tell their listening agents through `store`."""
     return ResourceChanges(store)
@@ -503,9 +512,7 @@ def create_app(
     relying_party = build_relying_party(sign_in_configs, issuer_transports)
 
     changes = resource_changes(pods.place_store)
-    roster = AgentRoster(
-        changes.listeners, relying_party.issuer, pods.agent_records, sign_in_configs.web_auth.signing_key
-    )
+    roster = _agent_roster(changes, relying_party, pods.agent_records, sign_in_configs)
     # Wrapped first, so the timers' commands capture the service that counts leases and tells agents.
     tables = _telling_agents(tables, lambda: presence.live_leases(), changes, relying_party.issuer)
     # One scheduler and one clock of waits serve the presence and the member front, so stopping the presence cancels
