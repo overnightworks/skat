@@ -13,13 +13,30 @@ if TYPE_CHECKING:
 ARRIVAL_SECONDS = 10
 
 
+class RecordingChannel:
+    """A pod's channel: records the addresses published through it and passes the rest on to the channel it wraps."""
+
+    def __init__(self, channel: WakeChannel) -> None:
+        self._channel = channel
+        self.attempted: list[str] = []
+        self.finished: list[str] = []
+
+    async def publish(self, address: str) -> None:
+        self.attempted.append(address)
+        await self._channel.publish(address)
+        self.finished.append(address)
+
+    def __getattr__(self, name):
+        return getattr(self._channel, name)
+
+
 class Pod:
     """One pod of a test: its wake list, which publishes through the pod's channel, and the registrations it counts."""
 
     def __init__(self, channel: WakeChannel) -> None:
-        self.channel = channel
+        self.channel = RecordingChannel(channel)
         self.ended = asyncio.Event()
-        self.shared = SharedWakes(channel, end_process=self.ended.set)
+        self.shared = SharedWakes(self.channel, end_process=self.ended.set)
         self.wake_list = WakeList(self.shared.publish)
         self.woken: dict[str, int] = {}
         self._arrived = asyncio.Event()

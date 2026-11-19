@@ -233,7 +233,6 @@ class Presence:
     ) -> None:
         self._lease = lease
         self._stream_leases = stream_leases
-        self._claimer = uuid.uuid4().hex
         self.waits = AskClock(hold.clock)
         self.reactions = ReactionLog(hold.clock)
         self._lease_ends: dict[str, float] = {}
@@ -291,7 +290,7 @@ class Presence:
         """Store the leave of a stream that lapsed on a pod that did not end it and wake its table, on every pod,
         until cancelled. Every pod serves them; each lapse is claimed by one.
         """
-        await self._stream_leases.serve_lapses(self._leave_lapsed, claimer=self._claimer, every=LAPSE_SWEEP_EVERY)
+        await self._stream_leases.serve_lapses(self._leave_lapsed, every=LAPSE_SWEEP_EVERY)
 
     async def _leave_lapsed(self, lapse: Lapse) -> None:
         """Store the leave only where no hold exists, since tandem queues a lapse for every lease that ends, a close's
