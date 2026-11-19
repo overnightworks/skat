@@ -181,7 +181,6 @@ class ServerSteps:
             if decision.table.version == table.version:
                 return None if left is None else max(0.0, left.total_seconds())
             transaction.save_table(decision.table, played_at=None)
-        self._tell_moments(moment_recipients(table, decision.table))
         self._tell_view(table_id, view_recipients(table, decision.table))
         return None
 
