@@ -194,6 +194,7 @@ describe("watchTable after a stream error", () => {
         watchTable(TABLE_ID, onTable, vi.fn(), onConnection, vi.fn());
         const ended = {
             id: TABLE_ID,
+            series: null,
             ended: {
                 reason: "empty",
                 empty_seconds: 1800,
@@ -313,10 +314,10 @@ describe("watchTable after a stream error", () => {
         const onTable = vi.fn();
         const onConnection = vi.fn();
         watchTable(TABLE_ID, onTable, vi.fn(), onConnection, vi.fn());
-        FakeEventSource.last.message(JSON.stringify({ id: TABLE_ID, ended: null }));
+        FakeEventSource.last.message(JSON.stringify({ id: TABLE_ID, series: null, ended: null }));
 
         expect(FakeEventSource.last.url).toContain(TABLES_PATH);
-        expect(onTable).toHaveBeenCalledWith({ id: TABLE_ID, ended: null });
+        expect(onTable).toHaveBeenCalledWith({ id: TABLE_ID, series: null, ended: null });
         expect(FakeEventSource.last.close).not.toHaveBeenCalled();
         expect(onConnection).toHaveBeenCalledWith(true);
     });

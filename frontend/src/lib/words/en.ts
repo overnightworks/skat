@@ -638,6 +638,9 @@ const translated = {
     "table.objectShell": "Shell",
     "table.objectCoaster": "Coaster",
     "table.objectLamp": "Lamp",
+    "table.answerClock": (gaps: { readonly time: string }) => "no answer in " + gaps.time + " = no",
+    "table.refusedToEndOne": (gaps: { readonly names: string }) => gaps.names + " wants to play on",
+    "table.refusedToEndMany": (gaps: { readonly names: string }) => gaps.names + " want to play on",
 } satisfies Words;
 // A translation that leaves out a gap of its source fails here.
 ({}) as Words satisfies typeof translated;

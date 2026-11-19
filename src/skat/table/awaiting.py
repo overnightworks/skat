@@ -117,4 +117,4 @@ def _give_up_waits_for(view: TableView, seat: int) -> bool:
 
 def _proposal_waits_for(view: TableView, seat: int) -> bool:
     proposal = None if view.series is None else view.series.end_proposal
-    return proposal is not None and seat not in (proposal.proposer, proposal.accepter)
+    return proposal is not None and seat not in proposal.agreed

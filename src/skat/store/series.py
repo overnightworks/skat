@@ -1,5 +1,5 @@
 """The `series` rows: one per series of a table, holding the length and options the series started with and its
-counters, end proposal and Bock rounds.
+counters, end proposal, its answers and Bock rounds.
 
 Every write here happens in a transaction that holds the table's row lock (`_table_record`'s `with_for_update`, taken by
 `locked_table`), so a series row needs no lock of its own and a later change that locks several tables keeps taking
@@ -37,10 +37,20 @@ def _counters_of(table: TableRecord) -> dict[str, object]:
         "deals": None if current is None else current.deals,
         "ended_early": current is not None and current.ended_early,
         "end_proposer": None if proposal is None else proposal.proposer,
-        "end_accepter": None if proposal is None else proposal.accepter,
+        "end_accepter": None if proposal is None else _accepter_of(proposal),
+        "end_agreed": [] if proposal is None else sorted(proposal.agreed),
+        "end_asked_at": None if proposal is None else proposal.asked_at,
+        "end_refused_by": [] if current is None else sorted(current.end_refused_by),
         "bock_rounds": list(table.bock.remaining),
         "ramsch_round_games": table.bock.ramsch_games,
     }
+
+
+def _accepter_of(proposal: EndProposal) -> int | None:
+    """The one seat besides the proposer that said yes, as the release before stores it; every seat saying yes ends the
+    series, so no proposal holds two.
+    """
+    return next(iter(proposal.agreed - {proposal.proposer}), None)
 
 
 def _length_of(table: TableRecord) -> int | None:
@@ -92,8 +102,21 @@ def series_of(row: Row[Any]) -> Series | None:
     """The series a row holds, None for the row of a table with no series."""
     if row.length is None:
         return None
-    end_proposal = None if row.end_proposer is None else EndProposal(row.end_proposer, row.end_accepter)
-    return Series(row.length, row.deals, number=row.number, ended_early=row.ended_early, end_proposal=end_proposal)
+    proposal = _proposal_of(row)
+    return Series(
+        row.length,
+        row.deals,
+        number=row.number,
+        ended_early=row.ended_early,
+        end_proposal=proposal,
+        end_refused_by=frozenset(row.end_refused_by),
+    )
+
+
+def _proposal_of(row: Row[Any]) -> EndProposal | None:
+    if row.end_proposer is None:
+        return None
+    return EndProposal(row.end_proposer, frozenset(row.end_agreed), row.end_asked_at)
 
 
 def bock_of(row: Row[Any]) -> BockRounds:

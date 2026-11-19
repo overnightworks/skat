@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Final, NoReturn, Protocol
 import structlog
 from logline import unit_trace
 
+from skat.web.end_answers import EndAnswers, EndAnswerWatch
 from skat.web.presence_line import PresenceTimer, TimerRuns
 from skat.web.presence_roster import PresenceUnknownError, Present, StreamLeases
 from skat.web.reaction_log import ReactionLog
@@ -230,6 +231,7 @@ class Presence:
         lease: AgentLease,
         wakes: WakeList,
         stream_leases: StreamLeases,
+        end_answers: EndAnswers,
     ) -> None:
         self._lease = lease
         self._stream_leases = stream_leases
@@ -245,6 +247,15 @@ class Presence:
         self._pauses: dict[str, object] = {}
         self._empty_waits: dict[str, object] = {}
         self._timer_runs = TimerRuns()
+        self.end_answer_watch = EndAnswerWatch(
+            end_answers,
+            hold.clock,
+            hold.scheduler.schedule,
+            self._timer_runs,
+            self.wake_table,
+            lambda: self._stopped,
+            CHAIR_RELEASE_RETRY_SECONDS,
+        )
         self._state = threading.Lock()
         self._writing: set[asyncio.Event] = set()
         self._reads: set[Future[Present]] = set()

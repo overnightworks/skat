@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord
     from skat.table.transactions import (
         HeldChair,
+        LiveAsk,
         LiveWait,
         PausedFacts,
         TableTransaction,
@@ -121,6 +122,9 @@ class _FaultyTransaction:
 
     def live_empty_since(self) -> tuple[LiveWait, ...]:
         return self._inner.live_empty_since()
+
+    def live_end_asks(self) -> tuple[LiveAsk, ...]:
+        return self._inner.live_end_asks()
 
     def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
         self._inner.store_leave(table_id, account_id, hold_seconds, newest_wins=newest_wins)

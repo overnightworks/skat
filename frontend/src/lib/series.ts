@@ -1,4 +1,5 @@
-import { facesOf, namesOf, type AskButton, type AskView } from "#lib/giveUp.ts";
+import type { SeatNotice } from "#lib/openChair.ts";
+import { facesOf, namesOf, type AnswerMark, type AskButton, type AskView } from "#lib/giveUp.ts";
 import { declaredResult, LEVEL_WORDS, ramschResultView, withMinus } from "#lib/result.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { SeriesEntry } from "../routes/(start)/seriesList.ts";
@@ -28,13 +29,13 @@ export function seriesEndAsk(table: Table): AskView<SeriesEndAnswer> | null {
     const proposal = table.series?.end_proposal;
     if (!proposal) return null;
     const viewerSeat = table.chairs.find((chair) => chair.is_mine)?.seat;
-    const answeredSeats = new Set([proposal.proposer_seat, proposal.accepter_seat]);
+    const answeredSeats = new Set(proposal.agreed_seats);
     const waitingSeats = table.chairs.map((chair) => chair.seat).filter((seat) => !answeredSeats.has(seat));
     if (viewerSeat !== undefined && answeredSeats.has(viewerSeat)) {
         const faces = facesOf(table.chairs, waitingSeats);
         const names = namesOf(faces);
         const text = faces.length > 0 ? words["table.waitingFor"]({ names }) : words["table.waitingForPlayers"];
-        return { text, faces, waits: true, buttons: [] };
+        return { text, faces, waits: true, buttons: [], answerBy: proposal.answer_by };
     }
     // The proposal goes with its proposer's chair, so a standing one names a seated proposer.
     const proposers = facesOf(table.chairs, [proposal.proposer_seat]);
@@ -43,6 +44,60 @@ export function seriesEndAsk(table: Table): AskView<SeriesEndAnswer> | null {
         faces: proposers,
         waits: false,
         buttons: viewerSeat === undefined ? [] : SERIES_END_BUTTONS,
+        answerBy: proposal.answer_by,
+    };
+}
+
+// The mark each seat of the standing proposal carries at its chair: yes or still to answer; after a no, or a silent
+// minute, the seats that refused wear a cross until the next hand.
+export function seriesEndMarks(table: Table): ReadonlyMap<number, AnswerMark> {
+    const series = table.series;
+    if (!series) return new Map();
+    const proposal = series.end_proposal;
+    if (proposal === null) return new Map(series.end_refused_seats.map((seat) => [seat, "declined"]));
+    return new Map(
+        table.chairs
+            .filter((chair) => chair.occupant_name !== null)
+            .map((chair) => [chair.seat, proposal.agreed_seats.includes(chair.seat) ? "agreed" : "unanswered"]),
+    );
+}
+
+// The line that names who refused the proposal, until the next hand; null while none did or one stands.
+export function seriesRefusalNotice(table: Table): SeatNotice | null {
+    const series = table.series;
+    if (series?.end_proposal !== null || series.end_refused_seats.length === 0) return null;
+    const faces = facesOf(table.chairs, series.end_refused_seats);
+    if (faces.length === 0) return null;
+    const names = namesOf(faces);
+    return {
+        text:
+            faces.length === 1 ? words["table.refusedToEndOne"]({ names }) : words["table.refusedToEndMany"]({ names }),
+        initials: faces.map((face) => face.initial),
+        seat: null,
+        occupied: true,
+    };
+}
+
+// A proposal stands or has just been refused: the table shows that question in place of the last game's result.
+export function seriesEndOnStage(table: Table): boolean {
+    const series = table.series;
+    return series !== null && (series.end_proposal !== null || series.end_refused_seats.length > 0);
+}
+
+export type SeriesEndView = {
+    ask: AskView<SeriesEndAnswer> | null;
+    marks: ReadonlyMap<number, AnswerMark>;
+    onStage: boolean;
+    refusal: SeatNotice | null;
+};
+
+// What the table draws of a proposal to end the series and of its refusal.
+export function seriesEndView(table: Table): SeriesEndView {
+    return {
+        ask: seriesEndAsk(table),
+        marks: seriesEndMarks(table),
+        onStage: seriesEndOnStage(table),
+        refusal: seriesRefusalNotice(table),
     };
 }
 
@@ -50,6 +105,7 @@ export function seriesEndAsk(table: Table): AskView<SeriesEndAnswer> | null {
 export function seriesEndOffered(table: Table): boolean {
     const series = table.series;
     if (series === null || series.over || series.game_number === 0 || series.end_proposal !== null) return false;
+    if (series.end_refused_seats.length > 0) return false;
     return table.hand === null && table.chairs.some((chair) => chair.is_mine);
 }
 

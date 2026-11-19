@@ -42,6 +42,7 @@ from skat.web.constants import (
     STREAM_HEARTBEAT_SECONDS,
 )
 from skat.web.declaring import create_declaring_router
+from skat.web.end_answers import EndAnswers
 from skat.web.game_list import create_game_list_router
 from skat.web.gate import session_gate
 from skat.web.kontra import create_kontra_router
@@ -103,6 +104,22 @@ if TYPE_CHECKING:
 
 
 UNPLAYED_SWEEP_SECONDS: Final = 3600
+# How often a pod re-reads the stored proposals to end a series, so one whose timer ran on a pod that is gone lapses.
+END_ANSWER_RECOVERY_SECONDS: Final = 15
+
+
+@dataclass(frozen=True, kw_only=True)
+class ServerRounds:
+    """How often the server runs its two standing rounds: the end of unplayed tables and the re-read of the stored end
+    proposals.
+    """
+
+    unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS
+    end_answer_recovery_seconds: float = END_ANSWER_RECOVERY_SECONDS
+
+
+STANDARD_ROUNDS: Final = ServerRounds()
+
 
 log = structlog.get_logger()
 
@@ -259,6 +276,13 @@ def _next_deal(tables: TableService) -> NextDeal:
     return NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal)
 
 
+def _end_answers(tables: TableService) -> EndAnswers:
+    async def lapse(table_id: str) -> float | None:
+        return await run_in_threadpool(tables.lapse_end_answers, TableId(table_id))
+
+    return EndAnswers(lapse)
+
+
 def _empty_table(settings: ServerSettings, tables: TableService) -> EmptyTable:
     async def end(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
         return await run_in_threadpool(
@@ -288,6 +312,7 @@ def _presence(
         _agent_lease(tables),
         wakes,
         stream_leases,
+        _end_answers(tables),
     )
 
 
@@ -374,6 +399,26 @@ async def _end_unplayed_tables(
     return ended_count
 
 
+async def _watch_pending_end_answers(tables: TableService, presence: Presence) -> None:
+    presence.end_answer_watch.watch_all(await run_in_threadpool(tables.pending_end_answers))
+
+
+def _recover_end_answers(tables: TableService, presence: Presence, scheduler: Scheduler, period_seconds: float) -> None:
+    """Every `period_seconds` arm the minute of each stored proposal that has no timer on this pod; a failed read is
+    logged by its type, and the next round reads again.
+    """
+
+    async def recover() -> None:
+        try:
+            await _watch_pending_end_answers(tables, presence)
+        except Exception as failure:
+            log.error("end_answers_read.failed", error_type=type(failure).__name__)
+        if not presence.stopped:
+            scheduler.schedule(period_seconds, recover)
+
+    scheduler.schedule(period_seconds, recover)
+
+
 async def _forget_ended_tables(settings: ServerSettings, tables: TableService) -> int:
     return await run_in_threadpool(tables.forget_ended_tables, settings.ended_table_days)
 
@@ -450,7 +495,7 @@ def _serving(
     presence: Presence,
     scheduler: Scheduler,
     sessions: ExpirableSessions,
-    unplayed_sweep_seconds: float,
+    rounds: ServerRounds,
     shared_wakes: SharedWakes,
     wakes: WakeList,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
@@ -462,11 +507,13 @@ def _serving(
             presence.watch_empty_tables(
                 await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds)
             )
+            await _watch_pending_end_answers(tables, presence)
+            _recover_end_answers(tables, presence, scheduler, rounds.end_answer_recovery_seconds)
             await _end_unplayed_tables(settings, tables, presence, at_start=True)
             await _forget_ended_tables(settings, tables)
             forget_expired_sessions = _session_forgetter(serving, sessions)
             await forget_expired_sessions()
-            _sweep_tables(settings, tables, presence, scheduler, forget_expired_sessions, unplayed_sweep_seconds)
+            _sweep_tables(settings, tables, presence, scheduler, forget_expired_sessions, rounds.unplayed_sweep_seconds)
             # The holds are stored, so the first sweep frees those that fell due while no pod ran; none starts anew.
             presence.start_hold_sweeps()
             lapses = asyncio.create_task(presence.serve_lapses())
@@ -490,6 +537,30 @@ def _new_app(lifespan: Callable[[FastAPI], AbstractAsyncContextManager[None]]) -
     return app
 
 
+def _install_agent_front(
+    app: FastAPI,
+    settings: ServerSettings,
+    tables: TableService,
+    presence: Presence,
+    scheduler: Scheduler,
+    roster: AgentRoster,
+    changes: ResourceChanges,
+    relying_party: OidcRelyingParty,
+    stores: SignInPorts,
+    page_build: PageBuild,
+) -> None:
+    mcp = mount_mcp(
+        app,
+        relying_party,
+        stores.transaction,
+        settings.public_origin,
+        _agent_heard(presence, roster),
+        member_front(tables, presence, changes, scheduler, presence.waits),
+    )
+    app.state.mcp_front = mcp.front
+    _install_web_auth(app, stores.sessions, page_build, settings.call_origin, mcp)
+
+
 def create_app(
     settings: ServerSettings,
     *,
@@ -502,7 +573,7 @@ def create_app(
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
-    unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
+    rounds: ServerRounds = STANDARD_ROUNDS,
     resource_changes: Callable[[PlaceStore], ResourceChanges] = _agent_changes,
     database_ready: Callable[[], Awaitable[bool]] = _always_ready,
 ) -> FastAPI:
@@ -523,7 +594,16 @@ def create_app(
     presence = _presence(settings, tables, chair_clock, scheduler, wakes, pods.stream_leases)
 
     app = _new_app(
-        _serving(settings, tables, presence, scheduler, stores.sessions, unplayed_sweep_seconds, shared_wakes, wakes)
+        _serving(
+            settings,
+            tables,
+            presence,
+            scheduler,
+            stores.sessions,
+            rounds,
+            shared_wakes,
+            wakes,
+        )
     )
     app.include_router(create_router(page_build, stores.sessions, sign_in_configs.web_auth, database_ready))
     app.include_router(create_account_router(settings.oidc_issuer))
@@ -536,15 +616,6 @@ def create_app(
     app.include_router(create_nudging_router(tables, presence, nudge_signal(changes, relying_party.issuer)))
     _include_stream_routers(app, settings, tables, presence, wakes, slots, stores.sessions, heartbeat_seconds)
     _install_sign_in(app, sign_in_configs, relying_party, stores, page_build)
-    mcp = mount_mcp(
-        app,
-        relying_party,
-        stores.transaction,
-        settings.public_origin,
-        _agent_heard(presence, roster),
-        member_front(tables, presence, changes, scheduler, presence.waits),
-    )
-    app.state.mcp_front = mcp.front
-    _install_web_auth(app, stores.sessions, page_build, settings.call_origin, mcp)
+    _install_agent_front(app, settings, tables, presence, scheduler, roster, changes, relying_party, stores, page_build)
 
     return app

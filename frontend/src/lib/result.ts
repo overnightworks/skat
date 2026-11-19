@@ -370,6 +370,7 @@ export function awaitedNames(chairs: readonly Chair[]): string[] {
 export function weiterBar(table: Table): WeiterBar | null {
     const own = table.chairs.find((chair) => chair.is_mine);
     if (own === undefined || (table.result === null && table.series?.over !== true)) return null;
+    if (table.series?.end_proposal) return null;
     const awaited = awaitedNames(table.chairs);
     if (!own.ready) return { kind: "tap", again: false };
     if (awaited.length === 0) return { kind: "tap", again: true };

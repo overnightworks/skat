@@ -5,6 +5,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Self
 
 from skat.engine.bidding import BidRefusal
+from skat.engine.deal import SEATS
 from skat.engine.declaration import DeclarationRefusal
 from skat.engine.kontra import KontraOptions, KontraRefusal
 from skat.engine.schieberamsch import GrandHandRule, PushOptions, PushRefusal
@@ -233,6 +234,7 @@ class Refusal(StrEnum):
     SERIES_NOT_OVER = "series-not-over"
     NO_GAME_YET = "no-game-yet"
     NO_PROPOSAL = "no-proposal"
+    END_REFUSED = "end-refused"
     RULE_OFF = "rule-off"
     NOT_AN_AGENT = "not-an-agent"
     SEAT_OPEN = "seat-open"
@@ -385,30 +387,42 @@ class HandProgress:
 
 @dataclass(frozen=True)
 class EndProposal:
-    """A proposal to end the series between games: the seat that proposed it and the one other seat that has accepted
-    so far; the second acceptance ends the series, so none holds two.
+    """A proposal to end the series between games: the seat that proposed it, the seats that agreed so far, the
+    proposer's among them, and the instant it was made, from which the seats that stay silent count as no. The series
+    ends once every seat agreed, so a proposal never holds all three.
     """
 
     proposer: int
-    accepter: int | None = None
+    agreed: frozenset[int]
+    asked_at: datetime
 
     def __post_init__(self) -> None:
-        if self.accepter == self.proposer:
-            message = "the proposer of an end cannot also accept it"
+        if self.proposer not in self.agreed:
+            message = "the proposer of an end agrees to it"
             raise ValueError(message)
+        if self.agreed >= set(SEATS):
+            message = "a proposal every seat agreed to has ended the series"
+            raise ValueError(message)
+
+    @classmethod
+    def by(cls, proposer: int, asked_at: datetime) -> Self:
+        """The proposal of `proposer` alone, made at `asked_at`."""
+        return cls(proposer, frozenset({proposer}), asked_at)
 
 
 @dataclass(frozen=True)
 class Series:
     """A table's series: its fixed `length` in games, the `deals` made so far, a passed-in hand included, whether it
-    `ended_early` by consent before its last game and the `end_proposal` standing between two games. `number` numbers
-    the table's series, 1 for the first.
+    `ended_early` by consent of every seat before its last game and the `end_proposal` standing between two games.
+    `end_refused_by` names the seats whose no, or silence, ended the last proposal, until the next deal. `number`
+    numbers the table's series, 1 for the first.
     """
 
     length: int
     deals: int
     ended_early: bool = False
     end_proposal: EndProposal | None = None
+    end_refused_by: frozenset[int] = frozenset()
     number: int = 1
 
     def __post_init__(self) -> None:
@@ -425,6 +439,9 @@ class Series:
             raise ValueError(message)
         if self.ended_early and self.deals == self.length:
             message = "a series that played its last game did not end early"
+            raise ValueError(message)
+        if self.end_proposal is not None and self.end_refused_by:
+            message = "a standing proposal follows no refusal"
             raise ValueError(message)
         if self.number < 1:
             message = "a series is numbered from one"

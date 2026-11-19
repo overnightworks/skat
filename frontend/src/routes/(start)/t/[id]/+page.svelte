@@ -27,7 +27,7 @@
         type PlayingHand,
     } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
-    import { resultOnStage, seriesCountText, seriesEndAsk, seriesOver, standingsView } from "#lib/series.ts";
+    import { resultOnStage, seriesCountText, seriesEndView, seriesOver, standingsView } from "#lib/series.ts";
     import { declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, Marked } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
@@ -447,9 +447,10 @@
             {@const locked = lockedChairs(outcome.table)}
             {@const wait = firstCardWait(outcome.table)}
             {@const turnSeat = waits || wait || trickIsMoving() ? undefined : inPlay?.playing.turn_seat}
+            {@const seriesEnd = seriesEndView(outcome.table)}
             {@const declared = declaredResult(outcome.table)}
-            {@const view = declared === null ? null : resultView(outcome.table)}
-            {@const ramschView = ramschResultView(outcome.table)}
+            {@const view = declared === null || seriesEnd.onStage ? null : resultView(outcome.table)}
+            {@const ramschView = seriesEnd.onStage ? null : ramschResultView(outcome.table)}
             {@const standing = standingsView(outcome.table)}
             {@const onResult = resultOnStage(outcome.table)}
             {@const winners =
@@ -458,14 +459,13 @@
             {@const current = outcome.table}
             {@const bar = weiterBar(outcome.table)}
             {@const passedIn = standing === null ? passedInScene(outcome.table.passed_in, outcome.table.chairs) : null}
-            {@const seriesAsk = seriesEndAsk(outcome.table)}
             {@const deciding = decidingPlaque(outcome.table, justWon)}
             {@const giveUp = giveUpView(outcome.table)}
             {@const abort = abortView(outcome.table)}
-            {#if seriesAsk !== null}
+            {#if seriesEnd.ask !== null}
                 {@const table = outcome.table}
                 <AskPlaque
-                    view={seriesAsk}
+                    view={seriesEnd.ask}
                     disabled={sentFromVersion === table.version}
                     onanswer={(answer: SeriesEndAnswer) => {
                         void send(table, answerSeriesEnd(id, crypto.randomUUID(), answer));
@@ -628,6 +628,7 @@
                                 {/if}
                                 <AnswerMarks
                                     mark={(giveUp?.marks ?? abort.marks).get(chair.seat) ??
+                                        seriesEnd.marks.get(chair.seat) ??
                                         openCardsMark(current, chair.seat)}
                                 />
                                 <AnswerMarks mark={wait?.marks.get(chair.seat)} />
@@ -660,7 +661,7 @@
                                     grumble={grumblingAt(chair.seat)}
                                 />
                             {/if}
-                            {#if onResult}
+                            {#if onResult && !seriesEnd.onStage}
                                 <AnswerMarks mark={chair.ready ? "ready" : "unready"} />
                             {/if}
                             {#if chair.is_away}
@@ -753,6 +754,8 @@
             </div>
             {#if seatNote !== null}
                 <SeatNoticeLine notice={seatNote} />
+            {:else if seriesEnd.refusal !== null}
+                <SeatNoticeLine notice={seriesEnd.refusal} below />
             {/if}
             {@const asked = waits
                 ? outcome.table.chairs.find((chair) => chair.seat === asking && chair.occupant_name === null)

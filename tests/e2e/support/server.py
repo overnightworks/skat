@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from webauth.config import installed_web_auth_config
 
-from skat.host.app import UNPLAYED_SWEEP_SECONDS, create_app
+from skat.host.app import UNPLAYED_SWEEP_SECONDS, ServerRounds, create_app
 from skat.host.main import streams_ending_server, uvicorn_options
 from skat.store.migrate import create_store_engine
 from skat.store.rule_sets import PostgresRuleSets
@@ -184,7 +184,7 @@ class RunningServer:
             stores=self.stores,
             issuer_transports=self.issuer.transports,
             heartbeat_seconds=self._heartbeat_seconds,
-            unplayed_sweep_seconds=self._unplayed_sweep_seconds,
+            rounds=ServerRounds(unplayed_sweep_seconds=self._unplayed_sweep_seconds),
             chair_clock=self._chair_clock,
             chair_scheduler=self._chair_scheduler,
             **single_pod(),

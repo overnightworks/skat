@@ -2,10 +2,10 @@
     import type { SeatNotice } from "#lib/openChair.ts";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
 
-    const { notice }: { notice: SeatNotice } = $props();
+    const { notice, below = false }: { notice: SeatNotice; below?: boolean } = $props();
 </script>
 
-<p class="notice seat" role="status">
+<p class="notice seat" class:below role="status">
     {#each notice.initials as initial, index (index)}
         {#if initial === null}
             <span class="dot agent" aria-hidden="true">

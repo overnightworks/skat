@@ -21,7 +21,16 @@ export function chairs(mine: number, ready: number[] = []): Chair[] {
 }
 
 export function seriesAt(changes: Partial<Series> = {}): Series {
-    return { number: 1, game_number: 8, game_count: 36, over: false, standings: null, end_proposal: null, ...changes };
+    return {
+        number: 1,
+        game_number: 8,
+        game_count: 36,
+        over: false,
+        standings: null,
+        end_proposal: null,
+        end_refused_seats: [],
+        ...changes,
+    };
 }
 
 // A table between two games: no hand runs, and the viewer sits at `mine` (0 is a watcher).

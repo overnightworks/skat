@@ -44,6 +44,8 @@ FRAME_PADDING = 24
 SHEET_BACK = text(SOURCE_LANGUAGE, "table.sheetBack")
 STANDING = ".result.standing"
 ASK = ".plaque.ask"
+REFUSAL_LINE = ".notice.seat"
+COASTER = ".coaster"
 END_KEY = ".row.end-series"
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
@@ -80,6 +82,22 @@ class PassedInTable(RamschTable):
 
 def answer_the_ask(person: Page, word: str) -> None:
     person.locator(ASK).get_by_role("button", name=word, exact=True).click()
+
+
+def expect_the_refusal_clear_of_the_coasters(person: Page) -> None:
+    line = person.locator(REFUSAL_LINE)
+    expect(line).to_be_visible()
+    notice = line.bounding_box()
+    assert notice is not None
+    for coaster in person.locator(COASTER).all():
+        box = coaster.bounding_box()
+        assert box is not None
+        assert (
+            notice["x"] + notice["width"] <= box["x"]
+            or box["x"] + box["width"] <= notice["x"]
+            or notice["y"] + notice["height"] <= box["y"]
+            or box["y"] + box["height"] <= notice["y"]
+        )
 
 
 def propose_the_end(person: Page) -> None:
@@ -167,6 +185,8 @@ def expect_the_proposal_asked(table: RamschTable) -> None:
         expect(person.locator(ASK)).to_contain_text(proposed)
     expect(table.pages[1].locator(ASK)).to_contain_text(waiting_for([table.names[2], table.names[3]]))
     expect(table.watcher.locator(ASK).get_by_role("button")).to_have_count(0)
+    for person in (table.pages[1], table.pages[2], table.pages[3]):
+        expect(person.get_by_role("button", name=WEITER, exact=True)).to_have_count(0)
 
 
 def expect_the_standings(person: Page, standings: list[dict[str, Any]]) -> None:
@@ -355,11 +375,6 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
     propose_the_end(first)
     expect_the_proposal_asked(table)
 
-    answer_the_ask(second, NO)
-    for person in table.everyone:
-        expect(person.locator(ASK)).to_have_count(0)
-
-    propose_the_end(first)
     answer_the_ask(second, YES)
     expect(second.locator(ASK)).to_contain_text(waiting_for([table.names[3]]))
     answer_the_ask(third, YES)
@@ -389,6 +404,30 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
         expect(person.locator(COUNT)).to_have_text(game_count(1))
         expect(person.locator(STANDING)).to_have_count(0)
         expect(person.locator(".chair .coaster")).to_have_text(["0", "0", "0"])
+    assert page_errors == []
+
+
+def test_a_no_ends_the_proposal_names_its_refuser_at_the_chair_and_offers_no_new_proposal(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, PHONE)
+    table.pass_all()
+    table.play_out()
+    first, second = table.pages[1], table.pages[2]
+    propose_the_end(first)
+    expect_the_proposal_asked(table)
+
+    answer_the_ask(second, NO)
+
+    for person in table.everyone:
+        expect(person.locator(ASK)).to_have_count(0)
+        expect(person.locator(".chair[data-seat='2'] .mark.declined")).to_have_count(1)
+        expect_the_refusal_clear_of_the_coasters(person)
+    expect(first.get_by_role("button", name=WEITER, exact=True)).to_be_visible()
+    expect(open_table_menu(first).locator(END_KEY)).to_have_count(0)
     assert page_errors == []
 
 

@@ -1,5 +1,6 @@
 import random
 from dataclasses import replace
+from datetime import timedelta
 
 import pytest
 
@@ -21,14 +22,23 @@ from skat.table.records import (
     Visibility,
     parsed_refusal,
 )
-from skat.table.series_end import SeriesEndCommand, decide_agree_to_end, decide_refuse_to_end, series_end_payload
-from tests.support.played_game import an_entry
+from skat.table.series_end import (
+    END_ANSWER_SECONDS,
+    SeriesEndCommand,
+    decide_agree_to_end,
+    decide_end_answer_lapse,
+    decide_refuse_to_end,
+    series_end_payload,
+)
+from tests.support.played_game import END_ASKED_AT, an_end_proposal, an_entry
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 DORA = Actor(account_id="account-dora", display_name="Dora")
 TABLE_VERSION = 9
+LATER = END_ASKED_AT + timedelta(seconds=10)
+MINUTE = timedelta(seconds=END_ANSWER_SECONDS)
 
 
 def between_games(
@@ -61,24 +71,24 @@ def proposal_of(table: TableRecord) -> EndProposal | None:
 
 
 class TestDecideAgreeToEnd:
-    def test_the_first_yes_proposes_the_end_under_the_askers_seat(self):
-        decision = decide_agree_to_end(between_games(), BEN)
+    def test_the_first_yes_proposes_the_end_under_the_askers_seat_and_the_instant(self):
+        decision = decide_agree_to_end(between_games(), BEN, END_ASKED_AT)
 
         assert decision.refusal is None
-        assert proposal_of(decision.table) == EndProposal(2)
+        assert proposal_of(decision.table) == an_end_proposal(2)
         assert decision.table.version == TABLE_VERSION + 1
 
-    def test_the_second_yes_accepts_and_the_series_goes_on(self):
-        decision = decide_agree_to_end(between_games(EndProposal(1)), CLEO)
+    def test_the_second_yes_adds_to_the_proposal_and_the_series_goes_on(self):
+        decision = decide_agree_to_end(between_games(an_end_proposal(1)), CLEO, LATER)
 
-        assert proposal_of(decision.table) == EndProposal(1, 3)
+        assert proposal_of(decision.table) == an_end_proposal(1, 3)
         assert not decision.table.series.ended_early
         assert decision.table.version == TABLE_VERSION + 1
 
     def test_the_third_yes_ends_the_series_early_and_clears_every_mark(self):
-        table = between_games(EndProposal(1, 2), ready_seats=(1, 2))
+        table = between_games(an_end_proposal(1, 2), ready_seats=(1, 2))
 
-        decision = decide_agree_to_end(table, CLEO)
+        decision = decide_agree_to_end(table, CLEO, LATER)
 
         assert decision.refusal is None
         assert decision.table.series == Series(12, 2, ended_early=True)
@@ -87,25 +97,43 @@ class TestDecideAgreeToEnd:
 
     def test_the_third_yes_lets_every_pending_bock_round_lapse(self):
         options = TableOptions(bock=BockOptions(frozenset({BockTrigger.RE}), BockOverlap.APPEND))
-        table = replace(between_games(EndProposal(1, 2)), options=options, bock=BockRounds((3, 3)))
+        table = replace(between_games(an_end_proposal(1, 2)), options=options, bock=BockRounds((3, 3)))
 
-        decision = decide_agree_to_end(table, CLEO)
+        decision = decide_agree_to_end(table, CLEO, LATER)
 
         assert decision.table.bock == BockRounds.start()
         assert bock_view_of(decision.table).games_left == 0
 
     @pytest.mark.parametrize(
+        ("proposal", "actor", "refused_by"),
+        [
+            pytest.param(an_end_proposal(1, 2), CLEO, {3}, id="the-last-seat-to-answer"),
+            pytest.param(an_end_proposal(1), BEN, {2, 3}, id="the-second-seat-to-answer"),
+        ],
+    )
+    def test_a_yes_after_the_minute_ends_the_proposal_by_the_silent_seats_instead_of_the_series(
+        self, proposal, actor, refused_by
+    ):
+        decision = decide_agree_to_end(
+            between_games(proposal), actor, proposal.asked_at + MINUTE + timedelta(seconds=1)
+        )
+
+        assert decision.refusal is None
+        assert proposal_of(decision.table) is None
+        assert decision.table.series == Series(12, 2, end_refused_by=frozenset(refused_by))
+
+    @pytest.mark.parametrize(
         ("proposal", "actor"),
         [
-            pytest.param(EndProposal(1), ANNA, id="the-proposer-again"),
-            pytest.param(EndProposal(1, 2), ANNA, id="the-proposer-after-an-acceptance"),
-            pytest.param(EndProposal(1, 2), BEN, id="the-accepter-again"),
+            pytest.param(an_end_proposal(1), ANNA, id="the-proposer-again"),
+            pytest.param(an_end_proposal(1, 2), ANNA, id="the-proposer-after-an-acceptance"),
+            pytest.param(an_end_proposal(1, 2), BEN, id="the-seat-that-agreed-again"),
         ],
     )
     def test_a_yes_from_a_seat_that_already_said_yes_changes_nothing(self, proposal, actor):
         table = between_games(proposal)
 
-        decision = decide_agree_to_end(table, actor)
+        decision = decide_agree_to_end(table, actor, LATER)
 
         assert decision.refusal is None
         assert decision.table == table
@@ -149,10 +177,16 @@ class TestDecideAgreeToEnd:
                 Refusal.HAND_RUNNING,
                 id="a-running-last-hand-is-no-end-yet",
             ),
+            pytest.param(
+                between_games(series=Series(12, 2, end_refused_by=frozenset({2}))),
+                CLEO,
+                Refusal.END_REFUSED,
+                id="a-proposal-refused-since-the-last-deal",
+            ),
         ],
     )
     def test_a_yes_names_the_first_refusal_that_applies_and_changes_nothing(self, table, actor, refusal):
-        decision = decide_agree_to_end(table, actor)
+        decision = decide_agree_to_end(table, actor, LATER)
 
         assert decision.refusal is refusal
         assert decision.table == table
@@ -160,25 +194,26 @@ class TestDecideAgreeToEnd:
 
 class TestDecideRefuseToEnd:
     @pytest.mark.parametrize(
-        ("proposal", "actor"),
+        ("proposal", "actor", "refuser"),
         [
-            pytest.param(EndProposal(1), BEN, id="another-seat-refuses-a-proposal"),
-            pytest.param(EndProposal(1), ANNA, id="the-proposer-withdraws"),
-            pytest.param(EndProposal(1, 2), CLEO, id="the-third-refuses-after-an-acceptance"),
-            pytest.param(EndProposal(1, 2), BEN, id="the-accepter-takes-the-yes-back"),
+            pytest.param(an_end_proposal(1), BEN, 2, id="another-seat-refuses-a-proposal"),
+            pytest.param(an_end_proposal(1), ANNA, 1, id="the-proposer-withdraws"),
+            pytest.param(an_end_proposal(1, 2), CLEO, 3, id="the-third-refuses-after-a-yes"),
+            pytest.param(an_end_proposal(1, 2), BEN, 2, id="a-seat-takes-its-yes-back"),
         ],
     )
-    def test_a_no_clears_the_proposal_and_the_series_plays_on(self, proposal, actor):
+    def test_a_no_ends_the_proposal_names_its_refuser_and_the_series_plays_on(self, proposal, actor, refuser):
         decision = decide_refuse_to_end(between_games(proposal), actor)
 
         assert decision.refusal is None
         assert proposal_of(decision.table) is None
+        assert decision.table.series.end_refused_by == frozenset({refuser})
         assert decision.table.version == TABLE_VERSION + 1
 
     @pytest.mark.parametrize(
         ("table", "actor", "refusal"),
         [
-            pytest.param(between_games(EndProposal(1)), DORA, Refusal.NOT_SEATED, id="a-viewer-without-a-chair"),
+            pytest.param(between_games(an_end_proposal(1)), DORA, Refusal.NOT_SEATED, id="a-viewer-without-a-chair"),
             pytest.param(between_games(), DORA, Refusal.NOT_SEATED, id="a-viewer-with-no-proposal-standing"),
             pytest.param(between_games(), ANNA, Refusal.NO_PROPOSAL, id="no-proposal-stands"),
             pytest.param(replace(between_games(), series=None), ANNA, Refusal.NO_PROPOSAL, id="no-series"),
@@ -191,13 +226,69 @@ class TestDecideRefuseToEnd:
         assert decision.table == table
 
 
+class TestDecideEndAnswerLapse:
+    MINUTE_OVER = END_ASKED_AT + timedelta(seconds=END_ANSWER_SECONDS)
+
+    def test_a_seat_silent_for_the_minute_counts_as_no_and_is_named_with_the_other_silent_seats(self):
+        table = between_games(an_end_proposal(1, 2))
+
+        decision = decide_end_answer_lapse(table, self.MINUTE_OVER)
+
+        assert proposal_of(decision.table) is None
+        assert decision.table.series.end_refused_by == frozenset({3})
+        assert not decision.table.series.ended_early
+        assert decision.table.version == TABLE_VERSION + 1
+
+    def test_every_seat_but_the_proposer_is_named_when_nobody_answered(self):
+        decision = decide_end_answer_lapse(between_games(an_end_proposal(1)), self.MINUTE_OVER)
+
+        assert decision.table.series.end_refused_by == frozenset({2, 3})
+
+    @pytest.mark.parametrize(
+        ("emptied_seats", "refused_by"),
+        [
+            pytest.param((3,), {2}, id="an-empty-chair-is-no-refuser"),
+            pytest.param((2, 3), set(), id="no-seated-refuser-lapses-the-proposal-with-none-named"),
+        ],
+    )
+    def test_an_empty_chair_never_counts_as_a_refuser(self, emptied_seats, refused_by):
+        table = between_games(an_end_proposal(1))
+        chairs = tuple(
+            replace(chair, occupant=None) if chair.seat in emptied_seats else chair for chair in table.chairs
+        )
+
+        decision = decide_end_answer_lapse(replace(table, chairs=chairs), self.MINUTE_OVER)
+
+        assert proposal_of(decision.table) is None
+        assert decision.table.series.end_refused_by == frozenset(refused_by)
+
+    @pytest.mark.parametrize(
+        "table",
+        [
+            pytest.param(between_games(an_end_proposal(1)), id="a-proposal-before-its-minute-is-over"),
+            pytest.param(between_games(), id="no-proposal"),
+            pytest.param(replace(between_games(), series=None), id="no-series"),
+        ],
+    )
+    def test_nothing_changes_where_no_proposal_has_run_out_of_time(self, table):
+        assert decide_end_answer_lapse(table, self.MINUTE_OVER - timedelta(seconds=1)).table == table
+
+
 class TestRecords:
-    def test_an_accepter_cannot_be_the_proposer(self):
-        with pytest.raises(ValueError, match="cannot also accept"):
-            EndProposal(2, 2)
+    def test_the_proposer_agrees_to_its_own_proposal(self):
+        agreed = frozenset({1})
+
+        with pytest.raises(ValueError, match="proposer of an end agrees"):
+            EndProposal(2, agreed, END_ASKED_AT)
+
+    def test_a_proposal_every_seat_agreed_to_is_no_proposal(self):
+        agreed = frozenset({1, 2, 3})
+
+        with pytest.raises(ValueError, match="every seat agreed"):
+            EndProposal(1, agreed, END_ASKED_AT)
 
     def test_a_series_that_ended_early_cannot_hold_a_proposal(self):
-        proposal = EndProposal(1)
+        proposal = an_end_proposal(1)
 
         with pytest.raises(ValueError, match="holds no proposal"):
             Series(12, 4, ended_early=True, end_proposal=proposal)
@@ -206,7 +297,7 @@ class TestRecords:
         with pytest.raises(ValueError, match="did not end early"):
             Series(12, 12, ended_early=True)
 
-    @pytest.mark.parametrize("refusal", [Refusal.NO_GAME_YET, Refusal.NO_PROPOSAL])
+    @pytest.mark.parametrize("refusal", [Refusal.NO_GAME_YET, Refusal.NO_PROPOSAL, Refusal.END_REFUSED])
     def test_a_stored_token_reads_back_to_its_refusal(self, refusal):
         assert parsed_refusal(refusal.value) is refusal
 

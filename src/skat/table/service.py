@@ -138,6 +138,7 @@ from skat.table.series_end import (
     decide_refuse_to_end,
     series_end_payload,
 )
+from skat.table.server_step_calls import ServerStepCalls
 from skat.table.server_steps import ServerSteps
 from skat.table.style import STYLE_COMMAND, StyleCommand, decide_style, style_payload
 from skat.table.transactions import retried_on_duplicate_receipt
@@ -149,7 +150,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
     from skat.table.member_place import CallFacts
-    from skat.table.transactions import HeldChair, TableTransaction, TableTransactions
+    from skat.table.transactions import TableTransaction, TableTransactions
 
 __all__ = ["CommandIdReusedError", "CommandResult", "TableService"]
 
@@ -158,7 +159,7 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-class TableService(LobbyReads, GameListReads):
+class TableService(LobbyReads, GameListReads, ServerStepCalls):
     """The table commands and views; every command is one transaction."""
 
     def __init__(
@@ -471,7 +472,7 @@ class TableService(LobbyReads, GameListReads):
             command.command_id,
             AGREE_TO_END_SERIES_COMMAND,
             series_end_payload(command),
-            lambda table: decide_agree_to_end(table, actor),
+            lambda table: decide_agree_to_end(table, actor, self._now()),
         )
 
     def refuse_to_end_series(
@@ -515,42 +516,6 @@ class TableService(LobbyReads, GameListReads):
 
     def set_turn_state(self, account_id: str, table_id: str, stopped: str | None, thinking: bool) -> bool:
         return keep_turn_state(self._transactions, account_id, table_id, stopped, thinking, self._now())
-
-    def note_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
-        """The server's step of storing a chair hold; see `ServerSteps.note_leave`."""
-        self._server_steps().note_leave(table_id, account_id, hold_seconds, newest_wins=newest_wins)
-
-    def clear_hold(self, table_id: TableId, account_id: str) -> None:
-        """The server's step of dropping a chair hold at an arrival; see `ServerSteps.clear_hold`."""
-        self._server_steps().clear_hold(table_id, account_id)
-
-    def due_holds(self) -> tuple[HeldChair, ...]:
-        """The chair holds due now; see `ServerSteps.due_holds`."""
-        return self._server_steps().due_holds()
-
-    def free_held_chair(self, table_id: TableId, account_id: str, absent: AbstractContextManager[bool | None]) -> bool:
-        """The server's step of freeing a chair whose hold is due; see `ServerSteps.free_held_chair`."""
-        return self._server_steps().free_held_chair(table_id, account_id, absent)
-
-    def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
-        """The server's step of dealing the next hand; see `ServerSteps.deal_next`."""
-        return self._server_steps().deal_next(table_id, connected_accounts)
-
-    def end_empty_table(
-        self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None], empty_seconds: int
-    ) -> bool:
-        """The server's step of ending an empty table; see `ServerSteps.end_empty_table`."""
-        return self._server_steps().end_empty_table(table_id, connected_accounts, empty_seconds)
-
-    def note_presence(
-        self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None], empty_seconds: int
-    ) -> bool:
-        """The server's step of noting who is present; see `ServerSteps.note_presence`."""
-        return self._server_steps().note_presence(table_id, connected_accounts, empty_seconds)
-
-    def resume_empty_waits(self, empty_seconds: int) -> dict[str, float]:
-        """The server's step at its start; see `ServerSteps.resume_empty_waits`."""
-        return self._server_steps().resume_empty_waits(empty_seconds)
 
     def _server_steps(self) -> ServerSteps:
         return ServerSteps(

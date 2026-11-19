@@ -44,6 +44,8 @@ export type AskView<Answer extends string> = {
     // A second line of the plaque, who the viewer waits for after the line that says what the viewer did.
     waitsFor?: { text: string; faces: AskFace[] } | null;
     buttons: AskButton<Answer>[];
+    // The instant a silent seat counts as no, drawn as a clock under the line; absent or null where no minute runs.
+    answerBy?: string | null;
 };
 
 export type GiveUpLine = "wants-to-give-up" | "gives-up" | "wants-to-shorten" | "plays-open" | "waits";

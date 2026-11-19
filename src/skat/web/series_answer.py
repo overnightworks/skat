@@ -1,8 +1,10 @@
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
 from skat.table.records import OccupantKind  # noqa: TC001 - pydantic reads the field type at runtime
+from skat.table.series_end import END_ANSWER_SECONDS
 
 if TYPE_CHECKING:
     from skat.table.game_list import Standing
@@ -21,7 +23,8 @@ class StandingAnswer(BaseModel):
 
 class SeriesEndProposalAnswer(BaseModel):
     proposer_seat: int
-    accepter_seat: int | None
+    agreed_seats: list[int]
+    answer_by: datetime
 
 
 class SeriesAnswer(BaseModel):
@@ -31,6 +34,7 @@ class SeriesAnswer(BaseModel):
     over: bool
     standings: list[StandingAnswer] | None
     end_proposal: SeriesEndProposalAnswer | None
+    end_refused_seats: list[int]
 
 
 def standing_answer_of(standing: Standing) -> StandingAnswer:
@@ -57,6 +61,9 @@ def series_answer_of(series: SeriesView | None) -> SeriesAnswer | None:
         end_proposal=None
         if series.end_proposal is None
         else SeriesEndProposalAnswer(
-            proposer_seat=series.end_proposal.proposer, accepter_seat=series.end_proposal.accepter
+            proposer_seat=series.end_proposal.proposer,
+            agreed_seats=sorted(series.end_proposal.agreed),
+            answer_by=series.end_proposal.asked_at + timedelta(seconds=END_ANSWER_SECONDS),
         ),
+        end_refused_seats=sorted(series.end_refused_by),
     )

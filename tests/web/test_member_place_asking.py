@@ -27,7 +27,13 @@ from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from skat.web.waits import AskClock
 from tests.support.calls import call_facts
-from tests.support.idle_presence import idle_agent_lease, idle_hold, idle_next_deal, idle_wakes
+from tests.support.idle_presence import (
+    idle_agent_lease,
+    idle_end_answers,
+    idle_hold,
+    idle_next_deal,
+    idle_wakes,
+)
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
@@ -508,6 +514,7 @@ class TestAnEndedTablesWaitIsDropped:
             idle_agent_lease(),
             idle_wakes(),
             InMemoryLeases(),
+            idle_end_answers(),
         )
         presence.waits.see(TABLE, 6)
 

@@ -10,7 +10,6 @@ from skat.table.awaiting import WaitingCase
 from skat.table.records import (
     EndedTable,
     Ending,
-    EndProposal,
     HandProgress,
     OccupantKind,
     Series,
@@ -20,7 +19,14 @@ from skat.table.records import (
 )
 from skat.table.service import TableService
 from tests.support.fake_tables import FakeTableStore
-from tests.support.played_game import asked_by_the_declarer, between_games, declared_herz_hand, table_in, with_agents
+from tests.support.played_game import (
+    an_end_proposal,
+    asked_by_the_declarer,
+    between_games,
+    declared_herz_hand,
+    table_in,
+    with_agents,
+)
 
 MIDDLEHAND, REARHAND, FOREHAND = "account-middlehand", "account-rearhand", "account-forehand"
 LAST_PLAYED = datetime(2026, 11, 1, 12, tzinfo=UTC)
@@ -280,7 +286,7 @@ class TestTheOrder:
     def test_the_waiting_cases_come_in_the_order_turn_question_end_proposal_result_series_end(self, lobby):
         lobby.put(1, between_games(series=Series(12, 12)))
         lobby.put(2, between_games())
-        lobby.put(3, between_games(1, 2, 3, proposal=EndProposal(2)))
+        lobby.put(3, between_games(1, 2, 3, proposal=an_end_proposal(2)))
         lobby.put(4, table_in(HandProgress()))
 
         assert lobby.ids(MIDDLEHAND) == ids_of(4, 3, 2, 1)

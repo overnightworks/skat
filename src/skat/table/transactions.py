@@ -127,6 +127,12 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         """
         ...
 
+    def live_end_asks(self) -> tuple[LiveAsk, ...]:
+        """Every live table whose current series holds a proposal to end it, with the instant it was made: an
+        unlocked read, since the server's start only arms timers that re-read each table under its row lock.
+        """
+        ...
+
     def add_receipt(self, receipt: Receipt) -> None: ...
 
     def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
@@ -193,6 +199,12 @@ class LiveWait:
     table_id: TableId
     dealer: int | None
     empty_since: datetime | None
+
+
+@dataclass(frozen=True)
+class LiveAsk:
+    table_id: TableId
+    asked_at: datetime
 
 
 @dataclass(frozen=True)

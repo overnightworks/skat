@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { awaitedNames, resultView, weiterBar, withMinus } from "#lib/result.ts";
+import { seriesAt } from "#lib/series.fixtures.ts";
 import { chairs, LOST_GAME, NOBODY, NULL_GAME, table, WON_GAME } from "#lib/result.fixtures.ts";
 import { words } from "#lib/words.ts";
 import type { Result } from "../routes/(start)/tables.ts";
@@ -558,6 +559,12 @@ describe("the bar's Weiter", () => {
 
     it("offers nothing while no result stands", () => {
         expect(weiterBar(table(1, null))).toBeNull();
+    });
+
+    it("offers nothing while a proposal to end the series stands", () => {
+        const proposal = { proposer_seat: 2, agreed_seats: [2], answer_by: "2026-11-19T12:01:00Z" };
+
+        expect(weiterBar({ ...table(1, {}), series: seriesAt({ end_proposal: proposal }) })).toBeNull();
     });
 
     it("offers the button to a seated viewer who has not tapped", () => {

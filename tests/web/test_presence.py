@@ -18,6 +18,7 @@ from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.idle_presence import (
     clear_no_hold,
     idle_agent_lease,
+    idle_end_answers,
     idle_presence,
     idle_wakes,
     note_nothing,
@@ -188,6 +189,7 @@ class TestFinishingWrites:
                 idle_agent_lease(),
                 idle_wakes(),
                 InMemoryLeases(),
+                idle_end_answers(),
             )
             await anna_starts_the_write(presence)
             expiry = asyncio.create_task(time.advance(seconds))

@@ -11,7 +11,7 @@ from skat.web.presence import (
 )
 from skat.web.presence_line import PresenceTimer
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
-from tests.support.idle_presence import idle_agent_lease, idle_wakes
+from tests.support.idle_presence import idle_agent_lease, idle_end_answers, idle_wakes
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.log_lines import logged
 from tests.web.support.presence import (
@@ -229,6 +229,7 @@ def noting(time, holds, deals, ends, notes):
         idle_agent_lease(),
         idle_wakes(),
         InMemoryLeases(),
+        idle_end_answers(),
     )
 
 

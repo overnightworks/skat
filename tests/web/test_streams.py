@@ -14,6 +14,7 @@ from tests.support.fake_tables import FakeTableStore
 from tests.support.idle_presence import (
     idle_agent_lease,
     idle_empty_table,
+    idle_end_answers,
     idle_hold,
     idle_next_deal,
     idle_presence,
@@ -169,6 +170,7 @@ class TestTableViews:
                 idle_agent_lease(),
                 idle_wakes(),
                 InMemoryLeases(),
+                idle_end_answers(),
             )
             stream = stream_of(presence, service, VISITOR, table_id)
             first = await next_view(stream)

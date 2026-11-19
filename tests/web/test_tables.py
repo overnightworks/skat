@@ -37,6 +37,7 @@ from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.idle_presence import (
     idle_agent_lease,
     idle_empty_table,
+    idle_end_answers,
     idle_hold,
     idle_next_deal,
     idle_presence,
@@ -214,7 +215,13 @@ def stand_after_sitting(skat, headers, table_id):
 class RecordingPresence(Presence):
     def __init__(self):
         super().__init__(
-            idle_hold(), idle_next_deal(), idle_empty_table(), idle_agent_lease(), idle_wakes(), InMemoryLeases()
+            idle_hold(),
+            idle_next_deal(),
+            idle_empty_table(),
+            idle_agent_lease(),
+            idle_wakes(),
+            InMemoryLeases(),
+            idle_end_answers(),
         )
         self.woken = []
 

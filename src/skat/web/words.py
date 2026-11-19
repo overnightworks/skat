@@ -542,6 +542,9 @@ type Key = Literal[
     'table.objectShell',
     'table.objectCoaster',
     'table.objectLamp',
+    'table.answerClock',
+    'table.refusedToEndOne',
+    'table.refusedToEndMany',
 ]
 type Language = Literal[
     'de',
@@ -732,7 +735,7 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'table.sheetDecided': 'Entschieden',
         'table.sheetDurchmarsch': 'Durchmarsch',
         'table.newSeries': 'Neue Serie',
-        'table.wantsToEndSeries': '{name} will die Serie beenden',
+        'table.wantsToEndSeries': '{name} möchte die Serie beenden',
         'table.endSeries': 'Serie beenden',
         'table.endSeriesSure': 'Wirklich beenden?',
         'table.yes': 'Ja',
@@ -1140,6 +1143,9 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'table.objectShell': 'Muschel',
         'table.objectCoaster': 'Untersetzer',
         'table.objectLamp': 'Lampe',
+        'table.answerClock': 'ohne Antwort in {time} = Nein',
+        'table.refusedToEndOne': '{names} möchte weiterspielen',
+        'table.refusedToEndMany': '{names} möchten weiterspielen',
     },
     'en': {
         'app.name': 'Skat',
@@ -1719,6 +1725,9 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'table.objectShell': 'Shell',
         'table.objectCoaster': 'Coaster',
         'table.objectLamp': 'Lamp',
+        'table.answerClock': 'no answer in {time} = no',
+        'table.refusedToEndOne': '{names} wants to play on',
+        'table.refusedToEndMany': '{names} want to play on',
     },
 }
 

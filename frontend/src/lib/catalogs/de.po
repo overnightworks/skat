@@ -608,7 +608,7 @@ msgid "Neue Serie"
 msgstr ""
 
 msgctxt "table.wantsToEndSeries"
-msgid "{name} will die Serie beenden"
+msgid "{name} möchte die Serie beenden"
 msgstr ""
 
 msgctxt "table.endSeries"
@@ -2197,4 +2197,16 @@ msgstr ""
 
 msgctxt "table.objectLamp"
 msgid "Lampe"
+msgstr ""
+
+msgctxt "table.answerClock"
+msgid "ohne Antwort in {time} = Nein"
+msgstr ""
+
+msgctxt "table.refusedToEndOne"
+msgid "{names} möchte weiterspielen"
+msgstr ""
+
+msgctxt "table.refusedToEndMany"
+msgid "{names} möchten weiterspielen"
 msgstr ""

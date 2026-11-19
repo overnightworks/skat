@@ -2,6 +2,7 @@
     import type { Snippet } from "svelte";
 
     import type { AskView } from "#lib/giveUp.ts";
+    import AnswerClock from "#lib/ui/AnswerClock.svelte";
     import { Marked } from "overnightworks-design";
 
     const {
@@ -42,6 +43,9 @@
     {/if}
     {#if view.demand}
         <div class="game pushes"><Marked parts={view.demand} marked={{ level }} /></div>
+    {/if}
+    {#if view.answerBy}
+        <AnswerClock until={view.answerBy} />
     {/if}
     {@render children?.()}
     {#if view.buttons.length > 0}

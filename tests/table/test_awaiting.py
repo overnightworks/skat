@@ -18,7 +18,6 @@ from skat.table.records import (
     Chair,
     EndedTable,
     Ending,
-    EndProposal,
     HandProgress,
     NoWordSaid,
     RamschOccasion,
@@ -32,6 +31,7 @@ from skat.table.views import view_of
 from tests.support.open_chairs import PHASES, REARHAND_SEAT, newcomer, sent_away
 from tests.support.played_game import (
     a_whole_game,
+    an_end_proposal,
     asked_by_an_opponent,
     asked_by_the_declarer,
     asked_to_shorten,
@@ -135,7 +135,7 @@ class TestTheWaitingCase:
                 between_games(SEAT_OF[REARHAND]), MIDDLEHAND, WaitingCase.RESULT, id="a-result-not-yet-continued"
             ),
             pytest.param(
-                between_games(proposal=EndProposal(1)),
+                between_games(proposal=an_end_proposal(1)),
                 REARHAND,
                 WaitingCase.END_PROPOSAL,
                 id="an-early-end-proposal-before-the-result-it-stands-beside",
@@ -309,8 +309,8 @@ class TestAnEarlyEndProposal:
     @pytest.mark.parametrize(
         ("proposal", "waiting"),
         [
-            pytest.param(EndProposal(1), {REARHAND, FOREHAND}, id="the-seats-that-have-not-answered"),
-            pytest.param(EndProposal(1, accepter=2), {FOREHAND}, id="not-the-proposer-nor-the-accepter"),
+            pytest.param(an_end_proposal(1), {REARHAND, FOREHAND}, id="the-seats-that-have-not-answered"),
+            pytest.param(an_end_proposal(1, 2), {FOREHAND}, id="not-the-proposer-nor-the-accepter"),
         ],
     )
     def test_the_seats_that_have_not_answered_are_awaited(self, proposal, waiting):
@@ -374,7 +374,7 @@ class TestTheAwaitedSeats:
                 between_games(series=Series(12, 12)), set(SEAT_OF.values()), id="a-series-end-the-seats-not-ready"
             ),
             pytest.param(
-                between_games(1, 2, 3, proposal=EndProposal(1, accepter=2)), {3}, id="an-end-proposal-the-unanswered"
+                between_games(1, 2, 3, proposal=an_end_proposal(1, 2)), {3}, id="an-end-proposal-the-unanswered"
             ),
             pytest.param(kontra_hand(plays=1), {1}, id="an-open-kontra-word-is-no-seat-but-the-turn-is"),
             pytest.param(sent_away(kontra_hand(), REARHAND_SEAT), set(), id="none-while-a-chair-of-the-hand-is-open"),

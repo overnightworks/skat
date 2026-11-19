@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from skat.store.migrate import create_store_engine, migrate
 from skat.store.tables import metadata
-from tests.support.migrations import list_row, only_row, run_in_transaction, upgrade_to
+from tests.support.migrations import head_revision, list_row, only_row, run_in_transaction, upgrade_to
 
 pytestmark = pytest.mark.postgres
 
@@ -60,6 +60,10 @@ TAKE_ROW = _declaring_row()
 
 def table_names(engine):
     return set(inspect(engine).get_table_names()) - {"alembic_version"}
+
+
+def test_the_migration_files_form_one_chain_with_a_single_head():
+    assert head_revision() is not None
 
 
 def test_migrating_an_empty_database_creates_every_table_the_store_writes_to(unmigrated_engine):

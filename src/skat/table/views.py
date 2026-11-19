@@ -142,7 +142,9 @@ class SeriesView:
 
     The series is over once its last game is played or it ended early.
     Once it is over, `standings` ranks every account the list seated, the same for every viewer. Between two games
-    `end_proposal` names the seats that proposed and accepted ending the series; once it is over none stands.
+    `end_proposal` names the seat that proposed ending the series, the seats that said yes and the instant it was
+    made; once the series is over none stands. `end_refused_by` names the seats whose no, or silence, ended the last
+    proposal, until the next deal.
     """
 
     number: int
@@ -151,6 +153,7 @@ class SeriesView:
     over: bool
     standings: tuple[Standing, ...] | None
     end_proposal: EndProposal | None
+    end_refused_by: frozenset[int]
 
 
 @dataclass(frozen=True)
@@ -311,6 +314,7 @@ def _series_view(table: TableRecord) -> SeriesView | None:
         over,
         standings_of(table.game_list, reach_of(table.options)) if over else None,
         None if over else table.series.end_proposal,
+        frozenset() if over else table.series.end_refused_by,
     )
 
 
