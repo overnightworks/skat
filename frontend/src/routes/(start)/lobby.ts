@@ -6,7 +6,7 @@ import { openStream, type StreamRefusal } from "#lib/stream.ts";
 import { tableRules, type RuleChip } from "#lib/tableRules.ts";
 import { LOBBY_EVENTS_PATH, type WAITING_CASE_TOKENS } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
-import type { Options } from "./tables.ts";
+import type { Options, TurnState } from "./tables.ts";
 
 const MILLISECONDS_PER_SECOND = 1_000;
 const SECONDS_PER_MINUTE = 60;
@@ -26,6 +26,7 @@ export type LobbyChair = {
     is_turn: boolean;
     // Seconds until the place is free, on an away chair of a table where no hand was dealt.
     hold_seconds_left?: number | null;
+    turn_state?: TurnState | null;
 };
 export type LobbyTable = {
     id: string;
@@ -49,6 +50,7 @@ export type OpenChair = {
     occupant_kind: "person" | "agent" | null;
     is_away: boolean;
     hold_seconds_left: number | null;
+    turn_state?: TurnState | null;
 };
 // An open table the member holds no chair at, with the chair a running hand waits at and the end of a paused one.
 export type OpenTable = {

@@ -75,6 +75,28 @@ class TestTheIdleHeartbeat:
             ["Anna", "Ben", "Cleo"],
         ]
 
+    def test_a_turn_statement_that_no_wake_announced_arrives_in_both_lists_with_the_heartbeat(self):
+        scene = Scene()
+        table_id = scene.open_table(ANNA)
+        scene.sit(BEN, table_id, 2)
+
+        async def scenario():
+            mine = scene.stream(BEN, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
+            listed = scene.open_stream(CLEO, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
+            await next_mine(mine)
+            await next_open(listed)
+            scene.service.set_turn_state(ANNA.account_id, table_id, "budget_spent", False)
+            after = await next_mine(mine), await next_open(listed)
+            await mine.aclose()
+            await listed.aclose()
+            return after
+
+        seen = run_on_a_loop_of_its_own(scenario())
+
+        assert [[chair["turn_state"] for chair in tables[0]["chairs"]] for tables in seen] == [
+            [{"stopped": "budget_spent", "thinking_seconds_left": None}, None, None]
+        ] * 2
+
     def test_a_table_a_stranger_opens_without_a_wake_arrives_in_the_open_list_with_the_heartbeat(self):
         scene = Scene()
 
@@ -123,6 +145,14 @@ async def anna_closes_the_table(scene, table_id):
     scene.service.close(ANNA, CloseTable("close-anna", table_id))
 
 
+async def anna_states_a_turn(scene, table_id):
+    scene.service.set_turn_state(ANNA.account_id, table_id, "budget_spent", False)
+
+
+async def ben_states_a_turn_without_a_chair(scene, table_id):
+    scene.service.set_turn_state(BEN.account_id, table_id, "budget_spent", False)
+
+
 async def nothing_happens(scene, table_id):
     pass
 
@@ -133,6 +163,8 @@ class TestWhatMovesASource:
         [
             pytest.param(mine_of_anna, nothing_happens, False, id="mine-nothing"),
             pytest.param(mine_of_anna, ben_sits, True, id="mine-a-commit-at-a-held-table"),
+            pytest.param(mine_of_anna, anna_states_a_turn, True, id="mine-a-turn-statement-at-a-held-table"),
+            pytest.param(mine_of_anna, ben_states_a_turn_without_a_chair, False, id="mine-a-refused-turn-statement"),
             pytest.param(mine_of_anna, ben_watches, True, id="mine-a-watcher-at-a-held-table"),
             pytest.param(mine_of_anna, the_lease_of_a_sitter_starts, True, id="mine-the-lease-of-a-sitter"),
             pytest.param(
@@ -142,6 +174,7 @@ class TestWhatMovesASource:
             pytest.param(mine_of_anna, ben_opens_a_table, False, id="mine-a-table-of-a-stranger"),
             pytest.param(open_list_of_cleo, nothing_happens, False, id="open-nothing"),
             pytest.param(open_list_of_cleo, ben_sits, True, id="open-a-commit-at-a-listed-table"),
+            pytest.param(open_list_of_cleo, anna_states_a_turn, True, id="open-a-turn-statement-at-a-listed-table"),
             pytest.param(open_list_of_cleo, ben_watches, True, id="open-a-watcher-at-a-listed-table"),
             pytest.param(open_list_of_cleo, ben_opens_a_table, True, id="open-a-table-opened"),
             pytest.param(open_list_of_cleo, the_lease_of_a_sitter_starts, True, id="open-the-lease-of-a-sitter"),
@@ -151,7 +184,7 @@ class TestWhatMovesASource:
             pytest.param(open_list_of_cleo, anna_closes_the_table, True, id="open-a-listed-table-ends"),
         ],
     )
-    def test_a_source_has_moved_when_the_versions_of_its_tables_or_who_is_present_there_changed(
+    def test_a_source_has_moved_when_the_versions_or_statements_of_its_tables_or_who_is_present_there_changed(
         self, source_of, happens, moved
     ):
         scene = Scene()

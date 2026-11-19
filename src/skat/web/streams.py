@@ -23,12 +23,14 @@ from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH, actor_for, actor_o
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
+    from datetime import datetime
 
     from webauth.ports import SessionRecordStore
 
     from skat.table.nudging import NudgeState
     from skat.table.records import Actor
     from skat.table.service import TableService
+    from skat.table.transactions import TableVersion
     from skat.table.views import TableView
     from skat.web.presence import Presence, Subscription
     from skat.web.reaction_log import Thrown
@@ -109,7 +111,7 @@ class TableSource:
         self,
         presence: Presence,
         read_view: Callable[[Actor, frozenset[str]], Awaitable[TableView | None]],
-        read_version: Callable[[], Awaitable[int | None]],
+        read_version: Callable[[], Awaitable[TableVersion | None]],
         read_leased: Callable[[], Awaitable[frozenset[str]]],
         table_id: str,
         account_id: str,
@@ -122,13 +124,16 @@ class TableSource:
         self._account_id = account_id
         self._subscription: Subscription | None = None
         self._first_read = True
-        self._read_standing: tuple[int, frozenset[str], frozenset[str]] | None = None
+        self._read_standing: tuple[int, tuple[datetime, ...], frozenset[str], frozenset[str]] | None = None
 
     async def open(self, wake: Callable[[], None]) -> None:
         self._subscription = await self._presence.subscribe(self._table_id, self._account_id, wake)
 
     async def read(self, actor: Actor) -> SourceMessage:
         leased = await self._read_leased()
+        # Read before the view, so a statement made after it makes the next heartbeat read again.
+        stamp = await self._read_version()
+        stated = () if stamp is None else stamp.turn_statement_times
         with self._presence.waits.reading(self._table_id):
             connected = await self._presence.connected(self._table_id)
             view = await self._read_view(actor, connected)
@@ -137,16 +142,23 @@ class TableSource:
                 raise RuntimeError(message)
             nudges = self._presence.waits.nudges_of(view)
             reactions = self._presence.reactions.shown(self._table_id)
-        self._read_standing = (view.version, connected, leased)
+        self._read_standing = (view.version, stated, connected, leased)
         if self._first_read and view.ended is None:
             await self._ask_for_next_deal(view)
         self._first_read = False
         return _table_message(view, nudges, reactions)
 
     async def moved(self, _actor: Actor, /) -> bool:
-        version = await self._read_version()
-        standing = (version, await self._presence.connected(self._table_id), await self._read_leased())
-        return version is None or standing != self._read_standing
+        current = await self._read_version()
+        if current is None:
+            return True
+        standing = (
+            current.version,
+            current.turn_statement_times,
+            await self._presence.connected(self._table_id),
+            await self._read_leased(),
+        )
+        return standing != self._read_standing
 
     async def close(self) -> None:
         assert self._subscription is not None  # noqa: S101 - narrows the type; the loop closes only an opened source
@@ -379,9 +391,9 @@ def session_admission(request: Request, sessions: SessionRecordStore) -> Callabl
     return admit
 
 
-async def _read_version(tables: TableService, table_id: str) -> int | None:
+async def _read_version(tables: TableService, table_id: str) -> TableVersion | None:
     versions = await run_in_threadpool(tables.table_versions, (TableId(table_id),))
-    return versions[0].version if versions else None
+    return versions[0] if versions else None
 
 
 async def _read_leased(tables: TableService, table_id: str) -> frozenset[str]:

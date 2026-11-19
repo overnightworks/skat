@@ -175,6 +175,11 @@ export type Hand = {
 };
 // The kind of occupant a chair holds.
 export type OccupantKind = "person" | "agent";
+// Why an agent's turns at a chair stop, as its runner stated it.
+export type StopOutcome = "not_enabled" | "busy" | "budget_spent" | "unavailable";
+// What the occupant of a chair last stated about its turns, the same for every viewer: the outcome they stopped with,
+// or, while a turn runs, the whole seconds the server keeps it shown for under its cap. Absent while nothing shows.
+export type TurnState = { stopped: StopOutcome | null; thinking_seconds_left: number | null };
 export type Chair = {
     seat: number;
     occupant_name: string | null;
@@ -193,6 +198,7 @@ export type Chair = {
     is_mine_to_return: boolean;
     // What the viewer is shown of the nudges of a chair the table waits for; null on every other chair.
     nudge: Nudge | null;
+    turn_state?: TurnState | null;
 };
 export type RamschSeat = { seat: number; points: number; score: number };
 // The finished Ramsch as the server counted it: what each seat's counted eyes were and what it added, the sweeper of a

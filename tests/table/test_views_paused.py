@@ -237,7 +237,7 @@ class TestTheServiceReadsOnlyTheCallersDealtLiveTables:
         class ChairChangesAfterTheScan(FakeTableStore):
             def tables_of(self, account_id):
                 held = super().tables_of(account_id)
-                return (*held, TableVersion(table_id, 1)) if account_id == STRANGER else held
+                return (*held, TableVersion(table_id, 1, ())) if account_id == STRANGER else held
 
         racing = ChairChangesAfterTheScan()
         keep(racing, table_in(AUCTION_RUNS))

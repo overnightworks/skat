@@ -2,8 +2,10 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 from sqlalchemy import Integer, delete, exists, func, insert, literal, select, update
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.dialects.postgresql import insert as upsert
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import aliased
 
 from skat.engine.bidding import PassedIn
 from skat.engine.cards import DECK, Card
@@ -50,6 +52,7 @@ from skat.table.records import (
     TableId,
     TableRecord,
     TableStyle,
+    TurnStatement,
     Visibility,
     parsed_refusal,
 )
@@ -68,7 +71,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Sequence
     from datetime import datetime
 
-    from sqlalchemy import ColumnElement, Row
+    from sqlalchemy import ColumnElement, Row, ScalarSelect
     from sqlalchemy.engine import Connection, Engine
 
     from skat.table.game_cards import GameCards
@@ -120,7 +123,32 @@ def _chair_of(seat: Row[*tuple[Any, ...]]) -> Chair:
         if seat.account_id is None
         else Occupant(seat.account_id, seat.display_name, OccupantKind(seat.occupant_kind), seat.owner_account)
     )
-    return Chair(seat.seat, occupant, ready=seat.ready)
+    return Chair(seat.seat, occupant, ready=seat.ready, turn_state=_turn_state_of(seat))
+
+
+def _turn_state_of(seat: Row[*tuple[Any, ...]]) -> TurnStatement | None:
+    """The statement of the chair, read only while the account that stated it still sits there."""
+    if seat.turn_state_account is None or seat.turn_state_account != seat.account_id:
+        return None
+    return TurnStatement(seat.turn_state_stopped, bool(seat.turn_state_thinking), seat.turn_state_at)
+
+
+def _turn_state_values(chair: Chair) -> dict[str, Any]:
+    """The columns of the chair's statement; a chair without one, or without an occupant, clears them."""
+    statement = chair.turn_state
+    if statement is None or chair.occupant is None:
+        return {
+            "turn_state_account": None,
+            "turn_state_stopped": None,
+            "turn_state_thinking": None,
+            "turn_state_at": None,
+        }
+    return {
+        "turn_state_account": chair.occupant.account_id,
+        "turn_state_stopped": statement.stopped,
+        "turn_state_thinking": statement.thinking,
+        "turn_state_at": statement.stated_at,
+    }
 
 
 def _read_seats(connection: Connection, table_id: str) -> Sequence[Row[*tuple[Any, ...]]]:
@@ -134,6 +162,10 @@ def _read_seats(connection: Connection, table_id: str) -> Sequence[Row[*tuple[An
             chairs.c.ready,
             chairs.c.held_in_hand,
             chairs.c.former_holder_name,
+            chairs.c.turn_state_account,
+            chairs.c.turn_state_stopped,
+            chairs.c.turn_state_thinking,
+            chairs.c.turn_state_at,
         )
         .where(chairs.c.table_id == table_id)
         .order_by(chairs.c.seat)
@@ -228,6 +260,18 @@ def _forget_played_hand(connection: Connection, table_id: str) -> None:
         connection.execute(delete(rows).where(rows.c.table_id == table_id))
 
 
+def _turn_statement_times_of_table() -> ScalarSelect[list[datetime]]:
+    """The time of each statement among the table's chairs that its sitters stated, in seat order, as a correlated
+    subquery: every chair keeps its own time, so a statement stamped earlier than another chair's still shows.
+    """
+    chair = aliased(chairs)
+    return (
+        select(func.array_agg(aggregate_order_by(chair.c.turn_state_at, chair.c.seat)))
+        .where(chair.c.table_id == tables.c.id, chair.c.turn_state_account == chair.c.account_id)
+        .scalar_subquery()
+    )
+
+
 def _hold_of(table_id: TableId, account_id: str) -> tuple[ColumnElement[bool], ...]:
     return chair_holds.c.table_id == table_id.value, chair_holds.c.account_id == account_id
 
@@ -315,8 +359,16 @@ class _PostgresTableTransaction:
                         mark.account_id for mark in table.progress.seats_held if mark.seat == chair.seat
                     ),
                     former_holder_name=table.progress.former_holder_name(chair.seat),
+                    **_turn_state_values(chair),
                 )
             )
+
+    def save_turn_state(self, table_id: TableId, chair: Chair) -> None:
+        self._connection.execute(
+            update(chairs)
+            .where(chairs.c.table_id == table_id.value, chairs.c.seat == chair.seat)
+            .values(**_turn_state_values(chair))
+        )
 
     def game_cards(self, table_id: TableId, series_number: int, number: int) -> GameCards | None:
         return read_game_cards(self._connection, table_id.value, series_number, number)
@@ -522,9 +574,9 @@ class _PostgresTableTransaction:
 
     def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
         return tuple(
-            TableVersion(TableId(row.id), row.version)
+            TableVersion(TableId(row.id), row.version, tuple(row.turn_statement_times or ()))
             for row in self._connection.execute(
-                select(tables.c.id, tables.c.version)
+                select(tables.c.id, tables.c.version, _turn_statement_times_of_table().label("turn_statement_times"))
                 .join(chairs, chairs.c.table_id == tables.c.id)
                 .where(chairs.c.account_id == account_id, tables.c.end_reason.is_(None))
                 .order_by(tables.c.id)
@@ -543,9 +595,9 @@ class _PostgresTableTransaction:
 
     def versions_of(self, table_ids: Iterable[TableId]) -> tuple[TableVersion, ...]:
         return tuple(
-            TableVersion(TableId(row.id), row.version)
+            TableVersion(TableId(row.id), row.version, tuple(row.turn_statement_times or ()))
             for row in self._connection.execute(
-                select(tables.c.id, tables.c.version)
+                select(tables.c.id, tables.c.version, _turn_statement_times_of_table().label("turn_statement_times"))
                 .where(tables.c.id.in_([table_id.value for table_id in table_ids]), tables.c.end_reason.is_(None))
                 .order_by(tables.c.id)
             )

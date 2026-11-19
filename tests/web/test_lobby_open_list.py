@@ -24,7 +24,7 @@ OPEN_ENTRY_FIELDS = {
     "ends_at",
     "chairs",
 }
-OPEN_CHAIR_FIELDS = {"seat", "occupant_name", "occupant_kind", "is_away", "hold_seconds_left"}
+OPEN_CHAIR_FIELDS = {"seat", "occupant_name", "occupant_kind", "is_away", "hold_seconds_left", "turn_state"}
 
 
 class TestTheOpenList:

@@ -63,8 +63,11 @@ NO_FINITE_ANIMATION_RUNNING = """() => document.getAnimations().every(
 POLLING_MILLISECONDS = 100
 # Whether one of the two moves of an object of the table has started on the element since the page was watched.
 MAKES_ITS_MOVE = "selector => window.objectMoves.some(element => element.matches(selector))"
-# The dotted trail of the flight is painted at some moment of it.
-TRAIL_SHOWN = "() => Number(getComputedStyle(document.querySelector('.thrown .emote-trail')).opacity) > 0"
+# The dotted trail of the flight is painted at some moment of it; it leaves the page when the flight ends.
+TRAIL_SHOWN = """() => {
+    const trail = document.querySelector('.thrown .emote-trail');
+    return trail !== null && Number(getComputedStyle(trail).opacity) > 0;
+}"""
 # Where the element's own place lies in the box of the layer that carries the emotes, before its motion moves it.
 RESTING_PLACE = """selector => {
     const emote = document.querySelector(selector);
@@ -160,6 +163,7 @@ def test_an_emote_from_the_tray_flies_onto_the_felt_of_every_page_and_sounds_wit
 
     throwing_tray(thrower)
     thrower.get_by_role("button", name=text(SOURCE_LANGUAGE, "table.reactionFire")).click()
+    thrower.wait_for_function(TRAIL_SHOWN, timeout=SHOWN_WITHIN_MILLISECONDS * 2)
 
     for person in table.everyone:
         expect(person.locator(EMOTE)).to_have_count(1, timeout=SHOWN_WITHIN_MILLISECONDS)
@@ -169,7 +173,6 @@ def test_an_emote_from_the_tray_flies_onto_the_felt_of_every_page_and_sounds_wit
         place = person.evaluate(RESTING_PLACE, EMOTE)
         assert 0 <= place["x"] <= place["width"]
         assert 0 <= place["y"] <= place["height"]
-    thrower.wait_for_function(TRAIL_SHOWN, timeout=SHOWN_WITHIN_MILLISECONDS * 2)
     expect_played_by_every_page(heard_before)
     if not is_wide(thrower):
         expect(thrower.get_by_role("group", name=TRAY)).to_be_hidden()
