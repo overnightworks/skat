@@ -60,7 +60,7 @@ def decide_agree_to_end(table: TableRecord, actor: Actor, now: datetime) -> Deci
     agreed = proposal.agreed | {chair.seat}
     if agreed >= set(SEATS):
         return _ended_early(table, series)
-    return _with_proposal(table, series, replace(proposal, agreed=agreed))
+    return _with_proposal(table, series, EndProposal(proposal.proposer, agreed, proposal.asked_at))
 
 
 def decide_refuse_to_end(table: TableRecord, actor: Actor) -> Decision:
