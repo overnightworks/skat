@@ -9,8 +9,7 @@ from urllib.parse import urlsplit
 
 import pytest
 from playwright.sync_api import Page, Request, Route, expect
-from skat.web.closing import TABLE_CLOSE_SUFFIX
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 
 from skat.store.game_list import append_game_list
 from skat.store.schema import metadata, tables
@@ -378,8 +377,8 @@ def test_a_dealt_table_nobody_played_at_for_the_days_shows_its_end_to_every_open
 
 @pytest.fixture(scope="module")
 def retained_table(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[RunningServer, str, str]]:
-    """A Skat with the link of a closed table that has a game and ended longer ago than the days, as it stands after
-    the start's sweep, and the name its closer had.
+    """A Skat with the link of a table an opener closed before „Aufhören“ replaced the close, that has a game and ended
+    longer ago than the days, as it stands after the start's sweep, and the name its closer had.
     """
     with skat_on_new_database(tmp_path_factory) as server:
         opener = RawSession(
@@ -388,13 +387,17 @@ def retained_table(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[R
         table_id = json.loads(opener.post(TABLES_PATH, {"command_id": "retained-create-0001", "series_length": 36}))[
             "id"
         ]
-        opener.post(f"{TABLES_PATH}/{table_id}{TABLE_CLOSE_SUFFIX}", {"command_id": "retained-close-0001"})
         with server.engine.begin() as connection:
             append_game_list(connection, table_id, 1, (an_entry(),), datetime.now(UTC))
             connection.execute(
                 update(tables)
                 .where(tables.c.id == table_id)
-                .values(ended_at=tables.c.ended_at - timedelta(days=DEFAULT_ENDED_TABLE_DAYS + 1))
+                .values(
+                    ended_at=datetime.now(UTC) - timedelta(days=DEFAULT_ENDED_TABLE_DAYS + 1),
+                    end_reason="closed",
+                    closed_by_name="Anna",
+                    opener_name=None,
+                )
             )
             closer = connection.execute(select(tables.c.closed_by_name).where(tables.c.id == table_id)).scalar_one()
         assert closer
@@ -433,21 +436,25 @@ AGENT_NAME = SEAT_NAMES[2]
 
 @pytest.fixture(scope="module")
 def closed_with_games(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[RunningServer, str, str]]:
-    """A Skat with the link of a table its opener closed after three games, one declared from each seat, the third
-    seat held by an agent, and the name its closer had.
+    """A Skat with the link of a table an opener closed before „Aufhören“ replaced the close, after three games, one
+    declared from each seat, the third seat held by an agent, and the name its closer had.
     """
     with skat_on_new_database(tmp_path_factory) as server:
         opener = RawSession(
             server, seed_member(server.stores, server.config, account=new_account(server.stores, server.config))
         )
         table_id = json.loads(opener.post(TABLES_PATH, {"command_id": "played-create-0001", "series_length": 36}))["id"]
-        opener.post(f"{TABLES_PATH}/{table_id}{TABLE_CLOSE_SUFFIX}", {"command_id": "played-close-0001"})
         games = tuple(
             replace(an_entry(), declarer_seat=seat, seat_kinds=tuple(kind for _, kind in GAME_SEATS))
             for seat, _ in GAME_SEATS
         )
         with server.engine.begin() as connection:
             append_game_list(connection, table_id, 1, games, datetime.now(UTC))
+            connection.execute(
+                update(tables)
+                .where(tables.c.id == table_id)
+                .values(ended_at=func.now(), end_reason="closed", closed_by_name="Anna", opener_name=None)
+            )
             closer = connection.execute(select(tables.c.closed_by_name).where(tables.c.id == table_id)).scalar_one()
         assert closer
         yield server, f"{TABLE_PAGE_PREFIX}{table_id}", closer

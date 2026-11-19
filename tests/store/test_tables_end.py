@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from skat.engine.deal import Position, positions_from
 from skat.store.schema import tables
 from skat.table.playing import PlayCardCommand
+from skat.table.ready import NewSeriesCommand
 from skat.table.records import (
     CreateTable,
     EndedTable,
@@ -527,6 +528,73 @@ def test_an_ask_for_new_series_is_found_with_its_instant_by_the_start_of_a_serve
     assert left == {table_id.value: END_ANSWER_SECONDS - 20}
 
 
+class SeriesEndRace:
+    """A table at its series' end whose seats 1 and 2 chose „Neue Serie“ and whose third seat answers at the same
+    moment as an end: the end holds the row lock, the answer waits for it, and `settle` lets the end commit.
+    """
+
+    def __init__(self, service, transactions, engine, stored):
+        self.engine = engine
+        self.transactions = transactions
+        self.table_id = listed_games_in_two_series(service, transactions, stored, "one")
+        record = stored(transactions, self.table_id.value)
+        ready = tuple(replace(chair, ready=chair.seat < 3) for chair in record.chairs)
+        series_over = Series(12, 12, number=2, new_series_asked_at=STOPPED_AT)
+        save(transactions, replace(record, hand=None, progress=HandProgress(), chairs=ready, series=series_over))
+        self.stored = lambda: stored(transactions, self.table_id.value)
+        self.hold = HeldWrite()
+
+    def holding(self):
+        return HoldingAfterSave(self.transactions, self.hold)
+
+    def third_seats_new_series(self):
+        command = NewSeriesCommand("new-series-3", self.table_id.value, 2)
+        service = TableService(self.transactions, now=lambda: STOPPED_AT)
+        return WorkInAThread(lambda: service.start_new_series(SEATED[2], command, NOBODY_CONNECTED))
+
+    def settle(self, ending, answer):
+        ending.start()
+        assert self.hold.entered.wait(HANG_DEADLINE_SECONDS)
+        answer.start()
+        wait_until_a_session_waits_for_a_lock(self.engine, answer)
+        self.hold.release.set()
+        ending.join()
+        answer.join()
+        return ending.outcome, answer.outcome
+
+
+@pytest.fixture
+def series_end_race(service, transactions, engine, stored):
+    return SeriesEndRace(service, transactions, engine, stored)
+
+
+def test_a_new_series_answer_that_waits_for_a_stop_finds_the_ended_table_and_deals_nothing(series_end_race):
+    race = series_end_race
+    service = TableService(race.holding(), now=lambda: STOPPED_AT)
+
+    stopped, answered = race.settle(
+        WorkInAThread(lambda: service.stop_playing(SEATED[0], StopPlaying("stop-one", race.table_id.value))),
+        race.third_seats_new_series(),
+    )
+
+    assert [result.refusal for result in stopped] == [None]
+    assert answered == [None]
+    assert race.stored().ending == Ending.stopped()
+
+
+def test_a_new_series_answer_that_waits_for_the_lapse_of_another_pod_finds_the_table_ended_by_it(series_end_race):
+    race = series_end_race
+    later = TableService(race.holding(), now=lambda: STOPPED_AT + timedelta(seconds=END_ANSWER_SECONDS))
+
+    lapsed, answered = race.settle(
+        WorkInAThread(lambda: later.lapse_end_answers(race.table_id)), race.third_seats_new_series()
+    )
+
+    assert [lapse.table_stopped for lapse in lapsed] == [True]
+    assert answered == [None]
+    assert race.stored().ending == Ending.stopped()
+
+
 def test_the_unplayed_end_deletes_the_rows_of_a_running_hand(service, transactions, stored, engine):
     table_id = played_hand(service, transactions, stored, "one")
     played_at(transactions, table_id, PLAYED_AT)
@@ -626,6 +694,11 @@ class _HoldingTransaction:
 
     def save_table(self, table, *, played_at):
         self._inner.save_table(table, played_at=played_at)
+        with self._hold:
+            pass
+
+    def end_table(self, table_id, ended_at, ending):
+        self._inner.end_table(table_id, ended_at, ending)
         with self._hold:
             pass
 
