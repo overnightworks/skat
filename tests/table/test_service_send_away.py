@@ -337,3 +337,48 @@ class TestARetry:
 
         with pytest.raises(CommandIdReusedError):
             scene.send_away(BACH, command_id="command-away")
+
+
+class TestAReplayWithoutTheAgentsAccount:
+    """The replay learns the agent from the receipt, so a pod that never saw the agent answers it."""
+
+    @staticmethod
+    def is_mozart(account):
+        return account == MOZART.account_id
+
+    def replayed(self, scene, command_id="command-away", table_id=None, is_agent=None):
+        return scene.service.replayed_send_away(
+            ANNA, command_id, table_id or scene.table_id, is_agent or self.is_mozart
+        )
+
+    def test_answers_as_the_first_send_away_did_when_the_agent_is_the_one_the_receipt_names(self):
+        scene = Scene()
+        scene.send_away(command_id="command-away")
+
+        replayed = self.replayed(scene)
+
+        assert (replayed.refusal, replayed.table) == (None, scene.table)
+
+    def test_answers_none_for_a_command_id_nobody_used(self):
+        assert self.replayed(Scene()) is None
+
+    @pytest.mark.parametrize("is_agent", [lambda account: False, lambda account: account == BACH.account_id])
+    def test_refuses_a_command_id_whose_receipt_names_another_agent(self, is_agent):
+        scene = Scene()
+        scene.send_away(command_id="command-away")
+
+        with pytest.raises(CommandIdReusedError):
+            self.replayed(scene, is_agent=is_agent)
+
+    def test_refuses_a_command_id_whose_receipt_is_of_another_table(self):
+        scene = Scene()
+        scene.send_away(command_id="command-away")
+
+        with pytest.raises(CommandIdReusedError):
+            self.replayed(scene, table_id="another-table")
+
+    def test_refuses_a_command_id_used_for_another_command(self):
+        scene = Scene()
+
+        with pytest.raises(CommandIdReusedError):
+            self.replayed(scene, command_id="command-open")

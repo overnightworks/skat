@@ -12,6 +12,7 @@ from sqlalchemy.engine import make_url
 from skat.host.app import PodLinks, create_app
 from skat.store.migrate import ReadinessProbe, create_store_engine, database_health, migrate, require_served_revision
 from skat.store.redis_clients import (
+    shared_agent_records,
     shared_place_store,
     shared_rate_limits,
     shared_stream_leases,
@@ -156,6 +157,7 @@ def _run(command: str, run_server: Callable[..., None], build_directory: Path) -
             rate_limits=shared_rate_limits(settings.redis_url),
             wake_channel=shared_wake_channel(settings.redis_url),
             place_store=shared_place_store(settings.redis_url),
+            agent_records=shared_agent_records(settings.redis_url),
             stream_leases=shared_stream_leases(settings.redis_url),
         ),
         database_ready=ReadinessProbe(lambda: database_health(engine)),

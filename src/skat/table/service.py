@@ -33,8 +33,8 @@ from skat.table.member_place import (
     decide_accept,
     decide_invite,
     keep_turn_state,
+    offers_at,
     standings_of,
-    table_offers_of,
 )
 from skat.table.member_view import (
     MemberActs,
@@ -123,7 +123,13 @@ from skat.table.rules import (
     sit_payload,
     stand_payload,
 )
-from skat.table.send_away import SEND_AWAY_COMMAND, decide_send_away_by, save_book_after_send_away, send_away_payload
+from skat.table.send_away import (
+    SEND_AWAY_COMMAND,
+    decide_send_away_by,
+    earlier_send_away,
+    save_book_after_send_away,
+    send_away_payload,
+)
 from skat.table.series_end import (
     AGREE_TO_END_SERIES_COMMAND,
     REFUSE_TO_END_SERIES_COMMAND,
@@ -270,13 +276,11 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             lambda transaction, table: save_book_after_send_away(transaction, table.id, command.agent_account),
         )
 
-    def replayed_send_away(self, actor: Actor, command: SendAway) -> Decision | None:
-        """The outcome of this person's earlier send-away under the command id, None if none; it writes nothing and
-        raises `CommandIdReusedError` for another request under the id.
-        """
-        with self._transactions.begin() as transaction:
-            replay = transaction.replay(actor.account_id, command.command_id)
-        return None if replay is None else replayed_decision(replay, SEND_AWAY_COMMAND, send_away_payload(command))
+    def replayed_send_away(
+        self, actor: Actor, command_id: str, table_id: str, is_agent: Callable[[str], bool]
+    ) -> Decision | None:
+        """The earlier outcome of this person's send-away under the command id; see `earlier_send_away`."""
+        return earlier_send_away(self._transactions, actor, command_id, table_id, is_agent)
 
     def take_auction_step(
         self, actor: Actor, command: AuctionCommand, connected_accounts: frozenset[str]
@@ -568,14 +572,8 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
     def offers_at(
         self, table_id: TableId, calls: Sequence[CallFacts], seated_facts: Callable[[str], CallFacts]
     ) -> TableOffers | None:
-        """Each call's offer and, from the same read of the table and the agents' rows, the offer of each seated agent
-        no call names, on the facts `seated_facts` gives for its account; None when no live table has the id.
-        """
-        with self._transactions.begin() as transaction:
-            if not isinstance(table := transaction.table(table_id), TableRecord):
-                return None
-            entries = [transaction.locked_book_entry(table_id, call.agent_account) for call in calls]
-        return table_offers_of(table, calls, entries, seated_facts, self._now())
+        """Each call's offer and each seated agent's; see `offers_at`."""
+        return offers_at(self._transactions, table_id, calls, seated_facts, self._now())
 
     def accept_invitation(
         self, agent: Actor, owner_account: str | None, acceptance: Acceptance, connected_accounts: frozenset[str]
