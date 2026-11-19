@@ -7,9 +7,8 @@ from skat.table.records import Decision, Refusal, SendAway, TableId, TableRecord
 from skat.table.rules import CommandIdReusedError, replayed_decision, seat_of, with_occupant
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from collections.abc import Callable
+    from datetime import datetime
 
     from skat.table.member_place import MemberBook
     from skat.table.records import Actor
