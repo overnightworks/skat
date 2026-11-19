@@ -1,0 +1,8 @@
+claim_id = "d6d52da2f3004431bf4387811abf986f"
+agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
+role = "builder"
+base = "46931fe6224076fe94c91b3b78b25daa2942a26c"
+branch = "claude/issue-702-the-start-page-shows-the-wordmark-and-th"
+scope = ["frontend/src/lib/start.css", "frontend/src/lib/ui", "frontend/src/routes/(start)", "tests/e2e"]
+opened_commit = "46f2329b89d2b1a87d7a524ec1472cf4f7d1b2cd"
+whole_reason = "The start page's head is one small surface whose markup, style and end-to-end proof change together."
