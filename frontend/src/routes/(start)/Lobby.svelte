@@ -30,9 +30,6 @@
         result: trophyIcon,
     };
 
-    // Whether the lobby has anything to show, for the page that makes room for it.
-    let { shown = $bindable(false) }: { shown: boolean } = $props();
-
     // A list is null until the stream has sent it, so the lobby says nothing before it knows.
     let tables = $state<LobbyTable[] | null>(null);
     let openTables = $state<OpenTable[] | null>(null);
@@ -54,9 +51,7 @@
     // Both sections share the row's width, so the longer list sets the columns.
     const columns = $derived(Math.min(Math.max(mine.length, open?.length ?? 0, 1), WIDEST_ROW));
 
-    $effect(() => {
-        shown = mine.length > 0 || open !== null;
-    });
+    const shown = $derived(mine.length > 0 || open !== null);
 
     // The page counts a hold down with its own stopwatch, which no clock change moves; a new list replaces the count.
     function tickClocks(): number {
