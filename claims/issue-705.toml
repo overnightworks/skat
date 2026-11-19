@@ -1,0 +1,8 @@
+claim_id = "7ebf1809b7f64e30a59011a0e93b1be3"
+agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
+role = "builder"
+base = "163e6f7588c3d4036eafab99812d0f82414735ce"
+branch = "claude/issue-705-an-agent-listening-on-another-pod-is-lis"
+scope = ["docs/ARCHITECTURE.md", "src/skat/host/app.py", "src/skat/host/main.py", "src/skat/store", "src/skat/table/send_away.py", "src/skat/table/service.py", "src/skat/web", "tests"]
+opened_commit = "ad3a4d9509ccf5540b3dd4ad6e5ffcc435d9d558"
+whole_reason = "Who listens, the agent's facts and its row key move from one pod's memory to shared state across the roster, its port, the store and their tests."
