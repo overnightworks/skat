@@ -22,6 +22,10 @@ if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
+# The fan shows each card's left strip, and the next card covers its middle, where a plain click lands. A touch within
+# a few pixels of a card's edge reaches the neighbouring card although the point lies on the aimed one, so a tap
+# aims at the strip's middle, where a finger lands too.
+INSIDE_THE_VISIBLE_STRIP = {"x": 15, "y": 40}
 WE = text(SOURCE_LANGUAGE, "play.sideUs")
 THEY = text(SOURCE_LANGUAGE, "play.sideThem")
 TURN_CHAIR = ".chair.turn"

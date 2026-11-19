@@ -7,6 +7,7 @@ from skat.engine.bidding import LOWEST_BID
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.pushing import TABLE_PUSHING_TAKE_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch_stage import PLAQUE, RamschStageTable, deal
 from tests.e2e.support.result_card import CARD
@@ -44,8 +45,6 @@ DIMMED_CARD = ".own-hand .card.no"
 PLAYABLE_CARD = ".own-hand .card.ok"
 PRESSED = "aria-pressed"
 CARDS_AFTER_A_TAKE = 12
-# The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
-INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
 
 
 @pytest.fixture(scope="module")

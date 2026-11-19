@@ -19,7 +19,7 @@ from tests.e2e.support.declaring import (
     button_of,
     passes,
 )
-from tests.e2e.support.hands import THEY, WE, PlayingTable, deal_playing_table
+from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, THEY, WE, PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.result_card import (
     CARD,
@@ -68,8 +68,6 @@ LONG_NAMES = ("Bartholom\u00e4us-Maximilian-Ferdinand", "Maximiliane-Bartholom\u
 FULL_LENGTH_OPENER = "Maximiliane-Bartholomaea0"
 FULL_LENGTH_NAMES = ("Maximiliane-Bartholomaea1", "Maximiliane-Bartholomaea2")
 ORDINARY_NAMES = ("Felix", "Nova")
-# The fan shows each card's left strip, and the next card covers its middle, where a plain click lands.
-INSIDE_THE_VISIBLE_STRIP = {"x": 8, "y": 40}
 PICKED_INDEX = 7
 
 # The agents' list keeps this far from either edge of the screen, in pixels.
