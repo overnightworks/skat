@@ -933,7 +933,7 @@ body {
     --cream: #fbf8f0;
     --ink: #14181d;
     --ok-stage: #4cc38a;
-    /* The round keys of the top row (Lobby, speaker, menu) are a brighter glass than the stage's. */
+    /* The round keys of the top row (Lobby, speaker, menu, reactions) are a brighter glass than the stage's. */
     --round-key-tint: rgba(244, 246, 248, 0.26);
     /* The one red of leaving: white text on it meets 4.5:1, and the declined cross on the dark glass meets 3:1. */
     --leave: #d63a40;
