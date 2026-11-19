@@ -199,6 +199,15 @@ body {
 
 /* The empty start page draws its scene: the head grows into the large wordmark, the table with its two empty chairs, the lull line and the four jacks stand under it, and the one new-table button sits on the felt. The page scrolls as a whole. */
 .start[data-scene="empty"] {
+    background:
+        radial-gradient(14px 14px at 8% 9%, rgba(255, 196, 120, 0.3), transparent),
+        radial-gradient(22px 22px at 15% 5%, rgba(255, 170, 90, 0.18), transparent),
+        radial-gradient(18px 18px at 88% 6%, rgba(255, 196, 120, 0.22), transparent),
+        radial-gradient(10px 10px at 94% 13%, rgba(255, 210, 150, 0.3), transparent),
+        radial-gradient(70% 55% at 50% 40%, rgba(255, 190, 110, 0.13), transparent 70%),
+        radial-gradient(130% 90% at 50% 45%, transparent 45%, rgba(0, 0, 0, 0.75) 100%),
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 96px),
+        linear-gradient(180deg, #1a1512 0%, #120f0d 55%, #0c0a09 100%);
     --rim: 14px;
     --table-width: min(350px, calc(100vw - 40px));
     --table-radius: 175px;
@@ -3529,18 +3538,21 @@ body {
     height: 100%;
 }
 
-.room .card-face .index {
+.room .card-face .index,
+.start-jack .card-face .index {
     font-family: "Open Sans", Arial, sans-serif;
     font-size: 21px;
     font-weight: 600;
 }
 
-.room .card-face .index.ten {
+.room .card-face .index.ten,
+.start-jack .card-face .index.ten {
     font-size: 19px;
     letter-spacing: -2px;
 }
 
-.room .card-face .court {
+.room .card-face .court,
+.start-jack .card-face .court {
     font-family: "Noto Serif", "DejaVu Serif", Georgia, serif;
     font-size: 40px;
     font-weight: 700;

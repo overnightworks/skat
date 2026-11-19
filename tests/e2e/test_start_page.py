@@ -19,7 +19,7 @@ from tests.e2e.support.browser import (
 )
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.lobby_stream import open_table_answer, serve_streams_in_turn, stream_of
-from tests.e2e.support.people import DESKTOP, FORM_FACTORS, PHONE
+from tests.e2e.support.people import DESKTOP, FORM_FACTORS, PHONE, WIDTHS
 from tests.e2e.support.table_menu import open_account_panel
 from tests.e2e.support.tables import open_new_table
 from tests.support.sign_in_settings import TEST_ISSUER
@@ -75,7 +75,7 @@ def test_until_the_lobby_answers_the_page_draws_the_head_and_no_button(
     expect(waiting.locator(".start-table, .lobby-lists")).to_have_count(0)
 
 
-@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_with_no_open_table_the_start_page_draws_the_table_the_lull_line_the_jacks_and_the_button_on_the_felt(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
@@ -102,7 +102,8 @@ def test_with_no_open_table_the_start_page_draws_the_table_the_lull_line_the_jac
     expect(button).to_be_visible()
     table_box, lull_box, button_box = box_of(table), box_of(lull), box_of(button)
     jacks_bottom = max(box["y"] + box["height"] for box in map(box_of, person.locator(".start-jack").all()))
-    assert [table_box["x"], table_box["y"]] <= [button_box["x"], button_box["y"]]
+    assert table_box["x"] <= button_box["x"]
+    assert table_box["y"] <= button_box["y"]
     assert button_box["y"] + button_box["height"] <= table_box["y"] + table_box["height"]
     assert button_box["x"] + button_box["width"] <= table_box["x"] + table_box["width"]
     assert abs(button_box["x"] + button_box["width"] / 2 - (table_box["x"] + table_box["width"] / 2)) <= 1
