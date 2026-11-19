@@ -1,5 +1,6 @@
 import json
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -31,6 +32,9 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
+START_SCENES = Path(__file__).parents[2] / "docs" / "mockups" / "start.html"
+# The scene frame that stands for the empty page at each width; the scenes draw the empty page at 390 and 1280 px only.
+EMPTY_SCENE_FRAMES = {360: "lobby-open-360", 390: "s3-empty-390", 1280: "s3-empty-1280"}
 
 ACCOUNT_ROUTE = f"**{ACCOUNT_PATH}"
 UNAUTHORIZED = 401
@@ -110,6 +114,29 @@ def test_with_no_open_table_the_start_page_draws_the_table_the_lull_line_the_jac
     assert lull_box["y"] + lull_box["height"] <= button_box["y"]
     assert jacks_bottom <= button_box["y"]
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_with_no_open_table_the_start_page_paints_its_backdrop_as_the_scene_does(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    expected_request_failures: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
+    person = open_person(**form_factor)
+    serve_streams_in_turn(person, [stream_of(open_tables=[])])
+    person.goto(f"{e2e_server.base_url}/")
+    expect(person.locator(".start-table")).to_be_visible()
+    frame = EMPTY_SCENE_FRAMES[form_factor["viewport"]["width"]]
+    scenes = person.context.new_page()
+    try:
+        scenes.goto(f"{START_SCENES.as_uri()}?f={frame}")
+        drawn = scenes.locator(f"[id='{frame}']").evaluate("frame => getComputedStyle(frame).backgroundImage")
+    finally:
+        scenes.close()
+
+    assert person.locator(".start").evaluate("page => getComputedStyle(page).backgroundImage") == drawn
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
