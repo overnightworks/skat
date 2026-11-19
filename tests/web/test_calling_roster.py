@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 
 import pytest
-from agents.mcp_server import listen
+from agents.mcp_server import InMemoryPlaceStore, listen
 from agents.mcp_server.listen import ResourceChanges
 from agents.member import LISTEN_ALLOWANCE_SECONDS, STANDING_URI, PlaceRef, place_view_uri
 from agents.tools import Principal
@@ -13,7 +13,7 @@ from webauth.ports import AgentFacts
 
 from skat.web.calling import AgentRoster
 from skat.web.mcp import token_carries_agent_facts
-from tests.support.in_memory_place_store import READ_WITHIN_SECONDS, InMemoryPlaceStore
+from tests.web.support.changes import READ_WITHIN_SECONDS
 
 NOVA = Principal(iss="an-issuer", sub="agent-nova")
 BACH = Principal(iss="an-issuer", sub="agent-bach")
@@ -33,12 +33,11 @@ def starts_to_listen(roster, principal, facts, uri=STANDING_URI):
         roster.listening_changed(principal, uri, True)
 
 
-class Clock:
-    def __init__(self):
-        self.now = 0.0
-
-    def __call__(self):
-        return self.now
+def pass_loop_time(seconds):
+    """Moves the running loop's clock on, which is the time the in-memory place store keeps its deadlines on."""
+    loop = asyncio.get_running_loop()
+    shifted_from = loop.time
+    loop.time = lambda: shifted_from() + seconds
 
 
 def listens_once_and_closes(roster, principal, facts, *, after_close):
@@ -47,18 +46,24 @@ def listens_once_and_closes(roster, principal, facts, *, after_close):
     """
 
     async def listen_then_close():
-        clock = Clock()
-        store = InMemoryPlaceStore(clock)
-        changes = ResourceChanges(store, listening_changed=roster.listening_changed)
+        dropped = asyncio.Event()
+
+        def dropped_when_no(principal, uri, listens):
+            roster.listening_changed(principal, uri, listens)
+            if not listens:
+                dropped.set()
+
+        store = InMemoryPlaceStore()
+        changes = ResourceChanges(store, listening_changed=dropped_when_no)
         async with changes.following():
             async with changes.opened(principal) as stream:
                 with token_of(facts):
                     await changes.acknowledged(principal, stream, [STANDING_URI], tools=False)
-            await store.settled()
             after_close()
-            clock.now += LISTEN_ALLOWANCE_SECONDS
-            await store.lapse_due("a-pod")
-            await store.settled()
+            pass_loop_time(LISTEN_ALLOWANCE_SECONDS)
+            await store.lapse_due()
+            async with asyncio.timeout(READ_WITHIN_SECONDS):
+                await dropped.wait()
 
     asyncio.run(listen_then_close())
 
@@ -159,20 +164,19 @@ class TestAnEntryOutlivesTheEndOfItsListenByTheLibrarysAllowance:
             if not listens:
                 dropped.put_nowait(principal)
 
-        async def listens_and_closes_then_is_dropped(changes, clock, principal):
+        async def listens_and_closes_then_is_dropped(changes, principal):
             async with changes.opened(principal) as stream:
                 with token_of(AgentFacts(owner="owner-felix", name=principal.sub)):
                     await changes.acknowledged(principal, stream, [STANDING_URI], tools=False)
-            clock.now += LISTEN_ALLOWANCE_SECONDS
+            pass_loop_time(LISTEN_ALLOWANCE_SECONDS)
             async with asyncio.timeout(READ_WITHIN_SECONDS):
                 return await dropped.get()
 
         async def two_listens_one_after_the_other():
-            clock = Clock()
-            changes = ResourceChanges(InMemoryPlaceStore(clock), listening_changed=dropped_when_no)
+            changes = ResourceChanges(InMemoryPlaceStore(), listening_changed=dropped_when_no)
             async with changes.following():
-                first = await listens_and_closes_then_is_dropped(changes, clock, NOVA)
-                second = await listens_and_closes_then_is_dropped(changes, clock, BACH)
+                first = await listens_and_closes_then_is_dropped(changes, NOVA)
+                second = await listens_and_closes_then_is_dropped(changes, BACH)
             return first, second
 
         assert asyncio.run(two_listens_one_after_the_other()) == (NOVA, BACH)
