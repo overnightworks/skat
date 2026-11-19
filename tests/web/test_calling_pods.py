@@ -129,3 +129,44 @@ def test_a_call_with_a_key_nobody_was_given_is_agent_unavailable(pods, issuer, f
         answer = call(pods[1], felix, table_id, "a-key-no-pod-made")
 
         assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.AGENT_UNAVAILABLE})
+
+
+def test_a_record_that_is_gone_while_the_listener_stands_hides_the_agent_until_its_next_call_writes_it(
+    pods, issuer, felix, table_id
+):
+    with listening(pods[0], issuer, felix, "Nova", NOVA) as nova:
+        pods[0].shared.records.forget(pods[0].stores.accounts.get(NOVA).id)
+        without_record = names_of_rows(pods[1], felix, table_id)
+
+        nova.standing()
+
+        assert (without_record, names_of_rows(pods[1], felix, table_id)) == ([], ["Nova"])
+
+
+def test_a_listener_that_is_gone_while_its_record_stands_is_not_listed(pods, issuer, felix, table_id):
+    with listening(pods[0], issuer, felix, "Nova", NOVA):
+        pods[0].shared.place_store.lists_no_listener = True
+
+        assert names_of_rows(pods[1], felix, table_id) == []
+
+
+def test_a_record_store_that_does_not_answer_offers_no_agent(pods, issuer, felix, table_id):
+    with listening(pods[0], issuer, felix, "Nova", NOVA):
+        pods[0].shared.records.fails_reads = True
+        while_down = names_of_rows(pods[1], felix, table_id)
+        pods[0].shared.records.fails_reads = False
+
+        assert (while_down, names_of_rows(pods[1], felix, table_id)) == ([], ["Nova"])
+
+
+def test_a_failed_write_of_the_record_lets_the_agents_call_through_and_lists_it_once_a_write_succeeds(
+    pods, issuer, felix, table_id
+):
+    pods[0].shared.records.fails_writes = True
+    with listening(pods[0], issuer, felix, "Nova", NOVA) as nova:
+        unlisted = names_of_rows(pods[1], felix, table_id)
+        pods[0].shared.records.fails_writes = False
+
+        standing = nova.standing()
+
+        assert (unlisted, "standings" in standing, names_of_rows(pods[1], felix, table_id)) == ([], True, ["Nova"])

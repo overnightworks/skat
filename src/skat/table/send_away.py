@@ -19,6 +19,12 @@ def send_away_payload(command: SendAway) -> str:
     return f"{command.table_id}:{command.agent_account}"
 
 
+def send_away_agent_of(payload: str, table_id: str) -> str | None:
+    """The agent a receipt's payload names for the table, None for a payload of another table or shape."""
+    agent = payload.removeprefix(f"{table_id}:")
+    return None if agent == payload else agent
+
+
 def decide_send_away(table: TableRecord, account_id: str) -> Decision:
     """The agent's chair is freed and keeps its number, whether or not a hand runs.
 

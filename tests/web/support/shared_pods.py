@@ -5,6 +5,7 @@ stream leases, as the pods of Skat share one Postgres and one Redis.
 from contextlib import ExitStack, contextmanager
 
 from tests.support.fake_tables import FakeTableStore
+from tests.support.in_memory_agent_records import InMemoryAgentRecords
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.in_memory_stores import in_memory_stores
 from tests.web.support.calling import running_skat
@@ -19,9 +20,10 @@ class SharedBackends:
         self.tables = FakeTableStore()
         self.place_store = ControlledPlaceStore()
         self.leases = InMemoryLeases()
+        self.records = InMemoryAgentRecords()
 
     def pod_links(self):
-        return {"place_store": self.place_store, "stream_leases": self.leases}
+        return {"place_store": self.place_store, "stream_leases": self.leases, "agent_records": self.records}
 
 
 @contextmanager

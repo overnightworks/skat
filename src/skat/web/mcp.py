@@ -275,7 +275,7 @@ class _AgentHearingFront:
     nobody.
     """
 
-    def __init__(self, front: ASGIApp, agent_heard: Callable[[str, AgentFacts], None]) -> None:
+    def __init__(self, front: ASGIApp, agent_heard: Callable[[str, AgentFacts], Awaitable[None]]) -> None:
         self._front = front
         self._agent_heard = agent_heard
 
@@ -283,7 +283,7 @@ class _AgentHearingFront:
         set_route(scope, MCP_ENDPOINT_PATH)
         person = resource_person(HTTPConnection(scope))
         if person.agent is not None:
-            self._agent_heard(person.id, person.agent)
+            await self._agent_heard(person.id, person.agent)
         marker = token_carries_agent_facts.set(person.agent)
         try:
             await self._front(scope, receive, send)
@@ -318,15 +318,15 @@ def mount_mcp(
     relying_party: OidcRelyingParty,
     transaction: SignInTransaction,
     public_origin: str,
-    agent_heard: Callable[[str, AgentFacts], None],
+    agent_heard: Callable[[str, AgentFacts], Awaitable[None]],
     member: MemberFront,
 ) -> McpAccess:
     """Serve /mcp and the resource's metadata document; call it after the last route of the schema is registered.
 
-    The front serves only inside `running()`, which the host's lifespan enters. `agent_heard(account_id, facts)` hears
-    every admitted call of an agent with the facts of its token. Beside the routes' tools the front serves the member's
-    accept tool, its standing as a resource and the changes that signal it; an agent is offered the tools of its
-    tables' moments.
+    The front serves only inside `running()`, which the host's lifespan enters. `agent_heard(account_id, facts)` is
+    awaited before the front runs, for every admitted call of an agent, with the facts of its token. Beside the routes'
+    tools the front serves the member's accept tool, its standing as a resource and the changes that signal it; an agent
+    is offered the tools of its tables' moments.
     """
     with warnings.catch_warnings():
         # A route for GET and HEAD gives both operations one id, which the tool generator never reads.

@@ -10,7 +10,13 @@ import pytest
 from webauth.config import installed_web_auth_config
 
 from skat.host.app import PodLinks, create_app
-from skat.store.redis_clients import shared_place_store, shared_rate_limits, shared_stream_leases, shared_wake_channel
+from skat.store.redis_clients import (
+    shared_agent_records,
+    shared_place_store,
+    shared_rate_limits,
+    shared_stream_leases,
+    shared_wake_channel,
+)
 from skat.table.records import Actor, CreateTable, SitDown
 from skat.web.constants import ACCOUNT_PATH, HEALTH_PATH
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
@@ -47,6 +53,7 @@ def test_a_stream_open_when_the_limits_fail_ends_without_a_view_while_new_reques
             rate_limits=shared_rate_limits(redis.url),
             wake_channel=shared_wake_channel(redis.url),
             place_store=shared_place_store(redis.url),
+            agent_records=shared_agent_records(redis.url),
             stream_leases=shared_stream_leases(redis.url),
             end_process=lambda: process_ended.append(True),
         ),
