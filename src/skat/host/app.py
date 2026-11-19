@@ -107,6 +107,20 @@ UNPLAYED_SWEEP_SECONDS: Final = 3600
 # How often a pod re-reads the stored proposals to end a series, so one whose timer ran on a pod that is gone lapses.
 END_ANSWER_RECOVERY_SECONDS: Final = 15
 
+
+@dataclass(frozen=True, kw_only=True)
+class ServerRounds:
+    """How often the server runs its two standing rounds: the end of unplayed tables and the re-read of the stored end
+    proposals.
+    """
+
+    unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS
+    end_answer_recovery_seconds: float = END_ANSWER_RECOVERY_SECONDS
+
+
+STANDARD_ROUNDS: Final = ServerRounds()
+
+
 log = structlog.get_logger()
 
 
@@ -481,8 +495,7 @@ def _serving(
     presence: Presence,
     scheduler: Scheduler,
     sessions: ExpirableSessions,
-    unplayed_sweep_seconds: float,
-    end_answer_recovery_seconds: float,
+    rounds: ServerRounds,
     shared_wakes: SharedWakes,
     wakes: WakeList,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
@@ -495,12 +508,12 @@ def _serving(
                 await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds)
             )
             await _watch_pending_end_answers(tables, presence)
-            _recover_end_answers(tables, presence, scheduler, end_answer_recovery_seconds)
+            _recover_end_answers(tables, presence, scheduler, rounds.end_answer_recovery_seconds)
             await _end_unplayed_tables(settings, tables, presence, at_start=True)
             await _forget_ended_tables(settings, tables)
             forget_expired_sessions = _session_forgetter(serving, sessions)
             await forget_expired_sessions()
-            _sweep_tables(settings, tables, presence, scheduler, forget_expired_sessions, unplayed_sweep_seconds)
+            _sweep_tables(settings, tables, presence, scheduler, forget_expired_sessions, rounds.unplayed_sweep_seconds)
             # The holds are stored, so the first sweep frees those that fell due while no pod ran; none starts anew.
             presence.start_hold_sweeps()
             lapses = asyncio.create_task(presence.serve_lapses())
@@ -560,8 +573,7 @@ def create_app(
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
-    unplayed_sweep_seconds: float = UNPLAYED_SWEEP_SECONDS,
-    end_answer_recovery_seconds: float = END_ANSWER_RECOVERY_SECONDS,
+    rounds: ServerRounds = STANDARD_ROUNDS,
     resource_changes: Callable[[PlaceStore, AgentRoster], ResourceChanges] = _agent_changes,
     database_ready: Callable[[], Awaitable[bool]] = _always_ready,
 ) -> FastAPI:
@@ -587,8 +599,7 @@ def create_app(
             presence,
             scheduler,
             stores.sessions,
-            unplayed_sweep_seconds,
-            end_answer_recovery_seconds,
+            rounds,
             shared_wakes,
             wakes,
         )

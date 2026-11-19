@@ -1,6 +1,7 @@
 import pytest
 
 from skat.engine.deal import Position
+from skat.host.app import ServerRounds
 from skat.table.records import Refusal
 from skat.table.series_end import END_ANSWER_SECONDS
 from skat.web.mcp import AGREE_TO_END_SERIES_TOOL, GIVE_UP_GAME_TOOL, REFUSE_TO_END_SERIES_TOOL
@@ -75,7 +76,7 @@ class TestTheMinuteOfAnAgentsProposal:
             now=time.moment,
             chair_clock=time.clock,
             chair_scheduler=time,
-            end_answer_recovery_seconds=END_ANSWER_SECONDS * 100,
+            rounds=ServerRounds(end_answer_recovery_seconds=END_ANSWER_SECONDS * 100),
         )
         with skat.client:
             yield skat

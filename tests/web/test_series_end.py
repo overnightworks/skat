@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from skat.host.app import END_ANSWER_RECOVERY_SECONDS
+from skat.host.app import END_ANSWER_RECOVERY_SECONDS, ServerRounds
 from skat.table.records import Actor, Refusal, Series, TableId
 from skat.table.series_end import END_ANSWER_SECONDS, SeriesEndCommand
 from skat.table.service import TableService
@@ -518,7 +518,7 @@ class TestTheMinuteTheRouteStarts:
             now=time.moment,
             chair_clock=time.clock,
             chair_scheduler=time,
-            end_answer_recovery_seconds=END_ANSWER_SECONDS * 100,
+            rounds=ServerRounds(end_answer_recovery_seconds=END_ANSWER_SECONDS * 100),
         )
         with skat.client:
             yield skat
@@ -568,7 +568,7 @@ def test_a_restart_ends_the_stored_proposal_when_the_minute_it_has_left_is_over(
         now=before_time.moment,
         chair_clock=before_time.clock,
         chair_scheduler=before_time,
-        end_answer_recovery_seconds=unscanned,
+        rounds=ServerRounds(end_answer_recovery_seconds=unscanned),
     )
     with before.client:
         table, _ = play_a_series(before, SERIES_LENGTH, games_to_play=2)
@@ -581,7 +581,7 @@ def test_a_restart_ends_the_stored_proposal_when_the_minute_it_has_left_is_over(
         now=after_time.moment,
         chair_clock=after_time.clock,
         chair_scheduler=after_time,
-        end_answer_recovery_seconds=unscanned,
+        rounds=ServerRounds(end_answer_recovery_seconds=unscanned),
     )
 
     with after.client:
