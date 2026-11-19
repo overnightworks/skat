@@ -1,8 +1,0 @@
-claim_id = "7a9d8749b9094f7984754214afe587d6"
-agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
-role = "builder"
-base = "163e6f7588c3d4036eafab99812d0f82414735ce"
-branch = "claude/issue-705-an-agent-listening-on-another-pod-is-lis"
-scope = ["src/skat/store", "src/skat/web", "tests"]
-opened_commit = "137529d663612cc7562075743f262acf8e57c35d"
-whole_reason = "Who listens moves from one pod's memory to shared state across the roster, its store and their tests."
