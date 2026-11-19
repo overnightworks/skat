@@ -144,19 +144,10 @@ class TestSharedWakes:
         (line,) = lines_of(lines, HANDLED)
         assert line["trace_id"]
 
-    def test_a_wake_that_arrives_wakes_locally_and_is_published_no_more(self, monkeypatch):
+    def test_a_wake_that_arrives_wakes_locally_and_is_published_no_more(self):
         async def scenario(first, second):
             first.listen("first", FIRST_TABLE)
             second.listen("second", FIRST_TABLE)
-            published = []
-            for pod in (first, second):
-                publish = pod.channel.publish
-
-                async def counting(address, publish=publish):
-                    published.append(address)
-                    await publish(address)
-
-                monkeypatch.setattr(pod.channel, "publish", counting)
 
             first.wake_list.wake(FIRST_TABLE)
             await second.arrival_of("second")
@@ -164,7 +155,7 @@ class TestSharedWakes:
             await first.shared.drain()
             await second.shared.drain()
 
-            assert len(published) == 1
+            assert len(first.channel.attempted) + len(second.channel.attempted) == 1
 
         between_pods(scenario)
 
@@ -211,24 +202,18 @@ class TestSharedWakes:
 
         between_pods(scenario)
 
-    def test_leaving_waits_for_the_publishes_that_are_pending(self, monkeypatch):
-        finished = []
+    def test_leaving_waits_for_the_publishes_that_are_pending(self):
+        channels = []
 
         async def scenario(first, _second):
-            publish = first.channel.publish
-
-            async def recording(address):
-                await publish(address)
-                finished.append(address)
-
-            monkeypatch.setattr(first.channel, "publish", recording)
+            channels.append(first.channel)
             hold = first.channel.hold_publishes()
             first.wake_list.wake(FIRST_TABLE)
             asyncio.get_running_loop().call_later(0.01, hold.release)
 
         between_pods(scenario)
 
-        assert len(finished) == 1
+        assert len(channels[0].finished) == 1
 
     def test_the_channel_failing_after_the_start_ends_the_process(self):
         async def scenario(first, _second):
