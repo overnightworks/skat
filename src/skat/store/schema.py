@@ -376,6 +376,12 @@ chairs = Table(
     Column("held_in_hand", ARRAY(Text), nullable=False, server_default=text("'{}'")),
     # The name of whoever last held this chair in the running hand and left it, while the chair stays open.
     Column("former_holder_name", Text),
+    # The last statement of the account that sat here: it is read only while `turn_state_account` is still `account_id`,
+    # since a release that frees a chair without naming these columns leaves them behind.
+    Column("turn_state_account", Text),
+    Column("turn_state_stopped", Text),
+    Column("turn_state_thinking", Boolean, nullable=False, server_default=false()),
+    Column("turn_state_at", DateTime(timezone=True)),
     CheckConstraint("account_id IS NOT NULL OR NOT ready", name="chairs_ready_only_when_occupied"),
     CheckConstraint("array_position(held_in_hand, NULL) IS NULL", name="chairs_held_in_hand_has_no_null"),
     CheckConstraint("(account_id IS NULL) = (occupant_kind IS NULL)", name="chairs_kind_only_when_occupied"),

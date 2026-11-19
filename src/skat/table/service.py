@@ -1,5 +1,6 @@
 import copy
 import secrets
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -92,6 +93,7 @@ from skat.table.records import (
     StandUp,
     TableId,
     TableRecord,
+    TurnStatement,
 )
 from skat.table.rules import (
     AGREE_TO_GIVE_UP_COMMAND,
@@ -117,6 +119,7 @@ from skat.table.rules import (
     replayed_decision,
     replayed_table,
     result_pending,
+    seat_of,
     seated_if_hand_ended,
     sit_deals,
     sit_payload,
@@ -508,6 +511,24 @@ class TableService(LobbyReads, GameListReads):
             lambda table: decide_refuse_to_abort(table, actor),
         )
 
+    def set_turn_state(self, account_id: str, table_id: str, stopped: str | None, thinking: bool) -> bool:
+        """Keep what the account states about its turns at the table for the chair it sits at, in place of its last
+        statement, under the table's row lock and without raising the version; False, and nothing kept, when the account
+        holds no chair at a live table with that id.
+        """
+        identifier = TableId.parse(table_id)
+        if identifier is None:
+            return False
+        with self._transactions.begin() as transaction:
+            table = transaction.locked_table(identifier)
+            own = None if table is None else seat_of(table, account_id)
+            if own is None:
+                return False
+            transaction.save_turn_state(
+                identifier, replace(own, turn_state=TurnStatement(stopped, thinking, self._now()))
+            )
+        return True
+
     def note_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
         """The server's step of storing a chair hold; see `ServerSteps.note_leave`."""
         self._server_steps().note_leave(table_id, account_id, hold_seconds, newest_wins=newest_wins)
@@ -727,7 +748,13 @@ class TableService(LobbyReads, GameListReads):
             if replay is None:
                 seated_when_hand_ended = seated_if_hand_ended(table, decision.table)
             result = CommandResult(
-                view_of(decision.table, actor.account_id, present, transaction.opener_account(identifier)),
+                view_of(
+                    decision.table,
+                    actor.account_id,
+                    present,
+                    transaction.opener_account(identifier),
+                    now=self._now(),
+                ),
                 decision.refusal,
                 decision.holder,
                 seated_when_hand_ended,
@@ -754,7 +781,7 @@ class TableService(LobbyReads, GameListReads):
             if isinstance(table, EndedTable)
             else present_at(table, connected_accounts, self._live_leases())
         )
-        return view_of(table, actor.account_id, present, opener)
+        return view_of(table, actor.account_id, present, opener, now=self._now())
 
     def accounts_at_the_table(self, table_id: TableId, connected_accounts: frozenset[str]) -> frozenset[str]:
         """Who is at the live table for a call; an ended or missing table counts the open streams only."""
@@ -769,7 +796,7 @@ class TableService(LobbyReads, GameListReads):
         if not isinstance(table, TableRecord):
             return None
         present = present_at(table, connected_accounts, self._live_leases())
-        return member_view_of(table, account_id, present, opener)
+        return member_view_of(table, account_id, present, opener, self._now())
 
     def member_acts(self, account_id: str, table_id: str) -> MemberActs | None:
         """The acts of the live table's latest hand for the account that holds a chair there; None for any other

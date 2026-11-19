@@ -25,6 +25,7 @@ from skat.table.playing import PlayingView, playing_view_of
 from skat.table.pushing import PushingView, pushing_view_of
 from skat.table.records import CommandRefusal, EndedTable, EndReason, OccupantKind
 from skat.table.rules import hand_runs, seat_held_in_hand, series_over, waiting_seat_of
+from skat.table.turn_state import TurnStateView, turn_state_view_of
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -52,7 +53,9 @@ class ChairView:
 
     `is_mine_to_return` is true only for the viewer who stood up from this chair of the running hand, whether it is
     open or taken since: the one chair that viewer may sit in again, so every other open chair is closed to them. It
-    stays true on that chair after the viewer sits there again, until the hand ends."""
+    stays true on that chair after the viewer sits there again, until the hand ends.
+
+    `turn_state` is what the chair's occupant last stated about its turns, the same for every viewer."""
 
     seat: int
     occupant_name: str | None
@@ -64,6 +67,7 @@ class ChairView:
     total: int | None
     former_holder_name: str | None
     is_mine_to_return: bool
+    turn_state: TurnStateView | None
 
 
 @dataclass(frozen=True)
@@ -355,9 +359,12 @@ def view_of(
     viewer_account_id: str,
     connected_accounts: frozenset[str],
     opener_account: str | None = None,
+    *,
+    now: datetime | None = None,
 ) -> TableView:
     """The table as one account sees it: only the viewer's own chair is marked mine, and the table only if the viewer
-    is `opener_account`, the account that opened it.
+    is `opener_account`, the account that opened it. A chair's occupant is shown thinking only when `now`, the clock
+    its statement was stamped on, says how long ago it began.
 
     The watchers are the connected accounts without a chair, each counted once. A chair is away when its occupant is not
     the viewer and has no connected stream; nothing is stored for it. While a hand runs, every chair shows its position
@@ -394,6 +401,7 @@ def view_of(
                 total=_total_shown(table, chair),
                 former_holder_name=table.progress.former_holder_name(chair.seat),
                 is_mine_to_return=chair.seat == seat_to_return_to,
+                turn_state=turn_state_view_of(chair.turn_state, now),
             )
             for chair in table.chairs
         ),

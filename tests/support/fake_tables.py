@@ -5,7 +5,7 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord, Visibility
+from skat.table.records import Chair, EndedTable, Ending, Receipt, Replay, TableId, TableRecord, Visibility
 from skat.table.rules import CREATE_TABLE_COMMAND, played_series_of
 from skat.table.service import TableService
 from skat.table.transactions import DuplicateReceiptError, HeldChair, LiveWait, OccupiedChair, PausedFacts, TableVersion
@@ -106,6 +106,12 @@ class FakeTableStore:
             message = f"table {table.id.value} is dealt and holds no last played time"
             raise DealtWithoutTimeError(message)
         self.tables[table.id.value] = table
+
+    def save_turn_state(self, table_id: TableId, chair: Chair) -> None:
+        table = self.tables[table_id.value]
+        assert isinstance(table, TableRecord)
+        chairs = tuple(chair if each.seat == chair.seat else each for each in table.chairs)
+        self.tables[table_id.value] = replace(table, chairs=chairs)
 
     def add_table(self, table: TableRecord, opener_name: str) -> None:
         self.tables[table.id.value] = table
@@ -213,9 +219,14 @@ class FakeTableStore:
             if chair.occupant is not None
         )
 
+    @staticmethod
+    def _version_of(table: TableRecord) -> TableVersion:
+        stated = [chair.turn_state.stated_at for chair in table.chairs if chair.turn_state is not None]
+        return TableVersion(table.id, table.version, max(stated, default=None))
+
     def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
         return tuple(
-            TableVersion(table.id, table.version)
+            self._version_of(table)
             for table in sorted(self.tables.values(), key=lambda each: each.id.value)
             if isinstance(table, TableRecord)
             if any(chair.occupant is not None and chair.occupant.account_id == account_id for chair in table.chairs)
@@ -231,7 +242,7 @@ class FakeTableStore:
     def versions_of(self, table_ids: Iterable[TableId]) -> tuple[TableVersion, ...]:
         wanted = {table_id.value for table_id in table_ids}
         return tuple(
-            TableVersion(table.id, table.version)
+            self._version_of(table)
             for table in sorted(self.tables.values(), key=lambda each: each.id.value)
             if isinstance(table, TableRecord) and table.id.value in wanted
         )
