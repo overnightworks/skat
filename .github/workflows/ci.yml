@@ -80,6 +80,13 @@ jobs:
           UV_NO_SYNC: "1"
         run: make dead
 
+      # tests/store/test_persisted_values_one_release.py compares the schema with the newest release's, read from
+      # that release's tag at depth 1.
+      - name: Fetch the newest release tag
+        run: >-
+          git fetch --depth=1 origin tag
+          "$(git ls-remote --tags --refs --sort=-v:refname origin 'v*' | head -n 1 | sed 's|.*refs/tags/||')"
+
       # Which files are measured is pyproject.toml's to say (the source key
       # under [tool.coverage.run]). 100 % is judged by the Coverage job over
       # the unit and end-to-end data together, not here.

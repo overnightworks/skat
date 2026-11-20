@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+from alembic.util.exc import CommandError
 from sqlalchemy import delete, insert, select
 
 from skat.store.migrate import MIGRATIONS_DIRECTORY, migrate
@@ -43,6 +44,14 @@ def revisions_from(first: str):
     scripts = ScriptDirectory.from_config(_config())
     newest_first = list(scripts.walk_revisions())
     return list(reversed(newest_first[: [each.revision for each in newest_first].index(first) + 1]))
+
+
+def has_revision(revision: str) -> bool:
+    """Whether the chain of Skat's own migrations holds `revision`."""
+    try:
+        return ScriptDirectory.from_config(_config()).get_revision(revision) is not None
+    except CommandError:
+        return False
 
 
 def upgrade_to(engine, revision, operator_account_id=None, *, extra_versions: Path | None = None):
