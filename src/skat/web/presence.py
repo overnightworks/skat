@@ -680,9 +680,7 @@ class Presence:
             self.table_ended(table_id)
 
     def table_ended(self, table_id: str) -> None:
-        """Drop the table's ask clock entry and reactions and wake its streams; call it once the table's end is
-        committed.
-        """
+        """Drop the table's ask clock entry and reactions and wake its streams, once its end is committed."""
         self.waits.drop(table_id)
         self.reactions.drop(table_id)
         self.wake_table(table_id)

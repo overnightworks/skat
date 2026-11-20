@@ -28,6 +28,7 @@ from skat.table.series_end import END_ANSWER_SECONDS
 from skat.table.service import TableService
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.faulty_tables import HANG_DEADLINE_SECONDS, FaultyTableTransactions
+from tests.support.held_writes import HeldWrite, HoldingAfterSave
 from tests.support.played_game import (
     a_whole_game,
     after_the_first_game,
@@ -641,57 +642,6 @@ def test_the_unplayed_read_lists_only_live_dealt_tables_played_at_or_before_the_
     end_at_the_store(transactions, ended)
 
     assert unplayed_service(transactions).unplayed_tables(UNPLAYED_DAYS) == (old,)
-
-
-class HeldWrite:
-    """A write guard that waits in its worker until released, so the transaction that entered it keeps the row lock."""
-
-    def __init__(self, connected=NOBODY_CONNECTED):
-        self._connected = connected
-        self.entered = threading.Event()
-        self.release = threading.Event()
-
-    def __enter__(self):
-        self.entered.set()
-        assert self.release.wait(HANG_DEADLINE_SECONDS)
-        return self._connected
-
-    def __exit__(self, *_):
-        return None
-
-
-class HoldingAfterSave:
-    """A transactions port whose saves wait in their worker until `hold` is released, so the command that saved keeps
-    the row lock it took.
-    """
-
-    def __init__(self, inner, hold):
-        self._inner = inner
-        self._hold = hold
-
-    @contextmanager
-    def begin(self):
-        with self._inner.begin() as transaction:
-            yield _HoldingTransaction(transaction, self._hold)
-
-
-class _HoldingTransaction:
-    def __init__(self, inner, hold):
-        self._inner = inner
-        self._hold = hold
-
-    def __getattr__(self, name):
-        return getattr(self._inner, name)
-
-    def save_table(self, table, *, played_at):
-        self._inner.save_table(table, played_at=played_at)
-        with self._hold:
-            pass
-
-    def end_table(self, table_id, ended_at, ending):
-        self._inner.end_table(table_id, ended_at, ending)
-        with self._hold:
-            pass
 
 
 class Rivals:
