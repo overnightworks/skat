@@ -11,8 +11,13 @@ FIRST_CHECKED_REVISION = "0049"
 
 SCRATCH = (
     "CREATE TABLE other (id integer PRIMARY KEY)",
-    "CREATE TABLE scratch (id integer PRIMARY KEY, name text, kept text NOT NULL DEFAULT 'x', other_id integer)",
+    "CREATE TABLE scratch (id integer PRIMARY KEY, name text, kept text NOT NULL DEFAULT 'x', other_id integer,"
+    " status text, CONSTRAINT scratch_status_is_known CHECK (status IN ('a', 'b')))",
     "CREATE UNIQUE INDEX scratch_other_while_kept ON scratch (other_id) WHERE kept = 'x'",
+)
+WIDEN_STATUS = (
+    "ALTER TABLE scratch DROP CONSTRAINT scratch_status_is_known, "
+    "ADD CONSTRAINT scratch_status_is_known CHECK (status IN ('a', 'b', 'c'))"
 )
 CONTRACTING_STEPS = {
     "drops a table": ("DROP TABLE other", "table other is dropped"),
@@ -32,6 +37,15 @@ CONTRACTING_STEPS = {
         "unique constraint or index",
     ),
     "adds a check constraint": ("ALTER TABLE scratch ADD CHECK (length(name) > 1)", "check"),
+    "narrows a list of admitted values": (
+        "ALTER TABLE scratch DROP CONSTRAINT scratch_status_is_known, "
+        "ADD CONSTRAINT scratch_status_is_known CHECK (status IN ('a'))",
+        "check",
+    ),
+    "holds back a value that is already admitted": (
+        "ALTER TABLE scratch ADD CONSTRAINT status_held_back CHECK (status <> ALL (ARRAY['a']))",
+        "check",
+    ),
     "adds a foreign key": ("ALTER TABLE scratch ADD FOREIGN KEY (other_id) REFERENCES other (id)", "foreign key"),
     "changes the primary key": (
         "ALTER TABLE scratch DROP CONSTRAINT scratch_pkey, ADD PRIMARY KEY (kept)",
@@ -44,6 +58,13 @@ EXPANDING_STEPS = {
     "adds a NOT NULL column with a default": "ALTER TABLE scratch ADD COLUMN extra text NOT NULL DEFAULT 'x'",
     "lets a column hold NULL": "ALTER TABLE scratch ALTER COLUMN kept DROP NOT NULL",
     "gives a column a default": "ALTER TABLE scratch ALTER COLUMN name SET DEFAULT 'y'",
+    "widens a list of admitted values": WIDEN_STATUS,
+    "widens a list and holds the new value back": (
+        WIDEN_STATUS + ", ADD CONSTRAINT status_held_back CHECK (status <> ALL (ARRAY['c']))"
+    ),
+    "holds back a value that is not admitted yet": (
+        "ALTER TABLE scratch ADD CONSTRAINT status_held_back CHECK (status <> ALL (ARRAY['z']))"
+    ),
     "adds a plain index": "CREATE INDEX scratch_name ON scratch (name)",
 }
 

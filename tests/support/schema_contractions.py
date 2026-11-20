@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -7,6 +8,24 @@ if TYPE_CHECKING:
     from sqlalchemy import Engine
 
 IGNORED_TABLES = frozenset({"alembic_version"})
+
+# Only a check that is nothing but one column against a list of text values is read as an admission; any other form
+# (an OR, `num_nonnulls`, a check beside other conditions) is skipped, so that a `<>` inside one is no hold-back.
+_LISTED = re.compile(r"\(?(?P<column>\w+) (?:= ANY \(|<@ )ARRAY\[(?P<values>[^\]]*)\]\)?\)?")
+_HELD_BACK = re.compile(r"\(?(?P<column>\w+) <> ALL \(ARRAY\[(?P<values>[^\]]*)\]\)\)?")
+_QUOTED = re.compile(r"'([^']*)'")
+
+
+@dataclass(frozen=True)
+class Admission:
+    """What the checks on one column let a release write: the values its list admits and those it holds back."""
+
+    listed: frozenset[str]
+    held_back: frozenset[str]
+
+    @property
+    def writable(self) -> frozenset[str]:
+        return self.listed - self.held_back
 
 
 @dataclass(frozen=True)
@@ -36,6 +55,19 @@ class TableFacts:
     foreign_keys: frozenset[tuple[tuple[str, ...], str, tuple[str, ...]]]
     uniques: frozenset[UniqueFacts]
     checks: frozenset[str]
+
+    def admissions(self) -> dict[str, Admission]:
+        """Per column with a list of admitted values: that list and what is held back from it."""
+        listed: dict[str, frozenset[str]] = {}
+        held_back: dict[str, frozenset[str]] = {}
+        for check in self.checks:
+            if found := _LISTED.fullmatch(check):
+                column, values = found["column"], frozenset(_QUOTED.findall(found["values"]))
+                listed[column] = listed.get(column, values) & values
+            elif found := _HELD_BACK.fullmatch(check):
+                column = found["column"]
+                held_back[column] = held_back.get(column, frozenset()) | frozenset(_QUOTED.findall(found["values"]))
+        return {column: Admission(values, held_back.get(column, frozenset())) for column, values in listed.items()}
 
 
 def schema_facts(engine: Engine) -> dict[str, TableFacts]:
@@ -91,8 +123,23 @@ def _table_contractions(before: TableFacts, after: TableFacts) -> list[str]:
         f"a unique constraint or index on {unique.describe()} is new"
         for unique in sorted(after.uniques - before.uniques)
     )
-    found.extend(f"the check {check} is new" for check in sorted(after.checks - before.checks))
+    found.extend(
+        f"the check {check} is new"
+        for check in sorted(after.checks - before.checks)
+        if not _only_widens_what_is_read(check, before)
+    )
     return found
+
+
+def _only_widens_what_is_read(check: str, before: TableFacts) -> bool:
+    """A new list that keeps every value of the old one, or a hold-back of values the old one did not admit."""
+    if found := _LISTED.fullmatch(check):
+        old = before.admissions().get(found["column"])
+        return old is not None and old.listed <= frozenset(_QUOTED.findall(found["values"]))
+    if found := _HELD_BACK.fullmatch(check):
+        old = before.admissions().get(found["column"])
+        return old is not None and not old.listed & frozenset(_QUOTED.findall(found["values"]))
+    return False
 
 
 def _column_contractions(before: ColumnFacts | None, after: ColumnFacts) -> list[str]:
@@ -106,3 +153,24 @@ def _column_contractions(before: ColumnFacts | None, after: ColumnFacts) -> list
     if before.default is not None and before.default != after.default:
         found.append("loses or changes its server default")
     return found
+
+
+def admissions(facts: dict[str, TableFacts]) -> dict[tuple[str, str], Admission]:
+    """The admission of every table and column that has one."""
+    return {
+        (table, column): admission
+        for table, table_facts in facts.items()
+        for column, admission in table_facts.admissions().items()
+    }
+
+
+def unreadable_by_the_release_before(before: dict[str, TableFacts], after: dict[str, TableFacts]) -> list[str]:
+    """The values `after` lets a release write that the schema `before` does not list as read, one text each."""
+    old_admissions = admissions(before)
+    return [
+        f"table {table}: column {column} admits {value!r}, which the release before does not read; list it and "
+        f"hold it back (`held_back`) in this release, and write it in the next"
+        for (table, column), admission in sorted(admissions(after).items())
+        if (old := old_admissions.get((table, column)))
+        for value in sorted(admission.writable - old.listed)
+    ]
