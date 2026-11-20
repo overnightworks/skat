@@ -616,7 +616,7 @@ class TestTheLapseOfTheSeriesEndMinute:
         later = ENDED_AT + timedelta(seconds=seconds)
         return TableService(store, now=lambda: later).lapse_end_answers(table_id)
 
-    def test_a_seat_silent_for_the_minute_ends_the_table_with_the_stopped_reason(self, store, asked):
+    def test_a_seat_silent_for_the_minute_ends_the_table_as_a_close_that_names_nobody(self, store, asked):
         lapse = self.lapse(store, asked, END_ANSWER_SECONDS)
 
         assert lapse.table_stopped

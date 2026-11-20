@@ -571,7 +571,7 @@ class TestTheMinuteOfNewSeries:
         assert [chair["ready"] for chair in answer.json()["chairs"]] == [True, False, False]
         assert ended.read_as(ended.watcher).json()["series"] == table_series
 
-    def test_a_seat_silent_for_the_minute_ends_the_table_and_the_link_shows_it_stopped(self, skat, time, ended):
+    def test_a_seat_silent_for_the_minute_ends_the_table_and_the_link_shows_a_close_that_names_nobody(self, skat, time, ended):
         self.tap(skat, ended, 1)
         self.tap(skat, ended, 2)
 
