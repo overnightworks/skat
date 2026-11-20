@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MOTION_SETS } from "#lib/motionSets.ts";
-import { carryOf, landTimeline, lieOf, type Flight, type LandTimeline } from "#lib/takt/land.ts";
+import { carryOf, landInstants, landTimeline, lieOf, type Flight, type LandTimeline } from "#lib/takt/land.ts";
 import { sampled, type Pose } from "#lib/takt/timeline.ts";
 import { RANK_TOKENS, SUIT_TOKENS } from "#lib/wire.ts";
 import type { Card } from "../../routes/(start)/tables.ts";
@@ -77,7 +77,7 @@ describe.each(SETS)("the toss of a card in the set $id", ({ land }) => {
 describe.each(SETS)("a landing in the set $id", ({ land }) => {
     const landing = landingOf(land);
     const { card, shade, name } = landing.tracks;
-    const { impact } = landing.instants;
+    const { impact } = landInstants(land);
 
     it("starts where the hand let the card go, as large and as turned as it stood there", () => {
         expect(card(0)).toEqual({ x: 5, y: 270, turn: -6, wide: 1.2, tall: 1.2, opacity: 1 });
@@ -136,15 +136,14 @@ describe("a card out of a hidden hand", () => {
     it("leaves face down and turns over on its way in a set that flips", () => {
         const landing = landingOf(FLIPPING, FROM_A_FAN);
         const { card, rear } = landing.tracks;
-        const narrowest = Math.min(
-            ...sampled(card, landing.instants.impact, FRAME_SECONDS).map((pose) => pose.wide / pose.tall),
-        );
+        const { impact } = landInstants(FLIPPING);
+        const narrowest = Math.min(...sampled(card, impact, FRAME_SECONDS).map((pose) => pose.wide / pose.tall));
 
         expect(rear(0)).toBe(1);
         expect(card(0).opacity).toBe(1);
         expect(narrowest).toBeLessThan(0.3);
-        expect(rear(landing.instants.impact)).toBe(0);
-        expect(card(landing.instants.impact).wide).toBe(card(landing.instants.impact).tall);
+        expect(rear(impact)).toBe(0);
+        expect(card(impact).wide).toBe(card(impact).tall);
     });
 
     it("fades in as it will lie in a set that does not flip", () => {
@@ -153,7 +152,7 @@ describe("a card out of a hidden hand", () => {
 
         expect(card(0).opacity).toBe(0);
         expect(card(0).turn).toBe(0);
-        expect(card(landing.instants.impact).opacity).toBe(1);
+        expect(card(landInstants(FADING).impact).opacity).toBe(1);
         expect(sampled(rear, landing.seconds, FRAME_SECONDS)).not.toContain(1);
     });
 });

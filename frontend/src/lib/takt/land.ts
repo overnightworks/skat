@@ -51,7 +51,7 @@ export interface LandTracks {
     readonly name: Track<number>;
 }
 
-export type LandTimeline = Timeline<"impact", LandTracks>;
+export type LandTimeline = Timeline<LandTracks>;
 
 // A card lies off its slot sideways and upward, never downward: below every card hangs its name, and below the near
 // card the own seat begins. The lie belongs to no motion set, so devices with different sets show the same trick.
@@ -154,7 +154,6 @@ export function landTimeline(land: LandSet, { from, to, faceDown, carry }: Fligh
     };
     return {
         seconds: land.flightSeconds - Math.log(SLIDE_LEFT_AT_REST) / land.grip,
-        instants: landInstants(land),
         tracks: {
             card: (seconds) => piece(seconds, 1, 0, 0),
             shade: (seconds) => piece(seconds, 0, SHADE_WIDENS, SHADE_PALES),

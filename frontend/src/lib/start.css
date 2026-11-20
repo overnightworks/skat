@@ -3924,7 +3924,7 @@ body {
     filter: none;
 }
 
-/* The cap counts the padding: a long name ends in an ellipsis inside it, so the tag stays clear of the next card and of the next tag. */
+/* The cap counts the padding: a long name ends in an ellipsis inside it, so the tag stays clear of the next slot, above every card, and of the next tag. */
 .room .laid .tag {
     box-sizing: border-box;
     position: absolute;

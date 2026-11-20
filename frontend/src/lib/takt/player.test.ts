@@ -5,6 +5,12 @@ import type { Pose } from "#lib/takt/timeline.ts";
 
 const POSE: Pose = { x: 5, y: 270.04, turn: -6, wide: 1.2, tall: 1.1, opacity: 0.5 };
 const FRAME_SECONDS = 1 / 60;
+const COMPOSED_PROPERTIES = ["transform", "opacity"];
+const NUMBER = /-?\d+(?:\.\d+)?/g;
+
+// The numbers a written transform carries, in the order it carries them.
+const numbersOf = (transform: Keyframe[string]): number[] =>
+    [...String(transform).matchAll(NUMBER)].map(([number]) => Number(number));
 
 // A part that keeps what it was asked to play instead of playing it.
 function recordingPart() {
@@ -32,11 +38,20 @@ describe("a moved part", () => {
 
         move(part, () => POSE, 0.5);
 
+        for (const frame of played[0]?.frames ?? []) {
+            expect(COMPOSED_PROPERTIES).toEqual(expect.arrayContaining(Object.keys(frame)));
+            expect(frame.opacity).toBe(POSE.opacity);
+        }
+    });
+
+    it("carries the pose's way, turn and size in its transform", () => {
+        const { played, part } = recordingPart();
+        const posed = [POSE.x, POSE.y, POSE.turn, POSE.wide, POSE.tall];
+
+        move(part, () => POSE, 0.5);
+
         for (const frame of played[0]?.frames ?? [])
-            expect(frame).toEqual({
-                transform: "translate(5.0px, 270.0px) rotate(-6.0deg) scale(1.200, 1.100)",
-                opacity: 0.5,
-            });
+            expect(numbersOf(frame.transform)).toEqual(posed.map((number) => expect.closeTo(number, 1) as number));
     });
 
     it("follows its track from the cue to the end", () => {

@@ -2,11 +2,9 @@
  * A moment of the table as a closed form of time: seconds run from the moment's cue, a track says how one part looks at
  * an instant, and nothing reads a clock. So the same tracks draw a still of any instant and play the motion.
  */
-export interface Timeline<Instant extends string, Tracks> {
+export interface Timeline<Tracks> {
     /** From the cue to the instant every part has come to rest. */
     readonly seconds: number;
-    /** The instants something is heard or handed on at, in seconds from the cue. */
-    readonly instants: Readonly<Record<Instant, number>>;
     readonly tracks: Tracks;
 }
 
