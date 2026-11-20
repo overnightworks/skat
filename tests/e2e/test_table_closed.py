@@ -9,10 +9,11 @@ from urllib.parse import urlsplit
 
 import pytest
 from playwright.sync_api import Page, Request, Route, expect
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, select, update
 
 from skat.store.game_list import append_game_list
 from skat.store.schema import metadata, tables
+from skat.store.tables import PostgresTableTransactions
 from skat.table.records import OccupantKind
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.settings import DEFAULT_ENDED_TABLE_DAYS
@@ -33,6 +34,7 @@ from tests.e2e.support.tables import (
     watch_until_the_agents_are_read,
     watchers_of,
 )
+from tests.support.ended_tables import end_as_an_opener_closed_it
 from tests.support.played_game import an_entry
 from tests.support.signed_in import new_account, seed_member
 
@@ -375,6 +377,9 @@ def test_a_dealt_table_nobody_played_at_for_the_days_shows_its_end_to_every_open
         assert requests == []
 
 
+CLOSER_NAME = "Dora"
+
+
 @pytest.fixture(scope="module")
 def retained_table(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[RunningServer, str, str]]:
     """A Skat with the link of a table an opener closed before „Aufhören“ replaced the close, that has a game and ended
@@ -389,16 +394,13 @@ def retained_table(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[R
         ]
         with server.engine.begin() as connection:
             append_game_list(connection, table_id, 1, (an_entry(),), datetime.now(UTC))
-            connection.execute(
-                update(tables)
-                .where(tables.c.id == table_id)
-                .values(
-                    ended_at=datetime.now(UTC) - timedelta(days=DEFAULT_ENDED_TABLE_DAYS + 1),
-                    end_reason="closed",
-                    closed_by_name="Anna",
-                    opener_name=None,
-                )
-            )
+        end_as_an_opener_closed_it(
+            PostgresTableTransactions(server.engine),
+            table_id,
+            datetime.now(UTC) - timedelta(days=DEFAULT_ENDED_TABLE_DAYS + 1),
+            CLOSER_NAME,
+        )
+        with server.engine.connect() as connection:
             closer = connection.execute(select(tables.c.closed_by_name).where(tables.c.id == table_id)).scalar_one()
         assert closer
 
@@ -450,11 +452,8 @@ def closed_with_games(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tupl
         )
         with server.engine.begin() as connection:
             append_game_list(connection, table_id, 1, games, datetime.now(UTC))
-            connection.execute(
-                update(tables)
-                .where(tables.c.id == table_id)
-                .values(ended_at=func.now(), end_reason="closed", closed_by_name="Anna", opener_name=None)
-            )
+        end_as_an_opener_closed_it(PostgresTableTransactions(server.engine), table_id, datetime.now(UTC), CLOSER_NAME)
+        with server.engine.connect() as connection:
             closer = connection.execute(select(tables.c.closed_by_name).where(tables.c.id == table_id)).scalar_one()
         assert closer
         yield server, f"{TABLE_PAGE_PREFIX}{table_id}", closer

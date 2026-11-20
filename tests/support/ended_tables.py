@@ -19,7 +19,7 @@ def be_at_the_series_end(store, table_id):
     store.tables[table_id] = replace(record, hand=None, progress=HandProgress(), series=Series(12, 12))
 
 
-def end_as_an_opener_closed_it(transactions, table_id, at):
+def end_as_an_opener_closed_it(transactions, table_id, at, closed_by_name=OLD_CLOSER):
     """Write the tombstone an opener's close left, which stored tables still carry."""
     with transactions.begin() as transaction:
-        transaction.end_table(TableId(table_id), at, Ending(EndReason.CLOSED, closed_by_name=OLD_CLOSER))
+        transaction.end_table(TableId(table_id), at, Ending(EndReason.CLOSED, closed_by_name=closed_by_name))
