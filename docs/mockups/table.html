@@ -692,6 +692,12 @@ body.solo section.shot .rule{display:none}
       <path d="M50 46L72 70L50 94L28 70Z" fill="#1a2c55" stroke="#d6b46a" stroke-width="1.6"/>
       <path d="M50 56L62 70L50 84L38 70Z" fill="#d6b46a" fill-opacity=".85"/>
     </symbol>
+    <!-- a camera picture's light: the warm key from one side, the fall-off downwards, a lamp's glow, and the soft focus of the room behind -->
+    <linearGradient id="cam-key" x1="0" y1=".1" x2="1" y2=".35"><stop offset="0" stop-color="#ffe0b0" stop-opacity=".5"/><stop offset=".5" stop-color="#ffe0b0" stop-opacity="0"/><stop offset="1" stop-color="#24100a" stop-opacity=".42"/></linearGradient>
+    <linearGradient id="cam-fall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".5"/></linearGradient>
+    <radialGradient id="cam-lamp" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe6bc" stop-opacity=".95"/><stop offset=".3" stop-color="#ffbd70" stop-opacity=".55"/><stop offset="1" stop-color="#ff9c44" stop-opacity="0"/></radialGradient>
+    <linearGradient id="cam-key-right" href="#cam-key" x1="1" x2="0"/>
+    <filter id="cam-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3.2"/></filter>
   </defs>
 </svg>
 <main id="frames"></main>
@@ -769,14 +775,16 @@ const MARK={
   watch:`<span class="mark watch">${I.eye}</span>`,
   think:`<span class="mark think">${I.spark}denkt</span>`,
 };
-/* a seat: chair + video (call), avatar (solo) or the agent's orb; marks; brass nameplate */
+/* a seat: chair + video (call), avatar (solo) or the agent's orb; marks; brass nameplate.
+   o.video 'still': the person's camera picture as the call shows it; o.figure: the agent's call tile with its figure */
 function seat(k,o){
   const p=P[k],marks=o.marks||[];
   if(o.own&&p.own) return ownBar(k,o);
   const cls=['seat',p.own&&'own',o.sm&&'sm',marks.includes('turn')&&'turn',marks.includes('think')&&'thinking',o.win&&'win',o.got&&'got',o.out&&'out'].filter(Boolean).join(' ');
   let inner;
-  if(p.agent) inner=`<div class="vid"></div><div class="orb">${I.spark}<span class="think ${marks.includes('think')?'mo':''}"><i></i><i style="top:auto;bottom:-3px"></i></span></div>`;
-  else if(o.video) inner=`<div class="vid" style="--v1:${p.v[0]};--v2:${p.v[1]}">${silhouette(p)}</div>`;
+  if(p.agent&&o.figure) inner=`<div class="vid figure">${figureStill()}</div>`;
+  else if(p.agent) inner=`<div class="vid"></div><div class="orb">${I.spark}<span class="think ${marks.includes('think')?'mo':''}"><i></i><i style="top:auto;bottom:-3px"></i></span></div>`;
+  else if(o.video) inner=`<div class="vid" style="--v1:${p.v[0]};--v2:${p.v[1]}">${o.video==='still'?camStill(k):silhouette(p)}</div>`;
   else inner=`<div class="vid" style="--v1:${p.v[0]};--v2:${p.v[1]}"></div><div class="av" style="${dotStyle(p)}">${p.i}</div>`;
   const plate=`<span class="plate"><b>${p.n}${p.agent?aiMark():''}</b></span>`;
   return `<div class="${cls}" style="${at({left:o.x,top:o.y,width:o.w,height:o.h,position:o.inline?'relative':undefined,'--l1':p.l[0],'--l2':p.l[1]})}">
@@ -788,7 +796,8 @@ function ownBar(k,o){
   const p=P[k],marks=o.marks||[];
   const cls=['seat own bar',marks.includes('turn')&&'turn',o.win&&'win',o.out&&'out'].filter(Boolean).join(' ');
   ownBarDrawn=true;
-  return `<div class="${cls}" style="${at({left:o.own.x,top:o.own.y})}"><span class="dot" style="${dotStyle(p)}">${p.i}</span><b class="nm">${p.n}</b>${marks.map(m=>MARK[m]).join('')}<!--bar-points--></div>`;
+  const face=o.video==='still'?`<span class="dot cam">${camStill(k)}</span>`:`<span class="dot" style="${dotStyle(p)}">${p.i}</span>`;
+  return `<div class="${cls}" style="${at({left:o.own.x,top:o.own.y})}">${face}<b class="nm">${p.n}</b>${marks.map(m=>MARK[m]).join('')}<!--bar-points--></div>`;
 }
 const coaster=(v,x,y,cs,cr=-8)=>`<span class="coaster" title="Punkte" style="${at({left:x,top:y,'--cs':cs,'--cr':`${cr}deg`})}">${v}</span>`;
 const chairCoasters=(layout,score)=>layout.coasters.map(([x,y,cs,cr],i)=>{
@@ -1157,6 +1166,7 @@ const IDEAS=[
   ['➜','Schieberamsch','Nach drei Pässen wird Ramsch: wer dran ist, nimmt den Skat und legt zwei Karten zurück oder schiebt ihn ungesehen weiter; die Tafel nennt, wie oft geschoben wurde, und die Ergebniskarte zeigt, wie der Verlust entsteht, bis zu Jungfrau und Durchmarsch.','push-mine, push-discard, push-wait, push-taken, push-pushed, push-agent, push-flat, push-watch, push-open, ramsch-play, ramsch-lost, ramsch-other, ramsch-jungfrau, ramsch-durchmarsch, ramsch-list, rules-ramsch'],
   ['✋','Grand Hand statt Ramsch','An einem Tisch, der es erlaubt, sagt wer beim Schieberamsch dran ist „Grand Hand“ an, statt zu nehmen oder zu schieben: ein Tipp macht die Taste scharf, der zweite sagt an, dann spielt er einen Grand Hand zum niedrigsten Reizwert, ohne Ansage. (#327)','push-grand, push-grand-arm, push-grand-done, push-grand-off'],
   ['⚡','Kontra und Re','Wer reizte, sagt vor seiner ersten Karte „Kontra“ (der Alleinspieler danach „Re“, dann „Supra“ und „Hirsch“) mit einer Taste in der Leiste, die an einem Tisch „bis zur eigenen Karte“ auf niemanden wartet; das Wort landet als Stempel mit dem Gesicht des Rufers, die Tafel trägt es mit seinem Faktor, und die Ergebniskarte zeigt, wie es den Wert verdoppelt. Gilt an einem Tisch „vor der ersten Karte“, hält der Tisch die erste Karte: wer noch ein Wort schuldet, hat neben seiner Taste „Kein Kontra“ (nach einem Kontra „Kein Re“), alle anderen und Zuschauer sehen am leuchtenden Stuhl und in einer Zeile, auf wen die erste Karte wartet, und die Karten dessen, der ausspielt, sind gedimmt.','kontra-offer, kontra-none, kontra-said, kontra-re, kontra-supra, kontra-hirsch, kontra-agent, kontra-watch, kontra-end, kontra-lost-end, kontra-first-wait, kontra-first-watch, kontra-first-re'],
+  ['🎥','Videos an den Stühlen','Im Anruf sitzt jeder Spieler mit seinem Video an seinem Stuhl, auch du an deinem Platz; ein Agent im Anruf sitzt dort mit seiner Figur, ohne Kachel im Anruf zeigt sein Stuhl die Kugel. Nur wer zuschaut, liegt oben in der kleinen Leiste.','call-stage-videos, call-stage-own-agent, call-stage-agent-no-tile, call-stage-waiting'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
 document.querySelector('.page-head').insertAdjacentHTML('beforeend',ideaList);
@@ -2830,6 +2840,119 @@ const SERIES_END_SCENES=[
 ];
 scenes(SERIES_END_SCENES);
 ORDER.push(...SERIES_END_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+/* ===== the table on a call's stage: each player's camera picture sits at their chair, an agent in the call sits there with its figure, and only who watches lies in the small strip ===== */
+/* a camera picture is drawn, so the page needs no photo: head and shoulders in a warmly lit room that lies out of focus */
+const CAM={
+  felix:{skin:'#eec4a0',hair:'#5d4028',eye:'#46627e',wall:'#3f4a47',cut:'short',jaw:'square',glasses:true,room:'window',lit:'right',pose:{x:3,y:3,turn:-2,size:1}},
+  anna:{skin:'#e7b690',hair:'#2e1f2c',eye:'#3a2416',wall:'#5a3a2a',cut:'long',jaw:'soft',teeth:true,room:'lamp',lit:'right',pose:{x:-7,y:1,turn:3,size:1.04}},
+  ben:{skin:'#dba67c',hair:'#3f2b1c',eye:'#3a2416',wall:'#493826',cut:'beanie',jaw:'square',beard:true,room:'shelf',lit:'left',pose:{x:-4,y:7,turn:-3,size:.95}},
+  lena:{skin:'#f4d0ba',hair:'#a94f2b',eye:'#4a7350',wall:'#573836',cut:'bun',jaw:'soft',teeth:true,room:'plant',lit:'left',pose:{x:-8,y:0,turn:4,size:1.05}},
+};
+const CAM_HEAD={
+  soft:'M70 60C70 38 83 27 100 27C117 27 130 38 130 60C130 80 118 101 100 104C82 101 70 80 70 60Z',
+  square:'M70 60C70 38 83 27 100 27C117 27 130 38 130 60C130 79 124 96 109 103C103 105 97 105 91 103C76 96 70 79 70 60Z',
+};
+/* each cut: what lies behind the head, and what lies over the forehead; s is the hair's sheen */
+const CAM_CUT={
+  short:(h,s)=>({back:'',front:`<path d="M67 64C62 36 79 19 101 19C123 19 137 36 133 64C131 53 127 45 121 40C111 45 95 47 82 42C75 47 70 54 67 64Z" fill="${h}"/>
+    <path d="M84 30C93 24 108 23 118 28" fill="none" stroke="${s}" stroke-width="4" stroke-linecap="round" opacity=".3"/>`}),
+  long:(h,s)=>({back:`<path d="M61 66C56 34 77 16 100 16C123 16 144 34 139 66C141 92 147 120 151 166H117C124 130 127 96 127 68H73C73 96 76 130 83 166H49C53 120 59 92 61 66Z" fill="${h}"/>`,
+    front:`<path d="M69 66C65 40 81 24 100 24C119 24 135 40 131 66C128 52 121 42 110 37C100 36 88 40 80 48C75 53 71 59 69 66Z" fill="${h}"/>
+    <path d="M74 42C81 31 93 26 105 26.5" fill="none" stroke="${s}" stroke-width="2.6" stroke-linecap="round" opacity=".2"/>`}),
+  beanie:(h)=>({back:'',front:`<path d="M69 50V72C72 68 74.5 62 75.5 54ZM131 50V72C128 68 125.5 62 124.5 54Z" fill="${h}"/>
+    <path d="M66 40C63 20 81 7 100 7C119 7 137 20 134 40Z" fill="#2c3a52"/><path d="M64 32C82 26 118 26 136 32V46C118 40 82 40 64 46Z" fill="#3b4d6c"/>
+    <path d="M72 30.4V44M80 28.8V42.2M88 27.8V41M96 27.4V40.4M104 27.4V40.4M112 27.8V41M120 28.8V42.2M128 30.4V44" stroke="#1d2738" stroke-width="1.6" opacity=".5"/>`}),
+  bun:(h,s)=>({back:`<circle cx="100" cy="15" r="13" fill="${h}"/>`,
+    front:`<path d="M67 64C63 38 80 21 100 21C120 21 137 38 133 64C131 54 126 46 118 42C108 48 92 48 82 42C74 46 69 54 67 64Z" fill="${h}"/>
+    <path d="M82 31C91 25 107 24 117 29" fill="none" stroke="${s}" stroke-width="3.6" stroke-linecap="round" opacity=".3"/>`}),
+};
+/* the rooms behind the faces, each drawn before it is blurred */
+const CAM_ROOM={
+  window:`<rect x="6" y="4" width="64" height="82" fill="#3f6590"/><rect x="6" y="52" width="64" height="34" fill="#d08c66" opacity=".6"/><path d="M38 4V86M6 44H70" stroke="#171a1d" stroke-width="3.5"/><rect x="0" y="86" width="78" height="6" fill="#14171a"/>
+    <circle cx="172" cy="34" r="50" fill="url(#cam-lamp)"/><rect x="124" y="96" width="80" height="6" fill="#1f160e"/><rect x="150" y="70" width="11" height="26" fill="#8a6236"/><rect x="163" y="62" width="9" height="34" fill="#2f5d46"/><rect x="174" y="74" width="12" height="22" fill="#b9a58a"/>`,
+  lamp:`<rect x="16" y="16" width="44" height="56" fill="#dccbad" opacity=".6"/><rect x="23" y="23" width="30" height="42" fill="#5f7f8e" opacity=".8"/>
+    <path d="M154 150V72" stroke="#24160d" stroke-width="3.5"/><circle cx="154" cy="58" r="56" fill="url(#cam-lamp)"/><path d="M136 72L143 38H165L172 72Z" fill="#ffdfae"/>
+    <rect x="-4" y="116" width="208" height="40" fill="#3c201a" opacity=".85"/>`,
+  shelf:`<circle cx="26" cy="22" r="60" fill="url(#cam-lamp)"/><path d="M-4 42H204M-4 92H204" stroke="#1b110a" stroke-width="6"/>
+    ${[[8,'#8a3b2e',9,24],[19,'#c9a464',7,20],[28,'#2f5d46',10,26],[40,'#5a6f8c',8,22],[128,'#b9a58a',9,24],[139,'#7c3f5a',8,20],[149,'#c9763a',11,27],[162,'#3d5a7a',8,23],[172,'#d8c9a4',10,25],[184,'#6b4a2f',9,21]]
+      .map(([x,colour,w,h])=>`<rect x="${x}" y="${39-h}" width="${w}" height="${h}" fill="${colour}"/>`).join('')}
+    ${[[6,'#3d5a7a',11,30],[19,'#d8c9a4',8,26],[29,'#8a3b2e',10,32],[136,'#2f5d46',9,28],[147,'#c9a464',12,33],[161,'#7c3f5a',8,27],[171,'#5a6f8c',10,31],[183,'#b9a58a',9,26]]
+      .map(([x,colour,w,h])=>`<rect x="${x}" y="${89-h}" width="${w}" height="${h}" fill="${colour}"/>`).join('')}`,
+  plant:`<path d="M-4 14C40 30 110 34 204 6" fill="none" stroke="#2a1614" stroke-width="1.5"/>${[[14,19],[44,25],[76,28],[108,27],[140,22],[170,15],[194,9]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="13" fill="url(#cam-lamp)"/><circle cx="${x}" cy="${y}" r="3.4" fill="#ffe6bc"/>`).join('')}
+    <path d="M150 150L154 116H184L188 150Z" fill="#a8623f"/>${[[160,96,-34],[172,86,-8],[184,94,26],[150,108,-58],[192,108,52]].map(([x,y,turn])=>`<ellipse cx="${x}" cy="${y}" rx="9" ry="24" fill="#2f6a4a" transform="rotate(${turn} ${x} ${y})"/>`).join('')}`,
+};
+function camStill(k){
+  const c=CAM[k],[topLight,top]=P[k].c,head=CAM_HEAD[c.jaw],key=`url(#cam-key${c.lit==='right'?'-right':''})`;
+  const dark=(colour,share)=>`color-mix(in srgb,${colour} ${share}%,#1a0d08)`;
+  const cut=CAM_CUT[c.cut](c.hair,`color-mix(in srgb,${c.hair} 55%,#ffdcae)`);
+  const torso='M18 166C18 132 50 115 84 110C92 119 108 119 116 110C150 115 182 132 182 166Z';
+  const eye=(x)=>`<ellipse cx="${x}" cy="63" rx="5.2" ry="3.4" fill="#fbf3ec"/><circle cx="${x}" cy="63" r="2.9" fill="${c.eye}"/><circle cx="${x}" cy="63" r="1.3" fill="#1a110c"/><circle cx="${x+1.1}" cy="61.9" r=".9" fill="#fff"/>
+    <path d="M${x-5.6} 62.6Q${x} 58.4 ${x+5.6} 62.6" fill="none" stroke="${dark(c.hair,40)}" stroke-width="1.4" stroke-linecap="round"/>`;
+  const mouth=c.teeth?`<path d="M89 87Q100 97 111 87Q100 90.5 89 87Z" fill="#fff8f2" stroke="#a04f48" stroke-width="1.2" stroke-linejoin="round"/>`
+    :`<path d="M${c.beard?'92 88.5Q100 93 108 88.5':'90 88Q100 95 110 88'}" fill="none" stroke="${c.beard?'#7a3b36':'#9a4a44'}" stroke-width="2.2" stroke-linecap="round"/>`;
+  const beard=c.beard?`<path d="M70.5 68C71 76 73 84 77 90C83 99 92 104.5 100 104.5C108 104.5 117 99 123 90C127 84 129 76 129.5 68C126 76 121 82 114 83C110 80 105 79 100 79.5C95 79 90 80 86 83C79 82 74 76 70.5 68Z" fill="${c.hair}" opacity=".62"/>`:'';
+  const glasses=c.glasses?`<g fill="rgba(255,255,255,.07)" stroke="#1f1a17" stroke-width="1.8"><rect x="76.5" y="55.5" width="19" height="15" rx="5.5"/><rect x="104.5" y="55.5" width="19" height="15" rx="5.5"/><path d="M95.5 61.5Q100 59.5 104.5 61.5M76.5 61L70 59M123.5 61L130 59" fill="none"/></g>
+    <path d="M80 60l4.4-2.4M108 60l4.4-2.4" stroke="#fff" stroke-width="1.2" stroke-linecap="round" opacity=".55"/>`:'';
+  const turned=`transform="rotate(${c.pose.turn} 100 100)"`;
+  return `<svg viewBox="0 0 200 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <rect width="200" height="150" fill="${c.wall}"/><g filter="url(#cam-soft)">${CAM_ROOM[c.room]}</g><rect width="200" height="150" fill="url(#cam-fall)"/>
+    <g transform="translate(${100+c.pose.x} ${150+c.pose.y}) scale(${c.pose.size}) translate(-100 -150)">
+    <path d="${torso}" fill="${top}"/><path d="${torso}" fill="${key}"/><path d="${torso}" fill="url(#cam-fall)"/><g ${turned}>${cut.back}</g>
+    <path d="M87 90L86 113C94 122 106 122 114 113L113 90Z" fill="${dark(c.skin,76)}"/><path d="M84 110C92 121 108 121 116 110" fill="none" stroke="${topLight}" stroke-width="3" opacity=".75"/>
+    <g ${turned}><path d="M87 96C94 105 106 105 113 96L113.4 104C106 113 94 113 86.6 104Z" fill="#1a0d08" opacity=".24"/>
+    <ellipse cx="69.5" cy="66" rx="4.5" ry="8" fill="${dark(c.skin,c.lit==='right'?68:86)}"/><ellipse cx="130.5" cy="66" rx="4.5" ry="8" fill="${dark(c.skin,c.lit==='right'?86:68)}"/>
+    <path d="${head}" fill="${c.skin}"/><ellipse cx="80" cy="78" rx="7" ry="5" fill="#e8806f" opacity=".22"/><ellipse cx="120" cy="78" rx="7" ry="5" fill="#e8806f" opacity=".22"/>${beard}
+    <path d="M79 55Q86 51 93 54M107 54Q114 51 121 55" fill="none" stroke="${dark(c.hair,70)}" stroke-width="2.2" stroke-linecap="round"/>${eye(86)}${eye(114)}
+    <path d="M100 65C99.4 71 97 75 96.4 78C98.4 80.6 101.6 80.6 103.6 78" fill="none" stroke="${dark(c.skin,52)}" stroke-width="1.3" stroke-linecap="round" opacity=".6"/>${mouth}
+    <path d="${head}" fill="${key}"/>${cut.front}${glasses}</g></g></svg>`;
+}
+/* the agent's call tile shows its figure: a drawn stand-in for the character the call renders, on the call's dark stage */
+function figureStill(){
+  const hair='#7f95dc',shade='#5266ad',line='#2a2440';
+  const eye=(x)=>`<ellipse cx="${x}" cy="68" rx="6.4" ry="8" fill="#243170"/><ellipse cx="${x}" cy="71" rx="4.6" ry="4.8" fill="#7aa7f0"/><ellipse cx="${x}" cy="67.5" rx="2.5" ry="3.6" fill="#11183a"/>
+    <circle cx="${x+2.4}" cy="63.6" r="2" fill="#fff"/><circle cx="${x-2.4}" cy="72.4" r="1" fill="#fff" opacity=".85"/>
+    <path d="M${x-7.6} 63.4C${x-4} 57.6 ${x+4} 57.6 ${x+7.6} 63" fill="none" stroke="${line}" stroke-width="2.4" stroke-linecap="round"/>`;
+  return `<svg viewBox="0 0 200 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <path d="M57 72C50 36 73 13 100 13C127 13 150 36 143 72C147 98 151 126 145 150H55C49 126 53 98 57 72Z" fill="${shade}"/>
+    <path d="M38 150C40 128 60 118 85 114C93 123 107 123 115 114C140 118 160 128 162 150Z" fill="#f6f6f9"/><path d="M38 150C40 128 60 118 85 114C72 124 60 136 56 150Z" fill="#dfe2ec"/>
+    <path d="M91 94L90 116C96 122 104 122 110 116L109 94Z" fill="#f2cdb9"/><path d="M85 114C93 124 107 124 115 114" fill="none" stroke="#c8ccd9" stroke-width="2.6"/>
+    <path d="M70 62C70 40 84 30 100 30C116 30 130 40 130 62C130 81 114 100 100 104C86 100 70 81 70 62Z" fill="#ffe9dc"/>
+    <ellipse cx="79" cy="81" rx="6" ry="3.2" fill="#ff9aa2" opacity=".4"/><ellipse cx="121" cy="81" rx="6" ry="3.2" fill="#ff9aa2" opacity=".4"/>
+    ${eye(85)}${eye(115)}<path d="M79 54.5Q85 52 91 54M109 54Q115 52 121 54.5" fill="none" stroke="${shade}" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M100.6 79l-1.4 2.6" stroke="#d9a590" stroke-width="1.3" stroke-linecap="round"/><path d="M95.5 88.5Q100 92 104.5 88.5" fill="none" stroke="#c26a6a" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M65 62C60 86 61 110 66 130L77 127C72 108 71 86 74 68ZM135 62C140 86 139 110 134 130L123 127C128 108 129 86 126 68Z" fill="${hair}"/>
+    <path d="M65 66C60 38 77 19 100 19C123 19 140 38 135 66C133 60 131 55 128 50L122 61L117 47L110 59L104 45L97 59L91 46L84 61L78 49L73 59C70 60 67 62 65 66Z" fill="${hair}"/>
+    <path d="M76 35C88 28 112 28 124 35" fill="none" stroke="#c3d0f7" stroke-width="3.4" stroke-linecap="round" opacity=".75"/></svg>`;
+}
+const CALL_STAGE_STRIP={390:{w:56,h:40,right:6,top:4},1280:{w:140,h:80,right:22,top:10}};
+/* the call's row over the table: how many are in the call, and at the right the strip of those who only watch */
+const callStageRow=(d,o)=>{const z=CALL_STAGE_STRIP[d?1280:390];
+  return (d?people(o.people,16,14)+tray({right:18,bottom:112},{rail:true}):people(o.people,12,8)+reactKey(82))
+    +`<div class="watchers" style="${at({right:z.right,top:z.top})}"><span class="eye" title="Zuschauer">${I.eye}</span>${o.watch.map(k=>seat(k,{w:z.w,h:z.h,sm:true,video:'still',inline:true,plate:false,marks:[]})).join('')}</div>`;};
+const callStageBar=(d)=>`<div class="sbar above">${soundButton(d)}${menuKey(d,{strip:true})}</div>`;
+const callStageChairs=(d)=>d?dropOwn(DB,-HAND_RAISE):PB;
+/* on the phone the raised hand ends just under the own nameplate, so no card lies on it */
+const CALL_STAGE_HAND={390:162,1280:DESK_HAND.bottom+HAND_RAISE};
+/* one moment for every way the right chair shows its player: Anna led the king, the right chair is to play; o.right draws that chair */
+const callStageTrick=(d,o)=>{const L=callStageChairs(d);
+  return room(d,{left:8,call:false,glow:novaGlow(d)})+callStageRow(d,o)+plaque(mid(d),plaqueY(d),gameLine('c','Kreuz'))+played('K','s','anna',TRICK_SLOT.left(d))
+    +seat('anna',{...L.anna,video:'still',marks:['decl']})+o.right(L.nova)+seat('felix',{...L.you,video:'still'})+chairCoasters(L,TOTALS_BEFORE)
+    +ownHand(d,FELIX_HAND,{bottom:CALL_STAGE_HAND[d?1280:390]})+callBar(d)+callStageBar(d);};
+const CALL_STAGE_SCENES=[
+  ['call-stage-videos','Anruf: drei Videos an den Stühlen',(d)=>callStageTrick(d,{people:4,watch:['lena'],right:(chair)=>seat('ben',{...chair,video:'still',marks:['turn']})}),
+    ['Im Anruf sitzt jeder Spieler mit seinem Video an seinem Stuhl: Anna links, Ben rechts, du an deinem Platz. Auf dem Desktop bleibt dein Platz die schmale Leiste über der Hand, und dein Video ist ihr rundes Bild. Lena schaut zu und liegt als Einzige oben in der kleinen Leiste, die den Filz nicht berührt.',
+     'Marken, Namensschild und Punkte bleiben Skats: „Spielt“ liegt auf Annas Video, der blaue Ring um Bens Stuhl sagt, dass er dran ist.']],
+  ['call-stage-own-agent','Anruf: dein Agent mit seiner Figur',(d)=>callStageTrick(d,{people:4,watch:['ben'],right:(chair)=>seat('nova',{...chair,figure:true,marks:['turn','think']})}),
+    ['Nova ist dein Agent und mit ihrem eigenen Konto im Anruf: ihre Kachel mit der Figur sitzt an ihrem Stuhl wie das Video eines Menschen, nie in der Leiste. Der gestrichelte Rand und „AI“ am Schild bleiben, und „denkt“ steht an der Kachel, solange sie dran ist. In der Leiste liegt nur Ben, der zuschaut.']],
+  ['call-stage-agent-no-tile','Anruf: Agent ohne Kachel',(d)=>callStageTrick(d,{people:3,watch:['ben'],right:(chair)=>seat('nova',{...chair,marks:['turn','think']})}),
+    ['Nova spielt am Tisch, ist aber nicht im Anruf: ohne Kachel zeigt ihr Stuhl die Kugel wie heute, so wie ein Mensch, der nicht im Anruf ist, seinen Avatar behält. Im Anruf sind drei: du, Anna und Ben.']],
+  ['call-stage-waiting','Anruf: Warten an den Stühlen',(d)=>{const L=callStageChairs(d);
+    return room(d,{left:0,call:false})+callStageRow(d,{people:4,watch:['ben','lena']})+waiting(mid(d),plaqueY(d))
+      +seat('anna',{...L.anna,video:'still'})+freeSeat(L.nova,{idle:true})+seat('felix',{...L.you,video:'still'})+callBar(d)+callStageBar(d);},
+    ['Vor dem Geben: Anna und du sitzen schon, eure Videos sind an, der dritte Stuhl ist frei. Ben und Lena sind im Anruf und haben sich noch nicht gesetzt, sie liegen in der Leiste; wer sich setzt, wechselt mit seinem Video an den Stuhl.']],
+];
+scenes(CALL_STAGE_SCENES);
+ORDER.push(...CALL_STAGE_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 /* ===== Takt's strips: a played card lands and a finished trick is gathered, each in both motion sets. A scene is a strip: its key frames side by side, then the same table playing the motion; opened alone with „&play“ it shows only the playing table ===== */
 {
 const {SETS,MOMENTS,GAME,seedOf,look,movers,fanHome,mix,phase}=TAKT;
@@ -3417,6 +3540,12 @@ if(panels.length){hangPanels();document.fonts.ready.then(hangPanels);}}
   @keyframes key-ring{0%{scale:.92;opacity:.9}100%{scale:1.25;opacity:0}}
   @keyframes key-sheen{0%{translate:-120% 0}55%,100%{translate:260% 0}}
 }
+</style>
+<style>
+/* ---------- a call's stage: the agent's figure tile stands on the call's dark stage; on the desktop the own camera picture is the own bar's round face ---------- */
+.tile.agent .vid.figure{background:radial-gradient(ellipse 70% 80% at 50% 38%,var(--stage-3),var(--stage-2) 75%)}
+.seat.bar .dot.cam{position:relative;overflow:hidden;background:var(--stage-2);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+.seat.bar .dot.cam svg{position:absolute;inset:0;width:100%;height:100%}
 </style>
 <style>
 /* ---------- Takt: a strip of key frames with the playing table last; a mover is a card laid by transform and opacity alone, its shade a piece of its own that stays on the felt, its name another that lies above every card ---------- */
