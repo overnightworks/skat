@@ -30,7 +30,7 @@
     } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import {
-        nextSettingsOf,
+        nextSettingsRevisionOf,
         resultOnStage,
         returnsToLobby,
         seriesCountText,
@@ -355,7 +355,7 @@
         send(
             table,
             seriesOver(table)
-                ? startNewSeries(id, crypto.randomUUID(), seriesNumberOf(table), nextSettingsOf(table)?.revision ?? 0)
+                ? startNewSeries(id, crypto.randomUUID(), seriesNumberOf(table), nextSettingsRevisionOf(table))
                 : markReady(
                       id,
                       crypto.randomUUID(),

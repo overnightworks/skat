@@ -1,8 +1,7 @@
 <script lang="ts">
     import {
+        changeableSettingsOf,
         nextSeriesLine,
-        nextSettingsChangeable,
-        nextSettingsOf,
         seriesEndAnswerBy,
         takenBackLine,
         type StandingsView,
@@ -26,25 +25,32 @@
         $props();
     const nextLine = $derived(nextSeriesLine(table));
     const answerBy = $derived(seriesEndAnswerBy(table));
+    const changeable = $derived(changeableSettingsOf(table));
     // The settings the open sheet started from and the series whose end it was opened at; null while it is closed. It
     // stays closed once that series is dealt, so the next series' end never opens it again.
     let changing = $state<{ series: number; initial: NextSettings } | null>(null);
 
-    function open(): void {
-        const initial = nextSettingsOf(table);
-        changing = initial === null ? null : { series: seriesNumberOf(table), initial };
+    function open(initial: NextSettings): void {
+        changing = { series: seriesNumberOf(table), initial };
     }
 </script>
 
 <Standings {view}>
     {#if nextLine !== null}
-        <NextSeriesLine line={nextLine} onchange={nextSettingsChangeable(table) ? open : undefined} />
+        <NextSeriesLine
+            line={nextLine}
+            onchange={changeable === null
+                ? undefined
+                : () => {
+                      open(changeable);
+                  }}
+        />
     {/if}
 </Standings>
 {#if answerBy !== null}
     <div class="plaque ask timer"><AnswerClock until={answerBy} ends /></div>
 {/if}
-{#if changing !== null && changing.series === seriesNumberOf(table) && nextSettingsChangeable(table)}
+{#if changing !== null && changing.series === seriesNumberOf(table) && changeable !== null}
     {@const series = changing.series}
     <NextSeriesSheet
         initial={changing.initial}

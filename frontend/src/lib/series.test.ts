@@ -8,8 +8,9 @@ import {
     returnsToLobby,
     seriesCountText,
     nextSeriesLine,
-    nextSettingsChangeable,
+    changeableSettingsOf,
     nextSettingsOf,
+    nextSettingsRevisionOf,
     seriesEndAnswerBy,
     seriesEndAsk,
     seriesEndMarks,
@@ -424,12 +425,27 @@ describe("the series' end", () => {
         expect(nextSettingsOf(tableBetweenGames(1, seriesAt()))).toBeNull();
     });
 
+    it("names the saved revision, else revision 0 when the table has no settings to name", () => {
+        const saved = { game_count: 12, options: WITH_KONTRA, revision: 2 };
+
+        expect([
+            nextSettingsRevisionOf({ ...over(1, { next_settings: saved }), options: NO_RULES }),
+            nextSettingsRevisionOf({ ...over(1), options: NO_RULES }),
+            nextSettingsRevisionOf(over(1)),
+        ]).toEqual([2, 0, 0]);
+    });
+
     it.each([
-        { name: "a seated member of a series that is over", table: over(1), expected: true },
-        { name: "a watcher of a series that is over", table: over(WATCHER), expected: false },
-        { name: "a seated member of a series that runs", table: tableBetweenGames(1, seriesAt()), expected: false },
+        { name: "a seated member of a series that is over", table: { ...over(1), options: NO_RULES }, expected: true },
+        { name: "a watcher of a series that is over", table: { ...over(WATCHER), options: NO_RULES }, expected: false },
+        {
+            name: "a seated member of a series that runs",
+            table: { ...tableBetweenGames(1, seriesAt()), options: NO_RULES },
+            expected: false,
+        },
+        { name: "a seated member of a table that has no options", table: over(1), expected: false },
     ])("lets $name change the next settings: $expected", ({ table, expected }) => {
-        expect(nextSettingsChangeable(table)).toBe(expected);
+        expect(changeableSettingsOf(table) !== null).toBe(expected);
     });
 
     it("names whose „Neue Serie“ a save takes back: the other seats that chose it", () => {

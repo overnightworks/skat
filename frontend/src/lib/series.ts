@@ -200,9 +200,14 @@ export function nextSettingsOf(table: Table): NextSettings | null {
     return table.series.next_settings ?? { game_count: table.series.game_count, options: table.options, revision: 0 };
 }
 
-// Seated members change the next series' settings; a watcher of the standings only reads them.
-export function nextSettingsChangeable(table: Table): boolean {
-    return seriesOver(table) && table.chairs.some((chair) => chair.is_mine);
+// The revision a „Neue Serie“ names; the first, 0, while the table cannot name settings.
+export function nextSettingsRevisionOf(table: Table): number {
+    return nextSettingsOf(table)?.revision ?? 0;
+}
+
+// Seated members change the next series' settings, which a watcher of the standings only reads; null for a watcher.
+export function changeableSettingsOf(table: Table): NextSettings | null {
+    return table.chairs.some((chair) => chair.is_mine) ? nextSettingsOf(table) : null;
 }
 
 // Whose „Neue Serie“ a save takes back, as the sheet says it: the other seats that chose it, in the order of their

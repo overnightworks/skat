@@ -7,7 +7,7 @@ from playwright.sync_api import Locator, Page, expect
 
 from skat.table.records import SERIES_LENGTH_STEP
 from skat.web.game_list import TABLE_LIST_SUFFIX
-from skat.web.ready import TABLE_NEW_SERIES_SUFFIX
+from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_NEXT_SETTINGS_SUFFIX
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
@@ -58,6 +58,8 @@ STOP_PLAYING = text(SOURCE_LANGUAGE, "table.stopPlaying")
 NEXT_LINE = ".result.standing .nextline"
 CHANGE = text(SOURCE_LANGUAGE, "table.nextSeriesChange")
 SAVE = text(SOURCE_LANGUAGE, "table.nextSeriesSave")
+CANCEL = text(SOURCE_LANGUAGE, "table.nextSeriesCancel")
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 MORE_GAMES = text(SOURCE_LANGUAGE, "start.seriesMore")
 NEXT_SHEET = ".sheet.next-series"
 RULE_SETS = text(SOURCE_LANGUAGE, "start.ruleSets")
@@ -65,6 +67,13 @@ SAVE_RULES = text(SOURCE_LANGUAGE, "start.saveRules")
 RULE_KONTRA = text(SOURCE_LANGUAGE, "start.ruleKontra")
 RULE_RAMSCH = text(SOURCE_LANGUAGE, "start.ruleRamsch")
 ANSWER_CLOCK = ".stage > .plaque.timer"
+# The save of the next series' settings waits for `releaseSaves`, so the sheet is seen while it saves.
+HOLD_THE_SAVE = """suffix => {
+    const send = window.fetch;
+    const held = new Promise((release) => { window.releaseSaves = release; });
+    window.fetch = (...request) =>
+        String(request[0]).endsWith(suffix) ? held.then(() => send(...request)) : send(...request);
+}"""
 RAMSCH = text(SOURCE_LANGUAGE, "game.ramsch")
 YES = text(SOURCE_LANGUAGE, "table.yes")
 NO = text(SOURCE_LANGUAGE, "table.no")
@@ -544,6 +553,8 @@ def test_a_seated_member_changes_the_next_series_and_the_save_takes_back_every_n
     expect(sheet.get_by_role("switch", name=RULE_RAMSCH, exact=True)).to_have_attribute("aria-checked", "true")
     expect(sheet.get_by_role("switch", name=RULE_KONTRA, exact=True)).to_have_attribute("aria-checked", "false")
     expect(sheet.get_by_role("group", name=SAVE_RULES)).to_have_count(0)
+    sheet.get_by_role("switch", name=RULE_KONTRA, exact=True).click()
+    expect(sheet.get_by_role("group", name=SAVE_RULES)).to_have_count(1)
     sheet.get_by_role("button", name=MORE_GAMES).click()
     sheet.get_by_role("button", name=SAVE, exact=True).click()
 
@@ -586,6 +597,44 @@ def test_a_sheet_left_open_while_the_next_series_is_dealt_stays_shut_at_the_end_
 
     expect(second.get_by_role("button", name=CHANGE, exact=True)).to_be_visible()
     expect(second.locator(NEXT_SHEET)).to_have_count(0)
+    assert page_errors == []
+
+
+def test_the_next_series_sheet_closes_on_cancel_and_escape_stays_while_it_saves_and_tells_a_refused_save(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = PassedInTable(open_person, e2e_server, member_of, page_errors, PHONE, console=False)
+    pass_the_series_in(table)
+    second = table.pages[2]
+    change = second.get_by_role("button", name=CHANGE, exact=True)
+    sheet = second.locator(NEXT_SHEET)
+
+    change.click()
+    expect(sheet).to_have_count(1)
+    second.keyboard.press("Escape")
+    expect(sheet).to_have_count(0)
+
+    change.click()
+    sheet.get_by_role("button", name=CANCEL, exact=True).click()
+    expect(sheet).to_have_count(0)
+
+    second.route(f"**{TABLES_PATH}/*{TABLE_NEXT_SETTINGS_SUFFIX}", refuse)
+    second.evaluate(HOLD_THE_SAVE, TABLE_NEXT_SETTINGS_SUFFIX)
+    change.click()
+    save = sheet.get_by_role("button", name=SAVE, exact=True)
+    save.click()
+    expect(save).to_be_disabled()
+    second.keyboard.press("Escape")
+    expect(sheet).to_have_count(1)
+
+    second.evaluate("window.releaseSaves()")
+    expect(sheet.get_by_role("alert")).to_have_text(COMMAND_FAILED)
+    expect(save).to_be_enabled()
+    second.keyboard.press("Escape")
+    expect(sheet).to_have_count(0)
     assert page_errors == []
 
 
