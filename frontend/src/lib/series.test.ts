@@ -311,7 +311,11 @@ describe("standingsView", () => {
     it("reads no name as Du for a watcher, and marks no chair for a nameless winner", () => {
         const watching = tableBetweenGames(
             WATCHER,
-            seriesAt({ over: true, standings: [{ display_name: null, seat: 1, kind: "person", total: 5, won: 0, lost: 0, place: 1 }], game_number: 36 }),
+            seriesAt({
+                over: true,
+                standings: [{ display_name: null, seat: 1, kind: "person", total: 5, won: 0, lost: 0, place: 1 }],
+                game_number: 36,
+            }),
         );
 
         const view = standingsView(watching);
