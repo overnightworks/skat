@@ -166,6 +166,7 @@ def test_a_lobby_stream_that_fails_on_first_load_shows_the_reconnect_line_and_no
     answering = True
     button = person.get_by_role("button", name=NEW_TABLE_BUTTON)
     expect(button).to_be_visible()
+    expect(line).to_have_count(0)
     person.evaluate("document.fonts.ready.then(() => true)")
     arrived = box_of(button)
     person.reload()
