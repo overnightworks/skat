@@ -63,8 +63,13 @@ def box_of(locator: Locator) -> dict[str, float]:
     return box
 
 
+def drawn_boxes(person: Page) -> list[dict[str, float]]:
+    """The boxes of the account button and its avatar, which both scenes draw."""
+    return [box_of(element) for element in person.locator(".account-button, .account-avatar").all()]
+
+
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
-def test_until_the_lobby_answers_the_page_draws_the_head_and_no_button(
+def test_until_the_lobby_answers_the_page_draws_the_account_button_and_neither_wordmark_nor_button(
     open_person: Callable[..., Page], e2e_server: RunningServer, form_factor: dict[str, Any]
 ) -> None:
     waiting = open_person(**form_factor)
@@ -73,10 +78,40 @@ def test_until_the_lobby_answers_the_page_draws_the_head_and_no_button(
 
     waiting.goto(f"{e2e_server.base_url}/")
 
-    expect(waiting.locator(START_WORDMARK)).to_be_visible()
     expect(waiting.locator(ACCOUNT_AVATAR)).to_be_visible()
+    expect(waiting.locator(f"{START_WORDMARK}, {START_PIPS}")).to_have_count(0)
     expect(waiting.get_by_role("button", name=NEW_TABLE_BUTTON)).to_have_count(0)
     expect(waiting.locator(".start-table, .lobby-lists")).to_have_count(0)
+
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+@pytest.mark.parametrize("scene", ["empty", "open"])
+def test_nothing_drawn_before_the_lobby_answers_moves_when_the_first_answer_arrives(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    expected_request_failures: list[str],
+    form_factor: dict[str, Any],
+    scene: str,
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
+    person = open_person(**form_factor)
+    held: list[Route] = []
+    person.route(f"**{LOBBY_EVENTS_PATH}", lambda route: held.append(route))
+    with person.expect_request(f"**{LOBBY_EVENTS_PATH}"):
+        person.goto(f"{e2e_server.base_url}/")
+    # The account's name arrives on its own read, apart from the lobby's answer.
+    expect(person.locator(".account-name")).to_have_count(1)
+    person.evaluate("document.fonts.ready.then(() => true)")
+    before = drawn_boxes(person)
+    assert before
+
+    tables = [] if scene == "empty" else [open_table_answer("Ina", names=("Ina", None, None))]
+    held[0].fulfill(status=200, headers={"content-type": EVENT_STREAM}, body=stream_of(open_tables=tables))
+    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
+    expect(person.locator(START_WORDMARK)).to_be_visible()
+    person.evaluate("document.fonts.ready.then(() => true)")
+
+    assert drawn_boxes(person) == before
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

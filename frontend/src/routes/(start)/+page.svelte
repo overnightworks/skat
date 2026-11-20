@@ -29,7 +29,7 @@
 <div class="start" data-theme="dark" data-scene={scene}>
     <CardSprite />
     <header class="start-bar start-head">
-        <StartMark />
+        {#if scene !== "pending"}<StartMark />{/if}
         <button type="button" class="account-button" aria-label={words["account.title"]} popovertarget="accountMenu">
             <span class="account-avatar">
                 {#if knownName() === null}
