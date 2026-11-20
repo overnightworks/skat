@@ -101,8 +101,8 @@ def new_table(open_person: Callable[..., Page], server: RunningServer) -> str:
 
 
 # What the page's chairs draw, read in the frame: which marks lie in a tile's top-left quarter or under its position
-# label, whether an own-seat bar shows its glass, whether any tile rim lies inside its box, and how the dashed agent rim lies
-# against its box (the probe gives each tile the agent class).
+# label, whether an own-seat bar shows its glass, whether any tile rim lies inside its box, and how the dashed
+# agent rim lies against its box (the probe gives each tile the agent class).
 _CHAIR_LOOK_PROBE = """chairs => {
     const overlaps = (mark, tile) => mark.right > tile.left && mark.left < tile.left + tile.width / 2
         && mark.bottom > tile.top && mark.top < tile.top + tile.height / 2;
