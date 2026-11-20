@@ -3,6 +3,6 @@ agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
 role = "builder"
 base = "6bac96766e1ce199e89fb59e27aeb302db18428c"
 branch = "claude/issue-733-the-series-end-card-and-the-settings-she"
-scope = ["frontend/src/lib/closed.ts", "frontend/src/lib/series.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui", "frontend/src/routes/(start)", "tests"]
+scope = ["frontend/src/lib/catalogs", "frontend/src/lib/closed.ts", "frontend/src/lib/series.test.ts", "frontend/src/lib/series.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui", "frontend/src/lib/words", "frontend/src/routes/(start)", "src/skat/web/words.py", "tests"]
 opened_commit = "30e1e5092dcf9a8de33bd77046d5aa143e788b71"
 whole_reason = "The card's rows, its place, the shared sheet rule and the top keys sit in the series owner, the kit, the start styles and the table page."
