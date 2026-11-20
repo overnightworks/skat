@@ -25,6 +25,7 @@ from skat.table.member_place import (
     InvitationOffer,
     InviteRefusal,
     MemberRefusal,
+    SeatedAccounts,
     TableOffers,
     TableStanding,
     agent_in_chair,
@@ -34,6 +35,7 @@ from skat.table.member_place import (
     decide_invite,
     keep_turn_state,
     offers_at,
+    seated_accounts_of,
     standings_of,
 )
 from skat.table.member_view import (
@@ -750,6 +752,13 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
         """Who is at the live table for a call; an ended or missing table counts the open streams only."""
         table = self._table_read(table_id.value)
         return at_the_table(table, connected_accounts) if isinstance(table, TableRecord) else connected_accounts
+
+    def seated_accounts(self, table_id: str) -> SeatedAccounts | None:
+        """Who holds each occupied chair of the live table, from one read; None for an ended table and a table that is
+        not there.
+        """
+        table = self._table_read(table_id)
+        return seated_accounts_of(table) if isinstance(table, TableRecord) else None
 
     def member_view(self, account_id: str, table_id: str, connected_accounts: frozenset[str]) -> MemberView | None:
         """The live table's view for the account that holds a chair there, with whether the table waits for it; None

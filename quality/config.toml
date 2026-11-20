@@ -43,3 +43,9 @@ job = "Lint and test"
 item = "overnightworks/skat#484"
 date = 2026-11-13
 reason = "written by design-catalogs from the language catalogs and proven byte for byte by make words-check, which make lint in Lint and test runs"
+
+[[secrets.allow]]
+rule = "generic-api-key"
+file = "tests/web/test_person_keys.py"
+secret_sha256 = "6b6e35d2426e4ea854b1008bc978746538966e99c8d02edb634532d7e9b477f2"
+reason = "the person key vector both servers check their derivation against: a public hash of public example values, no secret"
