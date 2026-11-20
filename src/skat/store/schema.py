@@ -378,6 +378,10 @@ chairs = Table(
     # Who an agent at this chair works for, as its token named them when it sat; it goes with the chair.
     Column("owner_account", Text),
     Column("ready", Boolean, nullable=False, server_default=false()),
+    # The revision of the next series' settings a „Neue Serie“ was given on, written with the mark; a release that does
+    # not know the revisions marks without it, so a mark whose revision is not the settings' current one stands for no
+    # choice.
+    Column("ready_settings", SmallInteger),
     # The accounts that held this chair in the running hand and left it; they no longer sit here, so a query of an
     # account's tables reads `account_id` and never counts them.
     Column("held_in_hand", ARRAY(Text), nullable=False, server_default=text("'{}'")),

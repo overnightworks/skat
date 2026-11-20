@@ -6,14 +6,14 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import IntegrityError
 
 from skat.engine.deal import Position, deal, positions_from
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word
 from skat.store.game_list import game_list
 from skat.store.migrate import create_store_engine
-from skat.store.schema import StepLogRewrittenError, hand_cards, options_of, series, tables
+from skat.store.schema import StepLogRewrittenError, chairs, hand_cards, options_of, series, tables
 from skat.store.series import SeriesSettingsChangedError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
@@ -833,6 +833,41 @@ class TestTheNextSeriesSettings:
 
         assert (stale.refusal, fresh.refusal) == (Refusal.STALE_SETTINGS, None)
         assert [chair.ready for chair in read(transactions, first_series).chairs] == [True, False, False]
+
+    def mark_as_the_release_before_does(self, engine, table_id):
+        """That release marks a chair ready and knows no revision of settings."""
+        with engine.begin() as connection:
+            connection.execute(update(chairs).where(chairs.c.table_id == table_id).values(ready=True))
+
+    def test_marks_a_release_before_gives_after_a_save_deal_nothing_and_stand_for_no_choice(
+        self, service, transactions, engine, first_series
+    ):
+        self.save(service, first_series)
+        self.mark_as_the_release_before_does(engine, first_series)
+
+        assert service.deal_next(TableId(first_series), nullcontext(ALL_THREE)) is False
+
+        assert [chair.ready for chair in read(transactions, first_series).chairs] == [False, False, False]
+
+    def test_marks_a_release_before_gives_on_unsaved_settings_deal_the_next_series(
+        self, service, transactions, engine, first_series
+    ):
+        self.mark_as_the_release_before_does(engine, first_series)
+
+        assert service.deal_next(TableId(first_series), nullcontext(ALL_THREE)) is True
+
+        assert read(transactions, first_series).series == Series(3, 1, number=2)
+
+    def test_a_tap_on_the_saved_settings_counts_where_a_mark_of_the_release_before_stood(
+        self, service, transactions, engine, first_series
+    ):
+        self.save(service, first_series)
+        self.mark_as_the_release_before_does(engine, first_series)
+
+        tap_all(service, first_series, settings=1)
+
+        assert service.deal_next(TableId(first_series), nullcontext(ALL_THREE)) is True
+        assert read(transactions, first_series).options == SECOND_SERIES_OPTIONS
 
     def test_a_save_that_names_another_series_than_the_tables_is_refused(self, service, transactions, first_series):
         command = NextSettingsCommand("settings-late", first_series, 2, 12, SECOND_SERIES_OPTIONS)

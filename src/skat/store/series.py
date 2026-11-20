@@ -148,6 +148,24 @@ def series_with_next_settings(connection: Connection, table_id: str, row: Row[An
     return replace(current, next_settings=NextSettings(saved.length, options_of(saved), saved.settings_revision))
 
 
+def mark_revision_of(current: Series | None) -> int | None:
+    """The revision of the next series' settings a „Neue Serie“ is given on now; None while the series is not over and
+    no such mark exists.
+    """
+    if current is None or not current.is_over:
+        return None
+    return 0 if current.next_settings is None else current.next_settings.revision
+
+
+def mark_stands(ready: bool, given_on: int | None, revision: int | None) -> bool:
+    """Whether a chair's stored mark counts: at a series' end only when it was given on the settings' current revision,
+    where a mark with no revision, as the release before writes it, was given on the settings the series carried over.
+    """
+    if not ready or revision is None:
+        return ready
+    return (0 if given_on is None else given_on) == revision
+
+
 def _proposal_of(row: Row[Any]) -> EndProposal | None:
     if row.end_proposer is None:
         return None
