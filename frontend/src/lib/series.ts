@@ -194,8 +194,7 @@ export function seriesEndAnswerBy(table: Table): string | null {
 // close that names nobody; a page that opens the link of such a table stays and shows the ended table.
 export function returnsToLobby(previous: Table | undefined, table: Table): boolean {
     return (
-        previous !== undefined &&
-        previous.ended === null &&
+        previous?.ended === null &&
         table.ended?.reason === "closed" &&
         table.ended.closed_by_name === null
     );
