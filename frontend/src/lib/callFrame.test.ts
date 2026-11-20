@@ -4,9 +4,12 @@ import {
     greetCall,
     isFramedInCallMode,
     isHello,
+    isPlaced,
     readCallOrigin,
+    type CallChannel,
     type CallHost,
     type CallMessageEvent,
+    type SeatsMessage,
 } from "./callFrame.ts";
 import { CALL_MODE, CALL_ORIGIN_PATH, MODE_QUERY_NAME } from "./wire.ts";
 
@@ -161,14 +164,67 @@ function hello(overrides: Partial<CallMessageEvent> = {}): CallMessageEvent {
     return { source: PARENT, origin: CALL_ORIGIN, data: { ...VALID_HELLO }, ...overrides };
 }
 
+const KEY_A = "a".repeat(64);
+const KEY_B = "b".repeat(64);
+const KEY_C = "c".repeat(64);
+const VALID_PLACED = { v: 1, type: "placed", table: TABLE_ID, keys: [KEY_A, KEY_B] };
+
+function placed(overrides: Partial<CallMessageEvent> = {}): CallMessageEvent {
+    return { source: PARENT, origin: CALL_ORIGIN, data: { ...VALID_PLACED }, ...overrides };
+}
+
+const SEATS_MESSAGE: SeatsMessage = {
+    v: 1,
+    type: "seats",
+    table: TABLE_ID,
+    seats: [{ key: KEY_A, box: { x: 1, y: 2, w: 3, h: 4 }, shape: "round" }],
+};
+
+describe("isPlaced", () => {
+    it.each([
+        { name: "the contract's own shape", data: VALID_PLACED, expected: true },
+        { name: "no key", data: { ...VALID_PLACED, keys: [] }, expected: true },
+        { name: "three keys", data: { ...VALID_PLACED, keys: [KEY_A, KEY_B, KEY_C] }, expected: true },
+        { name: "four keys", data: { ...VALID_PLACED, keys: [KEY_A, KEY_B, KEY_C, "d".repeat(64)] }, expected: false },
+        { name: "a repeated key", data: { ...VALID_PLACED, keys: [KEY_A, KEY_A] }, expected: false },
+        { name: "a short key", data: { ...VALID_PLACED, keys: ["a".repeat(63)] }, expected: false },
+        { name: "an uppercase key", data: { ...VALID_PLACED, keys: ["A".repeat(64)] }, expected: false },
+        { name: "a key that is no string", data: { ...VALID_PLACED, keys: [1] }, expected: false },
+        { name: "keys that are no array", data: { ...VALID_PLACED, keys: KEY_A }, expected: false },
+        { name: "another table", data: { ...VALID_PLACED, table: "f".repeat(32) }, expected: false },
+        { name: "v 2", data: { ...VALID_PLACED, v: 2 }, expected: false },
+        { name: "another type", data: { ...VALID_PLACED, type: "hello" }, expected: false },
+        { name: "an extra key", data: { ...VALID_PLACED, extra: 1 }, expected: false },
+        { name: "a missing key", data: { v: 1, type: "placed", table: TABLE_ID }, expected: false },
+        { name: "a string", data: JSON.stringify(VALID_PLACED), expected: false },
+        { name: "null", data: null, expected: false },
+        {
+            name: "an object without a prototype",
+            data: Object.assign(Object.create(null) as object, VALID_PLACED),
+            expected: false,
+        },
+        {
+            name: "a megabyte of keys",
+            data: { ...VALID_PLACED, keys: new Array<string>(1_000_000).fill(KEY_A) },
+            expected: false,
+        },
+    ])("is $expected for $name", ({ data, expected }) => {
+        expect(isPlaced(data, TABLE_ID)).toBe(expected);
+    });
+});
+
 async function greetedPage(
     call = fakeCall(),
     id = TABLE_ID,
-): Promise<{ call: FakeCall; greeted: () => number; stop: () => void }> {
-    let greetings = 0;
-    const stop = greetCall(id, call.host, () => (greetings += 1));
+): Promise<{ call: FakeCall; hellos: boolean[]; placements: string[][]; channel: CallChannel }> {
+    const hellos: boolean[] = [];
+    const placements: string[][] = [];
+    const channel = greetCall(id, call.host, {
+        onHello: (first) => hellos.push(first),
+        onPlaced: (keys) => placements.push([...keys]),
+    });
     await settled();
-    return { call, greeted: () => greetings, stop };
+    return { call, hellos, placements, channel };
 }
 
 describe("greetCall", () => {
@@ -183,6 +239,7 @@ describe("greetCall", () => {
 
         call.deliver(hello({ origin: "https://other.test" }));
         call.deliver(hello());
+        call.deliver(hello());
         await settled();
 
         expect(call.posts).toHaveLength(1);
@@ -195,12 +252,13 @@ describe("greetCall", () => {
             name: "the route fails",
             fetchRoute: offline,
         },
-    ])("posts no ready when $name", async ({ fetchRoute }) => {
-        const { call, greeted } = await greetedPage(fakeCall(fetchRoute));
+    ])("posts no ready and posts no seats when $name", async ({ fetchRoute }) => {
+        const { call, hellos, channel } = await greetedPage(fakeCall(fetchRoute));
 
         call.deliver(hello());
+        channel.post(SEATS_MESSAGE);
 
-        expect([call.posts, greeted()]).toEqual([[], 0]);
+        expect([call.posts, hellos]).toEqual([[], []]);
     });
 
     it.each([
@@ -210,19 +268,21 @@ describe("greetCall", () => {
         { name: "uppercase digits", id: TABLE_ID.toUpperCase() },
         { name: "an empty id", id: "" },
     ])("posts no ready and takes no hello for an id that is $name", async ({ id }) => {
-        const { call, greeted } = await greetedPage(fakeCall(), id);
+        const { call, hellos } = await greetedPage(fakeCall(), id);
 
         call.deliver(hello());
 
-        expect([call.posts, greeted()]).toEqual([[], 0]);
+        expect([call.posts, hellos]).toEqual([[], []]);
     });
 
-    it("calls onGreeted once for the first valid hello and removes its listener", async () => {
-        const { call, greeted } = await greetedPage();
+    it("tells the first valid hello as the first and every later one as not the first, and keeps listening", async () => {
+        const { call, hellos } = await greetedPage();
 
         call.deliver(hello());
+        call.deliver(hello({ data: { ...VALID_HELLO, attachment: 2 } }));
+        call.deliver(hello());
 
-        expect([greeted(), call.listenerCount()]).toEqual([1, 0]);
+        expect([hellos, call.listenerCount()]).toEqual([[true, false, false], 1]);
     });
 
     it.each([
@@ -234,70 +294,90 @@ describe("greetCall", () => {
         { name: "from the opaque origin", event: hello({ origin: "null" }) },
         { name: "with an extra key", event: hello({ data: { ...VALID_HELLO, extra: 1 } }) },
     ])("ignores a hello $name and still takes the valid one after it", async ({ event }) => {
-        const { call, greeted } = await greetedPage();
+        const { call, hellos } = await greetedPage();
 
         call.deliver(event);
-        const greetedByTheBadOne = greeted();
+        const heardOfTheBadOne = hellos.length;
         call.deliver(hello());
 
-        expect([greetedByTheBadOne, greeted()]).toEqual([0, 1]);
+        expect([heardOfTheBadOne, hellos]).toEqual([0, [true]]);
     });
 
     it("ignores a hello that comes before the page's ready", async () => {
         const call = fakeCall();
-        let greetings = 0;
-        greetCall(TABLE_ID, call.host, () => (greetings += 1));
+        const hellos: boolean[] = [];
+        greetCall(TABLE_ID, call.host, { onHello: (first) => hellos.push(first), onPlaced: () => undefined });
 
         call.deliver(hello());
         await settled();
 
-        expect([call.posts.length, greetings]).toEqual([1, 0]);
+        expect([call.posts.length, hellos]).toEqual([1, []]);
+    });
+
+    it("hands the keys of a valid placed on", async () => {
+        const { call, placements } = await greetedPage();
+
+        call.deliver(placed());
+        call.deliver(placed({ data: { ...VALID_PLACED, keys: [] } }));
+
+        expect(placements).toEqual([[KEY_A, KEY_B], []]);
     });
 
     it.each([
-        { name: "the same attachment", attachment: 1 },
-        { name: "another attachment", attachment: 2 },
-    ])("changes nothing for a second hello naming $name and reads no data of it", async ({ attachment }) => {
-        const { call, greeted } = await greetedPage();
-        call.deliver(hello());
-        let reads = 0;
-        const second = {
-            source: PARENT,
-            origin: CALL_ORIGIN,
-            get data(): unknown {
-                reads += 1;
-                return { ...VALID_HELLO, attachment };
-            },
-        };
+        { name: "from a sibling window", event: placed({ source: SIBLING }) },
+        { name: "from another origin", event: placed({ origin: "https://other.test" }) },
+        { name: "of another table", event: placed({ data: { ...VALID_PLACED, table: "f".repeat(32) } }) },
+        { name: "with an extra key", event: placed({ data: { ...VALID_PLACED, extra: 1 } }) },
+        { name: "with five keys", event: placed({ data: { ...VALID_PLACED, keys: [KEY_A, KEY_B, KEY_C, "d", "e"] } }) },
+    ])("ignores a placed $name", async ({ event }) => {
+        const { call, placements } = await greetedPage();
 
-        call.deliver(second);
+        call.deliver(event);
 
-        expect([greeted(), reads, call.posts.length]).toEqual([1, 0, 1]);
+        expect(placements).toEqual([]);
     });
 
-    it("removes its listener when the page goes before any greeting", async () => {
-        const { call, stop, greeted } = await greetedPage();
+    it("hands no placed on before the page's ready", () => {
+        const call = fakeCall();
+        const placements: string[][] = [];
+        greetCall(TABLE_ID, call.host, { onHello: () => undefined, onPlaced: (keys) => placements.push([...keys]) });
 
-        stop();
-        call.deliver(hello());
+        call.deliver(placed());
 
-        expect([call.listenerCount(), greeted()]).toEqual([0, 0]);
+        expect(placements).toEqual([]);
     });
 
-    it("stops without effect after the greeting", async () => {
-        const { call, stop, greeted } = await greetedPage();
+    it("posts a seats message to the exact call origin and never to any other", async () => {
+        const { call, channel } = await greetedPage();
+
+        channel.post(SEATS_MESSAGE);
+
+        expect(call.posts.slice(1)).toEqual([{ message: SEATS_MESSAGE, targetOrigin: CALL_ORIGIN }]);
+    });
+
+    it("removes its listener when the page goes, so no later message is read", async () => {
+        const { call, channel, hellos, placements } = await greetedPage();
+
+        channel.stop();
         call.deliver(hello());
+        call.deliver(placed());
+
+        expect([call.listenerCount(), hellos, placements]).toEqual([0, [], []]);
+    });
+
+    it("stops without effect twice", async () => {
+        const { channel } = await greetedPage();
+        channel.stop();
 
         expect(() => {
-            stop();
+            channel.stop();
         }).not.toThrow();
-        expect([greeted(), call.listenerCount()]).toEqual([1, 0]);
     });
 
     it("posts no ready when the page goes before the route answers", async () => {
         const call = fakeCall();
 
-        greetCall(TABLE_ID, call.host, () => undefined)();
+        greetCall(TABLE_ID, call.host, { onHello: () => undefined, onPlaced: () => undefined }).stop();
         await settled();
 
         expect(call.posts).toEqual([]);
