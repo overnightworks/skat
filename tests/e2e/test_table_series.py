@@ -719,6 +719,34 @@ def test_a_player_who_stands_up_from_the_ended_series_stays_in_the_standings_mar
     assert page_errors == []
 
 
+def test_a_neue_serie_stays_given_and_waits_for_players_when_the_last_silent_seat_stands_up(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, PHONE)
+    table.pass_all()
+    table.play_out()
+    propose_the_end(table.pages[1])
+    answer_the_ask(table.pages[2], YES)
+    answer_the_ask(table.pages[3], YES)
+    first, second, third = table.pages[1], table.pages[2], table.pages[3]
+    for person in (first, second):
+        person.get_by_role("button", name=NEW_SERIES, exact=True).click()
+    expect(first.locator(ANSWER_CLOCK)).to_have_count(1)
+
+    menu_button(third, STAND_UP).click()
+
+    for person in (first, second):
+        expect(person.locator(ANSWER_CLOCK)).to_have_count(0)
+        expect(person.locator(".copy.wait")).to_have_text(text(SOURCE_LANGUAGE, "table.waitingForPlayers"))
+        expect(person.get_by_role("button", name=NEW_SERIES, exact=True)).to_have_count(0)
+    for seat in (1, 2):
+        expect(first.locator(f".chair[data-seat='{seat}'] .mark.ready")).to_have_count(1)
+    assert page_errors == []
+
+
 def test_a_proposal_whose_asked_players_stood_up_opens_and_waits_for_players(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
