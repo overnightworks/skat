@@ -264,6 +264,22 @@ def test_a_key_that_was_not_posted_is_ignored_on_its_own(
         assert shows_the_table(call, boxes[2])
 
 
+def test_a_placed_that_drops_a_key_closes_only_that_chairs_hole(
+    open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
+) -> None:
+    with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True) as call:
+        wait_for_seat_messages(call, 1)
+        keys = place_all(call)
+        boxes = posted_boxes(call)
+        until(call, lambda: all(shows_the_stand_in(call, box) for box in boxes))
+
+        call.visitor.evaluate("keys => place(keys)", [keys[0], keys[2]])
+
+        until(call, lambda: shows_the_table(call, boxes[1]))
+        assert shows_the_stand_in(call, boxes[0])
+        assert shows_the_stand_in(call, boxes[2])
+
+
 BAD_SENDERS = ["a sibling on another origin", "a sibling on the call origin"]
 HEARD_MARKERS = """() => {
     window.markers = [];
