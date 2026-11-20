@@ -448,13 +448,23 @@ body.key .frame .orb .think.mo{--k:.4s}
 }
 </style>
 <style>
+/* ---------- in a call: the video owns the tile, so the marks stand in one row at the top right, the first rightmost, and the rims lie outside it ---------- */
+.seat.framed .mark-row{position:absolute;inset:0;z-index:7;box-sizing:border-box;display:flex;flex-flow:row-reverse wrap;align-content:flex-start;gap:4px;
+  padding:calc(var(--pad) + 6px) calc(var(--pad) + 6px) 0 50%;pointer-events:none}
+.seat.framed .mark-row .mark{position:static}
+.seat.framed .tile{overflow:visible;box-shadow:0 0 0 2px rgba(240,214,150,.2)}
+.seat.framed .tile .vid,.seat.framed .tile::after{border-radius:inherit}
+.seat.framed .tile .vid{overflow:hidden}
+.seat.framed .tile.agent::before{inset:-2px}
+</style>
+<style>
 /* ---------- after the auction: who waits on the declarer, the two cards to put back, the game choice ---------- */
 section.shot .rule{margin-top:10px;max-width:780px;font-size:13px;line-height:1.45;color:var(--on-stage-soft)}
 body.solo section.shot .rule{display:none}
 /* an opponent's chair waits on you: your face and the hopping dots */
 .mark.waits{gap:0;padding:0 7px 0 5px;background:var(--glass-dark);backdrop-filter:blur(12px)}
 /* the declarer whose turn it is wears both marks: the star stays right, the turn badge moves left */
-.mark.decl + .mark:is(.turn,.ready,.waits){right:auto;left:calc(var(--pad) + 6px)}
+:where(.seat:not(.framed)) .mark.decl + .mark:is(.turn,.ready,.waits){right:auto;left:calc(var(--pad) + 6px)}
 /* a game to pick: a glass chip; the picked one is lit like the bid on the ladder */
 .button.pick{height:46px;padding:0 18px}
 .button.pick.round{width:52px;height:52px;padding:0}
@@ -481,7 +491,7 @@ body.solo section.shot .rule{display:none}
 .mark.pos{background:var(--glass-dark);color:var(--on-stage);backdrop-filter:blur(12px)}
 .mark.dealer{top:-13px;left:-8px;right:auto;color:#2b1d05;background:linear-gradient(180deg,var(--brass-hi),var(--brass) 55%,#a6823f);
   box-shadow:0 4px 10px -3px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.55)}
-.mark.pos + .mark:is(.away,.pass,.waits,.turn){right:auto;left:calc(var(--pad) + 6px)}
+:where(.seat:not(.framed)) .mark.pos + .mark:is(.away,.pass,.waits,.turn){right:auto;left:calc(var(--pad) + 6px)}
 /* a phone chair is too small to carry both on the camera tile: the marks sit on its top edge, the dealer badge shows the icon alone */
 .seat.sm .mark.pos{top:-11px;right:-4px;height:22px;padding:0 8px;font-size:11.5px}
 .seat.sm .mark.pos + .mark:is(.away,.pass,.waits,.turn){top:calc(var(--pad) + 6px);left:auto;right:calc(var(--pad) + 6px)}
@@ -553,7 +563,7 @@ body.solo section.shot .rule{display:none}
 .answers .button svg{width:18px;height:18px}
 .mark.declined{width:28px;height:28px;padding:0;justify-content:center;background:var(--glass-dark);color:var(--leave);backdrop-filter:blur(12px)}
 .seat.sm .mark.declined{width:26px;height:26px}
-.mark.decl + .mark.declined{right:auto;left:calc(var(--pad) + 6px)}
+:where(.seat:not(.framed)) .mark.decl + .mark.declined{right:auto;left:calc(var(--pad) + 6px)}
 .notice .dot + .dot{margin-left:-16px;box-shadow:0 0 0 2px var(--cream)}
 .result .stamp{gap:7px}
 .result .stamp:has(.by){padding-left:5px}
@@ -780,7 +790,7 @@ const MARK={
 function seat(k,o){
   const p=P[k],marks=o.marks||[];
   if(o.own&&p.own) return ownBar(k,o);
-  const cls=['seat',p.own&&'own',o.sm&&'sm',marks.includes('turn')&&'turn',marks.includes('think')&&'thinking',o.win&&'win',o.got&&'got',o.out&&'out'].filter(Boolean).join(' ');
+  const cls=['seat',p.own&&'own',o.sm&&'sm',o.framed&&'framed',marks.includes('turn')&&'turn',marks.includes('think')&&'thinking',o.win&&'win',o.got&&'got',o.out&&'out'].filter(Boolean).join(' ');
   let inner;
   if(p.agent&&o.figure) inner=`<div class="vid figure">${figureStill()}</div>`;
   else if(p.agent) inner=`<div class="vid"></div><div class="orb">${I.spark}<span class="think ${marks.includes('think')?'mo':''}"><i></i><i style="top:auto;bottom:-3px"></i></span></div>`;
@@ -788,7 +798,7 @@ function seat(k,o){
   else inner=`<div class="vid" style="--v1:${p.v[0]};--v2:${p.v[1]}"></div><div class="av" style="${dotStyle(p)}">${p.i}</div>`;
   const plate=`<span class="plate"><b>${p.n}${p.agent?aiMark():''}</b></span>`;
   return `<div class="${cls}" style="${at({left:o.x,top:o.y,width:o.w,height:o.h,position:o.inline?'relative':undefined,'--l1':p.l[0],'--l2':p.l[1]})}">
-    <div class="chair ${o.got?'mo':''}" style="${o.got?`--k:${o.got}`:''}"><div class="tile ${p.agent?'agent':''}">${inner}</div></div>${marks.map(m=>MARK[m]).join('')}${o.plate===false?'':plate}</div>`;
+    <div class="chair ${o.got?'mo':''}" style="${o.got?`--k:${o.got}`:''}"><div class="tile ${p.agent?'agent':''}">${inner}</div></div>${o.framed?`<span class="mark-row">${marks.map(m=>MARK[m]).join('')}</span>`:marks.map(m=>MARK[m]).join('')}${o.plate===false?'':plate}</div>`;
 }
 /* the own seat on the desktop; its points ride inside the bar, set where the frame is assembled */
 let ownBarDrawn=false,ownBarPoints='';
@@ -2934,21 +2944,22 @@ const callStageChairs=(d)=>d?dropOwn(DB,-HAND_RAISE):PB;
 /* on the phone the raised hand ends just under the own nameplate, so no card lies on it */
 const CALL_STAGE_HAND={390:162,1280:DESK_HAND.bottom+HAND_RAISE};
 /* one moment for every way the right chair shows its player: Anna led the king, the right chair is to play; o.right draws that chair */
+const FRAMED=(chair)=>({...chair,framed:true});
 const callStageTrick=(d,o)=>{const L=callStageChairs(d);
   return room(d,{left:8,call:false,glow:novaGlow(d)})+callStageRow(d,o)+plaque(mid(d),plaqueY(d),gameLine('c','Kreuz'))+played('K','s','anna',TRICK_SLOT.left(d))
-    +seat('anna',{...L.anna,video:'still',marks:['decl']})+o.right(L.nova)+seat('felix',{...L.you,video:'still'})+chairCoasters(L,TOTALS_BEFORE)
+    +seat('anna',{...FRAMED(L.anna),video:'still',marks:['decl']})+o.right(FRAMED(L.nova))+seat('felix',{...FRAMED(L.you),video:'still'})+chairCoasters(L,TOTALS_BEFORE)
     +ownHand(d,FELIX_HAND,{bottom:CALL_STAGE_HAND[d?1280:390]})+callBar(d)+callStageBar(d);};
 const CALL_STAGE_SCENES=[
   ['call-stage-videos','Anruf: drei Videos an den Stühlen',(d)=>callStageTrick(d,{people:4,watch:['lena'],right:(chair)=>seat('ben',{...chair,video:'still',marks:['turn']})}),
     ['Im Anruf sitzt jeder Spieler mit seinem Video an seinem Stuhl: Anna links, Ben rechts, du an deinem Platz. Auf dem Desktop bleibt dein Platz die schmale Leiste über der Hand, und dein Video ist ihr rundes Bild. Lena schaut zu und liegt als Einzige oben in der kleinen Leiste, die den Filz nicht berührt.',
-     'Marken, Namensschild und Punkte bleiben Skats: „Spielt“ liegt auf Annas Video, der blaue Ring um Bens Stuhl sagt, dass er dran ist.']],
+     'Marken, Namensschild und Punkte bleiben Skats: die Marken stehen in einer Reihe oben rechts und lassen die linke obere Ecke dem Video, „Spielt“ liegt rechts oben auf Annas Video, der blaue Ring um Bens Stuhl sagt, dass er dran ist.']],
   ['call-stage-own-agent','Anruf: dein Agent mit seiner Figur',(d)=>callStageTrick(d,{people:4,watch:['ben'],right:(chair)=>seat('nova',{...chair,figure:true,marks:['turn','think']})}),
-    ['Nova ist dein Agent und mit ihrem eigenen Konto im Anruf: ihre Kachel mit der Figur sitzt an ihrem Stuhl wie das Video eines Menschen, nie in der Leiste. Der gestrichelte Rand und „AI“ am Schild bleiben, und „denkt“ steht an der Kachel, solange sie dran ist. In der Leiste liegt nur Ben, der zuschaut.']],
+    ['Nova ist dein Agent und mit ihrem eigenen Konto im Anruf: ihre Kachel mit der Figur sitzt an ihrem Stuhl wie das Video eines Menschen, nie in der Leiste. Der gestrichelte Rand liegt außen um die Kachel, „AI“ bleibt am Schild, und „denkt“ steht in der Reihe oben rechts neben dem Pfeil, solange sie dran ist. In der Leiste liegt nur Ben, der zuschaut.']],
   ['call-stage-agent-no-tile','Anruf: Agent ohne Kachel',(d)=>callStageTrick(d,{people:3,watch:['ben'],right:(chair)=>seat('nova',{...chair,marks:['turn','think']})}),
     ['Nova spielt am Tisch, ist aber nicht im Anruf: ohne Kachel zeigt ihr Stuhl die Kugel wie heute, so wie ein Mensch, der nicht im Anruf ist, seinen Avatar behält. Im Anruf sind drei: du, Anna und Ben.']],
   ['call-stage-waiting','Anruf: Warten an den Stühlen',(d)=>{const L=callStageChairs(d);
     return room(d,{left:0,call:false})+callStageRow(d,{people:4,watch:['ben','lena']})+waiting(mid(d),plaqueY(d))
-      +seat('anna',{...L.anna,video:'still'})+freeSeat(L.nova,{idle:true})+seat('felix',{...L.you,video:'still'})+callBar(d)+callStageBar(d);},
+      +seat('anna',{...FRAMED(L.anna),video:'still'})+freeSeat(L.nova,{idle:true})+seat('felix',{...FRAMED(L.you),video:'still'})+callBar(d)+callStageBar(d);},
     ['Vor dem Geben: Anna und du sitzen schon, eure Videos sind an, der dritte Stuhl ist frei. Ben und Lena sind im Anruf und haben sich noch nicht gesetzt, sie liegen in der Leiste; wer sich setzt, wechselt mit seinem Video an den Stuhl.']],
 ];
 scenes(CALL_STAGE_SCENES);

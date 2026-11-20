@@ -90,13 +90,17 @@ def pick_visibility(person: Page, visibility: str) -> None:
     person.get_by_role("radiogroup", name=VISIBILITY).get_by_role("radio", name=visibility).check()
 
 
-def open_private_table(person: Page, server: RunningServer) -> str:
+def open_table(person: Page, server: RunningServer, visibility: str) -> str:
     person.goto(f"{server.base_url}/")
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
-    pick_visibility(person, VISIBILITY_PRIVATE)
+    pick_visibility(person, visibility)
     person.get_by_role("button", name=OPEN_TABLE).click()
     expect(person).to_have_url(TABLE_URL)
     return person.url.removeprefix(server.base_url)
+
+
+def open_private_table(person: Page, server: RunningServer) -> str:
+    return open_table(person, server, VISIBILITY_PRIVATE)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -136,7 +140,9 @@ def test_a_private_table_shows_its_lock_to_its_chair_holder_and_no_other_member_
     owner_name = name_at("Mathilde", form_factor)
     owner = record_page_errors(open_person(username=owner_name, **form_factor), page_errors)
     other = record_page_errors(open_person(username=name_at("Norbert", form_factor), **form_factor), page_errors)
+    host = record_page_errors(open_person(username=name_at("Quirin", form_factor), **form_factor), page_errors)
     path = open_private_table(owner, e2e_server)
+    open_table(host, e2e_server, VISIBILITY_OPEN)
 
     open_start_page(owner, e2e_server)
     open_start_page(other, e2e_server)

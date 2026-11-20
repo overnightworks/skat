@@ -149,7 +149,7 @@
 }
 
 /* The table: a round top of pale boards inside a woven rattan rim. */
-.room[data-style="strandbar"] .felt {
+.room[data-style="strandbar"] .felt-paint {
     background:
         radial-gradient(60% 50% at 50% 40%, rgba(255, 236, 190, 0.55), transparent 72%),
         repeating-linear-gradient(0deg, rgba(100, 62, 26, 0.2) 0 1.5px, transparent 1.5px 34px),
@@ -163,7 +163,7 @@
         0 34px 46px -22px rgba(25, 12, 30, 0.75);
 }
 
-.room[data-style="strandbar"] .felt::before {
+.room[data-style="strandbar"] .felt-paint::before {
     content: "";
     position: absolute;
     inset: -18px;
@@ -183,7 +183,7 @@
     }
 
     /* The rim keeps its width all round: it is a border, and the mask cuts away what lies inside it. */
-    .room[data-style="strandbar"] .felt::before {
+    .room[data-style="strandbar"] .felt-paint::before {
         inset: calc(var(--rim) * -1);
         border: var(--rim) solid transparent;
         background-origin: border-box;
@@ -248,6 +248,14 @@
     box-shadow:
         0 14px 22px -12px rgba(25, 12, 30, 0.85),
         inset 0 0 0 3px var(--brass);
+}
+
+@media (max-width: 899px) {
+    .room.framed[data-style="strandbar"] .chair.mine .tile {
+        box-shadow:
+            0 14px 22px -12px rgba(25, 12, 30, 0.85),
+            0 0 0 3px var(--brass);
+    }
 }
 
 .room[data-style="strandbar"] .tile.agent {

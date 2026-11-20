@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from pathlib import Path
 
-    from playwright.sync_api import Page, Route
+    from playwright.sync_api import FrameLocator, Page, Route
 
     from tests.e2e.support.browser_coverage import BrowserCoverage
     from tests.e2e.support.server import RunningServer
@@ -98,3 +98,48 @@ def greeting_page_holding(frame_address: str, skat_origin: str, *, greets_every_
 
 def new_table(open_person: Callable[..., Page], server: RunningServer) -> str:
     return open_new_table(open_person(server=server), server)
+
+
+# What the page's chairs draw, read in the frame: which marks lie in a tile's top-left quarter or under its position
+# label, whether an own-seat bar shows its glass, whether any tile rim lies inside its box, and how the dashed
+# agent rim lies against its box (the probe gives each tile the agent class).
+_CHAIR_LOOK_PROBE = """chairs => {
+    const overlaps = (mark, tile) => mark.right > tile.left && mark.left < tile.left + tile.width / 2
+        && mark.bottom > tile.top && mark.top < tile.top + tile.height / 2;
+    const look = {
+        marks: 0, marksInTopLeftQuarter: 0, positionedMarks: 0, marksOverPositionLabel: 0, barPillsShown: 0,
+        rimsInsideTile: 0, agentRimInsideTile: 0, mostMarksOnAChair: 0,
+    };
+    for (const chair of chairs) {
+        const tile = chair.querySelector(".tile");
+        if (!tile) continue;
+        const box = tile.getBoundingClientRect();
+        const label = chair.querySelector(".mark.pos");
+        const labelBox = label && label.getBoundingClientRect();
+        const pill = chair.querySelector(".bar-pill");
+        if (pill && getComputedStyle(pill).display !== "none") look.barPillsShown += 1;
+        const chairMarks = chair.querySelectorAll(".mark:not(.pos)");
+        look.mostMarksOnAChair = Math.max(look.mostMarksOnAChair, chairMarks.length);
+        for (const mark of chairMarks) {
+            look.marks += 1;
+            const at = mark.getBoundingClientRect();
+            if (labelBox && at.right > labelBox.left && at.left < labelBox.right
+                && at.bottom > labelBox.top && at.top < labelBox.bottom) look.marksOverPositionLabel += 1;
+            if (overlaps(mark.getBoundingClientRect(), box)) look.marksInTopLeftQuarter += 1;
+            if (getComputedStyle(mark).position === "absolute") look.positionedMarks += 1;
+        }
+        if (getComputedStyle(tile).boxShadow.includes("inset")) look.rimsInsideTile += 1;
+        tile.classList.add("agent");
+        const rim = getComputedStyle(tile, "::before");
+        if (parseFloat(rim.top) + parseFloat(rim.borderTopWidth) > 0
+            || parseFloat(rim.left) + parseFloat(rim.borderLeftWidth) > 0) look.agentRimInsideTile += 1;
+        tile.classList.remove("agent");
+    }
+    return look;
+}"""
+
+
+def chair_look(scope: Page | FrameLocator) -> dict[str, int]:
+    """Counts of the chairs' marks and rims as `_CHAIR_LOOK_PROBE` reads them in `scope`."""
+    look: dict[str, int] = scope.locator(CHAIR).evaluate_all(_CHAIR_LOOK_PROBE)
+    return look
