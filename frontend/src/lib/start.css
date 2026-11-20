@@ -12,10 +12,14 @@ body {
     color: var(--on-stage);
     font-family: "Open Sans", Arial, sans-serif;
     background:
-        radial-gradient(70% 55% at 50% 40%, rgba(255, 190, 110, 0.13), transparent 70%),
-        radial-gradient(130% 90% at 50% 45%, transparent 45%, rgba(0, 0, 0, 0.75) 100%),
-        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 96px),
-        linear-gradient(180deg, #1a1512 0%, #120f0d 55%, #0c0a09 100%);
+        radial-gradient(60% 42% at 50% 36%, rgba(255, 186, 104, 0.2), transparent 72%),
+        radial-gradient(14px 14px at 8% 9%, rgba(255, 196, 120, 0.3), transparent),
+        radial-gradient(22px 22px at 15% 5%, rgba(255, 170, 90, 0.18), transparent),
+        radial-gradient(18px 18px at 88% 6%, rgba(255, 196, 120, 0.22), transparent),
+        radial-gradient(10px 10px at 94% 13%, rgba(255, 210, 150, 0.3), transparent),
+        radial-gradient(130% 90% at 50% 45%, transparent 45%, rgba(0, 0, 0, 0.72) 100%),
+        repeating-linear-gradient(90deg, rgba(255, 225, 190, 0.03) 0 1px, transparent 1px 88px),
+        linear-gradient(180deg, #22170f 0%, #170f0a 55%, #0e0907 100%);
 }
 
 .start-bar {
@@ -168,7 +172,7 @@ body {
 }
 
 /* The page keeps its head and scrolls the lobby's list; the new-table button sticks to the bottom over a fade from the first paint, so it does not move when the lobby answers. */
-.start:has(> .start-body) {
+.start:has(> .start-body):not([data-scene="empty"]) {
     height: 100dvh;
     min-height: 0;
 }
@@ -195,6 +199,267 @@ body {
     justify-content: center;
     padding: 20px 24px 24px;
     background: linear-gradient(to top, var(--fade) 46%, transparent);
+}
+
+/* The empty start page draws its scene: the head grows into the large wordmark, the table with its two empty chairs, the lull line and the four jacks stand under it, and the one new-table button sits on the felt. The page scrolls as a whole. */
+.start[data-scene="empty"] {
+    --rim: 14px;
+    --table-width: min(350px, calc(100vw - 40px));
+    --table-radius: 175px;
+    --rosette-radius: 85px;
+    --jack-width: 80px;
+    --spread: 0.85;
+    --lull-top: 38px;
+    --jacks-top: 212px;
+    --button-top: 266px;
+    --chair-width: 104px;
+    --chair-height: 80px;
+    --chair-top: -56px;
+    --chair-edge: 14px;
+    --chair-turn: 14deg;
+}
+
+.start[data-scene="empty"] .start-bar.start-head {
+    --mark-top: 112px;
+    --mark-size: 84px;
+    --pip-size: 26px;
+    --rule-width: 44px;
+    --mark-gap: 12px;
+}
+
+.start[data-scene="empty"] .start-body {
+    display: grid;
+    flex: none;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    margin-top: 86px;
+    padding-bottom: 48px;
+    overflow: visible;
+}
+
+.start-table {
+    position: relative;
+    grid-area: 1 / 1;
+    width: var(--table-width);
+    height: 420px;
+}
+
+.start-table .lobby-table {
+    top: 0;
+    height: auto;
+    padding: var(--rim);
+    border-radius: var(--table-radius);
+    box-shadow:
+        0 40px 70px -20px rgba(0, 0, 0, 0.9),
+        0 0 0 1px rgba(0, 0, 0, 0.7),
+        inset 0 1.5px 0 rgba(255, 220, 170, 0.4),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.5);
+}
+
+.start-table .lobby-table::before {
+    content: "";
+    position: absolute;
+    inset: calc(var(--rim) * 0.42);
+    border: 1.4px solid color-mix(in srgb, var(--brass) 80%, transparent);
+    border-radius: calc(var(--table-radius) - var(--rim) * 0.42);
+    pointer-events: none;
+}
+
+.start-table .lobby-felt {
+    position: relative;
+    border-radius: calc(var(--table-radius) - var(--rim));
+}
+
+/* The lamp's pool and the rosette ring lie over the felt; the line runs inside its edge. */
+.start-table .lobby-felt::before,
+.start-table .lobby-felt::after {
+    content: "";
+    position: absolute;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.start-table .lobby-felt::before {
+    inset: 16px;
+    border: 1.5px solid rgba(240, 214, 150, 0.16);
+}
+
+.start-table .lobby-felt::after {
+    inset: 0;
+    background:
+        radial-gradient(
+            circle at 50% 44%,
+            transparent calc(var(--rosette-radius) - 1.5px),
+            rgba(240, 214, 150, 0.13) calc(var(--rosette-radius) - 1.5px) var(--rosette-radius),
+            transparent var(--rosette-radius)
+        ),
+        radial-gradient(55% 45% at 50% 44%, rgba(255, 226, 170, 0.22), transparent 72%);
+}
+
+.start-table .start-chair {
+    --leather-top: #553a6e;
+    --leather-bottom: #2a1b38;
+
+    inset: var(--chair-top) auto auto auto;
+    width: var(--chair-width);
+    height: var(--chair-height);
+    border-radius: 30px 30px 18px 18px;
+    background-size:
+        13px 8px,
+        auto,
+        auto;
+    background-position:
+        6px 1px,
+        0 0,
+        0 0;
+    opacity: 0.85;
+}
+
+.start-table .start-chair[data-side="left"] {
+    left: var(--chair-edge);
+    rotate: calc(var(--chair-turn) * -1);
+}
+
+.start-table .start-chair[data-side="right"] {
+    --leather-top: #5e4a30;
+    --leather-bottom: #2e2416;
+
+    right: var(--chair-edge);
+    left: auto;
+    rotate: var(--chair-turn);
+}
+
+.start-table .start-chair::after {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border-radius: 20px 20px 12px 12px;
+    background: radial-gradient(80% 70% at 50% 30%, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.45));
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.start-lull {
+    position: absolute;
+    top: var(--lull-top);
+    left: 50%;
+    display: flex;
+    align-items: center;
+    height: 36px;
+    margin: 0;
+    padding: 0 18px;
+    border-radius: 999px;
+    color: var(--on-stage-soft);
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--glass-dark);
+    backdrop-filter: blur(12px);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.2);
+    transform: translateX(-50%);
+}
+
+.start-jacks {
+    position: absolute;
+    top: var(--jacks-top);
+    left: 50%;
+    width: 0;
+    height: 0;
+}
+
+.start-jack {
+    position: absolute;
+    top: calc(var(--jack-width) * -1.4);
+    left: calc(var(--jack-width) * -0.5);
+    width: var(--jack-width);
+    transform-origin: 50% 100%;
+    rotate: var(--angle);
+    translate: calc(var(--shift) * var(--spread)) 0;
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+}
+
+/* The four jacks open like a hand: each leans by its angle and sits by its shift, which the table's width scales. */
+.start-jack[data-suit="kreuz"] {
+    --angle: -24deg;
+    --shift: -36px;
+    --delay: 0.15s;
+}
+
+.start-jack[data-suit="pik"] {
+    --angle: -8deg;
+    --shift: -12px;
+    --delay: 0.21s;
+}
+
+.start-jack[data-suit="herz"] {
+    --angle: 8deg;
+    --shift: 12px;
+    --delay: 0.27s;
+}
+
+.start-jack[data-suit="karo"] {
+    --angle: 24deg;
+    --shift: 36px;
+    --delay: 0.33s;
+}
+
+.start-jack .card-face {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .start-jack {
+        animation: jacks-open 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.15) var(--delay) both;
+    }
+
+    @keyframes jacks-open {
+        from {
+            rotate: calc(var(--angle) * -1);
+            translate: calc(var(--shift) * var(--spread) * -1) 0;
+        }
+    }
+}
+
+/* The one button stands on the felt at the same place in every scene of the empty page, never moving once drawn. */
+.start[data-scene="empty"] .start-body .start-main {
+    position: static;
+    grid-area: 1 / 1;
+    align-self: start;
+    margin-top: var(--button-top);
+    padding: 0;
+    background: none;
+}
+
+@media (min-width: 900px) {
+    .start[data-scene="empty"] {
+        --rim: 16px;
+        --table-width: 600px;
+        --table-radius: 210px;
+        --rosette-radius: 100px;
+        --jack-width: 100px;
+        --spread: 1;
+        --lull-top: 32px;
+        --jacks-top: 226px;
+        --button-top: 282px;
+        --chair-width: 150px;
+        --chair-height: 112px;
+        --chair-top: 112px;
+        --chair-edge: -118px;
+        --chair-turn: 78deg;
+    }
+
+    .start[data-scene="empty"] .start-bar.start-head {
+        --mark-top: 92px;
+        --mark-size: 132px;
+        --pip-size: 30px;
+        --rule-width: 90px;
+        --mark-gap: 16px;
+    }
+
+    .start[data-scene="empty"] .start-body {
+        margin-top: 55px;
+    }
 }
 
 /* The lobby: Meine Tische above Offene Tische, each a grid of cards as wide as the page's columns allow. */
@@ -388,7 +653,7 @@ body {
     background:
         radial-gradient(circle, #f1d898 0 1.3px, #8c6a2f 1.9px, transparent 2.5px) 4px 0 / 10px 6px repeat-x,
         radial-gradient(120% 70% at 50% 0%, rgba(255, 255, 255, 0.13), transparent 60%),
-        linear-gradient(180deg, #3a3a40, #1c1c20);
+        linear-gradient(180deg, var(--leather-top, #3a3a40), var(--leather-bottom, #1c1c20));
     box-shadow:
         0 18px 30px -12px rgba(0, 0, 0, 0.9),
         inset 0 0 0 1px rgba(255, 255, 255, 0.08),
@@ -692,6 +957,12 @@ body {
 .new-table button:disabled {
     opacity: 0.6;
     cursor: progress;
+}
+
+/* On the start page the button is as the scenes draw it: a little larger than the one a table page offers. */
+.start-body .start-main .new-table button {
+    height: 60px;
+    padding: 0 30px 0 24px;
 }
 
 .new-table svg {
@@ -1093,7 +1364,8 @@ body {
 
 /* The last view stays, dimmed and still, until the line is back. */
 .room .stale,
-.lobby-lists.stale {
+.lobby-lists.stale,
+.start-table.stale {
     filter: saturate(0.45) brightness(0.55);
     pointer-events: none;
 }
@@ -3261,18 +3533,21 @@ body {
     height: 100%;
 }
 
-.room .card-face .index {
+.room .card-face .index,
+.start-jack .card-face .index {
     font-family: "Open Sans", Arial, sans-serif;
     font-size: 21px;
     font-weight: 600;
 }
 
-.room .card-face .index.ten {
+.room .card-face .index.ten,
+.start-jack .card-face .index.ten {
     font-size: 19px;
     letter-spacing: -2px;
 }
 
-.room .card-face .court {
+.room .card-face .court,
+.start-jack .card-face .court {
     font-family: "Noto Serif", "DejaVu Serif", Georgia, serif;
     font-size: 40px;
     font-weight: 700;

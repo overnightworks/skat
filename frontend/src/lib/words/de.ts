@@ -28,6 +28,7 @@ export type Words = {
     readonly "lobby.myTables": string;
     readonly "lobby.openTables": string;
     readonly "lobby.noOpenTables": string;
+    readonly "lobby.nobodyPlays": string;
     readonly "lobby.openTable": (gaps: { readonly title: string }) => string;
     readonly "lobby.title": (gaps: { readonly name: string }) => string;
     readonly "lobby.titleSibilant": (gaps: { readonly name: string }) => string;
@@ -576,6 +577,7 @@ export const words: Words = {
     "lobby.myTables": "Meine Tische",
     "lobby.openTables": "Offene Tische",
     "lobby.noOpenTables": "Sonst ist kein Tisch offen",
+    "lobby.nobodyPlays": "Gerade spielt niemand",
     "lobby.openTable": (gaps: { readonly title: string }) => gaps.title + " öffnen",
     "lobby.title": (gaps: { readonly name: string }) => gaps.name + "s Tisch",
     "lobby.titleSibilant": (gaps: { readonly name: string }) => gaps.name + "' Tisch",

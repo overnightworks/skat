@@ -35,6 +35,7 @@ const translated = {
     "lobby.myTables": "My tables",
     "lobby.openTables": "Open tables",
     "lobby.noOpenTables": "No other table is open",
+    "lobby.nobodyPlays": "Nobody is playing right now",
     "lobby.openTable": (gaps: { readonly title: string }) => "Open " + gaps.title,
     "lobby.title": (gaps: { readonly name: string }) => gaps.name + "'s table",
     "lobby.titleSibilant": (gaps: { readonly name: string }) => gaps.name + "' table",

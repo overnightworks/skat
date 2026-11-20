@@ -5,6 +5,7 @@ import {
     daysLeftWords,
     minutesLeft,
     openCardOf,
+    sceneOf,
     titleOf,
     watchLobby,
     type LobbyChair,
@@ -410,6 +411,21 @@ describe("openCardOf", () => {
         [{}, []],
     ])("draws the chips of %o", (state, chips) => {
         expect(openCardOf(openTableOf(state), 0).chips).toEqual(chips);
+    });
+});
+
+describe("sceneOf", () => {
+    it.each([
+        ["before either list came", null, null, "pending"],
+        ["with only the own list came and empty", [], null, "pending"],
+        ["with only the open list came and empty", null, [], "pending"],
+        ["with both lists empty", [], [], "empty"],
+        ["with an own table before the open list came", [1], null, "open"],
+        ["with an open table before the own list came", null, [1], "open"],
+        ["with an own table and no open table", [1], [], "open"],
+        ["with an open table and no own table", [], [1], "open"],
+    ] as const)("draws the page %s as the %s scene", (_when, mine, open, scene) => {
+        expect(sceneOf(mine, open)).toBe(scene);
     });
 });
 

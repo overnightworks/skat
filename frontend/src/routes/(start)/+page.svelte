@@ -2,6 +2,7 @@
     import { onMount } from "svelte";
     import type { PageProps } from "./$types";
     import Lobby from "./Lobby.svelte";
+    import type { Scene } from "./lobby.ts";
     import NewTableButton from "./NewTableButton.svelte";
     import AccountMark from "#lib/ui/AccountMark.svelte";
     import { knownName, readAccount } from "#lib/ui/account.svelte.ts";
@@ -13,6 +14,7 @@
     const { data }: PageProps = $props();
 
     let accountMenu: HTMLElement;
+    let scene = $state<Scene>("pending");
 
     onMount(() => {
         void readAccount();
@@ -24,10 +26,10 @@
     <title>{`${words["app.name"]}`}</title>
 </svelte:head>
 
-<div class="start" data-theme="dark">
+<div class="start" data-theme="dark" data-scene={scene}>
     <CardSprite />
     <header class="start-bar start-head">
-        <StartMark />
+        {#if scene !== "pending"}<StartMark />{/if}
         <button type="button" class="account-button" aria-label={words["account.title"]} popovertarget="accountMenu">
             <span class="account-avatar">
                 {#if knownName() === null}
@@ -57,9 +59,11 @@
         />
     </div>
     <div class="start-body">
-        <Lobby />
-        <main class="start-main">
-            <NewTableButton />
-        </main>
+        <Lobby bind:scene />
+        {#if scene !== "pending"}
+            <main class="start-main">
+                <NewTableButton />
+            </main>
+        {/if}
     </div>
 </div>
