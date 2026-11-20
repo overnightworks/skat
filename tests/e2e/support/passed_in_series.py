@@ -1,12 +1,26 @@
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from playwright.sync_api import expect
 
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.ramsch import RamschTable
 
+if TYPE_CHECKING:
+    from playwright.sync_api import Route
+
 SERIES_LENGTH = 3
 COUNT = ".series-count"
+REFUSED = 409
+NEXT_LINE = ".result.standing .nextline"
+CHANGE = text(SOURCE_LANGUAGE, "table.nextSeriesChange")
+SAVE = text(SOURCE_LANGUAGE, "table.nextSeriesSave")
+COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
+MORE_GAMES = text(SOURCE_LANGUAGE, "start.seriesMore")
+NEXT_SHEET = ".sheet.next-series"
+
+
+def refuse(route: Route) -> None:
+    route.fulfill(status=REFUSED, content_type="application/json", body="{}")
 
 
 def game_count(game: int) -> str:

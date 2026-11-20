@@ -10,7 +10,19 @@ from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.passed_in_series import COUNT, SERIES_LENGTH, PassedInTable, game_count
+from tests.e2e.support.passed_in_series import (
+    CHANGE,
+    COMMAND_FAILED,
+    COUNT,
+    MORE_GAMES,
+    NEXT_LINE,
+    NEXT_SHEET,
+    SAVE,
+    SERIES_LENGTH,
+    PassedInTable,
+    game_count,
+    refuse,
+)
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
 from tests.e2e.support.result_card import MINUS, waiting_for
@@ -53,12 +65,6 @@ STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 PHONE_BREAKPOINT = 900
 NEW_SERIES = text(SOURCE_LANGUAGE, "table.newSeries")
 STOP_PLAYING = text(SOURCE_LANGUAGE, "table.stopPlaying")
-NEXT_LINE = ".result.standing .nextline"
-CHANGE = text(SOURCE_LANGUAGE, "table.nextSeriesChange")
-SAVE = text(SOURCE_LANGUAGE, "table.nextSeriesSave")
-COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
-MORE_GAMES = text(SOURCE_LANGUAGE, "start.seriesMore")
-NEXT_SHEET = ".sheet.next-series"
 RULE_SETS = text(SOURCE_LANGUAGE, "start.ruleSets")
 SAVE_RULES = text(SOURCE_LANGUAGE, "start.saveRules")
 RULE_KONTRA = text(SOURCE_LANGUAGE, "start.ruleKontra")
@@ -69,14 +75,8 @@ YES = text(SOURCE_LANGUAGE, "table.yes")
 NO = text(SOURCE_LANGUAGE, "table.no")
 GONE = text(SOURCE_LANGUAGE, "table.seriesGone")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
-REFUSED = 409
 # A point of the room outside the centred panel, where a tap lands on the backdrop of the list.
 BESIDE_THE_PANEL = (4, 4)
-
-
-def refuse(route: Route) -> None:
-    route.fulfill(status=REFUSED, content_type="application/json", body="{}")
 
 
 def shown(total: int) -> str:

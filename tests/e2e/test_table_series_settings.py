@@ -7,7 +7,18 @@ from skat.table.records import SERIES_LENGTH_STEP
 from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_NEXT_SETTINGS_SUFFIX
 from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.passed_in_series import SERIES_LENGTH, PassedInTable, pass_the_series_in
+from tests.e2e.support.passed_in_series import (
+    CHANGE,
+    COMMAND_FAILED,
+    MORE_GAMES,
+    NEXT_LINE,
+    NEXT_SHEET,
+    SAVE,
+    SERIES_LENGTH,
+    PassedInTable,
+    pass_the_series_in,
+    refuse,
+)
 from tests.e2e.support.people import PHONE
 
 if TYPE_CHECKING:
@@ -20,19 +31,8 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-REFUSED = 409
 NEW_SERIES = text(SOURCE_LANGUAGE, "table.newSeries")
-NEXT_LINE = ".result.standing .nextline"
-CHANGE = text(SOURCE_LANGUAGE, "table.nextSeriesChange")
-SAVE = text(SOURCE_LANGUAGE, "table.nextSeriesSave")
 CANCEL = text(SOURCE_LANGUAGE, "table.nextSeriesCancel")
-COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
-MORE_GAMES = text(SOURCE_LANGUAGE, "start.seriesMore")
-NEXT_SHEET = ".sheet.next-series"
-
-
-def refuse(route: Route) -> None:
-    route.fulfill(status=REFUSED, content_type="application/json", body="{}")
 
 
 def test_a_sheet_left_open_while_the_next_series_is_dealt_stays_shut_at_the_end_of_the_series_after(
