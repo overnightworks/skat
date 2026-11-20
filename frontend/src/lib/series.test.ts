@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Chair, Options } from "../routes/(start)/tables.ts";
+import type { Chair, Options, Table } from "../routes/(start)/tables.ts";
 import { weiterBar } from "#lib/result.ts";
 import {
     gameRows,
     resultOnStage,
+    returnsToLobby,
     seriesCountText,
     nextSeriesLine,
     seriesEndAnswerBy,
@@ -407,6 +408,35 @@ describe("the series' end", () => {
         { name: "there is no series", table: tableBetweenGames(1, null) },
     ])("gives no minute while $name", ({ table }) => {
         expect(seriesEndAnswerBy(table)).toBeNull();
+    });
+
+    const PLAYED = { standings: null, game_count: null };
+    const stopped: Table = {
+        ...over(1),
+        ended: { ...PLAYED, reason: "stopped", empty_seconds: null, unplayed_days: null, closed_by_name: null },
+    };
+    const emptied: Table = {
+        ...over(1),
+        ended: { ...PLAYED, reason: "empty", empty_seconds: 60, unplayed_days: null, closed_by_name: null },
+    };
+
+    it.each([
+        {
+            name: "a page that showed the live table „Aufhören“ ended",
+            previous: over(1),
+            table: stopped,
+            expected: true,
+        },
+        {
+            name: "a page that opened the link of a stopped table",
+            previous: undefined,
+            table: stopped,
+            expected: false,
+        },
+        { name: "a page that already showed the stopped table", previous: stopped, table: stopped, expected: false },
+        { name: "a page whose live table ended another way", previous: over(1), table: emptied, expected: false },
+    ])("returns to the lobby from $name: $expected", ({ previous, table, expected }) => {
+        expect(returnsToLobby(previous, table)).toBe(expected);
     });
 });
 

@@ -32,6 +32,7 @@
     import {
         nextSeriesLine,
         resultOnStage,
+        returnsToLobby,
         seriesCountText,
         seriesEndAnswerBy,
         seriesEndView,
@@ -218,8 +219,7 @@
         }
         if (table.result === null) countedOrdinal = null;
         outcome = { kind: "table", table };
-        // „Aufhören“ and a silent minute end the table at the series' end, and every page that watched returns to the lobby.
-        if (table.ended?.reason === "stopped") void goto(resolve("/(start)"));
+        if (returnsToLobby(previous, table)) void goto(resolve("/(start)"));
         // The stage may show the result at once, so nothing of this table is set after it.
         receiveOnStage(previous, cues, closing);
     };

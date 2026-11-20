@@ -190,6 +190,12 @@ export function seriesEndAnswerBy(table: Table): string | null {
     return seriesOver(table) ? (table.series?.new_series_answer_by ?? null) : null;
 }
 
+// A page that showed the live table returns to the lobby once „Aufhören“ or a silent minute ended it; a page that opens
+// the link of such a table stays and shows the ended table.
+export function returnsToLobby(previous: Table | undefined, table: Table): boolean {
+    return previous !== undefined && previous.ended === null && table.ended?.reason === "stopped";
+}
+
 // A result, the standings or a Ramsch's reckoning stands on the table.
 export function resultOnStage(table: Table): boolean {
     return standingsView(table) !== null || declaredResult(table) !== null || ramschResultView(table) !== null;
