@@ -1,0 +1,7 @@
+claim_id = "a0de118cd8f44184a3e51c20572291ae"
+agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
+role = "builder"
+base = "787acb8e995670da0ec8c34bb992f6725c8aa092"
+branch = "claude/issue-751-freeze-the-motion-scenes"
+scope = ["docs/mockups/table.html"]
+opened_commit = "ee300911e876a0ff65dbf2c7670dc7a7b7bec052"
