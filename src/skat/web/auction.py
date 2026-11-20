@@ -77,6 +77,9 @@ class AuctionPlanRequest(CommandRequest):
 
     plan: _PlanBody | None
 
+    def command_for(self, table_id: str) -> AuctionPlanCommand:
+        return AuctionPlanCommand(command_id=self.command_id, table_id=table_id, plan=_plan_of(self.plan))
+
 
 def _plan_of(body: _LimitBody | _PassAheadBody | None) -> AuctionPlan | None:
     if body is None:
@@ -202,10 +205,9 @@ def _add_plan(router: APIRouter, tables: TableService, presence: Presence) -> No
         Refused: no hand, not seated, a chair waiting for a sitter, the auction over, already passed, a limit that is
         no bid value or is below the standing bid.
         """
-        command = AuctionPlanCommand(command_id=body.command_id, table_id=table_id, plan=_plan_of(body.plan))
-        return await command_answer(
-            partial(tables.set_auction_plan, actor_of(request), command), presence, table_id, response
-        )
+        command = body.command_for(table_id)
+        set_plan = partial(tables.set_auction_plan, actor_of(request), command)
+        return await command_answer(set_plan, presence, table_id, response)
 
 
 def create_auction_router(tables: TableService, presence: Presence) -> APIRouter:
