@@ -1,8 +1,0 @@
-claim_id = "d848cf6987354c93bff5b5cf43c621e7"
-agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
-role = "builder"
-base = "787acb8e995670da0ec8c34bb992f6725c8aa092"
-branch = "claude/issue-659-admit-then-write"
-scope = [".github/workflows/ci.yml", "docs/ARCHITECTURE.md", "src/skat/store", "tests"]
-opened_commit = "ef9b472688a0c20ebfbaa6cad4bf6e8c12d131d4"
-whole_reason = "The admit-then-write rule has one owner beside one_of, one check over the last release's tag and one paragraph in the architecture text."
