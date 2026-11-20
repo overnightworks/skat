@@ -245,10 +245,15 @@ def test_a_watchers_emote_shows_on_every_page_without_a_name(
     expect_played_by_every_page(heard_before)
 
 
+@pytest.mark.parametrize("repetition", range(30))
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
 @pytest.mark.parametrize(("style", "object_selector"), OBJECTS)
 def test_a_tap_on_an_object_of_the_table_makes_it_move_and_sound_on_every_page(
-    deal_a_game: Callable[..., PlayingTable], form_factor: dict[str, Any], style: TableStyle, object_selector: str
+    deal_a_game: Callable[..., PlayingTable],
+    form_factor: dict[str, Any],
+    style: TableStyle,
+    object_selector: str,
+    repetition: int,
 ) -> None:
     table = deal_a_game({**form_factor, **MOTION_ALLOWED})
     give_the_table_its_style(table.pages[table.seat_at["forehand"]], table.everyone, style)
