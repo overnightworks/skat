@@ -444,7 +444,8 @@ def test_the_series_end_offers_exactly_neue_serie_and_aufhoeren_and_aufhoeren_se
     for person in table.everyone:
         expect(person).to_have_url(lobby)
     link = f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{table.api_path.removeprefix(TABLES_PATH + '/')}"
-    table.watcher.goto(link)
+    # The browser coverage collector aborts a Playwright navigation away from the lobby; a page's own one goes through.
+    table.watcher.evaluate("address => location.assign(address)", link)
     expect(table.watcher.get_by_role("heading", name=text(SOURCE_LANGUAGE, "closed.seriesEnded"))).to_be_visible()
     expect(table.watcher).to_have_url(link)
     assert page_errors == []
