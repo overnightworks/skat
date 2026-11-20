@@ -1,6 +1,7 @@
 """The person key: the pseudonym a framed table gives the call for each seated account, and its route."""
 
 import re
+from http import HTTPStatus
 
 import pytest
 
@@ -127,10 +128,14 @@ class TestThePersonKeysRoute:
     def test_an_unknown_table_answers_not_found(self, skat, felix, table):
         assert read_person_keys(skat, felix[0], table).status_code == 404
 
-    def test_the_agents_bearer_is_refused_and_the_route_is_no_tool(self, skat, issuer, agent, table_id):
+    def test_the_agents_bearer_is_refused(self, skat, issuer, table_id):
         token = issuer.agent_token(SUBJECT)
 
         refused = skat.client.get(person_keys_path(table_id), headers={"authorization": f"Bearer {token}", **FETCH})
 
-        assert refused.status_code in {401, 403}
-        assert not any("person" in tool or "key" in tool for tool in agent.offered_every_tool().listed_tools())
+        assert refused.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_the_route_is_no_agent_tool(self, skat, agent):
+        operation = skat.app.openapi()["paths"][f"{TABLES_PATH}/{{table_id}}{TABLE_PERSON_KEYS_SUFFIX}"]["get"]
+
+        assert operation["operationId"] not in agent.offered_every_tool().listed_tools()
