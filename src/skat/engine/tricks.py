@@ -94,6 +94,11 @@ class CompletedTrick:
     taker: Position
 
 
+def tricks_taken_by(position: Position, tricks: tuple[CompletedTrick, ...]) -> int:
+    """How many of the completed tricks the position took."""
+    return sum(trick.taker is position for trick in tricks)
+
+
 @dataclass(frozen=True)
 class Sides:
     """One count for the declarer and one for the two opponents together."""

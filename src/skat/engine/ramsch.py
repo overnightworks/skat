@@ -12,6 +12,7 @@ from skat.engine.tricks import (
     TenTricks,
     replay_cards,
     trick_step,
+    tricks_taken_by,
 )
 
 if TYPE_CHECKING:
@@ -30,7 +31,7 @@ class RamschPlayedOut:
     skat: tuple[Card, ...]
 
     def tricks_of(self, position: Position) -> int:
-        return sum(trick.taker is position for trick in self.tricks)
+        return tricks_taken_by(position, self.tricks)
 
     def points_of(self, position: Position) -> int:
         return sum(card.points for trick in self.tricks if trick.taker is position for card in trick.cards)

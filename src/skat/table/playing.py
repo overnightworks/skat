@@ -6,7 +6,7 @@ from skat.engine.deal import seats_from
 from skat.engine.giving_up import give_up, opponent_gives_up, opponent_plays_open, shorten, throw_down
 from skat.engine.kontra import KontraRefusal
 from skat.engine.ramsch import RamschPlayedOut, RamschPlaying, play_ramsch_card
-from skat.engine.tricks import CardPlayed, Ending, Playing, PlayRefusal, play_card
+from skat.engine.tricks import CardPlayed, Ending, Playing, PlayRefusal, play_card, tricks_taken_by
 from skat.table.bock import bock_after
 from skat.table.game_cards import SeatedCard, game_cards_of
 from skat.table.game_list import GameEnding, list_entry_of, ramsch_entry_of
@@ -485,7 +485,7 @@ def _legal_cards(state: Playing | RamschPlaying, viewer_positions: frozenset[Pos
 
 def _taken_of(state: Playing | RamschPlaying, seats: dict[Position, int]) -> tuple[TakenTricks, ...]:
     return tuple(
-        TakenTricks(seat, sum(trick.taker is position for trick in state.tricks))
+        TakenTricks(seat, tricks_taken_by(position, state.tricks))
         for position, seat in sorted(seats.items(), key=lambda each: each[1])
     )
 
