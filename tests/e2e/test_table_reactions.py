@@ -5,8 +5,6 @@ a watcher's too, shows and plays each within a second; Klassik has an ambience o
 import json
 from typing import TYPE_CHECKING, Any
 
-import time
-
 import pytest
 from playwright.sync_api import Page, expect
 
@@ -53,20 +51,6 @@ OBJECTS = [
 # starts is kept, and the check reads what was kept instead of racing the move's end.
 WATCH_OBJECT_MOVES = """() => {
     window.objectMoves = [];
-    window.frameGaps = [];
-    window.beatTimes = [];
-    window.moveTimes = [];
-    let last = performance.now();
-    const tick = now => {
-        if (now - last > 80) window.frameGaps.push([Date.now(), Math.round(now - last)]);
-        last = now;
-        requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-    new MutationObserver(records => {
-        for (const record of records) window.beatTimes.push([Date.now(), record.target.className, record.target.dataset.beat]);
-    }).observe(document.body, { attributes: true, attributeFilter: ['data-beat'], subtree: true });
-    document.addEventListener('animationstart', event => window.moveTimes.push([Date.now(), event.animationName]), true);
     document.addEventListener('animationstart', event => {
         if (event.animationName.startsWith('object-beat')) window.objectMoves.push(event.target);
     }, true);
@@ -280,22 +264,10 @@ def test_a_tap_on_an_object_of_the_table_makes_it_move_and_sound_on_every_page(
     for person in table.everyone:
         assert person.evaluate(MAKES_ITS_MOVE, object_selector) is False
 
-    clicked = time.time() * 1000
     table.watcher.locator(object_selector).click()
-    clicked_done = time.time() * 1000
 
-    try:
-        for person in table.everyone:
-            person.wait_for_function(MAKES_ITS_MOVE, arg=object_selector, timeout=SHOWN_WITHIN_MILLISECONDS)
-    except Exception:
-        for person in table.everyone:
-            data = person.evaluate("() => ({gaps: window.frameGaps, beats: window.beatTimes, moves: window.moveTimes, now: Date.now()})")
-            relative = lambda rows: [[round(row[0] - clicked)] + row[1:] for row in rows]
-            print("DIAG", {"click_call_ms": round(clicked_done - clicked), "now": round(data["now"] - clicked), "gaps": relative(data["gaps"])[-12:], "beats": relative(data["beats"]), "moves": relative(data["moves"])}, flush=True)
-        raise
     for person in table.everyone:
-        data = person.evaluate("() => window.frameGaps.map(gap => gap[1])")
-        print("FRAMES", {"slow_frames": len(data), "worst_ms": max(data, default=0)}, flush=True)
+        person.wait_for_function(MAKES_ITS_MOVE, arg=object_selector, timeout=SHOWN_WITHIN_MILLISECONDS)
     expect_played_by_every_page(heard_before)
 
 
