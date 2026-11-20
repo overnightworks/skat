@@ -2,15 +2,17 @@
 table when it leaves the version alone and carries the plan to nobody else.
 """
 
+import json
+from contextlib import contextmanager
+
 import pytest
 
 from skat.engine.deal import Position, positions_from
 from skat.web.auction import TABLE_AUCTION_PLAN_SUFFIX
-from skat.web.presence import Presence
-from skat.web.tables import TABLES_PATH
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, seated_three
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.skat import FETCH
+from tests.web.support.skat import FETCH, unnamed_lines
 
 LIMIT = {"kind": "limit", "value": 30, "mode": "fixed"}
 
@@ -37,6 +39,21 @@ class Plans:
             headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
         )
 
+    @contextmanager
+    def second_tab(self, headers):
+        """The table's views to one person's other tab, read after the first it opens with."""
+        self.skat.client.cookies.clear()
+        with self.skat.client.stream(
+            "GET", f"{TABLES_PATH}/{self.table_id}{TABLE_EVENTS_SUFFIX}", headers=headers
+        ) as stream:
+            messages = (
+                json.loads(line.removeprefix("data: "))
+                for line in unnamed_lines(stream.iter_lines())
+                if line.startswith("data: ")
+            )
+            next(messages)
+            yield messages
+
     def read(self, headers):
         return self.skat.client.get(f"{TABLES_PATH}/{self.table_id}", headers=headers).json()["hand"]["auction"]
 
@@ -46,16 +63,8 @@ def plans(skat):
     return Plans(skat)
 
 
-@pytest.fixture
-def woken(monkeypatch):
-    tables = []
-    wake = Presence.wake_table
-    monkeypatch.setattr(Presence, "wake_table", lambda self, table_id: (tables.append(table_id), wake(self, table_id)))
-    return tables
-
-
 class TestSetting:
-    def test_a_limit_set_off_turn_answers_the_owners_view_leaves_the_version_and_wakes_the_table(self, plans, woken):
+    def test_a_limit_set_off_turn_answers_the_owners_view_and_leaves_the_version(self, plans):
         version = plans.record.version
 
         answer = plans.send(plans.forehand, LIMIT)
@@ -63,7 +72,15 @@ class TestSetting:
         assert answer.status_code == 200, answer.text
         assert answer.json()["hand"]["auction"]["plan"] == LIMIT
         assert (answer.json()["version"], plans.record.version) == (version, version)
-        assert woken == [plans.table_id]
+
+    def test_a_limit_set_off_turn_reaches_the_owners_other_tab_at_the_unchanged_version(self, plans):
+        version = plans.record.version
+
+        with plans.second_tab(plans.forehand) as messages:
+            plans.send(plans.forehand, LIMIT)
+            woken = next(messages)
+
+        assert (woken["hand"]["auction"]["plan"], woken["version"]) == (LIMIT, version)
 
     def test_the_mode_of_a_limit_is_ask_unless_it_says_fixed(self, plans):
         answer = plans.send(plans.forehand, {"kind": "limit", "value": 30})
@@ -97,13 +114,13 @@ class TestSetting:
 
 
 class TestRefused:
-    def test_a_value_off_the_ladder_is_refused_and_changes_nothing(self, plans, woken):
+    def test_a_value_off_the_ladder_is_refused_and_changes_nothing(self, plans):
         before = plans.record
 
         answer = plans.send(plans.forehand, {"kind": "limit", "value": 31})
 
         assert (answer.status_code, answer.json()["reason"]) == (409, "invalid-value")
-        assert (plans.record, woken) == (before, [])
+        assert plans.record == before
 
     def test_a_player_without_a_chair_is_refused(self, plans):
         assert plans.send(plans.onlooker, {"kind": "pass"}).json()["reason"] == "not-seated"
