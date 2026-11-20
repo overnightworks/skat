@@ -610,6 +610,35 @@ class TestTheMinuteOfNewSeries:
         )
         assert answered.refusal is Refusal.ANSWER_TIME_OVER
 
+    def tap_on_another_pod(self, skat, table, seat, time):
+        """A tap that no timer of this server's presence heard of."""
+        return TableService(skat.store, now=time.moment).start_new_series(
+            Actor(account_id=table.record.chairs[seat - 1].occupant.account_id, display_name=f"Seat {seat}"),
+            NewSeriesCommand(f"tap-pod-{seat}", table.table_id, 1, 0),
+            frozenset(),
+        )
+
+    def test_a_sit_beside_a_mark_starts_a_fresh_minute_whose_lapse_ends_the_table(self, skat, time, ended):
+        self.tap_on_another_pod(skat, ended, 1, time)
+        self.tap_on_another_pod(skat, ended, 2, time)
+        skat.client.portal.call(time.advance, END_ANSWER_SECONDS // 2)
+        skat.stand(headers_of(ended)[2], ended.table_id, command_id="stand-third")
+
+        assert skat.sit(ended.watcher, ended.table_id, 3, command_id="sit-watcher").status_code == 200
+
+        skat.client.portal.call(time.advance, END_ANSWER_SECONDS - 1)
+        assert isinstance(skat.store.tables[ended.table_id], TableRecord)
+        skat.client.portal.call(time.advance, 1)
+        assert not isinstance(skat.store.tables[ended.table_id], TableRecord)
+
+    def test_a_sit_with_no_mark_standing_starts_no_minute(self, skat, time, ended):
+        skat.stand(headers_of(ended)[2], ended.table_id, command_id="stand-third")
+
+        assert skat.sit(ended.watcher, ended.table_id, 3, command_id="sit-watcher").status_code == 200
+
+        skat.client.portal.call(time.advance, END_ANSWER_SECONDS * 2)
+        assert isinstance(skat.store.tables[ended.table_id], TableRecord)
+
     def test_the_lapse_of_another_pod_ends_the_table_in_its_own_transaction(self, skat, time, ended):
         self.tap(skat, ended, 1)
         another_pod = TableService(skat.store, now=lambda: time.moment() + timedelta(seconds=END_ANSWER_SECONDS))

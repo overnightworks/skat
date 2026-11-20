@@ -366,13 +366,17 @@ export function awaitedNames(chairs: readonly Chair[]): string[] {
 
 // A seated viewer taps until their own chair is ready, then waits for the others by name. Ready with nobody
 // awaited while the result still stands, or the series' end does, means the deal after the last tap failed: the button
-// stays so a tap asks again. After the series' last game the tap is „Neue Serie“, and a passed-in last game has it too.
+// stays so a tap asks again, except while a chair stands empty: then the table waits for a sitter. After the series' last game the tap is „Neue Serie“, and a passed-in last game has it too.
 export function weiterBar(table: Table): WeiterBar | null {
     const own = table.chairs.find((chair) => chair.is_mine);
     if (own === undefined || (table.result === null && table.series?.over !== true)) return null;
     if (table.series?.end_proposal) return null;
     const awaited = awaitedNames(table.chairs);
     if (!own.ready) return { kind: "tap", again: false };
-    if (awaited.length === 0) return { kind: "tap", again: true };
+    if (awaited.length === 0) {
+        return table.chairs.some((chair) => chair.occupant_name === null)
+            ? { kind: "wait", text: words["table.waitingForPlayers"] }
+            : { kind: "tap", again: true };
+    }
     return { kind: "wait", text: words["table.waitingFor"]({ names: listFormat.format(awaited) }) };
 }

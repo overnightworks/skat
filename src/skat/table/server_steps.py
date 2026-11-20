@@ -26,8 +26,8 @@ from skat.table.rules import (
 from skat.table.series_end import (
     answer_left,
     decide_end_answer_lapse,
-    decide_new_series_lapse,
     end_answer_left,
+    new_series_lapsed,
 )
 
 if TYPE_CHECKING:
@@ -195,17 +195,16 @@ class ServerSteps:
                 return EndAnswerLapse(None)
             members: frozenset[str] = frozenset()
             decided = decide_end_answer_lapse(table, now).table
-            series_lapse = decide_new_series_lapse(decided, now)
-            if series_lapse.stops:
+            stops = new_series_lapsed(decided, now)
+            if stops:
                 members = members_of(transaction, table)
                 transaction.end_table(table_id, now, Ending.stopped())
             else:
-                decided = series_lapse.table
                 left = end_answer_left(decided, now)
                 if decided.version == table.version:
                     return EndAnswerLapse(None if left is None else max(0.0, left.total_seconds()))
                 transaction.save_table(decided, played_at=None)
-        if series_lapse.stops:
+        if stops:
             self._tell_moments(members)
             self._tell(members)
             return EndAnswerLapse(None, table_stopped=True)

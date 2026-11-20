@@ -591,6 +591,15 @@ describe("the bar's Weiter", () => {
 
         expect(weiterBar(table(1, {}, everyoneReady))).toEqual({ kind: "tap", again: true });
     });
+
+    it("keeps waiting, for players, when the viewer tapped and the last silent seat stood up", () => {
+        const seatStoodUp = { 1: { ready: true }, 2: { ready: true }, 3: { occupant_name: null } };
+
+        expect(weiterBar(table(1, {}, seatStoodUp))).toEqual({
+            kind: "wait",
+            text: words["table.waitingForPlayers"],
+        });
+    });
 });
 
 describe("withMinus", () => {

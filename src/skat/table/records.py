@@ -445,8 +445,9 @@ class Series:
     `ended_early` by consent of every seat before its last game and the `end_proposal` standing between two games.
     `end_refused_by` names the seats whose no, or silence, ended the last proposal, until the next deal. `number`
     numbers the table's series, 1 for the first. Once the series is over, `new_series_asked_at` is the instant the
-    first seat chose „Neue Serie“, from which a seat that stays silent counts as no, and `next_settings` holds the
-    settings a seat saved for the next series, None while it carries this one's over.
+    first seat chose „Neue Serie“, from which a seat that stays silent counts as no; the minute stands only while a
+    seated seat is still silent. `next_settings` holds the settings a seat saved for the next series, None while it
+    carries this one's over.
     """
 
     length: int

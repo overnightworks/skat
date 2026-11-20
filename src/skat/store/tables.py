@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 from sqlalchemy import Integer, delete, exists, func, insert, literal, or_, select, update
@@ -66,7 +65,8 @@ from skat.table.records import (
     Visibility,
     parsed_refusal,
 )
-from skat.table.rules import CREATE_TABLE_COMMAND, series_number_of
+from skat.table.rules import CREATE_TABLE_COMMAND, series_number_of, with_standing_ask
+from skat.table.series_end import series_asked_at
 from skat.table.transactions import (
     DuplicateReceiptError,
     HeldChair,
@@ -206,10 +206,7 @@ def _table_record(
     played = series_with_next_settings(connection, table_id, current)
     revision = mark_revision_of(played)
     standing = tuple(_chair_of(seat, revision) for seat in seats)
-    if played is not None and any(seat.ready for seat in seats) and not any(chair.ready for chair in standing):
-        # Every mark was given on settings that were saved since, so the minute the first of them started is no ask.
-        played = replace(played, new_series_asked_at=None)
-    return TableRecord(
+    record = TableRecord(
         id=TableId(table_id),
         version=table.version,
         chairs=standing,
@@ -241,6 +238,7 @@ def _table_record(
         visibility=Visibility(table.visibility),
         style=TableStyle(table.style),
     )
+    return with_standing_ask(record)
 
 
 def _position_of(text: str | None) -> Position | None:
@@ -536,21 +534,24 @@ class _PostgresTableTransaction:
         )
 
     def live_end_asks(self) -> tuple[LiveAsk, ...]:
-        return tuple(
-            LiveAsk(TableId(row.table_id), row.asked_at)
-            for row in self._connection.execute(
-                select(
-                    series.c.table_id,
-                    func.coalesce(series.c.end_asked_at, series.c.new_series_asked_at).label("asked_at"),
-                )
-                .join(tables, (tables.c.id == series.c.table_id) & (tables.c.series_number == series.c.number))
-                .where(
-                    tables.c.end_reason.is_(None),
-                    or_(series.c.end_proposer.is_not(None), series.c.new_series_asked_at.is_not(None)),
-                )
-                .order_by(series.c.table_id)
+        asking = self._connection.execute(
+            select(series.c.table_id)
+            .join(tables, (tables.c.id == series.c.table_id) & (tables.c.series_number == series.c.number))
+            .where(
+                tables.c.end_reason.is_(None),
+                or_(series.c.end_proposer.is_not(None), series.c.new_series_asked_at.is_not(None)),
             )
+            .order_by(series.c.table_id)
+        ).scalars()
+        records = (_table_record(self._connection, table_id, row_lock=None) for table_id in asking.all())
+        asks = (
+            LiveAsk(record.id, asked_at)
+            for record in records
+            if isinstance(record, TableRecord)
+            and record.series is not None
+            and (asked_at := series_asked_at(record.series)) is not None
         )
+        return tuple(asks)
 
     def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
         seated = (

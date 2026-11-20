@@ -30,7 +30,7 @@ from skat.table.records import (
     TableId,
     TableRecord,
 )
-from skat.table.rules import CREATE_TABLE_COMMAND, ends_empty, played_series_of
+from skat.table.rules import CREATE_TABLE_COMMAND, ends_empty, played_series_of, with_occupant
 from skat.table.series_end import END_ANSWER_SECONDS, STOP_PLAYING_COMMAND
 from skat.table.service import CommandIdReusedError, TableService
 from skat.table.views import EndedView
@@ -635,10 +635,9 @@ class TestTheLapseOfTheSeriesEndMinute:
 
         assert (again.table_stopped, again.seconds_left, store.tables) == (False, None, written)
 
-    def test_a_silent_seat_that_stood_up_meanwhile_stops_no_table_and_the_next_tap_asks_again(self, store, asked):
+    def test_every_silent_seat_standing_up_meanwhile_leaves_no_minute_to_lapse(self, store, asked):
         record = store.tables[asked.value]
-        chairs = tuple(replace(chair, occupant=None) if chair.seat != 1 else chair for chair in record.chairs)
-        store.tables[asked.value] = replace(record, chairs=chairs)
+        store.tables[asked.value] = with_occupant(with_occupant(record, 2, None), 3, None)
 
         lapse = self.lapse(store, asked, END_ANSWER_SECONDS)
 

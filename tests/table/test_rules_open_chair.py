@@ -66,6 +66,7 @@ from tests.support.open_chairs import (
     sent_away,
 )
 from tests.support.played_game import (
+    SAT_AT,
     an_entry,
     asked_by_the_declarer,
     before_the_last_card,
@@ -142,7 +143,7 @@ class TestEveryHandCommandIsRefused:
     def test_a_second_chair_is_refused_to_a_seated_person(self):
         table = waiting_in("auction")
 
-        assert decide_sit(table, actor_at(table, MIDDLEHAND_SEAT), REARHAND_SEAT, None).refusal is (
+        assert decide_sit(table, actor_at(table, MIDDLEHAND_SEAT), REARHAND_SEAT, None, SAT_AT).refusal is (
             Refusal.ALREADY_SEATED
         )
 
@@ -152,13 +153,13 @@ class TestTwoOpenChairs:
         self.table = without_occupants(PHASES["auction"](), 1, 2)
 
     def test_the_lowest_is_named_and_the_number_moves_to_the_other_when_the_first_is_filled(self):
-        first = decide_sit(self.table, newcomer(), MIDDLEHAND_SEAT, None).table
+        first = decide_sit(self.table, newcomer(), MIDDLEHAND_SEAT, None, SAT_AT).table
 
         assert (waiting_seat_of(self.table), waiting_seat_of(first)) == (1, 2)
 
     def test_the_hand_stands_still_until_both_are_filled(self):
-        first = decide_sit(self.table, newcomer(), MIDDLEHAND_SEAT, None).table
-        both = decide_sit(first, newcomer(name="Erik"), REARHAND_SEAT, None).table
+        first = decide_sit(self.table, newcomer(), MIDDLEHAND_SEAT, None, SAT_AT).table
+        both = decide_sit(first, newcomer(name="Erik"), REARHAND_SEAT, None, SAT_AT).table
         pass_at = AuctionCommand("command-1", both.id.value, both.version, AuctionAction.PASS, None)
 
         assert hand_command("auction-step", first, actor_at(first, FOREHAND_SEAT)).refusal is Refusal.SEAT_OPEN
@@ -168,7 +169,7 @@ class TestTwoOpenChairs:
     def test_a_table_with_all_three_chairs_open_waits_for_a_sitter_and_takes_any_sit(self):
         table = without_occupants(PHASES["auction"](), 1, 2, 3)
 
-        taken = decide_sit(table, newcomer(), FOREHAND_SEAT, None)
+        taken = decide_sit(table, newcomer(), FOREHAND_SEAT, None, SAT_AT)
 
         assert (waiting_seat_of(table), taken.refusal, waiting_seat_of(taken.table)) == (1, None, 1)
 
@@ -182,7 +183,7 @@ class TestTheTakeOver:
         agent = actor_at(table, seat)
         sitter = newcomer(kind)
 
-        taken = decide_sit(sent_away(table, seat), sitter, seat, None).table
+        taken = decide_sit(sent_away(table, seat), sitter, seat, None, SAT_AT).table
 
         assert view_of(taken, sitter.account_id, NOBODY).hand == view_of(table, agent.account_id, NOBODY).hand
         assert view_of(taken, sitter.account_id, NOBODY).hand.own_cards
@@ -193,7 +194,7 @@ class TestTheTakeOver:
         seat = seat_on_turn(table)
         sitter = newcomer()
 
-        taken = decide_sit(sent_away(table, seat), sitter, seat, None).table
+        taken = decide_sit(sent_away(table, seat), sitter, seat, None, SAT_AT).table
 
         assert waiting_seat_of(taken) is None
         assert (taken.hand, replace(taken.progress, seats_held=frozenset())) == (table.hand, table.progress)
@@ -203,7 +204,7 @@ class TestTheTakeOver:
         table = PHASES["auction"]()
         seat = seat_on_turn(table)
         sitter = newcomer()
-        taken = decide_sit(sent_away(table, seat), sitter, seat, None).table
+        taken = decide_sit(sent_away(table, seat), sitter, seat, None, SAT_AT).table
         command = AuctionCommand("command-1", taken.id.value, taken.version, AuctionAction.PASS, None)
 
         decision = decide_step(taken, sitter, command)
@@ -215,7 +216,7 @@ class TestTheTakeOver:
         table = PHASES["in-a-trick"]()
         seat = seat_on_turn(table)
         sitter = newcomer()
-        taken = decide_sit(sent_away(table, seat), sitter, seat, None).table
+        taken = decide_sit(sent_away(table, seat), sitter, seat, None, SAT_AT).table
         card = view_of(taken, sitter.account_id, NOBODY).hand.playing.legal_cards[0]
 
         decision = decide_card(taken, sitter, PlayCardCommand("command-1", taken.id.value, taken.version, card))
@@ -227,7 +228,7 @@ class TestTheTakeOver:
         table = PHASES["auction"]()
         sitter = newcomer(OccupantKind.AGENT, "Mozart")
 
-        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None, SAT_AT).table
 
         chair = view_of(taken, account_of(MIDDLEHAND), NOBODY).chairs[FOREHAND_SEAT - 1]
         assert (chair.occupant_name, chair.occupant_kind, chair.is_mine) == ("Mozart", OccupantKind.AGENT, False)
@@ -236,7 +237,7 @@ class TestTheTakeOver:
         table = PHASES["auction"]()
         new_hand = NewHand(1, table.hand)
 
-        taken = decide_sit(sent_away(table, FOREHAND_SEAT), newcomer(), FOREHAND_SEAT, new_hand).table
+        taken = decide_sit(sent_away(table, FOREHAND_SEAT), newcomer(), FOREHAND_SEAT, new_hand, SAT_AT).table
 
         assert (taken.hand, taken.dealer, replace(taken.progress, seats_held=frozenset())) == (
             table.hand,
@@ -249,7 +250,7 @@ class TestTheTakeOver:
 class TestThePushingStageAfterATakeOver:
     def test_the_sitter_holds_the_twelve_cards_while_the_seat_holds_the_skat_and_puts_two_back(self):
         table, sitter = PHASES["pushing-after-the-take"](), newcomer()
-        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None, SAT_AT).table
 
         hand = view_of(taken, sitter.account_id, NOBODY).hand
         put_back = PushingCommand("command-1", taken.id.value, taken.version, PushingKind.PUT_BACK, hand.own_cards[:2])
@@ -260,7 +261,7 @@ class TestThePushingStageAfterATakeOver:
 
     def test_the_sitter_sees_no_card_the_seat_may_not_see_after_the_skat_was_pushed_on(self):
         table, sitter = PHASES["pushing-after-the-push"](), newcomer()
-        taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None, SAT_AT).table
 
         hand = view_of(taken, sitter.account_id, NOBODY).hand
         seats_own = view_of(table, account_of(MIDDLEHAND), NOBODY).hand
@@ -270,7 +271,7 @@ class TestThePushingStageAfterATakeOver:
 
     def test_the_sitter_moves_the_stage_on_and_the_hand_goes_on(self):
         table, sitter = PHASES["pushing-start"](), newcomer()
-        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None, SAT_AT).table
         push = PushingCommand("command-1", taken.id.value, taken.version, PushingKind.PUSH)
 
         pushed = decide_pushing_step(taken, sitter, push).table
@@ -282,7 +283,7 @@ class TestThePushingStageAfterATakeOver:
 class TestTheKontraWordAfterATakeOver:
     def test_the_sitter_in_an_opponents_seat_is_offered_the_word_and_has_it_accepted(self):
         table, sitter = table_in(declared_herz_hand(), KONTRA), newcomer()
-        taken = decide_sit(sent_away(table, REARHAND_SEAT), sitter, REARHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, REARHAND_SEAT), sitter, REARHAND_SEAT, None, SAT_AT).table
 
         offered = view_of(taken, sitter.account_id, NOBODY).hand.playing.kontra.my_word
         said = decide_kontra(taken, sitter, KontraCommand("command-1", taken.id.value, taken.version, Word.KONTRA))
@@ -298,7 +299,7 @@ class TestTheKontraWordAfterATakeOver:
         table = replace(table, progress=replace(table.progress, words=(WordSaid(REARHAND, Word.KONTRA, 0),)))
         sitter = newcomer()
 
-        taken = decide_sit(sent_away(table, REARHAND_SEAT), sitter, REARHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, REARHAND_SEAT), sitter, REARHAND_SEAT, None, SAT_AT).table
 
         before = view_of(table, account_of(MIDDLEHAND), NOBODY).hand.playing.kontra
         after = view_of(taken, sitter.account_id, NOBODY).hand.playing.kontra
@@ -315,7 +316,7 @@ class TestAStandingNoWord:
     def test_a_seat_sent_away_takes_its_no_word_and_the_sitter_is_offered_the_word_unanswered(self):
         table, sitter = self.answered(REARHAND), newcomer()
 
-        taken = decide_sit(sent_away(table, REARHAND_SEAT), sitter, REARHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, REARHAND_SEAT), sitter, REARHAND_SEAT, None, SAT_AT).table
 
         kontra = view_of(taken, sitter.account_id, NOBODY).hand.playing.kontra
         assert taken.progress.no_words == frozenset()
@@ -330,7 +331,7 @@ class TestAStandingNoWord:
 
     def test_the_sitter_can_answer_no_word_again(self):
         table, sitter = self.answered(REARHAND), newcomer()
-        taken = decide_sit(sent_away(table, REARHAND_SEAT), sitter, REARHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, REARHAND_SEAT), sitter, REARHAND_SEAT, None, SAT_AT).table
 
         answered = decide_kontra(taken, sitter, KontraCommand("command-1", taken.id.value, taken.version, None))
 
@@ -342,7 +343,7 @@ class TestTheDeclarersSkat:
     def test_the_sitter_holds_the_picked_up_skat_while_it_is_taken_and_not_put_back(self):
         table, sitter = PHASES["after-the-take"](), newcomer()
 
-        taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None, SAT_AT).table
 
         hand = view_of(taken, sitter.account_id, NOBODY).hand
         expected = {*DECK[10:20], *DECK[30:32]}
@@ -350,7 +351,7 @@ class TestTheDeclarersSkat:
 
     def test_the_sitter_puts_back_two_cards_like_the_declarer_would(self):
         table, sitter = PHASES["after-the-take"](), newcomer()
-        taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None, SAT_AT).table
 
         decision = decide_declaring_step(
             taken, sitter, DeclaringCommand("command-1", taken.id.value, taken.version, OWN_PUT_BACK)
@@ -361,7 +362,7 @@ class TestTheDeclarersSkat:
     def test_the_put_back_is_shown_to_the_sitter_as_it_is_to_nobody(self):
         table, sitter = PHASES["after-the-put-back"](), newcomer()
 
-        taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None, SAT_AT).table
 
         hand = view_of(taken, sitter.account_id, NOBODY).hand
         assert not set(OWN_PUT_BACK.cards) & set(hand.own_cards)
@@ -370,7 +371,7 @@ class TestTheDeclarersSkat:
 
     def test_the_sitter_declares_the_game_after_the_put_back(self):
         table, sitter = PHASES["after-the-put-back"](), newcomer()
-        taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None, SAT_AT).table
         herz = Declare(GameKind.HERZ, hand=False, ouvert=False, announcement=Announcement.NONE)
 
         decision = decide_declaring_step(
@@ -382,7 +383,7 @@ class TestTheDeclarersSkat:
     def test_the_sitter_is_not_the_declarer_in_a_seat_that_is_not_the_declarers(self):
         table, sitter = PHASES["after-the-take"](), newcomer()
 
-        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None, SAT_AT).table
         decision = decide_declaring_step(
             taken, sitter, DeclaringCommand("command-1", taken.id.value, taken.version, OWN_PUT_BACK)
         )
@@ -402,7 +403,7 @@ class TestAStandingGiveUpRequest:
         table = asked_by_the_declarer()
         sitter = newcomer()
 
-        taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None, SAT_AT).table
 
         assert taken.progress.give_up is None
 
@@ -416,7 +417,7 @@ class TestAStandingGiveUpRequest:
     def test_the_other_opponent_can_still_answer_and_the_sitter_can_say_no_again(self):
         table = asked_by_the_declarer(declined_by=FOREHAND)
         sitter = newcomer()
-        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None, SAT_AT).table
 
         by_sitter = decide_decline_give_up(taken, sitter, DeclineGiveUpCommand("c", taken.id.value, taken.version))
         by_other = decide_agree_to_give_up(
@@ -461,7 +462,7 @@ def stood_up(table, seat):
 
 
 def sat(table, actor, seat):
-    decision = decide_sit(table, actor, seat, None)
+    decision = decide_sit(table, actor, seat, None, SAT_AT)
     assert decision.refusal is None
     return decision.table
 
@@ -480,7 +481,7 @@ class TestAGameEndedAfterATakeOver:
         seat = seats_from(table.dealer)[last.position]
         sitter = newcomer(OccupantKind.PERSON, "Dora")
 
-        taken = decide_sit(opening(table, seat), sitter, seat, None).table
+        taken = decide_sit(opening(table, seat), sitter, seat, None, SAT_AT).table
         ended = decide_card(taken, sitter, PlayCardCommand("command-1", taken.id.value, taken.version, last.card))
 
         finished = ended.table.game_list[-1]
@@ -502,7 +503,7 @@ class TestAGameEndedAfterATakeOver:
         credit_before = view_of(table, "account-nobody", NOBODY).chairs[seat - 1].total
         sitter = newcomer()
 
-        taken = decide_sit(opening(table, seat), sitter, seat, None).table
+        taken = decide_sit(opening(table, seat), sitter, seat, None, SAT_AT).table
         ended = last_card(taken, sitter, last)
         agent_finishing = last_card(table, actor_at(table, seat), last)
 
@@ -515,7 +516,7 @@ class TestAGameEndedAfterATakeOver:
         table, last, seat = before_the_last_game_of_a_bock_series()
         sitter = newcomer()
 
-        taken = decide_sit(opening(table, seat), sitter, seat, None).table
+        taken = decide_sit(opening(table, seat), sitter, seat, None, SAT_AT).table
         finished = last_card(taken, sitter, last).game_list[-1]
         by_agent = last_card(table, actor_at(table, seat), last).game_list[-1]
 
@@ -525,7 +526,7 @@ class TestAGameEndedAfterATakeOver:
     def test_a_hand_all_pass_after_a_take_over_is_passed_in_and_fires_the_bock_trigger(self):
         table = table_in(THIRD_PASS_BY_FOREHAND, TableOptions(bock=BOCK))
         sitter = newcomer()
-        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None).table
+        taken = decide_sit(sent_away(table, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None, SAT_AT).table
         command = AuctionCommand("command-1", taken.id.value, taken.version, AuctionAction.PASS, None)
 
         ended = decide_step(taken, sitter, command).table
@@ -647,7 +648,7 @@ class TestOnlyTheOwnSeatUntilTheHandEnds:
         self.two_open = stood_up(stood_up(self.table, MIDDLEHAND_SEAT), REARHAND_SEAT)
 
     def test_a_leaver_is_refused_another_free_chair_and_nothing_changes(self):
-        refused = decide_sit(self.two_open, self.anna, REARHAND_SEAT, None)
+        refused = decide_sit(self.two_open, self.anna, REARHAND_SEAT, None, SAT_AT)
 
         assert (refused.refusal, refused.table, refused.holder) == (Refusal.OWN_SEAT_ONLY, self.two_open, None)
 
@@ -655,8 +656,8 @@ class TestOnlyTheOwnSeatUntilTheHandEnds:
         one_open = stood_up(self.table, MIDDLEHAND_SEAT)
         own_taken = sat(self.two_open, newcomer(name="Dora"), MIDDLEHAND_SEAT)
 
-        into_a_taken_chair = decide_sit(one_open, self.anna, FOREHAND_SEAT, None)
-        into_the_own_taken_chair = decide_sit(own_taken, self.anna, MIDDLEHAND_SEAT, None)
+        into_a_taken_chair = decide_sit(one_open, self.anna, FOREHAND_SEAT, None, SAT_AT)
+        into_the_own_taken_chair = decide_sit(own_taken, self.anna, MIDDLEHAND_SEAT, None, SAT_AT)
 
         assert into_a_taken_chair.refusal is Refusal.OWN_SEAT_ONLY
         assert (into_the_own_taken_chair.refusal, into_the_own_taken_chair.holder) == (Refusal.SEAT_TAKEN, "Dora")
@@ -670,22 +671,22 @@ class TestOnlyTheOwnSeatUntilTheHandEnds:
     def test_a_seated_account_is_still_refused_as_already_seated(self):
         one_open = stood_up(self.table, MIDDLEHAND_SEAT)
 
-        assert decide_sit(one_open, self.ben, MIDDLEHAND_SEAT, None).refusal is Refusal.ALREADY_SEATED
+        assert decide_sit(one_open, self.ben, MIDDLEHAND_SEAT, None, SAT_AT).refusal is Refusal.ALREADY_SEATED
 
     def test_an_account_that_held_no_chair_of_the_hand_takes_every_open_chair_a_leavers_included(self):
-        into_the_first = decide_sit(self.two_open, newcomer(), MIDDLEHAND_SEAT, None)
-        into_the_second = decide_sit(self.two_open, newcomer(), REARHAND_SEAT, None)
+        into_the_first = decide_sit(self.two_open, newcomer(), MIDDLEHAND_SEAT, None, SAT_AT)
+        into_the_second = decide_sit(self.two_open, newcomer(), REARHAND_SEAT, None, SAT_AT)
 
         assert (into_the_first.refusal, into_the_second.refusal) == (None, None)
 
     def test_two_leavers_may_each_take_only_their_own_chair(self):
         crossed = [
-            decide_sit(self.two_open, self.anna, REARHAND_SEAT, None).refusal,
-            decide_sit(self.two_open, self.ben, MIDDLEHAND_SEAT, None).refusal,
+            decide_sit(self.two_open, self.anna, REARHAND_SEAT, None, SAT_AT).refusal,
+            decide_sit(self.two_open, self.ben, MIDDLEHAND_SEAT, None, SAT_AT).refusal,
         ]
         own = [
-            decide_sit(self.two_open, self.anna, MIDDLEHAND_SEAT, None).refusal,
-            decide_sit(self.two_open, self.ben, REARHAND_SEAT, None).refusal,
+            decide_sit(self.two_open, self.anna, MIDDLEHAND_SEAT, None, SAT_AT).refusal,
+            decide_sit(self.two_open, self.ben, REARHAND_SEAT, None, SAT_AT).refusal,
         ]
 
         assert (crossed, own) == ([Refusal.OWN_SEAT_ONLY] * 2, [None, None])
@@ -694,13 +695,15 @@ class TestOnlyTheOwnSeatUntilTheHandEnds:
         holders = {seat: actor_at(self.table, seat) for seat in (MIDDLEHAND_SEAT, REARHAND_SEAT, FOREHAND_SEAT)}
         empty = stood_up(self.two_open, FOREHAND_SEAT)
 
-        crossed = {seat: decide_sit(empty, holder, 1 + seat % 3, None).refusal for seat, holder in holders.items()}
+        crossed = {
+            seat: decide_sit(empty, holder, 1 + seat % 3, None, SAT_AT).refusal for seat, holder in holders.items()
+        }
         back = empty
         for seat, holder in holders.items():
             back = sat(back, holder, seat)
 
         assert set(crossed.values()) == {Refusal.OWN_SEAT_ONLY}
-        assert decide_sit(empty, newcomer(), FOREHAND_SEAT, None).refusal is None
+        assert decide_sit(empty, newcomer(), FOREHAND_SEAT, None, SAT_AT).refusal is None
         assert waiting_seat_of(back) is None
 
     def test_the_account_is_offered_its_held_chair_only_and_none_while_it_is_taken(self):
@@ -715,13 +718,13 @@ class TestOnlyTheOwnSeatUntilTheHandEnds:
         between = replace(self.two_open, hand=None, progress=HandProgress(seats_held=frozenset({mark})))
 
         assert seat_held_in_hand(between, self.anna.account_id) is None
-        assert decide_sit(between, self.anna, REARHAND_SEAT, None).refusal is None
+        assert decide_sit(between, self.anna, REARHAND_SEAT, None, SAT_AT).refusal is None
 
 
 def may_sit_in_another_chair(ended, leaver):
     """The hand is over: the leaver, no longer seated, takes a chair that another account freed."""
     freed = stood_up(ended, FOREHAND_SEAT)
-    return decide_sit(freed, leaver, FOREHAND_SEAT, None).refusal is None
+    return decide_sit(freed, leaver, FOREHAND_SEAT, None, SAT_AT).refusal is None
 
 
 class TestTheMarkEndsWithTheHand:
