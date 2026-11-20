@@ -449,10 +449,15 @@ class Series:
         if self.number < 1:
             message = "a series is numbered from one"
             raise ValueError(message)
-        if self.new_series_asked_at is not None and not (self.ended_early or self.deals == self.length):
+        self._check_the_ask_for_new_series()
+
+    def _check_the_ask_for_new_series(self) -> None:
+        if self.new_series_asked_at is None:
+            return
+        if not (self.ended_early or self.deals == self.length):
             message = "only a series that is over asks for its seats' „Neue Serie“"
             raise ValueError(message)
-        if self.new_series_asked_at is not None and self.end_proposal is not None:
+        if self.end_proposal is not None:
             message = "a series that asks for „Neue Serie“ holds no proposal"
             raise ValueError(message)
 

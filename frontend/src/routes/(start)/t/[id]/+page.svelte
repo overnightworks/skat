@@ -573,10 +573,10 @@
                     {#if nextLine !== null}
                         <NextSeriesLine line={nextLine} />
                     {/if}
-                    {#if answerBy !== null}
-                        <div class="plaque ask timer"><AnswerClock until={answerBy} ends /></div>
-                    {/if}
                 </Standings>
+                {#if answerBy !== null}
+                    <div class="plaque ask timer"><AnswerClock until={answerBy} ends /></div>
+                {/if}
             {:else if view !== null}
                 <ResultCard
                     {view}

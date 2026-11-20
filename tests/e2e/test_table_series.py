@@ -54,7 +54,7 @@ PHONE_BREAKPOINT = 900
 NEW_SERIES = text(SOURCE_LANGUAGE, "table.newSeries")
 STOP_PLAYING = text(SOURCE_LANGUAGE, "table.stopPlaying")
 NEXT_LINE = ".result.standing .nextline"
-ANSWER_CLOCK = ".result.standing .plaque.timer"
+ANSWER_CLOCK = ".stage > .plaque.timer"
 RAMSCH = text(SOURCE_LANGUAGE, "game.ramsch")
 YES = text(SOURCE_LANGUAGE, "table.yes")
 NO = text(SOURCE_LANGUAGE, "table.no")
@@ -411,6 +411,15 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
     assert page_errors == []
 
 
+def expect_the_minute_below_the_card(person: Page) -> None:
+    """The running minute is a pill of its own below the standings card, never a line inside it."""
+    card = person.locator(".result.standing").bounding_box()
+    minute = person.locator(ANSWER_CLOCK).bounding_box()
+    assert card is not None
+    assert minute is not None
+    assert minute["y"] >= card["y"] + card["height"]
+
+
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_series_end_offers_exactly_neue_serie_and_aufhoeren_and_aufhoeren_sends_every_page_to_the_lobby(
     open_person: Callable[..., Page],
@@ -438,6 +447,7 @@ def test_the_series_end_offers_exactly_neue_serie_and_aufhoeren_and_aufhoeren_se
     for person in table.everyone:
         expect(person.locator(ANSWER_CLOCK)).to_have_count(1)
         expect(person.locator(".chair[data-seat='1'] .mark.ready")).to_have_count(1)
+        expect_the_minute_below_the_card(person)
 
     second.get_by_role("button", name=STOP_PLAYING, exact=True).click()
     lobby = re.compile(rf"^{re.escape(e2e_server.base_url)}/?$")
