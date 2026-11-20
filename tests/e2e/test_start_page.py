@@ -187,7 +187,7 @@ def test_the_table_page_paints_the_same_wood_backdrop_as_its_scene(
 
     drawn = in_the_scene(person, "skat-choose", "frame => getComputedStyle(frame).backgroundImage", None)
 
-    assert person.locator(".room").evaluate("page => getComputedStyle(page).backgroundImage") == drawn
+    assert person.locator(".room-paint").evaluate("page => getComputedStyle(page).backgroundImage") == drawn
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

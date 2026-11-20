@@ -50,6 +50,7 @@
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
     import DealerMark from "#lib/ui/DealerMark.svelte";
+    import DeclarerMark from "#lib/ui/DeclarerMark.svelte";
     import CardCountTag from "#lib/ui/CardCountTag.svelte";
     import CardDeck from "#lib/ui/CardDeck.svelte";
     import CardSprite from "#lib/ui/CardSprite.svelte";
@@ -410,6 +411,7 @@
     data-motion={motionInForce()}
     data-style={tableStyle()}
 >
+    <div class="room-paint" aria-hidden="true"></div>
     <StyleScene style={outcome?.kind === "table" ? outcome.table.style : null} />
     <CardSprite />
     {#if !greeted}
@@ -549,6 +551,7 @@
             {:else if !outcome.table.hand?.declaring}
                 <WaitingPlaque table={outcome.table} {passedIn} {waits} />
             {/if}
+            <div class="felt-paint" aria-hidden="true"></div>
             <div class="felt">
                 <StrandDecor {id} />
                 <KlassikDecor {id} />
@@ -603,6 +606,9 @@
                         data-seat={chair.seat}
                         data-moving={chairMoving(chair.seat)}
                     >
+                        {#if chair.is_mine}
+                            <span class="bar-pill" aria-hidden="true"></span>
+                        {/if}
                         {#if chair.occupant_name !== null}
                             <span class="tile" class:agent={chair.occupant_kind === "agent"}>
                                 {#if chair.occupant_kind === "agent"}
@@ -613,65 +619,59 @@
                                     <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
                                 {/if}
                             </span>
-                            {#if chair.hand !== null || passedIn !== null || onResult}
-                                {#if chair.seat === dealerSeat}
-                                    <DealerMark />
+                            <span class="mark-row">
+                                {#if chair.hand !== null || passedIn !== null || onResult}
+                                    {#if chair.seat === dealerSeat}
+                                        <DealerMark />
+                                    {/if}
+                                    {#if chair.hand !== null}
+                                        <span class="mark pos">{positionWord(chair.hand.position)}</span>
+                                    {/if}
+                                    {#if marks.declarer || chair.seat === (declared?.declarer_seat ?? inPlay?.declarerSeat)}
+                                        <DeclarerMark won={marks.declarer === "won"} />
+                                    {/if}
+                                    <AnswerMarks
+                                        mark={(giveUp?.marks ?? abort.marks).get(chair.seat) ??
+                                            seriesEnd.marks.get(chair.seat) ??
+                                            openCardsMark(current, chair.seat)}
+                                    />
+                                    <AnswerMarks mark={wait?.marks.get(chair.seat)} />
+                                    {#if onTurn}
+                                        <span class="mark turn" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                <path d="M8 5l11 7-11 7z" />
+                                            </svg>
+                                        </span>
+                                    {:else if marks.passed}
+                                        <PassMark />
+                                    {:else if marks.waits}
+                                        <span class="mark waits" title={words["table.waitsForYou"]}>
+                                            <span class="dot" aria-hidden="true">{ownInitial}</span>
+                                            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                                        </span>
+                                    {/if}
+                                    <SpeechBubble
+                                        bubble={grumblingAt(chair.seat) === null ? marks.bubble : null}
+                                        initial={chair.occupant_name.slice(0, 1)}
+                                        fresh={springsUp(bidSaid, chair.seat, marks.bubble)}
+                                    />
+                                    <RamschMarks marks={ramschMark} initial={chair.occupant_name.slice(0, 1)} />
+                                    <NudgeBell
+                                        {id}
+                                        version={current.version}
+                                        seat={chair.seat}
+                                        name={chair.occupant_name}
+                                        nudge={chair.nudge}
+                                        grumble={grumblingAt(chair.seat)}
+                                    />
                                 {/if}
-                                {#if chair.hand !== null}
-                                    <span class="mark pos">{positionWord(chair.hand.position)}</span>
+                                {#if onResult && !seriesEnd.onStage}
+                                    <AnswerMarks mark={chair.ready ? "ready" : "unready"} />
                                 {/if}
-                                {#if marks.declarer || chair.seat === (declared?.declarer_seat ?? inPlay?.declarerSeat)}
-                                    <span class="mark declarer" class:won={marks.declarer === "won"}>
-                                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                            <path
-                                                d="M12 2.5l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.5 6 20.9l1.3-6.7-5-4.7 6.8-.8z"
-                                            />
-                                        </svg>
-                                        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                                        {`${words["table.plays"]}`}
-                                    </span>
+                                {#if chair.is_away}
+                                    <AwayMark />
                                 {/if}
-                                <AnswerMarks
-                                    mark={(giveUp?.marks ?? abort.marks).get(chair.seat) ??
-                                        seriesEnd.marks.get(chair.seat) ??
-                                        openCardsMark(current, chair.seat)}
-                                />
-                                <AnswerMarks mark={wait?.marks.get(chair.seat)} />
-                                {#if onTurn}
-                                    <span class="mark turn" aria-hidden="true">
-                                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                            <path d="M8 5l11 7-11 7z" />
-                                        </svg>
-                                    </span>
-                                {:else if marks.passed}
-                                    <PassMark />
-                                {:else if marks.waits}
-                                    <span class="mark waits" title={words["table.waitsForYou"]}>
-                                        <span class="dot" aria-hidden="true">{ownInitial}</span>
-                                        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                                    </span>
-                                {/if}
-                                <SpeechBubble
-                                    bubble={grumblingAt(chair.seat) === null ? marks.bubble : null}
-                                    initial={chair.occupant_name.slice(0, 1)}
-                                    fresh={springsUp(bidSaid, chair.seat, marks.bubble)}
-                                />
-                                <RamschMarks marks={ramschMark} initial={chair.occupant_name.slice(0, 1)} />
-                                <NudgeBell
-                                    {id}
-                                    version={current.version}
-                                    seat={chair.seat}
-                                    name={chair.occupant_name}
-                                    nudge={chair.nudge}
-                                    grumble={grumblingAt(chair.seat)}
-                                />
-                            {/if}
-                            {#if onResult && !seriesEnd.onStage}
-                                <AnswerMarks mark={chair.ready ? "ready" : "unready"} />
-                            {/if}
-                            {#if chair.is_away}
-                                <AwayMark />
-                            {/if}
+                            </span>
                         {:else if seated}
                             <span class="tile empty"></span>
                         {:else if locked.has(chair.seat)}
