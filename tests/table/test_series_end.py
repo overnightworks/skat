@@ -22,15 +22,15 @@ from skat.table.records import (
     Visibility,
     parsed_refusal,
 )
-from skat.table.rules import dealt_next, drawn_hand
+from skat.table.rules import dealt_next, drawn_hand, new_series_ask_stands, with_occupant
 from skat.table.series_end import (
     END_ANSWER_SECONDS,
     SeriesEndCommand,
     decide_agree_to_end,
     decide_end_answer_lapse,
-    decide_new_series_lapse,
     decide_refuse_to_end,
     decide_stop_playing,
+    new_series_lapsed,
     series_end_payload,
 )
 from tests.support.played_game import END_ASKED_AT, an_end_proposal, an_entry
@@ -347,18 +347,7 @@ class TestDecideNewSeriesLapse:
     MINUTE_OVER = END_ASKED_AT + MINUTE
 
     def test_a_seated_seat_silent_for_the_minute_stops_the_table(self):
-        lapse = decide_new_series_lapse(at_the_series_end(1, 2, asked_at=END_ASKED_AT), self.MINUTE_OVER)
-
-        assert lapse.stops
-
-    def test_a_minute_that_ran_out_with_no_seated_silent_seat_stops_nothing_and_asks_again_at_the_next_tap(self):
-        table = at_the_series_end(1, 2, asked_at=END_ASKED_AT, silent_seats=(3,))
-
-        lapse = decide_new_series_lapse(table, self.MINUTE_OVER)
-
-        assert not lapse.stops
-        assert lapse.table.series.new_series_asked_at is None
-        assert lapse.table.version == TABLE_VERSION + 1
+        assert new_series_lapsed(at_the_series_end(1, 2, asked_at=END_ASKED_AT), self.MINUTE_OVER)
 
     @pytest.mark.parametrize(
         "table",
@@ -370,9 +359,49 @@ class TestDecideNewSeriesLapse:
         ],
     )
     def test_nothing_changes_where_no_answer_has_run_out_of_time(self, table):
-        lapse = decide_new_series_lapse(table, self.MINUTE_OVER - timedelta(seconds=1))
+        assert not new_series_lapsed(table, self.MINUTE_OVER - timedelta(seconds=1))
 
-        assert (lapse.stops, lapse.table) == (False, table)
+
+class TestTheMinuteWhenASeatStandsUp:
+    def test_the_given_marks_stay_and_the_minute_runs_while_a_seated_seat_is_silent(self):
+        table = at_the_series_end(1, asked_at=END_ASKED_AT)
+
+        after = with_occupant(table, 2, None)
+
+        assert [chair.ready for chair in after.chairs] == [True, False, False]
+        assert after.series.new_series_asked_at == END_ASKED_AT
+
+    def test_the_last_silent_seat_standing_up_ends_the_minute_and_keeps_the_given_marks(self):
+        table = at_the_series_end(1, 2, asked_at=END_ASKED_AT)
+
+        after = with_occupant(table, 3, None)
+
+        assert [chair.ready for chair in after.chairs] == [True, True, False]
+        assert after.series.new_series_asked_at is None
+
+    def test_the_only_seat_that_chose_standing_up_ends_the_minute(self):
+        after = with_occupant(at_the_series_end(1, asked_at=END_ASKED_AT), 1, None)
+
+        assert after.series.new_series_asked_at is None
+
+    def test_a_minute_that_ended_that_way_stops_nothing_when_its_time_is_over(self):
+        after = with_occupant(at_the_series_end(1, 2, asked_at=END_ASKED_AT), 3, None)
+
+        assert not new_series_lapsed(after, END_ASKED_AT + MINUTE)
+
+    @pytest.mark.parametrize(
+        ("table", "stands"),
+        [
+            pytest.param(at_the_series_end(1, asked_at=END_ASKED_AT), True, id="a-seated-seat-is-silent"),
+            pytest.param(
+                at_the_series_end(1, 2, asked_at=END_ASKED_AT, silent_seats=(3,)), False, id="every-seated-seat-chose"
+            ),
+            pytest.param(at_the_series_end(asked_at=END_ASKED_AT), False, id="no-mark-stands"),
+            pytest.param(at_the_series_end(1), False, id="no-ask-was-started"),
+        ],
+    )
+    def test_an_ask_stands_while_a_mark_stands_and_a_seated_seat_is_silent(self, table, stands):
+        assert new_series_ask_stands(table) is stands
 
 
 class TestAnswersRunOutOfTime:

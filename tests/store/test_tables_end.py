@@ -511,7 +511,11 @@ def test_an_ask_for_new_series_is_found_with_its_instant_by_the_start_of_a_serve
     save(
         transactions,
         replace(
-            record, hand=None, progress=HandProgress(), series=Series(12, 12, number=2, new_series_asked_at=STOPPED_AT)
+            record,
+            hand=None,
+            progress=HandProgress(),
+            chairs=(replace(record.chairs[0], ready=True), *record.chairs[1:]),
+            series=Series(12, 12, number=2, new_series_asked_at=STOPPED_AT),
         ),
     )
 

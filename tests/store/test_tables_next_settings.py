@@ -13,6 +13,7 @@ from skat.table.records import (
     Refusal,
     Series,
     SitDown,
+    StandUp,
     StopPlaying,
     TableId,
     TableOptions,
@@ -101,6 +102,20 @@ class TestTheNextSeriesSettings:
         record = read(transactions, first_series)
         assert [chair.ready for chair in record.chairs] == [False, False, False]
         assert record.series.new_series_asked_at is None
+
+    def test_the_last_silent_seat_standing_up_keeps_the_given_marks_and_no_minute_is_left_to_recover(
+        self, service, transactions, first_series
+    ):
+        for seat in (1, 2):
+            service.start_new_series(PEOPLE[seat], NewSeriesCommand(f"tap-{seat}", first_series, 1, 0), ALL_THREE)
+        assert set(service.pending_end_answers()) == {first_series}
+
+        service.stand(PEOPLE[3], StandUp("stand-third", first_series), ALL_THREE)
+
+        record = read(transactions, first_series)
+        assert [chair.ready for chair in record.chairs] == [True, True, False]
+        assert record.series.new_series_asked_at is None
+        assert service.pending_end_answers() == {}
 
     def test_the_next_series_is_dealt_with_the_saved_settings_and_its_row_counts_there(
         self, service, transactions, engine, first_series

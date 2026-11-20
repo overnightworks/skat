@@ -165,7 +165,8 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
     a standing end proposal, of a standing give-up request, of a standing proposal to abort the hand and his no-word
     answers behind. While a hand runs, he is also marked as having held this chair, which bars him from any other
     chair of the hand. A change that leaves no chair of the hand open clears the proposal to abort it, and a change
-    that makes the standing yeses more than half of the seated chairs ends the hand at once, in the same version.
+    that makes the standing yeses more than half of the seated chairs ends the hand at once, in the same version. A
+    minute of „Neue Serie“ that no longer has a silent seated chair ends with it; the marks given stay.
     """
     ready = occupant is not None and result_pending(table) and not series_over(table)
     chairs = tuple(Chair(seat, occupant, ready=ready) if chair.seat == seat else chair for chair in table.chairs)
@@ -193,7 +194,7 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
         visibility=table.visibility,
         style=table.style,
     )
-    return _abort_if_agreed(_abort_while_open(changed))
+    return with_standing_ask(_abort_if_agreed(_abort_while_open(changed)))
 
 
 def _seats_held_after(table: TableRecord, seat: int, occupant: Occupant | None) -> frozenset[SeatHeld]:
@@ -382,8 +383,26 @@ def series_over(table: TableRecord) -> bool:
     """The series ran its last game or ended early by consent, and no hand runs any more; a table with no series
     never ends.
     """
-    ended_early = table.series is not None and table.series.ended_early and not hand_runs(table)
-    return ended_early or series_games_left(table) == 0
+    return table.series is not None and table.series.is_over and not hand_runs(table)
+
+
+def new_series_ask_stands(table: TableRecord) -> bool:
+    """The minute of „Neue Serie“ asks something while a chair's mark stands and a seated chair is still silent: with
+    no mark nobody chose, and with every seated chair chosen nobody is left whose silence could count as no.
+    """
+    series = table.series
+    if series is None or series.new_series_asked_at is None:
+        return False
+    return any(chair.ready for chair in table.chairs) and any(
+        chair.occupant is not None and not chair.ready for chair in table.chairs
+    )
+
+
+def with_standing_ask(table: TableRecord) -> TableRecord:
+    """The table with its minute of „Neue Serie“ only while it stands, the one place that decides it."""
+    if table.series is None or table.series.new_series_asked_at is None or new_series_ask_stands(table):
+        return table
+    return replace(table, series=replace(table.series, new_series_asked_at=None))
 
 
 def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[str]:

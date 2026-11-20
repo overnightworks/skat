@@ -110,29 +110,12 @@ def decide_end_answer_lapse(table: TableRecord, now: datetime) -> Decision:
     return _refused(table, series, seated - proposal.agreed)
 
 
-@dataclass(frozen=True)
-class NewSeriesLapse:
-    """What the end of the minute of „Neue Serie“ does: `stops` says a seated seat stayed silent, so the table ends;
-    otherwise `table` is the table after it.
+def new_series_lapsed(table: TableRecord, now: datetime) -> bool:
+    """At the series' end, whether the minute of „Neue Serie“ ran out: a seated seat never chose it, so the table
+    ends. A minute with no silent seated chair left is no ask (`new_series_ask_stands`) and never lapses.
     """
-
-    table: TableRecord
-    stops: bool = False
-
-
-def decide_new_series_lapse(table: TableRecord, now: datetime) -> NewSeriesLapse:
-    """At the series' end, a minute that ran out with a seated seat that never chose „Neue Serie“ stops the table. When
-    every silent chair is empty nobody refused: the ask ends, the next „Neue Serie“ starts a minute of its own, and the
-    table waits for a sitter. Any other table stays as it was.
-    """
-    series = table.series
-    asked_at = None if series is None else series.new_series_asked_at
-    if series is None or asked_at is None or answer_left(asked_at, now) > timedelta(0):
-        return NewSeriesLapse(table)
-    if any(chair.occupant is not None and not chair.ready for chair in table.chairs):
-        return NewSeriesLapse(table, stops=True)
-    forgotten = replace(series, new_series_asked_at=None)
-    return NewSeriesLapse(replace(table, version=table.version + 1, series=forgotten))
+    asked_at = None if table.series is None else table.series.new_series_asked_at
+    return asked_at is not None and answer_left(asked_at, now) <= timedelta(0)
 
 
 def decide_stop_playing(table: TableRecord, actor: Actor) -> Refusal | None:
