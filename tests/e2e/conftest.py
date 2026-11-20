@@ -16,7 +16,6 @@ from tests.e2e.support.failure_record import FailureRecord
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
 from tests.e2e.support.server import RunningServer, skat_on_new_database
-from tests.e2e.support import request_timing
 from tests.e2e.support.shards import select_shard
 from tests.support.signed_in import SeededMember, new_account, seed_member
 
@@ -220,8 +219,6 @@ def open_person(
         context.add_init_script(path=RECORDING_AUDIO_SCRIPT)
         browser_coverage.watch(context)
         context.on("requestfailed", note_failed_request)
-        if request_timing.enabled():
-            context.on("requestfinished", request_timing.note_browser_request)
         page = context.new_page()
         failure_record.watch(page, username or f"person-{person_number}")
         if signed_in:

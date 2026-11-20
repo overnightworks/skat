@@ -174,13 +174,7 @@ jobs:
           SKAT_E2E_SHARDS: ${{ strategy.job-total }}
           SKAT_TEST_POSTGRES_URL: postgresql+psycopg://postgres@localhost:5432/postgres
           SKAT_BROWSER_COVERAGE_DIR: ${{ runner.temp }}/browser-coverage-raw
-          SKAT_E2E_TIMING_DIR: ${{ runner.temp }}/request-timing
         run: pytest -m e2e -n auto --durations=20 --tracing retain-on-failure --screenshot only-on-failure --output test-results
-
-      - name: Report the request timing
-        if: ${{ !cancelled() }}
-        run: |
-          python scripts/request_timing_report.py "${RUNNER_TEMP}/request-timing"
 
       - name: Upload the end-to-end coverage data
         if: ${{ !cancelled() }}

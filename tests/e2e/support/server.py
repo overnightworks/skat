@@ -28,8 +28,6 @@ from skat.web.page_build import BUILD_DIRECTORY, PageBuild
 from skat.web.sign_in import LoggingAuditSink
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.in_memory_stores import single_pod
-from tests.e2e.support.request_timing import enabled as request_timing_enabled
-from tests.e2e.support.request_timing import timed_app
 from tests.support.postgres import created_database, migrated_template
 from tests.support.sign_in_settings import build_sign_in_settings
 
@@ -199,8 +197,6 @@ class RunningServer:
             ssl_keyfile=str(key_file),
             ssl_certfile=str(certificate_file),
         )
-        if request_timing_enabled():
-            self._server.config.app = timed_app(app)
         # A restart serves on the port again, and only the first start has the listener of the sign-in.
         listener = self._listener or listening_loopback_socket(self._loopback.sign_in.settings.port)
         self._listener = None
