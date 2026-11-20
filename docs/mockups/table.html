@@ -228,7 +228,6 @@ body.solo .frame{border-radius:0;border:0}
   background:rgba(0,0,0,.28);color:rgba(244,246,248,.45)}
 .ladder span.held{background:rgba(0,0,0,.35);color:var(--on-stage);display:inline-flex;gap:3px}
 .ladder span.held svg{width:13px;height:13px;color:var(--ok-stage)}
-.ladder span.now{min-width:62px;height:48px;font-size:26px;background:var(--cream);color:var(--ink);box-shadow:0 0 0 3px var(--accent-stage),0 8px 18px -6px rgba(0,0,0,.7)}
 .btns{transform:translateX(-50%);display:flex;gap:10px}
 .button{height:52px;padding:0 24px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:10px;
   font:inherit;font-size:16px;font-weight:600;white-space:nowrap;cursor:pointer}
@@ -465,16 +464,14 @@ body.solo section.shot .rule{display:none}
 .mark.waits{gap:0;padding:0 7px 0 5px;background:var(--glass-dark);backdrop-filter:blur(12px)}
 /* the declarer whose turn it is wears both marks: the star stays right, the turn badge moves left */
 :where(.seat:not(.framed)) .mark.decl + .mark:is(.turn,.ready,.waits){right:auto;left:calc(var(--pad) + 6px)}
-/* a game to pick: a glass chip; the picked one is lit like the bid on the ladder */
+/* a game to pick: a glass chip; the picked one is lit cream in the blue ring */
 .button.pick{height:46px;padding:0 18px}
 .button.pick.round{width:52px;height:52px;padding:0}
 .button.pick .game{font-size:16px}
 .button.pick.on{background:var(--cream);color:var(--ink);box-shadow:0 0 0 3px var(--accent-stage),0 8px 18px -6px rgba(0,0,0,.7)}
 .ladder.words span{padding:0 11px}
-.ladder.words span.now{height:42px;font-size:18px}
 .p390 .ladder.words{gap:5px}
 .p390 .ladder.words span{padding:0 7px}
-.p390 .ladder.words span.now{font-size:17px}
 .seat:not(.sm) .mark.waits .dot{width:20px;height:20px;font-size:11px}
 @media (prefers-reduced-motion:no-preference){
   /* the second card is picked, and only then the button lights */
@@ -516,18 +513,145 @@ body.solo section.shot .rule{display:none}
 .p390 .sbar .wait{display:none}
 </style>
 <style>
-/* ---------- the auction: the bidder's ladder offers every higher value, a held value shows its tick, the winner's star lands ---------- */
-.ladder.up span:not(.held):not(.now){background:var(--glass);color:var(--on-stage)}
-.ladder.up span.more{opacity:.45}
-/* the long ladder: the held value and the next one stay put; the higher ones roll along a strip whose end is the top value */
-.ladder.up .higher{overflow:hidden;width:var(--strip);mask-image:linear-gradient(90deg,transparent,#000 26px)}
-.ladder.up .roll{display:flex;gap:6px;width:max-content;transform:translateX(calc(var(--strip) - 100%))}
+/* ---------- the auction, „Ein Griff“: the brass counter in the middle, the duel under it, the chips of the games his hand carries, his limit under them; blue is what he says now, brass what the table does for him; the winner's star lands ---------- */
 .bubble > svg{width:18px;height:18px;color:var(--ok-stage)}
+/* the counter: a brass plate with its word over cream drums that roll from one value to the next */
+.counter{transform:translateX(-50%);z-index:4;display:flex;flex-direction:column;align-items:center}
+.counter .word{position:relative;z-index:1;margin-bottom:-3px;padding:2px 12px 4px;border-radius:8px 8px 0 0;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap;color:#2b1d05;
+  background:linear-gradient(180deg,var(--brass-hi),var(--brass));box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}
+.counter .body{position:relative;display:flex;gap:4px;padding:5px 7px;border-radius:10px;
+  background:radial-gradient(circle at 6px 6px,#7a5a22 0 1.4px,transparent 2px),radial-gradient(circle at calc(100% - 6px) calc(100% - 6px),#7a5a22 0 1.4px,transparent 2px),linear-gradient(180deg,var(--brass-hi),var(--brass) 55%,#8c6a2f);
+  box-shadow:0 10px 20px -8px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.55),inset 0 -2px 0 rgba(0,0,0,.25)}
+.counter .drum{--dh:38px;width:27px;height:var(--dh);overflow:hidden;border-radius:5px;background:linear-gradient(180deg,#cfc7b2,var(--cream) 26%,var(--cream) 74%,#cfc7b2);box-shadow:inset 0 2px 4px rgba(0,0,0,.35)}
+.counter .reel{display:flex;flex-direction:column}
+.counter .reel i{height:var(--dh);flex:none;display:grid;place-items:center;font-family:var(--font-mark);font-style:normal;font-weight:700;font-size:29px;line-height:1;color:var(--ink)}
+.d1280 .counter .word{font-size:12.5px;padding:3px 16px 5px}
+.d1280 .counter .body{gap:5px;padding:6px 9px}
+.d1280 .counter .drum{--dh:60px;width:44px;border-radius:7px}
+.d1280 .counter .reel i{font-size:47px}
+/* the bid won: a brass coin with the tick; the game's value against the bid: a tick, or a warning below it */
+.counter .coin{position:absolute;right:-16px;top:-14px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#2b1d05;rotate:-12deg;
+  background:radial-gradient(circle at 35% 30%,var(--brass-hi),var(--brass) 60%,#8c6a2f);box-shadow:0 4px 10px -3px rgba(0,0,0,.8),inset 0 0 0 2px rgba(122,90,34,.6)}
+.counter .coin svg{width:17px;height:17px}
+.counter .flag{position:absolute;left:calc(100% + 8px);top:50%;translate:0 -50%;height:28px;padding:0 10px 0 7px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;
+  font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;background:var(--glass-dark);color:var(--on-stage)}
+.counter .flag svg{width:15px;height:15px;color:var(--ok-stage)}
+.p390 .counter .flag,.p360 .counter .flag{left:calc(100% + 3px);height:22px;padding:0 5px 0 4px;gap:2px;font-size:12px}
+.p390 .counter .flag svg,.p360 .counter .flag svg{width:11px;height:11px}
+.counter .flag.under{background:rgba(42,29,0,.82);color:var(--busy-stage);box-shadow:inset 0 0 0 1.5px var(--busy-stage)}
+.counter .flag.under svg{color:var(--busy-stage)}
+/* under the counter: who says to whom; in declaring, how the value is made */
+.duel{transform:translateX(-50%);display:flex;align-items:center;gap:6px;height:24px;padding:0 7px;border-radius:999px;background:var(--glass-dark);backdrop-filter:blur(12px);font-size:12.5px;font-weight:600;white-space:nowrap}
+.duel .dot{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,var(--c1),var(--c2));color:#111;font-size:10px;font-weight:700}
+.duel .dot.agent{background:radial-gradient(circle at 34% 30%,#d9e6ff,#4467b8 60%,#1d2c55);color:#fff}
+.duel .dot svg{width:11px;height:11px}
+.duel .to{display:grid;color:var(--accent-stage)}
+.duel .to svg{width:14px;height:14px;rotate:90deg}
+.duel.made{gap:7px;padding:0 12px;color:var(--on-stage)}
+.duel.made i{font-style:normal;color:var(--on-stage-soft)}
+.d1280 .duel{height:28px;font-size:13.5px}
+/* the chips: „Weg“, the value of each game the hand carries with its suit, „⋯“ for the whole scale */
+.btns.chips{--unlit:linear-gradient(180deg,rgba(4,14,10,.62),rgba(10,22,16,.5));--brassy:linear-gradient(180deg,var(--brass-hi),var(--brass) 55%,#a6823f)}
+.bid-chip{position:relative;height:46px;padding:0 6px 0 3px;border-radius:15px;display:inline-flex;align-items:center;gap:3px;font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--on-stage);
+  background:var(--unlit);box-shadow:inset 0 0 0 1.2px rgba(201,164,100,.55),0 8px 16px -10px rgba(0,0,0,.8)}
+.bid-chip b{font-weight:700}
+.bid-chip .suit{width:21px;height:21px;flex:none;border-radius:50%;background:var(--cream);display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px var(--brass)}
+.bid-chip .suit svg{width:13px;height:13px}
+.bid-chip.more{width:30px;padding:0;justify-content:center}
+.bid-chip.more svg{width:20px;height:20px}
+.btns.chips{gap:4px;align-items:center}
+.btns.chips .button-glass{position:relative;height:46px;padding:0 8px;gap:4px;border-radius:15px;font-size:14.5px}
+.btns.chips .button-glass svg{width:15px;height:15px}
+/* his limit is brass; a value bid already fades; with „Weg“ said ahead the values rest */
+.bid-chip.lit,.btns.chips .button-glass.lit{color:#2b1d05;background:var(--brassy);box-shadow:0 0 0 2px rgba(255,243,201,.55),0 0 22px rgba(241,216,152,.45),inset 0 1px 0 rgba(255,255,255,.6)}
+.bid-chip.gone{opacity:.34}
+.bid-chip.gone b{text-decoration:line-through;text-decoration-thickness:2px}
+.bid-chip.rest{opacity:.42}
+.d1280 .btns.chips{gap:8px}
+.d1280 .bid-chip{height:52px;padding:0 13px 0 6px;gap:7px;border-radius:17px;font-size:20px}
+.d1280 .bid-chip .suit{width:30px;height:30px}
+.d1280 .bid-chip .suit svg{width:17px;height:17px}
+.d1280 .bid-chip.more{width:46px;padding:0}
+.d1280 .btns.chips .button-glass{height:52px;padding:0 16px;border-radius:17px;font-size:16px}
+.p360 .btns.chips{gap:3px}
+.p360 .bid-chip{padding:0 5px 0 3px;gap:3px;font-size:14.5px}
+.p360 .bid-chip .suit{width:19px;height:19px}
+.p360 .bid-chip .suit svg{width:11px;height:11px}
+.p360 .bid-chip.more{width:26px;padding:0}
+.p360 .btns.chips .button-glass{padding:0 7px;gap:3px;font-size:14px}
+/* a tap: a ring round the part the finger lands on */
+.ring{position:absolute;z-index:3;inset:-6px;border-radius:inherit;border:2px solid rgba(251,248,240,.9);box-shadow:0 0 0 6px rgba(251,248,240,.14);pointer-events:none}
+/* the one key on his turn without a limit */
+.btns.step .button{min-width:128px}
+/* his limit under the chips, which only his page draws: the value, whether the table asks or passes above it, ✕ to clear */
+.limit{transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:6px;height:28px;white-space:nowrap}
+.limit .bis{height:28px;padding:0 11px 0 9px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;font-size:13.5px;font-weight:700;color:#2b1d05;
+  background:linear-gradient(180deg,var(--brass-hi),var(--brass) 55%,#a6823f);box-shadow:0 6px 14px -6px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.55)}
+.limit .suit{width:18px;height:18px;border-radius:50%;background:var(--cream);display:grid;place-items:center}
+.limit .suit svg{width:11px;height:11px}
+.limit .mode{position:relative;display:flex;height:28px;padding:2px;border-radius:999px;background:var(--glass-dark);backdrop-filter:blur(12px);box-shadow:inset 0 0 0 1px rgba(240,214,150,.3)}
+.limit .mode span{position:relative;display:inline-flex;align-items:center;gap:4px;padding:0 9px;border-radius:999px;font-size:12.5px;font-weight:700;color:var(--on-stage-soft)}
+.limit .mode span svg{width:13px;height:13px}
+.limit .mode span.on{background:var(--cream);color:var(--ink)}
+.limit .clear{position:relative;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--glass-dark);color:var(--brass-hi);box-shadow:inset 0 0 0 1.2px rgba(201,164,100,.6)}
+.limit .clear svg{width:12px;height:12px}
+.limit .said{height:28px;padding:0 12px;border-radius:999px;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;background:var(--glass-dark);color:var(--on-stage)}
+.limit .said svg{width:13px;height:13px}
+.limit.dim{opacity:.62}
+/* the table asks him once above an ask limit: his turn, in the colour of what he says now */
+.asks{transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:8px;height:34px;padding:0 14px 0 5px;border-radius:999px;background:var(--cream);color:var(--ink);font-size:15px;font-weight:700;white-space:nowrap;
+  box-shadow:0 0 0 3px var(--accent-stage),0 10px 22px -6px rgba(0,0,0,.8)}
+.asks .bis{height:24px;padding:0 9px 0 6px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;font-size:13px;color:#2b1d05;background:linear-gradient(180deg,var(--brass-hi),var(--brass) 55%,#a6823f)}
+.asks .suit{width:16px;height:16px;border-radius:50%;background:var(--cream);display:grid;place-items:center}
+.asks .suit svg{width:10px;height:10px}
+.button-brass{background:linear-gradient(180deg,var(--brass-hi),var(--brass) 55%,#a6823f);color:#2b1d05;box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 8px 18px -8px rgba(0,0,0,.8)}
+/* the whole scale behind „⋯“: every valid value; the bid ones faded, the suit over each value the hand carries, hatched above the hand, where a hold sets a value; the brass rider under his limit */
+@property --hold{syntax:'<percentage>';inherits:false;initial-value:100%}
+.scale{transform:translateX(-50%);z-index:6;height:80px;border-radius:18px;overflow:hidden;
+  background:linear-gradient(180deg,rgba(4,9,7,.9),rgba(10,18,14,.84));box-shadow:inset 0 0 0 1.2px rgba(201,164,100,.6),0 18px 34px -14px rgba(0,0,0,.9)}
+.scale .view{height:100%;mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent)}
+.scale .view.mid{mask-image:linear-gradient(90deg,transparent,#000 26px,#000 calc(100% - 40px),transparent)}
+.scale .run{position:relative;display:flex;align-items:flex-end;gap:3px;width:max-content;height:100%;padding:0 10px 20px}
+.scale .v{position:relative;flex:none;width:30px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--on-stage);background:rgba(255,255,255,.08)}
+.scale .v .suit{position:absolute;left:50%;top:-21px;translate:-50% 0;width:18px;height:18px;border-radius:50%;background:var(--cream);display:grid;place-items:center;box-shadow:inset 0 0 0 1.2px var(--brass)}
+.scale .v .suit svg{width:11px;height:11px}
+.scale .v.gone{opacity:.3;text-decoration:line-through}
+.scale .v.at{background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1.5px var(--on-stage-soft)}
+.scale .v.over{color:var(--brass-hi);background:repeating-linear-gradient(135deg,rgba(201,164,100,.3) 0 5px,rgba(255,255,255,.04) 5px 10px)}
+.scale .v.mine{color:#2b1d05;background:linear-gradient(180deg,var(--brass-hi),var(--brass) 55%,#a6823f)}
+.scale .v.pick{color:var(--ink);background:var(--cream);translate:0 -3px;box-shadow:0 0 0 3px var(--accent-stage),0 8px 16px -6px rgba(0,0,0,.8)}
+.scale .hold{position:absolute;inset:-5px;border-radius:14px;padding:3px;background:conic-gradient(var(--brass-hi) var(--hold),rgba(255,255,255,.12) 0);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.scale .hint{position:absolute;left:0;top:-22px;height:18px;padding:0 7px;border-radius:999px;display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:#2b1d05;background:var(--brass-hi)}
+.scale .rail{position:absolute;left:10px;right:10px;bottom:9px;height:4px;border-radius:2px;background:rgba(201,164,100,.28)}
+.scale .rail i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:linear-gradient(90deg,rgba(201,164,100,.5),var(--brass-hi))}
+.scale .rider{position:absolute;bottom:1px;width:28px;height:15px;translate:-50% 0;border-radius:3px 3px 7px 7px;background:linear-gradient(180deg,var(--brass-hi),var(--brass) 60%,#8c6a2f);box-shadow:0 3px 6px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.6)}
+.d1280 .scale{height:88px}
+.d1280 .scale .run{gap:4px}
+.d1280 .scale .v{width:44px;height:40px;font-size:18px}
+/* declaring: the preselected game as one big key, the other games in one row, the chosen game's levels under it */
+.button.big{position:relative;height:58px;padding:0 26px 0 10px;font-size:19px;gap:12px}
+.btns.six .button,.levels span{position:relative}
+.button.big .suit{width:40px;height:40px;border-radius:50%;background:var(--cream);display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px var(--brass)}
+.button.big .suit svg{width:22px;height:22px}
+.btns.six{gap:8px}
+.p390 .btns.six{gap:6px}
+.p390 .btns.six .button.pick{height:44px;padding:0 13px}
+.p390 .btns.six .button.pick.round{width:44px;height:44px;padding:0}
+.levels{transform:translateX(-50%);display:flex;gap:6px}
+.levels span{height:36px;padding:0 12px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:600;background:var(--glass);color:var(--on-stage);white-space:nowrap}
+.levels span svg{width:14px;height:14px;color:var(--ok-stage)}
+.levels span.on{background:var(--cream);color:var(--ink)}
+.levels span.on svg{color:#1c8a55}
+.levels span.given{background:rgba(0,0,0,.35)}
+.p390 .levels{gap:4px}
+.p390 .levels span{padding:0 9px;font-size:13.5px}
+/* a part that moves runs on its scene's clock (--mv names its keyframes); a single frame shows its last stop, „&play“ repeats the round */
 @media (prefers-reduced-motion:no-preference){
   .mark.decl.mo{animation:slam .6s cubic-bezier(.5,0,.7,1.4) var(--d,0s) both}
-  .ladder.up .roll{animation:climb 1.6s cubic-bezier(.3,.7,.2,1) .8s both}
-  @keyframes climb{from{transform:none}}
+  .cyc{animation:var(--mv) var(--clock) linear both}
 }
+body.tk-play .frame .mo.cyc{animation-play-state:running!important;animation-delay:0s!important;animation-iteration-count:infinite!important}
 </style>
 <style>
 /* ---------- the reckoning on the result: the counted steps, their product, the raise of an overbid game, the doubling of a lost one, the list ---------- */
@@ -847,7 +971,7 @@ function played(r,s,k,o){
   return `<div class="play ${o.fresh?'fresh':''} ${sw?'sweep mo':''}" style="${st}">${o.blank?`<div class="card blank" style="--w:${o.w}px"></div>`:card(r,s,'',at({'--w':o.w}))}${o.notag?'':tag(k,sw?'mo':'',sw?`--k:${sw.k}s`:'')}</div>`;
 }
 const ghost=(x,y,w,icon=I.up)=>`<div class="ghost" style="${at({left:x,top:y,'--w':w})}">${icon}</div>`;
-const bubble=(k,text,o)=>{const p=P[k];return `<div class="bubble ${p.agent?'agent':''} ${o.quiet?'quiet':''}" style="${at({left:o.x,top:o.y,'--tail':o.tail,'--tt':o.bottom?'calc(100% - 6px)':undefined})}"><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span>${text}</div>`;};
+const bubble=(k,text,o)=>{const p=P[k];return `<div class="bubble ${p.agent?'agent':''} ${o.quiet?'quiet':''}" style="${at({left:o.x,top:o.y,'--tail':o.tail,'--tt':o.bottom?'calc(100% - 6px)':o.tt})}"><span class="dot" style="${dotStyle(p)}">${dotInner(p)}</span>${text}</div>`;};
 const stamp=(text,k,o)=>{const p=P[k];return `<div class="shock mo" style="${at({left:o.x,top:o.y,'--ss':o.ss,'--k':`${o.k-.32}s`})}"></div>
   <div class="stamp mo ${p.agent?'agent':''}" style="${at({left:o.x,top:o.y,'--sf':o.sf,'--sr':`${o.sr||-7}deg`,'--k':`${o.k}s`})}"><span class="by" style="${dotStyle(p)}">${dotInner(p)}</span>${text}</div>`;};
 /* an emote thrown from (ox,oy) lands at (x,y); a dashed arc shows its flight */
@@ -923,14 +1047,76 @@ const pbSeats=(o)=>seat('anna',{...PB.anna,video:o.video,marks:o.anna,out:o.anna
   +seat('felix',{...(o.layout||PB).you,video:o.video,marks:o.you,win:o.youWin,got:o.got})
   +chairCoasters(o.layout||PB,o.score);
 
+/* ===== the auction, „Ein Griff“: the value of a game his hand carries is his limit with one tap; the table bids for him and the brass counter in the middle rolls; the one blue step key stands only while he is on turn without a limit ===== */
+Object.assign(I,{
+  ask:sv('<path d="M9.2 9.2a2.9 2.9 0 1 1 4 2.7c-.7.3-1.2.9-1.2 1.6v.8"/><circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/>',2.2),
+  lock:sv('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>'),
+  warn:sv('<path d="M12 4 2.8 20h18.4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.3" r="1" fill="currentColor" stroke="none"/>',2.2),
+});
+/* the games the bid hand carries without the skat: ohne 2, Spiel 3 */
+const HAND_GAMES=[['d',27],['h',30],['s',33],['c',36]];
+/* where the auction's parts lie; on the phone the lower ones follow the near chair, so the 360 frame steps them up with it and leaves the skat off its narrower felt */
+const griffAt=(d)=>d?{cx:640,counter:74,duel:170,skat:true,keys:234,scale:300,key:336,chips:402,line:466,you:{x:784,y:510}}
+  :{cx:PB.cx,counter:136,duel:204,skat:PB.you.y>=496,keys:PB.you.y-262,scale:PB.you.y-200,key:PB.you.y-174,chips:PB.you.y-114,line:PB.you.y-60,you:{x:PB.you.x-10,y:PB.you.y+22}};
+/* a scene that moves runs on one clock: a moving part holds its stops [second, declarations, ease] in turn, eases into each (.3 s unless named) and rests on its last, which a single frame shows; „&play“ repeats the round */
+const KEYFRAMES=[];
+const moving=(html,clock,stops)=>{const name=`griff${KEYFRAMES.length}`,pct=(t)=>`${(Math.min(Math.max(t,0),clock)/clock*100).toFixed(2)}%`;
+  KEYFRAMES.push(`@keyframes ${name}{0%{${stops[0][1]}}${stops.slice(1).map(([t,css,ease],i)=>`${pct(t-(ease??.3))}{${stops[i][1]}}${pct(t)}{${css}}`).join('')}100%{${stops.at(-1)[1]}}}`);
+  return html.replace('class="','class="mo cyc ').replace('style="',`style="--mv:${name};--clock:${clock}s;--k:${clock-.05}s;`);};
+/* a part that is gone at the end is drawn hidden, so a page without motion shows the end too */
+const hidden=(html)=>html.replace('style="','style="opacity:0;');
+const popsIn=(html,clock,t)=>moving(html,clock,[[0,'opacity:0;scale:.4'],[t,'opacity:1;scale:1']]);
+const fadesIn=(html,clock,t)=>moving(html,clock,[[0,'opacity:0'],[t,'opacity:1']]);
+const fadesOut=(html,clock,t)=>moving(hidden(html),clock,[[0,'opacity:1'],[t,'opacity:0']]);
+/* the counter: `values` roll in at the seconds `at` (null: no bid yet); `word` names what it counts; `coin` seals a won bid, `flag` sets the game's value against the bid */
+const counter=(d,o)=>{const A=griffAt(d),values=o.values,size=Math.max(2,...values.map(v=>v==null?0:String(v).length));
+  const digit=(v,place)=>v==null?'':String(v).padStart(size)[place].trim();
+  const drums=Array.from({length:size},(_,place)=>{const reel=`<span class="reel" style="translate:0 calc(var(--dh) * -${values.length-1})">${values.map(v=>`<i>${digit(v,place)}</i>`).join('')}</span>`;
+    return `<span class="drum">${values.length>1?moving(reel,o.clock,values.map((_,i)=>[i?o.at[i-1]:0,`translate:0 calc(var(--dh) * -${i})`])):reel}</span>`;}).join('');
+  return `<div class="counter" style="${at({left:A.cx,top:A.counter})}"><span class="word">${o.word}</span><span class="body">${drums}${o.coin||''}${o.flag||''}</span></div>`;};
+const coin=(clock,t)=>moving(`<i class="coin" style="">${I.check}</i>`,clock,[[0,'opacity:0;scale:2.6'],[t,'opacity:1;scale:1']]);
+const flag=(value,bid,clock,t)=>popsIn(`<span class="flag ${value<bid?'under':''}" style="">${value<bid?I.warn:I.check}${bid}</span>`,clock,t);
+const speaker=(k)=>{const p=P[k];return `<span class="dot ${p.agent?'agent':''}" style="${dotStyle(p)}">${dotInner(p)}</span>`;};
+/* under the counter: who says to whom */
+const duel=(d,from,to)=>{const A=griffAt(d);return `<div class="duel" style="${at({left:A.cx,top:A.duel})}">${speaker(from)}<b>${P[from].n}</b><span class="to">${I.up}</span><b>${P[to].n}</b>${speaker(to)}</div>`;};
+const griffSkat=(d)=>{const A=griffAt(d);return A.skat?(d?skat(588,208,72):skat(A.cx-30,236,40)):'';};
+const ring=(clock,t)=>popsIn('<i class="ring" style=""></i>',clock,t);
+/* the chips: o.lit his limit (a value, or 'weg' for the pass said ahead), o.standing fades every value below it,
+   o.tap where the finger lands (at o.tapAt on the clock), o.more the scale open, o.moves stops per chip */
+const chipRow=(d,o={})=>{const A=griffAt(d),standing=o.standing??0,moves=o.moves||{};
+  const tapped=(key)=>o.tap===key?ring(o.clock,o.tapAt):'';
+  const moved=(key,html)=>moves[key]?moving(html,o.clock,moves[key]):html;
+  const weg=moved('weg',`<span class="button button-glass ${o.lit==='weg'?'lit':''}" style="" role="button" aria-pressed="${o.lit==='weg'}">${I.cross}Weg${tapped('weg')}</span>`);
+  const chip=([s,v])=>moved(v,`<span class="bid-chip ${o.lit===v?'lit':''} ${v<standing?'gone':''} ${o.lit==='weg'?'rest':''}" style="" role="button" aria-pressed="${o.lit===v}" aria-label="bis ${v}"><span class="suit">${suitIcon(s)}</span><b>${v}</b>${tapped(v)}</span>`);
+  return `<div class="btns chips" style="${at({left:A.cx,top:A.chips})}">${weg}${HAND_GAMES.map(chip).join('')}<span class="bid-chip more ${o.more?'lit':''}" role="button" aria-expanded="${!!o.more}" aria-label="Alle Werte">${I.more}</span></div>`;};
+/* his limit under the chips, which only his page draws: the value, „Fragen“ or „Fest“ for what the table does above it, ✕ to clear; o.modes: stops for the two halves */
+const bisLabel=(game,v)=>`bis <span class="suit">${suitIcon(game)}</span>${v}`;
+const limitLine=(d,o)=>{const A=griffAt(d),modes=o.modes||[];
+  const half=(i,on,icon,word,tap)=>{const html=`<span class="${on?'on':''}" style="">${icon}${word}${tap||''}</span>`;return modes[i]?moving(html,o.clock,modes[i]):html;};
+  return `<div class="limit ${o.dim?'dim':''}" style="${at({left:A.cx,top:A.line})}"><span class="bis">${bisLabel(o.game,o.v)}</span>`
+    +`<span class="mode" role="radiogroup" aria-label="Über dem Limit">${half(0,!o.fixed,I.ask,'Fragen')}${half(1,o.fixed,I.lock,'Fest',o.tapFixed!=null?ring(o.clock,o.tapFixed):'')}</span>`
+    +`${o.dim?'':`<span class="clear" role="button" aria-label="Limit löschen">${I.cross}</span>`}</div>`;};
+/* the one blue key on his turn without a limit, and any keys a picked value makes */
+const keyRow=(d,keys,top,cls='step')=>`<div class="btns ${cls}" style="${at({left:griffAt(d).cx,top})}">${keys.join('')}</div>`;
+const stepKey=(d,word)=>keyRow(d,[`<span class="button button-stage">${word}</span>`],griffAt(d).key);
+/* who says what: Nova and Anna under their chairs, he beside his own (on the phone to its left, on the desktop to the right of his bar) */
+const sayAt=(d,k)=>{const A=griffAt(d);
+  if(k==='felix')return d?{x:A.you.x,y:A.you.y,tail:'0%',tt:'calc(50% - 6px)'}:{x:A.you.x,y:A.you.y,tail:'100%',tt:'calc(50% - 6px)',left:true};
+  if(k==='nova')return d?{x:1062,y:392,tail:'50%'}:{x:PB.nova.x-10,y:234,tail:'72%'};
+  return d?{x:44,y:392,tail:'50%'}:{x:PB.anna.x+40,y:234,tail:'30%'};};
+const says=(d,k,text)=>{const spot=sayAt(d,k),html=bubble(k,text,spot);
+  return spot.left?html.replace('style="','style="translate:-100% 0;').replace('class="bubble ',/^\d+$/.test(text)?'class="bubble ':'class="bubble word '):html;};
+/* a run of words from one chair at one place: each shows from its second until the next one's */
+const saysInTurn=(d,k,words,clock)=>words.map(([t,text],i)=>{const until=words[i+1]?.[0],html=says(d,k,text);
+  return until==null?popsIn(html,clock,t):moving(hidden(html),clock,[[0,'opacity:0;scale:.4'],[t,'opacity:1;scale:1'],[until,'opacity:0;scale:1']]);}).join('');
+
 frame('call-bid-390','Reizen im Anruf','Handy 390 px','p390',
   pbRoom({left:10,annaOut:true,deal:true,glow:glow(195,560,240,120)})
-  +plaque(195,176,'<div class="game">Reizen</div>')
-  +back(at({position:'absolute',left:154,top:240,'--w':52,transform:'rotate(-8deg)'})).replace('class="card"','class="card deal" ')
-  +back(at({position:'absolute',left:182,top:244,'--w':52,transform:'rotate(6deg)'}))
-  +bubble('nova','20',{x:250,y:228,tail:'72%'})
-  +`<div class="ladder" style="${at({left:195,top:350})}"><span class="held">${I.check}18</span><span class="now">20</span><span>22</span><span>23</span></div>`
-  +`<div class="btns" style="${at({left:195,top:414})}"><span class="button button-stage">${I.check}Ja</span><span class="button button-glass">${I.cross}Weg</span></div>`
+  +counter(false,{word:'Reizen',values:[20]})+duel(false,'nova','felix')
+  +back(at({position:'absolute',left:165,top:236,'--w':40,transform:'rotate(-8deg)'})).replace('class="card"','class="card deal" ')
+  +back(at({position:'absolute',left:185,top:240,'--w':40,transform:'rotate(6deg)'}))
+  +says(false,'nova','20')
+  +stepKey(false,`${I.check}Ja`)+chipRow(false)
   +pbSeats({video:true,anna:['pass'],you:['turn'],score:[148,62,55]})
   +hand(BID_HAND,{...PHONE_HAND,deal:420})+callBar(false));
 
@@ -983,11 +1169,10 @@ const dbSeats=(o)=>{const L=o.drop?dropOwn(DB,o.drop):DB;
 
 frame('call-bid-1280','Reizen im Anruf','Desktop 1280 px','d1280',
   dbRoom({left:10,annaOut:true,deal:true,glow:glow(640,640,640,170)})
-  +plaque(640,98,'<div class="game">Reizen</div>')
-  +back(at({position:'absolute',left:584,top:190,'--w':80,transform:'rotate(-8deg)'}))+back(at({position:'absolute',left:620,top:196,'--w':80,transform:'rotate(6deg)'}))
-  +bubble('nova','20',{x:1062,y:392,tail:'50%'})
-  +`<div class="ladder" style="${at({left:640,top:344})}"><span class="held">${I.check}18</span><span class="now">20</span><span>22</span><span>23</span><span>24</span></div>`
-  +`<div class="btns" style="${at({left:640,top:412})}"><span class="button button-stage">${I.check}Ja</span><span class="button button-glass">${I.cross}Weg</span></div>`
+  +counter(true,{word:'Reizen',values:[20]})+duel(true,'nova','felix')
+  +back(at({position:'absolute',left:588,top:208,'--w':72,transform:'rotate(-8deg)'}))+back(at({position:'absolute',left:624,top:212,'--w':72,transform:'rotate(6deg)'}))
+  +says(true,'nova','20')
+  +stepKey(true,`${I.check}Ja`)+chipRow(true)
   +dbSeats({video:true,anna:['pass'],you:['turn'],score:[148,62,55]})
   +hand(BID_HAND,{...DESK_HAND,deal:470})+callBar(true));
 
@@ -1095,7 +1280,6 @@ const waitDots=()=>`<span class="wait">${[.36,.24,.12].map(k=>`<i class="mo" sty
 MARK.waits=`<span class="mark waits" title="wartet auf dich"><span class="dot" style="${dotStyle(P.felix)}">${P.felix.i}</span>${waitDots()}</span>`;
 /* the skat is the ♣ jack and the ♥ seven; you put back the ♦ king and eight */
 const TAKEN_HAND=[['B','c'],['B','h'],['10','c'],['D','c'],['7','c'],['A','s'],['9','s'],['A','h'],['10','h'],['7','h'],['K','d','touch'],['8','d','touch late']];
-const DECLARE_HAND=[['B','c'],['B','h'],['10','c'],['D','c'],['7','c'],['A','s'],['9','s'],['A','h'],['10','h'],['7','h']];
 const OPPONENT_HAND=[['B','d'],['A','c'],['K','c'],['9','c'],['10','s'],['D','s'],['8','s'],['D','h'],['A','d'],['9','d']];
 const SUIT_GAMES=[['d','Karo'],['h','Herz'],['s','Pik'],['c','Kreuz']];
 const room=(d,o)=>d?dbRoom(o):pbRoom(o);
@@ -1106,12 +1290,6 @@ const bid=(d)=>plaque(d?640:195,d?98:176,'<div class="game">Reizwert 20</div>');
 const skat=(x,y,w)=>[[x,y,-8],[x+w*.5,y+4,6]].map(([l,t,r])=>back(at({position:'absolute',left:l,top:t,'--w':w,transform:`rotate(${r}deg)`}))).join('');
 const row=(x,y,html)=>`<div class="btns" style="${at({left:x,top:y})}">${html}</div>`;
 const pick=(label,inner,chosen,cls='')=>`<span class="button button-glass pick ${cls} ${chosen?'on':''}" role="button" aria-pressed="${chosen}" aria-label="${label}">${inner}</span>`;
-/* every game kind on two rows; the phone shows the suits by their pip alone */
-const games=(d,x,y,chosen)=>row(x,y,SUIT_GAMES.map(([s,n])=>pick(n,gameLine(s,d?n:''),n===chosen,d?'':'round')).join(''))
-  +row(x,y+(d?62:60),['Grand','Null','Null ouvert'].map(n=>pick(n,n,n===chosen)).join(''));
-/* the win levels of a Hand game: each step includes the ones below it */
-const levels=(x,y,chosen)=>`<div class="ladder words" style="${at({left:x,top:y})}"><span class="held">${I.check}Hand</span>${['Schneider','Schwarz','Ouvert'].map(l=>`<span class="${l===chosen?'now':''}">${l}</span>`).join('')}</div>`;
-const announce=(x,y)=>row(x,y,`<span class="button button-stage">${I.check}Ansagen</span>`);
 const deciding=(d,hand)=>seats(d,{video:true,anna:['waits'],nova:['waits'],you:['decl','turn'],score:[148,62,55]})+ownHand(d,hand.cards,hand.o)+callBar(d);
 const BELOW_BID='Ein Spiel unter dem Reizwert bleibt wählbar und wird überreizt (ISkO 3.5.2); ob davor gewarnt wird, ist offen.';
 const SKAT_SCENES=[
@@ -1123,16 +1301,6 @@ const SKAT_SCENES=[
     +(d?ghost(596,300,80,I.down)+ghost(684,300,80,I.down):ghost(163,300,56,I.down)+ghost(227,300,56,I.down))
     +row(d?640:195,d?420:380,`<span class="button button-stage unlock">${I.down}Drücken</span>`)
     +deciding(d,{cards:TAKEN_HAND,o:d?{strip:{base:48,touch:70}}:{w:58,strip:{base:25,touch:38}}})],
-  ['skat-declare','Ansage nach Skat',(d)=>room(d,{left:10,glow:yourTurn(d)})+bid(d)
-    +(d?skat(330,470,56):skat(52,470,38))
-    +games(d,d?640:195,d?260:262,'Herz')+announce(d?640:195,400)
-    +deciding(d,{cards:DECLARE_HAND}),
-    ['Null ouvert steht hier als Spiel mit Skataufnahme, gelesen aus ISkO-Tabelle 2.1.2; 2.6.5 zählt es zu den offenen Spielen, das ist offen.',BELOW_BID]],
-  ['hand-declare','Ansage Hand',(d)=>room(d,{left:10,glow:yourTurn(d)})+bid(d)
-    +(d?skat(870,440,56):skat(296,436,34))
-    +games(d,d?640:195,d?232:262,'Herz')+levels(d?640:195,d?362:378,'Schneider')+announce(d?640:195,d?424:432)
-    +deciding(d,{cards:BID_HAND}),
-    ['Die Stufen bauen aufeinander auf: Schwarz angesagt schließt Schneider angesagt ein, Ouvert zählt als Schwarz angesagt (ISkO 2.5.8).',BELOW_BID]],
   ['skat-declared','Anna sagt an',(d)=>room(d,{left:10,glow:yourTurn(d)})
     +plaque(d?640:195,d?98:176,gameLine('h','Herz Hand'))
     +(d?skat(584,190,80):skat(154,290,52))
@@ -1190,7 +1358,6 @@ Object.assign(I,{
   power:sv('<path d="M12 3v8.5"/><path d="M7.2 6.2a7.5 7.5 0 1 0 9.6 0"/>',2.2),
   moon:sv('<path d="M19.5 14.6A7.8 7.8 0 1 1 9.4 4.5a6.3 6.3 0 0 0 10.1 10.1z"/>'),
   clock:sv('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
-  ask:sv('<path d="M9.2 9.2a2.9 2.9 0 1 1 4 2.7c-.7.3-1.2.9-1.2 1.6v.8"/><circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/>',2.2),
 });
 MARK.away=`<span class="mark away" title="nicht da">${I.moon}</span>`;
 /* a free chair; idle when the viewer already sits, so it shows the gap but offers nothing */
@@ -1366,41 +1533,144 @@ END_SCENES.push(
 scenes(END_SCENES);
 ORDER.splice(ORDER.indexOf('call-end-1280')+1,0,...END_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 
-/* ===== the auction around the table: you bid as middlehand, then as rearhand; Nova wins it; all pass and the next dealer deals; a watcher sees every call ===== */
+/* ===== the auction around the table, „Ein Griff“: he says or hears with the one step key, or sets his limit with one tap and the table bids for him; it asks or passes above the limit and takes „Weg“ ahead; he wins one auction, Nova another; all pass and the next dealer deals; a watcher sees every call ===== */
 MARK.won=MARK.decl.replace('mark decl','mark decl mo').replace('<span class','<span style="--d:.3s" class');
-/* the bidder's ladder: the value held so far, the next value lit, every higher one a tap away */
-const ladderAt=(d)=>at({left:d?640:195,top:d?344:350});
-const heldTile=(held)=>held?`<span class="held">${I.check}${held}</span>`:'';
-const bidLadder=(d,held,values)=>`<div class="ladder up" style="${ladderAt(d)}">${heldTile(held)}${
-  values.map((v,i)=>i?`<span class="${i===values.length-1?'more':''}" role="button">${v}</span>`:`<span class="now">${v}</span>`).join('')}</div>`;
 /* every value a bid can name: the suit bases times 2 to 18, Grand times 2 to 11, the four Null values */
 const multiples=(base,top)=>Array.from({length:top-1},(_,i)=>base*(i+2));
 const BID_VALUES=[...new Set([...[9,10,11,12].flatMap(base=>multiples(base,18)),...multiples(24,11),23,35,46,59])].sort((a,b)=>a-b);
-const longLadder=(d,held)=>{const [next,...higher]=BID_VALUES.filter(v=>v>held);
-  return `<div class="ladder up" style="${ladderAt(d)}">${heldTile(held)}<span class="now">${next}</span><div class="higher" style="--strip:${d?380:214}px"><div class="roll">${
-    higher.map(v=>`<span role="button">${v}</span>`).join('')}</div></div></div>`;};
-const bidButtons=(d,value)=>row(d?640:195,d?412:414,`<span class="button button-stage">${I.up}${value}</span><span class="button button-glass">${I.cross}Weg</span>`);
 const auction=(d)=>plaque(d?640:195,d?98:176,'<div class="game">Reizen</div>')+tableSkat(d);
-const JUMP_OPEN='Höhere Werte stehen antippbar in der Leiter, man darf also springen wie in ISkO 3.3.2; ob nur der nächste Wert geht, ist offen.';
 const novaTurn=(d)=>d?glow(980,270,220,260):glow(300,190,190,110);
+/* a chip's two looks, for a chip that lights or goes out on the clock */
+const CHIP_UNLIT='background:var(--unlit);color:var(--on-stage);box-shadow:inset 0 0 0 1.2px rgba(201,164,100,.55),0 8px 16px -10px rgba(0,0,0,.8)';
+const CHIP_LIT='background:var(--brassy);color:#2b1d05;box-shadow:0 0 0 2px rgba(255,243,201,.55),0 0 22px rgba(241,216,152,.45),inset 0 1px 0 rgba(255,255,255,.6)';
+const WEG_UNLIT='background:var(--glass);color:var(--on-stage);box-shadow:none';
+const lights=(t)=>[[0,CHIP_UNLIT],[t,CHIP_LIT]];
+const fades=(t,to=.34)=>[[0,'opacity:1'],[t,`opacity:${to}`]];
+/* the auction's table: the others in their chairs, his own bar a step lower on the desktop to leave room for his limit, his hand, the call bar */
+MARK.mine=MARK.decl.replace('mark decl','mark decl mo').replace('<span class','<span style="--d:1s;--k:1.7s" class');
+const GRIFF_DROP=36;
+const griffTable=(d,o,middle)=>room(d,{left:10,glow:o.glow??yourTurn(d),annaOut:o.annaOut,novaOut:o.novaOut})+middle
+  +seats(d,{video:true,score:[148,62,55],drop:GRIFF_DROP,anna:o.anna,nova:o.nova,you:o.you,annaOut:o.annaOut,novaOut:o.novaOut})+ownHand(d,o.hand||BID_HAND)+callBar(d);
+const turnPasses=(d,clock,t,from,to)=>fadesOut(from(d),clock,t)+fadesIn(to(d),clock,t);
+/* the scale behind „⋯“: every valid value from `from`; o.standing marked and the values below it faded; the suit over each value the hand carries; hatched above the hand;
+   o.limit brass with the rider under it; o.pick cream in the blue ring; o.hold the ring that fills while held; o.moves stops per value */
+const HAND_TOP=Math.max(...HAND_GAMES.map(([,v])=>v));
+const scaleBand=(d,o)=>{const A=griffAt(d),w=d?44:30,gap=d?4:3,pad=10,values=BID_VALUES.filter(v=>v>=o.from&&v<=(d?72:60)),moves=o.moves||{};
+  const suitOf=Object.fromEntries(HAND_GAMES.map(([s,v])=>[v,s])),centre=(v)=>pad+values.indexOf(v)*(w+gap)+w/2;
+  const cell=(v,i)=>{const cls=[o.standing&&v<o.standing&&'gone',v===o.standing&&'at',v>HAND_TOP&&'over',v===o.limit&&'mine',v===o.pick&&'pick'].filter(Boolean).join(' ');
+    const held=v===o.hold?moving('<i class="hold" style=""></i>',o.clock,[[0,'--hold:0%'],[o.holdFrom,'--hold:0%'],[o.holdTo,'--hold:100%',o.holdTo-o.holdFrom]]):'';
+    const hint=o.hint&&v===values.find(x=>x>HAND_TOP)?'<span class="hint">halten</span>':'';
+    const html=`<span class="v ${cls}" style="">${suitOf[v]?`<span class="suit">${suitIcon(suitOf[v])}</span>`:''}${v}${held}${hint}</span>`;
+    return moves[v]?moving(html,o.clock,moves[v]):html;};
+  const rail=o.standing?`<span class="rail"><i style="width:${centre(o.standing)-pad}px"></i></span>`:'<span class="rail"></span>';
+  const rider=o.limit?`<i class="rider" style="left:${centre(o.limit)}px"></i>`:'';
+  return `<div class="scale" style="${at({left:A.cx,top:A.scale,width:d?560:358})}"><div class="view ${o.from>BID_VALUES[0]?'mid':''}"><div class="run">${values.map(cell).join('')}${rail}${rider}</div></div></div>`;};
+const brassKey=(text)=>`<span class="button button-brass">${text}</span>`;
+const blueKey=(text)=>`<span class="button button-stage">${text}</span>`;
+/* the question the table asks him once above an ask limit, where his limit stood */
+const asks=(d,game,v)=>`<div class="asks" style="${at({left:griffAt(d).cx,top:griffAt(d).line-3})}"><span class="bis">${bisLabel(game,v)}</span>nachschieben oder weg?</div>`;
+/* the pass said ahead, where a limit would stand */
+const saidAhead=(d,text,icon=I.cross)=>`<div class="limit" style="${at({left:griffAt(d).cx,top:griffAt(d).line})}"><span class="said" style="">${icon}${text}</span></div>`;
 const BID_SCENES=[
-  ['bid-middle','Du reizt',(d)=>room(d,{left:10,glow:yourTurn(d)})+auction(d)
-    +bidLadder(d,18,d?[20,22,23,24,27,30,33]:[20,22,23,24,27])+bidButtons(d,20)
-    +seats(d,{video:true,anna:['Hinterhand'],nova:['Vorhand','waits'],you:['Mittelhand','turn'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d),
-    [JUMP_OPEN]],
-  ['bid-rear','Hinterhand reizt',(d)=>room(d,{left:10,novaOut:true,glow:yourTurn(d)})+auction(d)
-    +bidLadder(d,20,d?[22,23,24,27,30,33,35]:[22,23,24,27,30])+bidButtons(d,22)
-    +seats(d,{video:true,anna:['Vorhand','waits'],nova:['Mittelhand','pass'],novaOut:true,you:['Hinterhand','turn'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d),
-    [JUMP_OPEN]],
-  ['bid-long','Hoch gereizt',(d)=>room(d,{left:10,glow:yourTurn(d)})+auction(d)
-    +longLadder(d,108)+bidButtons(d,110)
-    +seats(d,{video:true,anna:['Hinterhand'],nova:['Vorhand','waits'],you:['Mittelhand','turn'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d)],
+  ['bid-middle','Du sagst',(d)=>griffTable(d,{anna:['Hinterhand'],nova:['Vorhand','waits'],you:['Mittelhand','turn']},
+    counter(d,{word:'Reizen',values:[null]})+duel(d,'felix','nova')+griffSkat(d)+stepKey(d,`${I.up}18`)+chipRow(d)),
+    ['Die Chips tragen die Werte der Spiele, die seine Hand ohne Skat trägt (ohne 2, Spiel 3: ♦ 27, ♥ 30, ♠ 33, ♣ 36); „⋯“ öffnet alle Werte.',
+     'Ohne Limit steht an seinem Zug die eine blaue Taste: 18 sagen. „Weg“ passt mit einem Tipp.']],
+  ['bid-grip','Ein Griff',(d)=>{const C=5;return griffTable(d,{glow:turnPasses(d,C,2,yourTurn,novaTurn),anna:['Hinterhand'],nova:['Vorhand','turn'],you:['Mittelhand']},
+    counter(d,{word:'Reizen',values:[null,18],at:[2],clock:C})+duel(d,'felix','nova')+griffSkat(d)
+    +fadesOut(stepKey(d,`${I.up}18`),C,1.2)
+    +chipRow(d,{lit:36,tap:36,tapAt:.8,clock:C,moves:{36:lights(1)}})
+    +popsIn(limitLine(d,{game:'c',v:36}),C,1.4)
+    +popsIn(says(d,'felix','18'),C,2));},
+    ['Ein Tipp auf ♣ 36 ist sein Limit: die Taste geht, und der Tisch sagt für ihn im selben Zug 18, mit seiner Blase und seiner Stimme.',
+     'Sein Limit sieht nur er; die anderen sehen und hören nur seine Ansagen.']],
+  ['bid-runs','Der Tisch reizt für dich',(d)=>{const C=7,steps=[1,1.7,2.4,3.1,3.8,4.5];return griffTable(d,{glow:novaTurn(d),anna:['Hinterhand'],nova:['Vorhand','turn'],you:['Mittelhand']},
+    counter(d,{word:'Reizen',values:[18,20,22,23,24,27,30],at:steps,clock:C})+duel(d,'felix','nova')+griffSkat(d)
+    +saysInTurn(d,'felix',[[0,'18'],...steps.map((t,i)=>[t,[20,22,23,24,27,30][i]])],C)
+    +chipRow(d,{lit:36,standing:30,clock:C,moves:{27:fades(4.5)}})
+    +limitLine(d,{game:'c',v:36}));},
+    ['Nova hält, der Tisch sagt den nächsten Wert, solange er sein Limit nicht übersteigt; das Zählwerk in der Mitte rollt mit jedem Wert.',
+     'Was das Reizen hinter sich lässt, verblasst auf seinem Chip.']],
+  ['bid-toggle','Fragen oder fest',(d)=>{const C=3.5,on='background:var(--cream);color:var(--ink)',off='background:transparent;color:var(--on-stage-soft)';
+    return griffTable(d,{glow:novaTurn(d),anna:['Hinterhand'],nova:['Vorhand','turn'],you:['Mittelhand']},
+    counter(d,{word:'Reizen',values:[24]})+duel(d,'felix','nova')+griffSkat(d)+says(d,'felix','24')
+    +chipRow(d,{lit:36,standing:24})
+    +limitLine(d,{game:'c',v:36,fixed:true,tapFixed:1,clock:C,modes:[[[0,on],[1.2,off]],[[0,off],[1.2,on]]]}));},
+    ['Neben dem Limit wählt er, was der Tisch darüber tut: „Fragen“ fragt ihn einmal, „Fest“ passt für ihn. Ein neues Limit beginnt mit „Fragen“.',
+     'Ein Tipp auf einen anderen Chip ändert das Limit, ✕ löscht es.']],
+  ['bid-ask','Nachschieben oder weg?',(d)=>{const C=4;return griffTable(d,{glow:turnPasses(d,C,1.6,novaTurn,yourTurn),anna:['Hinterhand'],nova:['Vorhand'],you:['Mittelhand','turn']},
+    counter(d,{word:'Reizen',values:[36]})+duel(d,'felix','nova')+griffSkat(d)
+    +popsIn(says(d,'nova',`${I.check}Ja`),C,.8)
+    +popsIn(stepKey(d,`${I.up}40`),C,1.7)
+    +chipRow(d,{lit:36,standing:36})
+    +fadesOut(limitLine(d,{game:'c',v:36}),C,1.6)+popsIn(asks(d,'c',36),C,1.6));},
+    ['Nova hält 36; über einem Limit mit „Fragen“ fragt der Tisch ihn einmal: sein eigener Zug, mit seiner normalen Zeit.',
+     'Er schiebt nach (die blaue Taste sagt 40, ein Chip oder „⋯“ setzt ein neues Limit) oder sagt „Weg“.']],
+  ['bid-fixed','Fest: der Tisch passt',(d)=>{const C=4.5;return griffTable(d,{glow:turnPasses(d,C,2.4,novaTurn,annaTurn),anna:['Hinterhand','turn'],nova:['Vorhand'],you:['Mittelhand','pass']},
+    counter(d,{word:'Reizen',values:[36]})+fadesOut(duel(d,'felix','nova'),C,2.4)+fadesIn(duel(d,'anna','nova'),C,2.4)+griffSkat(d)
+    +moving(hidden(says(d,'nova',`${I.check}Ja`)),C,[[0,'opacity:0'],[.6,'opacity:1'],[2.4,'opacity:0']])
+    +popsIn(says(d,'felix',`${I.cross}Weg`),C,1.4)
+    +fadesOut(chipRow(d,{lit:36,standing:36}),C,2.4)
+    +moving(limitLine(d,{game:'c',v:36,fixed:true,dim:true}),C,[[0,'opacity:1'],[1.4,'opacity:.62']]));},
+    ['Über einem festen Limit passt der Tisch für ihn, ohne zu fragen; alle sehen und hören sein „Weg“ als seine Ansage. Dann sagt Anna Nova.']],
+  ['bid-early','Limit vor dem Zug',(d)=>{const C=3.5;return griffTable(d,{glow:novaTurn(d),anna:['Mittelhand'],nova:['Vorhand','turn'],you:['Hinterhand']},
+    counter(d,{word:'Reizen',values:[20]})+duel(d,'anna','nova')+griffSkat(d)+says(d,'anna','20')
+    +chipRow(d,{lit:33,tap:33,tapAt:.8,clock:C,moves:{33:lights(1)}})
+    +popsIn(limitLine(d,{game:'s',v:33}),C,1.4));},
+    ['Anna sagt Nova; er ist noch nicht dran und setzt sein Limit schon jetzt. An seinem Zug reizt der Tisch damit für ihn.']],
+  ['bid-ahead','„Weg“ vorab',(d)=>{const C=3.5,rest=Object.fromEntries(HAND_GAMES.map(([,v])=>[v,fades(1,.42)]));
+    return griffTable(d,{glow:novaTurn(d),anna:['Mittelhand'],nova:['Vorhand','turn'],you:['Hinterhand']},
+    counter(d,{word:'Reizen',values:[20]})+duel(d,'anna','nova')+griffSkat(d)+says(d,'anna','20')
+    +chipRow(d,{lit:'weg',tap:'weg',tapAt:.8,clock:C,moves:{weg:[[0,WEG_UNLIT],[1,CHIP_LIT]],...rest}})
+    +popsIn(saidAhead(d,'Weg, sobald du dran bist'),C,1.4));},
+    ['Vor seinem Zug sagt er „Weg“ vorab: der Tisch merkt es, nur er sieht es. An seinem Zug passt der Tisch für ihn.']],
+  ['bid-ahead-back','„Weg“ zurück',(d)=>{const C=3.5,unrest=Object.fromEntries(HAND_GAMES.map(([,v])=>[v,[[0,'opacity:.42'],[1,'opacity:1']]]));
+    return griffTable(d,{glow:novaTurn(d),anna:['Mittelhand'],nova:['Vorhand','turn'],you:['Hinterhand']},
+    counter(d,{word:'Reizen',values:[22]})+duel(d,'anna','nova')+griffSkat(d)+says(d,'anna','22')
+    +chipRow(d,{tap:'weg',tapAt:.8,clock:C,moves:{weg:[[0,CHIP_LIT],[1,WEG_UNLIT]],...unrest}})
+    +fadesOut(saidAhead(d,'Weg, sobald du dran bist'),C,1)+fadesIn(saidAhead(d,'Zurückgenommen',I.check),C,1.2));},
+    ['Bis zu seinem Zug nimmt ein zweiter Tipp auf „Weg“ es zurück; dann reizt er wieder selbst oder mit einem Chip.']],
+  ['bid-ahead-pass','„Weg“ an deinem Zug',(d)=>{const C=4;return griffTable(d,{glow:novaTurn(d),annaOut:true,anna:['Mittelhand','pass'],nova:['Vorhand','mine'],you:['Hinterhand','pass']},
+    counter(d,{word:'Reizen',values:[22]})+fadesOut(duel(d,'anna','nova'),C,1.2)+griffSkat(d)
+    +popsIn(says(d,'felix',`${I.cross}Weg`),C,1.2)
+    +fadesOut(chipRow(d,{lit:'weg'}),C,1.6)
+    +fadesOut(saidAhead(d,'Weg, sobald du dran bist'),C,1.2));},
+    ['Anna passt bei 22, er ist dran: der Tisch sagt für ihn „Weg“, gezeigt und gesprochen als seine Ansage. Nova spielt.']],
+  ['bid-scale','Alle Werte beim Hören',(d)=>griffTable(d,{anna:['Hinterhand'],nova:['Mittelhand'],you:['Vorhand','turn']},
+    counter(d,{word:'Reizen',values:[22]})+duel(d,'nova','felix')+(d?says(d,'nova','22'):'')
+    +keyRow(d,[blueKey(`${I.check}Ja`),brassKey('bis 30')],griffAt(d).keys)
+    +scaleBand(d,{from:d?18:22,standing:22,pick:30,hint:true})
+    +chipRow(d,{standing:22,more:true})),
+    ['„⋯“ öffnet die eine Skala mit jedem gültigen Wert; sie zeigt den stehenden Wert, das Gereizte verblasst, ein Farbzeichen steht über jedem Wert, den seine Hand ohne Skat erreicht.',
+     'Ein gewählter Wert macht beim Hören die Tasten „Ja“ und „bis 30“; „Weg“ bleibt ein Tipp.']],
+  ['bid-jump','Springen',(d)=>{const C=4;return griffTable(d,{anna:['Hinterhand'],nova:['Vorhand','waits'],you:['Mittelhand','turn']},
+    counter(d,{word:'Reizen',values:[null]})+duel(d,'felix','nova')
+    +fadesOut(keyRow(d,[blueKey(`${I.up}18`)],griffAt(d).keys),C,2)
+    +popsIn(keyRow(d,[blueKey(`${I.up}40`),brassKey('bis 40')],griffAt(d).keys),C,2.1)
+    +scaleBand(d,{from:24,pick:40,hold:40,holdFrom:.8,holdTo:1.9,clock:C,moves:{40:[[0,'background:repeating-linear-gradient(135deg,rgba(201,164,100,.3) 0 5px,rgba(255,255,255,.04) 5px 10px);color:var(--brass-hi);translate:0 0'],[2,'background:var(--cream);color:var(--ink);translate:0 -3px']]}})
+    +chipRow(d,{more:true}));},
+    ['Werte über seinem Blatt sind schraffiert: sie brauchen Halten statt Tippen, damit kein Fehlgriff hoch reizt.',
+     'Ein gewählter Wert macht beim Sagen die Tasten „↑ 40“, das sagt 40 jetzt (der Sprung), und „bis 40“, das setzt das Limit.']],
+  ['bid-live','Die Skala lebt',(d)=>{const C=5,steps=[1.2,2.2,3.2];return griffTable(d,{glow:novaTurn(d),anna:['Hinterhand'],nova:['Vorhand','turn'],you:['Mittelhand']},
+    counter(d,{word:'Reizen',values:[23,24,27,30],at:steps,clock:C})+duel(d,'felix','nova')
+    +saysInTurn(d,'felix',[[0,'23'],...steps.map((t,i)=>[t,[24,27,30][i]])],C)
+    +scaleBand(d,{from:20,standing:30,limit:36,clock:C,moves:{23:fades(steps[0],.3),24:fades(steps[1],.3),27:fades(steps[2],.3)}})
+    +chipRow(d,{lit:36,standing:30,more:true,clock:C,moves:{27:fades(steps[2])}})
+    +limitLine(d,{game:'c',v:36}));},
+    ['Offen läuft die Skala mit: was gereizt ist, verblasst; sein Limit bleibt, wo er es gesetzt hat, mit dem Reiter darunter.']],
+  ['bid-fore','Vorhand nach zwei Pässen',(d)=>griffTable(d,{annaOut:true,novaOut:true,anna:['Mittelhand','pass'],nova:['Hinterhand','pass'],you:['Vorhand','turn']},
+    counter(d,{word:'Reizen',values:[null]})+griffSkat(d)+stepKey(d,`${I.up}18`)
+    +chipRow(d,{lit:36})+limitLine(d,{game:'c',v:36})),
+    ['Passen beide, entscheidet Vorhand selbst: sein Limit sagt hier nichts für ihn, die blaue Taste sagt 18, „Weg“ passt ein.']],
+  ['bid-mine','Du hast das Reizen',(d)=>{const C=4;return griffTable(d,{annaOut:true,novaOut:true,anna:['Hinterhand','pass'],nova:['Vorhand','pass'],you:['Mittelhand','mine','turn']},
+    counter(d,{word:'Reizwert',values:[36],coin:coin(C,1)})+fadesOut(duel(d,'felix','nova'),C,1)+griffSkat(d)
+    +popsIn(says(d,'nova',`${I.cross}Weg`),C,.4)
+    +fadesOut(chipRow(d,{lit:36,standing:36}),C,1.4)+fadesOut(limitLine(d,{game:'c',v:36}),C,1.4)
+    +popsIn(keyRow(d,[blueKey(`${I.up}Aufnehmen`),'<span class="button button-glass">Hand</span>'],griffAt(d).key),C,1.8));},
+    ['Nova passt bei 36: das Zählwerk hält den Reizwert mit einem Siegel, der Stern landet an seinem Stuhl. Dann: Skat aufnehmen oder Hand.']],
   ['bid-won','Nova spielt',(d)=>room(d,{left:10,annaOut:true,glow:novaTurn(d)})
     +plaque(d?640:195,d?98:176,'<div class="game">Nova spielt, 23</div>')+tableSkat(d)
     +seats(d,{video:true,anna:['pass'],annaOut:true,nova:['won','turn'],you:['pass'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d)],
-  ['bid-fore','Vorhand zu 18',(d)=>room(d,{left:10,annaOut:true,novaOut:true,glow:yourTurn(d)})+auction(d)
-    +bidLadder(d,null,[18])+bidButtons(d,18)
-    +seats(d,{video:true,anna:['Mittelhand','pass'],annaOut:true,nova:['Hinterhand','pass'],novaOut:true,you:['Vorhand','turn'],score:[148,62,55]})+ownHand(d,BID_HAND)+callBar(d)],
   ['bid-passed','Eingepasst',(d)=>room(d,{left:0})
     +plaque(d?640:195,d?98:176,`<div class="game">Eingepasst</div><div class="game">Nova gibt${waitDots()}</div>`)+deck(d)
     +seats(d,{video:true,anna:['pass'],nova:['drawn','pass'],you:['pass'],score:[148,62,55]})+callBar(d)],
@@ -1413,6 +1683,66 @@ const BID_SCENES=[
 ];
 scenes(BID_SCENES);
 ORDER.splice(ORDER.indexOf('call-bid-1280')+1,0,...BID_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
+/* ===== declaring, „Ein Griff“: the game of his chip stands ready as one key; „Anderes Spiel“ opens the one row of games with only the chosen game's levels; the counter sets the game's value against the bid; the declaration lands on the felt ===== */
+/* he won at 36 with his ♣ chip, took the ♣ ace and nine and put back the ♦ king and eight: Kreuz ohne 2, Spiel 3, 36; the hand sorts to the tapped game */
+const KREUZ_SORTED=[['B','h'],['A','c'],['10','c'],['D','c'],['9','c'],['7','c'],['A','s'],['9','s'],['A','h'],['10','h']];
+const PIK_SORTED=[['B','h'],['A','s'],['9','s'],['A','c'],['10','c'],['D','c'],['9','c'],['7','c'],['A','h'],['10','h']];
+const NULL_SORTED=[['A','c'],['D','c'],['10','c'],['9','c'],['7','c'],['A','s'],['9','s'],['A','h'],['B','h'],['10','h']];
+const WON_BID=36;
+const declareAt=(d)=>d?{row:204,levels:268,key:326,other:398}:{row:236,levels:288,key:334,other:402};
+const pushedSkat=(d)=>d?skat(330,470,56):skat(40,452,34);
+const PICK_OFF='background:var(--glass);color:var(--on-stage);box-shadow:none';
+const PICK_ON='background:var(--cream);color:var(--ink);box-shadow:0 0 0 3px var(--accent-stage),0 8px 18px -6px rgba(0,0,0,.7)';
+/* the game's value: how it is made, under the counter */
+const valueLine=(d,parts)=>`<div class="duel made" style="${at({left:griffAt(d).cx,top:griffAt(d).duel})}">${parts.join('<i>·</i>')}</div>`;
+const valueCounter=(d,word,values,o={})=>counter(d,{word,values,at:o.at,clock:o.clock,flag:o.flag??flag(values.at(-1),WON_BID)});
+const declareKey=(d,game,text)=>keyRow(d,[`<span class="button button-stage big">${game?`<span class="suit">${suitIcon(game)}</span>`:''}${text}</span>`],declareAt(d).key,'');
+const otherKey=(d,open)=>keyRow(d,[`<span class="button button-glass ${open?'pick on':''}" role="button" aria-expanded="${open}">Anderes Spiel</span>`],declareAt(d).other,'');
+/* the one row of games: o.moves stops per game, o.tap where the finger lands */
+const gamesRow=(d,chosen,o={})=>{const games=[...SUIT_GAMES.map(([s,n])=>[n,gameLine(s,d?n:''),d?'':'round']),['Grand','Grand',''],['Null','Null','']];
+  const one=([n,inner,cls])=>{const html=pick(n,inner+(o.tap===n?ring(o.clock,o.tapAt):''),n===chosen,cls).replace('role=','style="" role=');return o.moves?.[n]?moving(html,o.clock,o.moves[n]):html;};
+  return `<div class="btns six" style="${at({left:griffAt(d).cx,top:declareAt(d).row})}">${games.map(one).join('')}</div>`;};
+/* the chosen game's levels: ticked as given or chosen; a tap ticks every level below it */
+const gameLevels=(d,list,o={})=>`<div class="levels" style="${at({left:griffAt(d).cx,top:declareAt(d).levels})}">${list.map(([n,state])=>{
+  const html=`<span class="${state}" style="">${state?I.check:''}${n}${o.tap===n?ring(o.clock,o.tapAt):''}</span>`;return o.moves?.[n]?moving(html,o.clock,o.moves[n]):html;}).join('')}</div>`;
+const LEVEL_OFF='background:var(--glass);color:var(--on-stage)';
+const LEVEL_ON='background:var(--cream);color:var(--ink)';
+const declaring=(d,cards,middle)=>room(d,{left:10,glow:yourTurn(d)})+middle+pushedSkat(d)+deciding(d,{cards});
+const DECLARE_SCENES=[
+  ['declare-one','Ansagen: ein Tipp',(d)=>declaring(d,KREUZ_SORTED,
+    valueCounter(d,'Kreuz',[WON_BID])+valueLine(d,['ohne 2','Spiel 3','× 12'])
+    +declareKey(d,'c','Kreuz ansagen')+otherKey(d,false)),
+    ['Sein Chip hat das Spiel schon gewählt: „Kreuz ansagen“ steht bereit, ein Tipp sagt an. Das Zählwerk zeigt den Wert des Spiels gegen den Reizwert, mit Haken, sobald er ihn erreicht.']],
+  ['declare-other','Anderes Spiel',(d)=>{const C=4;return declaring(d,PIK_SORTED,
+    valueCounter(d,'Pik',[WON_BID,33],{at:[1.1],clock:C,flag:fadesOut(`<span class="flag" style="">${I.check}${WON_BID}</span>`,C,1.1)+flag(33,WON_BID,C,1.2)})
+    +valueLine(d,['ohne 2','Spiel 3','× 11'])
+    +gamesRow(d,'Pik',{tap:'Pik',tapAt:.8,clock:C,moves:{Pik:[[0,PICK_OFF],[1,PICK_ON]],Kreuz:[[0,PICK_ON],[1,PICK_OFF]]}})
+    +declareKey(d,'s','Pik ansagen')+otherKey(d,true));},
+    ['„Anderes Spiel“ öffnet die eine Reihe ♦ ♥ ♠ ♣ Grand Null; die Hand sortiert sich nach dem getippten Spiel.',BELOW_BID]],
+  ['declare-hand','Hand mit Stufen',(d)=>{const C=4;return room(d,{left:10,glow:yourTurn(d)})
+    +valueCounter(d,'Kreuz Hand',[48,72],{at:[1.1],clock:C})+valueLine(d,['ohne 2','Spiel 6','× 12'])
+    +gamesRow(d,'Kreuz')+gameLevels(d,[['Hand','given'],['Schneider','on'],['Schwarz',''],['Ouvert','']],{tap:'Schneider',tapAt:.8,clock:C,moves:{Schneider:[[0,LEVEL_OFF],[1,LEVEL_ON]]}})
+    +declareKey(d,'c','Kreuz Hand ansagen')+(d?skat(870,440,56):skat(304,446,30))+deciding(d,{cards:BID_HAND});},
+    ['Unter dem gewählten Spiel stehen nur seine Stufen; Farbspiel und Grand Hand: Hand, Schneider, Schwarz, Ouvert. Ein Tipp hakt jede Stufe darunter mit ab.',
+     'Die Stufen bauen aufeinander auf: Schwarz angesagt schließt Schneider angesagt ein, Ouvert zählt als Schwarz angesagt (ISkO 2.5.8).']],
+  ['declare-null','Null',(d)=>{const C=5;return declaring(d,NULL_SORTED,
+    valueCounter(d,'Null ouvert',[WON_BID,23,46],{at:[1.1,2.6],clock:C,flag:fadesOut(`<span class="flag" style="">${I.check}${WON_BID}</span>`,C,1.1)
+      +moving(hidden(`<span class="flag under" style="">${I.warn}${WON_BID}</span>`),C,[[0,'opacity:0'],[1.2,'opacity:1'],[2.6,'opacity:0']])+flag(46,WON_BID,C,2.7)})
+    +valueLine(d,['Null','fester Wert'])
+    +gamesRow(d,'Null',{tap:'Null',tapAt:.8,clock:C,moves:{Null:[[0,PICK_OFF],[1,PICK_ON]],Kreuz:[[0,PICK_ON],[1,PICK_OFF]]}})
+    +fadesIn(gameLevels(d,[['Ouvert','on']],{tap:'Ouvert',tapAt:2.3,clock:C,moves:{Ouvert:[[0,LEVEL_OFF],[2.5,LEVEL_ON]]}}),C,1.2)
+    +declareKey(d,null,'Null ouvert ansagen')+otherKey(d,true));},
+    ['Null nach dem Skat kennt nur die Stufe Ouvert, Null Hand kennt Hand und Ouvert; Null hat einen festen Wert (23, 35, 46, 59).']],
+  ['declare-said','Angesagt',(d)=>{const C=4;return room(d,{left:10,glow:turnPasses(d,C,1.6,yourTurn,novaTurn)})
+    +fadesOut(valueCounter(d,'Kreuz',[WON_BID]),C,1)+fadesOut(valueLine(d,['ohne 2','Spiel 3','× 12']),C,1)
+    +fadesOut(declareKey(d,'c',`Kreuz ansagen${ring(C,.6)}`),C,.9)
+    +moving(plaque(d?640:195,d?98:176,gameLine('c','Kreuz')),C,[[0,'opacity:0;scale:2.2'],[1.3,'opacity:1;scale:1',.35]])
+    +popsIn(says(d,'felix',`${suitIcon('c')}Kreuz`),C,1.2)+pushedSkat(d)
+    +seats(d,{video:true,score:[148,62,55],drop:GRIFF_DROP,anna:['Hinterhand'],nova:['Vorhand','turn'],you:['decl']})+ownHand(d,KREUZ_SORTED)+callBar(d);},
+    ['Die Ansage landet als Schild auf dem Filz, wo das Zählwerk stand; alle hören sie mit seiner Stimme. Vorhand spielt aus.']],
+];
+scenes(DECLARE_SCENES);
+ORDER.splice(ORDER.indexOf('skat-discard-1280')+1,0,...DECLARE_SCENES.flatMap(([id])=>[`${id}-390`,`${id}-1280`]));
 /* ===== an announced Hand game and the declarer's open cards ===== */
 /* the declarer announced Schneider in a Hand game: the plaque names it for the whole play; the result ticks or crosses it */
 const ANNOUNCED=gameLine('h','Herz Hand','<span class="x2">Schneider angesagt</span>');
@@ -1640,7 +1970,6 @@ Object.assign(I,{
   points:sv('<path d="M18 5H6l6 7-6 7h12"/>',2.2),
   kontra:sv('<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',2),
   bock:sv('<rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.2" fill="currentColor" stroke="none"/>',1.8),
-  lock:sv('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>'),
   ramsch:sv('<path d="M12 4v10M7 10l5 5 5-5M5 20h14"/>',2.2),
   schieben:sv('<path d="M4 12h14M13 6l6 6-6 6"/>',2.2),
 });
@@ -3019,6 +3348,7 @@ document.addEventListener('DOMContentLoaded',()=>{const reduced=matchMedia('(pre
     stage.closest('section').querySelector('.replay').addEventListener('click',()=>{next();run();});});});
 }
 const byId=Object.fromEntries(FRAMES);
+document.head.insertAdjacentHTML('beforeend',`<style>${KEYFRAMES.join('\n')}</style>`);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
 if(solo){document.body.classList.add('solo');document.getElementById(solo).closest('section').classList.add('on');}
@@ -3331,14 +3661,11 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .strand .reck.win{box-shadow:0 0 0 3px #f3cf7a,0 3px 0 #a9823f,0 10px 22px -6px rgba(243,207,122,.5)}
 /* text on the lighter top stays readable: dark glass behind light text */
 .strand .plaque,.strand .tag-glass,.strand .pass{background:rgba(28,17,22,.74)}
-.strand .ladder span,.strand .ladder.up span:not(.held):not(.now){background:rgba(28,17,22,.74);color:var(--on-stage)}
+.strand .ladder span{background:rgba(28,17,22,.74);color:var(--on-stage)}
 .strand .ladder span.held{background:rgba(28,17,22,.8);color:var(--on-stage)}
-.strand .ladder span.now{background:var(--cream);color:var(--ink)}
+.strand .btns.chips{--unlit:rgba(28,17,22,.78)}
+.strand .duel,.strand .limit .mode,.strand .limit .clear,.strand .limit .said{background:rgba(28,17,22,.8)}
 .strand .cbar,.strand .sbar{--glass:rgba(28,17,22,.66)}
-.strand .ladder.up span.more{opacity:.9}
-/* the 360 frame is 64 px shorter and its near stool steps up, so the bid's ladder and keys step up with it */
-.p360.strand > .ladder.up{translate:-15px -38px}
-.p360.strand > .btns{translate:-15px -52px}
 .p360.strand .result.end{padding:10px 14px;gap:7px}
 .strand .button-glass{background:rgba(28,17,22,.62);color:var(--on-stage)}
 .strand .result{background:rgba(28,17,22,.84);box-shadow:inset 0 0 0 1.5px rgba(243,207,122,.4),0 24px 50px -16px rgba(25,12,30,.9)}
