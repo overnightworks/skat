@@ -21,6 +21,7 @@ from tests.e2e.support.browser import (
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.lobby_stream import EVENT_STREAM, open_table_answer, serve_streams_in_turn, stream_of
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, PHONE, WIDTHS
+from tests.e2e.support.style import in_the_scene
 from tests.e2e.support.table_menu import open_account_panel
 from tests.e2e.support.tables import open_new_table
 from tests.support.sign_in_settings import TEST_ISSUER
@@ -172,6 +173,51 @@ def test_with_no_open_table_the_start_page_paints_its_backdrop_as_the_scene_does
         scenes.close()
 
     assert person.locator(".start").evaluate("page => getComputedStyle(page).backgroundImage") == drawn
+
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_the_table_page_paints_the_same_wood_backdrop_as_its_scene(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    form_factor: dict[str, Any],
+) -> None:
+    person = open_person(**form_factor)
+    open_new_table(person, e2e_server)
+    expect(person.locator(".room")).to_be_visible()
+
+    drawn = in_the_scene(person, "skat-choose", "frame => getComputedStyle(frame).backgroundImage", None)
+
+    assert person.locator(".room").evaluate("page => getComputedStyle(page).backgroundImage") == drawn
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_open_tables_list_sits_where_the_lobby_scene_draws_it(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    expected_request_failures: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
+    person = open_person(**form_factor)
+    tables = [open_table_answer(opener, names=(opener, None, None)) for opener in ("Ina", "Jan", "Kim")]
+    serve_streams_in_turn(person, [stream_of(open_tables=tables)])
+    person.goto(f"{e2e_server.base_url}/")
+    expect(person.locator(".lobby-card")).to_have_count(len(tables))
+    person.evaluate("document.fonts.ready.then(() => true)")
+    drawn = [box_of(person.locator(".lobby-lists h2")), box_of(person.locator(".lobby-card").first)]
+    frame = f"lobby-open-{form_factor['viewport']['width']}"
+    scenes = person.context.new_page()
+    try:
+        scenes.goto(f"{START_SCENES.as_uri()}?f={frame}")
+        origin = box_of(scenes.locator(f"[id='{frame}']"))
+        scene = [
+            box_of(scenes.locator(f"[id='{frame}'] .section-head")),
+            box_of(scenes.locator(f"[id='{frame}'] .entry").first),
+        ]
+    finally:
+        scenes.close()
+
+    assert [box["y"] for box in drawn] == pytest.approx([box["y"] - origin["y"] for box in scene], abs=1)
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)

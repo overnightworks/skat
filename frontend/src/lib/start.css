@@ -2,15 +2,9 @@ body {
     margin: 0;
 }
 
-/* The entry look: the dark lounge with its warm light pool and brass accents. */
-.start {
-    --brass: #c9a464;
-    --ink: #14181d;
-    display: flex;
-    flex-direction: column;
-    min-height: 100dvh;
-    color: var(--on-stage);
-    font-family: "Open Sans", Arial, sans-serif;
+/* The wood backdrop of the start page and the table page: the pendant lamp pool, the vignette, the wood stripes and the dark base, as the scenes draw it. */
+.start,
+.room {
     background:
         radial-gradient(60% 42% at 50% 36%, rgba(255, 186, 104, 0.2), transparent 72%),
         radial-gradient(14px 14px at 8% 9%, rgba(255, 196, 120, 0.3), transparent),
@@ -20,6 +14,17 @@ body {
         radial-gradient(130% 90% at 50% 45%, transparent 45%, rgba(0, 0, 0, 0.72) 100%),
         repeating-linear-gradient(90deg, rgba(255, 225, 190, 0.03) 0 1px, transparent 1px 88px),
         linear-gradient(180deg, #22170f 0%, #170f0a 55%, #0e0907 100%);
+}
+
+/* The entry look: the dark lounge with its warm light pool and brass accents. */
+.start {
+    --brass: #c9a464;
+    --ink: #14181d;
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    color: var(--on-stage);
+    font-family: "Open Sans", Arial, sans-serif;
 }
 
 .start-bar {
@@ -45,12 +50,13 @@ body {
     --pip-size: 20px;
     --rule-width: 30px;
     --mark-gap: 8px;
+    --mark-foot: 6px;
     --account-right: 12px;
     --account-top: 12px;
 
     position: relative;
     display: block;
-    padding: var(--mark-top) 0 6px;
+    padding: var(--mark-top) 0 var(--mark-foot);
 }
 
 .start-mark {
@@ -1312,10 +1318,6 @@ body {
     overflow-x: clip;
     color: var(--on-stage);
     font-family: "Open Sans", Arial, sans-serif;
-    background:
-        radial-gradient(70% 55% at 50% 40%, rgba(255, 190, 110, 0.13), transparent 70%),
-        radial-gradient(130% 90% at 50% 45%, transparent 45%, rgba(0, 0, 0, 0.75) 100%),
-        linear-gradient(180deg, #1a1512 0%, #120f0d 55%, #0c0a09 100%);
 }
 
 .room .bar {
@@ -4897,6 +4899,11 @@ body {
         --mark-gap: 12px;
         --account-right: 20px;
         --account-top: 16px;
+    }
+
+    /* The lobby scene starts its list 168 px down; the wordmark's own height leaves the head 5 px less to spare. */
+    .start:not([data-scene="empty"]) .start-bar.start-head {
+        --mark-foot: 1px;
     }
 
     .account-name {
