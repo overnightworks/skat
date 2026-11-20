@@ -308,7 +308,9 @@ tables = Table(
     ),
 )
 
-# One row per series of a table: the settings the series started with and its counters, proposal and Bock state.
+# One row per series of a table: the settings the series started with and its counters, proposal and Bock state. The
+# row of the series that follows the one a table plays exists, with no deal, once a seat saved its settings; its
+# `settings_revision` counts those saves.
 series = Table(
     "series",
     metadata,
@@ -323,6 +325,7 @@ series = Table(
     Column("end_asked_at", DateTime(timezone=True)),
     Column("end_refused_by", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
     Column("new_series_asked_at", DateTime(timezone=True)),
+    Column("settings_revision", SmallInteger, nullable=False, server_default="0"),
     *option_columns("series"),
     Column("bock_rounds", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
     Column("ramsch_round_games", SmallInteger, nullable=False, server_default="0"),

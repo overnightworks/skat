@@ -181,7 +181,7 @@ class TestWeiter:
         ("suffix", "body"),
         [
             pytest.param(TABLE_READY_SUFFIX, {"ordinal": FIRST_RESULT}, id="weiter"),
-            pytest.param(TABLE_NEW_SERIES_SUFFIX, {}, id="neue-serie"),
+            pytest.param(TABLE_NEW_SERIES_SUFFIX, {"settings": 0}, id="neue-serie"),
         ],
     )
     def test_a_tap_that_names_no_series_is_refused_and_writes_nothing(self, server, table, suffix, body):
@@ -191,6 +191,19 @@ class TestWeiter:
         answer = server.client.post(
             f"{TABLES_PATH}/{table_id}{suffix}",
             json={"command_id": WEITER_COMMAND_ID, **body},
+            headers={"origin": TEST_PUBLIC_ORIGIN, **people[0][0]},
+        )
+
+        assert answer.status_code == 422
+        assert server.store.tables[table_id] == before
+
+    def test_a_new_series_tap_that_names_no_settings_is_refused_and_writes_nothing(self, server, table):
+        table_id, people = table
+        before = end_the_first_game(server.store, table_id)
+
+        answer = server.client.post(
+            f"{TABLES_PATH}/{table_id}{TABLE_NEW_SERIES_SUFFIX}",
+            json={"command_id": WEITER_COMMAND_ID, "series": 1},
             headers={"origin": TEST_PUBLIC_ORIGIN, **people[0][0]},
         )
 

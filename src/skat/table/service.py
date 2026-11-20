@@ -73,12 +73,16 @@ from skat.table.playing import (
 from skat.table.pushing import PUSHING_STEP_COMMAND, PushingCommand, decide_pushing_step, pushing_payload
 from skat.table.ready import (
     NEW_SERIES_COMMAND,
+    NEXT_SETTINGS_COMMAND,
     READY_COMMAND,
     NewSeriesCommand,
+    NextSettingsCommand,
     ReadyCommand,
+    decide_change_next_settings,
     decide_new_series,
     decide_ready,
     new_series_payload,
+    next_settings_payload,
     ready_payload,
 )
 from skat.table.records import (
@@ -460,6 +464,19 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             NEW_SERIES_COMMAND,
             new_series_payload(command),
             lambda table: decide_new_series(table, actor, command, self._now()),
+        )
+
+    def change_next_settings(
+        self, actor: Actor, command: NextSettingsCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            NEXT_SETTINGS_COMMAND,
+            next_settings_payload(command),
+            lambda table: decide_change_next_settings(table, actor, command, self._now()),
         )
 
     def agree_to_end_series(

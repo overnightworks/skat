@@ -1,11 +1,13 @@
 """The `series` rows: one per series of a table, holding the length and options the series started with and its
-counters, end proposal, its answers and Bock rounds.
+counters, end proposal, its answers and Bock rounds. Once a series is over, the settings a seat saves for the next one
+are that series' own row with no deal yet; its first deal finds the row and counts there.
 
 Every write here happens in a transaction that holds the table's row lock (`_table_record`'s `with_for_update`, taken by
 `locked_table`), so a series row needs no lock of its own and a later change that locks several tables keeps taking
 the `tables` rows in id order.
 """
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import insert, select, update
@@ -13,7 +15,7 @@ from sqlalchemy import insert, select, update
 from skat.engine.bock import BockRounds
 from skat.store.game_list import last_series_with_games, read_game_list
 from skat.store.schema import option_values, options_of, series
-from skat.table.records import EndProposal, PlayedSeries, Series
+from skat.table.records import EndProposal, NextSettings, PlayedSeries, Series
 from skat.table.rules import series_number_of
 
 if TYPE_CHECKING:
@@ -94,6 +96,24 @@ def save_series(connection: Connection, table: TableRecord) -> None:
             .where(series.c.table_id == table.id.value, series.c.number == number)
             .values(**_counters_of(table))
         )
+    _save_next_settings(connection, table)
+
+
+def _save_next_settings(connection: Connection, table: TableRecord) -> None:
+    """The row of the series after the record's, which holds the settings a seat saved for it; a save after another
+    rewrites that row, and the first deal of the series finds it and counts there.
+    """
+    saved = None if table.series is None else table.series.next_settings
+    if saved is None:
+        return
+    number = series_number_of(table) + 1
+    values = {"length": saved.length, "settings_revision": saved.revision, **option_values(saved.options)}
+    if connection.execute(_series_query(table.id.value, number)).one_or_none() is None:
+        connection.execute(insert(series).values(table_id=table.id.value, number=number, deals=0, **values))
+    else:
+        connection.execute(
+            update(series).where(series.c.table_id == table.id.value, series.c.number == number).values(**values)
+        )
 
 
 def series_row(connection: Connection, table_id: str, number: int) -> Row[Any]:
@@ -115,6 +135,17 @@ def series_of(row: Row[Any]) -> Series | None:
         end_refused_by=frozenset(row.end_refused_by),
         new_series_asked_at=row.new_series_asked_at,
     )
+
+
+def series_with_next_settings(connection: Connection, table_id: str, row: Row[Any]) -> Series | None:
+    """The series a row holds with the settings saved for the next one, which only a series that is over can hold."""
+    current = series_of(row)
+    if current is None or not current.is_over:
+        return current
+    saved = connection.execute(_series_query(table_id, current.number + 1)).one_or_none()
+    if saved is None:
+        return current
+    return replace(current, next_settings=NextSettings(saved.length, options_of(saved), saved.settings_revision))
 
 
 def _proposal_of(row: Row[Any]) -> EndProposal | None:

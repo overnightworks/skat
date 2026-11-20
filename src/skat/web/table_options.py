@@ -6,7 +6,21 @@ from skat.engine.bock import BockOptions, BockOverlap, BockTrigger
 from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, RamschScoring
 from skat.engine.schieberamsch import GrandHandRule, PushingRule
-from skat.table.records import GiveUpOptions, RamschOccasion, RamschSetting, TableOptions
+from skat.table.records import (
+    SERIES_LENGTH_MAX,
+    SERIES_LENGTH_MIN,
+    SERIES_LENGTH_STEP,
+    GiveUpOptions,
+    RamschOccasion,
+    RamschSetting,
+    TableOptions,
+)
+
+# The length of a series in games, as the sheet that opens a table and the one that changes the next series' settings
+# name it.
+SeriesLengthRequest = Annotated[
+    int, Field(strict=True, ge=SERIES_LENGTH_MIN, le=SERIES_LENGTH_MAX, multiple_of=SERIES_LENGTH_STEP)
+]
 
 
 class KontraOptionsRequest(BaseModel):

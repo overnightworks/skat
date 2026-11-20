@@ -34,7 +34,14 @@ from skat.store.schema import (
     series,
     tables,
 )
-from skat.store.series import bock_of, insert_series, last_played_series, save_series, series_of, series_row
+from skat.store.series import (
+    bock_of,
+    insert_series,
+    last_played_series,
+    save_series,
+    series_row,
+    series_with_next_settings,
+)
 from skat.table.hand_state import auction_of
 from skat.table.records import (
     Chair,
@@ -217,7 +224,7 @@ def _table_record(
             ),
         ),
         game_list=read_game_list(connection, table_id, table.series_number),
-        series=series_of(current),
+        series=series_with_next_settings(connection, table_id, current),
         options=options_of(current),
         bock=bock_of(current),
         visibility=Visibility(table.visibility),

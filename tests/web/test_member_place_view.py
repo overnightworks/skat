@@ -665,10 +665,10 @@ class TestAScriptedClientIsWokenAndPlays:
         table = after_a_game(forehand_auction, series_deals=36)
 
         with sdk.connected() as session, session.listening() as events:
-            person_posts(table, TABLE_NEW_SERIES_SUFFIX, MIDDLEHAND, series=1)
+            person_posts(table, TABLE_NEW_SERIES_SUFFIX, MIDDLEHAND, series=1, settings=0)
             view = events.woken_view(table.table_id)
             answer = session.call(
-                START_NEW_SERIES_TOOL, table_id=table.table_id, command_id="agent-new-series", series=1
+                START_NEW_SERIES_TOOL, table_id=table.table_id, command_id="agent-new-series", series=1, settings=0
             )
             moved = session.view(table.table_id)
 

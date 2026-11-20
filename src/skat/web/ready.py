@@ -4,9 +4,10 @@ from typing import TYPE_CHECKING, Annotated, Final
 from fastapi import APIRouter, Request, Response
 from pydantic import Field
 
-from skat.table.ready import NewSeriesCommand, ReadyCommand
+from skat.table.ready import NewSeriesCommand, NextSettingsCommand, ReadyCommand
 from skat.table.series_end import END_ANSWER_SECONDS
-from skat.web.mcp import CONTINUE_AFTER_RESULT_MARK, START_NEW_SERIES_MARK
+from skat.web.mcp import CHANGE_NEXT_SERIES_SETTINGS_MARK, CONTINUE_AFTER_RESULT_MARK, START_NEW_SERIES_MARK
+from skat.web.table_options import OptionsRequest, SeriesLengthRequest, table_options_of
 from skat.web.tables import (
     COMMAND_RESPONSES,
     TABLES_PATH,
@@ -28,6 +29,8 @@ if TYPE_CHECKING:
 TABLE_READY_SUFFIX: Final = "/ready"
 # „Neue Serie“ after a series' end: `TABLES_PATH/{table_id}` plus this.
 TABLE_NEW_SERIES_SUFFIX: Final = "/new-series"
+# The next series' settings after a series' end: `TABLES_PATH/{table_id}` plus this.
+TABLE_NEXT_SETTINGS_SUFFIX: Final = "/next-settings"
 
 
 class SeriesRequest(CommandRequest):
@@ -36,6 +39,21 @@ class SeriesRequest(CommandRequest):
     """
 
     series: Annotated[int, Field(strict=True, ge=1)]
+
+
+class NewSeriesRequest(SeriesRequest):
+    """„Neue Serie“ names the revision of the next series' settings it answers, `series.next_settings.revision`."""
+
+    settings: Annotated[int, Field(strict=True, ge=0)]
+
+
+class NextSettingsRequest(SeriesRequest):
+    """The next series' length and rule options as the sheet that opens a table names them; left out, `options` are the
+    official rules.
+    """
+
+    series_length: SeriesLengthRequest
+    options: OptionsRequest | None = None
 
 
 class ReadyRequest(SeriesRequest):
@@ -89,21 +107,24 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         openapi_extra=START_NEW_SERIES_MARK,
     )
     async def start_new_series(
-        table_id: TableIdInPath, body: SeriesRequest, request: Request, response: Response
+        table_id: TableIdInPath, body: NewSeriesRequest, request: Request, response: Response
     ) -> Response | TableAnswer:
         """Say „Neue Serie“ after a Skat table's series has ended: the caller's chair is ready for the next series.
 
         Use it when read_table or your table's view shows `series.over: true` and the caller's own chair (`is_mine`) has
-        `ready: false`; the `series` is `series.number`, and a tap naming another series than
-        the table's changes nothing and is refused. Once all three seated members have tapped and
-        are connected, the third tap makes the table's list read empty (the finished games stay stored), the count
-        starts again and the next series' first hand is dealt. The first tap starts a minute
-        (`series.new_series_answer_by`): a seated member who has not tapped by then counts as no, and the table ends
-        and everyone returns to the lobby, so tap in time or call stop_playing. Refused: not seated, no series, a
-        stale series, the series is not over, the minute is over (`answer-time-over`). After the third tap read_table
-        still shows the series' end; the next series' first hand appears in a later read.
+        `ready: false`; the `series` is `series.number`, the `settings` is `series.next_settings.revision`, and a tap
+        naming another series than the table's, or settings the table no longer holds, changes nothing and is refused.
+        Once all three seated members have tapped and are connected, the third tap makes the table's list read empty
+        (the finished games stay stored), the count starts again and the next series' first hand is dealt. The first
+        tap starts a minute (`series.new_series_answer_by`): a seated member who has not tapped by then counts as no,
+        and the table ends and everyone returns to the lobby, so tap in time or call stop_playing. Refused: not seated,
+        no series, a stale series, the series is not over, stale settings (`stale-settings`: read the table again and
+        tap on the settings it shows), the minute is over (`answer-time-over`). After the third tap read_table still
+        shows the series' end; the next series' first hand appears in a later read.
         """
-        command = NewSeriesCommand(command_id=body.command_id, table_id=table_id, series=body.series)
+        command = NewSeriesCommand(
+            command_id=body.command_id, table_id=table_id, series=body.series, settings=body.settings
+        )
         answer = await _answer_and_deal(
             partial(tables.start_new_series, actor_of(request), command), presence, table_id, response
         )
@@ -111,5 +132,38 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         if isinstance(answer, TableAnswer) and answer.series is not None and answer.series.new_series_answer_by:
             presence.end_answer_watch.watch(table_id, END_ANSWER_SECONDS)
         return answer
+
+    @router.post(
+        TABLES_PATH + "/{table_id}" + TABLE_NEXT_SETTINGS_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=CHANGE_NEXT_SERIES_SETTINGS_MARK,
+    )
+    async def change_next_series_settings(
+        table_id: TableIdInPath, body: NextSettingsRequest, request: Request, response: Response
+    ) -> Response | TableAnswer:
+        """Change what the next series of a Skat table is played with, after its series has ended: the same length and
+        rule options the sheet shows that opens a table, which a person opens with „Ändern“ under the standings.
+
+        Use it when read_table or your table's view shows `series.over: true`; `series.next_settings` holds the
+        `game_count` and `options` the next series is played with now, the last series' until someone saves, and a
+        `revision` that counts the saves. The `series` is `series.number`; `series_length` is the number of games, a
+        multiple of three from 3 to 99, and `options` are the table's rule options as open_table names them, the
+        official rules when left out. A save replaces the settings, shows at once on every page, and takes back every
+        seat's „Neue Serie“, yours too, since each was given on the settings before: tap again with start_new_series on
+        the new `series.next_settings.revision`. The minute that follows the first „Neue Serie“ starts again with
+        the next one. Refused: not seated, no series, a stale series, the series is not over, the minute is over
+        (`answer-time-over`); invalid settings are refused as open_table refuses them.
+        """
+        command = NextSettingsCommand(
+            command_id=body.command_id,
+            table_id=table_id,
+            series=body.series,
+            length=body.series_length,
+            options=table_options_of(body.options),
+        )
+        return await command_answer(
+            partial(tables.change_next_settings, actor_of(request), command), presence, table_id, response
+        )
 
     return router

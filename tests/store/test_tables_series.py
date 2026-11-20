@@ -17,17 +17,19 @@ from skat.store.schema import StepLogRewrittenError, hand_cards, options_of, ser
 from skat.store.series import SeriesSettingsChangedError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.ready import NewSeriesCommand
+from skat.table.ready import NewSeriesCommand, NextSettingsCommand
 from skat.table.records import (
     Actor,
     CreateTable,
     Ending,
     EndReason,
     HandProgress,
+    NextSettings,
     Refusal,
     Series,
     SitDown,
     StandUp,
+    StopPlaying,
     TableId,
     TableOptions,
 )
@@ -156,9 +158,9 @@ def ended_series(service, transactions, table_id):
     return table_id
 
 
-def tap_all(service, table_id, round_name="new-series", series=1):
+def tap_all(service, table_id, round_name="new-series", series=1, settings=0):
     for seat, person in PEOPLE.items():
-        command = NewSeriesCommand(f"{round_name}-{seat}", table_id, series)
+        command = NewSeriesCommand(f"{round_name}-{seat}", table_id, series, settings)
         assert service.start_new_series(person, command, ALL_THREE).refusal is None
 
 
@@ -181,7 +183,9 @@ class TestNewSeries:
 
     def test_two_taps_leave_the_rows_and_deal_nothing(self, service, transactions, engine, ended_series):
         for seat in (1, 2):
-            service.start_new_series(PEOPLE[seat], NewSeriesCommand(f"new-series-{seat}", ended_series, 1), ALL_THREE)
+            service.start_new_series(
+                PEOPLE[seat], NewSeriesCommand(f"new-series-{seat}", ended_series, 1, 0), ALL_THREE
+            )
 
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is False
 
@@ -290,7 +294,7 @@ class TestNewSeries:
         service.deal_next(TableId(ended_series), nullcontext(ALL_THREE))
         dealt = read(transactions, ended_series)
 
-        again = service.start_new_series(OPENER, NewSeriesCommand("new-series-1", ended_series, 1), ALL_THREE)
+        again = service.start_new_series(OPENER, NewSeriesCommand("new-series-1", ended_series, 1, 0), ALL_THREE)
 
         assert again.refusal is None
         assert read(transactions, ended_series) == dealt
@@ -729,3 +733,156 @@ class TestTheSeriesRow:
             )
 
         assert stored(transactions, table_id).last_series is None
+
+
+class TestTheNextSeriesSettings:
+    """A seat saves what the next series is dealt with at the end of `first_series`, a table of three games opened with
+    `FIRST_SERIES_OPTIONS`.
+    """
+
+    SAVED = NextSettings(12, SECOND_SERIES_OPTIONS, 1)
+
+    @pytest.fixture
+    def first_series(self, service, transactions):
+        table_id = service.create(
+            OPENER, CreateTable(command_id="command-open", series_length=3, options=FIRST_SERIES_OPTIONS)
+        ).id
+        service.sit(VISITOR, SitDown("command-visitor", table_id, 2), frozenset())
+        service.sit(THIRD_PLAYER, SitDown("command-third", table_id, 3), frozenset())
+        record = read(transactions, table_id)
+        with transactions.begin() as transaction:
+            transaction.save_table(
+                replace(after_the_first_game(record), version=record.version + 1, series=Series(3, 3)), played_at=None
+            )
+        return table_id
+
+    def save(self, service, table_id, *, seat=1, length=12, options=SECOND_SERIES_OPTIONS, name="settings"):
+        command = NextSettingsCommand(f"{name}-{seat}", table_id, 1, length, options)
+        return service.change_next_settings(PEOPLE[seat], command, ALL_THREE)
+
+    def test_a_save_reads_back_beside_the_series_that_ended_and_changes_that_series_not(
+        self, service, transactions, first_series
+    ):
+        assert self.save(service, first_series).refusal is None
+
+        record = read(transactions, first_series)
+        assert record.series.next_settings == self.SAVED
+        assert (record.series.length, record.options) == (3, FIRST_SERIES_OPTIONS)
+
+    def test_a_save_is_the_next_series_own_row_which_the_pointer_does_not_name_yet(self, service, engine, first_series):
+        self.save(service, first_series)
+
+        first, next_row = series_rows(engine, first_series)
+        assert (first.number, first.length, first.deals, options_of(first)) == (1, 3, 3, FIRST_SERIES_OPTIONS)
+        assert (next_row.number, next_row.length, next_row.deals, options_of(next_row)) == (
+            2,
+            12,
+            0,
+            SECOND_SERIES_OPTIONS,
+        )
+        with engine.connect() as connection:
+            pointer = connection.execute(select(tables.c.series_number).where(tables.c.id == first_series)).scalar_one()
+        assert pointer == 1
+
+    def test_a_second_save_replaces_the_first_in_the_same_row(self, service, engine, transactions, first_series):
+        self.save(service, first_series, length=12, name="first")
+
+        self.save(service, first_series, seat=2, length=6, options=TableOptions(), name="second")
+
+        assert read(transactions, first_series).series.next_settings == NextSettings(6, TableOptions(), 2)
+        assert [row.number for row in series_rows(engine, first_series)] == [1, 2]
+
+    def test_a_save_takes_back_every_new_series_and_the_minute(self, service, transactions, first_series):
+        for seat in (1, 2):
+            service.start_new_series(PEOPLE[seat], NewSeriesCommand(f"tap-{seat}", first_series, 1, 0), ALL_THREE)
+
+        self.save(service, first_series, seat=3)
+
+        record = read(transactions, first_series)
+        assert [chair.ready for chair in record.chairs] == [False, False, False]
+        assert record.series.new_series_asked_at is None
+
+    def test_the_next_series_is_dealt_with_the_saved_settings_and_its_row_counts_there(
+        self, service, transactions, engine, first_series
+    ):
+        self.save(service, first_series)
+        tap_all(service, first_series, settings=1)
+
+        assert service.deal_next(TableId(first_series), nullcontext(ALL_THREE)) is True
+
+        record = read(transactions, first_series)
+        assert (record.series, record.options, record.game_list) == (Series(12, 1, number=2), SECOND_SERIES_OPTIONS, ())
+        first, second = series_rows(engine, first_series)
+        assert (first.length, options_of(first)) == (3, FIRST_SERIES_OPTIONS)
+        assert (second.length, second.deals, options_of(second)) == (12, 1, SECOND_SERIES_OPTIONS)
+
+    def test_a_series_dealt_after_a_save_asks_for_no_settings_again(self, service, transactions, first_series):
+        self.save(service, first_series)
+        tap_all(service, first_series, settings=1)
+        service.deal_next(TableId(first_series), nullcontext(ALL_THREE))
+
+        assert read(transactions, first_series).series.next_settings is None
+
+    def test_a_new_series_given_on_older_settings_is_refused_and_a_fresh_one_accepted(
+        self, service, transactions, first_series
+    ):
+        self.save(service, first_series)
+
+        stale = service.start_new_series(OPENER, NewSeriesCommand("tap-stale", first_series, 1, 0), ALL_THREE)
+        fresh = service.start_new_series(OPENER, NewSeriesCommand("tap-fresh", first_series, 1, 1), ALL_THREE)
+
+        assert (stale.refusal, fresh.refusal) == (Refusal.STALE_SETTINGS, None)
+        assert [chair.ready for chair in read(transactions, first_series).chairs] == [True, False, False]
+
+    def test_a_save_that_names_another_series_than_the_tables_is_refused(self, service, transactions, first_series):
+        command = NextSettingsCommand("settings-late", first_series, 2, 12, SECOND_SERIES_OPTIONS)
+        before = read(transactions, first_series)
+
+        answer = service.change_next_settings(OPENER, command, ALL_THREE)
+
+        assert (answer.refusal, read(transactions, first_series)) == (Refusal.STALE_SERIES, before)
+
+    def test_a_save_after_the_table_ended_finds_no_table(self, service, first_series):
+        service.stop_playing(OPENER, StopPlaying("stop", first_series))
+
+        assert self.save(service, first_series) is None
+
+    def test_a_retried_save_replays_and_counts_no_second_revision(self, service, transactions, first_series):
+        first = self.save(service, first_series)
+
+        again = self.save(service, first_series)
+
+        assert again == first
+        assert read(transactions, first_series).series.next_settings == self.SAVED
+
+    def test_two_saves_at_once_are_both_accepted_in_turn_and_the_later_one_stands(
+        self, service, transactions, engine, first_series
+    ):
+        answers = race(
+            lambda: self.save(service, first_series, seat=1, length=6, options=TableOptions(), name="one"),
+            lambda: self.save(service, first_series, seat=2, length=9, options=SECOND_SERIES_OPTIONS, name="two"),
+        )
+
+        saved = read(transactions, first_series).series.next_settings
+        assert [answer.refusal for answer in answers.values()] == [None, None]
+        assert saved.revision == 2
+        assert (saved.length, saved.options) in {(6, TableOptions()), (9, SECOND_SERIES_OPTIONS)}
+        assert [row.number for row in series_rows(engine, first_series)] == [1, 2]
+
+    def test_a_save_racing_the_last_new_series_leaves_one_outcome_and_no_series_on_unseen_settings(
+        self, service, transactions, first_series
+    ):
+        for seat in (1, 2):
+            service.start_new_series(PEOPLE[seat], NewSeriesCommand(f"tap-{seat}", first_series, 1, 0), ALL_THREE)
+
+        answers = race(
+            lambda: self.save(service, first_series, seat=1),
+            lambda: service.start_new_series(THIRD_PLAYER, NewSeriesCommand("tap-3", first_series, 1, 0), ALL_THREE),
+        )
+
+        assert answers["first"].refusal is None
+        assert answers["second"].refusal in {None, Refusal.STALE_SETTINGS}
+        assert service.deal_next(TableId(first_series), nullcontext(ALL_THREE)) is False
+        record = read(transactions, first_series)
+        assert (record.series.number, record.series.next_settings) == (1, self.SAVED)
+        assert [chair.ready for chair in record.chairs] == [False, False, False]
