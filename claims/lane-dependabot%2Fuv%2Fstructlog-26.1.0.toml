@@ -1,7 +1,0 @@
-claim_id = "2186264afdc54149baa01c6aa2e6296a"
-agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
-role = "builder"
-base = "2195598dba6bf12f7e5926c36778c4ccd9131120"
-branch = "dependabot/uv/structlog-26.1.0"
-scope = ["uv.lock"]
-opened_commit = "80c8042efbed186cf1104d153844268a0ca0be05"
