@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Final, Literal
 
-from sqlalchemy import Integer, delete, exists, func, insert, literal, select, update
+from sqlalchemy import Integer, delete, exists, func, insert, literal, or_, select, update
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.dialects.postgresql import insert as upsert
 from sqlalchemy.exc import IntegrityError
@@ -466,13 +466,6 @@ class _PostgresTableTransaction:
             delete(receipts).where(receipts.c.table_id == table_id.value, receipts.c.command != CREATE_TABLE_COMMAND)
         )
 
-    def opener_account(self, table_id: TableId) -> str | None:
-        return self._connection.execute(
-            select(receipts.c.account_id).where(
-                receipts.c.table_id == table_id.value, receipts.c.command == CREATE_TABLE_COMMAND
-            )
-        ).scalar_one_or_none()
-
     def played_before(self, cutoff: datetime) -> tuple[TableId, ...]:
         return tuple(
             TableId(table_id)
@@ -524,11 +517,17 @@ class _PostgresTableTransaction:
 
     def live_end_asks(self) -> tuple[LiveAsk, ...]:
         return tuple(
-            LiveAsk(TableId(row.table_id), row.end_asked_at)
+            LiveAsk(TableId(row.table_id), row.asked_at)
             for row in self._connection.execute(
-                select(series.c.table_id, series.c.end_asked_at)
+                select(
+                    series.c.table_id,
+                    func.coalesce(series.c.end_asked_at, series.c.new_series_asked_at).label("asked_at"),
+                )
                 .join(tables, (tables.c.id == series.c.table_id) & (tables.c.series_number == series.c.number))
-                .where(tables.c.end_reason.is_(None), series.c.end_proposer.is_not(None))
+                .where(
+                    tables.c.end_reason.is_(None),
+                    or_(series.c.end_proposer.is_not(None), series.c.new_series_asked_at.is_not(None)),
+                )
                 .order_by(series.c.table_id)
             )
         )

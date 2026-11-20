@@ -188,7 +188,6 @@ def test_the_opener_on_a_phone_sees_the_kontra_key_as_the_scene_draws_it_with_th
     opener = table.pages[OPENER_SEAT]
     expect(button_of(opener, KONTRA)).to_be_visible()
 
-    expect(opener.locator(".row.close")).to_have_count(1)
     expect(opener.locator(".actions .row")).to_have_count(0)
     expect_the_keys_to_match_the_scene(opener, "kontra-offer", KONTRA, declines=False)
     expect_the_rows_to_fit(opener)

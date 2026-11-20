@@ -1,11 +1,15 @@
 from dataclasses import dataclass, replace
+from datetime import timedelta
 from typing import TYPE_CHECKING, Final
 
 from skat.table.game_list import result_view_of
 from skat.table.records import Decision, Refusal
 from skat.table.rules import seat_of, series_number_of, series_over
+from skat.table.series_end import answer_left
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from skat.table.records import Actor, Chair, TableRecord
 
 READY_COMMAND: Final = "ready"
@@ -66,9 +70,10 @@ def decide_ready(table: TableRecord, actor: Actor, command: ReadyCommand) -> Dec
     return _marked(table, chair)
 
 
-def decide_new_series(table: TableRecord, actor: Actor, command: NewSeriesCommand) -> Decision:
+def decide_new_series(table: TableRecord, actor: Actor, command: NewSeriesCommand, now: datetime) -> Decision:
     """„Neue Serie“ marks the actor's chair: no chair, no series, another series than the table's, a series not yet
-    over.
+    over. The first mark starts the minute after which the seats that stayed silent count as no, and a mark that
+    comes after it is refused, since those seats end the table.
 
     A chair already marked stays as it is, with no new version; the deal after the third mark starts the next series.
     """
@@ -81,7 +86,13 @@ def decide_new_series(table: TableRecord, actor: Actor, command: NewSeriesComman
         return Decision(table, Refusal.STALE_SERIES)
     if not series_over(table):
         return Decision(table, Refusal.SERIES_NOT_OVER)
-    return _marked(table, chair)
+    if chair.ready:
+        return Decision(table)
+    asked_at = table.series.new_series_asked_at
+    if asked_at is not None and answer_left(asked_at, now) <= timedelta(0):
+        return Decision(table, Refusal.ANSWER_TIME_OVER)
+    marked = _marked(table, chair).table
+    return Decision(replace(marked, series=replace(table.series, new_series_asked_at=asked_at or now)))
 
 
 def _marked(table: TableRecord, chair: Chair) -> Decision:

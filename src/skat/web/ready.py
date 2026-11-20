@@ -5,6 +5,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import Field
 
 from skat.table.ready import NewSeriesCommand, ReadyCommand
+from skat.table.series_end import END_ANSWER_SECONDS
 from skat.web.mcp import CONTINUE_AFTER_RESULT_MARK, START_NEW_SERIES_MARK
 from skat.web.tables import (
     COMMAND_RESPONSES,
@@ -72,9 +73,9 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         `result.ordinal`, the `series` is `series.number` (1 when `series` is null).
         Refused: not seated, no result, a stale series, a stale ordinal, the series is over. Once read_table or
         your table's view shows `series.over: true` no next hand follows; call start_new_series for the next series,
-        also after a passed-in last game (`passed_in`). After any other passed-in hand the next hand follows once all
-        three are there. The result still stands in read_table; the next hand appears in a later read, once all three
-        chairs are ready and the series is not over.
+        also after a passed-in last game (`passed_in`), or stop_playing to end the table. After any other passed-in hand
+        the next hand follows once all three are there. The result still stands in read_table; the next hand appears
+        in a later read, once all three chairs are ready and the series is not over.
         """
         command = ReadyCommand(command_id=body.command_id, table_id=table_id, ordinal=body.ordinal, series=body.series)
         return await _answer_and_deal(
@@ -96,13 +97,19 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         `ready: false`; the `series` is `series.number`, and a tap naming another series than
         the table's changes nothing and is refused. Once all three seated members have tapped and
         are connected, the third tap makes the table's list read empty (the finished games stay stored), the count
-        starts again and the next series' first hand is dealt. Refused: not seated, no series, a stale series, the
-        series is not over. After the third tap read_table still shows the series' end; the next series' first hand
-        appears in a later read.
+        starts again and the next series' first hand is dealt. The first tap starts a minute
+        (`series.new_series_answer_by`): a seated member who has not tapped by then counts as no, and the table ends
+        and everyone returns to the lobby, so tap in time or call stop_playing. Refused: not seated, no series, a
+        stale series, the series is not over, the minute is over (`answer-time-over`). After the third tap read_table
+        still shows the series' end; the next series' first hand appears in a later read.
         """
         command = NewSeriesCommand(command_id=body.command_id, table_id=table_id, series=body.series)
-        return await _answer_and_deal(
+        answer = await _answer_and_deal(
             partial(tables.start_new_series, actor_of(request), command), presence, table_id, response
         )
+        # Another timer for the same minute finds it not over yet, or the series dealt.
+        if isinstance(answer, TableAnswer) and answer.series is not None and answer.series.new_series_answer_by:
+            presence.end_answer_watch.watch(table_id, END_ANSWER_SECONDS)
+        return answer
 
     return router

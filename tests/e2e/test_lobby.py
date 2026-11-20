@@ -57,8 +57,6 @@ VISIBILITY_INFO_BUTTON = text(SOURCE_LANGUAGE, "start.visibilityInfoButton")
 VISIBILITY_INFO = text(SOURCE_LANGUAGE, "start.visibilityInfo")
 OPEN_TABLE = text(SOURCE_LANGUAGE, "start.openTable")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-CLOSE_KEY = text(SOURCE_LANGUAGE, "table.close")
-CLOSE_CONFIRM = text(SOURCE_LANGUAGE, "table.closeConfirm")
 ENGLISH: Language = "en"
 # A tap target is at least this many CSS pixels on each side.
 TAP_TARGET_PIXELS = 44
@@ -213,9 +211,6 @@ def test_the_list_follows_create_sit_stand_and_close_without_a_reload(
     expect(sit_buttons_of(card)).to_have_count(1)
     menu_button(sitter, STAND_UP).click()
     expect(plates_of(card)).to_have_text([owner_name, SEAT_FREE, SEAT_FREE])
-    menu_button(owner, CLOSE_KEY).click()
-    owner.get_by_role("button", name=CLOSE_CONFIRM, exact=True).click()
-    expect(card).to_have_count(0)
     assert_never_reloaded(watcher)
 
 

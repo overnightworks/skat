@@ -148,6 +148,9 @@ export type Words = {
     readonly "table.sheetDecided": string;
     readonly "table.sheetDurchmarsch": string;
     readonly "table.newSeries": string;
+    readonly "table.stopPlaying": string;
+    readonly "table.nextSeries": string;
+    readonly "table.answerClockEnds": (gaps: { readonly time: string }) => string;
     readonly "table.wantsToEndSeries": (gaps: { readonly name: string }) => string;
     readonly "table.endSeries": string;
     readonly "table.endSeriesSure": string;
@@ -391,10 +394,6 @@ export type Words = {
     readonly "table.playingOn": (gaps: { readonly names: string }) => string;
     readonly "table.sitQuestion": string;
     readonly "table.sitQuestionCancel": string;
-    readonly "table.close": string;
-    readonly "table.closeQuestion": string;
-    readonly "table.closeConfirm": string;
-    readonly "table.closeCancel": string;
     readonly "table.takeOverNamed": (gaps: { readonly name: string }) => string;
     readonly "table.takeOverApostrophe": (gaps: { readonly name: string }) => string;
     readonly "table.takeOverUnnamed": string;
@@ -753,6 +752,9 @@ export const words: Words = {
     "table.sheetDecided": "Entschieden",
     "table.sheetDurchmarsch": "Durchmarsch",
     "table.newSeries": "Neue Serie",
+    "table.stopPlaying": "Aufhören",
+    "table.nextSeries": "Nächste Serie",
+    "table.answerClockEnds": (gaps: { readonly time: string }) => "Ohne Antwort in " + gaps.time + " endet der Tisch",
     "table.wantsToEndSeries": (gaps: { readonly name: string }) => gaps.name + " möchte die Serie beenden",
     "table.endSeries": "Serie beenden",
     "table.endSeriesSure": "Wirklich beenden?",
@@ -1031,10 +1033,6 @@ export const words: Words = {
     "table.playingOn": (gaps: { readonly names: string }) => gaps.names + " spielen weiter",
     "table.sitQuestion": "Mitten ins Spiel setzen?",
     "table.sitQuestionCancel": "Abbrechen",
-    "table.close": "Tisch schließen",
-    "table.closeQuestion": "Tisch für alle schließen?",
-    "table.closeConfirm": "Schließen",
-    "table.closeCancel": "Abbrechen",
     "table.takeOverNamed": (gaps: { readonly name: string }) => "Du übernimmst " + gaps.name + "s Karten.",
     "table.takeOverApostrophe": (gaps: { readonly name: string }) => "Du übernimmst " + gaps.name + "’ Karten.",
     "table.takeOverUnnamed": "Du übernimmst die Karten dieses Platzes.",

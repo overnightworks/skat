@@ -1,4 +1,6 @@
-"""The minute a proposal to end the series waits for its answers, and the timers that end it."""
+"""The minute a proposal to end the series, or at its end the first „Neue Serie“, waits for its answers, and the
+timers that end it.
+"""
 
 import math
 from dataclasses import dataclass
@@ -10,25 +12,28 @@ from skat.web.presence_line import PresenceTimer
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Mapping
 
+    from skat.table.server_steps import EndAnswerLapse
     from skat.web.presence_line import TimerRuns
 
 
 @dataclass(frozen=True)
 class EndAnswers:
-    """The step that ends a proposal to end the series once its minute is over.
+    """The step that ends what the minute of answers decides once it is over: a proposal to end the series, or at the
+    series' end the table of a seat that stayed silent.
 
-    `lapse(table_id)` answers the seconds the table's proposal still has to wait, None once none stands, and raises
-    when the store fails.
+    `lapse(table_id)` answers the seconds the table's ask still has to wait, None once none stands, and whether the
+    table ended, and raises when the store fails.
     """
 
-    lapse: Callable[[str], Awaitable[float | None]]
+    lapse: Callable[[str], Awaitable[EndAnswerLapse]]
 
 
 class EndAnswerWatch:
-    """The timers of the proposals to end a series, one waiting per table at most.
+    """The timers of the proposals to end a series and of the first „Neue Serie“, one waiting per table at most.
 
     `schedule(delay, action)` runs `action` once after `delay` seconds, `wake(table_id)` tells the table's streams that
-    its view changed, and `stopped()` says whether the presence has stopped, which starts no timer. A step the store
+    its view changed, `ended(table_id)` that the table ended, and `stopped()` says whether the presence has stopped,
+    which starts no timer. A step the store
     refuses is asked again after `retry_seconds`.
     """
 
@@ -39,6 +44,7 @@ class EndAnswerWatch:
         schedule: Callable[[float, Callable[[], Awaitable[None]]], None],
         runs: TimerRuns,
         wake: Callable[[str], None],
+        ended: Callable[[str], None],
         stopped: Callable[[], bool],
         retry_seconds: float,
     ) -> None:
@@ -47,6 +53,7 @@ class EndAnswerWatch:
         self._schedule = schedule
         self._runs = runs
         self._wake = wake
+        self._ended = ended
         self._stopped = stopped
         self._retry_seconds = retry_seconds
         self._dues: dict[str, float] = {}
@@ -81,6 +88,9 @@ class EndAnswerWatch:
             self.watch(table_id, self._retry_seconds)
             return
         run.succeeded()
-        self._wake(table_id)
-        if left is not None:
-            self.watch(table_id, left)
+        if left.table_stopped:
+            self._ended(table_id)
+        else:
+            self._wake(table_id)
+        if left.seconds_left is not None:
+            self.watch(table_id, left.seconds_left)

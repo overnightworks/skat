@@ -88,12 +88,6 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         """
         ...
 
-    def opener_account(self, table_id: TableId) -> str | None:
-        """The account that opened the table, read from the create receipt that stays after its end; None when the
-        table has none.
-        """
-        ...
-
     def played_before(self, cutoff: datetime) -> tuple[TableId, ...]:
         """The live tables whose last deal or step of play was at or before `cutoff`, in id order; an unlocked read, so
         a candidate list.
@@ -128,8 +122,9 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         ...
 
     def live_end_asks(self) -> tuple[LiveAsk, ...]:
-        """Every live table whose current series holds a proposal to end it, with the instant it was made: an
-        unlocked read, since the server's start only arms timers that re-read each table under its row lock.
+        """Every live table whose current series holds a proposal to end it, or at its end the first „Neue Serie“, with
+        the instant it was made: an unlocked read, since the server's start only arms timers that re-read each table
+        under its row lock.
         """
         ...
 

@@ -322,6 +322,7 @@ series = Table(
     Column("end_agreed", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
     Column("end_asked_at", DateTime(timezone=True)),
     Column("end_refused_by", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
+    Column("new_series_asked_at", DateTime(timezone=True)),
     *option_columns("series"),
     Column("bock_rounds", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
     Column("ramsch_round_games", SmallInteger, nullable=False, server_default="0"),

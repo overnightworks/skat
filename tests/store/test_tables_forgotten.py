@@ -4,8 +4,9 @@ import pytest
 from sqlalchemy import update
 
 from skat.store.schema import tables
-from skat.table.records import CloseTable, CreateTable, Ending, EndReason
+from skat.table.records import CreateTable, Ending, EndReason
 from skat.table.service import TableService
+from tests.support.ended_tables import end_as_an_opener_closed_it
 from tests.support.seated_tables import ENDED_AT, OPENER, ended_at, listed_game, undealt_table
 from tests.support.table_rows import WorkInAThread, rows_of, wait_until_a_session_waits_for_a_lock
 
@@ -19,11 +20,9 @@ def forgetting_service(transactions, now=FORGOTTEN_AT):
     return TableService(transactions, now=lambda: now)
 
 
-def closed_with_games(service, transactions, stored, engine, name):
+def closed_with_games(service, transactions, stored, name):
     table_id = listed_game(service, transactions, stored, name)
-    service.close(OPENER, CloseTable(f"close-{name}", table_id.value))
-    with engine.begin() as connection:
-        connection.execute(update(tables).where(tables.c.id == table_id.value).values(ended_at=ENDED_AT))
+    end_as_an_opener_closed_it(transactions, table_id.value, ENDED_AT)
     return table_id
 
 
@@ -65,7 +64,7 @@ def test_forgetting_keeps_a_live_table_and_an_ended_table_within_its_days_and_de
 def test_forgetting_keeps_an_ended_table_with_games_and_clears_only_its_closers_name(
     service, transactions, stored, engine
 ):
-    table_id = closed_with_games(service, transactions, stored, engine, "one")
+    table_id = closed_with_games(service, transactions, stored, "one")
     before = rows_of(engine, table_id.value)
     version = stored(transactions, table_id.value).version
 
@@ -82,7 +81,7 @@ def test_forgetting_keeps_an_ended_table_with_games_and_clears_only_its_closers_
 def test_forgetting_keeps_the_closers_name_of_a_table_with_games_until_the_days_are_up(
     service, transactions, stored, engine
 ):
-    table_id = closed_with_games(service, transactions, stored, engine, "one")
+    table_id = closed_with_games(service, transactions, stored, "one")
     before = stored(transactions, table_id.value)
 
     forgetting_service(transactions, FORGOTTEN_AT - timedelta(seconds=1)).forget_ended_tables(ENDED_TABLE_DAYS)

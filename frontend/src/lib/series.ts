@@ -1,6 +1,7 @@
 import type { SeatNotice } from "#lib/openChair.ts";
 import { facesOf, namesOf, type AnswerMark, type AskButton, type AskView } from "#lib/giveUp.ts";
 import { declaredResult, LEVEL_WORDS, ramschResultView, withMinus } from "#lib/result.ts";
+import { tableRules, type RuleChip } from "#lib/tableRules.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { SeriesEntry } from "../routes/(start)/seriesList.ts";
 import { gameLabel, type Game, type SeriesEndAnswer, type Standing, type Table } from "../routes/(start)/tables.ts";
@@ -166,6 +167,33 @@ export function standingsView(table: Table): StandingsView | null {
         rows,
         winnerSeats,
     };
+}
+
+// „Aufhören“ ends the table once the series is over, from any seated chair; a watcher of the standings has no such key.
+export function stopOffered(table: Table): boolean {
+    return seriesOver(table) && table.chairs.some((chair) => chair.is_mine);
+}
+
+export type NextSeriesLine = { length: string; chips: RuleChip[] };
+
+// What the next series begins with: the table's length and rules, which the series end carries over unchanged.
+export function nextSeriesLine(table: Table): NextSeriesLine | null {
+    if (!seriesOver(table) || table.options === null || table.series === null) return null;
+    return {
+        length: words["table.seriesGames"](table.series.game_count),
+        chips: tableRules(table.options, null).chips,
+    };
+}
+
+// The instant a seat that has not chosen „Neue Serie“ ends the table; null until the first seat chose it.
+export function seriesEndAnswerBy(table: Table): string | null {
+    return seriesOver(table) ? (table.series?.new_series_answer_by ?? null) : null;
+}
+
+// A page that showed the live table returns to the lobby once „Aufhören“ or a silent minute ended it, which stores a
+// close that names nobody; a page that opens the link of such a table stays and shows the ended table.
+export function returnsToLobby(previous: Table | undefined, table: Table): boolean {
+    return previous?.ended === null && table.ended?.reason === "closed" && table.ended.closed_by_name === null;
 }
 
 // A result, the standings or a Ramsch's reckoning stands on the table.
