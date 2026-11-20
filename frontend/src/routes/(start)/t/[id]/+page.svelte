@@ -568,7 +568,7 @@
             {:else if ramschView !== null}
                 <RamschResultCard view={ramschView} />
             {/if}
-            <TrickStage chairs={outcome.table.chairs} playing={trick} {playedThisHand} {turnSeat} {stamp} />
+            <TrickStage table={outcome.table} playing={trick} {playedThisHand} {turnSeat} {stamp} />
             {@const dealerSeat = passedIn?.dealerSeat ?? outcome.table.hand?.dealer_seat}
             {@const auction = outcome.table.hand?.auction}
             {@const declaring = outcome.table.hand?.declaring}

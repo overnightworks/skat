@@ -23,6 +23,16 @@ SIGNED_OUT_ANSWER_LINE = "Failed to load resource: the server responded with a s
 NEW_TABLE_BUTTON = text(SOURCE_LANGUAGE, "start.newTable")
 
 
+def hide_the_tab(page: Page, *, hidden: bool) -> None:
+    page.evaluate(
+        """hidden => {
+            Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+            document.dispatchEvent(new Event("visibilitychange"));
+        }""",
+        hidden,
+    )
+
+
 def record_page_errors(
     page: Page, page_errors: list[str], *, console: bool = True, signed_out_account_check_origin: str | None = None
 ) -> Page:

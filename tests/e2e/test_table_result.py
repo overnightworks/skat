@@ -20,6 +20,7 @@ from tests.e2e.support.declaring import (
     passes,
 )
 from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, THEY, WE, PlayingTable, deal_playing_table
+from tests.e2e.support.motion import FELT_SLOT, names_under_something
 from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.result_card import (
     CARD,
@@ -528,7 +529,7 @@ def deal_a_table_of_full_length_names(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_laid_name_tags_of_full_length_names_stay_clear_of_each_other_and_of_the_other_cards(
+def test_the_laid_name_tags_of_full_length_names_stay_clear_of_each_other_and_of_the_other_slots_above_every_card(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -550,7 +551,8 @@ def test_the_laid_name_tags_of_full_length_names_stay_clear_of_each_other_and_of
         for person in table.everyone:
             expect(person.locator(".trick .laid")).to_have_count(laid)
             expect_no_crossing(person, ".trick .laid .tag", ".trick .laid .tag")
-            expect_no_crossing(person, ".trick .laid .tag", ".trick .laid")
+            expect_no_crossing(person, ".trick .laid .tag", FELT_SLOT)
+            assert names_under_something(person) == []
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

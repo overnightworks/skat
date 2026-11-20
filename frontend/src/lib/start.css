@@ -3824,37 +3824,38 @@ body {
     }
 }
 
+/* A slot gives a card its place and its turn. Its box is no layer of its own, so the names of a trick lie above all of
+   its cards and no card covers a name. */
 .room .laid,
 .room .lead-slot {
     position: absolute;
     width: var(--card-width);
     aspect-ratio: 100 / 140;
-    transform: translate(-50%, -50%) rotate(var(--lie));
+    margin: calc(var(--card-width) * -0.7) 0 0 calc(var(--card-width) * -0.5);
+}
+
+/* A swept card swings about its lower right corner. */
+.room .laid {
+    transform-origin: 100% 100%;
 }
 
 .room .laid.left {
     left: 28%;
     top: 48%;
-    --lie: -9deg;
-    --from-x: -150%;
-    --from-y: -90%;
+    --slot-turn: -9deg;
 }
 
 .room .laid.right {
     left: 72%;
     top: 48%;
-    --lie: 8deg;
-    --from-x: 150%;
-    --from-y: -90%;
+    --slot-turn: 8deg;
 }
 
 .room .laid.near,
 .room .lead-slot {
     left: 50%;
     top: 56%;
-    --lie: 0deg;
-    --from-x: 0;
-    --from-y: 180%;
+    --slot-turn: 0deg;
 }
 
 /* Where the viewer's card will lie once it is their turn: the dashed slot of the scene push-grand-done. */
@@ -3873,74 +3874,57 @@ body {
     height: 34%;
 }
 
+/* A card rests off its slot by its own lie, in card widths and degrees, which its element carries: so far across and up
+   the page, and so far turned on top of the slot's turn. */
+.room .laid .lying {
+    position: absolute;
+    inset: 0;
+    transform: translate(calc(var(--card-width) * var(--lie-x, 0)), calc(var(--card-width) * var(--lie-y, 0)))
+        rotate(calc(var(--slot-turn) + var(--lie-turn, 0deg)));
+}
+
+/* A name hangs off the slot, turned as the slot is and whatever the card's lie, so the names keep the room the slots
+   give them. */
+.room .laid .hang {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    transform: rotate(var(--slot-turn));
+}
+
+/* A card this page saw laid is thrown onto its place by Takt, which moves these pieces and nothing else; each rests here.
+   The card's shade is a piece of its own, so it stays on the felt while the card is in the air. */
+.room .laid .shade {
+    position: absolute;
+    inset: 8px;
+    border-radius: calc(var(--card-width) * 0.075);
+    background: rgba(0, 0, 0, 0.35);
+    box-shadow: 0 0 8px 8px rgba(0, 0, 0, 0.35);
+    translate: 0 6px;
+}
+
 .room .laid .face {
+    position: relative;
     display: block;
     width: 100%;
     height: 100%;
-    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
 }
 
-/* A card this page saw laid lands from its player's side in the motion set the table carries: it fades in, settles and ends at rest.
-   The table carries no set while the device asks for reduced motion and the player has not overridden it. Only the card moves; its name tag stands still from the first frame. */
-/* "verspielt": 340 ms, with a small bounce. */
-.room[data-motion="verspielt"] .laid.fresh .face {
-    animation: land-verspielt 340ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+/* The card's back shows only while a card thrown out of a hidden hand turns over. */
+.room .laid .rear {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
 }
 
-@keyframes land-verspielt {
-    from {
-        translate: var(--from-x) var(--from-y);
-        rotate: -24deg;
-        scale: 0.55;
-        opacity: 0;
-    }
-
-    50% {
-        opacity: 1;
-    }
-
-    78% {
-        translate: 0 2px;
-        rotate: 0deg;
-        scale: 1.07;
-    }
-
-    90% {
-        scale: 0.98;
-    }
-
-    to {
-        translate: 0 0;
-        rotate: 0deg;
-        scale: 1;
-    }
+.room .laid .rear .card-back {
+    width: 100%;
+    height: 100%;
+    filter: none;
 }
 
-/* "dezent": 220 ms, straight in and without a bounce. */
-.room[data-motion="dezent"] .laid.fresh .face {
-    animation: land-dezent 220ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
-}
-
-@keyframes land-dezent {
-    from {
-        translate: var(--from-x) var(--from-y);
-        rotate: -4deg;
-        scale: 0.8;
-        opacity: 0;
-    }
-
-    60% {
-        opacity: 1;
-    }
-
-    to {
-        translate: 0 0;
-        rotate: 0deg;
-        scale: 1;
-    }
-}
-
-/* The cap counts the padding: a long name ends in an ellipsis inside it, so the tag stays clear of the next card and of the next tag. */
+/* The cap counts the padding: a long name ends in an ellipsis inside it, so the tag stays clear of the next slot, above every card, and of the next tag. */
 .room .laid .tag {
     box-sizing: border-box;
     position: absolute;
@@ -3958,7 +3942,7 @@ body {
     font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
-    transform: translateX(-50%) rotate(calc(var(--lie) * -1));
+    transform: translateX(-50%) rotate(calc(var(--slot-turn) * -1));
 }
 
 .room .laid .name {
@@ -4128,13 +4112,13 @@ body {
     .room .laid.left {
         left: 42.9%;
         top: 35%;
-        --lie: -11deg;
+        --slot-turn: -11deg;
     }
 
     .room .laid.right {
         left: 57.1%;
         top: 35%;
-        --lie: 9deg;
+        --slot-turn: 9deg;
     }
 
     .room :is(.laid.near, .lead-slot) {

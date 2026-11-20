@@ -1,11 +1,19 @@
 <script lang="ts">
+    import type { Action } from "svelte/action";
     import { outcomeRim } from "#lib/closingHand.ts";
     import { ownCardSlotOpen, type LaidCard } from "#lib/playView.ts";
+    import { motionOnStage } from "#lib/stage.svelte.ts";
+    import { carryOf, landTimeline, lieOf } from "#lib/takt/land.ts";
+    import { letGoPlaceOf } from "#lib/takt/letGo.ts";
+    import { fade, move, placeOf } from "#lib/takt/player.ts";
+    import type { Place } from "#lib/takt/timeline.ts";
+    import CardBack from "#lib/ui/CardBack.svelte";
     import CardFace from "#lib/ui/CardFace.svelte";
     import { words } from "#lib/words.ts";
     import { cardName, includesCard, type Card, type Chair } from "../../routes/(start)/tables.ts";
 
-    // The cards this page saw played in the running hand; only those land, a card drawn from a reload stands still.
+    // The cards this page saw played in the running hand; only those land, a card drawn from a reload lies at once.
+    // `seed` is the seed of the running game, from which every card draws its lie and its toss.
     // `turnSeat` is the seat whose card the table waits for, undefined while the hand waits for a sitter or a trick
     // is on the move. `sweptTo` is the seat whose pile the trick glides to while it glides. `took` is the seat whose card
     // took the last trick of the hand and whether the declarer won it, null in a Ramsch, once that trick has rested.
@@ -13,6 +21,7 @@
         chairs,
         laid,
         playedThisHand,
+        seed,
         turnSeat,
         sweptTo,
         took = null,
@@ -20,10 +29,46 @@
         chairs: Chair[];
         laid: LaidCard[];
         playedThisHand: Card[];
+        seed: string;
         turnSeat: number | null | undefined;
         sweptTo: number | null;
         took?: { seat: number; declarerWon: boolean | null } | null;
     } = $props();
+
+    const placesOf = (selector: string): Place[] => [...document.querySelectorAll(selector)].map(placeOf);
+    const partOf = (card: HTMLElement, part: string): HTMLElement => card.querySelector(`.${part}`) as HTMLElement;
+
+    // A card leaves from where the own hand let it go, else from its player's open cards, else from the player's fan,
+    // which hides its faces.
+    function leavingOf(card: Card, seat: number): { from: Place | undefined; faceDown: boolean } {
+        const chair = `.chair[data-seat="${String(seat)}"]`;
+        const shown = letGoPlaceOf(card) ?? placesOf(`${chair} .open .card`)[0];
+        return { from: shown ?? placesOf(`${chair} .fan`)[0], faceDown: shown === undefined };
+    }
+
+    // A card rests off its slot by its own lie, which the stylesheet reads from the element, set as properties so no
+    // style attribute carries it. A card this page saw played is thrown there once, when its element is made; while
+    // the stage does not move it lies at once.
+    const rests: Action<HTMLLIElement, { card: Card; seat: number }> = (element, { card, seat }) => {
+        const lie = lieOf(seed, card);
+        element.style.setProperty("--lie-x", String(lie.x));
+        element.style.setProperty("--lie-y", String(lie.y));
+        element.style.setProperty("--lie-turn", `${String(lie.turn)}deg`);
+        const land = motionOnStage()?.land;
+        const landing =
+            land !== undefined && includesCard(playedThisHand, card)
+                ? landTimeline(land, {
+                      ...leavingOf(card, seat),
+                      to: placeOf(partOf(element, "lying")),
+                      carry: carryOf(seed, card, land),
+                  })
+                : undefined;
+        if (landing === undefined) return;
+        move(partOf(element, "face"), landing.tracks.card, landing.seconds);
+        move(partOf(element, "shade"), landing.tracks.shade, landing.seconds);
+        fade(partOf(element, "rear"), landing.tracks.rear, landing.seconds);
+        fade(partOf(element, "tag"), landing.tracks.name, landing.seconds);
+    };
 
     // A name that fits its tag whole leaves the tags of the trick apart, as the scenes draw them. A name cut to the tag's
     // cap makes tags that reach each other, so the near tag then steps below the far ones. Whether a name is cut never
@@ -101,18 +146,21 @@
 <ul class="trick" class:stepped class:sweeping={sweptTo !== null} aria-label={words["play.trick"]} bind:this={trick}>
     {#each laid as { card, seat, slot, name, initial } (`${card.suit}-${card.rank}`)}
         <li
-            class={[
-                "laid",
-                slot,
-                { fresh: includesCard(playedThisHand, card) },
-                took?.seat === seat && ["took", outcomeRim(took.declarerWon)],
-            ]}
+            class={["laid", slot, took?.seat === seat && ["took", outcomeRim(took.declarerWon)]]}
             data-seat={seat}
+            use:rests={{ card, seat }}
         >
-            <span class="face" role="img" aria-label={cardName(card)}><CardFace {card} /></span>
-            <span class="tag">
-                <span class="dot" aria-hidden="true">{initial}</span>
-                <span class="name">{name}</span>
+            <span class="lying">
+                <span class="shade"></span>
+                <span class="face" role="img" aria-label={cardName(card)}>
+                    <CardFace {card} /><span class="rear"><CardBack /></span>
+                </span>
+            </span>
+            <span class="hang">
+                <span class="tag">
+                    <span class="dot" aria-hidden="true">{initial}</span>
+                    <span class="name">{name}</span>
+                </span>
             </span>
         </li>
     {/each}
