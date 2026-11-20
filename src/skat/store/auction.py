@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from skat.table.records import TableRecord
 
 LIMIT_KIND: Final = "limit"
-PASS_KIND: Final = "pass"
+PASS_KIND: Final = "pass"  # noqa: S105 - the word for dropping out of the auction and no password
 
 auction_actions = Table(
     "auction_actions",
