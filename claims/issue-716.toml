@@ -1,7 +1,0 @@
-claim_id = "1ebb2f56e5a94d2a84a4eaf3bb2b3c07"
-agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
-role = "builder"
-base = "05ec785b177b284fd54a83cd99722417db855325"
-branch = "claude/issue-716-the-series-end-plaque-and-refusal-line-s"
-scope = ["frontend/src/lib/start.css", "frontend/src/lib/table"]
-opened_commit = "46480d00662dbf7839c758bb68d2bae13ca82005"
