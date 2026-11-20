@@ -341,4 +341,4 @@ class TestTrustedProxiesSetting:
         settings = sign_in_settings().settings
 
         assert settings.trusted_proxies == ""
-        assert not build_sign_in_configs(settings, in_process_rate_limits()).web_auth.trusted_proxies.networks
+        assert not build_sign_in_configs(settings, in_process_rate_limits()).trusted_proxies.networks
