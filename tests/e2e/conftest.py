@@ -1,3 +1,4 @@
+import gc
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -30,6 +31,34 @@ PAGE_NAVIGATED_AWAY = "net::ERR_ABORTED"
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     select_shard(config, items, Path(__file__).parent)
+
+
+@pytest.fixture(scope="session")
+def garbage_collection_held_back() -> Iterator[None]:
+    """The interpreter collects cyclic garbage only between tests, never while one waits.
+
+    The server runs as a thread of this process, and a collection holds the interpreter for 0.4 to 2.4 s while the
+    Playwright client's objects are on the heap, so a request that arrives meanwhile is answered that much later and a
+    short wait of a test runs out.
+    """
+    gc.disable()
+    yield
+    gc.enable()
+    gc.unfreeze()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def frozen_objects_released_after_the_module(garbage_collection_held_back: None) -> Iterator[None]:
+    """The objects frozen for a module's tests, its servers among them, are collected by the next module's test."""
+    yield
+    gc.unfreeze()
+
+
+@pytest.fixture(autouse=True)
+def garbage_collected_before_the_test(garbage_collection_held_back: None) -> None:
+    """Collects what the last test left, then moves the survivors, which the session keeps, out of later collections."""
+    gc.collect()
+    gc.freeze()
 
 
 @pytest.fixture(scope="session")
