@@ -7,7 +7,6 @@ Every write here happens in a transaction that holds the table's row lock (`_tab
 the `tables` rows in id order.
 """
 
-from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import insert, select, update
@@ -121,8 +120,10 @@ def series_row(connection: Connection, table_id: str, number: int) -> Row[Any]:
     return connection.execute(_series_query(table_id, number)).one()
 
 
-def series_of(row: Row[Any]) -> Series | None:
-    """The series a row holds, None for the row of a table with no series."""
+def series_of(row: Row[Any], next_settings: NextSettings | None = None) -> Series | None:
+    """The series a row holds, with the settings saved for the next one when given, None for the row of a table with no
+    series.
+    """
     if row.length is None:
         return None
     proposal = _proposal_of(row)
@@ -134,6 +135,7 @@ def series_of(row: Row[Any]) -> Series | None:
         end_proposal=proposal,
         end_refused_by=frozenset(row.end_refused_by),
         new_series_asked_at=row.new_series_asked_at,
+        next_settings=next_settings,
     )
 
 
@@ -145,7 +147,7 @@ def series_with_next_settings(connection: Connection, table_id: str, row: Row[An
     saved = connection.execute(_series_query(table_id, current.number + 1)).one_or_none()
     if saved is None:
         return current
-    return replace(current, next_settings=NextSettings(saved.length, options_of(saved), saved.settings_revision))
+    return series_of(row, NextSettings(saved.length, options_of(saved), saved.settings_revision))
 
 
 def mark_revision_of(current: Series | None) -> int | None:
