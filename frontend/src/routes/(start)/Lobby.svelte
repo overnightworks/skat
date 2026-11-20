@@ -322,7 +322,7 @@
         {/if}
     </div>
 {/if}
-{#if scene !== "pending" && !connected}
+{#if !connected}
     <div class="reconnect" role="status">
         <span class="spin"></span>{streamsFull ? words["app.tooManyStreams"] : words["app.reconnecting"]}
     </div>

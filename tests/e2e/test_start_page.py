@@ -19,7 +19,7 @@ from tests.e2e.support.browser import (
     record_page_errors,
 )
 from tests.e2e.support.kit_words import kit_text
-from tests.e2e.support.lobby_stream import open_table_answer, serve_streams_in_turn, stream_of
+from tests.e2e.support.lobby_stream import EVENT_STREAM, open_table_answer, serve_streams_in_turn, stream_of
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, PHONE, WIDTHS
 from tests.e2e.support.table_menu import open_account_panel
 from tests.e2e.support.tables import open_new_table
@@ -137,6 +137,41 @@ def test_with_no_open_table_the_start_page_paints_its_backdrop_as_the_scene_does
         scenes.close()
 
     assert person.locator(".start").evaluate("page => getComputedStyle(page).backgroundImage") == drawn
+
+
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_a_lobby_stream_that_fails_on_first_load_shows_the_reconnect_line_and_no_button_until_it_answers(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    expected_request_failures: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
+    person = open_person(**form_factor)
+    answering = False
+
+    def answer(route: Route) -> None:
+        if answering:
+            route.fulfill(status=200, headers={"content-type": EVENT_STREAM}, body=stream_of(open_tables=[]))
+        else:
+            route.abort()
+
+    person.route(f"**{LOBBY_EVENTS_PATH}", answer)
+
+    person.goto(f"{e2e_server.base_url}/")
+
+    line = person.get_by_role("status").filter(has_text=text(SOURCE_LANGUAGE, "app.reconnecting"))
+    expect(line).to_be_visible()
+    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_have_count(0)
+    answering = True
+    button = person.get_by_role("button", name=NEW_TABLE_BUTTON)
+    expect(button).to_be_visible()
+    person.evaluate("document.fonts.ready.then(() => true)")
+    arrived = box_of(button)
+    person.reload()
+    expect(button).to_be_visible()
+    person.evaluate("document.fonts.ready.then(() => true)")
+    assert arrived == box_of(button)
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
