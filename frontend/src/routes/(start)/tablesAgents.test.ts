@@ -188,12 +188,14 @@ describe("the control that calls agents", () => {
         function follower() {
             const shown: AgentsControl[] = [];
             const refusals: (string | null)[] = [];
+            let failures = 0;
             const following = followAgents(
                 TABLE_ID,
                 (control) => shown.push(control),
                 (reason) => refusals.push(reason),
+                () => (failures += 1),
             );
-            return { following, shown, refusals };
+            return { following, shown, refusals, failures: () => failures };
         }
 
         it("shows what a read answers and reads nothing more while no row is inviting", async () => {
@@ -271,15 +273,16 @@ describe("the control that calls agents", () => {
             expect(shown).toEqual([controlOf(nova("inviting", 1)), controlOf()]);
         });
 
-        it("does not ask again after a failed read when no row was inviting", async () => {
+        it("does not ask again after a failed read when no row was inviting, and says the read failed", async () => {
             vi.useFakeTimers();
             const fetcher = answers(new TypeError("offline"));
-            const { following } = follower();
+            const { following, failures } = follower();
 
             await following.read();
             await vi.advanceTimersByTimeAsync(600_000);
 
             expect(fetcher).toHaveBeenCalledTimes(1);
+            expect(failures()).toBe(1);
         });
 
         it("shows the control a call answers, with no refusal, and reads again when that row is inviting", async () => {
@@ -438,6 +441,7 @@ describe("the control that calls agents", () => {
                     shown.push(control);
                     if (shown.length === 1) throw new Error("the display failed");
                 },
+                () => undefined,
                 () => undefined,
             );
 
