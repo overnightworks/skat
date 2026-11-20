@@ -261,16 +261,16 @@ describe("standingsView", () => {
         expect(standingsView(tableBetweenGames(1, seriesAt()))).toBeNull();
     });
 
-    it("ranks every account with its place, total and record as declarer", () => {
+    it("ranks every account with its place and total, and reads the viewer's own as Du", () => {
         const view = standingsView(ended());
 
         expect(view?.sub).toBe(words["table.seriesGames"](36));
-        expect(view?.rows.map((row) => [row.place, row.name, row.total, row.record])).toEqual([
-            [1, "player 1", "502", words["table.seriesRecord"]({ won: "10", lost: "4" })],
-            [2, "player 2", "−365", words["table.seriesRecord"]({ won: "7", lost: "3" })],
-            [2, "player 3", "−365", words["table.seriesRecord"]({ won: "7", lost: "3" })],
-            [4, "player 4", "118", words["table.seriesRecord"]({ won: "4", lost: "1" })],
-            [5, words["table.seriesNameless"], "5", words["table.seriesRecord"]({ won: "0", lost: "0" })],
+        expect(view?.rows.map((row) => [row.place, row.name, row.total])).toEqual([
+            [1, "player 1", "502"],
+            [2, words["table.sideYou"], "−365"],
+            [2, "player 3", "−365"],
+            [4, "player 4", "118"],
+            [5, words["table.seriesNameless"], "5"],
         ]);
     });
 

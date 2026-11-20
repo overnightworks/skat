@@ -41,6 +41,7 @@ from tests.support.signed_in import new_account, seed_member
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
+    from skat.table.game_list import ListEntry
     from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
@@ -380,29 +381,36 @@ def test_a_dealt_table_nobody_played_at_for_the_days_shows_its_end_to_every_open
 CLOSER_NAME = "Dora"
 
 
+def close_a_table_an_opener_made(
+    server: RunningServer, command_id: str, games: tuple[ListEntry, ...], ended_at: datetime
+) -> tuple[str, str]:
+    """A table an opener created, with the games, closed by the opener at `ended_at`; its id and the closer's name."""
+    opener = RawSession(
+        server, seed_member(server.stores, server.config, account=new_account(server.stores, server.config))
+    )
+    table_id = json.loads(opener.post(TABLES_PATH, {"command_id": command_id, "series_length": 36}))["id"]
+    if games:
+        with server.engine.begin() as connection:
+            append_game_list(connection, table_id, 1, games, datetime.now(UTC))
+    end_as_an_opener_closed_it(PostgresTableTransactions(server.engine), table_id, ended_at, CLOSER_NAME)
+    with server.engine.connect() as connection:
+        closer = connection.execute(select(tables.c.closed_by_name).where(tables.c.id == table_id)).scalar_one()
+    assert closer
+    return table_id, closer
+
+
 @pytest.fixture(scope="module")
 def retained_table(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[RunningServer, str, str]]:
     """A Skat with the link of a table an opener closed before „Aufhören“ replaced the close, that has a game and ended
     longer ago than the days, as it stands after the start's sweep, and the name its closer had.
     """
     with skat_on_new_database(tmp_path_factory) as server:
-        opener = RawSession(
-            server, seed_member(server.stores, server.config, account=new_account(server.stores, server.config))
-        )
-        table_id = json.loads(opener.post(TABLES_PATH, {"command_id": "retained-create-0001", "series_length": 36}))[
-            "id"
-        ]
-        with server.engine.begin() as connection:
-            append_game_list(connection, table_id, 1, (an_entry(),), datetime.now(UTC))
-        end_as_an_opener_closed_it(
-            PostgresTableTransactions(server.engine),
-            table_id,
+        table_id, closer = close_a_table_an_opener_made(
+            server,
+            "retained-create-0001",
+            (an_entry(),),
             datetime.now(UTC) - timedelta(days=DEFAULT_ENDED_TABLE_DAYS + 1),
-            CLOSER_NAME,
         )
-        with server.engine.connect() as connection:
-            closer = connection.execute(select(tables.c.closed_by_name).where(tables.c.id == table_id)).scalar_one()
-        assert closer
 
         server.restart(while_stopping=lambda: None)
 
@@ -435,11 +443,7 @@ def test_the_old_link_of_a_closed_table_with_games_shows_it_closed_without_the_c
 def closed_without_games(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[RunningServer, str]]:
     """A Skat with the link of a table an opener closed before „Aufhören“ replaced the close, that finished no game."""
     with skat_on_new_database(tmp_path_factory) as server:
-        opener = RawSession(
-            server, seed_member(server.stores, server.config, account=new_account(server.stores, server.config))
-        )
-        table_id = json.loads(opener.post(TABLES_PATH, {"command_id": "bare-create-0001", "series_length": 36}))["id"]
-        end_as_an_opener_closed_it(PostgresTableTransactions(server.engine), table_id, datetime.now(UTC), CLOSER_NAME)
+        table_id, _ = close_a_table_an_opener_made(server, "bare-create-0001", (), datetime.now(UTC))
         yield server, f"{TABLE_PAGE_PREFIX}{table_id}"
 
 
@@ -473,20 +477,11 @@ def closed_with_games(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tupl
     declared from each seat, the third seat held by an agent, and the name its closer had.
     """
     with skat_on_new_database(tmp_path_factory) as server:
-        opener = RawSession(
-            server, seed_member(server.stores, server.config, account=new_account(server.stores, server.config))
-        )
-        table_id = json.loads(opener.post(TABLES_PATH, {"command_id": "played-create-0001", "series_length": 36}))["id"]
         games = tuple(
             replace(an_entry(), declarer_seat=seat, seat_kinds=tuple(kind for _, kind in GAME_SEATS))
             for seat, _ in GAME_SEATS
         )
-        with server.engine.begin() as connection:
-            append_game_list(connection, table_id, 1, games, datetime.now(UTC))
-        end_as_an_opener_closed_it(PostgresTableTransactions(server.engine), table_id, datetime.now(UTC), CLOSER_NAME)
-        with server.engine.connect() as connection:
-            closer = connection.execute(select(tables.c.closed_by_name).where(tables.c.id == table_id)).scalar_one()
-        assert closer
+        table_id, closer = close_a_table_an_opener_made(server, "played-create-0001", games, datetime.now(UTC))
         yield server, f"{TABLE_PAGE_PREFIX}{table_id}", closer
 
 

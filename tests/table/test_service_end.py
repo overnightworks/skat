@@ -481,9 +481,6 @@ def stop(service, actor, table_id, command_id="command-stop"):
     return service.stop_playing(actor, StopPlaying(command_id, table_id.value))
 
 
-STOPPED_VIEW = EndedView(EndReason.CLOSED, None, None, None, None, None)
-
-
 class TestStopPlaying:
     @pytest.fixture
     def over_id(self, store, dealt_id):

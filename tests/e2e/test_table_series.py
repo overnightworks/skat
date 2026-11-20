@@ -1,4 +1,5 @@
 import re
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -11,7 +12,7 @@ from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_NEXT_SETTINGS_SUFFIX
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.people import PHONE, WIDTHS
+from tests.e2e.support.people import PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
 from tests.e2e.support.result_card import MINUS, waiting_for
 from tests.e2e.support.table_menu import close_table_menu, menu_button, open_table_menu
@@ -70,9 +71,8 @@ ANSWER_CLOCK = ".stage > .plaque.timer"
 RAMSCH = text(SOURCE_LANGUAGE, "game.ramsch")
 YES = text(SOURCE_LANGUAGE, "table.yes")
 NO = text(SOURCE_LANGUAGE, "table.no")
+YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 GONE = text(SOURCE_LANGUAGE, "table.seriesGone")
-STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 REFUSED = 409
 # A point of the room outside the centred panel, where a tap lands on the backdrop of the list.
 BESIDE_THE_PANEL = (4, 4)
@@ -222,6 +222,53 @@ def expect_the_sheet_placed_as_the_scene_draws_it(person: Page, sheet: Locator) 
     scene = the_scene_draws_the_settings_sheet_in(person)
     assert box["y"] == pytest.approx(scene["above"], abs=1)
     assert viewport["height"] - box["y"] - box["height"] == pytest.approx(scene["below"], abs=1)
+    expect_the_boxes_to_sit_as_the_scene_draws_them(
+        person, "seriesend-settings", f"{NEXT_SHEET} > :nth-child(-n+3)", ".setsheet > :nth-child(-n+3)"
+    )
+
+
+BOXES_OF = """(args) => {
+    const [selector, frame] = args;
+    const origin = frame ? document.getElementById(frame).getBoundingClientRect() : {x: 0, y: 0};
+    const root = frame ? document.getElementById(frame) : document;
+    return Array.from(root.querySelectorAll(selector)).flatMap((element) => {
+        const box = element.getBoundingClientRect();
+        return [box.x - origin.x, box.y - origin.y, box.width, box.height];
+    });
+}"""
+SCENE_SPACING = 4
+SETTLE_SECONDS = 3
+SETTLE_POLL_MILLISECONDS = 100
+
+
+def scene_frame_at(person: Page, scene: str) -> str:
+    viewport = person.viewport_size
+    assert viewport is not None
+    return f"{scene}-{1280 if viewport['width'] >= PHONE_BREAKPOINT else 390}"
+
+
+def expect_the_boxes_to_sit_as_the_scene_draws_them(
+    person: Page, scene: str, selector: str, scene_selector: str | None = None
+) -> None:
+    """Each box of the selector settles within a few pixels of the box the frozen scene draws, read from it.
+
+    The scenes draw 390 and 1280 px; the smaller phone keeps its boxes inside the panel by the same rules.
+    """
+    if person.viewport_size == SMALL_PHONE["viewport"]:
+        return
+    frame = scene_frame_at(person, scene)
+    drawn = person.context.new_page()
+    try:
+        drawn.goto(f"{TABLE_SCENES.as_uri()}?f={frame}")
+        wanted = drawn.evaluate(BOXES_OF, [scene_selector or selector, frame])
+    finally:
+        drawn.close()
+    boxes = person.evaluate(BOXES_OF, [selector, None])
+    deadline = time.monotonic() + SETTLE_SECONDS
+    while boxes != pytest.approx(wanted, abs=SCENE_SPACING) and time.monotonic() < deadline:
+        person.wait_for_timeout(SETTLE_POLL_MILLISECONDS)
+        boxes = person.evaluate(BOXES_OF, [selector, None])
+    assert boxes == pytest.approx(wanted, abs=SCENE_SPACING), selector
 
 
 def expect_the_wait_pill_to_hold_its_text_centred(person: Page) -> None:
@@ -245,7 +292,12 @@ def expect_the_proposal_asked(table: RamschTable) -> None:
         expect(person.get_by_role("button", name=WEITER, exact=True)).to_have_count(0)
 
 
-def expect_the_standings(person: Page, standings: list[dict[str, Any]]) -> None:
+def expect_the_end_card_placed_as_the_scene_draws_it(person: Page, scene: str) -> None:
+    for selector in (STANDING, f"{STANDING} .rank", NEXT_LINE):
+        expect_the_boxes_to_sit_as_the_scene_draws_them(person, scene, selector)
+
+
+def expect_the_standings(person: Page, standings: list[dict[str, Any]], own_name: str | None) -> None:
     expect(person.locator(STANDING)).to_have_count(1)
     expect(person.locator(ASK)).to_have_count(0)
     expect(person.locator(COUNT)).to_have_count(0)
@@ -255,7 +307,9 @@ def expect_the_standings(person: Page, standings: list[dict[str, Any]]) -> None:
     for index, standing in enumerate(standings):
         row = rows.nth(index)
         expect(row.locator(".place")).to_have_text(str(standing["place"]))
-        expect(row.locator("b")).to_contain_text(standing["display_name"])
+        name = YOU if standing["display_name"] == own_name else standing["display_name"]
+        expect(row.locator("b")).to_have_text(name)
+        expect(row.locator("small")).to_have_count(0)
         expect(row.locator(".sum")).to_have_text(shown(standing["total"]))
     expect(person.locator(f"{STANDING} .rank.win")).to_have_count(sum(standing["place"] == 1 for standing in standings))
 
@@ -441,8 +495,10 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
         expect(person.locator(STANDING)).to_have_count(1)
     series = table.view(1)["series"]
     assert series["over"] is True
-    for person in table.everyone:
-        expect_the_standings(person, series["standings"])
+    for seat, person in table.pages.items():
+        expect_the_standings(person, series["standings"], table.names[seat])
+    expect_the_standings(table.watcher, series["standings"], None)
+    expect_the_end_card_placed_as_the_scene_draws_it(first, "seriesend-end")
     watching = text(SOURCE_LANGUAGE, "table.watchingOnly")
     expect(table.watcher.get_by_text(watching)).to_be_visible()
     expect(table.watcher.get_by_role("button", name=NEW_SERIES, exact=True)).to_have_count(0)
@@ -501,6 +557,7 @@ def test_the_series_end_offers_exactly_neue_serie_and_aufhoeren_and_aufhoeren_se
         expect(person.locator(ANSWER_CLOCK)).to_have_count(1)
         expect(person.locator(".chair[data-seat='1'] .mark.ready")).to_have_count(1)
         expect_the_minute_below_the_card(person)
+    expect_the_end_card_placed_as_the_scene_draws_it(first, "seriesend-silent")
 
     second.get_by_role("button", name=STOP_PLAYING, exact=True).click()
     lobby = re.compile(rf"^{re.escape(e2e_server.base_url)}/?$")

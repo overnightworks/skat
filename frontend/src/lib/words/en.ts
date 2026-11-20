@@ -188,7 +188,6 @@ const translated = {
         many: numberFormat.format(count) + " games",
         other: numberFormat.format(count) + " games",
     })[pluralRules.select(count)],
-    "table.seriesRecord": (gaps: { readonly lost: string; readonly won: string }) => gaps.won + " won · " + gaps.lost + " lost",
     "table.seriesGone": "left",
     "table.seriesNameless": "Someone",
     "table.seriesRamschOf": (gaps: { readonly name: string }) => "Ramsch, " + gaps.name,
