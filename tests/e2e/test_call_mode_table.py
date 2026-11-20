@@ -1,9 +1,10 @@
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 from playwright.sync_api import expect
 
+from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.tables import TABLE_PAGE_PREFIX
@@ -22,6 +23,7 @@ from tests.e2e.support.call_frame import (
     served_from,
     table_url,
 )
+from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, passes
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
 from tests.e2e.support.table_menu import AGENTS, MENU, MENU_KEY, menu_button
@@ -341,6 +343,19 @@ def test_a_framed_table_lays_the_winners_pile_beside_its_chair_and_a_tap_on_it_s
         expect(call.locator(".lastshow .lt-card")).to_have_count(CARDS_IN_A_TRICK)
 
 
+class RearhandDeclaresTable(DeclaringTable):
+    """The rearhand outbids the middlehand, so the declarer is the dealer and one chair carries both marks."""
+
+    declarer_position = "rearhand"
+    auction: ClassVar[tuple[AuctionCall, ...]] = (
+        bids("middlehand", VALID_BIDS[0]),
+        passes("forehand"),
+        bids("rearhand", VALID_BIDS[1]),
+        passes("middlehand"),
+    )
+
+
+@pytest.mark.parametrize("declaring", [DeclaringTable, RearhandDeclaresTable], ids=["one-mark", "dealer-declarer"])
 @pytest.mark.parametrize("form_factor", [PHONE, DESKTOP], ids=["390", "1280"])
 def test_a_framed_chair_keeps_its_marks_out_of_the_tiles_top_left_quarter_and_its_rims_outside_the_tile(
     open_person: Callable[..., Page],
@@ -349,6 +364,7 @@ def test_a_framed_chair_keeps_its_marks_out_of_the_tiles_top_left_quarter_and_it
     framing_server: RunningServer,
     page_errors: list[str],
     form_factor: dict[str, Any],
+    declaring: type[DeclaringTable],
 ) -> None:
     table = deal_playing_table(
         open_person,
@@ -357,6 +373,7 @@ def test_a_framed_chair_keeps_its_marks_out_of_the_tiles_top_left_quarter_and_it
         page_errors,
         {**form_factor, "server": framing_server},
         console=False,
+        declaring=declaring,
     )
     seated = table.pages[table.declarer_seat]
     path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
@@ -368,6 +385,7 @@ def test_a_framed_chair_keeps_its_marks_out_of_the_tiles_top_left_quarter_and_it
         framed = chair_look(call)
 
     assert framed["marks"] > 0
+    assert framed["mostMarksOnAChair"] >= (2 if declaring is RearhandDeclaresTable else 1)
     assert framed["marksInTopLeftQuarter"] == 0
     assert framed["marksOverPositionLabel"] == 0
     assert framed["rimsInsideTile"] == 0

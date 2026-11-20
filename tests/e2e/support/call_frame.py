@@ -108,7 +108,7 @@ _CHAIR_LOOK_PROBE = """chairs => {
         && mark.bottom > tile.top && mark.top < tile.top + tile.height / 2;
     const look = {
         marks: 0, marksInTopLeftQuarter: 0, positionedMarks: 0, marksOverPositionLabel: 0, barPillsShown: 0,
-        rimsInsideTile: 0, agentRimInsideTile: 0,
+        rimsInsideTile: 0, agentRimInsideTile: 0, mostMarksOnAChair: 0,
     };
     for (const chair of chairs) {
         const tile = chair.querySelector(".tile");
@@ -118,7 +118,9 @@ _CHAIR_LOOK_PROBE = """chairs => {
         const labelBox = label && label.getBoundingClientRect();
         const pill = chair.querySelector(".bar-pill");
         if (pill && getComputedStyle(pill).display !== "none") look.barPillsShown += 1;
-        for (const mark of chair.querySelectorAll(".mark:not(.pos)")) {
+        const chairMarks = chair.querySelectorAll(".mark:not(.pos)");
+        look.mostMarksOnAChair = Math.max(look.mostMarksOnAChair, chairMarks.length);
+        for (const mark of chairMarks) {
             look.marks += 1;
             const at = mark.getBoundingClientRect();
             if (labelBox && at.right > labelBox.left && at.left < labelBox.right
