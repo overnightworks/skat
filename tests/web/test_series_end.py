@@ -605,7 +605,7 @@ class TestTheMinuteOfNewSeries:
 
         answered = late.start_new_series(
             Actor(account_id=ended.record.chairs[1].occupant.account_id, display_name="Ben"),
-            NewSeriesCommand("tap-late", ended.table_id, 1),
+            NewSeriesCommand("tap-late", ended.table_id, 1, 0),
             frozenset(),
         )
         assert answered.refusal is Refusal.ANSWER_TIME_OVER
