@@ -369,10 +369,12 @@ def test_a_framed_chair_keeps_its_marks_out_of_the_tiles_top_left_quarter_and_it
 
     assert framed["marks"] > 0
     assert framed["marksInTopLeftQuarter"] == 0
+    assert framed["marksOverPositionLabel"] == 0
     assert framed["rimsInsideTile"] == 0
     assert framed["agentRimInsideTile"] == 0
     assert unframed["marks"] > 0
     assert framed["positionedMarks"] == 0
     assert unframed["positionedMarks"] > 0
+    assert (unframed["barPillsShown"] > 0) == (form_factor is DESKTOP)
     assert unframed["rimsInsideTile"] > 0
     assert page_errors == []

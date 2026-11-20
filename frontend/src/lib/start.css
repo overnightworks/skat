@@ -2615,6 +2615,13 @@ body {
     pointer-events: auto;
 }
 
+/* The position label is 26px tall at the tile's top-right from 900px up, so an opponent's row starts below it. */
+@media (min-width: 900px) {
+    .room.framed .chair:not(.mine) .mark-row {
+        padding-top: 38px;
+    }
+}
+
 .room .chair.turn .tile {
     box-shadow:
         0 0 0 3px var(--accent-stage, #7aa7f0),
@@ -8931,6 +8938,7 @@ body {
 
     /* The bar's glass is an element of its own, so a call can cut a hole in it and leave the ring and the marks. */
     .room .chair.mine .bar-pill {
+        display: block;
         position: absolute;
         z-index: -1;
         inset: 0;
