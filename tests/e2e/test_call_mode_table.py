@@ -15,6 +15,7 @@ from tests.e2e.support.call_frame import (
     CHAIR,
     FRAME,
     THREE_CHAIRS,
+    chair_look,
     new_table,
     page_holding,
     serve_on_the_frame_site,
@@ -22,7 +23,7 @@ from tests.e2e.support.call_frame import (
     table_url,
 )
 from tests.e2e.support.hands import deal_playing_table
-from tests.e2e.support.people import WIDTHS
+from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
 from tests.e2e.support.table_menu import AGENTS, MENU, MENU_KEY, menu_button
 from tests.e2e.support.tables import open_new_table
 
@@ -338,3 +339,40 @@ def test_a_framed_table_lays_the_winners_pile_beside_its_chair_and_a_tap_on_it_s
         pile.click()
 
         expect(call.locator(".lastshow .lt-card")).to_have_count(CARDS_IN_A_TRICK)
+
+
+@pytest.mark.parametrize("form_factor", [PHONE, DESKTOP], ids=["390", "1280"])
+def test_a_framed_chair_keeps_its_marks_out_of_the_tiles_top_left_quarter_and_its_rims_outside_the_tile(
+    open_person: Callable[..., Page],
+    member_of: Callable[[Page], SeededMember],
+    browser_coverage: BrowserCoverage,
+    framing_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = deal_playing_table(
+        open_person,
+        framing_server,
+        member_of,
+        page_errors,
+        {**form_factor, "server": framing_server},
+        console=False,
+    )
+    seated = table.pages[table.declarer_seat]
+    path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
+    expect(seated.locator(CHAIR).locator(".mark:not(.pos)").first).to_be_visible()
+
+    unframed = chair_look(seated)
+    with in_the_call_frame(seated, browser_coverage, table_url(framing_server, path), filling_the_screen=True) as call:
+        expect(call.locator(CHAIR).locator(".mark:not(.pos)").first).to_be_visible()
+        framed = chair_look(call)
+
+    assert framed["marks"] > 0
+    assert framed["marksInTopLeftQuarter"] == 0
+    assert framed["rimsInsideTile"] == 0
+    assert framed["agentRimInsideTile"] == 0
+    assert unframed["marks"] > 0
+    assert framed["positionedMarks"] == 0
+    assert unframed["positionedMarks"] > 0
+    assert unframed["rimsInsideTile"] > 0
+    assert page_errors == []

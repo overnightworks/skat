@@ -2,9 +2,9 @@ body {
     margin: 0;
 }
 
-/* The wood backdrop of the start page and the table page: the pendant lamp pool, the vignette, the wood stripes and the dark base, as the scenes draw it. */
+/* The wood backdrop of the start page and the table page: the pendant lamp pool, the vignette, the wood stripes and the dark base, as the scenes draw it. The table paints it with a childless element, so a call can clip it without clipping the table. */
 .start,
-.room {
+.room-paint {
     background:
         radial-gradient(60% 42% at 50% 36%, rgba(255, 186, 104, 0.2), transparent 72%),
         radial-gradient(14px 14px at 8% 9%, rgba(255, 196, 120, 0.3), transparent),
@@ -14,6 +14,13 @@ body {
         radial-gradient(130% 90% at 50% 45%, transparent 45%, rgba(0, 0, 0, 0.72) 100%),
         repeating-linear-gradient(90deg, rgba(255, 225, 190, 0.03) 0 1px, transparent 1px 88px),
         linear-gradient(180deg, #22170f 0%, #170f0a 55%, #0e0907 100%);
+}
+
+.room-paint {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
 }
 
 /* The entry look: the dark lounge with its warm light pool and brass accents. */
@@ -1800,13 +1807,17 @@ body {
     }
 }
 
-.room .felt {
+/* The felt is two elements: the childless `.felt-paint` carries the cloth and its rim, and `.felt` carries what lies on it and paints nothing. */
+.room :is(.felt, .felt-paint) {
     grid-column: 1 / 3;
     grid-row: 2 / 4;
     align-self: stretch;
     justify-self: stretch;
     margin: 36px 0;
     border-radius: 50%;
+}
+
+.room .felt-paint {
     background: radial-gradient(ellipse at 50% 40%, #24855f, #166443 60%, #0b3b2a);
     /* The rim is wood with a brass inlay line in it. */
     box-shadow:
@@ -1860,6 +1871,15 @@ body {
 
 .room .chair.mine .tile {
     box-shadow: inset 0 0 0 3px var(--brass);
+}
+
+/* The marks of a chair: a row of their own only in a call, where the video lies in the tile's box. */
+.room .mark-row {
+    display: contents;
+}
+
+.room .bar-pill {
+    display: none;
 }
 
 .room .tile.empty {
@@ -2541,7 +2561,7 @@ body {
 }
 
 @media (max-width: 899px) {
-    .room .stage:has(> .bid) .felt {
+    .room .stage:has(> .bid) :is(.felt, .felt-paint) {
         grid-row: 2 / 6;
     }
 }
@@ -2556,6 +2576,43 @@ body {
 
 .room .stage:has(> .bid) .controls {
     grid-row: 6;
+}
+
+/* In a call the video lies in the tile's box, so the tile's rim, the own ring and the agent's dashed line lie outside it, clear of the call's own ring inside the box; no mark lies in the top-left quarter, where the call draws its own, so the marks stand in one row at the top right, the first of them rightmost. The position's label keeps its place on the corner, so the row starts below it. */
+.room.framed .tile {
+    box-shadow: 0 0 0 2px rgba(240, 214, 150, 0.2);
+}
+
+.room.framed .tile.empty {
+    box-shadow: 0 0 0 2px rgba(244, 246, 248, 0.2);
+}
+
+.room.framed .tile.agent::before {
+    inset: -2px;
+}
+
+@media (max-width: 899px) {
+    .room.framed .chair.mine .tile {
+        box-shadow: 0 0 0 3px var(--brass);
+    }
+}
+
+.room.framed .mark-row {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    display: flex;
+    flex-flow: row-reverse wrap;
+    align-content: flex-start;
+    gap: 4px;
+    padding: 16px 6px 0 25%;
+    pointer-events: none;
+}
+
+.room.framed .mark-row > .mark:not(.pos) {
+    position: static;
+    margin: 0;
+    pointer-events: auto;
 }
 
 .room .chair.turn .tile {
@@ -3723,7 +3780,7 @@ body {
 }
 
 @media (max-width: 899px) {
-    .room .stage:has(> .trick) .felt {
+    .room .stage:has(> .trick) :is(.felt, .felt-paint) {
         grid-row: 2 / 5;
     }
 }
@@ -4725,7 +4782,7 @@ body {
         --rim: 18px;
     }
 
-    .room .stage > .felt {
+    .room .stage > :is(.felt, .felt-paint) {
         position: absolute;
         grid-area: auto;
         top: calc(var(--table-top) + var(--rim));
@@ -4736,8 +4793,11 @@ body {
     }
 
     /* Klassik's felt is long with round ends, in a rim of wood with a brass line. */
-    .room[data-style="klassik"] .felt {
+    .room[data-style="klassik"] :is(.felt, .felt-paint) {
         border-radius: 999px;
+    }
+
+    .room[data-style="klassik"] .felt-paint {
         box-shadow:
             0 0 0 calc(var(--rim) * 0.58) #57331b,
             0 0 0 calc(var(--rim) * 0.58 + 1.4px) rgba(201, 164, 100, 0.8),
@@ -4931,7 +4991,7 @@ body {
 }
 
 @media (max-width: 899px) {
-    .room .stage:has(> .result) .felt {
+    .room .stage:has(> .result) :is(.felt, .felt-paint) {
         grid-row: 2 / 5;
     }
 }
@@ -7329,7 +7389,7 @@ body {
     }
 }
 
-.room[data-motion="verspielt"]:has(.callout) .felt {
+.room[data-motion="verspielt"]:has(.callout) :is(.felt, .felt-paint) {
     animation: felt-jolt 700ms both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
@@ -8866,25 +8926,36 @@ body {
         padding: 0 14px 0 5px;
         aspect-ratio: auto;
         border-radius: 999px;
+        box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.7);
+    }
+
+    /* The bar's glass is an element of its own, so a call can cut a hole in it and leave the ring and the marks. */
+    .room .chair.mine .bar-pill {
+        position: absolute;
+        z-index: -1;
+        inset: 0;
+        border-radius: inherit;
         background: rgba(12, 14, 17, 0.72);
         backdrop-filter: blur(12px);
-        box-shadow:
-            0 10px 22px -8px rgba(0, 0, 0, 0.7),
-            inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+        pointer-events: none;
     }
 
     .room .chair.mine.turn {
         box-shadow:
             0 0 0 2px var(--accent-stage, #7aa7f0),
-            0 0 18px rgba(122, 167, 240, 0.5),
-            inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+            0 0 18px rgba(122, 167, 240, 0.5);
     }
 
     .room .chair.mine.win {
         box-shadow:
             0 0 0 2px #f3cf7a,
-            0 0 20px rgba(243, 207, 122, 0.5),
-            inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+            0 0 20px rgba(243, 207, 122, 0.5);
+    }
+
+    /* The marks of the bar stand inside it, beside the name. */
+    .room.framed .chair.mine .mark-row {
+        display: contents;
     }
 
     .room .chair.mine .tile,
