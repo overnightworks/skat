@@ -1818,6 +1818,7 @@ body {
 }
 
 .room .felt-paint {
+    position: relative;
     background: radial-gradient(ellipse at 50% 40%, #24855f, #166443 60%, #0b3b2a);
     /* The rim is wood with a brass inlay line in it. */
     box-shadow:
@@ -2578,7 +2579,7 @@ body {
     grid-row: 6;
 }
 
-/* In a call the video lies in the tile's box, so the tile's rim, the own ring and the agent's dashed line lie outside it, clear of the call's own ring inside the box; no mark lies in the top-left quarter, where the call draws its own, so the marks stand in one row at the top right, the first of them rightmost. The position's label keeps its place on the corner, so the row starts below it. */
+/* In a call the video lies in the tile's box, so the tile's rim, the own ring and the agent's dashed line lie outside it, clear of the call's own ring inside the box; no mark lies in the top-left quarter, where the call draws its own, so the marks stand in one row at the top right, the first of them rightmost, and wrap before they cross the tile's midline. The position's label keeps its place on the corner, so the row starts below it. */
 .room.framed .tile {
     box-shadow: 0 0 0 2px rgba(240, 214, 150, 0.2);
 }
@@ -2605,7 +2606,7 @@ body {
     flex-flow: row-reverse wrap;
     align-content: flex-start;
     gap: 4px;
-    padding: 16px 6px 0 25%;
+    padding: 16px 6px 0 50%;
     pointer-events: none;
 }
 
