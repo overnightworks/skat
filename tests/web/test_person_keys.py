@@ -4,6 +4,7 @@ import re
 from http import HTTPStatus
 
 import pytest
+from agents.tools import AGENT_TOOL_EXTENSION, ToolExclusion, read_decision
 
 from skat.web.call import TABLE_PERSON_KEYS_SUFFIX, person_key
 from skat.web.tables import TABLES_PATH
@@ -135,7 +136,7 @@ class TestThePersonKeysRoute:
 
         assert refused.status_code == HTTPStatus.UNAUTHORIZED
 
-    def test_the_route_is_no_agent_tool(self, skat, agent):
+    def test_the_route_is_no_agent_tool(self, skat):
         operation = skat.app.openapi()["paths"][f"{TABLES_PATH}/{{table_id}}{TABLE_PERSON_KEYS_SUFFIX}"]["get"]
 
-        assert operation["operationId"] not in agent.offered_every_tool().listed_tools()
+        assert isinstance(read_decision(operation[AGENT_TOOL_EXTENSION]), ToolExclusion)
