@@ -575,6 +575,25 @@ def test_a_card_moved_upward_past_the_threshold_plays_and_a_short_move_puts_it_b
     assert page_errors == []
 
 
+def test_a_key_pressed_on_a_card_after_a_touch_drag_that_did_not_play_acts_at_once(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_playing_table(PHONE)
+    forehand = table.pages[table.seat_at["forehand"]]
+    held = card_in_hand(forehand, sorted(table.legal_cards(table.seat_at["forehand"]))[0])
+    pointer = Pointer(forehand, touch=True)
+    pointer.press(*strip_of(held))
+    pointer.move_by(0, -height_of(held) * SHORT_RISE)
+    pointer.release()
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(0)
+
+    held.locator("button").focus()
+    forehand.keyboard.press("Enter")
+
+    expect(forehand.locator(LIFTED_CARD)).to_have_count(1)
+    assert page_errors == []
+
+
 def test_a_move_the_system_cancels_puts_the_card_back_without_playing_it(
     deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
