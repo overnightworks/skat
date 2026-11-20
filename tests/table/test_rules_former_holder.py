@@ -7,6 +7,7 @@ import pytest
 from skat.table.records import FormerHolder, HandProgress, NewHand
 from skat.table.rules import dealt_next, decide_sit, decide_stand
 from tests.support.open_chairs import MIDDLEHAND_SEAT, PHASES, REARHAND_SEAT, actor_at, newcomer, sent_away
+from tests.support.played_game import SAT_AT
 
 
 def stood_up(table, seat):
@@ -40,7 +41,7 @@ class TestTheFormerHolder:
     def test_a_sit_takes_the_name_away(self, phase):
         freed = sent_away(PHASES[phase](), REARHAND_SEAT)
 
-        taken = decide_sit(freed, newcomer(), REARHAND_SEAT, None).table
+        taken = decide_sit(freed, newcomer(), REARHAND_SEAT, None, SAT_AT).table
 
         assert taken.progress.former_holders == frozenset()
 
@@ -57,7 +58,7 @@ class TestTheFormerHolder:
     def test_a_sitter_who_leaves_again_names_himself_in_place_of_the_first_leaver(self):
         table = PHASES["auction"]()
         sitter = newcomer(name="Dora")
-        taken = decide_sit(stood_up(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None).table
+        taken = decide_sit(stood_up(table, MIDDLEHAND_SEAT), sitter, MIDDLEHAND_SEAT, None, SAT_AT).table
 
         left = stood_up(taken, MIDDLEHAND_SEAT)
 
