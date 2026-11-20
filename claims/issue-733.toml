@@ -1,0 +1,8 @@
+claim_id = "0fa9a47473314b37b0e1c6f662db4cb5"
+agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
+role = "builder"
+base = "6bac96766e1ce199e89fb59e27aeb302db18428c"
+branch = "claude/issue-733-the-series-end-card-and-the-settings-she"
+scope = ["frontend/src/lib/closed.ts", "frontend/src/lib/series.ts", "frontend/src/lib/start.css", "frontend/src/lib/ui", "frontend/src/routes/(start)", "tests"]
+opened_commit = "30e1e5092dcf9a8de33bd77046d5aa143e788b71"
+whole_reason = "The card's rows, its place, the shared sheet rule and the top keys sit in the series owner, the kit, the start styles and the table page."
