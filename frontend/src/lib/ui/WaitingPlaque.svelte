@@ -1,17 +1,12 @@
 <script lang="ts">
-    import type { Snippet } from "svelte";
     import { awayOnTurn, type PassedInScene } from "#lib/auctionMarks.ts";
+    import WaitingLine from "#lib/ui/WaitingLine.svelte";
     import { words } from "#lib/words.ts";
     import type { Table } from "../../routes/(start)/tables.ts";
 
     // The plaque of a table whose hand has no declarer yet: waiting for players, for an away chair, for a bid, or the
     // pass-in's verdict.
-    const {
-        table,
-        passedIn,
-        waits,
-        waitingLine,
-    }: { table: Table; passedIn: PassedInScene | null; waits: boolean; waitingLine: Snippet } = $props();
+    const { table, passedIn, waits }: { table: Table; passedIn: PassedInScene | null; waits: boolean } = $props();
     const awayName = $derived(table.hand && awayOnTurn(table.hand.auction, table.chairs));
 </script>
 
@@ -26,7 +21,7 @@
         {/if}
     {:else if table.aborted !== null}
         <span>{words["table.aborted"]}</span>
-        {@render waitingLine()}
+        <WaitingLine />
     {:else if table.hand === null}
         <span>{words["table.waitingForPlayers"]}</span>
         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -36,7 +31,7 @@
     {:else}
         <span>{words["table.bidding"]}</span>
         {#if waits}
-            {@render waitingLine()}
+            <WaitingLine />
         {/if}
     {/if}
 </div>

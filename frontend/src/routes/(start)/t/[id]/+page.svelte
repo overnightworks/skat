@@ -30,11 +30,9 @@
     } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import {
-        nextSeriesLine,
         resultOnStage,
         returnsToLobby,
         seriesCountText,
-        seriesEndAnswerBy,
         seriesEndView,
         seriesOver,
         standingsView,
@@ -44,7 +42,6 @@
     import { AiMark, Marked } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
     import AnswerMarks from "#lib/ui/AnswerMarks.svelte";
-    import AnswerClock from "#lib/ui/AnswerClock.svelte";
     import AskPlaque from "#lib/ui/AskPlaque.svelte";
     import AwayMark from "#lib/ui/AwayMark.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
@@ -73,16 +70,16 @@
     import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SeatNoticeLine from "#lib/ui/SeatNoticeLine.svelte";
-    import NextSeriesLine from "#lib/ui/NextSeriesLine.svelte";
-    import Standings from "#lib/ui/Standings.svelte";
-    import StopKey from "#lib/ui/StopKey.svelte";
+    import SeriesEnd from "#lib/ui/SeriesEnd.svelte";
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
+    import TakenNotice from "#lib/ui/TakenNotice.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import KlassikDecor from "#lib/ui/KlassikDecor.svelte";
     import StrandDecor from "#lib/ui/StrandDecor.svelte";
     import ThrownEmotes from "#lib/ui/ThrownEmotes.svelte";
     import StyleScene from "#lib/ui/StyleScene.svelte";
     import TrickPile from "#lib/ui/TrickPile.svelte";
+    import WaitingLine from "#lib/ui/WaitingLine.svelte";
     import WaitingPlaque from "#lib/ui/WaitingPlaque.svelte";
     import TrickStage from "#lib/ui/TrickStage.svelte";
     import TableBar from "#lib/ui/TableBar.svelte";
@@ -406,14 +403,6 @@
     {/if}
 {/snippet}
 
-{#snippet waitingLine()}
-    <span class="gives">
-        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-        {`${words["table.waitingForPlayers"]}`}
-        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-    </span>
-{/snippet}
-
 <div
     class="room"
     class:framed={callMode}
@@ -469,8 +458,6 @@
             {@const view = declared === null || seriesEnd.onStage ? null : resultView(outcome.table)}
             {@const ramschView = seriesEnd.onStage ? null : ramschResultView(outcome.table)}
             {@const standing = standingsView(outcome.table)}
-            {@const nextLine = nextSeriesLine(outcome.table)}
-            {@const answerBy = seriesEndAnswerBy(outcome.table)}
             {@const onResult = resultOnStage(outcome.table)}
             {@const winners =
                 standing?.winnerSeats ??
@@ -550,7 +537,7 @@
                         {/if}
                         <KontraLines kontra={inPlay.playing.kontra} {wait} />
                         {#if waits}
-                            {@render waitingLine()}
+                            <WaitingLine />
                         {/if}
                         {#if bock !== null}
                             <div class="bock-line"><Marked parts={bock} marked={{ factor }} /></div>
@@ -561,7 +548,7 @@
                     </div>
                 {/if}
             {:else if !outcome.table.hand?.declaring}
-                <WaitingPlaque table={outcome.table} {passedIn} {waits} {waitingLine} />
+                <WaitingPlaque table={outcome.table} {passedIn} {waits} />
             {/if}
             <div class="felt">
                 <StrandDecor {id} />
@@ -569,14 +556,7 @@
                 <ThrownEmotes chairs={outcome.table.chairs} />
             </div>
             {#if standing !== null}
-                <Standings view={standing}>
-                    {#if nextLine !== null}
-                        <NextSeriesLine line={nextLine} />
-                    {/if}
-                </Standings>
-                {#if answerBy !== null}
-                    <div class="plaque ask timer"><AnswerClock until={answerBy} ends /></div>
-                {/if}
+                <SeriesEnd table={outcome.table} view={standing} />
             {:else if view !== null}
                 <ResultCard
                     {view}
@@ -770,13 +750,10 @@
                         newSeries={seriesOver(current)}
                         sent={sentFromVersion === current.version}
                         ontap={() => tapWeiter(current)}
+                        onstop={stopOffered(current)
+                            ? () => send(current, stopPlaying(id, crypto.randomUUID()))
+                            : undefined}
                     />
-                    {#if stopOffered(current)}
-                        <StopKey
-                            sent={sentFromVersion === current.version}
-                            ontap={() => send(current, stopPlaying(id, crypto.randomUUID()))}
-                        />
-                    {/if}
                     {#if callMode && standing === null}
                         <SoundButton place="strip" />
                         {@render tableMenu("strip")}
@@ -805,12 +782,7 @@
                 />
             {/if}
             {#if taken !== null}
-                <p class="notice" role="status">
-                    <span class="dot" aria-hidden="true">{taken.slice(0, 1)}</span>
-                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                    <span class="label">{`${words["table.seatTaken"]}`}</span>
-                    <b>{taken}</b>
-                </p>
+                <TakenNotice name={taken} />
             {/if}
         {:else if outcome?.kind === "missing"}
             <TableClosed ended={null} />
