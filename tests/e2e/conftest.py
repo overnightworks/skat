@@ -49,7 +49,7 @@ def garbage_collection_held_back() -> Iterator[None]:
 
 @pytest.fixture(scope="module", autouse=True)
 def frozen_objects_released_after_the_module(garbage_collection_held_back: None) -> Iterator[None]:
-    """The objects frozen for a module's tests, its servers among them, are collected by the next module's first test."""
+    """The objects frozen for a module's tests, its servers among them, are collected by the next module's test."""
     yield
     gc.unfreeze()
 
