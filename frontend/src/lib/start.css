@@ -2,6 +2,11 @@ body {
     margin: 0;
 }
 
+/* A framed table lies over the call's video, so the page is dark and transparent as the call's frame is: a frame of another colour scheme than the page around it would get an opaque canvas. */
+:root:has(.room.framed) {
+    color-scheme: dark;
+}
+
 /* The wood backdrop of the start page and the table page: the pendant lamp pool, the vignette, the wood stripes and the dark base, as the scenes draw it. The table paints it with a childless element, so a call can clip it without clipping the table. */
 .start,
 .room-paint {
@@ -1861,6 +1866,8 @@ body {
 }
 
 .room .tile {
+    /* How the call draws its video in the tile's box: the own seat's bar from 900 px is round. */
+    --call-tile-shape: rect;
     position: absolute;
     inset: 0;
     display: grid;
@@ -2620,6 +2627,43 @@ body {
 @media (min-width: 900px) {
     .room.framed .chair:not(.mine) .mark-row {
         padding-top: 38px;
+    }
+}
+
+/* The call shows its video in the box of a tile it placed, and the page's backdrops are cut out there: the tile fills nothing and its rims lie outside the box. The turn glow behind the chair would tint the video, so it goes; the turn ring stays. */
+.room.framed .chair[data-see-through] .tile {
+    background: none;
+    box-shadow: 0 0 0 2px rgba(240, 214, 150, 0.2);
+}
+
+.room.framed .chair[data-see-through] .tile :is(.initial, .orb) {
+    display: none;
+}
+
+.room.framed .chair.turn[data-see-through]::before {
+    display: none;
+}
+
+@media (max-width: 899px) {
+    .room.framed .chair.mine[data-see-through] .tile {
+        box-shadow: 0 0 0 3px var(--brass);
+    }
+}
+
+.room.framed .chair.win[data-see-through] .tile {
+    box-shadow: 0 0 0 3px #f3cf7a;
+}
+
+.room.framed .chair.turn[data-see-through] .tile {
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 18px 30px -12px rgba(0, 0, 0, 0.9);
+}
+
+/* The own seat's bar carries the turn and the win rings itself. */
+@media (min-width: 900px) {
+    .room.framed .chair.mine[data-see-through] .tile {
+        box-shadow: none;
     }
 }
 
@@ -8969,6 +9013,7 @@ body {
 
     .room .chair.mine .tile,
     .room .chair.mine.turn .tile {
+        --call-tile-shape: round;
         position: static;
         flex: none;
         width: 34px;

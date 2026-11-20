@@ -1,8 +1,10 @@
 """A call page around a Skat table, as hopin's page frames it, and Skat served on the site they share."""
 
 import json
+import struct
+import zlib
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from skat.web.constants import CALL_MODE, MODE_QUERY_NAME
 from tests.e2e.support.server import loopback_sign_in, running_skat
@@ -12,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from pathlib import Path
 
-    from playwright.sync_api import FrameLocator, Page, Route
+    from playwright.sync_api import Frame, FrameLocator, Page, Route
 
     from tests.e2e.support.browser_coverage import BrowserCoverage
     from tests.e2e.support.server import RunningServer
@@ -72,28 +74,122 @@ def page_holding(frame_address: str, style: str = "") -> str:
     )
 
 
-# The greeting call page's script: it records what the Skat frame posts, greets every `ready` when asked, and lets a
-# test send one message to the frame (`sendToStage`) or the valid greeting (`greet`) itself.
+# The greeting call page's script: it records what the Skat frame posts, greets a `ready` when asked, and lets a test
+# send one message to the frame (`sendToStage`), the valid greeting (`greet`) or a `placed` for keys (`place`) itself.
+# Like the call, it draws a stand-in video at the sent box of every placed key, under the transparent frame, and
+# answers every `seats` with a `placed` of all its keys when `placeEverySeats` is set.
 _GREETING_SCRIPT = """
 window.messages = [];
 window.greetEveryReady = GREET_EVERY_READY;
+window.placeEverySeats = false;
+window.placedKeys = [];
+let tableId = null;
 const stage = () => document.getElementById("stage").contentWindow;
 window.sendToStage = (data) => stage().postMessage(data, SKAT_ORIGIN);
 window.greet = () => sendToStage({ v: 1, type: "hello", attachment: 1, attempt: null });
+window.lastSeats = () => messages.findLast((message) => message?.type === "seats") ?? null;
+const redraw = () => {
+    document.querySelectorAll(".stand-in").forEach((video) => video.remove());
+    for (const seat of lastSeats()?.seats ?? []) {
+        if (!placedKeys.includes(seat.key)) continue;
+        const video = document.createElement("div");
+        const { x, y, w, h } = seat.box;
+        const { tl, tr, br, bl } = seat.radius ?? {};
+        video.className = "stand-in";
+        video.dataset.key = seat.key;
+        const radius = seat.shape === "round" ? "50%" : `${tl}px ${tr}px ${br}px ${bl}px`;
+        video.style.cssText = `position:fixed;z-index:0;background:rgb(255,0,255);left:${x}px;top:${y}px;`
+            + `width:${w}px;height:${h}px;border-radius:${radius}`;
+        document.body.append(video);
+    }
+};
+window.place = (keys) => {
+    placedKeys = keys;
+    redraw();
+    sendToStage({ v: 1, type: "placed", table: tableId, keys });
+};
 addEventListener("message", (event) => {
     if (event.source !== stage() || event.origin !== SKAT_ORIGIN) return;
     messages.push(event.data);
-    if (greetEveryReady) greet();
+    if (event.data?.type === "ready") {
+        tableId = event.data.table;
+        if (greetEveryReady) greet();
+    } else if (event.data?.type === "seats") {
+        if (placeEverySeats) place(event.data.seats.map((seat) => seat.key));
+        else redraw();
+    }
 });
 """
 
+# Behind the transparent frame: a colour no part of the table has, so a pixel shows what lies under it.
+BEHIND_THE_FRAME = "rgb(0, 200, 0)"
+STAND_IN = (255, 0, 255)
+_CALL_PAGE_STYLE = f"<style>html {{ color-scheme: dark; background: {BEHIND_THE_FRAME}; }}</style>"
+FRAME_FILLING_THE_SCREEN = "position:fixed;inset:0;width:100%;height:100%;border:0;z-index:1;color-scheme:dark"
 
-def greeting_page_holding(frame_address: str, skat_origin: str, *, greets_every_ready: bool = False) -> str:
+
+def greeting_page_holding(
+    frame_address: str, skat_origin: str, *, greets_every_ready: bool = False, filling_the_screen: bool = False
+) -> str:
     """The call page of `page_holding`, recording the frame's messages and greeting as the call page does."""
     script = _GREETING_SCRIPT.replace("SKAT_ORIGIN", json.dumps(skat_origin)).replace(
         "GREET_EVERY_READY", json.dumps(greets_every_ready)
     )
-    return page_holding(frame_address) + f"<script>{script}</script>"
+    style = FRAME_FILLING_THE_SCREEN if filling_the_screen else ""
+    # A phone lays a page without this out 980 px wide, as the call's own page never does.
+    viewport = '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    return viewport + page_holding(frame_address, style) + _CALL_PAGE_STYLE + f"<script>{script}</script>"
+
+
+def add_sibling(visitor: Page, name: str, attributes: str) -> Frame:
+    visitor.evaluate(
+        """([name, attributes]) => new Promise((resolve) => {
+            document.body.insertAdjacentHTML("beforeend", `<iframe name="${name}" ${attributes}></iframe>`);
+            document.querySelector(`iframe[name="${name}"]`).addEventListener("load", resolve);
+        })""",
+        [name, attributes],
+    )
+    frame = visitor.frame(name=name)
+    assert frame is not None
+    return frame
+
+
+def sender_from_a_sibling(sibling: Frame) -> Callable[[Any, int], None]:
+    return lambda data, marker: sibling.evaluate(
+        """([data, marker]) => {
+            const stage = parent.frames[0];
+            stage.postMessage(data, "*");
+            stage.postMessage({ marker }, "*");
+        }""",
+        [data, marker],
+    )
+
+
+def pixel_at(page: Page, x: float, y: float) -> tuple[int, int, int]:
+    """The colour on screen at a point of the page, read from a one-pixel screenshot (an unfiltered 8-bit PNG)."""
+    png = page.screenshot(clip={"x": x, "y": y, "width": 1, "height": 1})
+    data = b"".join(_png_chunks(png, b"IDAT"))
+    channels = 4 if png[25] == PNG_RGBA else 3
+    raw = zlib.decompress(data)
+    # One row of one pixel: whatever its filter, the first pixel's bytes are the colour.
+    red, green, blue = raw[1], raw[2], raw[3]
+    assert len(raw) == 1 + channels
+    return red, green, blue
+
+
+PNG_RGBA = 6
+
+
+def _png_chunks(png: bytes, kind: bytes) -> Iterator[bytes]:
+    position = len(PNG_SIGNATURE)
+    while position < len(png):
+        (length,) = struct.unpack(">I", png[position : position + 4])
+        if png[position + 4 : position + 8] == kind:
+            yield png[position + 8 : position + 8 + length]
+        position += 12 + length
+
+
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 def new_table(open_person: Callable[..., Page], server: RunningServer) -> str:

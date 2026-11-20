@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount, untrack } from "svelte";
+    import { onMount } from "svelte";
     import { goto } from "$app/navigation";
     import { resolve } from "$app/paths";
     import { page } from "$app/state";
@@ -10,7 +10,7 @@
     import { bidLadder } from "#lib/bidLadder.ts";
     import { tableShowing, type DecidingTrick, type Presenter } from "#lib/closingHand.ts";
     import { springsUp, stampBetween, type BidWord } from "#lib/cues.ts";
-    import { browserCallHost, greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
+    import { isFramedInCallMode } from "#lib/callFrame.ts";
     import {
         answerGiveUp,
         giveUpAsk,
@@ -46,6 +46,7 @@
     import AskPlaque from "#lib/ui/AskPlaque.svelte";
     import AwayMark from "#lib/ui/AwayMark.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
+    import CallSeats from "#lib/ui/CallSeats.svelte";
     import DecidingPlaque from "#lib/ui/DecidingPlaque.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
@@ -305,16 +306,6 @@
     // The call's first valid greeting takes Skat's own bar away; a call that never greets leaves it.
     let greeted = $state(false);
     onMount(armSound);
-    onMount(() => {
-        if (!callMode) return;
-        return greetCall(
-            untrack(() => id),
-            browserCallHost(),
-            () => {
-                greeted = true;
-            },
-        );
-    });
 
     // While a hand runs the sit asks first, because the sitter takes over the open chair's cards; a person returns to
     // her own chair without the question.
@@ -411,7 +402,16 @@
     data-motion={motionInForce()}
     data-style={tableStyle()}
 >
-    <div class="room-paint" aria-hidden="true"></div>
+    <div class="room-paint" aria-hidden="true" data-call-backdrop></div>
+    {#if callMode}
+        <CallSeats
+            tableId={id}
+            table={outcome?.kind === "table" ? outcome.table : null}
+            ongreeted={() => {
+                greeted = true;
+            }}
+        />
+    {/if}
     <StyleScene style={outcome?.kind === "table" ? outcome.table.style : null} />
     <CardSprite />
     {#if !greeted}
@@ -551,7 +551,7 @@
             {:else if !outcome.table.hand?.declaring}
                 <WaitingPlaque table={outcome.table} {passedIn} {waits} />
             {/if}
-            <div class="felt-paint" aria-hidden="true"></div>
+            <div class="felt-paint" aria-hidden="true" data-call-backdrop></div>
             <div class="felt">
                 <StrandDecor {id} />
                 <KlassikDecor {id} />
@@ -607,7 +607,7 @@
                         data-moving={chairMoving(chair.seat)}
                     >
                         {#if chair.is_mine}
-                            <span class="bar-pill" aria-hidden="true"></span>
+                            <span class="bar-pill" aria-hidden="true" data-call-backdrop></span>
                         {/if}
                         {#if chair.occupant_name !== null}
                             <span class="tile" class:agent={chair.occupant_kind === "agent"}>

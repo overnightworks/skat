@@ -13,8 +13,10 @@ from tests.e2e.support.call_frame import (
     OTHER_HOST,
     OTHER_PORT,
     THREE_CHAIRS,
+    add_sibling,
     greeting_page_holding,
     new_table,
+    sender_from_a_sibling,
     serve_on_the_frame_site,
     served_from,
     table_url,
@@ -113,33 +115,9 @@ def test_the_frame_posts_exactly_one_ready_naming_its_own_table_to_the_call_orig
         assert messages_of_the_frame(visitor) == [{"v": 1, "type": "ready", "table": table_id_of(path)}]
 
 
-def add_sibling(visitor: Page, name: str, attributes: str) -> Frame:
-    visitor.evaluate(
-        """([name, attributes]) => new Promise((resolve) => {
-            document.body.insertAdjacentHTML("beforeend", `<iframe name="${name}" ${attributes}></iframe>`);
-            document.querySelector(`iframe[name="${name}"]`).addEventListener("load", resolve);
-        })""",
-        [name, attributes],
-    )
-    frame = visitor.frame(name=name)
-    assert frame is not None
-    return frame
-
-
 def sender_from_the_call(visitor: Page) -> Callable[[Any, int], None]:
     return lambda data, marker: visitor.evaluate(
         "([data, marker]) => { sendToStage(data); sendToStage({ marker }); }", [data, marker]
-    )
-
-
-def sender_from_a_sibling(sibling: Frame) -> Callable[[Any, int], None]:
-    return lambda data, marker: sibling.evaluate(
-        """([data, marker]) => {
-            const stage = parent.frames[0];
-            stage.postMessage(data, "*");
-            stage.postMessage({ marker }, "*");
-        }""",
-        [data, marker],
     )
 
 
@@ -243,7 +221,7 @@ def test_a_reloaded_frame_greets_again(
         wait_for_ready(visitor, messages=2)
 
         expect(table.locator(BAR)).to_have_count(0)
-        assert len(messages_of_the_frame(visitor)) == 2
+        assert len([message for message in messages_of_the_frame(visitor) if message["type"] == "ready"]) == 2
 
 
 @pytest.mark.parametrize("search", ["", "?mode=call"], ids=["without-the-marker", "with-the-marker"])
