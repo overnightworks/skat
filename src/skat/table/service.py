@@ -26,17 +26,13 @@ from skat.table.member_place import (
     InvitationOffer,
     InviteRefusal,
     MemberRefusal,
-    SeatedAccounts,
     TableOffers,
     TableStanding,
-    agent_in_chair,
     agents_seated_at,
-    at_the_table,
     decide_accept,
     decide_invite,
     keep_turn_state,
     offers_at,
-    seated_accounts_of,
     standings_of,
 )
 from skat.table.member_view import (
@@ -129,6 +125,7 @@ from skat.table.rules import (
     sit_payload,
     stand_payload,
 )
+from skat.table.seat_reads import SeatReads
 from skat.table.send_away import (
     SEND_AWAY_COMMAND,
     decide_send_away_by,
@@ -165,7 +162,7 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-class TableService(LobbyReads, GameListReads, ServerStepCalls):
+class TableService(LobbyReads, SeatReads, GameListReads, ServerStepCalls):
     """The table commands and views; every command is one transaction."""
 
     def __init__(
@@ -761,18 +758,6 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
         )
         return view_of(table, actor.account_id, present, self._now())
 
-    def accounts_at_the_table(self, table_id: TableId, connected_accounts: frozenset[str]) -> frozenset[str]:
-        """Who is at the live table for a call; an ended or missing table counts the open streams only."""
-        table = self._table_read(table_id.value)
-        return at_the_table(table, connected_accounts) if isinstance(table, TableRecord) else connected_accounts
-
-    def seated_accounts(self, table_id: str) -> SeatedAccounts | None:
-        """Who holds each occupied chair of the live table, from one read; None for an ended table and a table that is
-        not there.
-        """
-        table = self._table_read(table_id)
-        return seated_accounts_of(table) if isinstance(table, TableRecord) else None
-
     def member_view(self, account_id: str, table_id: str, connected_accounts: frozenset[str]) -> MemberView | None:
         """The live table's view for the account that holds a chair there, with whether the table waits for it; None
         for any other account, an ended table and a table that is not there.
@@ -798,10 +783,3 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             tables = [transaction.table(held.table_id) for held in transaction.tables_of(account_id)]
         moments = frozenset(moment_at(table, account_id) for table in tables if isinstance(table, TableRecord))
         return moments or frozenset({TableMoment.LOBBY})
-
-    def agent_in_chair(self, table_id: str, seat: int) -> str | None:
-        """The account of the agent that holds the chair `seat` of the live table; None for a person, a free chair,
-        a table that ended and a table that is not there.
-        """
-        table = self._table_read(table_id)
-        return agent_in_chair(table, seat) if isinstance(table, TableRecord) else None
