@@ -494,6 +494,14 @@ class TestSeries:
         with pytest.raises(ValueError, match="numbered from one"):
             Series(3, 1, number=0)
 
+    def test_refuses_settings_for_the_next_series_while_it_is_running(self):
+        with pytest.raises(ValueError, match="only a series that is over holds settings"):
+            Series(12, 3, next_settings=NextSettings(12, TableOptions(), 0))
+
+    def test_refuses_settings_whose_revision_counts_below_zero(self):
+        with pytest.raises(ValueError, match="revision of settings counts saves"):
+            NextSettings(12, TableOptions(), -1)
+
     def test_refuses_a_standing_proposal_beside_a_refusal(self):
         proposal = an_end_proposal(1)
         refused_by = frozenset({2})
