@@ -1,8 +1,0 @@
-claim_id = "13f3ba502d8841099a621154599eb5ff"
-agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
-role = "builder"
-base = "6bac96766e1ce199e89fb59e27aeb302db18428c"
-branch = "claude/issue-739-when-a-seat-stands-up-during-the-minute"
-scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/result.test.ts", "frontend/src/lib/result.ts", "frontend/src/lib/series.ts", "frontend/src/lib/ui", "src/skat/store", "src/skat/table", "src/skat/web", "tests"]
-opened_commit = "0249594daabd24c825be7438316c2b05cf13c901"
-whole_reason = "The rule of the minute, its one owner in the store and the line the page shows are one decision."
