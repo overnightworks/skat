@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import pytest
 from playwright.sync_api import Page, expect
 
+from skat.table.records import SERIES_LENGTH_STEP
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
@@ -58,7 +59,6 @@ CHANGE = text(SOURCE_LANGUAGE, "table.nextSeriesChange")
 SAVE = text(SOURCE_LANGUAGE, "table.nextSeriesSave")
 MORE_GAMES = text(SOURCE_LANGUAGE, "start.seriesMore")
 NEXT_SHEET = ".sheet.next-series"
-SERIES_LENGTH_STEP = 3
 ANSWER_CLOCK = ".stage > .plaque.timer"
 RAMSCH = text(SOURCE_LANGUAGE, "game.ramsch")
 YES = text(SOURCE_LANGUAGE, "table.yes")

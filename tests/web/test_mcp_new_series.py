@@ -241,20 +241,20 @@ class TestChangeNextSeriesSettings:
         assert not start_new_series(agent, table).is_error
         assert table.record.chairs[2].ready
 
-        saved = change_next_settings(skat, table.at[MIDDLEHAND], table.table_id, "save-1", series_length=12)
+        saved = change_next_settings(skat, table.at[MIDDLEHAND], table.table_id, "save-first", series_length=12)
 
         assert saved.status_code == 200
         assert [chair["ready"] for chair in agent.read(table.table_id).json()["chairs"]] == [False, False, False]
 
     def test_the_agents_tap_on_older_settings_is_a_failed_result_naming_the_reason(self, skat, agent, ended_series):
         table = ended_series
-        change_next_settings(skat, table.at[MIDDLEHAND], table.table_id, "save-1", series_length=12)
+        change_next_settings(skat, table.at[MIDDLEHAND], table.table_id, "save-first", series_length=12)
 
         refused = start_new_series(agent, table, settings=0)
 
         assert (refused.is_error, refused.json()["reason"]) == (True, Refusal.STALE_SETTINGS)
 
-    def test_the_agent_is_offered_the_change_at_the_series_end_and_not_while_it_plays(self, agent, ended_series):
+    def test_the_agent_is_offered_the_change_at_the_series_end(self, agent, ended_series):
         assert CHANGE_NEXT_SERIES_SETTINGS_TOOL in agent.listed_tools()
 
     def test_the_description_names_the_settings_the_sheet_shows_and_what_a_save_takes_back(self, agent):

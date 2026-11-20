@@ -312,7 +312,7 @@ class TestTheNextSettings:
         table, _ = ended
 
         saved = change_next_settings(
-            skat, headers_of(table)[1], table.table_id, "save-1", series_length=12, options={"kontra": KONTRA}
+            skat, headers_of(table)[1], table.table_id, "save-first", series_length=12, options={"kontra": KONTRA}
         )
 
         assert saved.status_code == 200, saved.text
@@ -325,7 +325,8 @@ class TestTheNextSettings:
         people = [(headers, None) for headers in (*headers_of(table), table.watcher)]
 
         with streams_of(skat, table.table_id, people) as streams:
-            change_next_settings(skat, headers_of(table)[0], table.table_id, "save-1", series_length=9)
+            saved = change_next_settings(skat, headers_of(table)[0], table.table_id, "save-first", series_length=9)
+            assert saved.status_code == 200, saved.text
 
             seen = [next(messages) for messages in streams]
 
@@ -335,7 +336,7 @@ class TestTheNextSettings:
         table, _ = ended
         before = table.read_as(table.watcher).json()
 
-        change_next_settings(skat, headers_of(table)[0], table.table_id, "save-1", series_length=12)
+        change_next_settings(skat, headers_of(table)[0], table.table_id, "save-first", series_length=12)
 
         seen = table.read_as(table.watcher).json()
         assert (seen["series"]["game_count"], seen["options"]) == (3, before["options"])
@@ -346,7 +347,7 @@ class TestTheNextSettings:
         tap_new_series(skat, first, table.table_id, "tap-new-1")
         tap_new_series(skat, second, table.table_id, "tap-new-2")
 
-        saved = change_next_settings(skat, first, table.table_id, "save-1", series_length=12)
+        saved = change_next_settings(skat, first, table.table_id, "save-first", series_length=12)
 
         assert (marks(saved), saved.json()["series"]["new_series_answer_by"]) == ([False, False, False], None)
 
@@ -362,7 +363,7 @@ class TestTheNextSettings:
     def test_a_tap_on_older_settings_is_refused_and_a_tap_on_the_saved_ones_accepted(self, skat, ended):
         table, _ = ended
         first, second, _ = headers_of(table)
-        change_next_settings(skat, first, table.table_id, "save-1", series_length=12)
+        change_next_settings(skat, first, table.table_id, "save-first", series_length=12)
 
         stale = tap_new_series(skat, second, table.table_id, "tap-stale", settings=0)
         fresh = tap_new_series(skat, second, table.table_id, "tap-fresh", settings=1)
@@ -373,7 +374,7 @@ class TestTheNextSettings:
     def test_the_next_series_is_dealt_with_the_saved_length_and_rules(self, skat, ended):
         table, _ = ended
         change_next_settings(
-            skat, headers_of(table)[0], table.table_id, "save-1", series_length=12, options={"kontra": KONTRA}
+            skat, headers_of(table)[0], table.table_id, "save-first", series_length=12, options={"kontra": KONTRA}
         )
         for number, headers in enumerate(headers_of(table), start=1):
             assert tap_new_series(skat, headers, table.table_id, f"tap-new-{number}", settings=1).status_code == 200
@@ -448,18 +449,18 @@ class TestTheNextSettings:
 
     def test_a_retried_save_answers_the_first_outcome_and_counts_one_revision(self, skat, ended):
         table, _ = ended
-        first = change_next_settings(skat, headers_of(table)[0], table.table_id, "save-1", series_length=12)
+        first = change_next_settings(skat, headers_of(table)[0], table.table_id, "save-first", series_length=12)
 
-        again = change_next_settings(skat, headers_of(table)[0], table.table_id, "save-1", series_length=12)
+        again = change_next_settings(skat, headers_of(table)[0], table.table_id, "save-first", series_length=12)
 
         assert (again.status_code, next_settings_of(again)) == (200, next_settings_of(first))
         assert next_settings_of(again)["revision"] == 1
 
     def test_a_command_id_reused_for_other_settings_is_refused(self, skat, ended):
         table, _ = ended
-        change_next_settings(skat, headers_of(table)[0], table.table_id, "save-1", series_length=12)
+        change_next_settings(skat, headers_of(table)[0], table.table_id, "save-first", series_length=12)
 
-        answer = change_next_settings(skat, headers_of(table)[0], table.table_id, "save-1", series_length=15)
+        answer = change_next_settings(skat, headers_of(table)[0], table.table_id, "save-first", series_length=15)
 
         assert answer.status_code == 409
         assert "reused" in answer.json()["detail"]
