@@ -433,12 +433,16 @@ def test_a_page_that_is_hidden_posts_nothing_and_a_page_that_shows_again_posts_i
     with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True) as call:
         wait_for_seat_messages(call, 1)
         call.table.locator("body").evaluate(SHOWN_AS, "hidden")
+        # What the table posted before it was hidden may still be on its way; the call page's frames let it arrive.
+        call.visitor.evaluate(TWO_FRAMES)
+        posted_before = len(seat_messages(call))
 
         call.table.locator(".chair[data-seat='2']").evaluate("chair => { chair.style.translate = '9px 0'; }")
         call.table.locator("body").evaluate(TWO_FRAMES)
-        assert len(seat_messages(call)) == 1
+        call.visitor.evaluate(TWO_FRAMES)
+        assert len(seat_messages(call)) == posted_before
 
         call.table.locator("body").evaluate(SHOWN_AS, "visible")
 
-        wait_for_seat_messages(call, 2)
+        wait_for_seat_messages(call, posted_before + 1)
         until(call, lambda: posted_boxes(call) == live_boxes(call))
