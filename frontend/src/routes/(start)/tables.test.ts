@@ -36,14 +36,10 @@ import {
 import {
     answerAbort,
     answerSeriesEnd,
-    changeNextSettings,
-    markReady,
     playCard,
     readGameSheet,
     readTable,
-    seriesNumberOf,
     chooseStyle,
-    startNewSeries,
     sitDown,
     standUp,
     stopPlaying,
@@ -51,6 +47,7 @@ import {
     takePushingStep,
     takeAuctionStep,
 } from "./tables.ts";
+import { changeNextSettings, markReady, seriesNumberOf, startNewSeries } from "./seriesCommands.ts";
 import { readSeriesList } from "./seriesList.ts";
 
 class FakeEventSource {
