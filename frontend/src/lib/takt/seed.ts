@@ -27,11 +27,11 @@ export function seedOf(table: Pick<Table, "id" | "series">): string {
  * another order, or leave a draw out, still agree; a label names only what the drawing view shows.
  */
 export function fork(seed: string, label: string): Fork {
-    const text = `${seed}/${label}`;
     let state = HASH_START;
-    for (let index = 0; index < text.length; index += 1) state = Math.imul(state ^ text.charCodeAt(index), HASH_PRIME);
+    for (const byte of new TextEncoder().encode(`${seed}/${label}`)) state = Math.imul(state ^ byte, HASH_PRIME);
     const next = (): number => {
-        state = (state + DRAW_STEP) | 0;
+        // The state stays within 32 bits by wrapping round, which no rounding does.
+        state = (state + DRAW_STEP) >>> 0;
         let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
         mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
         return ((mixed ^ (mixed >>> 14)) >>> 0) / DRAW_RANGE;
