@@ -58,6 +58,15 @@ class NextSettingsRequest(SeriesRequest):
     series_length: SeriesLengthRequest
     options: OptionsRequest | None = None
 
+    def command_of(self, table_id: str) -> NextSettingsCommand:
+        return NextSettingsCommand(
+            command_id=self.command_id,
+            table_id=table_id,
+            series=self.series,
+            length=self.series_length,
+            options=table_options_of(self.options),
+        )
+
 
 class ReadyRequest(SeriesRequest):
     """„Weiter“ names the result it saw too, by its number in the table's list."""
@@ -103,6 +112,43 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
             partial(tables.mark_ready, actor_of(request), command), presence, table_id, response
         )
 
+    _add_start_new_series(router, tables, presence)
+    _add_change_next_series_settings(router, tables, presence)
+    return router
+
+
+def _add_change_next_series_settings(router: APIRouter, tables: TableService, presence: Presence) -> None:
+    @router.post(
+        TABLES_PATH + "/{table_id}" + TABLE_NEXT_SETTINGS_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=CHANGE_NEXT_SERIES_SETTINGS_MARK,
+    )
+    async def change_next_series_settings(
+        table_id: TableIdInPath, body: NextSettingsRequest, request: Request, response: Response
+    ) -> Response | TableAnswer:
+        """Change what the next series of a Skat table is played with, after its series has ended: the same length and
+        rule options the sheet shows that opens a table, which a person opens with „Ändern“ under the standings.
+
+        Use it when read_table or your table's view shows `series.over: true`; `series.next_settings` holds the
+        `game_count` and `options` the next series is played with now, the last series' until someone saves, and a
+        `revision` that counts the saves. The `series` is `series.number`; `series_length` is the number of games, a
+        multiple of three from 3 to 99, and `options` are the table's rule options as open_table names them, the
+        official rules when left out. A save replaces the settings, shows at once on every page, and takes back every
+        seat's „Neue Serie“, yours too, since each was given on the settings before: tap again with start_new_series on
+        the new `series.next_settings.revision`. The minute that follows the first „Neue Serie“ starts again with
+        the next one. Refused: not seated, no series, a stale series, the series is not over, the minute is over
+        (`answer-time-over`); invalid settings are refused as open_table refuses them.
+        """
+        return await command_answer(
+            partial(tables.change_next_settings, actor_of(request), body.command_of(table_id)),
+            presence,
+            table_id,
+            response,
+        )
+
+
+def _add_start_new_series(router: APIRouter, tables: TableService, presence: Presence) -> None:
     @router.post(
         TABLES_PATH + "/{table_id}" + TABLE_NEW_SERIES_SUFFIX,
         response_model=TableAnswer,
@@ -136,38 +182,3 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         if isinstance(answer, TableAnswer) and answer.series is not None and answer.series.new_series_answer_by:
             presence.end_answer_watch.watch(table_id, END_ANSWER_SECONDS)
         return answer
-
-    @router.post(
-        TABLES_PATH + "/{table_id}" + TABLE_NEXT_SETTINGS_SUFFIX,
-        response_model=TableAnswer,
-        responses=COMMAND_RESPONSES,
-        openapi_extra=CHANGE_NEXT_SERIES_SETTINGS_MARK,
-    )
-    async def change_next_series_settings(
-        table_id: TableIdInPath, body: NextSettingsRequest, request: Request, response: Response
-    ) -> Response | TableAnswer:
-        """Change what the next series of a Skat table is played with, after its series has ended: the same length and
-        rule options the sheet shows that opens a table, which a person opens with „Ändern“ under the standings.
-
-        Use it when read_table or your table's view shows `series.over: true`; `series.next_settings` holds the
-        `game_count` and `options` the next series is played with now, the last series' until someone saves, and a
-        `revision` that counts the saves. The `series` is `series.number`; `series_length` is the number of games, a
-        multiple of three from 3 to 99, and `options` are the table's rule options as open_table names them, the
-        official rules when left out. A save replaces the settings, shows at once on every page, and takes back every
-        seat's „Neue Serie“, yours too, since each was given on the settings before: tap again with start_new_series on
-        the new `series.next_settings.revision`. The minute that follows the first „Neue Serie“ starts again with
-        the next one. Refused: not seated, no series, a stale series, the series is not over, the minute is over
-        (`answer-time-over`); invalid settings are refused as open_table refuses them.
-        """
-        command = NextSettingsCommand(
-            command_id=body.command_id,
-            table_id=table_id,
-            series=body.series,
-            length=body.series_length,
-            options=table_options_of(body.options),
-        )
-        return await command_answer(
-            partial(tables.change_next_settings, actor_of(request), command), presence, table_id, response
-        )
-
-    return router
