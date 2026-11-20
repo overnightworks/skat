@@ -163,8 +163,7 @@ class TestNewSeries:
     ):
         tap_all(service, ended_series)
         assert rows_of(engine, game_list) == 1
-        asked = read(transactions, ended_series).series
-        assert (replace(asked, new_series_asked_at=None), asked.new_series_asked_at is not None) == (Series(3, 3), True)
+        assert read(transactions, ended_series).series == Series(3, 3)
 
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is True
 

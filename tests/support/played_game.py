@@ -147,6 +147,7 @@ def a_ramsch_entry(
 
 
 END_ASKED_AT = datetime(2026, 11, 19, 12, 0, tzinfo=UTC)
+SAT_AT = datetime(2026, 11, 19, 12, 5, tzinfo=UTC)
 
 
 def an_end_proposal(proposer: int, *others: int) -> EndProposal:

@@ -44,6 +44,7 @@ from skat.table.views import view_of
 from tests.support.open_chairs import FOREHAND_SEAT, newcomer, sent_away
 from tests.support.played_game import (
     HERZ_HAND,
+    SAT_AT,
     a_whole_game,
     asked_by_an_opponent,
     before_the_last_card,
@@ -379,7 +380,7 @@ class TestTheFirstCardDeadline:
         answered = after_answers(first_card_table(), FOREHAND)
         sitter = newcomer()
 
-        taken = decide_sit(sent_away(answered, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None).table
+        taken = decide_sit(sent_away(answered, FOREHAND_SEAT), sitter, FOREHAND_SEAT, None, SAT_AT).table
 
         word = KontraCommand("command-2", taken.id.value, taken.version, KONTRA)
         assert decide_kontra(taken, sitter, word).refusal is KontraRefusal.NOT_YOUR_WORD
