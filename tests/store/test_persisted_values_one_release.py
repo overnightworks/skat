@@ -36,8 +36,23 @@ ONLY_CONDITIONALLY_NOT_C = (
     "ALTER TABLE scratch ADD CONSTRAINT status_not_c_unless CHECK (status <> 'c' OR ending = 'x')"
 )
 
+LISTS_TAGS_A_AND_B = (
+    "CREATE TABLE scratch (id integer PRIMARY KEY, tags text[],"
+    " CONSTRAINT scratch_tags_are_known CHECK (tags <@ ARRAY['a', 'b']))",
+)
+WIDEN_TAGS = (
+    "ALTER TABLE scratch DROP CONSTRAINT scratch_tags_are_known,"
+    " ADD CONSTRAINT scratch_tags_are_known CHECK (tags <@ ARRAY['a', 'b', 'c'])"
+)
+# A second list on one column leaves only the values both admit.
+ALSO_LISTS_A_B_AND_C = (
+    "ALTER TABLE scratch ADD CONSTRAINT scratch_status_is_also_known CHECK (status IN ('a', 'b', 'c'))",
+)
+
 STEPS_AFTER_THE_RELEASE_BEFORE = {
     "widens a list without a hold-back": (LISTS_A_AND_B, (WIDEN,), "status"),
+    "widens an array list without a hold-back": (LISTS_TAGS_A_AND_B, (WIDEN_TAGS,), "tags"),
+    "adds a second, wider list on a column the first list narrows": (LISTS_A_AND_B, ALSO_LISTS_A_B_AND_C, None),
     "widens a list and holds the new value back": (LISTS_A_AND_B, (WIDEN, HOLD_BACK_C), None),
     "widens a list beside an OR check that holds a <>": (LISTS_A_AND_B, (WIDEN, ONLY_CONDITIONALLY_NOT_C), "status"),
     "drops the hold-back the release before carried": (LISTS_A_B_AND_C_HELD_BACK, (DROP_THE_HOLD_BACK,), None),
