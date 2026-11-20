@@ -80,7 +80,7 @@ jobs:
           UV_NO_SYNC: "1"
         run: make dead
 
-      # tests/store/test_persisted_values_one_release.py compares the schema with the newest release's, read from
+      # tests/store/test_schema_values_one_release.py compares the schema with the newest release's, read from
       # that release's tag at depth 1.
       - name: Fetch the newest release tag
         run: >-
