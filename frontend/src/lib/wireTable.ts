@@ -8,10 +8,11 @@ type WireProposal = {
     accepter_seat?: number | null;
     answer_by?: string | null;
 };
-type WireSeries = Omit<Series, "end_proposal" | "end_refused_seats" | "new_series_answer_by"> & {
+type WireSeries = Omit<Series, "end_proposal" | "end_refused_seats" | "new_series_answer_by" | "next_settings"> & {
     end_proposal: WireProposal | null;
     end_refused_seats?: number[];
     new_series_answer_by?: string | null;
+    next_settings?: Series["next_settings"];
 };
 export type WireTable = Omit<Table, "series"> & { series: WireSeries | null };
 
@@ -39,6 +40,7 @@ export function tableOfWire(wire: WireTable): Table {
                       },
             end_refused_seats: series.end_refused_seats ?? [],
             new_series_answer_by: series.new_series_answer_by ?? null,
+            next_settings: series.next_settings ?? null,
         },
     };
 }

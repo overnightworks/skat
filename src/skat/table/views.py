@@ -24,7 +24,7 @@ from skat.table.kontra import kontra_view_of
 from skat.table.playing import PlayingView, playing_view_of
 from skat.table.pushing import PushingView, pushing_view_of
 from skat.table.records import CommandRefusal, EndedTable, EndReason, OccupantKind
-from skat.table.rules import hand_runs, seat_held_in_hand, series_over, waiting_seat_of
+from skat.table.rules import hand_runs, next_settings_of, seat_held_in_hand, series_over, waiting_seat_of
 from skat.table.turn_state import TurnStateView, turn_state_view_of
 
 if TYPE_CHECKING:
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from skat.engine.deal import Deal, Position
     from skat.engine.declaration import Declaring
     from skat.engine.schieberamsch import Pushing
-    from skat.table.records import Chair, EndProposal, TableOptions, TableRecord, TableStyle
+    from skat.table.records import Chair, EndProposal, NextSettings, TableOptions, TableRecord, TableStyle
 
 
 @dataclass(frozen=True)
@@ -145,7 +145,8 @@ class SeriesView:
     `end_proposal` names the seat that proposed ending the series, the seats that said yes and the instant it was
     made; once the series is over none stands. `end_refused_by` names the seats whose no, or silence, ended the last
     proposal, until the next deal. Once the series is over, `new_series_asked_at` is the instant the first seat
-    chose „Neue Serie“ and the chairs that are ready are the seats that chose it, None until one did.
+    chose „Neue Serie“ and the chairs that are ready are the seats that chose it, None until one did. Then
+    `next_settings` is what the next series is played with.
     """
 
     number: int
@@ -156,6 +157,7 @@ class SeriesView:
     end_proposal: EndProposal | None
     end_refused_by: frozenset[int]
     new_series_asked_at: datetime | None
+    next_settings: NextSettings | None
 
 
 @dataclass(frozen=True)
@@ -316,6 +318,7 @@ def _series_view(table: TableRecord) -> SeriesView | None:
         None if over else table.series.end_proposal,
         frozenset() if over else table.series.end_refused_by,
         table.series.new_series_asked_at if over else None,
+        next_settings_of(table) if over else None,
     )
 
 

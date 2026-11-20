@@ -10,6 +10,11 @@ export type SeatNotice = { text: string; initials: (string | null)[]; seat: numb
 // Names ending in these letters take the apostrophe of the genitive instead of an s.
 const APOSTROPHE_ENDINGS = /(?:[sßxz]|ce)$/i;
 
+// A name in the genitive, as the sentences name whose something it is.
+export function possessive(name: string): string {
+    return (APOSTROPHE_ENDINGS.test(name) ? words["table.possessiveApostrophe"] : words["table.possessive"])({ name });
+}
+
 // While a running hand has an open chair it waits: no chair is on turn and nobody has a step to take.
 export function handWaits(hand: Hand | null | undefined): boolean {
     return (hand?.waiting_seat ?? null) !== null;

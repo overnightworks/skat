@@ -181,7 +181,7 @@ class TestWeiter:
         ("suffix", "body"),
         [
             pytest.param(TABLE_READY_SUFFIX, {"ordinal": FIRST_RESULT}, id="weiter"),
-            pytest.param(TABLE_NEW_SERIES_SUFFIX, {}, id="neue-serie"),
+            pytest.param(TABLE_NEW_SERIES_SUFFIX, {"settings": 0}, id="neue-serie"),
         ],
     )
     def test_a_tap_that_names_no_series_is_refused_and_writes_nothing(self, server, table, suffix, body):

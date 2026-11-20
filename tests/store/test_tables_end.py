@@ -540,7 +540,7 @@ class SeriesEndRace:
         return HoldingAfterSave(self.transactions, self.hold)
 
     def third_seats_new_series(self):
-        command = NewSeriesCommand("new-series-3", self.table_id.value, 2)
+        command = NewSeriesCommand("new-series-3", self.table_id.value, 2, 0)
         service = TableService(self.transactions, now=lambda: STOPPED_AT)
         return WorkInAThread(lambda: service.start_new_series(SEATED[2], command, NOBODY_CONNECTED))
 

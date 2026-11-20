@@ -1,10 +1,17 @@
-import type { SeatNotice } from "#lib/openChair.ts";
+import { possessive, type SeatNotice } from "#lib/openChair.ts";
 import { facesOf, namesOf, type AnswerMark, type AskButton, type AskView } from "#lib/giveUp.ts";
 import { declaredResult, LEVEL_WORDS, ramschResultView, withMinus } from "#lib/result.ts";
 import { tableRules, type RuleChip } from "#lib/tableRules.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { SeriesEntry } from "../routes/(start)/seriesList.ts";
-import { gameLabel, type Game, type SeriesEndAnswer, type Standing, type Table } from "../routes/(start)/tables.ts";
+import {
+    gameLabel,
+    type Game,
+    type NextSettings,
+    type SeriesEndAnswer,
+    type Standing,
+    type Table,
+} from "../routes/(start)/tables.ts";
 
 // The series as the table answers it: the page counts, asks and ranks what the server decided and decides no rule.
 export function seriesOver(table: Table): boolean {
@@ -176,13 +183,40 @@ export function stopOffered(table: Table): boolean {
 
 export type NextSeriesLine = { length: string; chips: RuleChip[] };
 
-// What the next series begins with: the table's length and rules, which the series end carries over unchanged.
+// What the next series begins with: the settings a seat saved for it, else the table's length and rules, which the
+// series end carries over.
 export function nextSeriesLine(table: Table): NextSeriesLine | null {
     if (!seriesOver(table) || table.options === null || table.series === null) return null;
+    const saved = table.series.next_settings;
     return {
-        length: words["table.seriesGames"](table.series.game_count),
-        chips: tableRules(table.options, null).chips,
+        length: words["table.seriesGames"](saved?.game_count ?? table.series.game_count),
+        chips: tableRules(saved?.options ?? table.options, null).chips,
     };
+}
+
+// The settings the sheet starts from and the revision a „Neue Serie“ names: what the next series begins with.
+export function nextSettingsOf(table: Table): NextSettings | null {
+    if (!seriesOver(table) || table.options === null || table.series === null) return null;
+    return table.series.next_settings ?? { game_count: table.series.game_count, options: table.options, revision: 0 };
+}
+
+// The revision a „Neue Serie“ names; the first, 0, while the table cannot name settings.
+export function nextSettingsRevisionOf(table: Table): number {
+    return nextSettingsOf(table)?.revision ?? 0;
+}
+
+// Seated members change the next series' settings, which a watcher of the standings only reads; null for a watcher.
+export function changeableSettingsOf(table: Table): NextSettings | null {
+    return table.chairs.some((chair) => chair.is_mine) ? nextSettingsOf(table) : null;
+}
+
+// Whose „Neue Serie“ a save takes back, as the sheet says it: the other seats that chose it, in the order of their
+// chairs; null when no other seat has chosen.
+export function takenBackLine(table: Table): string | null {
+    const owners = table.chairs.flatMap((chair) =>
+        chair.ready && !chair.is_mine && chair.occupant_name !== null ? [possessive(chair.occupant_name)] : [],
+    );
+    return owners.length === 0 ? null : words["table.nextSeriesTakeBack"]({ names: listFormat.format(owners) });
 }
 
 // The instant a seat that has not chosen „Neue Serie“ ends the table; null until the first seat chose it.

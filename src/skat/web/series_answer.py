@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from skat.table.records import OccupantKind  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.series_end import END_ANSWER_SECONDS
+from skat.web.table_options import OptionsAnswer, options_answer_of
 
 if TYPE_CHECKING:
     from skat.table.game_list import Standing
@@ -27,6 +28,16 @@ class SeriesEndProposalAnswer(BaseModel):
     answer_by: datetime
 
 
+class NextSettingsAnswer(BaseModel):
+    """What the next series is played with once the series is over: the last series' settings until a seat saves new
+    ones; `revision` counts the saves and is what „Neue Serie“ names.
+    """
+
+    game_count: int
+    options: OptionsAnswer
+    revision: int
+
+
 class SeriesAnswer(BaseModel):
     number: int
     game_number: int
@@ -36,6 +47,7 @@ class SeriesAnswer(BaseModel):
     end_proposal: SeriesEndProposalAnswer | None
     end_refused_seats: list[int]
     new_series_answer_by: datetime | None
+    next_settings: NextSettingsAnswer | None
 
 
 def standing_answer_of(standing: Standing) -> StandingAnswer:
@@ -70,4 +82,11 @@ def series_answer_of(series: SeriesView | None) -> SeriesAnswer | None:
         new_series_answer_by=None
         if series.new_series_asked_at is None
         else series.new_series_asked_at + timedelta(seconds=END_ANSWER_SECONDS),
+        next_settings=None
+        if series.next_settings is None
+        else NextSettingsAnswer(
+            game_count=series.next_settings.length,
+            options=options_answer_of(series.next_settings.options),
+            revision=series.next_settings.revision,
+        ),
     )

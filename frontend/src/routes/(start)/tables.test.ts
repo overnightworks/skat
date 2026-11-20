@@ -14,6 +14,7 @@ import {
     TABLE_DECLARING_TAKE_SUFFIX,
     TABLE_LIST_SUFFIX,
     TABLE_NEW_SERIES_SUFFIX,
+    TABLE_NEXT_SETTINGS_SUFFIX,
     TABLE_PUSHING_GRAND_HAND_SUFFIX,
     TABLE_PUSHING_PUSH_SUFFIX,
     TABLE_PUSHING_PUT_BACK_SUFFIX,
@@ -35,13 +36,10 @@ import {
 import {
     answerAbort,
     answerSeriesEnd,
-    markReady,
     playCard,
     readGameSheet,
     readTable,
-    seriesNumberOf,
     chooseStyle,
-    startNewSeries,
     sitDown,
     standUp,
     stopPlaying,
@@ -49,6 +47,7 @@ import {
     takePushingStep,
     takeAuctionStep,
 } from "./tables.ts";
+import { changeNextSettings, markReady, seriesNumberOf, startNewSeries } from "./seriesCommands.ts";
 import { readSeriesList } from "./seriesList.ts";
 
 class FakeEventSource {
@@ -547,14 +546,36 @@ describe("asking for a table", () => {
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-6" });
     });
 
-    it("sends the command id and the series' number when starting the next series", async () => {
+    it("sends the command id, the series' number and the settings' revision when starting the next series", async () => {
         answerWith(Response.json(table));
 
-        expect(await startNewSeries(TABLE_ID, "command-7", 2)).toEqual({ kind: "table", table });
+        expect(await startNewSeries(TABLE_ID, "command-7", 2, 3)).toEqual({ kind: "table", table });
 
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_NEW_SERIES_SUFFIX}`);
-        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-7", series: 2 });
+        expect(JSON.parse((init as { body: string }).body)).toEqual({
+            command_id: "command-7",
+            series: 2,
+            settings: 3,
+        });
+    });
+
+    it("sends the series' number, the length and the rules when saving the next series' settings", async () => {
+        answerWith(Response.json(table));
+
+        expect(await changeNextSettings(TABLE_ID, "command-8", 2, 12, { show_running_points: true })).toEqual({
+            kind: "table",
+            table,
+        });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_NEXT_SETTINGS_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({
+            command_id: "command-8",
+            series: 2,
+            series_length: 12,
+            options: { show_running_points: true },
+        });
     });
 
     it.each(TABLE_STYLE_TOKENS)("sends the command id and the %s style the person chose", async (style) => {

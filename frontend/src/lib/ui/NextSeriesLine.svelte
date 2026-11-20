@@ -3,8 +3,9 @@
     import RuleMark from "#lib/ui/RuleMark.svelte";
     import { words } from "#lib/words.ts";
 
-    // The settings the next series begins with, under the standings of the series that ended.
-    const { line }: { line: NextSeriesLine } = $props();
+    // The settings the next series begins with, under the standings of the series that ended; a seated member may change
+    // them, which `onchange` opens.
+    const { line, onchange }: { line: NextSeriesLine; onchange?: () => void } = $props();
 </script>
 
 <div class="nextline">
@@ -28,4 +29,7 @@
             <span class="chip" class:official={chip.id === "official"}><RuleMark id={chip.id} />{chip.word}</span>
         {/each}
     </span>
+    {#if onchange !== undefined}
+        <button type="button" class="change" onclick={onchange}>{words["table.nextSeriesChange"]}</button>
+    {/if}
 </div>

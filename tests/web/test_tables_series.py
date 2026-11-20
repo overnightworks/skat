@@ -61,6 +61,7 @@ class TestOpening:
             "end_proposal": None,
             "end_refused_seats": [],
             "new_series_answer_by": None,
+            "next_settings": None,
         }
 
     def test_a_table_opened_before_series_existed_reads_with_no_series_and_deals_on(self, skat):
@@ -240,6 +241,7 @@ class TestCounting:
             "end_proposal": None,
             "end_refused_seats": [],
             "new_series_answer_by": None,
+            "next_settings": None,
         }
 
     def test_a_passed_in_hand_counts_and_leaves_no_list_row(self, skat):
@@ -258,7 +260,9 @@ class TestCounting:
         play_through(skat, table_id, people, SERIES_LENGTH)
 
         answer = read(skat, people[0][0], table_id).json()
-        assert answer["series"] == {
+        series = dict(answer["series"])
+        next_settings = series.pop("next_settings")
+        assert series == {
             "number": 1,
             "game_number": 12,
             "game_count": 12,
@@ -268,6 +272,7 @@ class TestCounting:
             "end_refused_seats": [],
             "new_series_answer_by": None,
         }
+        assert next_settings == {"game_count": SERIES_LENGTH, "options": answer["options"], "revision": 0}
         assert answer["hand"] is None
         assert not deal_next(skat, table_id, people)
         assert series_of(read(skat, people[0][0], table_id))["game_number"] == SERIES_LENGTH
@@ -289,6 +294,7 @@ class TestCounting:
             "end_proposal": None,
             "end_refused_seats": [],
             "new_series_answer_by": None,
+            "next_settings": None,
         }
         assert answer["hand"] is not None
 
@@ -317,6 +323,7 @@ class TestCounting:
             "end_proposal": None,
             "end_refused_seats": [],
             "new_series_answer_by": None,
+            "next_settings": None,
         }
 
 
@@ -399,6 +406,7 @@ class TestTheAnswer:
             "end_proposal",
             "end_refused_seats",
             "new_series_answer_by",
+            "next_settings",
         }
 
 

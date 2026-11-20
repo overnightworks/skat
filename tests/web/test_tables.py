@@ -17,7 +17,7 @@ from skat.web.playing import (
     TABLE_THROW_DOWN_SUFFIX,
 )
 from skat.web.presence import Presence
-from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX
+from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_NEXT_SETTINGS_SUFFIX, TABLE_READY_SUFFIX
 from skat.web.seating import create_seating_router
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX, TABLE_SERIES_END_REFUSE_SUFFIX
 from skat.web.style import TABLE_STYLE_SUFFIX
@@ -747,7 +747,8 @@ class TestAnEmptyTableEnds:
             pytest.param(TABLE_THROW_DOWN_SUFFIX, {"version": 1}, id="throw-down"),
             pytest.param(TABLE_KONTRA_SUFFIX, {"version": 1, "word": "kontra"}, id="kontra"),
             pytest.param(TABLE_READY_SUFFIX, {"ordinal": 1, "series": 1}, id="ready"),
-            pytest.param(TABLE_NEW_SERIES_SUFFIX, {"series": 1}, id="new-series"),
+            pytest.param(TABLE_NEW_SERIES_SUFFIX, {"series": 1, "settings": 0}, id="new-series"),
+            pytest.param(TABLE_NEXT_SETTINGS_SUFFIX, {"series": 1, "series_length": 12}, id="next-series-settings"),
             pytest.param(TABLE_SERIES_END_AGREE_SUFFIX, {}, id="series-end-agree"),
             pytest.param(TABLE_SERIES_END_REFUSE_SUFFIX, {}, id="series-end-refuse"),
             pytest.param(TABLE_STYLE_SUFFIX, {"style": "strandbar"}, id="style"),

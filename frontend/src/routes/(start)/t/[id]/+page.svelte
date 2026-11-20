@@ -30,6 +30,7 @@
     } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import {
+        nextSettingsRevisionOf,
         resultOnStage,
         returnsToLobby,
         seriesCountText,
@@ -111,15 +112,12 @@
         drawingOrder,
         gameLabel,
         isSuitGame,
-        markReady,
         positionWord,
         readGameSheet,
         readTable,
         seatedAgentsKey,
-        seriesNumberOf,
         sitDown,
         standUp,
-        startNewSeries,
         stopPlaying,
         takeAuctionStep,
         watchTable,
@@ -133,6 +131,7 @@
         type Table,
     } from "../../tables.ts";
     import { nudgedNote } from "../../nudge.ts";
+    import { markReady, seriesNumberOf, startNewSeries } from "../../seriesCommands.ts";
     import { reactionName, reactionsBetween, throwReaction } from "../../reaction.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
@@ -356,7 +355,7 @@
         send(
             table,
             seriesOver(table)
-                ? startNewSeries(id, crypto.randomUUID(), seriesNumberOf(table))
+                ? startNewSeries(id, crypto.randomUUID(), seriesNumberOf(table), nextSettingsRevisionOf(table))
                 : markReady(
                       id,
                       crypto.randomUUID(),
@@ -556,7 +555,7 @@
                 <ThrownEmotes chairs={outcome.table.chairs} />
             </div>
             {#if standing !== null}
-                <SeriesEnd table={outcome.table} view={standing} />
+                <SeriesEnd {id} table={outcome.table} view={standing} {seat} />
             {:else if view !== null}
                 <ResultCard
                     {view}

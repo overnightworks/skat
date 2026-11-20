@@ -8042,6 +8042,41 @@ body {
     box-shadow: none;
 }
 
+/* „Ändern“ ends the line, a button that reads as a link. */
+.room .nextline .change {
+    padding: 6px 4px;
+    border: 0;
+    color: var(--accent-stage);
+    background: none;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+/* The next series' sheet names whose „Neue Serie“ a save takes back. */
+.sheet .takeback {
+    flex: none;
+    font-size: 13px;
+}
+
+/* The next series' sheet leaves the top row of keys in sight on a phone (it hangs 40 px below the top, 24 px above the bottom) and keeps 24 px round it from 900 px, as the settings scene draws it. */
+.sheet.next-series {
+    top: 40px;
+    transform: translateX(-50%);
+    max-height: calc(100dvh - 64px);
+}
+
+@media (min-width: 900px) {
+    .sheet.next-series {
+        top: 50%;
+        transform: translate(-50%, -50%);
+        max-height: calc(100dvh - 48px);
+    }
+}
+
 /* The minute left lies on its own pill below the card, on the table's near edge, as the silent scene draws it: on a phone a row of its own between the card and the near chair, on a desktop at the foot of the row the card stands in, above the near chair. */
 .room .stage > .plaque.timer {
     position: relative;

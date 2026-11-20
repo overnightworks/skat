@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 from sqlalchemy import Integer, delete, exists, func, insert, literal, or_, select, update
@@ -34,7 +35,16 @@ from skat.store.schema import (
     series,
     tables,
 )
-from skat.store.series import bock_of, insert_series, last_played_series, save_series, series_of, series_row
+from skat.store.series import (
+    bock_of,
+    insert_series,
+    last_played_series,
+    mark_revision_of,
+    mark_stands,
+    save_series,
+    series_row,
+    series_with_next_settings,
+)
 from skat.table.hand_state import auction_of
 from skat.table.records import (
     Chair,
@@ -118,13 +128,14 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
     )
 
 
-def _chair_of(seat: Row[*tuple[Any, ...]]) -> Chair:
+def _chair_of(seat: Row[*tuple[Any, ...]], revision: int | None) -> Chair:
     occupant = (
         None
         if seat.account_id is None
         else Occupant(seat.account_id, seat.display_name, OccupantKind(seat.occupant_kind), seat.owner_account)
     )
-    return Chair(seat.seat, occupant, ready=seat.ready, turn_state=_turn_state_of(seat))
+    ready = mark_stands(seat.ready, seat.ready_settings, revision)
+    return Chair(seat.seat, occupant, ready=ready, turn_state=_turn_state_of(seat))
 
 
 def _turn_state_of(seat: Row[*tuple[Any, ...]]) -> TurnStatement | None:
@@ -161,6 +172,7 @@ def _read_seats(connection: Connection, table_id: str) -> Sequence[Row[*tuple[An
             chairs.c.occupant_kind,
             chairs.c.owner_account,
             chairs.c.ready,
+            chairs.c.ready_settings,
             chairs.c.held_in_hand,
             chairs.c.former_holder_name,
             chairs.c.turn_state_account,
@@ -191,10 +203,16 @@ def _table_record(
         )
     seats = _read_seats(connection, table_id)
     current = series_row(connection, table_id, table.series_number)
+    played = series_with_next_settings(connection, table_id, current)
+    revision = mark_revision_of(played)
+    standing = tuple(_chair_of(seat, revision) for seat in seats)
+    if played is not None and any(seat.ready for seat in seats) and not any(chair.ready for chair in standing):
+        # Every mark was given on settings that were saved since, so the minute the first of them started is no ask.
+        played = replace(played, new_series_asked_at=None)
     return TableRecord(
         id=TableId(table_id),
         version=table.version,
-        chairs=tuple(_chair_of(seat) for seat in seats),
+        chairs=standing,
         dealer=table.dealer,
         hand=_read_hand(connection, table_id),
         progress=HandProgress(
@@ -217,7 +235,7 @@ def _table_record(
             ),
         ),
         game_list=read_game_list(connection, table_id, table.series_number),
-        series=series_of(current),
+        series=played,
         options=options_of(current),
         bock=bock_of(current),
         visibility=Visibility(table.visibility),
@@ -345,6 +363,7 @@ class _PostgresTableTransaction:
         )
 
     def _write_chairs(self, table: TableRecord) -> None:
+        revision = mark_revision_of(table.series)
         for chair in table.chairs:
             occupant = chair.occupant
             self._connection.execute(
@@ -356,6 +375,7 @@ class _PostgresTableTransaction:
                     occupant_kind=None if occupant is None else occupant.kind.value,
                     owner_account=None if occupant is None else occupant.owner_account,
                     ready=chair.ready,
+                    ready_settings=revision if chair.ready else None,
                     held_in_hand=sorted(
                         mark.account_id for mark in table.progress.seats_held if mark.seat == chair.seat
                     ),

@@ -44,13 +44,11 @@ import {
     TABLE_KONTRA_SUFFIX,
     TABLE_NO_WORD_SUFFIX,
     TABLE_LIST_SUFFIX,
-    TABLE_NEW_SERIES_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_PUSHING_GRAND_HAND_SUFFIX,
     TABLE_PUSHING_PUSH_SUFFIX,
     TABLE_PUSHING_PUT_BACK_SUFFIX,
     TABLE_PUSHING_TAKE_SUFFIX,
-    TABLE_READY_SUFFIX,
     TABLE_SERIES_END_AGREE_SUFFIX,
     TABLE_SERIES_END_REFUSE_SUFFIX,
     TABLE_SIT_SUFFIX,
@@ -311,6 +309,9 @@ export type Standing = {
 // The seat that proposed ending the series early, the seats that have said yes so far and the instant a seat that
 // stays silent counts as no, which a proposal made on the release before has not.
 export type EndProposal = { proposer_seat: number; agreed_seats: number[]; answer_by: string | null };
+// What the next series is played with once the series is over: the last series' length and rules until a seat saves
+// others. `revision` counts the saves and is what „Neue Serie“ names.
+export type NextSettings = { game_count: number; options: Options; revision: number };
 // Which series of the table this is, 1 for the first, which of its games runs (0 before the first deal) and whether it
 // is over; the standings come once it is, the same for every viewer.
 export type Series = {
@@ -325,6 +326,8 @@ export type Series = {
     // The instant a seat that has not chosen „Neue Serie“ ends the table, once the first has; null before and while
     // the series runs.
     new_series_answer_by: string | null;
+    // Null while the series runs.
+    next_settings: NextSettings | null;
 };
 export type TableStyle = (typeof TABLE_STYLE_TOKENS)[number];
 
@@ -478,21 +481,6 @@ export function sayKontra(id: string, version: number, commandId: string, word: 
 // The viewer's seat gives up the word it owes before the first card; the table stops asking it and the word is gone.
 export function sayNoWord(id: string, version: number, commandId: string): Promise<Outcome> {
     return post(id, TABLE_NO_WORD_SUFFIX, { command_id: commandId, version });
-}
-
-// A table opened without a series has none and counts as the first series, as the server counts it.
-export function seriesNumberOf(table: Pick<Table, "series">): number {
-    return table.series?.number ?? 1;
-}
-
-// „Weiter“ names the result and the series it saw, so a tap on a result or series that has since been replaced is refused.
-export function markReady(id: string, commandId: string, ordinal: number, series: number): Promise<Outcome> {
-    return post(id, TABLE_READY_SUFFIX, { command_id: commandId, ordinal, series });
-}
-
-// „Neue Serie“ names the series it saw as „Weiter“ does, so a tap on a series that has since been replaced is refused.
-export function startNewSeries(id: string, commandId: string, series: number): Promise<Outcome> {
-    return post(id, TABLE_NEW_SERIES_SUFFIX, { command_id: commandId, series });
 }
 
 // A seated person gives the table a style; the stream brings it to every page at the table, so the answer's table is

@@ -6,7 +6,7 @@ from skat.engine.deal import positions_from
 from skat.table.records import Series, TableId
 from skat.table.service import TableService
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
-from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX
+from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_NEXT_SETTINGS_SUFFIX, TABLE_READY_SUFFIX
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX, TABLE_SERIES_END_REFUSE_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, with_known_deal
@@ -23,10 +23,21 @@ def tap_weiter(skat, headers, table_id, command_id, ordinal=1, series=1):
     )
 
 
-def tap_new_series(skat, headers, table_id, command_id, series=1):
+def tap_new_series(skat, headers, table_id, command_id, series=1, settings=0):
+    """`settings` None leaves the field out, as a page of the release before does."""
+    named = {} if settings is None else {"settings": settings}
     return skat.client.post(
         f"{TABLES_PATH}/{table_id}{TABLE_NEW_SERIES_SUFFIX}",
-        json={"command_id": command_id, "series": series},
+        json={"command_id": command_id, "series": series, **named},
+        headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
+    )
+
+
+def change_next_settings(skat, headers, table_id, command_id, series=1, **settings):
+    """Save the next series' settings; `settings` are the request's `series_length` and `options`."""
+    return skat.client.post(
+        f"{TABLES_PATH}/{table_id}{TABLE_NEXT_SETTINGS_SUFFIX}",
+        json={"command_id": command_id, "series": series, **settings},
         headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
     )
 
