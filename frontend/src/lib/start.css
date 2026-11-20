@@ -8035,6 +8035,26 @@ body {
     box-shadow: none;
 }
 
+/* „Ändern“ ends the line, a button that reads as a link. */
+.room .nextline .change {
+    padding: 6px 4px;
+    border: 0;
+    color: var(--accent-stage);
+    background: none;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+/* The next series' sheet names whose „Neue Serie“ a save takes back. */
+.sheet .takeback {
+    flex: none;
+    font-size: 13px;
+}
+
 /* The minute left lies on its own pill below the card, on the table's near edge, as the silent scene draws it: on a phone a row of its own between the card and the near chair, on a desktop at the foot of the row the card stands in, above the near chair. */
 .room .stage > .plaque.timer {
     position: relative;

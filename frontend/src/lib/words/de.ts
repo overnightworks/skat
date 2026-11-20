@@ -150,6 +150,12 @@ export type Words = {
     readonly "table.newSeries": string;
     readonly "table.stopPlaying": string;
     readonly "table.nextSeries": string;
+    readonly "table.nextSeriesChange": string;
+    readonly "table.nextSeriesSave": string;
+    readonly "table.nextSeriesCancel": string;
+    readonly "table.nextSeriesTakeBack": (gaps: { readonly names: string }) => string;
+    readonly "table.possessive": (gaps: { readonly name: string }) => string;
+    readonly "table.possessiveApostrophe": (gaps: { readonly name: string }) => string;
     readonly "table.answerClockEnds": (gaps: { readonly time: string }) => string;
     readonly "table.wantsToEndSeries": (gaps: { readonly name: string }) => string;
     readonly "table.endSeries": string;
@@ -754,6 +760,12 @@ export const words: Words = {
     "table.newSeries": "Neue Serie",
     "table.stopPlaying": "Aufhören",
     "table.nextSeries": "Nächste Serie",
+    "table.nextSeriesChange": "Ändern",
+    "table.nextSeriesSave": "Speichern",
+    "table.nextSeriesCancel": "Abbrechen",
+    "table.nextSeriesTakeBack": (gaps: { readonly names: string }) => "Speichern nimmt " + gaps.names + " „Neue Serie“ zurück.",
+    "table.possessive": (gaps: { readonly name: string }) => gaps.name + "s",
+    "table.possessiveApostrophe": (gaps: { readonly name: string }) => gaps.name + "’",
     "table.answerClockEnds": (gaps: { readonly time: string }) => "Ohne Antwort in " + gaps.time + " endet der Tisch",
     "table.wantsToEndSeries": (gaps: { readonly name: string }) => gaps.name + " möchte die Serie beenden",
     "table.endSeries": "Serie beenden",

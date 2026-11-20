@@ -45,6 +45,7 @@ import {
     TABLE_NO_WORD_SUFFIX,
     TABLE_LIST_SUFFIX,
     TABLE_NEW_SERIES_SUFFIX,
+    TABLE_NEXT_SETTINGS_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_PUSHING_GRAND_HAND_SUFFIX,
     TABLE_PUSHING_PUSH_SUFFIX,
@@ -311,6 +312,9 @@ export type Standing = {
 // The seat that proposed ending the series early, the seats that have said yes so far and the instant a seat that
 // stays silent counts as no, which a proposal made on the release before has not.
 export type EndProposal = { proposer_seat: number; agreed_seats: number[]; answer_by: string | null };
+// What the next series is played with once the series is over: the last series' length and rules until a seat saves
+// others. `revision` counts the saves and is what „Neue Serie“ names.
+export type NextSettings = { game_count: number; options: Options; revision: number };
 // Which series of the table this is, 1 for the first, which of its games runs (0 before the first deal) and whether it
 // is over; the standings come once it is, the same for every viewer.
 export type Series = {
@@ -325,6 +329,8 @@ export type Series = {
     // The instant a seat that has not chosen „Neue Serie“ ends the table, once the first has; null before and while
     // the series runs.
     new_series_answer_by: string | null;
+    // Null while the series runs.
+    next_settings: NextSettings | null;
 };
 export type TableStyle = (typeof TABLE_STYLE_TOKENS)[number];
 
@@ -490,9 +496,22 @@ export function markReady(id: string, commandId: string, ordinal: number, series
     return post(id, TABLE_READY_SUFFIX, { command_id: commandId, ordinal, series });
 }
 
-// „Neue Serie“ names the series it saw as „Weiter“ does, so a tap on a series that has since been replaced is refused.
-export function startNewSeries(id: string, commandId: string, series: number): Promise<Outcome> {
-    return post(id, TABLE_NEW_SERIES_SUFFIX, { command_id: commandId, series });
+// „Neue Serie“ names the series it saw as „Weiter“ does, so a tap on a series that has since been replaced is refused,
+// and the revision of the next series' settings it saw, so a tap on settings that have since been saved over is too.
+export function startNewSeries(id: string, commandId: string, series: number, settings: number): Promise<Outcome> {
+    return post(id, TABLE_NEW_SERIES_SUFFIX, { command_id: commandId, series, settings });
+}
+
+// Saving the next series' settings names the series it saw; the stream brings them to every page at the table, and the
+// save takes back every seat's „Neue Serie“. Another length or other rules is another command.
+export function changeNextSettings(
+    id: string,
+    commandId: string,
+    series: number,
+    length: number,
+    options?: OptionsRequest,
+): Promise<Outcome> {
+    return post(id, TABLE_NEXT_SETTINGS_SUFFIX, { command_id: commandId, series, series_length: length, options });
 }
 
 // A seated person gives the table a style; the stream brings it to every page at the table, so the answer's table is

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Chair, Options, Table } from "../routes/(start)/tables.ts";
+import { possessive } from "#lib/openChair.ts";
 import { weiterBar } from "#lib/result.ts";
 import {
     gameRows,
@@ -7,6 +8,8 @@ import {
     returnsToLobby,
     seriesCountText,
     nextSeriesLine,
+    nextSettingsChangeable,
+    nextSettingsOf,
     seriesEndAnswerBy,
     seriesEndAsk,
     seriesEndMarks,
@@ -17,6 +20,7 @@ import {
     seriesOver,
     standingsView,
     stopOffered,
+    takenBackLine,
 } from "#lib/series.ts";
 import {
     chairs,
@@ -389,6 +393,53 @@ describe("the series' end", () => {
             length: words["table.seriesGames"](36),
             chips: [{ id: "official", word: words["rules.chipOfficial"], count: null }],
         });
+    });
+
+    const WITH_KONTRA: Options = {
+        ...NO_RULES,
+        kontra: { sayer: "bidders-only", reach: "up-to-hirsch", deadline: "own-card" },
+    };
+
+    it("names the settings a seat saved for the next series over the last series' own", () => {
+        const table = {
+            ...over(1, { next_settings: { game_count: 12, options: WITH_KONTRA, revision: 2 } }),
+            options: NO_RULES,
+        };
+
+        expect(nextSeriesLine(table)).toEqual({
+            length: words["table.seriesGames"](12),
+            chips: [{ id: "kontra", word: words["rules.chipKontra"], count: null }],
+        });
+    });
+
+    it("starts the sheet and names the revision from the saved settings, else from the last series as revision 0", () => {
+        const saved = { game_count: 12, options: WITH_KONTRA, revision: 2 };
+
+        expect(nextSettingsOf({ ...over(1, { next_settings: saved }), options: NO_RULES })).toEqual(saved);
+        expect(nextSettingsOf({ ...over(1), options: NO_RULES })).toEqual({
+            game_count: 36,
+            options: NO_RULES,
+            revision: 0,
+        });
+        expect(nextSettingsOf(tableBetweenGames(1, seriesAt()))).toBeNull();
+    });
+
+    it.each([
+        { name: "a seated member of a series that is over", table: over(1), expected: true },
+        { name: "a watcher of a series that is over", table: over(WATCHER), expected: false },
+        { name: "a seated member of a series that runs", table: tableBetweenGames(1, seriesAt()), expected: false },
+    ])("lets $name change the next settings: $expected", ({ table, expected }) => {
+        expect(nextSettingsChangeable(table)).toBe(expected);
+    });
+
+    it("names whose „Neue Serie“ a save takes back: the other seats that chose it", () => {
+        const table = tableBetweenGames(1, seriesAt({ over: true, standings: [] }), [1, 2]);
+
+        expect(takenBackLine(table)).toBe(words["table.nextSeriesTakeBack"]({ names: possessive("player 2") }));
+    });
+
+    it("names no one when no other seat has chosen „Neue Serie“", () => {
+        expect(takenBackLine(tableBetweenGames(1, seriesAt({ over: true, standings: [] }), [1]))).toBeNull();
     });
 
     it.each([

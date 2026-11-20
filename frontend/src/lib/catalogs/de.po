@@ -619,6 +619,30 @@ msgctxt "table.nextSeries"
 msgid "Nächste Serie"
 msgstr ""
 
+msgctxt "table.nextSeriesChange"
+msgid "Ändern"
+msgstr ""
+
+msgctxt "table.nextSeriesSave"
+msgid "Speichern"
+msgstr ""
+
+msgctxt "table.nextSeriesCancel"
+msgid "Abbrechen"
+msgstr ""
+
+msgctxt "table.nextSeriesTakeBack"
+msgid "Speichern nimmt {names} „Neue Serie“ zurück."
+msgstr ""
+
+msgctxt "table.possessive"
+msgid "{name}s"
+msgstr ""
+
+msgctxt "table.possessiveApostrophe"
+msgid "{name}’"
+msgstr ""
+
 msgctxt "table.answerClockEnds"
 msgid "Ohne Antwort in {time} endet der Tisch"
 msgstr ""

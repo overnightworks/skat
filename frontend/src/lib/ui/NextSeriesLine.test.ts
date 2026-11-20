@@ -31,6 +31,36 @@ describe("the line of the next series' settings", () => {
         ]).toEqual([words["table.nextSeries"], [line.length, words["rules.chipKontra"], words["rules.chipRamsch"]]]);
     });
 
+    it("offers „Ändern“ only to a caller that may change the settings, and tells it when tapped", () => {
+        const line: NextSeriesLine = { length: words["table.seriesGames"](12), chips: [] };
+        let changed = 0;
+        mounted = mount(NextSeriesLineView, {
+            target: document.body,
+            props: {
+                line,
+                onchange: () => {
+                    changed += 1;
+                },
+            },
+        });
+        flushSync();
+
+        document.querySelector<HTMLButtonElement>("button.change")?.click();
+
+        expect([document.querySelector("button.change")?.textContent.trim(), changed]).toEqual([
+            words["table.nextSeriesChange"],
+            1,
+        ]);
+    });
+
+    it("draws no „Ändern“ for a watcher", () => {
+        const line: NextSeriesLine = { length: words["table.seriesGames"](12), chips: [] };
+        mounted = mount(NextSeriesLineView, { target: document.body, props: { line } });
+        flushSync();
+
+        expect(document.querySelector("button.change")).toBeNull();
+    });
+
     it("marks the chip of the official rules", () => {
         const line: NextSeriesLine = {
             length: words["table.seriesGames"](12),

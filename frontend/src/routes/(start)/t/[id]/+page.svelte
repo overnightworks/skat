@@ -30,6 +30,8 @@
     } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import {
+        nextSettingsChangeable,
+        nextSettingsOf,
         resultOnStage,
         returnsToLobby,
         seriesCountText,
@@ -37,6 +39,7 @@
         seriesOver,
         standingsView,
         stopOffered,
+        takenBackLine,
     } from "#lib/series.ts";
     import { declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, Marked } from "overnightworks-design";
@@ -70,6 +73,7 @@
     import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SeatNoticeLine from "#lib/ui/SeatNoticeLine.svelte";
+    import NextSeriesSheet from "#lib/ui/NextSeriesSheet.svelte";
     import SeriesEnd from "#lib/ui/SeriesEnd.svelte";
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import TakenNotice from "#lib/ui/TakenNotice.svelte";
@@ -107,6 +111,7 @@
         answerAbort,
         answerSeriesEnd,
         bidLineWhileDeclaring,
+        changeNextSettings,
         copyTableLink,
         drawingOrder,
         gameLabel,
@@ -127,7 +132,9 @@
         type SeriesEndAnswer,
         type AuctionAction,
         type Card,
+        type NextSettings,
         type Options,
+        type OptionsRequest,
         type Outcome,
         type Picking,
         type Table,
@@ -179,6 +186,8 @@
     let seatedAgents = $state("");
     // The free chair whose tap asks the question before a sit, while a hand runs.
     let asking = $state<number | null>(null);
+    // The settings the open sheet of the next series started from; null while the sheet is closed.
+    let changingSettings = $state<NextSettings | null>(null);
 
     function showSeatNote(note: SeatNotice): void {
         seatNote = note;
@@ -356,7 +365,7 @@
         send(
             table,
             seriesOver(table)
-                ? startNewSeries(id, crypto.randomUUID(), seriesNumberOf(table))
+                ? startNewSeries(id, crypto.randomUUID(), seriesNumberOf(table), nextSettingsOf(table)?.revision ?? 0)
                 : markReady(
                       id,
                       crypto.randomUUID(),
@@ -556,7 +565,13 @@
                 <ThrownEmotes chairs={outcome.table.chairs} />
             </div>
             {#if standing !== null}
-                <SeriesEnd table={outcome.table} view={standing} />
+                <SeriesEnd
+                    table={outcome.table}
+                    view={standing}
+                    onchange={() => {
+                        changingSettings = nextSettingsOf(current);
+                    }}
+                />
             {:else if view !== null}
                 <ResultCard
                     {view}
@@ -778,6 +793,21 @@
                     }}
                     oncancel={() => {
                         asking = null;
+                    }}
+                />
+            {/if}
+            {#if changingSettings !== null && nextSettingsChangeable(current)}
+                {@const series = seriesNumberOf(current)}
+                <NextSeriesSheet
+                    initial={changingSettings}
+                    takenBack={takenBackLine(current)}
+                    save={async (commandId: string, length: number, options: OptionsRequest | undefined) => {
+                        const saved = await seat(changeNextSettings(id, commandId, series, length, options));
+                        if (saved.kind === "table") changingSettings = null;
+                        return saved;
+                    }}
+                    oncancel={() => {
+                        changingSettings = null;
                     }}
                 />
             {/if}

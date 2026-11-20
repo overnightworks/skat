@@ -30,6 +30,7 @@ export function seriesAt(changes: Partial<Series> = {}): Series {
         end_proposal: null,
         end_refused_seats: [],
         new_series_answer_by: null,
+        next_settings: null,
         ...changes,
     };
 }

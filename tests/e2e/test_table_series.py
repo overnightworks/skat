@@ -54,6 +54,11 @@ PHONE_BREAKPOINT = 900
 NEW_SERIES = text(SOURCE_LANGUAGE, "table.newSeries")
 STOP_PLAYING = text(SOURCE_LANGUAGE, "table.stopPlaying")
 NEXT_LINE = ".result.standing .nextline"
+CHANGE = text(SOURCE_LANGUAGE, "table.nextSeriesChange")
+SAVE = text(SOURCE_LANGUAGE, "table.nextSeriesSave")
+MORE_GAMES = text(SOURCE_LANGUAGE, "start.seriesMore")
+NEXT_SHEET = ".sheet.next-series"
+SERIES_LENGTH_STEP = 3
 ANSWER_CLOCK = ".stage > .plaque.timer"
 RAMSCH = text(SOURCE_LANGUAGE, "game.ramsch")
 YES = text(SOURCE_LANGUAGE, "table.yes")
@@ -459,6 +464,51 @@ def test_the_series_end_offers_exactly_neue_serie_and_aufhoeren_and_aufhoeren_se
     table.watcher.evaluate("address => location.assign(address)", link)
     expect(table.watcher.get_by_role("heading", name=text(SOURCE_LANGUAGE, "closed.seriesEnded"))).to_be_visible()
     expect(table.watcher).to_have_url(link)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_seated_member_changes_the_next_series_and_the_save_takes_back_every_neue_serie(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.pass_all()
+    table.play_out()
+    first, second, third = table.pages[1], table.pages[2], table.pages[3]
+    propose_the_end(first)
+    answer_the_ask(second, YES)
+    answer_the_ask(third, YES)
+    for person in table.everyone:
+        expect(person.locator(NEXT_LINE)).to_have_count(1)
+    expect(table.watcher.get_by_role("button", name=CHANGE, exact=True)).to_have_count(0)
+    first.get_by_role("button", name=NEW_SERIES, exact=True).click()
+    for person in table.everyone:
+        expect(person.locator(ANSWER_CLOCK)).to_have_count(1)
+
+    second.get_by_role("button", name=CHANGE, exact=True).click()
+    sheet = second.locator(NEXT_SHEET)
+    expect(sheet.get_by_role("spinbutton")).to_have_attribute("aria-valuenow", str(SERIES_LENGTH))
+    expect(sheet.locator(".takeback")).to_be_visible()
+    sheet.get_by_role("button", name=MORE_GAMES).click()
+    sheet.get_by_role("button", name=SAVE, exact=True).click()
+
+    longer = text(SOURCE_LANGUAGE, "table.seriesGames", count=SERIES_LENGTH + SERIES_LENGTH_STEP)
+    for person in table.everyone:
+        expect(person.locator(f"{NEXT_LINE} .chip.len")).to_have_text(longer)
+        expect(person.locator(".chair .mark.ready")).to_have_count(0)
+        expect(person.locator(ANSWER_CLOCK)).to_have_count(0)
+    expect(second.locator(NEXT_SHEET)).to_have_count(0)
+
+    for person in table.pages.values():
+        person.get_by_role("button", name=NEW_SERIES, exact=True).click()
+    for person in table.everyone:
+        expect(person.locator(COUNT)).to_have_text(
+            text(SOURCE_LANGUAGE, "table.seriesCount", game="1", count=SERIES_LENGTH + SERIES_LENGTH_STEP),
+        )
     assert page_errors == []
 
 

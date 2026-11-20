@@ -27,11 +27,12 @@ describe("tableOfWire", () => {
     it("reads a series of the release before without a proposal as one with no refusals and no minute running", () => {
         const series = tableOfWire(olderTable(null)).series;
 
-        expect([series?.end_proposal, series?.end_refused_seats, series?.new_series_answer_by]).toEqual([
-            null,
-            [],
-            null,
-        ]);
+        expect([
+            series?.end_proposal,
+            series?.end_refused_seats,
+            series?.new_series_answer_by,
+            series?.next_settings,
+        ]).toEqual([null, [], null, null]);
     });
 
     it.each([
