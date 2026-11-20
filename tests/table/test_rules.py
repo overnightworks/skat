@@ -7,11 +7,13 @@ import pytest
 from skat.engine.bidding import Pass
 from skat.engine.bock import BockRounds
 from skat.engine.deal import Position, deal
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.table.records import (
     Actor,
     Chair,
     HandProgress,
     NewHand,
+    NextSettings,
     Occupant,
     OccupantKind,
     Refusal,
@@ -415,6 +417,17 @@ class TestTheSeriesEnd:
 
         assert (next_series.game_list, next_series.series) == ((), Series(3, 1, number=2))
         assert (next_series.dealer, next_series.hand) == (DRAWN.dealer, DRAWN.hand)
+
+    def test_the_next_series_deals_with_the_settings_saved_for_it_and_forgets_them(self):
+        kontra = TableOptions(
+            kontra=KontraOptions(KontraSayer.BIDDERS_ONLY, KontraReach.UP_TO_HIRSCH, KontraDeadline.OWN_CARD)
+        )
+        table = at_the_series_end(replace(passed_in(), game_list=(an_entry(), an_entry())), 1, 2, 3)
+        saved = replace(table, series=replace(table.series, next_settings=NextSettings(12, kontra, 1)))
+
+        next_series = dealt_next(saved, DRAWN)
+
+        assert (next_series.series, next_series.options) == (Series(12, 1, number=2), kontra)
 
 
 class TestTheEarlyEnd:

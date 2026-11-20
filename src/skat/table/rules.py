@@ -19,6 +19,7 @@ from skat.table.records import (
     GiveUpOptions,
     HandProgress,
     NewHand,
+    NextSettings,
     NoWordSaid,
     Occupant,
     PlayedSeries,
@@ -355,6 +356,14 @@ def series_games_left(table: TableRecord) -> int | None:
     return table.series.length - table.series.deals + hand_runs(table)
 
 
+def next_settings_of(table: TableRecord) -> NextSettings:
+    """What the next series is dealt with: the settings a seat saved for it, else the ones the table's series was
+    played with, as revision 0. A table with no series has no next one.
+    """
+    assert table.series is not None  # noqa: S101 - narrows the type; only a table with a series has a next one
+    return table.series.next_settings or NextSettings(table.series.length, table.options, 0)
+
+
 def series_number_of(table: TableRecord) -> int:
     """The number of the table's series, 1 for the first and for a table with no series."""
     return 1 if table.series is None else table.series.number
@@ -387,21 +396,27 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
 def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord:
     """The table with a new hand: its dealer, its cards, an empty auction, no chair ready and one more deal counted
     in its series; at a series' end this deal is the next series' first, so the list empties, the count starts at
-    one and the series' number rises. A deal clears the end proposal, the early end and
-    the minute of „Neue Serie“. Every deal goes through here.
+    one, the series' number rises and its length and options are the saved next settings, else the last series'. A deal
+    clears the end proposal, the early end, the minute of „Neue Serie“ and the saved settings. Every deal goes through
+    here.
     """
     starts_series = series_over(table)
     series = table.series
+    options = table.options
     if series is not None:
+        saved = next_settings_of(table) if starts_series else None
         series = replace(
             series,
+            length=series.length if saved is None else saved.length,
             deals=1 if starts_series else series.deals + 1,
             ended_early=False,
             end_proposal=None,
             end_refused_by=frozenset(),
             new_series_asked_at=None,
+            next_settings=None,
             number=series.number + 1 if starts_series else series.number,
         )
+        options = options if saved is None else saved.options
     return TableRecord(
         id=table.id,
         version=version,
@@ -411,7 +426,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
         progress=HandProgress(),
         game_list=() if starts_series else table.game_list,
         series=series,
-        options=table.options,
+        options=options,
         bock=table.bock,
         visibility=table.visibility,
         style=table.style,
