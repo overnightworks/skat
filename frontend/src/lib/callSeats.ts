@@ -1,5 +1,8 @@
 import {
     CALL_CHANNEL_VERSION,
+    OK_STATUS,
+    PERSON_KEY,
+    isPlainObject,
     type CallHost,
     type Corners,
     type SeatEntry,
@@ -10,8 +13,6 @@ import { CHAIRS_PER_TABLE, TABLES_PATH, TABLE_PERSON_KEYS_SUFFIX } from "#lib/wi
 // The pure decisions of the seats a framed table tells its call: which tile boxes go out, which chairs are see-through
 // and when the table holds back. `CallSeats.svelte` reads the page, runs the frames and writes the clip paths by them.
 
-const OK_STATUS = 200;
-const PERSON_KEY = /^[0-9a-f]{64}$/;
 /** The farthest a backdrop paints beyond its box, rim and drop shadow of the felt included, with room to spare. */
 const OUTER_MARGIN = 96;
 
@@ -19,10 +20,6 @@ const OUTER_MARGIN = 96;
 export interface SeatKeys {
     readonly version: number;
     readonly keys: ReadonlyMap<number, string>;
-}
-
-function isPlainObject(data: unknown): data is Record<string, unknown> {
-    return typeof data === "object" && data !== null && !Array.isArray(data);
 }
 
 function seatKeyOf(entry: unknown): readonly [number, string] | null {

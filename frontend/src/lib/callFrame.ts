@@ -10,12 +10,13 @@ export function isFramedInCallMode(): boolean {
 export const CALL_CHANNEL_VERSION = 1;
 
 const TABLE_ID = new RegExp(`^${TABLE_ID_PATTERN}$`);
-const PERSON_KEY = /^[0-9a-f]{64}$/;
+/** A person key: 64 lowercase hex digits. */
+export const PERSON_KEY = /^[0-9a-f]{64}$/;
 const HELLO_KEYS: ReadonlySet<string> = new Set(["attachment", "attempt", "type", "v"]);
 const PLACED_KEYS: ReadonlySet<string> = new Set(["keys", "table", "type", "v"]);
 /** The chairs of a table; a `placed` names no more keys than that. */
 const MOST_PLACED_KEYS = CHAIRS_PER_TABLE;
-const OK_STATUS = 200;
+export const OK_STATUS = 200;
 
 /** What the table tells the call once, to the call's configured origin. */
 export interface ReadyMessage {
@@ -104,7 +105,7 @@ export function browserCallHost(): CallHost {
     };
 }
 
-function isPlainObject(data: unknown): data is Record<string, unknown> {
+export function isPlainObject(data: unknown): data is Record<string, unknown> {
     return typeof data === "object" && data !== null && Object.getPrototypeOf(data) === Object.prototype;
 }
 
