@@ -478,14 +478,14 @@ class TableRecord:
 
 
 class EndReason(StrEnum):
-    """Why a table ended; the stored token and the one the answer carries. `CLOSED` is an opener's close, which only
-    stored tombstones carry; `STOPPED` is „Aufhören“ and the silent minute at the series' end.
+    """Why a table ended; the stored token and the one the answer carries. `CLOSED` is a table ended for everyone by a
+    person: an opener's close names her, which only stored tombstones carry, and „Aufhören“ and the silent minute at
+    the series' end name nobody.
     """
 
     EMPTY = "empty"
     UNPLAYED = "unplayed"
     CLOSED = "closed"
-    STOPPED = "stopped"
 
 
 @dataclass(frozen=True)
@@ -511,8 +511,10 @@ class Ending:
 
     @classmethod
     def stopped(cls) -> Self:
-        """A seat chose „Aufhören“ at the series' end, or one stayed silent for the minute."""
-        return cls(EndReason.STOPPED)
+        """A seat chose „Aufhören“ at the series' end, or one stayed silent for the minute; it names nobody, so the
+        release before reads it as a close of unknown opener.
+        """
+        return cls(EndReason.CLOSED)
 
 
 @dataclass(frozen=True)

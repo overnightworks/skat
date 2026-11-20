@@ -63,11 +63,14 @@ class TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore:
             "UPDATE tables SET ended_at = now(), end_reason = 'empty', empty_seconds = 60, closed_by_name = 'Anna',"
             " dealer = NULL, last_played_at = NULL WHERE id = 'dealt'",
             "UPDATE tables SET closed_by_name = 'Anna' WHERE id = 'dealt'",
+            "UPDATE tables SET ended_at = now(), end_reason = 'abandoned', dealer = NULL, last_played_at = NULL"
+            " WHERE id = 'dealt'",
         ],
         ids=[
             "a closed end with an empty name",
             "an empty end with a name",
             "a name on a live table",
+            "an unknown reason",
         ],
     )
     def test_refuses_a_row_the_table_cannot_hold(self, migrated, update):

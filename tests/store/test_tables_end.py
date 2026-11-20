@@ -457,21 +457,10 @@ def test_the_stop_keeps_the_game_list_and_the_create_and_stop_receipts_and_names
                 tables.c.id == table_id.value
             )
         ).one()
-    assert tuple(row) == (STOPPED_AT, EndReason.STOPPED.value, None, None)
+    assert tuple(row) == (STOPPED_AT, EndReason.CLOSED.value, None, None)
     assert replace(stored(transactions, table_id.value), last_series=None) == EndedTable(
         table_id, version + 1, Ending.stopped()
     )
-
-
-def test_an_ended_table_with_a_reason_no_release_knows_fails_loud_when_read(service, transactions, stored, engine):
-    table_id = listed_games_in_two_series(service, transactions, stored, "one")
-    at_the_series_end(transactions, stored, table_id)
-    stop(TableService(transactions, now=lambda: STOPPED_AT), SEATED[1], table_id)
-    with engine.begin() as connection:
-        connection.execute(update(tables).where(tables.c.id == table_id.value).values(end_reason="abandoned"))
-
-    with pytest.raises(ValueError, match="abandoned"):
-        stored(transactions, table_id.value)
 
 
 def test_a_stop_retry_after_the_commit_answers_the_ended_table_and_a_refusal_writes_no_receipt(
@@ -487,7 +476,7 @@ def test_a_stop_retry_after_the_commit_answers_the_ended_table_and_a_refusal_wri
     stop(service, OPENER, table_id)
     again = stop(service, OPENER, table_id)
 
-    assert again.view.ended.reason is EndReason.STOPPED
+    assert again.view.ended.reason is EndReason.CLOSED
     assert len(rows_of(engine, table_id.value)["receipts"]) == 2
 
 

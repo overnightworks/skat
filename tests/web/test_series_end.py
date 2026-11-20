@@ -7,7 +7,7 @@ import pytest
 
 from skat.host.app import END_ANSWER_RECOVERY_SECONDS, ServerRounds
 from skat.table.ready import NewSeriesCommand
-from skat.table.records import Actor, Refusal, Series, TableId, TableRecord
+from skat.table.records import Actor, EndReason, Refusal, Series, TableId, TableRecord
 from skat.table.series_end import END_ANSWER_SECONDS, SeriesEndCommand
 from skat.table.service import TableService
 from skat.web.game_list import TABLE_LIST_SUFFIX
@@ -580,7 +580,11 @@ class TestTheMinuteOfNewSeries:
         skat.client.portal.call(time.advance, 1)
 
         answer = ended.read_as(ended.watcher).json()
-        assert (answer["ended"]["reason"], answer["ended"]["game_count"]) == ("stopped", 3)
+        assert (answer["ended"]["reason"], answer["ended"]["closed_by_name"], answer["ended"]["game_count"]) == (
+            EndReason.CLOSED,
+            None,
+            3,
+        )
 
     def test_every_seat_that_chose_in_time_deals_the_next_series_and_no_minute_ends_it(self, skat, time, ended):
         for seat in (1, 2, 3):

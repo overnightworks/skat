@@ -35,7 +35,7 @@ class TestStopPlaying:
         assert answer.status_code == 200, answer.text
         assert answer.headers["cache-control"] == "no-store"
         body = answer.json()["ended"]
-        assert (body["reason"], body["closed_by_name"], body["game_count"]) == (EndReason.STOPPED.value, None, 3)
+        assert (body["reason"], body["closed_by_name"], body["game_count"]) == (EndReason.CLOSED.value, None, 3)
         assert sorted(standing["seat"] for standing in body["standings"]) == [1, 2, 3]
         assert not isinstance(skat.store.tables[ended.table_id], TableRecord)
 
@@ -47,7 +47,7 @@ class TestStopPlaying:
 
             seen = [next(messages) for messages in streams]
 
-        assert [view["ended"]["reason"] for view in seen] == [EndReason.STOPPED.value] * 4
+        assert [view["ended"]["reason"] for view in seen] == [EndReason.CLOSED.value] * 4
 
     def test_the_old_link_shows_the_standings_and_the_games_and_names_nobody_to_everyone(self, skat, ended):
         stop(skat, headers_of(ended)[0], ended.table_id)

@@ -481,7 +481,7 @@ def stop(service, actor, table_id, command_id="command-stop"):
     return service.stop_playing(actor, StopPlaying(command_id, table_id.value))
 
 
-STOPPED_VIEW = EndedView(EndReason.STOPPED, None, None, None, None, None)
+STOPPED_VIEW = EndedView(EndReason.CLOSED, None, None, None, None, None)
 
 
 class TestStopPlaying:
@@ -499,7 +499,7 @@ class TestStopPlaying:
             over_id, before.version + 1, Ending.stopped(), played_series_of(before)
         )
         assert store.ended_at[over_id.value] == ENDED_AT
-        assert result.view.ended.reason is EndReason.STOPPED
+        assert result.view.ended.reason is EndReason.CLOSED
         assert result.view.ended.closed_by_name is None
 
     def test_keeps_the_create_receipt_and_the_stop_receipt_and_deletes_the_others(self, service, store, over_id):
@@ -515,7 +515,7 @@ class TestStopPlaying:
 
         again = stop(service, OPENER, over_id)
 
-        assert again.view.ended.reason is EndReason.STOPPED
+        assert again.view.ended.reason is EndReason.CLOSED
         assert written == (store.tables, store.receipts)
 
     def test_a_second_person_after_the_end_finds_no_live_table(self, service, store, over_id):

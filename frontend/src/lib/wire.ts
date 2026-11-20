@@ -70,7 +70,7 @@ export const LEVEL_TOKENS = [
     "schwarz_announced",
     "ouvert",
 ] as const;
-export const END_REASON_TOKENS = ["empty", "unplayed", "closed", "stopped"] as const;
+export const END_REASON_TOKENS = ["empty", "unplayed", "closed"] as const;
 export const KONTRA_SAYER_TOKENS = ["any-opponent", "bidders-only"] as const;
 export const KONTRA_REACH_TOKENS = ["kontra-re", "kontra-re-standings", "up-to-hirsch"] as const;
 export const KONTRA_DEADLINE_TOKENS = ["own-card", "first-card"] as const;

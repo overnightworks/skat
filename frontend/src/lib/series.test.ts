@@ -413,7 +413,11 @@ describe("the series' end", () => {
     const PLAYED = { standings: null, game_count: null };
     const stopped: Table = {
         ...over(1),
-        ended: { ...PLAYED, reason: "stopped", empty_seconds: null, unplayed_days: null, closed_by_name: null },
+        ended: { ...PLAYED, reason: "closed", empty_seconds: null, unplayed_days: null, closed_by_name: null },
+    };
+    const named: Table = {
+        ...over(1),
+        ended: { ...PLAYED, reason: "closed", empty_seconds: null, unplayed_days: null, closed_by_name: "Anna" },
     };
     const emptied: Table = {
         ...over(1),
@@ -435,6 +439,7 @@ describe("the series' end", () => {
         },
         { name: "a page that already showed the stopped table", previous: stopped, table: stopped, expected: false },
         { name: "a page whose live table ended another way", previous: over(1), table: emptied, expected: false },
+        { name: "a page whose live table an opener closed by name", previous: over(1), table: named, expected: false },
     ])("returns to the lobby from $name: $expected", ({ previous, table, expected }) => {
         expect(returnsToLobby(previous, table)).toBe(expected);
     });

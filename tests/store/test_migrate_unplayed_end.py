@@ -54,6 +54,8 @@ class TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore:
             "UPDATE tables SET ended_at = now(), end_reason = 'unplayed', unplayed_days = 90, empty_seconds = 60,"
             " dealer = NULL, last_played_at = NULL WHERE id = 'dealt'",
             "UPDATE tables SET unplayed_days = 90 WHERE id = 'dealt'",
+            "UPDATE tables SET ended_at = now(), end_reason = 'vanished', dealer = NULL, last_played_at = NULL"
+            " WHERE id = 'dealt'",
         ],
         ids=[
             "an unplayed end without days",
@@ -61,6 +63,7 @@ class TestFromALiveDealtTableAnUndealtTableAndAnEmptyEndAtTheRevisionBefore:
             "days of zero",
             "an unplayed end with seconds",
             "days on a live table",
+            "an unknown reason",
         ],
     )
     def test_refuses_a_row_the_table_cannot_hold(self, migrated, update):

@@ -255,16 +255,15 @@ export type Result = {
 export type PassedIn = { next_dealer_seat: number | null };
 export type EndReason = (typeof END_REASON_TOKENS)[number];
 // Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, the days nobody played,
-// or, for a table an opener closed before „Aufhören“, the name that opener had, which is null once the days of the
-// link's reason have passed and for a table that finished a game; a table whose series ended by „Aufhören“ or by a
-// silent seat names nobody. Such a table carries the games its last series played and their standings, whatever the
+// or, for a close, the name of the opener who closed it before „Aufhören“, which is null once the days of the link's
+// reason have passed and for a table that finished a game; a table whose series ended by „Aufhören“ or by a silent seat
+// is a close that names nobody. Such a table carries the games its last series played and their standings, whatever the
 // reason; one that finished none carries neither.
 type EndedPlayed = { standings: Standing[]; game_count: number } | { standings: null; game_count: null };
 export type Ended = EndedPlayed &
     (
         | { reason: Extract<EndReason, "empty">; empty_seconds: number; unplayed_days: null; closed_by_name: null }
         | { reason: Extract<EndReason, "unplayed">; empty_seconds: null; unplayed_days: number; closed_by_name: null }
-        | { reason: Extract<EndReason, "stopped">; empty_seconds: null; unplayed_days: null; closed_by_name: null }
         | {
               reason: Extract<EndReason, "closed">;
               empty_seconds: null;

@@ -170,7 +170,7 @@ class TestStartNewSeries:
         answer = agent.call(STOP_PLAYING_TOOL, table_id=table.table_id, command_id="agent-stops")
 
         assert not answer.is_error, answer.text
-        assert agent.read(table.table_id).json()["ended"]["reason"] == EndReason.STOPPED
+        assert agent.read(table.table_id).json()["ended"]["reason"] == EndReason.CLOSED
 
     def test_the_descriptions_name_the_minute_after_which_a_silent_seat_ends_the_table(self, agent):
         listed = agent.offered_every_tool().request("tools/list")
