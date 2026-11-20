@@ -14,6 +14,7 @@ from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, Ram
 from skat.engine.schieberamsch import Push, PushingRule, Take
 from skat.engine.tricks import CardPlayed
 from skat.table.auction import AuctionAction, AuctionCommand, decide_step
+from skat.table.auction_plans import AuctionPlanCommand, decide_set_plan
 from skat.table.declaring import DeclaringCommand, decide_declaring_step
 from skat.table.hand_state import game_of
 from skat.table.kontra import KontraCommand, decide_kontra
@@ -34,6 +35,7 @@ from skat.table.records import (
     Actor,
     HandProgress,
     OccupantKind,
+    PassAhead,
     RamschOccasion,
     RamschSetting,
     TableOptions,
@@ -171,6 +173,9 @@ def _hand_commands(table: TableRecord) -> dict[str, object]:
     return {
         "auction-step": lambda actor: decide_step(
             table, actor, AuctionCommand("command-1", *ids, AuctionAction.PASS, None)
+        ),
+        "auction-plan": lambda actor: decide_set_plan(
+            table, actor, AuctionPlanCommand("command-1", table.id.value, PassAhead())
         ),
         "declaring-step": lambda actor: decide_declaring_step(
             table, actor, DeclaringCommand("command-1", *ids, TakeSkat())

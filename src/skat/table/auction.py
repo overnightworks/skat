@@ -24,7 +24,7 @@ from skat.table.rules import acting_position, seat_of
 if TYPE_CHECKING:
     from skat.engine.bidding import AuctionStep
     from skat.engine.deal import Position
-    from skat.table.records import Actor, TableRecord
+    from skat.table.records import Actor, AuctionPlan, TableRecord
 
 AUCTION_STEP_COMMAND: Final = "auction-step"
 
@@ -79,16 +79,21 @@ def _ramsch_on_the_third_pass(table: TableRecord) -> bool:
 
 
 def decide_step(table: TableRecord, actor: Actor, command: AuctionCommand) -> Decision:
-    """One step of the auction: no hand, then no chair, then a stale version, then the engine's reason.
-
-    At a table that plays no Ramsch on the third pass the third pass ends the hand: its cards go, its steps stay until
-    the next deal, and the Bock rounds are asked. At a table that does the hand stays and its steps start the Ramsch,
-    whose end asks the Bock rounds.
-    """
+    """One step of the auction: no hand, then no chair, then a stale version, then the engine's reason."""
     position = acting_position(table, actor, command.version)
     if isinstance(position, Refusal):
         return Decision(table, position)
-    step = step_of(command.action, command.value, position)
+    return apply_step(table, step_of(command.action, command.value, position))
+
+
+def apply_step(table: TableRecord, step: AuctionStep) -> Decision:
+    """The table after one step of the auction, the engine's reason when it refuses; the one place a step is stored,
+    whoever takes it, the player or a plan of the seat on turn.
+
+    At a table that plays no Ramsch on the third pass the third pass ends the hand: its cards and plans go, its steps
+    stay until the next deal, and the Bock rounds are asked. At a table that does the hand stays and its steps start
+    the Ramsch, whose end asks the Bock rounds.
+    """
     outcome = auction_step(auction_of(table), step)
     if outcome.refusal is not None:
         return Decision(table, outcome.refusal)
@@ -99,7 +104,7 @@ def decide_step(table: TableRecord, actor: Actor, command: AuctionCommand) -> De
         changed = replace(
             changed,
             hand=None,
-            progress=replace(changed.progress, seats_held=frozenset()),
+            progress=replace(changed.progress, seats_held=frozenset(), plans=frozenset()),
             bock=bock_after(table, result, None),
         )
     return Decision(changed)
@@ -124,7 +129,8 @@ class AuctionDeclared:
 class AuctionView:
     """The auction as one viewer may see it; `values` lists what the viewer may bid, only on their turn to bid.
 
-    `facing_seat` is the chair the player on turn bids against or answers, absent when nobody is faced.
+    `facing_seat` is the chair the player on turn bids against or answers, absent when nobody is faced. `plan` is the
+    viewer's own plan for the auction and no other viewer's: nobody else is told it.
     """
 
     turn_seat: int | None
@@ -134,6 +140,7 @@ class AuctionView:
     values: tuple[int, ...]
     words: tuple[AuctionWord, ...]
     declared: AuctionDeclared | None
+    plan: AuctionPlan | None
 
 
 def _word_value(step: AuctionStep, standing: int | None) -> int | None:
@@ -189,4 +196,5 @@ def auction_view_of(table: TableRecord, viewer_account_id: str, dealer: int, *, 
         values=tuple(value for value in VALID_BIDS if standing is None or value > standing) if my_turn_to_bid else (),
         words=_words(table.progress.auction, seats),
         declared=None if declared is None else AuctionDeclared(seats[declared.declarer], declared.value),
+        plan=None if viewer is None else table.progress.plan_of(viewer.seat),
     )
