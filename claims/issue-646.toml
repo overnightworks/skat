@@ -3,6 +3,6 @@ agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
 role = "builder"
 base = "161964a2b13b7ceb4020c6bcff1825a7850b0bd9"
 branch = "claude/issue-646-the-series-end-offers-neue-serie-or-aufh"
-scope = ["README.md", "docs/ARCHITECTURE.md", "frontend/src", "scripts/generate_wire.py", "src/skat/host/app.py", "src/skat/store", "src/skat/table", "src/skat/web", "tests"]
+scope = ["README.md", "docs/ARCHITECTURE.md", "frontend/src", "quality/baseline.toml", "scripts/generate_wire.py", "src/skat/host/app.py", "src/skat/store", "src/skat/table", "src/skat/web", "tests"]
 opened_commit = "9efa30ff03a869d9af74abd7196ab400e20bcf9c"
 whole_reason = "The series end and the removed close path travel through rule, store, tools and page together."
