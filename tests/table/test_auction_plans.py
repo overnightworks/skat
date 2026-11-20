@@ -403,7 +403,7 @@ class TestThePlanEnds:
         plan_as(seated, FOREHAND, BidLimit(30, ASK))
         table = seated.table()
 
-        next_deal = dealt(table, drawn_hand(table, random.Random(1)), version=table.version + 1)
+        next_deal = dealt(table, drawn_hand(table, random.Random(1)), version=table.version + 1)  # noqa: S311 - a seeded deal with no secret
 
         assert next_deal.progress.plans == frozenset()
 
