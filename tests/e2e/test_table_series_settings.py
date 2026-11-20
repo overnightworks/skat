@@ -103,12 +103,20 @@ def test_the_seat_that_saves_the_next_series_never_sees_its_own_sheet_say_the_se
         }""",
     )
     sheet = first.locator(NEXT_SHEET)
+    longer = text(SOURCE_LANGUAGE, "table.seriesGames", count=SERIES_LENGTH + SERIES_LENGTH_STEP)
+    held: list[Route] = []
+    first.route(f"**{TABLES_PATH}/*{TABLE_NEXT_SETTINGS_SUFFIX}", lambda route: held.append(route))
     first.get_by_role("button", name=CHANGE, exact=True).click()
     sheet.get_by_role("button", name=MORE_GAMES).click()
     sheet.get_by_role("button", name=SAVE, exact=True).click()
+    expect(sheet.get_by_role("button", name=SAVE, exact=True)).to_be_disabled()
+
+    # The stream delivers the new revision while the save is still unanswered.
+    answer = held[0].fetch()
+    expect(first.locator(f"{NEXT_LINE} .chip.len")).to_have_text(longer)
+    held[0].fulfill(response=answer)
 
     expect(sheet).to_have_count(0)
-    longer = text(SOURCE_LANGUAGE, "table.seriesGames", count=SERIES_LENGTH + SERIES_LENGTH_STEP)
     for person in table.everyone:
         expect(person.locator(f"{NEXT_LINE} .chip.len")).to_have_text(longer)
     assert first.evaluate("window.seenStatus") == []
