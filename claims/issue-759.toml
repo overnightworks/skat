@@ -1,0 +1,8 @@
+claim_id = "51a0e8a39f9248ca811722b35e948a80"
+agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
+role = "builder"
+base = "a0d3c2a798a45aecfd907ea52d05597ba6aac899"
+branch = "claude/issue-759-framed-chair-top-left-free"
+scope = ["docs/mockups/table.html", "frontend/src", "tests/e2e"]
+opened_commit = "30c0c53b19a1ad8624ca1ac6aec2761935f36840"
+whole_reason = "The framed chair's look: one mark row, outward rims and the paint elements slice B clips."
