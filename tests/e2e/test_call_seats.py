@@ -55,6 +55,23 @@ LIVE_BOXES = """chairs => chairs
         return { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
     })"""
 DESKTOP_WIDTH = 900
+
+# How far each clipped backdrop paints beyond its box by its outer shadows, and how far its clip path reaches beyond it.
+CLIP_COVERS_SHADOWS = """backdrops => backdrops.map((backdrop) => {
+    const box = backdrop.getBoundingClientRect();
+    const [left, top, right, bottom] = /M (-?[\\d.]+) (-?[\\d.]+) H (-?[\\d.]+) V (-?[\\d.]+)/
+        .exec(backdrop.style.clipPath).slice(1).map(Number);
+    const shadows = getComputedStyle(backdrop).boxShadow.split(/,(?![^(]*\\))/)
+        .filter((shadow) => shadow.trim() !== "none" && !shadow.includes("inset"));
+    const reaches = shadows.map((shadow) => {
+        const [x, y, blur, spread] = shadow.replace(/rgba?\\([^)]*\\)/, "").match(/-?[\\d.]+/g).map(Number);
+        return Math.max(blur + spread - x, blur + spread + x, blur + spread - y, blur + spread + y);
+    });
+    return {
+        cover: Math.min(-left, -top, right - box.width, bottom - box.height),
+        reach: Math.max(0, ...reaches),
+    };
+})"""
 SAMPLES = ((0.5, 0.5), (0.3, 0.3), (0.7, 0.3), (0.3, 0.7), (0.7, 0.7))
 
 
@@ -356,6 +373,25 @@ def test_a_placed_key_lets_the_stand_in_show_through_while_the_rest_of_the_table
         assert pixel_at(call.visitor, 2, 2) not in (STAND_IN, (0, 200, 0))
         assert call.table.locator(".felt").evaluate("felt => getComputedStyle(felt).clipPath") == "none"
         assert call.table.locator(".felt-paint").evaluate("paint => paint.style.clipPath").startswith("path(")
+
+
+@pytest.mark.parametrize("table_style", ["klassik", "strandbar"])
+def test_a_backdrops_clip_reaches_beyond_its_rim_and_drop_shadow_in_every_table_style(
+    open_person: Callable[..., Page],
+    browser_coverage: BrowserCoverage,
+    framing_server: RunningServer,
+    table_style: str,
+) -> None:
+    with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True) as call:
+        wait_for_seat_messages(call, 1)
+        place_all(call)
+        until(call, lambda: call.table.locator(".felt-paint").evaluate("paint => paint.style.clipPath") != "")
+        call.table.locator(".room").evaluate("(room, style) => { room.dataset.style = style; }", table_style)
+        call.table.locator("body").evaluate(TWO_FRAMES)
+        clips = call.table.locator("[data-call-backdrop]").evaluate_all(CLIP_COVERS_SHADOWS)
+
+        assert max(clip["reach"] for clip in clips) > 0
+        assert all(clip["cover"] >= clip["reach"] for clip in clips)
 
 
 def test_a_new_hello_closes_every_hole_and_the_table_posts_its_seats_in_full_again(

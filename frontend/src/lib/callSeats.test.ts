@@ -19,8 +19,6 @@ const KEY_1 = "1".repeat(64);
 const KEY_2 = "2".repeat(64);
 const KEY_3 = "3".repeat(64);
 const CORNERS = { tl: 22, tr: 22, br: 12, bl: 12 };
-// The farthest a backdrop paints beyond its box: the strandbar felt's drop shadow, offset 34px, blurred 46px and spread -22px.
-const DROP_SHADOW_REACH = 34 + 46 - 22;
 
 function reading(seat: number, overrides: Partial<TileReading> = {}): TileReading {
     return {
@@ -165,15 +163,6 @@ describe("holesPath", () => {
 
     it("is the outer rectangle alone for no hole", () => {
         expect(holesPath(owner, [])).toBe(`path(evenodd, "${outer}")`);
-    });
-
-    it("reaches beyond the owner's rim and drop shadow on every side", () => {
-        const [left, top, right, bottom] = (/M (-?\d+) (-?\d+) H (\d+) V (\d+)/.exec(holesPath(owner, [])) ?? [])
-            .slice(1)
-            .map(Number);
-
-        const reach = [-(left ?? 0), -(top ?? 0), (right ?? 0) - owner.width, (bottom ?? 0) - owner.height];
-        expect(Math.min(...reach)).toBeGreaterThanOrEqual(DROP_SHADOW_REACH);
     });
 });
 
