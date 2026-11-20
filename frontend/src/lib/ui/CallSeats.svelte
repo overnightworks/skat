@@ -24,20 +24,21 @@
     const {
         tableId,
         table,
-        closed,
+        missing,
         ongreeted,
     }: {
         tableId: string;
         /** The table the page shows, or null while it shows none. */
         table: Table | null;
-        /** Whether the table ended or is gone: it has no chairs to tell, and the call hears that. */
-        closed: boolean;
+        /** Whether the table is gone; one that ended is told by `table.ended`. */
+        missing: boolean;
         /** Runs once, at the call's first valid hello. */
         ongreeted: () => void;
     } = $props();
 
-    // The chairs of a live table; an ended table has none to tell.
+    // The chairs of a live table; an ended table has none to tell, and the call hears that, as it does of a gone one.
     const view = $derived(table !== null && table.ended === null ? table : null);
+    const closed = $derived(missing || (table !== null && view === null));
     const CHAIRS = ".room .chair[data-seat]";
     const host = browserCallHost();
     const clipsWritten = new WeakMap<Element, string>();
