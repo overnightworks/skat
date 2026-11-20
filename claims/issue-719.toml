@@ -1,8 +1,0 @@
-claim_id = "7d54b8c987e1476d972b68427da8e0a1"
-agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
-role = "builder"
-base = "161964a2b13b7ceb4020c6bcff1825a7850b0bd9"
-branch = "claude/issue-719-skat-takes-webauth-0-42-0"
-scope = ["README.md", "docs/ARCHITECTURE.md", "pyproject.toml", "src/skat/host/app.py", "src/skat/web/request_line.py", "src/skat/web/settings.py", "src/skat/web/sign_in.py", "tests", "uv.lock"]
-opened_commit = "805eb08f2cc79e18476f9cf823b123d21c2cd920"
-whole_reason = "A library bump whose breaking cut moves one wiring across the host, two web modules, their documents and their tests."
