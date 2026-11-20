@@ -371,6 +371,17 @@ class TestTheNextSettings:
         assert (stale.status_code, stale.json()["reason"]) == (409, Refusal.STALE_SETTINGS)
         assert (fresh.status_code, marks(fresh)) == (200, [False, True, False])
 
+    def test_a_save_on_older_settings_is_refused_and_a_save_on_the_saved_ones_accepted(self, skat, ended):
+        table, _ = ended
+        first, second, _ = headers_of(table)
+        change_next_settings(skat, first, table.table_id, "save-first", series_length=12)
+
+        stale = change_next_settings(skat, second, table.table_id, "save-stale", series_length=15, revision=0)
+        fresh = change_next_settings(skat, second, table.table_id, "save-fresh", series_length=15, revision=1)
+
+        assert (stale.status_code, stale.json()["reason"]) == (409, Refusal.STALE_SETTINGS)
+        assert (fresh.status_code, fresh.json()["series"]["next_settings"]["game_count"]) == (200, 15)
+
     def test_a_tap_naming_no_settings_is_accepted_on_unsaved_settings_and_refused_after_a_save(self, skat, ended):
         table, _ = ended
         first, second, _ = headers_of(table)

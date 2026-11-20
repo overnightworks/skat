@@ -58,12 +58,14 @@ def new_series_payload(command: NewSeriesCommand) -> str:
 @dataclass(frozen=True)
 class NextSettingsCommand:
     """Save the next series' settings after a series' end: the `length` and rule `options` the page's sheet holds,
-    for the series that follows the one numbered `series`; the chair comes from the session.
+    for the series that follows the one numbered `series`, started from the revision `settings` of the next series'
+    settings the sheet saw; the chair comes from the session.
     """
 
     command_id: str
     table_id: str
     series: int
+    settings: int
     length: int
     options: TableOptions
 
@@ -73,7 +75,7 @@ def next_settings_payload(command: NextSettingsCommand) -> str:
     that carries other settings is another request and every pod writes the same text.
     """
     settings = create_payload(CreateTable(command.command_id, command.length, command.options))
-    return f"{command.table_id}:{command.series}:{settings}"
+    return f"{command.table_id}:{command.series}:{command.settings}:{settings}"
 
 
 def decide_ready(table: TableRecord, actor: Actor, command: ReadyCommand) -> Decision:
@@ -128,7 +130,8 @@ def decide_change_next_settings(
     table: TableRecord, actor: Actor, command: NextSettingsCommand, now: datetime
 ) -> Decision:
     """A seated member saves the settings the next series is dealt with: no chair, no series, another series than the
-    table's, a series not yet over, then a minute of „Neue Serie“ that ran out, since the silent seats end the table.
+    table's, a series not yet over, settings saved since the sheet started from them, then a minute of „Neue Serie“
+    that ran out, since the silent seats end the table.
 
     The save counts as the settings' next revision and takes back every seat's „Neue Serie“, the saver's too, since
     each was given on the settings before; with no mark standing no minute runs, so the first choice on the new
@@ -143,10 +146,13 @@ def decide_change_next_settings(
         return Decision(table, Refusal.STALE_SERIES)
     if not series_over(table):
         return Decision(table, Refusal.SERIES_NOT_OVER)
+    current = next_settings_of(table)
+    if command.settings != current.revision:
+        return Decision(table, Refusal.STALE_SETTINGS)
     asked_at = table.series.new_series_asked_at
     if asked_at is not None and answer_left(asked_at, now) <= timedelta(0):
         return Decision(table, Refusal.ANSWER_TIME_OVER)
-    saved = NextSettings(command.length, command.options, next_settings_of(table).revision + 1)
+    saved = NextSettings(command.length, command.options, current.revision + 1)
     series = replace(table.series, next_settings=saved, new_series_asked_at=None)
     chairs = tuple(replace(each, ready=False) for each in table.chairs)
     return Decision(replace(table, version=table.version + 1, chairs=chairs, series=series))
