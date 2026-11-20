@@ -692,10 +692,11 @@ def create_tables_router(
         passed is judged by nudge_seat. For the chair's own occupant it also names the latest nudger. `ended` is null
         while the table lives; once it ended it says why: `reason` is `empty` (nobody was there while no hand was
         dealt; `empty_seconds` is the wait), `unplayed` (no hand was dealt or played at for `unplayed_days` days),
-        `stopped` (a seat chose „Aufhören“ at the series' end, or one stayed silent for the minute after the first
-        „Neue Serie“) or `closed` (an opener's close, which only older tables carry, and `closed_by_name` is the
-        opener's name, which the sweep at the start and every hour clears once `SKAT_ENDED_TABLE_DAYS` days have
-        passed, so it stays until that next sweep). A table that finished a game, of
+        or `closed`: a seat that chose „Aufhören“ at the series' end, or one that stayed silent for the minute after
+        the first „Neue Serie“, ends the table as `closed` with `closed_by_name` null; `closed` with a name is an
+        opener's close, which only older tables carry, and `closed_by_name` is the opener's name, which the sweep at
+        the start and every hour clears once `SKAT_ENDED_TABLE_DAYS` days have passed, so it stays until that next
+        sweep. A table that finished a game, of
         whichever reason, carries `game_count` and the `standings` of its last series with that series' own rules, and
         names nobody in `closed_by_name`; one that finished none carries both as null.
         A game can also end shortened or played-open, each with the seat that did it.
