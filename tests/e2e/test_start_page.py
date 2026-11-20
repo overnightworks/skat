@@ -187,7 +187,7 @@ def test_a_lobby_stream_that_fails_on_first_load_shows_the_reconnect_line_and_no
 
     def answer(route: Route) -> None:
         if answering:
-            route.fulfill(status=200, headers={"content-type": EVENT_STREAM}, body=stream_of(open_tables=[]))
+            route.continue_()
         else:
             route.abort()
 
