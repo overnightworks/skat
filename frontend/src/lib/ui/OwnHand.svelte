@@ -26,6 +26,9 @@
     let drag = $state<{ card: Card; startX: number; startY: number } | null>(null);
     let dropped = $state<Card | null>(null);
     let clickEndsDrag = false;
+    $effect(() => {
+        if (dropped !== null && !includesCard(cards, dropped)) dropped = null;
+    });
     const raised = $derived(drag?.card ?? dropped);
 
     const slotOf = (event: Press): HTMLElement => event.currentTarget.parentElement as HTMLElement;
@@ -70,7 +73,8 @@
         const held = letGo(event);
         if (held === null) return;
         const verdict = dragVerdict(held, event.currentTarget.offsetHeight);
-        clickEndsDrag = verdict !== "tap";
+        // A touch drag sends no click, so only a mouse or pen drag leaves one to swallow.
+        clickEndsDrag = verdict !== "tap" && event.pointerType !== "touch";
         if (verdict !== "play") {
             putBack(slot);
             return;
