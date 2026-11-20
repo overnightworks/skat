@@ -25,6 +25,7 @@
         <CardBack />
     </div>
 {:else}
+    <div class="felt-paint" aria-hidden="true"></div>
     <div class="felt" aria-hidden="true"></div>
     <ul class="chairs emptied" aria-hidden="true">
         {#each CHAIR_SEATS as seat (seat)}
