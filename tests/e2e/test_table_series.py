@@ -542,6 +542,7 @@ def test_a_seated_member_changes_the_next_series_and_the_save_takes_back_every_n
     expect_the_sheet_placed_as_the_scene_draws_it(second, sheet)
     expect(sheet.get_by_role("spinbutton")).to_have_attribute("aria-valuenow", str(SERIES_LENGTH))
     expect(sheet.locator(".takeback")).to_be_visible()
+    expect(sheet.locator(".clockline")).to_be_visible()
     expect(sheet.get_by_role("radiogroup", name=RULE_SETS).get_by_role("radio", checked=True)).to_have_count(0)
     expect(sheet.get_by_role("switch", name=RULE_RAMSCH, exact=True)).to_have_attribute("aria-checked", "true")
     expect(sheet.get_by_role("switch", name=RULE_KONTRA, exact=True)).to_have_attribute("aria-checked", "false")
@@ -590,6 +591,29 @@ def test_a_sheet_left_open_while_the_next_series_is_dealt_stays_shut_at_the_end_
 
     expect(second.get_by_role("button", name=CHANGE, exact=True)).to_be_visible()
     expect(second.locator(NEXT_SHEET)).to_have_count(0)
+    assert page_errors == []
+
+
+def test_a_sheet_open_while_another_seat_saves_says_the_settings_changed_and_shows_the_new_ones(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = PassedInTable(open_person, e2e_server, member_of, page_errors, PHONE)
+    pass_the_series_in(table)
+    first, second = table.pages[1], table.pages[2]
+    sheet = second.locator(NEXT_SHEET)
+    second.get_by_role("button", name=CHANGE, exact=True).click()
+    expect(sheet.get_by_role("status")).to_have_count(0)
+    first.get_by_role("button", name=CHANGE, exact=True).click()
+    first.locator(NEXT_SHEET).get_by_role("button", name=MORE_GAMES).click()
+    first.locator(NEXT_SHEET).get_by_role("button", name=SAVE, exact=True).click()
+
+    expect(sheet.get_by_role("status")).to_have_text(text(SOURCE_LANGUAGE, "table.nextSeriesChanged"))
+    expect(sheet.get_by_role("spinbutton")).to_have_attribute("aria-valuenow", str(SERIES_LENGTH + SERIES_LENGTH_STEP))
+    sheet.get_by_role("button", name=SAVE, exact=True).click()
+    expect(sheet).to_have_count(0)
     assert page_errors == []
 
 

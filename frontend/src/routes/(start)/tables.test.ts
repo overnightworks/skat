@@ -560,10 +560,10 @@ describe("asking for a table", () => {
         });
     });
 
-    it("sends the series' number, the length and the rules when saving the next series' settings", async () => {
+    it("sends the series' number, the settings revision, the length and the rules when saving the next series' settings", async () => {
         answerWith(Response.json(table));
 
-        expect(await changeNextSettings(TABLE_ID, "command-8", 2, 12, { show_running_points: true })).toEqual({
+        expect(await changeNextSettings(TABLE_ID, "command-8", 2, 1, 12, { show_running_points: true })).toEqual({
             kind: "table",
             table,
         });
@@ -573,6 +573,7 @@ describe("asking for a table", () => {
         expect(JSON.parse((init as { body: string }).body)).toEqual({
             command_id: "command-8",
             series: 2,
+            settings: 1,
             series_length: 12,
             options: { show_running_points: true },
         });

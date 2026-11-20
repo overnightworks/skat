@@ -153,6 +153,7 @@ export type Words = {
     readonly "table.nextSeriesChange": string;
     readonly "table.nextSeriesSave": string;
     readonly "table.nextSeriesCancel": string;
+    readonly "table.nextSeriesChanged": string;
     readonly "table.nextSeriesTakeBack": (gaps: { readonly names: string }) => string;
     readonly "table.possessive": (gaps: { readonly name: string }) => string;
     readonly "table.possessiveApostrophe": (gaps: { readonly name: string }) => string;
@@ -763,6 +764,7 @@ export const words: Words = {
     "table.nextSeriesChange": "Ändern",
     "table.nextSeriesSave": "Speichern",
     "table.nextSeriesCancel": "Abbrechen",
+    "table.nextSeriesChanged": "Die Einstellungen wurden geändert. Hier sind die neuen.",
     "table.nextSeriesTakeBack": (gaps: { readonly names: string }) => "Speichern nimmt " + gaps.names + " „Neue Serie“ zurück.",
     "table.possessive": (gaps: { readonly name: string }) => gaps.name + "s",
     "table.possessiveApostrophe": (gaps: { readonly name: string }) => gaps.name + "’",
