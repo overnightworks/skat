@@ -245,7 +245,11 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             SIT_DOWN_COMMAND,
             sit_payload(command),
             lambda table: decide_sit(
-                table, actor, command.seat, drawn_hand(table, self._random_source) if sit_deals(table) else None
+                table,
+                actor,
+                command.seat,
+                drawn_hand(table, self._random_source) if sit_deals(table) else None,
+                self._now(),
             ),
         )
 

@@ -117,6 +117,18 @@ class TestTheNextSeriesSettings:
         assert record.series.new_series_asked_at is None
         assert service.pending_end_answers() == {}
 
+    def test_a_seat_sitting_down_beside_the_given_marks_is_timed_by_a_minute_that_ends_the_table(
+        self, service, transactions, first_series
+    ):
+        for seat in (1, 2):
+            service.start_new_series(PEOPLE[seat], NewSeriesCommand(f"tap-{seat}", first_series, 1, 0), ALL_THREE)
+        service.stand(PEOPLE[3], StandUp("stand-third", first_series), ALL_THREE)
+
+        service.sit(THIRD_PLAYER, SitDown("sit-third", first_series, 3), ALL_THREE)
+
+        assert read(transactions, first_series).series.new_series_asked_at is not None
+        assert set(service.pending_end_answers()) == {first_series}
+
     def test_the_next_series_is_dealt_with_the_saved_settings_and_its_row_counts_there(
         self, service, transactions, engine, first_series
     ):

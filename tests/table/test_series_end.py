@@ -22,7 +22,7 @@ from skat.table.records import (
     Visibility,
     parsed_refusal,
 )
-from skat.table.rules import dealt_next, drawn_hand, new_series_ask_stands, with_occupant
+from skat.table.rules import dealt_next, decide_sit, drawn_hand, new_series_ask_stands, with_occupant
 from skat.table.series_end import (
     END_ANSWER_SECONDS,
     SeriesEndCommand,
@@ -414,11 +414,39 @@ class TestTheMinuteWhenASeatStandsUp:
                 at_the_series_end(1, 2, asked_at=END_ASKED_AT, silent_seats=(3,)), False, id="every-seated-seat-chose"
             ),
             pytest.param(at_the_series_end(asked_at=END_ASKED_AT), False, id="no-mark-stands"),
-            pytest.param(at_the_series_end(1), False, id="no-ask-was-started"),
         ],
     )
     def test_an_ask_stands_while_a_mark_stands_and_a_seated_seat_is_silent(self, table, stands):
         assert new_series_ask_stands(table) is stands
+
+
+class TestTheMinuteWhenASeatSitsDown:
+    SAT_AT = END_ASKED_AT + timedelta(seconds=45)
+
+    @pytest.mark.parametrize(
+        "table",
+        [
+            pytest.param(at_the_series_end(1, 2, silent_seats=(3,)), id="the-minute-ended-with-the-last-silent-seat"),
+            pytest.param(at_the_series_end(1, asked_at=END_ASKED_AT, silent_seats=(3,)), id="a-minute-runs"),
+        ],
+    )
+    def test_a_sit_beside_a_mark_times_the_sitter_with_a_fresh_minute(self, table):
+        sat = decide_sit(table, DORA, 3, None, self.SAT_AT).table
+
+        assert sat.series.new_series_asked_at == self.SAT_AT
+        assert not new_series_lapsed(sat, self.SAT_AT + MINUTE - timedelta(seconds=1))
+        assert new_series_lapsed(sat, self.SAT_AT + MINUTE)
+
+    def test_a_sit_with_no_mark_standing_starts_no_minute(self):
+        sat = decide_sit(at_the_series_end(silent_seats=(3,)), DORA, 3, None, self.SAT_AT).table
+
+        assert sat.series.new_series_asked_at is None
+
+    def test_a_sit_between_two_games_starts_no_minute(self):
+        marked = between_games(ready_seats=(1,))
+        table = replace(marked, chairs=(*marked.chairs[:2], Chair(3, None)))
+
+        assert decide_sit(table, DORA, 3, None, self.SAT_AT).table.series.new_series_asked_at is None
 
 
 class TestAnswersRunOutOfTime:
