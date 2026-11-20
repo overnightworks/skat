@@ -47,22 +47,18 @@ OBJECTS = [
     pytest.param(TableStyle.STRANDBAR, ".decor.shell", id="shell"),
     pytest.param(TableStyle.KLASSIK, ".decor.lamp", id="lamp"),
 ]
-# The moves of the objects of the table last under a second, so a page is watched from before the tap: every move one
-# starts is kept, and the check reads what was kept instead of racing the move's end.
-WATCH_OBJECT_MOVES = """() => {
-    window.objectMoves = [];
-    document.addEventListener('animationstart', event => {
-        if (event.animationName.startsWith('object-beat')) window.objectMoves.push(event.target);
-    }, true);
-}"""
 # A page that is still moving a deal or a result renders slowly on a loaded machine, so a tap waits for it to rest; the
 # endless animations of the scene are no motion that ends.
 NO_FINITE_ANIMATION_RUNNING = """() => document.getAnimations().every(
     animation => animation.playState !== 'running' || animation.effect.getComputedTiming().iterations === Infinity
 )"""
 POLLING_MILLISECONDS = 100
-# Whether one of the two moves of an object of the table has started on the element since the page was watched.
-MAKES_ITS_MOVE = "selector => window.objectMoves.some(element => element.matches(selector))"
+# Whether an object that matches the selector has been tapped and now carries one of the two moves of the objects of
+# the table. The page sets the state at once and the move starts with the next frame, which a page rendering the
+# Strandbar's beach can draw hundreds of milliseconds late, so the check reads the state and the move it declares.
+MAKES_ITS_MOVE = """selector => [...document.querySelectorAll(selector)].some(
+    element => element.hasAttribute('data-beat') && getComputedStyle(element).animationName.startsWith('object-beat')
+)"""
 # The dotted trail of the flight is painted at some moment of it; it leaves the page when the flight ends.
 TRAIL_SHOWN = """() => {
     const trail = document.querySelector('.thrown .emote-trail');
@@ -140,15 +136,13 @@ def ready_to_hear(table: PlayingTable) -> dict[Page, int]:
     return {person: len(voices_started(person)) for person in table.everyone}
 
 
-def watch_object_moves(table: PlayingTable) -> None:
-    for person in table.everyone:
-        person.evaluate(WATCH_OBJECT_MOVES)
-
-
 def expect_played_by_every_page(heard_before: dict[Page, int]) -> None:
     for person, count in heard_before.items():
         person.wait_for_function(
-            "count => window.voicesStarted.length > count", arg=count, timeout=SHOWN_WITHIN_MILLISECONDS
+            "count => window.voicesStarted.length > count",
+            arg=count,
+            timeout=SHOWN_WITHIN_MILLISECONDS,
+            polling=POLLING_MILLISECONDS,
         )
 
 
@@ -260,14 +254,15 @@ def test_a_tap_on_an_object_of_the_table_makes_it_move_and_sound_on_every_page(
     give_the_table_its_style(table.pages[table.seat_at["forehand"]], table.everyone, style)
     wait_until_still(table)
     heard_before = ready_to_hear(table)
-    watch_object_moves(table)
     for person in table.everyone:
         assert person.evaluate(MAKES_ITS_MOVE, object_selector) is False
 
     table.watcher.locator(object_selector).click()
 
     for person in table.everyone:
-        person.wait_for_function(MAKES_ITS_MOVE, arg=object_selector, timeout=SHOWN_WITHIN_MILLISECONDS)
+        person.wait_for_function(
+            MAKES_ITS_MOVE, arg=object_selector, timeout=SHOWN_WITHIN_MILLISECONDS, polling=POLLING_MILLISECONDS
+        )
     expect_played_by_every_page(heard_before)
 
 
@@ -281,14 +276,15 @@ def test_a_tap_on_a_coaster_makes_every_coaster_move_and_sound_on_every_page(
         expect(person.locator(COASTER)).to_have_count(len(table.names))
     wait_until_still(table)
     heard_before = ready_to_hear(table)
-    watch_object_moves(table)
     coaster = table.watcher.locator(COASTER).first
     assert min(coaster.evaluate("element => [element.offsetWidth, element.offsetHeight]")) >= MINIMUM_TAP_AREA_PIXELS
 
     coaster.click()
 
     for person in table.everyone:
-        person.wait_for_function(MAKES_ITS_MOVE, arg=COASTER, timeout=SHOWN_WITHIN_MILLISECONDS)
+        person.wait_for_function(
+            MAKES_ITS_MOVE, arg=COASTER, timeout=SHOWN_WITHIN_MILLISECONDS, polling=POLLING_MILLISECONDS
+        )
     expect_played_by_every_page(heard_before)
 
 
