@@ -17,7 +17,16 @@ from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the
 from skat.table.nudging import NudgeRefusal  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.pushing import PushAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.reacting import Reaction, ReactionRefusal  # noqa: TC001 - pydantic reads the field type at runtime
-from skat.table.records import Actor, CommandRefusal, EndReason, OccupantKind, TableStyle
+from skat.table.records import (
+    Actor,
+    AuctionPlan,
+    BidLimit,
+    CommandRefusal,
+    EndReason,
+    OccupantKind,
+    PlanMode,
+    TableStyle,
+)
 from skat.table.service import CommandIdReusedError
 from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS, AnnouncementToken, GameToken
 from skat.web.languages import LANGUAGE_VARY, language_of_request
@@ -189,6 +198,19 @@ class AuctionDeclaredAnswer(BaseModel):
     value: int
 
 
+class PlanKind(StrEnum):
+    LIMIT = "limit"
+    PASS = "pass"  # noqa: S105 - the word for dropping out of the auction and no password
+
+
+class AuctionPlanAnswer(BaseModel):
+    """The viewer's own plan for the auction, `value` and `mode` only for a limit; no other viewer is told it."""
+
+    kind: PlanKind
+    value: int | None
+    mode: PlanMode | None
+
+
 class AuctionAnswer(BaseModel):
     turn_seat: int | None
     facing_seat: int | None
@@ -197,6 +219,7 @@ class AuctionAnswer(BaseModel):
     values: list[int]
     words: list[AuctionWordAnswer]
     declared: AuctionDeclaredAnswer | None
+    plan: AuctionPlanAnswer | None
 
 
 class DeclarationAnswer(BaseModel):
@@ -408,6 +431,14 @@ def chair_hand_answer_of(hand: ChairHand | None) -> ChairHandAnswer | None:
     return ChairHandAnswer(position=POSITION_TOKENS[hand.position], card_count=hand.card_count)
 
 
+def auction_plan_answer_of(plan: AuctionPlan | None) -> AuctionPlanAnswer | None:
+    if plan is None:
+        return None
+    if isinstance(plan, BidLimit):
+        return AuctionPlanAnswer(kind=PlanKind.LIMIT, value=plan.value, mode=plan.mode)
+    return AuctionPlanAnswer(kind=PlanKind.PASS, value=None, mode=None)
+
+
 def auction_answer_of(auction: AuctionView) -> AuctionAnswer:
     declared = auction.declared
     return AuctionAnswer(
@@ -418,6 +449,7 @@ def auction_answer_of(auction: AuctionView) -> AuctionAnswer:
         values=list(auction.values),
         words=[AuctionWordAnswer(seat=word.seat, action=word.action, value=word.value) for word in auction.words],
         declared=None if declared is None else AuctionDeclaredAnswer(seat=declared.seat, value=declared.value),
+        plan=auction_plan_answer_of(auction.plan),
     )
 
 

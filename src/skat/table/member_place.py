@@ -9,8 +9,9 @@ from datetime import timedelta
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Protocol
 
+from skat.table.auction_plans import sit_with_plans
 from skat.table.records import Chair, Occupant, OpaqueId, TableId, TableRecord, TurnStatement
-from skat.table.rules import decide_sit, free_seat_for, seat_of
+from skat.table.rules import free_seat_for, seat_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -504,7 +505,7 @@ def decide_accept(
     seat = free_seat_for(table, agent.account_id)
     if seat is None:
         return AcceptDecision(table, ended_as(CallOutcome.BUSY), MemberRefusal.BUSY)
-    return AcceptDecision(decide_sit(table, agent, seat, new_hand, now).table, replace(entry, invitation=None))
+    return AcceptDecision(sit_with_plans(table, agent, seat, new_hand, now).table, replace(entry, invitation=None))
 
 
 def standings_among(entries: Iterable[BookEntry], held: Iterable[TableId], now: datetime) -> tuple[TableStanding, ...]:

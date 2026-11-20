@@ -3,6 +3,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from skat.table import auction_plans
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.command_log import command_step, noted
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
@@ -115,7 +116,6 @@ from skat.table.rules import (
     command_receipt,
     create_receipt,
     decide_create,
-    decide_sit,
     decide_stand,
     drawn_hand,
     hand_was_dealt,
@@ -246,7 +246,7 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             command.command_id,
             SIT_DOWN_COMMAND,
             sit_payload(command),
-            lambda table: decide_sit(
+            lambda table: auction_plans.sit_with_plans(
                 table,
                 actor,
                 command.seat,
@@ -302,7 +302,20 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             command.command_id,
             AUCTION_STEP_COMMAND,
             auction_payload(command),
-            lambda table: decide_step(table, actor, command),
+            lambda table: auction_plans.run_plans(decide_step(table, actor, command)),
+        )
+
+    def set_auction_plan(
+        self, actor: Actor, command: auction_plans.AuctionPlanCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            auction_plans.AUCTION_PLAN_COMMAND,
+            auction_plans.plan_payload(command),
+            lambda table: auction_plans.decide_set_plan(table, actor, command),
         )
 
     def take_declaring_step(

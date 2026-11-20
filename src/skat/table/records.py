@@ -348,6 +348,37 @@ class FormerHolder:
     display_name: str
 
 
+class PlanMode(StrEnum):
+    """What the auction does for a seat above its limit: a fixed limit passes for it, an ask limit awaits it."""
+
+    FIXED = "fixed"
+    ASK = "ask"
+
+
+@dataclass(frozen=True)
+class BidLimit:
+    """A seat's private „halten bis“: one value of the bid ladder, held, bid and passed up to as its `mode` says."""
+
+    value: int
+    mode: PlanMode = PlanMode.ASK
+
+
+@dataclass(frozen=True)
+class PassAhead:
+    """A seat's private „Weg“ said ahead: at its turn in the auction it passes."""
+
+
+type AuctionPlan = BidLimit | PassAhead
+
+
+@dataclass(frozen=True)
+class SeatPlan:
+    """The plan of the player in a chair, kept with the hand."""
+
+    seat: int
+    plan: AuctionPlan
+
+
 @dataclass(frozen=True)
 class HandProgress:
     """What has happened in the running hand so far; a later phase adds its own field. The words are said beside the
@@ -366,6 +397,9 @@ class HandProgress:
     way.
 
     `aborted` says the hand ended by a vote to abort it; such a hand keeps no step, and the next deal clears the end.
+
+    `plans` holds at most one private auction plan per chair. It is no step log: a step of the auction leaves it, and
+    the end of the hand, a deal and a chair that changes hands clear it.
     """
 
     auction: tuple[AuctionStep, ...] = ()
@@ -381,6 +415,11 @@ class HandProgress:
     former_holders: frozenset[FormerHolder] = frozenset()
     abort_yes: frozenset[int] = frozenset()
     aborted: bool = False
+    plans: frozenset[SeatPlan] = frozenset()
+
+    def plan_of(self, seat: int) -> AuctionPlan | None:
+        """The plan the player in the chair `seat` made for the auction; None when it has none."""
+        return next((each.plan for each in self.plans if each.seat == seat), None)
 
     def former_holder_name(self, seat: int) -> str | None:
         """The name of whoever left the chair `seat` in this hand, or None when no one is on record for it."""
