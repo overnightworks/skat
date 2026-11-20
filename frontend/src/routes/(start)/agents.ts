@@ -93,8 +93,9 @@ export type AgentsFollower = {
     stop: () => void;
 };
 
-// Reads the control and follows it, and says when a read failed so the rows of an earlier read are not offered: while a row is `inviting`, it reads again soon, until no row is. The server's clock
-// decides when an invitation ends and how; the page's clock only times the next read.
+// Reads the control and follows it, and says when a read failed so the rows of an earlier read are not offered:
+// while a row is `inviting`, it reads again soon, until no row is. The server's clock decides when an invitation
+// ends and how; the page's clock only times the next read.
 export function followAgents(
     id: string,
     onControl: (control: AgentsControl) => void,

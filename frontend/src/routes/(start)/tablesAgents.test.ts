@@ -188,14 +188,14 @@ describe("the control that calls agents", () => {
         function follower() {
             const shown: AgentsControl[] = [];
             const refusals: (string | null)[] = [];
-            const failures: true[] = [];
+            let failures = 0;
             const following = followAgents(
                 TABLE_ID,
                 (control) => shown.push(control),
                 (reason) => refusals.push(reason),
-                () => failures.push(true),
+                () => (failures += 1),
             );
-            return { following, shown, refusals, failures };
+            return { following, shown, refusals, failures: () => failures };
         }
 
         it("shows what a read answers and reads nothing more while no row is inviting", async () => {
@@ -282,7 +282,7 @@ describe("the control that calls agents", () => {
             await vi.advanceTimersByTimeAsync(600_000);
 
             expect(fetcher).toHaveBeenCalledTimes(1);
-            expect(failures).toHaveLength(1);
+            expect(failures()).toBe(1);
         });
 
         it("shows the control a call answers, with no refusal, and reads again when that row is inviting", async () => {
