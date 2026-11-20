@@ -1,7 +1,0 @@
-claim_id = "b4e77a3ccdfb4f8aa9097c174ee8dd07"
-agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
-role = "builder"
-base = "7854617419dfc209128e3b4361157c158cb74fa2"
-branch = "claude/issue-579-one-engine-count-answers-how-many-tricks"
-scope = ["src/skat/engine/ramsch.py", "src/skat/engine/tricks.py", "src/skat/table/playing.py"]
-opened_commit = "af9a69a86121e8e2730e7fe4cf17ad993d3a8215"
