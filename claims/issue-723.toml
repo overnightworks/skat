@@ -1,7 +1,0 @@
-claim_id = "44ae398758fd4aa2b1ac02d55747e93f"
-agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
-role = "builder"
-base = "4c181806120720136e9d1c5ba32d041825e96894"
-branch = "claude/issue-723-picture-one-bid-scale-with-x-and-bis-x-a"
-scope = ["docs/mockups/table.html"]
-opened_commit = "a3a9692b5562ac03a4887e2fc0d7b45d43499df6"
