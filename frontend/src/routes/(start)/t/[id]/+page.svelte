@@ -186,8 +186,9 @@
     let seatedAgents = $state("");
     // The free chair whose tap asks the question before a sit, while a hand runs.
     let asking = $state<number | null>(null);
-    // The settings the open sheet of the next series started from; null while the sheet is closed.
-    let changingSettings = $state<NextSettings | null>(null);
+    // The settings the open sheet of the next series started from and the series whose end it was opened at; null while
+    // the sheet is closed. It stays closed once that series is dealt, so the next series' end never opens it again.
+    let changingSettings = $state<{ series: number; initial: NextSettings } | null>(null);
 
     function showSeatNote(note: SeatNotice): void {
         seatNote = note;
@@ -569,7 +570,8 @@
                     table={outcome.table}
                     view={standing}
                     onchange={() => {
-                        changingSettings = nextSettingsOf(current);
+                        const initial = nextSettingsOf(current);
+                        changingSettings = initial === null ? null : { series: seriesNumberOf(current), initial };
                     }}
                 />
             {:else if view !== null}
@@ -796,10 +798,10 @@
                     }}
                 />
             {/if}
-            {#if changingSettings !== null && nextSettingsChangeable(current)}
-                {@const series = seriesNumberOf(current)}
+            {#if changingSettings !== null && changingSettings.series === seriesNumberOf(current) && nextSettingsChangeable(current)}
+                {@const series = changingSettings.series}
                 <NextSeriesSheet
-                    initial={changingSettings}
+                    initial={changingSettings.initial}
                     takenBack={takenBackLine(current)}
                     save={async (commandId: string, length: number, options: OptionsRequest | undefined) => {
                         const saved = await seat(changeNextSettings(id, commandId, series, length, options));

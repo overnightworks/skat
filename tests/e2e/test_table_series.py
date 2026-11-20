@@ -7,6 +7,7 @@ from playwright.sync_api import Page, expect
 
 from skat.table.records import SERIES_LENGTH_STEP
 from skat.web.game_list import TABLE_LIST_SUFFIX
+from skat.web.ready import TABLE_NEW_SERIES_SUFFIX
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
@@ -87,6 +88,14 @@ class PassedInTable(RamschTable):
     """The same three people at a table without Ramsch, so a hand all pass is passed in and leaves no entry."""
 
     options: ClassVar[dict[str, Any]] = {}
+
+
+def pass_the_series_in(table: RamschTable) -> None:
+    """Every game of the series is passed in, so the series ends with the last."""
+    for game in range(1, SERIES_LENGTH + 1):
+        for person in table.everyone:
+            expect(person.locator(COUNT)).to_have_text(game_count(game))
+        table.pass_all()
 
 
 def answer_the_ask(person: Page, word: str) -> None:
@@ -509,6 +518,32 @@ def test_a_seated_member_changes_the_next_series_and_the_save_takes_back_every_n
         expect(person.locator(COUNT)).to_have_text(
             text(SOURCE_LANGUAGE, "table.seriesCount", game="1", count=SERIES_LENGTH + SERIES_LENGTH_STEP),
         )
+    assert page_errors == []
+
+
+def test_a_sheet_left_open_while_the_next_series_is_dealt_stays_shut_at_the_end_of_the_series_after(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = PassedInTable(open_person, e2e_server, member_of, page_errors, PHONE)
+    pass_the_series_in(table)
+    first, second, third = table.pages[1], table.pages[2], table.pages[3]
+    for person in (first, third):
+        person.get_by_role("button", name=NEW_SERIES, exact=True).click()
+    second.get_by_role("button", name=CHANGE, exact=True).click()
+    expect(second.locator(NEXT_SHEET)).to_have_count(1)
+
+    table.sessions[2].post(
+        f"{table.api_path}{TABLE_NEW_SERIES_SUFFIX}",
+        {"command_id": "second-new-series-0001", "series": 1, "settings": 0},
+    )
+    expect(second.locator(NEXT_SHEET)).to_have_count(0)
+    pass_the_series_in(table)
+
+    expect(second.get_by_role("button", name=CHANGE, exact=True)).to_be_visible()
+    expect(second.locator(NEXT_SHEET)).to_have_count(0)
     assert page_errors == []
 
 
