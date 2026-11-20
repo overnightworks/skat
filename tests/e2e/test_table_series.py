@@ -359,6 +359,7 @@ def test_a_passed_in_hand_counts_and_a_passed_in_last_game_ends_the_series_with_
     for person in table.everyone:
         expect(person.locator(STANDING)).to_have_count(1)
         expect(person.locator(COUNT)).to_have_count(0)
+        expect(person.locator(f"{NEXT_LINE} .chip.official")).to_have_text(text(SOURCE_LANGUAGE, "rules.chipOfficial"))
     assert page_errors == []
 
 

@@ -431,6 +431,37 @@ def test_the_old_link_of_a_closed_table_with_games_shows_it_closed_without_the_c
     expect_the_panel_inside_the_viewport(person)
 
 
+@pytest.fixture(scope="module")
+def closed_without_games(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[RunningServer, str]]:
+    """A Skat with the link of a table an opener closed before „Aufhören“ replaced the close, that finished no game."""
+    with skat_on_new_database(tmp_path_factory) as server:
+        opener = RawSession(
+            server, seed_member(server.stores, server.config, account=new_account(server.stores, server.config))
+        )
+        table_id = json.loads(opener.post(TABLES_PATH, {"command_id": "bare-create-0001", "series_length": 36}))["id"]
+        end_as_an_opener_closed_it(PostgresTableTransactions(server.engine), table_id, datetime.now(UTC), CLOSER_NAME)
+        yield server, f"{TABLE_PAGE_PREFIX}{table_id}"
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_old_link_of_a_table_an_opener_closed_with_no_game_names_the_closer_and_shows_the_initial(
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    closed_without_games: tuple[RunningServer, str],
+    form_factor: dict[str, Any],
+) -> None:
+    server, path = closed_without_games
+    person = record_page_errors(open_person(username="anna", server=server, **form_factor), page_errors)
+
+    person.goto(f"{server.base_url}{path}")
+
+    heading = text(SOURCE_LANGUAGE, "closed.closedBy", name=CLOSER_NAME)
+    expect(person.get_by_role("heading", name=heading)).to_be_visible()
+    expect(person.locator(".closed .glyph.by")).to_have_text(CLOSER_NAME[0])
+    expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
+    expect_the_panel_inside_the_viewport(person)
+
+
 GAME_SEATS = ((1, OccupantKind.PERSON), (2, OccupantKind.PERSON), (3, OccupantKind.AGENT))
 SEAT_NAMES = ("Anna", "Ben", "Cleo")
 AGENT_NAME = SEAT_NAMES[2]
