@@ -10,7 +10,7 @@ from sqlalchemy.orm import aliased
 from skat.engine.bidding import PassedIn
 from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
-from skat.store.auction import append_steps, auction_actions, delete_steps, read_steps
+from skat.store.auction import append_steps, auction_actions, delete_steps, read_plans, read_steps, write_plans
 from skat.store.declaring import append_declaring_steps, declaring_steps, read_declaring_steps
 from skat.store.game_list import append_game_list, game_list, read_game_cards, read_game_list
 from skat.store.kontra import append_words, kontra_no_words, kontra_words, read_no_words, read_words, write_no_words
@@ -202,6 +202,7 @@ def _table_record(
             last_played_series(connection, table_id),
         )
     seats = _read_seats(connection, table_id)
+    hand = _read_hand(connection, table_id)
     current = series_row(connection, table_id, table.series_number)
     played = series_with_next_settings(connection, table_id, current)
     revision = mark_revision_of(played)
@@ -211,7 +212,7 @@ def _table_record(
         version=table.version,
         chairs=standing,
         dealer=table.dealer,
-        hand=_read_hand(connection, table_id),
+        hand=hand,
         progress=HandProgress(
             auction=read_steps(connection, table_id),
             declaring=read_declaring_steps(connection, table_id),
@@ -230,6 +231,7 @@ def _table_record(
                 for seat in seats
                 if seat.former_holder_name is not None
             ),
+            plans=frozenset() if hand is None else read_plans(connection, table_id),
         ),
         game_list=read_game_list(connection, table_id, table.series_number),
         series=played,
@@ -426,6 +428,7 @@ class _PostgresTableTransaction:
         append_words(self._connection, table.id.value, table.progress.words)
         write_no_words(self._connection, table.id.value, table.progress.no_words)
         self._write_chairs(table)
+        write_plans(self._connection, table)
 
     def add_table(self, table: TableRecord, opener_name: str) -> None:
         self._connection.execute(

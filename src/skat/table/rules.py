@@ -164,10 +164,11 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
     A freed chair is never ready, and whoever sits while a result is pending counts as ready, unless the series is
     over: a mark at the end is consent to „Neue Serie“, which only a tap gives. The chair's holder leaves his part of
     a standing end proposal, of a standing give-up request, of a standing proposal to abort the hand and his no-word
-    answers behind. While a hand runs, he is also marked as having held this chair, which bars him from any other
-    chair of the hand. A change that leaves no chair of the hand open clears the proposal to abort it, and a change
-    that makes the standing yeses more than half of the seated chairs ends the hand at once, in the same version. A
-    minute of „Neue Serie“ that no longer has a silent seated chair ends with it; the marks given stay.
+    answers behind, and so does his private plan for the auction. While a hand runs, he is also marked as having held
+    this chair, which bars him from any other chair of the hand. A change that leaves no chair of the hand open clears
+    the proposal to abort it, and a change that makes the standing yeses more than half of the seated chairs ends the
+    hand at once, in the same version. A minute of „Neue Serie“ that no longer has a silent seated chair ends with it;
+    the marks given stay.
     """
     ready = occupant is not None and result_pending(table) and not series_over(table)
     chairs = tuple(Chair(seat, occupant, ready=ready) if chair.seat == seat else chair for chair in table.chairs)
@@ -187,6 +188,7 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
             seats_held=_seats_held_after(table, seat, occupant),
             former_holders=_former_holders_after(table, seat, occupant),
             abort_yes=table.progress.abort_yes - {seat},
+            plans=frozenset(each for each in table.progress.plans if each.seat != seat),
         ),
         game_list=table.game_list,
         series=series,

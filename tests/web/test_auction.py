@@ -435,6 +435,7 @@ class TestAuctionOnTheWire:
             "values": list(VALID_BIDS),
             "words": [],
             "declared": None,
+            "plan": None,
         }
         for name in ("forehand", "rearhand", "watcher"):
             assert auctions[name] == {**auctions["middlehand"], "values": []}

@@ -1,5 +1,6 @@
 import random
-from dataclasses import astuple, dataclass
+from dataclasses import astuple
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -17,7 +18,7 @@ from skat.engine.bidding import (
     PassedIn,
     Play,
 )
-from skat.engine.deal import Position, next_dealer, positions_from
+from skat.engine.deal import Position, next_dealer
 from skat.table.auction import (
     AuctionAction,
     AuctionCommand,
@@ -29,84 +30,12 @@ from skat.table.auction import (
     step_of,
 )
 from skat.table.hand_state import auction_of
-from skat.table.records import Actor, CreateTable, Occupant, Refusal, SitDown, StandUp, TableRecord, parsed_refusal
+from skat.table.records import Actor, Occupant, Refusal, SitDown, StandUp, parsed_refusal
 from skat.table.service import TableService
-from tests.support.fake_tables import FakeTableStore
+from tests.support.seated_auction import ANNA, BEN, CLEO, DORA, NOBODY_CONNECTED, Seated, open_table, seat_three
 
-ANNA = Actor(account_id="account-anna", display_name="Anna")
-BEN = Actor(account_id="account-ben", display_name="Ben")
-CLEO = Actor(account_id="account-cleo", display_name="Cleo")
-DORA = Actor(account_id="account-dora", display_name="Dora")
-NOBODY_CONNECTED: frozenset[str] = frozenset()
-FIRST_COMMAND = "command-step"
-
-
-@dataclass(frozen=True)
-class Seated:
-    service: TableService
-    store: FakeTableStore
-    table_id: str
-    forehand: Actor
-    middlehand: Actor
-    rearhand: Actor
-
-    def table(self) -> TableRecord:
-        return self.store.tables[self.table_id]
-
-    def send(
-        self,
-        actor: Actor,
-        action: AuctionAction,
-        *,
-        value: int | None = None,
-        version: int | None = None,
-        command_id: str = FIRST_COMMAND,
-    ):
-        command = AuctionCommand(
-            command_id=command_id,
-            table_id=self.table_id,
-            version=self.table().version if version is None else version,
-            action=action,
-            value=value,
-        )
-        return self.service.take_auction_step(actor, command, NOBODY_CONNECTED)
-
-
-@pytest.fixture
-def store() -> FakeTableStore:
-    return FakeTableStore()
-
-
-@pytest.fixture
-def service(store: FakeTableStore) -> TableService:
-    return TableService(store, random_source=random.Random(8))  # noqa: S311 - a seeded source makes the deal reproducible
-
-
-def open_table(service: TableService) -> str:
-    return service.create(ANNA, CreateTable(command_id="command-open")).id
-
-
-def seat_three(service: TableService, store: FakeTableStore) -> Seated:
-    table_id = open_table(service)
-    service.sit(BEN, SitDown("command-ben", table_id, 2), NOBODY_CONNECTED)
-    service.sit(CLEO, SitDown("command-cleo", table_id, 3), NOBODY_CONNECTED)
-    table = store.tables[table_id]
-    assert table.dealer is not None
-    by_seat = {1: ANNA, 2: BEN, 3: CLEO}
-    by_position = {position: by_seat[seat] for seat, position in positions_from(table.dealer).items()}
-    return Seated(
-        service,
-        store,
-        table_id,
-        forehand=by_position[Position.FOREHAND],
-        middlehand=by_position[Position.MIDDLEHAND],
-        rearhand=by_position[Position.REARHAND],
-    )
-
-
-@pytest.fixture
-def seated(service: TableService, store: FakeTableStore) -> Seated:
-    return seat_three(service, store)
+if TYPE_CHECKING:
+    from tests.support.fake_tables import FakeTableStore
 
 
 class TestRefusalOrder:
