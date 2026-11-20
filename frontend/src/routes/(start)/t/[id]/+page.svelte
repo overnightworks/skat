@@ -50,6 +50,7 @@
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
     import DealerMark from "#lib/ui/DealerMark.svelte";
+    import DeclarerMark from "#lib/ui/DeclarerMark.svelte";
     import CardCountTag from "#lib/ui/CardCountTag.svelte";
     import CardDeck from "#lib/ui/CardDeck.svelte";
     import CardSprite from "#lib/ui/CardSprite.svelte";
@@ -627,15 +628,7 @@
                                         <span class="mark pos">{positionWord(chair.hand.position)}</span>
                                     {/if}
                                     {#if marks.declarer || chair.seat === (declared?.declarer_seat ?? inPlay?.declarerSeat)}
-                                        <span class="mark declarer" class:won={marks.declarer === "won"}>
-                                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                                <path
-                                                    d="M12 2.5l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.5 6 20.9l1.3-6.7-5-4.7 6.8-.8z"
-                                                />
-                                            </svg>
-                                            <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                                            {`${words["table.plays"]}`}
-                                        </span>
+                                        <DeclarerMark won={marks.declarer === "won"} />
                                     {/if}
                                     <AnswerMarks
                                         mark={(giveUp?.marks ?? abort.marks).get(chair.seat) ??
