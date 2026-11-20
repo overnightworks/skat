@@ -193,11 +193,7 @@ export function seriesEndAnswerBy(table: Table): string | null {
 // A page that showed the live table returns to the lobby once „Aufhören“ or a silent minute ended it, which stores a
 // close that names nobody; a page that opens the link of such a table stays and shows the ended table.
 export function returnsToLobby(previous: Table | undefined, table: Table): boolean {
-    return (
-        previous?.ended === null &&
-        table.ended?.reason === "closed" &&
-        table.ended.closed_by_name === null
-    );
+    return previous?.ended === null && table.ended?.reason === "closed" && table.ended.closed_by_name === null;
 }
 
 // A result, the standings or a Ramsch's reckoning stands on the table.
