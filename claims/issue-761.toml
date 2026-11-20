@@ -1,0 +1,8 @@
+claim_id = "7c8fa433430b408e84176157787746a9"
+agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
+role = "builder"
+base = "b6cce70452b2a4ccb8324d09d89b1ef3b4490317"
+branch = "claude/issue-761-auction-plan-stored"
+scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/wire.ts", "scripts/generate_wire.py", "src/skat", "tests"]
+opened_commit = "55b5f1a4cfed58901d49ca4a669984ede4edb82e"
+whole_reason = "The stored plan, its runner and its route are one capability; without any one the others have no caller."
