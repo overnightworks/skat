@@ -60,6 +60,10 @@ CHANGE = text(SOURCE_LANGUAGE, "table.nextSeriesChange")
 SAVE = text(SOURCE_LANGUAGE, "table.nextSeriesSave")
 MORE_GAMES = text(SOURCE_LANGUAGE, "start.seriesMore")
 NEXT_SHEET = ".sheet.next-series"
+RULE_SETS = text(SOURCE_LANGUAGE, "start.ruleSets")
+SAVE_RULES = text(SOURCE_LANGUAGE, "start.saveRules")
+RULE_KONTRA = text(SOURCE_LANGUAGE, "start.ruleKontra")
+RULE_RAMSCH = text(SOURCE_LANGUAGE, "start.ruleRamsch")
 ANSWER_CLOCK = ".stage > .plaque.timer"
 RAMSCH = text(SOURCE_LANGUAGE, "game.ramsch")
 YES = text(SOURCE_LANGUAGE, "table.yes")
@@ -502,6 +506,10 @@ def test_a_seated_member_changes_the_next_series_and_the_save_takes_back_every_n
     sheet = second.locator(NEXT_SHEET)
     expect(sheet.get_by_role("spinbutton")).to_have_attribute("aria-valuenow", str(SERIES_LENGTH))
     expect(sheet.locator(".takeback")).to_be_visible()
+    expect(sheet.get_by_role("radiogroup", name=RULE_SETS).get_by_role("radio", checked=True)).to_have_count(0)
+    expect(sheet.get_by_role("switch", name=RULE_RAMSCH, exact=True)).to_have_attribute("aria-checked", "true")
+    expect(sheet.get_by_role("switch", name=RULE_KONTRA, exact=True)).to_have_attribute("aria-checked", "false")
+    expect(sheet.get_by_role("group", name=SAVE_RULES)).to_have_count(0)
     sheet.get_by_role("button", name=MORE_GAMES).click()
     sheet.get_by_role("button", name=SAVE, exact=True).click()
 

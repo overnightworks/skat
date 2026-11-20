@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { untrack } from "svelte";
     import { RULE_SET_NAME_MAX, SERIES_LENGTH_MAX, SERIES_LENGTH_MIN, SERIES_LENGTH_STEP } from "#lib/wire.ts";
     import RuleMark from "#lib/ui/RuleMark.svelte";
     import { words } from "#lib/words.ts";
@@ -20,7 +21,10 @@
     // The person's own sets, read when the sheet opens; the official rules are no set and always offered.
     let sets = $state<RuleSet[]>([]);
     let setsUnreadable = $state(false);
-    let picked = $state<RuleSet | null>(null);
+    // A sheet that opens with other rules than the official ones, as the next series' last ones, has no rule set chosen,
+    // and a rule switched back on there reads its values from the rules the sheet came with.
+    const startOptions = untrack(() => sheet);
+    let picked = $state<RuleSet | "official" | "none">(untrack(() => (differs(sheet, OFFICIAL) ? "none" : "official")));
     // The name the person typed over the suggested one; null while the suggestion stands.
     let typedName = $state<string | null>(null);
     let saving = $state(false);
@@ -28,9 +32,13 @@
     let scrolledDown = $state(false);
     let scrolledUp = $state(false);
 
-    const pickedOptions = $derived(picked?.options ?? OFFICIAL);
+    // What a rule switched on again takes its values from, and what the sheet must differ from to offer the save.
+    const pickedOptions = $derived(
+        picked === "none" ? startOptions : picked === "official" ? OFFICIAL : picked.options,
+    );
     const offered = $derived(differs(sheet, pickedOptions));
-    const name = $derived(typedName ?? suggestedName(picked?.name ?? words["start.setOfficial"], sheet, pickedOptions));
+    const setName = $derived(typeof picked === "object" ? picked.name : words["start.setOfficial"]);
+    const name = $derived(typedName ?? suggestedName(setName, sheet, picked === "none" ? OFFICIAL : pickedOptions));
     const rows = $derived(
         (["points", "kontra", "ramsch", "pushing", "bock", "giveUpPartner", "giveUpAnyTime"] as const).filter(
             (row) => row !== "pushing" || isOn(sheet, "ramsch"),
@@ -62,10 +70,14 @@
     }
 
     // A pick replaces whatever was changed on the sheet.
-    function pick(set: RuleSet | null): void {
+    function pick(set: RuleSet | "official"): void {
         picked = set;
         typedName = null;
-        show(set?.options ?? OFFICIAL);
+        show(set === "official" ? OFFICIAL : set.options);
+    }
+
+    function isPicked(set: RuleSet): boolean {
+        return typeof picked === "object" && picked.id === set.id;
     }
 
     function byNameThenId(left: RuleSet, right: RuleSet): number {
@@ -160,31 +172,31 @@
     </button>
 </div>
 <div class="sets" role="radiogroup" aria-label={words["start.ruleSets"]}>
-    <label class="set" class:on={picked === null}>
+    <label class="set" class:on={picked === "official"}>
         <input
             type="radio"
             name="rule-set"
-            checked={picked === null}
+            checked={picked === "official"}
             disabled={disabled || saving}
             onchange={() => {
-                pick(null);
+                pick("official");
             }}
         />
-        {#if picked === null}<RuleMark id="official" />{/if}
+        {#if picked === "official"}<RuleMark id="official" />{/if}
         <span class="name">{words["start.setOfficial"]}</span>
     </label>
     {#each sets as set (set.id)}
-        <label class="set" class:on={picked?.id === set.id}>
+        <label class="set" class:on={isPicked(set)}>
             <input
                 type="radio"
                 name="rule-set"
-                checked={picked?.id === set.id}
+                checked={isPicked(set)}
                 disabled={disabled || saving}
                 onchange={() => {
                     pick(set);
                 }}
             />
-            {#if picked?.id === set.id}<RuleMark id="official" />{/if}
+            {#if isPicked(set)}<RuleMark id="official" />{/if}
             <span class="name">{set.name}</span>
         </label>
     {/each}
