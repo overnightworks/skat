@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 from sqlalchemy import Integer, delete, exists, func, insert, literal, or_, select, update
@@ -204,10 +205,14 @@ def _table_record(
     current = series_row(connection, table_id, table.series_number)
     played = series_with_next_settings(connection, table_id, current)
     revision = mark_revision_of(played)
+    standing = tuple(_chair_of(seat, revision) for seat in seats)
+    if played is not None and any(seat.ready for seat in seats) and not any(chair.ready for chair in standing):
+        # Every mark was given on settings that were saved since, so the minute the first of them started is no ask.
+        played = replace(played, new_series_asked_at=None)
     return TableRecord(
         id=TableId(table_id),
         version=table.version,
-        chairs=tuple(_chair_of(seat, revision) for seat in seats),
+        chairs=standing,
         dealer=table.dealer,
         hand=_read_hand(connection, table_id),
         progress=HandProgress(
