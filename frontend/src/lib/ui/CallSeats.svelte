@@ -24,11 +24,14 @@
     const {
         tableId,
         table,
+        closed,
         ongreeted,
     }: {
         tableId: string;
         /** The table the page shows, or null while it shows none. */
         table: Table | null;
+        /** Whether the table ended or is gone: it has no chairs to tell, and the call hears that. */
+        closed: boolean;
         /** Runs once, at the call's first valid hello. */
         ongreeted: () => void;
     } = $props();
@@ -108,11 +111,11 @@
         }
     }
 
-    // The boxes go out only while the keys are those of the view; a failed read posts an empty list, and keys of another
-    // version leave the call its last layout.
+    // The boxes go out only while the keys are those of the view; a failed read or a table that ended or is gone posts an
+    // empty list, and keys of another version leave the call its last layout.
     function flush(): void {
-        const hold = holdOf(keysFailed, keys, view?.version ?? null);
-        if (hold === "failed") post([]);
+        const hold = holdOf({ closed, failed: keysFailed, keys, viewVersion: view?.version ?? null });
+        if (hold === "closed" || hold === "failed") post([]);
         else if (hold === "current" && view !== null && keys !== null) post(postedSeats(readTiles(view.chairs, keys)));
         paintHoles(view, hold === "current");
     }

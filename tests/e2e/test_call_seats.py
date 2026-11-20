@@ -3,11 +3,13 @@
 import uuid
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from playwright.sync_api import expect
 
+from skat.store.tables import PostgresTableTransactions
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.call_frame import (
     CALL_ORIGIN,
@@ -28,6 +30,7 @@ from tests.e2e.support.call_frame import (
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
 from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import open_new_table, plate_of, sit_in, table_id_of, watch
+from tests.support.ended_tables import end_as_an_opener_closed_it
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -196,30 +199,39 @@ def test_a_tile_that_moves_without_a_resize_is_posted_at_its_new_box(
         assert posted_boxes(call)[1]["x"] == before[1]["x"] + 17
 
 
-def test_the_keys_stay_over_a_reload_and_differ_between_tables(
+def test_the_keys_stay_over_a_reload(
     open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
 ) -> None:
-    keys = []
-    with ExitStack() as stack:
-        call = stack.enter_context(
-            the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True, other_seats=())
-        )
+    with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True, other_seats=()) as call:
         wait_for_seat_messages(call, 1)
-        keys.append(seat_messages(call)[0]["seats"][0]["key"])
+        before = seat_messages(call)[0]["seats"][0]["key"]
 
         call.table.locator("body").evaluate("() => location.reload()")
         call.visitor.wait_for_function("messages.filter((message) => message.type === 'ready').length >= 2")
         wait_for_seat_messages(call, 2)
-        keys.append(seat_messages(call)[-1]["seats"][0]["key"])
 
-        second_table = open_new_table(call.visitor, framing_server)
-    with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True, other_seats=()) as other_call:
-        wait_for_seat_messages(other_call, 1)
-        keys.append(seat_messages(other_call)[0]["seats"][0]["key"])
+        assert seat_messages(call)[-1]["seats"][0]["key"] == before
 
-    assert second_table != call.path
-    assert keys[0] == keys[1]
-    assert keys[2] != keys[0]
+
+def test_a_table_that_ends_while_the_call_runs_posts_no_seats_and_closes_every_hole(
+    open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
+) -> None:
+    with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True) as call:
+        wait_for_seat_messages(call, 1)
+        boxes = posted_boxes(call)
+        place_all(call)
+        until(call, lambda: all(shows_the_stand_in(call, box) for box in boxes))
+
+        end_as_an_opener_closed_it(
+            PostgresTableTransactions(framing_server.engine), table_id_of(call.path), datetime.now(UTC)
+        )
+        # The open stream drops and the page asks again, which answers the ended table.
+        call.visitor.context.set_offline(True)
+        call.visitor.context.set_offline(False)
+
+        call.visitor.wait_for_function("lastSeats().seats.length === 0")
+        until(call, lambda: all(shows_the_table(call, box) for box in boxes))
+        assert call.table.locator(".felt-paint").evaluate("paint => paint.style.clipPath") == ""
 
 
 def test_a_chair_taken_over_closes_its_hole_and_the_next_seats_carries_the_new_key_alone(

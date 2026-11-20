@@ -210,15 +210,31 @@ describe("holdOf", () => {
     const keys = { version: 5, keys: new Map([[1, KEY_1]]) };
 
     it.each([
-        { name: "a failed read", failed: true, keys, view: 5, expected: "failed" },
-        { name: "a failed read before any keys", failed: true, keys: null, view: 5, expected: "failed" },
-        { name: "keys of the view's version", failed: false, keys, view: 5, expected: "current" },
-        { name: "keys older than the view", failed: false, keys, view: 6, expected: "held" },
-        { name: "keys newer than the view", failed: false, keys, view: 4, expected: "held" },
-        { name: "no keys yet", failed: false, keys: null, view: 5, expected: "held" },
-        { name: "no view", failed: false, keys, view: null, expected: "held" },
-    ])("is $expected for $name", ({ failed, keys: read, view, expected }) => {
-        expect(holdOf(failed, read, view)).toBe(expected);
+        { name: "a closed table", closed: true, failed: false, keys, viewVersion: null, expected: "closed" },
+        {
+            name: "a closed table with a failed read",
+            closed: true,
+            failed: true,
+            keys,
+            viewVersion: 5,
+            expected: "closed",
+        },
+        { name: "a failed read", closed: false, failed: true, keys, viewVersion: 5, expected: "failed" },
+        {
+            name: "a failed read before any keys",
+            closed: false,
+            failed: true,
+            keys: null,
+            viewVersion: 5,
+            expected: "failed",
+        },
+        { name: "keys of the view's version", closed: false, failed: false, keys, viewVersion: 5, expected: "current" },
+        { name: "keys older than the view", closed: false, failed: false, keys, viewVersion: 6, expected: "held" },
+        { name: "keys newer than the view", closed: false, failed: false, keys, viewVersion: 4, expected: "held" },
+        { name: "no keys yet", closed: false, failed: false, keys: null, viewVersion: 5, expected: "held" },
+        { name: "no view yet", closed: false, failed: false, keys, viewVersion: null, expected: "held" },
+    ])("is $expected for $name", ({ expected, ...state }) => {
+        expect(holdOf(state)).toBe(expected);
     });
 });
 

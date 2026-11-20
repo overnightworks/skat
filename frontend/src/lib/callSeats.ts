@@ -174,14 +174,20 @@ export function occupancyOf(chair: {
 }
 
 /**
- * Whether the table posts, holds back or tells the call that the keys failed: a failed read posts an empty list; keys
- * of another version than the view are not posted and leave the call its last layout.
+ * Whether the table posts, holds back or tells the call that it has no chairs: a failed read and a table that ended or
+ * is gone post an empty list; keys of another version than the view are not posted and leave the call its last layout.
  */
-export type Hold = "failed" | "held" | "current";
+export type Hold = "closed" | "failed" | "held" | "current";
 
-export function holdOf(failed: boolean, keys: SeatKeys | null, viewVersion: number | null): Hold {
-    if (failed) return "failed";
-    return keys !== null && keys.version === viewVersion ? "current" : "held";
+export function holdOf(state: {
+    readonly closed: boolean;
+    readonly failed: boolean;
+    readonly keys: SeatKeys | null;
+    readonly viewVersion: number | null;
+}): Hold {
+    if (state.closed) return "closed";
+    if (state.failed) return "failed";
+    return state.keys !== null && state.keys.version === state.viewVersion ? "current" : "held";
 }
 
 /** The keys of a `placed` that the last posted `seats` carries; any other key is ignored on its own. */

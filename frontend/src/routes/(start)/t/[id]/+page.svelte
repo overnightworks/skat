@@ -407,6 +407,7 @@
         <CallSeats
             tableId={id}
             table={outcome?.kind === "table" ? outcome.table : null}
+            closed={outcome?.kind === "missing" || (outcome?.kind === "table" && outcome.table.ended !== null)}
             ongreeted={() => {
                 greeted = true;
             }}
