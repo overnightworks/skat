@@ -1,7 +1,0 @@
-claim_id = "6f2f308df30d41758b8baa7c4b33096d"
-agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
-role = "builder"
-base = "6b1d2a8919342f40a3e4186c6ff23b83c62fc0fd"
-branch = "claude/issue-730-the-table-page-s-wood-backdrop-is-the-sc"
-scope = ["frontend/src/lib/start.css", "frontend/src/lib/strand.css", "tests/e2e/test_start_page.py"]
-opened_commit = "a943b83e8f857c2d5520c9996af3d13c35789e75"
