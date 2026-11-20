@@ -3,6 +3,6 @@ agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
 role = "builder"
 base = "6b1d2a8919342f40a3e4186c6ff23b83c62fc0fd"
 branch = "claude/issue-647-the-next-series-settings-can-be-changed"
-scope = ["README.md", "docs/ARCHITECTURE.md", "frontend/src", "scripts/generate_wire.py", "src/skat/store", "src/skat/table", "src/skat/web", "tests"]
+scope = ["README.md", "docs/ARCHITECTURE.md", "frontend/src", "frontend/vite.config.ts", "scripts/generate_wire.py", "src/skat/store", "src/skat/table", "src/skat/web", "tests"]
 opened_commit = "1a76cbde7bc4b105c13d04e772fba50387b14933"
 whole_reason = "The next series' settings travel from the sheet through the table command and tools to every page."
