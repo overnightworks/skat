@@ -42,9 +42,12 @@ class SeriesRequest(CommandRequest):
 
 
 class NewSeriesRequest(SeriesRequest):
-    """„Neue Serie“ names the revision of the next series' settings it answers, `series.next_settings.revision`."""
+    """„Neue Serie“ names the revision of the next series' settings it answers, `series.next_settings.revision`; left
+    out, as a page of the release before sends it, it answers the settings the last series carried over, revision 0, so
+    it is refused once a seat saved others.
+    """
 
-    settings: Annotated[int, Field(strict=True, ge=0)]
+    settings: Annotated[int, Field(strict=True, ge=0)] = 0
 
 
 class NextSettingsRequest(SeriesRequest):
@@ -112,8 +115,9 @@ def create_ready_router(tables: TableService, presence: Presence) -> APIRouter:
         """Say „Neue Serie“ after a Skat table's series has ended: the caller's chair is ready for the next series.
 
         Use it when read_table or your table's view shows `series.over: true` and the caller's own chair (`is_mine`) has
-        `ready: false`; the `series` is `series.number`, the `settings` is `series.next_settings.revision`, and a tap
-        naming another series than the table's, or settings the table no longer holds, changes nothing and is refused.
+        `ready: false`; the `series` is `series.number`, the `settings` is `series.next_settings.revision` (0 when left
+        out), and a tap naming another series than the table's, or settings the table no longer holds, changes nothing
+        and is refused.
         Once all three seated members have tapped and are connected, the third tap makes the table's list read empty
         (the finished games stay stored), the count starts again and the next series' first hand is dealt. The first
         tap starts a minute (`series.new_series_answer_by`): a seated member who has not tapped by then counts as no,

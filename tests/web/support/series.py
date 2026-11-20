@@ -24,9 +24,11 @@ def tap_weiter(skat, headers, table_id, command_id, ordinal=1, series=1):
 
 
 def tap_new_series(skat, headers, table_id, command_id, series=1, settings=0):
+    """`settings` None leaves the field out, as a page of the release before does."""
+    named = {} if settings is None else {"settings": settings}
     return skat.client.post(
         f"{TABLES_PATH}/{table_id}{TABLE_NEW_SERIES_SUFFIX}",
-        json={"command_id": command_id, "series": series, "settings": settings},
+        json={"command_id": command_id, "series": series, **named},
         headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
     )
 

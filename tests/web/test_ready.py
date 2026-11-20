@@ -197,19 +197,6 @@ class TestWeiter:
         assert answer.status_code == 422
         assert server.store.tables[table_id] == before
 
-    def test_a_new_series_tap_that_names_no_settings_is_refused_and_writes_nothing(self, server, table):
-        table_id, people = table
-        before = end_the_first_game(server.store, table_id)
-
-        answer = server.client.post(
-            f"{TABLES_PATH}/{table_id}{TABLE_NEW_SERIES_SUFFIX}",
-            json={"command_id": WEITER_COMMAND_ID, "series": 1},
-            headers={"origin": TEST_PUBLIC_ORIGIN, **people[0][0]},
-        )
-
-        assert answer.status_code == 422
-        assert server.store.tables[table_id] == before
-
     def test_an_unknown_table_is_not_found(self, server, table):
         _, people = table
 

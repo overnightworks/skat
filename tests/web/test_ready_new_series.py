@@ -371,6 +371,17 @@ class TestTheNextSettings:
         assert (stale.status_code, stale.json()["reason"]) == (409, Refusal.STALE_SETTINGS)
         assert (fresh.status_code, marks(fresh)) == (200, [False, True, False])
 
+    def test_a_tap_naming_no_settings_is_accepted_on_unsaved_settings_and_refused_after_a_save(self, skat, ended):
+        table, _ = ended
+        first, second, _ = headers_of(table)
+
+        unsaved = tap_new_series(skat, first, table.table_id, "tap-unsaved", settings=None)
+        change_next_settings(skat, first, table.table_id, "save-first", series_length=12)
+        saved = tap_new_series(skat, second, table.table_id, "tap-saved", settings=None)
+
+        assert unsaved.status_code == 200
+        assert (saved.status_code, saved.json()["reason"]) == (409, Refusal.STALE_SETTINGS)
+
     def test_the_next_series_is_dealt_with_the_saved_length_and_rules(self, skat, ended):
         table, _ = ended
         change_next_settings(

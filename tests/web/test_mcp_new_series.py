@@ -154,11 +154,13 @@ class TestStartNewSeries:
         assert view["hand"] is not None
         assert table.record.game_list == ()
 
-    def test_the_input_schema_requires_the_settings_the_tap_answers(self, agent):
+    def test_the_input_schema_offers_the_settings_the_tap_answers_and_requires_them_not(self, agent):
         listed = agent.offered_every_tool().request("tools/list")
         tools = {each["name"]: each for each in listed.json()["result"]["tools"]}
 
-        assert "settings" in tools[START_NEW_SERIES_TOOL]["inputSchema"]["required"]
+        schema = tools[START_NEW_SERIES_TOOL]["inputSchema"]
+
+        assert ("settings" in schema["properties"], "settings" in schema["required"]) == (True, False)
 
     @pytest.mark.parametrize("tool", [CONTINUE_AFTER_RESULT_TOOL, START_NEW_SERIES_TOOL])
     def test_the_input_schema_requires_the_series_the_tap_answers(self, agent, tool):
