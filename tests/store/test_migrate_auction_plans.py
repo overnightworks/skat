@@ -89,3 +89,39 @@ def test_the_release_before_ends_a_table_that_holds_a_plan_without_naming_the_pl
     run_in_transaction(migrated, text("DELETE FROM chairs WHERE table_id = :table").bindparams(table=TABLE))
 
     assert plan_rows(migrated) == []
+
+
+def test_the_release_before_stands_and_sits_down_the_same_account_in_the_chair_and_the_plan_is_gone(migrated):
+    with_a_plan(migrated)
+
+    with migrated.begin() as connection:
+        chair = {"table": TABLE, "seat": SEAT_WITH_A_PLAN}
+        connection.execute(
+            text(
+                "UPDATE chairs SET account_id = NULL, display_name = NULL, occupant_kind = NULL"
+                " WHERE table_id = :table AND seat = :seat"
+            ),
+            chair,
+        )
+        connection.execute(
+            text(
+                "UPDATE chairs SET account_id = 'account-cleo', display_name = 'Cleo', occupant_kind = 'person'"
+                " WHERE table_id = :table AND seat = :seat"
+            ),
+            chair,
+        )
+
+    assert plan_rows(migrated) == []
+
+
+def test_a_chair_update_that_keeps_the_account_keeps_the_plan(migrated):
+    with_a_plan(migrated)
+
+    run_in_transaction(
+        migrated,
+        text("UPDATE chairs SET ready = true WHERE table_id = :table AND seat = :seat").bindparams(
+            table=TABLE, seat=SEAT_WITH_A_PLAN
+        ),
+    )
+
+    assert [row.seat for row in plan_rows(migrated)] == [SEAT_WITH_A_PLAN]

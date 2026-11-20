@@ -46,8 +46,8 @@ auction_actions = Table(
 )
 
 # A seat's private plan for the auction, with the account that made it: it is read only while that account still sits
-# in the chair, since the release before frees a chair without naming this table, and it goes with the chair. A deal of
-# that release clears it through a trigger that migration 0057 creates.
+# in the chair, and it goes with the chair. The release before frees a chair, seats a person and deals without naming
+# this table, so triggers that migration 0057 creates clear it on a deal and on a change of the chair's account.
 auction_plans = Table(
     "auction_plans",
     metadata,

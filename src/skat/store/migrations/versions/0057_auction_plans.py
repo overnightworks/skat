@@ -3,8 +3,10 @@ chair it belongs to, with the account that made it: it is read only while that a
 
 Expand only, so the release before this one serves on the new schema and ignores the table. It ends a table by deleting
 its chairs, which takes the plans with them (`ON DELETE CASCADE`). It deals a hand by inserting the hand's cards, so a
-trigger clears the table's plans on that insert: a plan never outlives its hand, whichever release deals. The trigger
-goes with the release before this one.
+trigger clears the table's plans on that insert: a plan never outlives its hand, whichever release deals. It stands up
+and sits down by updating a chair's account, so a second trigger clears the chair's plan when that account changes: a
+plan never outlives its occupant, even when the same account sits down again. Both triggers go with the release before
+this one.
 """
 
 from alembic import op
@@ -51,4 +53,19 @@ def upgrade() -> None:
     op.execute(
         "CREATE TRIGGER a_deal_clears_the_auction_plans AFTER INSERT ON hand_cards "
         "REFERENCING NEW TABLE AS dealt FOR EACH STATEMENT EXECUTE FUNCTION a_deal_clears_the_auction_plans()"
+    )
+    op.execute(
+        """
+        CREATE FUNCTION a_change_of_occupant_clears_the_auction_plan() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+            DELETE FROM auction_plans WHERE table_id = NEW.table_id AND seat = NEW.seat;
+            RETURN NULL;
+        END
+        $$
+        """
+    )
+    op.execute(
+        "CREATE TRIGGER a_change_of_occupant_clears_the_auction_plan AFTER UPDATE OF account_id ON chairs "
+        "FOR EACH ROW WHEN (OLD.account_id IS DISTINCT FROM NEW.account_id) "
+        "EXECUTE FUNCTION a_change_of_occupant_clears_the_auction_plan()"
     )
