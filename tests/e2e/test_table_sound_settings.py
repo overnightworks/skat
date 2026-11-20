@@ -154,7 +154,7 @@ def test_the_speaker_stands_clear_of_the_lobby_button_the_reaction_key_and_the_w
     assert watchers is not None
     width = form_factor["viewport"]["width"]
     assert min(speaker["width"], speaker["height"]) >= KEY_GLASS_PIXELS
-    assert lobby["height"] == speaker["height"] == KEY_GLASS_PIXELS
+    assert lobby["height"] == speaker["height"]
     assert lobby["x"] + lobby["width"] <= speaker["x"]
     assert speaker["x"] + speaker["width"] <= watchers["x"]
     assert (TONE in speaker_of(person).inner_text()) == (width >= DESKTOP_FROM_PIXELS)

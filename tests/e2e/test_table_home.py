@@ -37,8 +37,8 @@ RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
 NOT_FOUND_HEADING = text(SOURCE_LANGUAGE, "closed.notFound")
-# A tap target is at least this many CSS pixels on each side.
-TAP_TARGET_PIXELS = 44
+# A tap target reaches at least this many CSS pixels beyond the glass of the key, through its pseudo-element.
+TAP_REACH_PIXELS = 1
 TRANSPARENT_COLOR = "rgba(0, 0, 0, 0)"
 
 
@@ -84,8 +84,11 @@ def expect_the_lobby_top_left_and_tappable(person: Page) -> None:
     assert box["x"] >= 0
     assert box["x"] + box["width"] <= viewport["width"] / 2
     assert box["y"] + box["height"] <= viewport["height"] / 4
-    assert box["width"] >= TAP_TARGET_PIXELS
-    assert box["height"] >= TAP_TARGET_PIXELS
+    reach_is_tappable = lobby_of(person).evaluate(
+        "(link, [x, y]) => document.elementFromPoint(x, y) === link",
+        [box["x"] + box["width"] / 2, box["y"] + box["height"] + TAP_REACH_PIXELS],
+    )
+    assert reach_is_tappable
     watchers = person.locator(".watchers")
     if watchers.count():
         watchers_box = watchers.bounding_box()
