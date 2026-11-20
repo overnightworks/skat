@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from logline import RequestLineMiddleware
 from starlette.concurrency import run_in_threadpool
 from webauth.config import install_web_auth_config, installed_web_auth_config
-from webauth.middleware import install_web_auth_middleware
+from webauth.middleware import ClientAddressMiddleware, install_web_auth_middleware
 from webauth.policies import (
     CacheControlRule,
     CspDirective,
@@ -65,7 +65,6 @@ from skat.web.presence import (
 from skat.web.pushing import create_pushing_router
 from skat.web.reacting import create_reacting_router
 from skat.web.ready import create_ready_router
-from skat.web.request_line import ClientAddressNoting, SignedInPersonNoting
 from skat.web.routes import create_router
 from skat.web.rule_sets import create_rule_sets_router
 from skat.web.run_line import RunLine
@@ -93,6 +92,7 @@ if TYPE_CHECKING:
     from webauth.config import WebAuthConfig
     from webauth.oidc import OidcRelyingParty
     from webauth.ports import AgentFacts, RateLimitBackend, SessionRecordStore
+    from webauth.proxies import TrustedProxies
 
     from skat.table.rule_sets import RuleSetService
     from skat.table.service import TableService
@@ -161,8 +161,6 @@ def _content_security_policy(page_build: PageBuild, call_origin: str | None) -> 
 def _install_web_auth(
     app: FastAPI, sessions: SessionRecordStore, page_build: PageBuild, call_origin: str | None, mcp: McpAccess
 ) -> None:
-    # Added before the library stack, this runs inside the session gate and sees the person it admitted.
-    app.add_middleware(SignedInPersonNoting)
     install_web_auth_middleware(
         app,
         sign_in_paths=SIGN_IN_PATHS,
@@ -176,8 +174,12 @@ def _install_web_auth(
         bearer_gate=mcp.bearer_gate,
         session_gate=session_gate(sessions, mcp.public_rule),
     )
-    # Added after the library stack, these sit outside it and see every request, a refused one included.
-    app.add_middleware(ClientAddressNoting)
+
+
+def _install_request_line(app: FastAPI, trusted_proxies: TrustedProxies) -> None:
+    # Added after the library stack, these sit outside it and see every request, a refused one included; the writer
+    # sits directly inside logline's middleware because webauth cannot see one placed inside another answering layer.
+    app.add_middleware(ClientAddressMiddleware, trusted_proxies=trusted_proxies)
     app.add_middleware(RequestLineMiddleware)
 
 
@@ -617,5 +619,6 @@ def create_app(
     _include_stream_routers(app, settings, tables, presence, wakes, slots, stores.sessions, heartbeat_seconds)
     _install_sign_in(app, sign_in_configs, relying_party, stores, page_build)
     _install_agent_front(app, settings, tables, presence, scheduler, roster, changes, relying_party, stores, page_build)
+    _install_request_line(app, sign_in_configs.trusted_proxies)
 
     return app
