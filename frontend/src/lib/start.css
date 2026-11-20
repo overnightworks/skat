@@ -5629,6 +5629,15 @@ body {
     white-space: normal;
 }
 
+/* The line of a failed read stands where the kit's empty line stands, with the same inset, size and colour. */
+.room .agents-list .empty {
+    margin: 0;
+    padding: 10px 14px 12px;
+    color: var(--text-muted);
+    font-size: 13.5px;
+    line-height: 1.4;
+}
+
 /* The result's bar is one row on a phone: Weiter or the wait for the others, and in a call the speaker and the menu key beside them. */
 @media (max-width: 899px) {
     .room .actions.on-result {

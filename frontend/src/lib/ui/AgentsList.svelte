@@ -31,8 +31,8 @@
     } = $props();
 
     let control = $state<AgentsControl>({ shown: false, rows: [] });
-    // The latest read failed: the rows of an earlier read offer actions that cannot work, so the line stands in their place
-    // until a read succeeds.
+    // The latest read failed: the rows of an earlier read offer actions that cannot work, so the line replaces
+    // them until a read succeeds.
     let readFailed = $state(false);
     let refusal = $state<AgentControlRefusal | undefined>();
     // A read that no longer shows the control came while a refusal stands: the list stays until the person has read the
@@ -90,7 +90,7 @@
 
 {#if readFailed}
     <div class="agents-list">
-        <p class="failed" role="alert">{words["table.seriesListFailed"]}</p>
+        <p class="empty" role="alert">{words["table.seriesListFailed"]}</p>
     </div>
 {:else if control.shown}
     <div class="agents-list">
