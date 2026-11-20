@@ -269,6 +269,7 @@ tables = Table(
     one_of("visibility", (visibility.value for visibility in Visibility), "tables_visibility_is_a_visibility"),
     one_of("style", (style.value for style in TableStyle), "tables_style_is_a_style"),
     CheckConstraint("series_number >= 1", name="tables_series_number_is_a_number"),
+    one_of("end_reason", (reason.value for reason in EndReason), "tables_end_reason_is_a_reason"),
     one_of("give_up_asked_by", POSITION_TEXT.values(), "tables_give_up_asker_is_a_position"),
     one_of("give_up_declined_by", POSITION_TEXT.values(), "tables_give_up_decliner_is_a_position"),
     CheckConstraint(
