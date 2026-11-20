@@ -28,7 +28,7 @@ from tests.e2e.support.tables import open_new_table, plate_of, sit_in, watch
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-    from playwright.sync_api import Page
+    from playwright.sync_api import Page, Route
 
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -38,6 +38,8 @@ pytestmark = pytest.mark.e2e
 CALLING = kit_text("agent.calling")
 BUSY = kit_text("agent.busy")
 EMPTY = kit_text("agent.empty")
+LIST_FAILED = text(SOURCE_LANGUAGE, "table.seriesListFailed")
+SERVICE_UNAVAILABLE = 503
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 # A point of the page outside the menu.
 BESIDE_THE_LIST = (4, 4)
@@ -82,6 +84,41 @@ def sits_note(name: str) -> str:
 @pytest.fixture
 def caller(open_person: Callable[..., Page], realm_reusing_refresh_tokens: None, page_errors: list[str]) -> Page:
     return record_page_errors(open_person(username="felix", groups=(AGENT_ADDERS_GROUP,), **DESKTOP), page_errors)
+
+
+@pytest.mark.usefixtures("realm_reusing_refresh_tokens")
+def test_a_failed_read_of_the_agents_leaves_the_panel_without_a_call_key_until_a_read_succeeds(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    # The browser logs the refused read as a console error; that failure is the point of this test.
+    felix = record_page_errors(
+        open_person(username="felix-reads", groups=(AGENT_ADDERS_GROUP,), **DESKTOP), page_errors, console=False
+    )
+    open_new_table(felix, e2e_server)
+    agent = ListeningAgent(e2e_server, member_of(felix).account.id, "Raphael", "agent-subject-raphael")
+
+    def fail(route: Route) -> None:
+        route.fulfill(status=SERVICE_UNAVAILABLE, content_type="application/json", body="{}")
+
+    try:
+        open_agents_panel(felix)
+        expect(felix.get_by_role("button", name=call_label("Raphael"))).to_be_visible()
+        felix.keyboard.press("Escape")
+        felix.route(f"**{TABLE_AGENTS_SUFFIX}", fail)
+
+        open_agents_panel(felix)
+
+        expect(agents_list(felix)).to_contain_text(LIST_FAILED)
+        expect(felix.get_by_role("button", name=call_label("Raphael"))).to_have_count(0)
+        felix.unroute(f"**{TABLE_AGENTS_SUFFIX}")
+        felix.keyboard.press("Escape")
+        open_agents_panel(felix)
+        expect(felix.get_by_role("button", name=call_label("Raphael"))).to_be_visible()
+    finally:
+        agent.close()
 
 
 @pytest.mark.usefixtures("realm_reusing_refresh_tokens")
