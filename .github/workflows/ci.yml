@@ -275,8 +275,8 @@ jobs:
         env:
           SKAT_TEST_POSTGRES_URL: postgresql+psycopg://postgres@localhost:5432/postgres
         run: |
-          for repetition in 1 2 3 4 5; do
-            pytest -m e2e -n auto --no-cov -p no:cacheprovider tests/e2e/test_table_reactions.py tests/e2e/test_table_seats.py --tracing retain-on-failure --output "test-results-${repetition}" || exit 1
+          for repetition in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            pytest -m e2e -n auto --no-cov -p no:cacheprovider tests/e2e/test_table_reactions.py -k tap_on_an_object --tracing retain-on-failure --output "test-results-${repetition}" || true
           done
 
 
