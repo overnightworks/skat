@@ -45,6 +45,12 @@
         ),
     );
 
+    // A save that finishes after the sheet closed leaves what a later sheet shows alone.
+    let mounted = true;
+    $effect(() => () => {
+        mounted = false;
+    });
+
     $effect(() => {
         let reading = true;
         void readRuleSets().then((outcome) => {
@@ -94,6 +100,7 @@
         saveProblem = null;
         const outcome = await saveRuleSet(name, requestOf(sheet));
         saving = false;
+        if (!mounted) return;
         if (outcome.kind !== "saved") {
             saveProblem = outcome.kind;
             return;
