@@ -260,8 +260,10 @@ class TestNewSeriesPayload:
 KONTRA = TableOptions(kontra=KontraOptions(KontraSayer.BIDDERS_ONLY, KontraReach.UP_TO_HIRSCH, KontraDeadline.OWN_CARD))
 
 
-def next_settings(length: int = 12, options: TableOptions = KONTRA, series: int = 1) -> NextSettingsCommand:
-    return NextSettingsCommand("command-settings", "0" * 32, series, length, options)
+def next_settings(
+    length: int = 12, options: TableOptions = KONTRA, series: int = 1, settings: int = 0
+) -> NextSettingsCommand:
+    return NextSettingsCommand("command-settings", "0" * 32, series, settings, length, options)
 
 
 class TestDecideChangeNextSettings:
@@ -301,7 +303,7 @@ class TestDecideChangeNextSettings:
     def test_a_second_save_replaces_the_first_and_counts_on(self):
         first = decide_change_next_settings(at_the_end(), ANNA, next_settings(12, KONTRA), ASKED).table
 
-        second = decide_change_next_settings(first, BEN, next_settings(6, TableOptions()), ASKED).table
+        second = decide_change_next_settings(first, BEN, next_settings(6, TableOptions(), settings=1), ASKED).table
 
         assert next_settings_of(second) == NextSettings(6, TableOptions(), 2)
 
@@ -348,6 +350,25 @@ class TestDecideChangeNextSettings:
 
         assert (decision.refusal, decision.table) == (Refusal.ANSWER_TIME_OVER, table)
 
+    def test_a_save_on_older_settings_is_refused_and_changes_nothing(self):
+        table = decide_change_next_settings(at_the_end(), ANNA, next_settings(), ASKED).table
+
+        decision = decide_change_next_settings(table, BEN, next_settings(length=15, settings=0), ASKED)
+
+        assert (decision.refusal, decision.table) == (Refusal.STALE_SETTINGS, table)
+
+    def test_a_save_on_the_current_settings_counts_the_next_revision(self):
+        table = decide_change_next_settings(at_the_end(), ANNA, next_settings(), ASKED).table
+
+        decision = decide_change_next_settings(table, BEN, next_settings(length=15, settings=1), ASKED)
+
+        assert (decision.refusal, next_settings_of(decision.table).revision) == (None, 2)
+
+    def test_a_save_on_settings_not_yet_saved_is_refused(self):
+        decision = decide_change_next_settings(at_the_end(), BEN, next_settings(settings=1), ASKED)
+
+        assert decision.refusal is Refusal.STALE_SETTINGS
+
     def test_settings_the_opening_sheet_would_refuse_are_refused(self):
         with pytest.raises(ValueError, match="multiple of"):
             NextSettings(10, TableOptions(), 1)
@@ -386,6 +407,9 @@ class TestNextSettingsPayload:
         assert next_settings_payload(next_settings(options=KONTRA)) != next_settings_payload(
             next_settings(options=TableOptions())
         )
+
+    def test_other_settings_revision_is_another_request(self):
+        assert next_settings_payload(next_settings(settings=0)) != next_settings_payload(next_settings(settings=1))
 
     def test_another_series_is_another_request(self):
         assert next_settings_payload(next_settings(series=1)) != next_settings_payload(next_settings(series=2))

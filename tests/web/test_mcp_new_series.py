@@ -221,6 +221,15 @@ class TestChangeNextSeriesSettings:
             **more,
         )
 
+    def test_the_agents_save_on_older_settings_is_a_failed_result_naming_the_reason(self, skat, agent, ended_series):
+        table = ended_series
+        change_next_settings(skat, table.at[MIDDLEHAND], table.table_id, "save-first", series_length=12)
+
+        refused = self.save(agent, table, series_length=15)
+
+        assert (refused.is_error, refused.json()["reason"]) == (True, Refusal.STALE_SETTINGS)
+        assert agent.read(table.table_id).json()["series"]["next_settings"]["game_count"] == 12
+
     def test_the_agent_saves_the_next_series_settings_as_a_person_does(self, agent, ended_series):
         table = ended_series
 

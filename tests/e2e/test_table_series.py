@@ -1,16 +1,28 @@
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from playwright.sync_api import Locator, Page, expect
 
 from skat.table.records import SERIES_LENGTH_STEP
 from skat.web.game_list import TABLE_LIST_SUFFIX
-from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_NEXT_SETTINGS_SUFFIX
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.passed_in_series import (
+    CHANGE,
+    COMMAND_FAILED,
+    COUNT,
+    MORE_GAMES,
+    NEXT_LINE,
+    NEXT_SHEET,
+    SAVE,
+    SERIES_LENGTH,
+    PassedInTable,
+    game_count,
+    refuse,
+)
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
 from tests.e2e.support.result_card import MINUS, waiting_for
@@ -26,12 +38,10 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-SERIES_LENGTH = 3
 # A room this short cannot show two rows of the list beside its heading.
 SHORT_ROOM = 160
 # A room that holds the head of an opened game and leaves its tricks less height than they need.
 SHEET_ROOM = 480
-COUNT = ".series-count"
 GAME_LIST = ".game-list"
 ROWS = f"{GAME_LIST} .grow"
 SHEET = f"{GAME_LIST} .game-sheet"
@@ -55,13 +65,6 @@ STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 PHONE_BREAKPOINT = 900
 NEW_SERIES = text(SOURCE_LANGUAGE, "table.newSeries")
 STOP_PLAYING = text(SOURCE_LANGUAGE, "table.stopPlaying")
-NEXT_LINE = ".result.standing .nextline"
-CHANGE = text(SOURCE_LANGUAGE, "table.nextSeriesChange")
-SAVE = text(SOURCE_LANGUAGE, "table.nextSeriesSave")
-CANCEL = text(SOURCE_LANGUAGE, "table.nextSeriesCancel")
-COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
-MORE_GAMES = text(SOURCE_LANGUAGE, "start.seriesMore")
-NEXT_SHEET = ".sheet.next-series"
 RULE_SETS = text(SOURCE_LANGUAGE, "start.ruleSets")
 SAVE_RULES = text(SOURCE_LANGUAGE, "start.saveRules")
 RULE_KONTRA = text(SOURCE_LANGUAGE, "start.ruleKontra")
@@ -72,36 +75,12 @@ YES = text(SOURCE_LANGUAGE, "table.yes")
 NO = text(SOURCE_LANGUAGE, "table.no")
 GONE = text(SOURCE_LANGUAGE, "table.seriesGone")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
-REFUSED = 409
 # A point of the room outside the centred panel, where a tap lands on the backdrop of the list.
 BESIDE_THE_PANEL = (4, 4)
 
 
-def refuse(route: Route) -> None:
-    route.fulfill(status=REFUSED, content_type="application/json", body="{}")
-
-
-def game_count(game: int) -> str:
-    return text(SOURCE_LANGUAGE, "table.seriesCount", game=str(game), count=SERIES_LENGTH)
-
-
 def shown(total: int) -> str:
     return f"{MINUS}{-total}" if total < 0 else str(total)
-
-
-class PassedInTable(RamschTable):
-    """The same three people at a table without Ramsch, so a hand all pass is passed in and leaves no entry."""
-
-    options: ClassVar[dict[str, Any]] = {}
-
-
-def pass_the_series_in(table: RamschTable) -> None:
-    """Every game of the series is passed in, so the series ends with the last."""
-    for game in range(1, SERIES_LENGTH + 1):
-        for person in table.everyone:
-            expect(person.locator(COUNT)).to_have_text(game_count(game))
-        table.pass_all()
 
 
 def answer_the_ask(person: Page, word: str) -> None:
@@ -542,6 +521,7 @@ def test_a_seated_member_changes_the_next_series_and_the_save_takes_back_every_n
     expect_the_sheet_placed_as_the_scene_draws_it(second, sheet)
     expect(sheet.get_by_role("spinbutton")).to_have_attribute("aria-valuenow", str(SERIES_LENGTH))
     expect(sheet.locator(".takeback")).to_be_visible()
+    expect(sheet.locator(".clockline")).to_be_visible()
     expect(sheet.get_by_role("radiogroup", name=RULE_SETS).get_by_role("radio", checked=True)).to_have_count(0)
     expect(sheet.get_by_role("switch", name=RULE_RAMSCH, exact=True)).to_have_attribute("aria-checked", "true")
     expect(sheet.get_by_role("switch", name=RULE_KONTRA, exact=True)).to_have_attribute("aria-checked", "false")
@@ -564,70 +544,6 @@ def test_a_seated_member_changes_the_next_series_and_the_save_takes_back_every_n
         expect(person.locator(COUNT)).to_have_text(
             text(SOURCE_LANGUAGE, "table.seriesCount", game="1", count=SERIES_LENGTH + SERIES_LENGTH_STEP),
         )
-    assert page_errors == []
-
-
-def test_a_sheet_left_open_while_the_next_series_is_dealt_stays_shut_at_the_end_of_the_series_after(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-) -> None:
-    table = PassedInTable(open_person, e2e_server, member_of, page_errors, PHONE)
-    pass_the_series_in(table)
-    first, second, third = table.pages[1], table.pages[2], table.pages[3]
-    for person in (first, third):
-        person.get_by_role("button", name=NEW_SERIES, exact=True).click()
-    second.get_by_role("button", name=CHANGE, exact=True).click()
-    expect(second.locator(NEXT_SHEET)).to_have_count(1)
-
-    table.sessions[2].post(
-        f"{table.api_path}{TABLE_NEW_SERIES_SUFFIX}",
-        {"command_id": "second-new-series-0001", "series": 1, "settings": 0},
-    )
-    expect(second.locator(NEXT_SHEET)).to_have_count(0)
-    pass_the_series_in(table)
-
-    expect(second.get_by_role("button", name=CHANGE, exact=True)).to_be_visible()
-    expect(second.locator(NEXT_SHEET)).to_have_count(0)
-    assert page_errors == []
-
-
-def test_the_next_series_sheet_closes_on_cancel_and_escape_stays_while_it_saves_and_tells_a_refused_save(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-) -> None:
-    table = PassedInTable(open_person, e2e_server, member_of, page_errors, PHONE, console=False)
-    pass_the_series_in(table)
-    second = table.pages[2]
-    change = second.get_by_role("button", name=CHANGE, exact=True)
-    sheet = second.locator(NEXT_SHEET)
-
-    change.click()
-    expect(sheet).to_have_count(1)
-    second.keyboard.press("Escape")
-    expect(sheet).to_have_count(0)
-
-    change.click()
-    sheet.get_by_role("button", name=CANCEL, exact=True).click()
-    expect(sheet).to_have_count(0)
-
-    held: list[Route] = []
-    second.route(f"**{TABLES_PATH}/*{TABLE_NEXT_SETTINGS_SUFFIX}", lambda route: held.append(route))
-    change.click()
-    save = sheet.get_by_role("button", name=SAVE, exact=True)
-    save.click()
-    expect(save).to_be_disabled()
-    second.keyboard.press("Escape")
-    expect(sheet).to_have_count(1)
-
-    refuse(held[0])
-    expect(sheet.get_by_role("alert")).to_have_text(COMMAND_FAILED)
-    expect(save).to_be_enabled()
-    second.keyboard.press("Escape")
-    expect(sheet).to_have_count(0)
     assert page_errors == []
 
 

@@ -17,14 +17,22 @@ export function startNewSeries(id: string, commandId: string, series: number, se
     return post(id, TABLE_NEW_SERIES_SUFFIX, { command_id: commandId, series, settings });
 }
 
-// Saving the next series' settings names the series it saw; the stream brings them to every page at the table, and the
+// Saving the next series' settings names the series it saw and the revision of the settings its sheet started from, so a
+// save over settings another seat has saved since is refused; the stream brings them to every page at the table, and the
 // save takes back every seat's „Neue Serie“. Another length or other rules is another command.
 export function changeNextSettings(
     id: string,
     commandId: string,
     series: number,
+    settings: number,
     length: number,
     options?: OptionsRequest,
 ): Promise<Outcome> {
-    return post(id, TABLE_NEXT_SETTINGS_SUFFIX, { command_id: commandId, series, series_length: length, options });
+    return post(id, TABLE_NEXT_SETTINGS_SUFFIX, {
+        command_id: commandId,
+        series,
+        settings,
+        series_length: length,
+        options,
+    });
 }
