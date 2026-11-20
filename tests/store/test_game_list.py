@@ -17,7 +17,7 @@ from skat.engine.kontra import KontraReach
 from skat.engine.play import legal_cards
 from skat.engine.tricks import CardPlayed
 from skat.engine.value import Matadors
-from skat.store.game_list import read_game_cards
+from skat.store.game_list import read_game_cards, read_game_list
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
@@ -520,6 +520,14 @@ class TestTheList:
 
         row = stored_list_rows(engine, ended.table_id)[1]
         assert columns == (row.ending, row.ended_by_seat)
+
+    def test_a_row_of_a_kind_this_release_does_not_know_raises_when_read(self, ended, engine):
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE game_list DROP CONSTRAINT game_list_kind_is_a_kind"))
+            connection.execute(text("UPDATE game_list SET kind = 'a_later_kind'"))
+
+            with pytest.raises(ValueError, match="a_later_kind"):
+                read_game_list(connection, ended.table_id, 1)
 
     def test_the_schema_keeps_matadors_only_outside_null(self, ended, engine):
         statement = text("UPDATE game_list SET matadors_mit = NULL WHERE table_id = :table_id")

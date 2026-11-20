@@ -58,6 +58,16 @@ def one_of(column: str, values: Iterable[str], name: str) -> CheckConstraint:
     return CheckConstraint(f"{column} IN ({', '.join(f"'{value}'" for value in values)})", name=name)
 
 
+def held_back(column: str, values: Iterable[str]) -> CheckConstraint:
+    """Keeps `values` out of a column whose `one_of` list already admits them. A release lists a value as read before
+    any release writes it: the list grows in one release with this check beside it, and the next release drops this
+    check. Spelled `<> ALL (ARRAY[...])`, which Postgres keeps as an array comparison for one value too.
+    """
+    return CheckConstraint(
+        f"{column} <> ALL (ARRAY[{', '.join(f"'{value}'" for value in values)}])", name=f"{column}_held_back"
+    )
+
+
 def _ramsch_columns() -> tuple[Column[Any], ...]:
     return (
         Column("ramsch_occasion", Text),

@@ -309,6 +309,13 @@ def _ramsch_entry_of(row: Row[tuple[object, ...]]) -> RamschEntry:
 def _entry_of(row: Row[tuple[object, ...]]) -> GameEntry:
     if row.kind == RAMSCH_KIND:
         return _ramsch_entry_of(row)
+    if row.kind == DECLARED_KIND:
+        return _declared_entry_of(row)
+    msg = f"the game list holds a kind of game this release does not know: {row.kind!r}"
+    raise ValueError(msg)
+
+
+def _declared_entry_of(row: Row[tuple[object, ...]]) -> ListEntry:
     return ListEntry(
         seat_accounts=(row.seat_1_account, row.seat_2_account, row.seat_3_account),
         seat_names=(row.seat_1_name, row.seat_2_name, row.seat_3_name),
