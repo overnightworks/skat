@@ -1,7 +1,0 @@
-claim_id = "8d1993052f5c4dff8336dc9df226c9b5"
-agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
-role = "builder"
-base = "05ec785b177b284fd54a83cd99722417db855325"
-branch = "claude/issue-731-the-strandbar-desktop-scene-draws-its-fr"
-scope = ["frontend/src/lib/strand.css", "frontend/src/lib/table", "tests/e2e/test_table_reactions.py"]
-opened_commit = "d8c2b5d70adca87862258c0658f3f4252381901e"
