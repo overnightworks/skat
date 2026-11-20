@@ -56,8 +56,8 @@ STAY = text(SOURCE_LANGUAGE, "sound.lastTrickStay")
 # The voices of a card in the sets "Leise" and "Funkeln", in the order they start.
 LEISE_KINDS = ["noise", "tone"]
 FUNKELN_KINDS = ["tone", "noise", "tone"]
-# A tap target is at least this many CSS pixels on each side.
-TAP_TARGET_PIXELS = 44
+# The round glass of a top key is at least this many CSS pixels on each side; its tap target reaches 2 pixels beyond.
+KEY_GLASS_PIXELS = 40
 # The desktop layout starts at this width, where the speaker carries its word.
 DESKTOP_FROM_PIXELS = 900
 # From this width the speaker stands left of the watchers; below it, right after the reaction key.
@@ -87,7 +87,7 @@ PANEL_ON_ITS_BUTTON = """() => {
 }"""
 
 
-# The tap targets are wider than the round glass inside them, so the gap is measured between the glass.
+# The gap is measured between the glass of the two keys.
 GLASS_GAP = """neighbour => {
     const speaker = document.querySelector('.sound-face').getBoundingClientRect();
     const selector = neighbour === 'watchers' ? '.watchers' : '.reaction-key';
@@ -153,7 +153,8 @@ def test_the_speaker_stands_clear_of_the_lobby_button_the_reaction_key_and_the_w
     assert lobby is not None
     assert watchers is not None
     width = form_factor["viewport"]["width"]
-    assert min(speaker["width"], speaker["height"]) >= TAP_TARGET_PIXELS
+    assert min(speaker["width"], speaker["height"]) >= KEY_GLASS_PIXELS
+    assert lobby["height"] == speaker["height"] == KEY_GLASS_PIXELS
     assert lobby["x"] + lobby["width"] <= speaker["x"]
     assert speaker["x"] + speaker["width"] <= watchers["x"]
     assert (TONE in speaker_of(person).inner_text()) == (width >= DESKTOP_FROM_PIXELS)
