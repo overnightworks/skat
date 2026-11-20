@@ -1,0 +1,8 @@
+claim_id = "2276382f71ef46a193c6505a0089747f"
+agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
+role = "builder"
+base = "4b88d782f275ed5abf3d360a3c3c6fb80b7eeb39"
+branch = "claude/issue-715-a-failed-agents-read-leaves-no-call-butt"
+scope = ["README.md", "frontend/src/lib/catalogs", "frontend/src/routes/(start)"]
+opened_commit = "5d617c7fde4c0cc4982c75caf3b9363bc3372cdf"
+whole_reason = "The panel's failed-read state lives in the start route's files and may need one catalog line."
