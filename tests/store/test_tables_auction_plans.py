@@ -160,12 +160,12 @@ def test_a_passed_in_hand_keeps_no_plan(service, engine, transactions, stored, t
     ],
 )
 def test_the_checks_reject_a_row_that_is_no_plan(engine, table_id, forehand_seat, row):
+    insertion = insert(auction_plans).values(
+        table_id=table_id.value, seat=forehand_seat, account_id=SEATED[forehand_seat - 1].account_id, **row
+    )
+
     with pytest.raises(IntegrityError), engine.begin() as connection:
-        connection.execute(
-            insert(auction_plans).values(
-                table_id=table_id.value, seat=forehand_seat, account_id=SEATED[forehand_seat - 1].account_id, **row
-            )
-        )
+        connection.execute(insertion)
 
 
 @pytest.mark.parametrize("how", ["the-release-before-deletes-the-chairs", "the-table-ends"])
