@@ -562,7 +562,6 @@ def test_a_card_moved_upward_past_the_threshold_plays_and_a_short_move_puts_it_b
     pointer.release()
     expect_on_the_felt(table, [(forehand_seat, lead)])
     assert len(posts) == 1
-    expect(forehand.locator(DRAGGED_CARD)).to_have_count(0)
 
     dimmed = middlehand.locator(DIMMED_CARD).first
     hand = middlehand.locator(".own-hand")

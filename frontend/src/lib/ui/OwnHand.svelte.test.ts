@@ -3,7 +3,7 @@ import { flushSync, mount, unmount } from "svelte";
 import { afterEach, describe, expect, it } from "vitest";
 import type { PlayingHand } from "#lib/playView.ts";
 import OwnHand from "#lib/ui/OwnHand.svelte";
-import type { Card } from "../../routes/(start)/tables.ts";
+import { cardName, type Card } from "../../routes/(start)/tables.ts";
 
 const PLAYED: Card = { suit: "kreuz", rank: "ace" };
 const KEPT: Card = { suit: "herz", rank: "king" };
@@ -50,7 +50,7 @@ describe("a card dropped past the threshold", () => {
         });
         flushSync();
 
-        const playedButton = document.querySelector<HTMLButtonElement>('button[aria-label*="Kreuz"]');
+        const playedButton = document.querySelector<HTMLButtonElement>(`button[aria-label="${cardName(PLAYED)}"]`);
         expect(playedButton).not.toBeNull();
         const button = playedButton as HTMLButtonElement;
         button.setPointerCapture = () => undefined;
