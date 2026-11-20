@@ -22,7 +22,7 @@
                 <circle cx="12" cy="12" r="9" />
                 <path d="M12 7v5l3 2" />
             </svg>
-            {line.length}
+            <span>{line.length}</span>
         </span>
         {#each line.chips as chip (chip.id)}
             <span class="chip" class:official={chip.id === "official"}><RuleMark id={chip.id} />{chip.word}</span>
