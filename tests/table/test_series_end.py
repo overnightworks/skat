@@ -349,6 +349,23 @@ class TestDecideNewSeriesLapse:
     def test_a_seated_seat_silent_for_the_minute_stops_the_table(self):
         assert new_series_lapsed(at_the_series_end(1, 2, asked_at=END_ASKED_AT), self.MINUTE_OVER)
 
+    def test_a_seated_seat_silent_beside_an_empty_chair_that_chose_stops_the_table(self):
+        table = at_the_series_end(1, 3, asked_at=END_ASKED_AT, silent_seats=(3,))
+
+        assert new_series_lapsed(table, self.MINUTE_OVER)
+
+    @pytest.mark.parametrize(
+        "table",
+        [
+            pytest.param(at_the_series_end(1, 2, 3, asked_at=END_ASKED_AT), id="every-seated-seat-chose"),
+            pytest.param(
+                at_the_series_end(1, 2, 3, asked_at=END_ASKED_AT, silent_seats=(3,)), id="the-silent-seat-stood-up"
+            ),
+        ],
+    )
+    def test_a_minute_no_silent_seated_seat_is_left_in_never_lapses(self, table):
+        assert not new_series_lapsed(table, self.MINUTE_OVER)
+
     @pytest.mark.parametrize(
         "table",
         [

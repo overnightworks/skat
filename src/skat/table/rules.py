@@ -402,8 +402,8 @@ def with_standing_ask(table: TableRecord) -> TableRecord:
     """The table with its minute of „Neue Serie“ only while it stands, the one place that decides it."""
     if table.series is None or table.series.new_series_asked_at is None or new_series_ask_stands(table):
         return table
-    series: Series = replace(table.series, new_series_asked_at=None)
-    return replace(table, series=series)
+    cleared: TableRecord = replace(table, series=replace(table.series, new_series_asked_at=None))
+    return cleared
 
 
 def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[str]:
