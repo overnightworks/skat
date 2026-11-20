@@ -113,9 +113,9 @@ class ServerSteps:
             if decision.refusal is not None:
                 return False
             transaction.save_table(decision.table, played_at=None)
+        self._tell_moments(moment_recipients(table, decision.table))
         self._tell(agents_seated_at(table) - agents_seated_at(decision.table))
         self._tell_view(table_id, view_recipients(table, decision.table))
-        self._tell_moments(moment_recipients(table, decision.table))
         return True
 
     def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
@@ -135,8 +135,8 @@ class ServerSteps:
                 return False
             dealt = dealt_next(table, drawn_hand(table, self._random_source))
             transaction.save_table(dealt, played_at=self._now())
-        self._tell_view(table_id, view_recipients(table, dealt))
         self._tell_moments(moment_recipients(table, dealt))
+        self._tell_view(table_id, view_recipients(table, dealt))
         return True
 
     def end_empty_table(
@@ -182,7 +182,6 @@ class ServerSteps:
                 return None if left is None else max(0.0, left.total_seconds())
             transaction.save_table(decision.table, played_at=None)
         self._tell_view(table_id, view_recipients(table, decision.table))
-        self._tell_moments(moment_recipients(table, decision.table))
         return None
 
     def pending_end_answers(self) -> dict[str, float]:
