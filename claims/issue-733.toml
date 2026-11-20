@@ -1,5 +1,5 @@
 claim_id = "0fa9a47473314b37b0e1c6f662db4cb5"
-agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
+agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
 role = "builder"
 base = "6bac96766e1ce199e89fb59e27aeb302db18428c"
 branch = "claude/issue-733-the-series-end-card-and-the-settings-she"
