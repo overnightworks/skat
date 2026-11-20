@@ -1,0 +1,8 @@
+claim_id = "e9a4ef4565174c61b709d4f7f15d2469"
+agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
+role = "builder"
+base = "e1558113489c908cba5ded4e7b20d06704750ab5"
+branch = "claude/issue-757-card-lands-through-takt"
+scope = ["docs/ARCHITECTURE.md", "frontend/src", "tests"]
+opened_commit = "30e1311068aaee386273a68eb3cd2b75340b1175"
+whole_reason = "The engine's core and its first moment are one capability: without a moment the core has no caller."
