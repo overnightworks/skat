@@ -1,4 +1,5 @@
 import gc
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -90,7 +91,11 @@ def browser_type_launch_args(browser_type_launch_args: dict[str, Any]) -> dict[s
     # to Skat on loopback; the framing tests serve their call page that way.
     return {
         **browser_type_launch_args,
-        "args": ["--ignore-certificate-errors", "--disable-features=LocalNetworkAccessChecks"],
+        "args": [
+            "--ignore-certificate-errors",
+            "--disable-features=LocalNetworkAccessChecks",
+            *os.environ.get("SKAT_EXTRA_ARGS", "").split(),
+        ],
     }
 
 

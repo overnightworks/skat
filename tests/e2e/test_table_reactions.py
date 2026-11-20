@@ -293,6 +293,9 @@ def test_a_tap_on_an_object_of_the_table_makes_it_move_and_sound_on_every_page(
             relative = lambda rows: [[round(row[0] - clicked)] + row[1:] for row in rows]
             print("DIAG", {"click_call_ms": round(clicked_done - clicked), "now": round(data["now"] - clicked), "gaps": relative(data["gaps"])[-12:], "beats": relative(data["beats"]), "moves": relative(data["moves"])}, flush=True)
         raise
+    for person in table.everyone:
+        data = person.evaluate("() => window.frameGaps.map(gap => gap[1])")
+        print("FRAMES", {"slow_frames": len(data), "worst_ms": max(data, default=0)}, flush=True)
     expect_played_by_every_page(heard_before)
 
 

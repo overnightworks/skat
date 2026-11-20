@@ -270,15 +270,24 @@ jobs:
         timeout-minutes: 6
         run: playwright install chromium
 
-      - name: Run the reaction and seat tests five times
+      - name: Run the object tap test twelve times
         timeout-minutes: 25
         env:
           SKAT_TEST_POSTGRES_URL: postgresql+psycopg://postgres@localhost:5432/postgres
+          VARIANT: ${{ matrix.part }}
         run: |
+          case "${VARIANT}" in
+            0) ARGS="" ;;
+            1) ARGS="--tracing off" ;;
+            2) ARGS="-n 2" ;;
+            3) ARGS="--tracing off -n 2" ;;
+            4) export SKAT_EXTRA_ARGS="--disable-gpu"; ARGS="" ;;
+            5) export SKAT_EXTRA_ARGS="--disable-gpu-compositing"; ARGS="" ;;
+          esac
+          echo "variant ${VARIANT}: ${ARGS} ${SKAT_EXTRA_ARGS}"
           for repetition in 1 2 3 4 5 6 7 8 9 10 11 12; do
-            pytest -m e2e -n auto --no-cov -p no:cacheprovider tests/e2e/test_table_reactions.py -k tap_on_an_object --tracing retain-on-failure --output "test-results-${repetition}" || true
+            pytest -m e2e -n auto --no-cov -p no:cacheprovider tests/e2e/test_table_reactions.py -k tap_on_an_object --tracing retain-on-failure ${ARGS} --output "test-results-${repetition}" || true
           done
-
 
   # The mandatory job of the quality gate: it stands for the shards, and converts their browser coverage once because
   # the conversion fails on a shipped source with code and no record in any shard.
