@@ -3,15 +3,8 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from skat.table import auction_plans
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
-from skat.table.auction_plans import (
-    AUCTION_PLAN_COMMAND,
-    AuctionPlanCommand,
-    decide_set_plan,
-    plan_payload,
-    run_plans,
-    sit_with_plans,
-)
 from skat.table.command_log import command_step, noted
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.ending import end_unplayed_table, forget_ended_tables, stop_playing, unplayed_tables
@@ -251,7 +244,7 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             command.command_id,
             SIT_DOWN_COMMAND,
             sit_payload(command),
-            lambda table: sit_with_plans(
+            lambda table: auction_plans.sit_with_plans(
                 table,
                 actor,
                 command.seat,
@@ -307,23 +300,20 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             command.command_id,
             AUCTION_STEP_COMMAND,
             auction_payload(command),
-            lambda table: run_plans(decide_step(table, actor, command)),
+            lambda table: auction_plans.run_plans(decide_step(table, actor, command)),
         )
 
     def set_auction_plan(
-        self, actor: Actor, command: AuctionPlanCommand, connected_accounts: frozenset[str]
+        self, actor: Actor, command: auction_plans.AuctionPlanCommand, connected_accounts: frozenset[str]
     ) -> CommandResult | None:
-        """Set, change or clear the actor's private plan for the auction, and take the steps it takes in the same
-        transaction; a plan made off turn leaves the table's version alone.
-        """
         return self._run_command(
             actor,
             connected_accounts,
             command.table_id,
             command.command_id,
-            AUCTION_PLAN_COMMAND,
-            plan_payload(command),
-            lambda table: decide_set_plan(table, actor, command),
+            auction_plans.AUCTION_PLAN_COMMAND,
+            auction_plans.plan_payload(command),
+            lambda table: auction_plans.decide_set_plan(table, actor, command),
         )
 
     def take_declaring_step(
