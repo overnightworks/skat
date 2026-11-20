@@ -1,6 +1,7 @@
 <script lang="ts">
     import { untrack } from "svelte";
     import { AgentControl, type AgentControlRefusal, type KitWords } from "overnightworks-design";
+    import { words } from "#lib/words.ts";
     import { followAgents, type AgentsControl, type AgentsFollower } from "../../routes/(start)/agents.ts";
 
     // The kit's list of the agents the viewer may call or send away, in the panel the table menu's „Agenten“ row opens.
@@ -30,6 +31,9 @@
     } = $props();
 
     let control = $state<AgentsControl>({ shown: false, rows: [] });
+    // The latest read failed: the rows of an earlier read offer actions that cannot work, so the line stands in their place
+    // until a read succeeds.
+    let readFailed = $state(false);
     let refusal = $state<AgentControlRefusal | undefined>();
     // A read that no longer shows the control came while a refusal stands: the list stays until the person has read the
     // refusal.
@@ -45,11 +49,13 @@
         const following = followAgents(
             tableId,
             (answer) => {
+                readFailed = false;
                 hiddenUnderRefusal = !answer.shown && refusal !== undefined;
                 if (hiddenUnderRefusal) return;
                 control = answer;
             },
             (reason) => (refusal = reason ?? undefined),
+            () => (readFailed = true),
         );
         follower = following;
         return () => {
@@ -82,7 +88,11 @@
     });
 </script>
 
-{#if control.shown}
+{#if readFailed}
+    <div class="agents-list">
+        <p class="failed" role="alert">{words["table.seriesListFailed"]}</p>
+    </div>
+{:else if control.shown}
     <div class="agents-list">
         <AgentControl
             rows={control.rows}
