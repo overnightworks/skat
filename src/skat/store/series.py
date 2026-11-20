@@ -30,7 +30,9 @@ class SeriesSettingsChangedError(Exception):
 
 
 def _counters_of(table: TableRecord) -> dict[str, object]:
-    """The columns that change while the series is played: its deals, early end, standing proposal and Bock rounds."""
+    """The columns that change while the series is played: its deals, early end, standing proposal, the minute of its
+    „Neue Serie“ and Bock rounds.
+    """
     current = table.series
     proposal = None if current is None else current.end_proposal
     return {
@@ -41,6 +43,7 @@ def _counters_of(table: TableRecord) -> dict[str, object]:
         "end_agreed": [] if proposal is None else sorted(proposal.agreed),
         "end_asked_at": None if proposal is None else proposal.asked_at,
         "end_refused_by": [] if current is None else sorted(current.end_refused_by),
+        "new_series_asked_at": None if current is None else current.new_series_asked_at,
         "bock_rounds": list(table.bock.remaining),
         "ramsch_round_games": table.bock.ramsch_games,
     }
@@ -110,6 +113,7 @@ def series_of(row: Row[Any]) -> Series | None:
         ended_early=row.ended_early,
         end_proposal=proposal,
         end_refused_by=frozenset(row.end_refused_by),
+        new_series_asked_at=row.new_series_asked_at,
     )
 
 

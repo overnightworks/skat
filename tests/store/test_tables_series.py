@@ -22,6 +22,7 @@ from skat.table.records import (
     Actor,
     CreateTable,
     Ending,
+    EndReason,
     HandProgress,
     Refusal,
     Series,
@@ -167,7 +168,8 @@ class TestNewSeries:
     ):
         tap_all(service, ended_series)
         assert rows_of(engine, game_list) == 1
-        assert read(transactions, ended_series).series == Series(3, 3)
+        asked = read(transactions, ended_series).series
+        assert (replace(asked, new_series_asked_at=None), asked.new_series_asked_at is not None) == (Series(3, 3), True)
 
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is True
 
@@ -184,7 +186,8 @@ class TestNewSeries:
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is False
 
         assert rows_of(engine, game_list) == 1
-        assert read(transactions, ended_series).series == Series(3, 3)
+        asked = read(transactions, ended_series).series
+        assert (replace(asked, new_series_asked_at=None), asked.new_series_asked_at is not None) == (Series(3, 3), True)
 
     def test_a_failed_deal_keeps_the_old_list_the_count_and_the_marks_and_deals_no_hand(
         self, service, transactions, engine, ended_series
@@ -576,7 +579,11 @@ class TestEndingEarly:
         ended = a_table_between_games(service, transactions)
         say_yes(service, 1, ended)
         with transactions.begin() as transaction:
-            transaction.end_table(TableId(ended), datetime(2026, 11, 9, 12, 0, tzinfo=UTC), Ending.closed("Anna"))
+            transaction.end_table(
+                TableId(ended),
+                datetime(2026, 11, 9, 12, 0, tzinfo=UTC),
+                Ending(EndReason.CLOSED, closed_by_name="Anna"),
+            )
         moved_on = a_table_between_games(service, transactions)
         for seat in (1, 2, 3):
             say_yes(service, seat, moved_on)
@@ -698,7 +705,9 @@ class TestTheSeriesRow:
                 self.second_series(transactions, first_series, SECOND_SERIES_OPTIONS), played_at=None
             )
             transaction.end_table(
-                TableId(first_series), datetime(2026, 11, 9, 12, 0, tzinfo=UTC), Ending.closed("Anna")
+                TableId(first_series),
+                datetime(2026, 11, 9, 12, 0, tzinfo=UTC),
+                Ending(EndReason.CLOSED, closed_by_name="Anna"),
             )
 
         last = stored(transactions, first_series).last_series
@@ -713,6 +722,10 @@ class TestTheSeriesRow:
 
     def test_an_ended_table_that_finished_no_game_has_no_last_series(self, service, transactions, stored, table_id):
         with transactions.begin() as transaction:
-            transaction.end_table(TableId(table_id), datetime(2026, 11, 9, 12, 0, tzinfo=UTC), Ending.closed("Anna"))
+            transaction.end_table(
+                TableId(table_id),
+                datetime(2026, 11, 9, 12, 0, tzinfo=UTC),
+                Ending(EndReason.CLOSED, closed_by_name="Anna"),
+            )
 
         assert stored(transactions, table_id).last_series is None

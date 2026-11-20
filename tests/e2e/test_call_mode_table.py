@@ -120,7 +120,6 @@ def test_a_framed_call_mode_table_offers_its_opener_the_speaker_and_no_close_key
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
 
         expect(table.locator(SPEAKER)).to_be_visible()
-        expect(table.locator(".row.close")).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

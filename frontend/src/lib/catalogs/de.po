@@ -611,6 +611,18 @@ msgctxt "table.newSeries"
 msgid "Neue Serie"
 msgstr ""
 
+msgctxt "table.stopPlaying"
+msgid "Aufhören"
+msgstr ""
+
+msgctxt "table.nextSeries"
+msgid "Nächste Serie"
+msgstr ""
+
+msgctxt "table.answerClockEnds"
+msgid "Ohne Antwort in {time} endet der Tisch"
+msgstr ""
+
 msgctxt "table.wantsToEndSeries"
 msgid "{name} möchte die Serie beenden"
 msgstr ""
@@ -1600,22 +1612,6 @@ msgid "Mitten ins Spiel setzen?"
 msgstr ""
 
 msgctxt "table.sitQuestionCancel"
-msgid "Abbrechen"
-msgstr ""
-
-msgctxt "table.close"
-msgid "Tisch schließen"
-msgstr ""
-
-msgctxt "table.closeQuestion"
-msgid "Tisch für alle schließen?"
-msgstr ""
-
-msgctxt "table.closeConfirm"
-msgid "Schließen"
-msgstr ""
-
-msgctxt "table.closeCancel"
 msgid "Abbrechen"
 msgstr ""
 

@@ -26,7 +26,6 @@ const tableAt = (version: number, ownNudge: Nudge | null): Table => ({
     version,
     chairs: [chairOf(OWN_SEAT, ownNudge), chairOf(AWAITED_SEAT, null)],
     watchers: 0,
-    opened_by_me: false,
     reactions: [],
     hand: null,
     result: null,

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { Chair } from "../routes/(start)/tables.ts";
+import type { Chair, Options, Table } from "../routes/(start)/tables.ts";
 import { weiterBar } from "#lib/result.ts";
 import {
     gameRows,
     resultOnStage,
+    returnsToLobby,
     seriesCountText,
+    nextSeriesLine,
+    seriesEndAnswerBy,
     seriesEndAsk,
     seriesEndMarks,
     seriesEndOffered,
@@ -13,6 +16,7 @@ import {
     seriesRefusalNotice,
     seriesOver,
     standingsView,
+    stopOffered,
 } from "#lib/series.ts";
 import {
     chairs,
@@ -355,6 +359,89 @@ describe("weiterBar after the series ended", () => {
     it("gives no bar between games while the series runs", () => {
         expect(weiterBar(tableBetweenGames(1, seriesAt()))).toBeNull();
         expect(chairs(1)).toHaveLength(3);
+    });
+});
+
+describe("the series' end", () => {
+    const over = (mine: number, changes: Parameters<typeof seriesAt>[0] = {}) =>
+        tableBetweenGames(mine, seriesAt({ over: true, standings: [], ...changes }));
+    const NO_RULES: Options = {
+        show_running_points: false,
+        kontra: null,
+        bock: null,
+        ramsch: null,
+        give_up: { partner_agrees: false, any_time: false },
+    };
+
+    it.each([
+        { name: "a seated member of a series that is over", table: over(1), expected: true },
+        { name: "a watcher of a series that is over", table: over(WATCHER), expected: false },
+        { name: "a seated member of a series that runs", table: tableBetweenGames(1, seriesAt()), expected: false },
+        { name: "a seated member of a table with no series", table: tableBetweenGames(1, null), expected: false },
+    ])("offers „Aufhören“ to $name: $expected", ({ table, expected }) => {
+        expect(stopOffered(table)).toBe(expected);
+    });
+
+    it("names the length and the rules the next series begins with", () => {
+        const table = { ...over(1), options: NO_RULES };
+
+        expect(nextSeriesLine(table)).toEqual({
+            length: words["table.seriesGames"](36),
+            chips: [{ id: "official", word: words["rules.chipOfficial"], count: null }],
+        });
+    });
+
+    it.each([
+        { name: "a series that runs", table: { ...tableBetweenGames(1, seriesAt()), options: NO_RULES } },
+        { name: "a table that has no options", table: over(1) },
+    ])("draws no line of next settings for $name", ({ table }) => {
+        expect(nextSeriesLine(table)).toBeNull();
+    });
+
+    it("gives the instant the silent seats end the table once the first chose „Neue Serie“", () => {
+        expect(seriesEndAnswerBy(over(1, { new_series_answer_by: ANSWER_BY }))).toBe(ANSWER_BY);
+    });
+
+    it.each([
+        { name: "no seat chose yet", table: over(1) },
+        { name: "the series runs", table: tableBetweenGames(1, seriesAt({ new_series_answer_by: ANSWER_BY })) },
+        { name: "there is no series", table: tableBetweenGames(1, null) },
+    ])("gives no minute while $name", ({ table }) => {
+        expect(seriesEndAnswerBy(table)).toBeNull();
+    });
+
+    const PLAYED = { standings: null, game_count: null };
+    const stopped: Table = {
+        ...over(1),
+        ended: { ...PLAYED, reason: "closed", empty_seconds: null, unplayed_days: null, closed_by_name: null },
+    };
+    const named: Table = {
+        ...over(1),
+        ended: { ...PLAYED, reason: "closed", empty_seconds: null, unplayed_days: null, closed_by_name: "Anna" },
+    };
+    const emptied: Table = {
+        ...over(1),
+        ended: { ...PLAYED, reason: "empty", empty_seconds: 60, unplayed_days: null, closed_by_name: null },
+    };
+
+    it.each([
+        {
+            name: "a page that showed the live table „Aufhören“ ended",
+            previous: over(1),
+            table: stopped,
+            expected: true,
+        },
+        {
+            name: "a page that opened the link of a stopped table",
+            previous: undefined,
+            table: stopped,
+            expected: false,
+        },
+        { name: "a page that already showed the stopped table", previous: stopped, table: stopped, expected: false },
+        { name: "a page whose live table ended another way", previous: over(1), table: emptied, expected: false },
+        { name: "a page whose live table an opener closed by name", previous: over(1), table: named, expected: false },
+    ])("returns to the lobby from $name: $expected", ({ previous, table, expected }) => {
+        expect(returnsToLobby(previous, table)).toBe(expected);
     });
 });
 

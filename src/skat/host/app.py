@@ -34,7 +34,6 @@ from skat.web.account import create_account_router
 from skat.web.auction import create_auction_router
 from skat.web.call import create_call_router
 from skat.web.calling import AgentRecords, AgentRoster, CallerMembership, create_calling_router
-from skat.web.closing import create_closing_router
 from skat.web.constants import (
     HEALTH_PATH,
     NO_CACHE_PATH_RULES,
@@ -79,6 +78,7 @@ from skat.web.sign_in import (
     build_sign_in_configs,
     install_sign_in,
 )
+from skat.web.stopping import create_stopping_router
 from skat.web.streams import StreamSlots, StreamSource, create_streams_router
 from skat.web.style import create_style_router
 from skat.web.tables import create_tables_router
@@ -95,6 +95,7 @@ if TYPE_CHECKING:
     from webauth.proxies import TrustedProxies
 
     from skat.table.rule_sets import RuleSetService
+    from skat.table.server_steps import EndAnswerLapse
     from skat.table.service import TableService
     from skat.web.page_build import PageBuild
     from skat.web.presence_roster import StreamLeases
@@ -279,7 +280,7 @@ def _next_deal(tables: TableService) -> NextDeal:
 
 
 def _end_answers(tables: TableService) -> EndAnswers:
-    async def lapse(table_id: str) -> float | None:
+    async def lapse(table_id: str) -> EndAnswerLapse:
         return await run_in_threadpool(tables.lapse_end_answers, TableId(table_id))
 
     return EndAnswers(lapse)
@@ -328,7 +329,7 @@ def _include_table_routers(
     web_auth: WebAuthConfig,
 ) -> None:
     app.include_router(create_seating_router(tables, presence, wakes))
-    app.include_router(create_closing_router(tables, presence))
+    app.include_router(create_stopping_router(tables, presence))
     app.include_router(create_tables_router(tables, page_build, presence, sessions, web_auth))
 
 

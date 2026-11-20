@@ -3,8 +3,8 @@ from dataclasses import replace
 import pytest
 
 from skat.engine.deal import Position, seats_from
-from skat.table.records import Refusal, Series
-from skat.web.mcp import CONTINUE_AFTER_RESULT_TOOL, START_NEW_SERIES_TOOL
+from skat.table.records import EndReason, Refusal, Series
+from skat.web.mcp import CONTINUE_AFTER_RESULT_TOOL, START_NEW_SERIES_TOOL, STOP_PLAYING_TOOL
 from tests.support.payload_cards import DEALER_SEAT
 from tests.web.support.agent import SUBJECT, Agent
 from tests.web.support.series import play_the_dealt_series, tap_new_series
@@ -137,6 +137,7 @@ class TestStartNewSeries:
             "standings": None,
             "end_proposal": None,
             "end_refused_seats": [],
+            "new_series_answer_by": None,
         }
         assert view["hand"] is not None
         assert table.record.game_list == ()
@@ -157,3 +158,24 @@ class TestStartNewSeries:
 
         assert "stay stored" in tools[START_NEW_SERIES_TOOL]["description"]
         assert START_NEW_SERIES_TOOL in tools[CONTINUE_AFTER_RESULT_TOOL]["description"]
+
+    def test_the_agent_is_offered_both_answers_at_the_series_end(self, agent, ended_series):
+        offered = agent.listed_tools()
+
+        assert {START_NEW_SERIES_TOOL, STOP_PLAYING_TOOL} <= set(offered)
+
+    def test_the_agents_stop_ends_the_table_as_a_persons_aufhoeren_does(self, agent, ended_series):
+        table = ended_series
+
+        answer = agent.call(STOP_PLAYING_TOOL, table_id=table.table_id, command_id="agent-stops")
+
+        assert not answer.is_error, answer.text
+        assert agent.read(table.table_id).json()["ended"]["reason"] == EndReason.CLOSED
+
+    def test_the_descriptions_name_the_minute_after_which_a_silent_seat_ends_the_table(self, agent):
+        listed = agent.offered_every_tool().request("tools/list")
+        tools = {tool["name"]: tool for tool in listed.json()["result"]["tools"]}
+
+        assert STOP_PLAYING_TOOL in tools[START_NEW_SERIES_TOOL]["description"]
+        for tool in (START_NEW_SERIES_TOOL, STOP_PLAYING_TOOL):
+            assert "series.new_series_answer_by" in tools[tool]["description"]

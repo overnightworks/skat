@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -6,7 +7,7 @@ from playwright.sync_api import Page, expect
 
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX
-from skat.web.tables import TABLES_PATH
+from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
@@ -51,6 +52,9 @@ WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 PHONE_BREAKPOINT = 900
 NEW_SERIES = text(SOURCE_LANGUAGE, "table.newSeries")
+STOP_PLAYING = text(SOURCE_LANGUAGE, "table.stopPlaying")
+NEXT_LINE = ".result.standing .nextline"
+ANSWER_CLOCK = ".stage > .plaque.timer"
 RAMSCH = text(SOURCE_LANGUAGE, "game.ramsch")
 YES = text(SOURCE_LANGUAGE, "table.yes")
 NO = text(SOURCE_LANGUAGE, "table.no")
@@ -355,6 +359,7 @@ def test_a_passed_in_hand_counts_and_a_passed_in_last_game_ends_the_series_with_
     for person in table.everyone:
         expect(person.locator(STANDING)).to_have_count(1)
         expect(person.locator(COUNT)).to_have_count(0)
+        expect(person.locator(f"{NEXT_LINE} .chip.official")).to_have_text(text(SOURCE_LANGUAGE, "rules.chipOfficial"))
     assert page_errors == []
 
 
@@ -404,6 +409,56 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
         expect(person.locator(COUNT)).to_have_text(game_count(1))
         expect(person.locator(STANDING)).to_have_count(0)
         expect(person.locator(".chair .coaster")).to_have_text(["0", "0", "0"])
+    assert page_errors == []
+
+
+def expect_the_minute_below_the_card(person: Page) -> None:
+    """The running minute is a pill of its own below the standings card, never a line inside it."""
+    card = person.locator(".result.standing").bounding_box()
+    minute = person.locator(ANSWER_CLOCK).bounding_box()
+    assert card is not None
+    assert minute is not None
+    assert minute["y"] >= card["y"] + card["height"]
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_series_end_offers_exactly_neue_serie_and_aufhoeren_and_aufhoeren_sends_every_page_to_the_lobby(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.pass_all()
+    table.play_out()
+    first, second, third = table.pages[1], table.pages[2], table.pages[3]
+    propose_the_end(first)
+    answer_the_ask(second, YES)
+    answer_the_ask(third, YES)
+    for person in table.everyone:
+        expect(person.locator(STANDING)).to_have_count(1)
+        expect(person.locator(NEXT_LINE)).to_have_count(1)
+        expect(person.locator(ANSWER_CLOCK)).to_have_count(0)
+    for person in table.pages.values():
+        expect(person.locator(".actions button")).to_have_text([NEW_SERIES, STOP_PLAYING])
+    expect(table.watcher.locator(".actions button")).to_have_count(0)
+
+    first.get_by_role("button", name=NEW_SERIES, exact=True).click()
+    for person in table.everyone:
+        expect(person.locator(ANSWER_CLOCK)).to_have_count(1)
+        expect(person.locator(".chair[data-seat='1'] .mark.ready")).to_have_count(1)
+        expect_the_minute_below_the_card(person)
+
+    second.get_by_role("button", name=STOP_PLAYING, exact=True).click()
+    lobby = re.compile(rf"^{re.escape(e2e_server.base_url)}/?$")
+    for person in table.everyone:
+        expect(person).to_have_url(lobby)
+    link = f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{table.api_path.removeprefix(TABLES_PATH + '/')}"
+    # The browser coverage collector aborts a Playwright navigation away from the lobby; a page's own one goes through.
+    table.watcher.evaluate("address => location.assign(address)", link)
+    expect(table.watcher.get_by_role("heading", name=text(SOURCE_LANGUAGE, "closed.seriesEnded"))).to_be_visible()
+    expect(table.watcher).to_have_url(link)
     assert page_errors == []
 
 

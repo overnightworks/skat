@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from skat.table.records import Chair, EndedTable, Ending, Receipt, Replay, TableId, TableRecord, Visibility
 from skat.table.rules import CREATE_TABLE_COMMAND, played_series_of
+from skat.table.series_end import series_asked_at
 from skat.table.service import TableService
 from skat.table.transactions import (
     DuplicateReceiptError,
@@ -125,16 +126,6 @@ class FakeTableStore:
         self.tables[table.id.value] = table
         self.opener_names[table.id.value] = opener_name
 
-    def opener_account(self, table_id: TableId) -> str | None:
-        return next(
-            (
-                receipt.account_id
-                for receipt in self.receipts.values()
-                if receipt.table_id == table_id and receipt.command == CREATE_TABLE_COMMAND
-            ),
-            None,
-        )
-
     def played_before(self, cutoff: datetime) -> tuple[TableId, ...]:
         return tuple(
             TableId(table_id)
@@ -190,9 +181,10 @@ class FakeTableStore:
 
     def live_end_asks(self) -> tuple[LiveAsk, ...]:
         return tuple(
-            LiveAsk(table.id, table.series.end_proposal.asked_at)
+            LiveAsk(table.id, asked_at)
             for table in self.tables.values()
-            if isinstance(table, TableRecord) and table.series is not None and table.series.end_proposal is not None
+            if isinstance(table, TableRecord) and table.series is not None
+            if (asked_at := series_asked_at(table.series)) is not None
         )
 
     def hold_due(self, table_id: str, account_id: str) -> None:

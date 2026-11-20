@@ -35,6 +35,7 @@ class SeriesAnswer(BaseModel):
     standings: list[StandingAnswer] | None
     end_proposal: SeriesEndProposalAnswer | None
     end_refused_seats: list[int]
+    new_series_answer_by: datetime | None
 
 
 def standing_answer_of(standing: Standing) -> StandingAnswer:
@@ -66,4 +67,7 @@ def series_answer_of(series: SeriesView | None) -> SeriesAnswer | None:
             answer_by=series.end_proposal.asked_at + timedelta(seconds=END_ANSWER_SECONDS),
         ),
         end_refused_seats=sorted(series.end_refused_by),
+        new_series_answer_by=None
+        if series.new_series_asked_at is None
+        else series.new_series_asked_at + timedelta(seconds=END_ANSWER_SECONDS),
     )

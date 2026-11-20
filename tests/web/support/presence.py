@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 from logline import Outcome
 
+from skat.table.server_steps import EndAnswerLapse
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.presence import ChairHold
 from skat.web.presence_line import EVENT
@@ -151,7 +152,7 @@ class Lapses:
         self.asked.append(table_id)
         if self.failures:
             raise self.failures.pop(0)
-        return self.left.pop(0) if self.left else None
+        return EndAnswerLapse(self.left.pop(0) if self.left else None)
 
 
 class Notes:

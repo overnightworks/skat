@@ -1,16 +1,26 @@
 <script lang="ts">
     import type { WeiterBar } from "#lib/result.ts";
+    import StopKey from "#lib/ui/StopKey.svelte";
     import { words } from "#lib/words.ts";
 
     // The key of the bar after a game: „Weiter“ (after the series' last game „Neue Serie“) until the viewer has tapped,
-    // then who is awaited. A watcher of the standings has neither and says so. `sent` is a tap under way.
+    // then who is awaited. A watcher of the standings has neither and says so. `sent` is a tap under way. At the series'
+    // end `onstop` offers „Aufhören“ beside „Neue Serie“.
     const {
         bar,
         watching,
         newSeries,
         sent,
         ontap,
-    }: { bar: WeiterBar | null; watching: boolean; newSeries: boolean; sent: boolean; ontap: () => void } = $props();
+        onstop,
+    }: {
+        bar: WeiterBar | null;
+        watching: boolean;
+        newSeries: boolean;
+        sent: boolean;
+        ontap: () => void;
+        onstop?: () => void;
+    } = $props();
 </script>
 
 {#if bar?.kind === "tap"}
@@ -55,4 +65,7 @@
         <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
         {`${words["table.watchingOnly"]}`}
     </span>
+{/if}
+{#if onstop}
+    <StopKey {sent} ontap={onstop} />
 {/if}

@@ -8012,6 +8012,66 @@ body {
     list-style: none;
 }
 
+/* The series' end: what the next series begins with under the ranks, and the minute left before a silent seat ends the table. */
+.room .result .nextline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 10px;
+    width: 100%;
+    padding-top: 4px;
+}
+
+.room .nextline .lbl {
+    color: var(--on-stage-soft);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.room .nextline .chip.len {
+    color: var(--on-stage);
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: none;
+}
+
+/* The minute left lies on its own pill below the card, on the table's near edge, as the silent scene draws it: on a phone a row of its own between the card and the near chair, on a desktop at the foot of the row the card stands in, above the near chair. */
+.room .stage > .plaque.timer {
+    position: relative;
+    z-index: 2;
+    grid-column: 1 / 3;
+    align-self: start;
+    justify-self: center;
+    margin: 0 0 8px;
+    padding: 8px 14px;
+}
+
+@media (max-width: 899px) {
+    .room .stage:has(> .result):has(> .plaque.timer) {
+        grid-template-rows: auto auto minmax(0, auto) auto auto auto;
+    }
+
+    .room .stage:has(> .result) > .plaque.timer {
+        grid-row: 4;
+    }
+
+    .room .stage:has(> .result):has(> .plaque.timer) .chair:nth-child(3) {
+        grid-row: 5;
+    }
+
+    .room .stage:has(> .result):has(> .plaque.timer) .controls {
+        grid-row: 6;
+    }
+}
+
+@media (min-width: 900px) {
+    .room .stage:has(> .result) > .plaque.timer {
+        grid-row: 3;
+        align-self: end;
+        margin-bottom: 58px;
+    }
+}
+
 .room .rank {
     display: flex;
     align-items: center;

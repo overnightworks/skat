@@ -1,9 +1,10 @@
 import json
 
-from skat.table.records import Actor, CloseTable, CreateTable, SitDown, StandUp, Visibility
+from skat.table.records import Actor, CreateTable, SitDown, StandUp, Visibility
 from skat.web.lobby import AttentionSource, LobbySource, OpenTablesSource
 from skat.web.streams import SourceMessage, StreamEvent, stream_messages
 from skat.web.wakes import AccountTopic, OpenTablesTopic
+from tests.support.ended_tables import end_the_table
 from tests.support.fake_tables import in_memory_tables
 from tests.support.idle_presence import idle_presence, idle_wakes
 from tests.web.support.streams import NO_HEARTBEAT_SECONDS, admitting, next_item
@@ -54,7 +55,7 @@ class Scene:
         return table_id
 
     def close(self, person, table_id):
-        self.service.close(person, CloseTable(f"close-{table_id}", table_id))
+        end_the_table(self.service, table_id)
         self.presence.wake_table(table_id)
 
     def sit(self, person, table_id, seat):
