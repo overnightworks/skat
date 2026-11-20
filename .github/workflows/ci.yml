@@ -174,7 +174,7 @@ jobs:
           SKAT_E2E_SHARDS: ${{ strategy.job-total }}
           SKAT_TEST_POSTGRES_URL: postgresql+psycopg://postgres@localhost:5432/postgres
           SKAT_BROWSER_COVERAGE_DIR: ${{ runner.temp }}/browser-coverage-raw
-        run: pytest -m e2e -n auto tests/e2e/test_table_reactions.py -k 'makes_it_move_and_sound or makes_every_coaster_move' --durations=20 --tracing retain-on-failure --screenshot only-on-failure --output test-results
+        run: pytest -m e2e -n auto --durations=20 --tracing retain-on-failure --screenshot only-on-failure --output test-results
 
       - name: Upload the end-to-end coverage data
         if: ${{ !cancelled() }}
