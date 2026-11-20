@@ -3,6 +3,6 @@ agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
 role = "builder"
 base = "6bac96766e1ce199e89fb59e27aeb302db18428c"
 branch = "claude/issue-740-the-next-series-settings-save-names-its"
-scope = ["frontend/src/lib/catalogs", "frontend/src/lib/ui", "frontend/src/lib/wire.ts", "frontend/src/lib/words", "frontend/src/routes/(start)", "src/skat/table", "src/skat/web", "src/skat/web/words.py", "tests"]
+scope = ["docs/ARCHITECTURE.md", "frontend/src/lib/catalogs", "frontend/src/lib/start.css", "frontend/src/lib/ui", "frontend/src/lib/wire.ts", "frontend/src/lib/words", "frontend/src/routes/(start)", "src/skat/table", "src/skat/web", "src/skat/web/words.py", "tests"]
 opened_commit = "d1f1236823866c2373065ae00e58faf576aabac3"
 whole_reason = "The stale-save rule travels from the table rule through route and agent tool to the sheet, with the words it needs."
