@@ -47,6 +47,7 @@ from skat.web.mcp import (
     SIT_DOWN_TOOL,
     STAND_UP_TOOL,
     START_NEW_SERIES_TOOL,
+    STOP_PLAYING_TOOL,
     TAKE_SKAT_TOOL,
     THROW_DOWN_CARDS_TOOL,
     THROW_REACTION_TOOL,
@@ -117,6 +118,7 @@ class TestTools:
                 READ_RULE_SETS_TOOL,
                 SAVE_RULE_SET_TOOL,
                 START_NEW_SERIES_TOOL,
+                STOP_PLAYING_TOOL,
                 NUDGE_SEAT_TOOL,
                 THROW_REACTION_TOOL,
             }

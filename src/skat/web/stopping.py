@@ -41,8 +41,7 @@ def create_stopping_router(tables: TableService, presence: Presence) -> APIRoute
         This is the answer to „Neue Serie“ for a seat that does not want to play on; a seat that stays silent for one
         minute after the first „Neue Serie“ ends the table the same way (`series.new_series_answer_by`). Use it when
         read_table or your table's view shows `series.over: true`. The answer is the ended table (`ended.reason` is
-        `closed` and `closed_by_name` is null). The command id names this step: the same id again is a retry that
-        answers the ended table.
+        `closed` and `closed_by_name` is null). A retry of the same call answers the ended table.
         Refused: not seated, no series, the series is not over; a refusal leaves the table as it was and spends
         nothing.
         """
