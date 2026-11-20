@@ -308,6 +308,18 @@ describe("standingsView", () => {
         expect(view?.winnerSeats.size).toBe(0);
     });
 
+    it("reads no name as Du for a watcher, and marks no chair for a nameless winner", () => {
+        const watching = tableBetweenGames(
+            WATCHER,
+            seriesAt({ over: true, standings: [{ ...standings[4], place: 1 }], game_number: 36 }),
+        );
+
+        const view = standingsView(watching);
+
+        expect(view?.rows.map((row) => row.name)).toEqual([words["table.seriesNameless"]]);
+        expect(view?.winnerSeats.size).toBe(0);
+    });
+
     it("lets a place shared at the top share the win", () => {
         const view = standingsView(
             ended({
