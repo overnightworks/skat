@@ -33,11 +33,13 @@ def tap_new_series(skat, headers, table_id, command_id, series=1, settings=0):
     )
 
 
-def change_next_settings(skat, headers, table_id, command_id, series=1, **settings):
-    """Save the next series' settings; `settings` are the request's `series_length` and `options`."""
+def change_next_settings(skat, headers, table_id, command_id, series=1, revision=0, **settings):
+    """Save the next series' settings started from `revision`; `settings` are the request's `series_length` and
+    `options`.
+    """
     return skat.client.post(
         f"{TABLES_PATH}/{table_id}{TABLE_NEXT_SETTINGS_SUFFIX}",
-        json={"command_id": command_id, "series": series, **settings},
+        json={"command_id": command_id, "series": series, "settings": revision, **settings},
         headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
     )
 

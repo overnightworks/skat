@@ -52,9 +52,11 @@ class NewSeriesRequest(SeriesRequest):
 
 class NextSettingsRequest(SeriesRequest):
     """The next series' length and rule options as the sheet that opens a table names them; left out, `options` are the
-    official rules.
+    official rules. `settings` is the revision of the next series' settings the sheet started from,
+    `series.next_settings.revision`; left out it is revision 0, so the save is refused once a seat saved others.
     """
 
+    settings: Annotated[int, Field(strict=True, ge=0)] = 0
     series_length: SeriesLengthRequest
     options: OptionsRequest | None = None
 
@@ -63,6 +65,7 @@ class NextSettingsRequest(SeriesRequest):
             command_id=self.command_id,
             table_id=table_id,
             series=self.series,
+            settings=self.settings,
             length=self.series_length,
             options=table_options_of(self.options),
         )
@@ -132,13 +135,15 @@ def _add_change_next_series_settings(router: APIRouter, tables: TableService, pr
 
         Use it when read_table or your table's view shows `series.over: true`; `series.next_settings` holds the
         `game_count` and `options` the next series is played with now, the last series' until someone saves, and a
-        `revision` that counts the saves. The `series` is `series.number`; `series_length` is the number of games, a
-        multiple of three from 3 to 99, and `options` are the table's rule options as open_table names them, the
-        official rules when left out. A save replaces the settings, shows at once on every page, and takes back every
+        `revision` that counts the saves. The `series` is `series.number`, the `settings` is the
+        `series.next_settings.revision` you read (0 when left out); `series_length` is the number of games, a multiple
+        of three from 3 to 99, and `options` are the table's rule options as open_table names them, the official
+        rules when left out. A save replaces the settings, shows at once on every page, and takes back every
         seat's „Neue Serie“, yours too, since each was given on the settings before: tap again with start_new_series on
         the new `series.next_settings.revision`. The minute that follows the first „Neue Serie“ starts again with
-        the next one. Refused: not seated, no series, a stale series, the series is not over, the minute is over
-        (`answer-time-over`); invalid settings are refused as open_table refuses them.
+        the next one. Refused: not seated, no series, a stale series, the series is not over, stale settings
+        (`stale-settings`: another seat saved since you read them; read the table again and decide on the settings it
+        shows), the minute is over (`answer-time-over`); invalid settings are refused as open_table refuses them.
         """
         return await command_answer(
             partial(tables.change_next_settings, actor_of(request), body.command_of(table_id)),

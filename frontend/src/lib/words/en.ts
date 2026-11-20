@@ -215,6 +215,7 @@ const translated = {
     "table.nextSeriesChange": "Change",
     "table.nextSeriesSave": "Save",
     "table.nextSeriesCancel": "Cancel",
+    "table.nextSeriesChanged": "The settings have changed. Here are the new ones.",
     "table.nextSeriesTakeBack": (gaps: { readonly names: string }) => "Saving takes back " + gaps.names + " “New series”.",
     "table.possessive": (gaps: { readonly name: string }) => gaps.name + "’s",
     "table.possessiveApostrophe": (gaps: { readonly name: string }) => gaps.name + "’s",

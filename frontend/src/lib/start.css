@@ -1707,8 +1707,10 @@ body {
     --open-drop: calc(var(--open-width) * 0.78);
 }
 
-/* The minute left to answer, under the line of the ask. */
-.room .plaque .clockline {
+/* The minute left to answer, under the line of the ask and under the title of the next series' sheet. */
+.room .plaque .clockline,
+.sheet .clockline {
+    flex: none;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -1718,7 +1720,8 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
-.room .plaque .clockline svg {
+.room .plaque .clockline svg,
+.sheet .clockline svg {
     width: 16px;
     height: 16px;
 }

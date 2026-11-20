@@ -1,20 +1,27 @@
 <script lang="ts">
     import { untrack } from "svelte";
     import { closeOnEscape } from "#lib/closeOnEscape.ts";
+    import AnswerClock from "#lib/ui/AnswerClock.svelte";
     import { words } from "#lib/words.ts";
     import { requestOf } from "../../routes/(start)/openingRules.ts";
     import SettingsBody from "../../routes/(start)/SettingsBody.svelte";
     import type { NextSettings, OptionsRequest, Outcome } from "../../routes/(start)/tables.ts";
 
     // The start sheet's settings body over the series end, filled with what the next series begins with. `takenBack`
-    // names the seats whose „Neue Serie“ a save takes back; `save` sends the settings and answers the server's outcome.
+    // names the seats whose „Neue Serie“ a save takes back, `answerBy` is the instant a silent seat ends the table (null
+    // while no minute runs), `settingsChanged` says that the settings shown are those another seat saved meanwhile; `save` sends
+    // the settings and answers the server's outcome.
     const {
         initial,
+        settingsChanged,
+        answerBy,
         takenBack,
         save,
         oncancel,
     }: {
         initial: NextSettings;
+        settingsChanged: boolean;
+        answerBy: string | null;
         takenBack: string | null;
         save: (commandId: string, length: number, options: OptionsRequest | undefined) => Promise<Outcome>;
         oncancel: () => void;
@@ -50,6 +57,12 @@
     })}
 >
     <h3>{words["table.nextSeries"]}</h3>
+    {#if answerBy !== null}
+        <AnswerClock until={answerBy} ends />
+    {/if}
+    {#if settingsChanged}
+        <p role="status">{words["table.nextSeriesChanged"]}</p>
+    {/if}
     <SettingsBody bind:length bind:sheet disabled={saving} onchange={changed} />
     {#if takenBack !== null}
         <p class="takeback">{takenBack}</p>

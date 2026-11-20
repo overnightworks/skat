@@ -60,12 +60,24 @@ def the_scene_draws_the_settings_sheet_in(person: Page) -> dict[str, float]:
         scene.close()
 
 
+def without_places(boxes: list[float]) -> list[float]:
+    """The widths and heights of boxes given as x, y, width, height."""
+    return [size for box in range(0, len(boxes), 4) for size in boxes[box + 2 : box + 4]]
+
+
+def measured_boxes(person: Page, selector: str, *, sizes_only: bool) -> list[float]:
+    boxes = person.evaluate(BOXES_OF, [selector, None])
+    return without_places(boxes) if sizes_only else boxes
+
+
 def expect_the_boxes_to_sit_as_the_scene_draws_them(
-    person: Page, scene: str, selector: str, scene_selector: str | None = None
+    person: Page, scene: str, selector: str, scene_selector: str | None = None, *, sizes_only: bool = False
 ) -> None:
     """Each box of the selector settles within a few pixels of the box the frozen scene draws, read from it.
 
     The scenes draw 390 and 1280 px; the smaller phone keeps its boxes inside the panel by the same rules.
+    With sizes_only the boxes need not sit at the scene's places, only be as wide and as high: a row the scene
+    does not draw pushes the others down.
     """
     if person.viewport_size == SMALL_PHONE["viewport"]:
         return
@@ -76,9 +88,11 @@ def expect_the_boxes_to_sit_as_the_scene_draws_them(
         wanted = drawn.evaluate(BOXES_OF, [scene_selector or selector, frame])
     finally:
         drawn.close()
-    boxes = person.evaluate(BOXES_OF, [selector, None])
+    if sizes_only:
+        wanted = without_places(wanted)
+    boxes = measured_boxes(person, selector, sizes_only=sizes_only)
     deadline = time.monotonic() + SETTLE_SECONDS
     while boxes != pytest.approx(wanted, abs=SCENE_SPACING) and time.monotonic() < deadline:
         person.wait_for_timeout(SETTLE_POLL_MILLISECONDS)
-        boxes = person.evaluate(BOXES_OF, [selector, None])
+        boxes = measured_boxes(person, selector, sizes_only=sizes_only)
     assert boxes == pytest.approx(wanted, abs=SCENE_SPACING), selector

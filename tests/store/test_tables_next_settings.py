@@ -57,8 +57,8 @@ class TestTheNextSeriesSettings:
             )
         return table_id
 
-    def save(self, service, table_id, *, seat=1, length=12, options=SECOND_SERIES_OPTIONS, name="settings"):
-        command = NextSettingsCommand(f"{name}-{seat}", table_id, 1, length, options)
+    def save(self, service, table_id, *, seat=1, length=12, options=SECOND_SERIES_OPTIONS, name="settings", revision=0):
+        command = NextSettingsCommand(f"{name}-{seat}", table_id, 1, revision, length, options)
         return service.change_next_settings(PEOPLE[seat], command, ALL_THREE)
 
     def test_a_save_reads_back_beside_the_series_that_ended_and_changes_that_series_not(
@@ -88,7 +88,7 @@ class TestTheNextSeriesSettings:
     def test_a_second_save_replaces_the_first_in_the_same_row(self, service, engine, transactions, first_series):
         self.save(service, first_series, length=12, name="first")
 
-        self.save(service, first_series, seat=2, length=6, options=TableOptions(), name="second")
+        self.save(service, first_series, seat=2, length=6, options=TableOptions(), name="second", revision=1)
 
         assert read(transactions, first_series).series.next_settings == NextSettings(6, TableOptions(), 2)
         assert [row.number for row in series_rows(engine, first_series)] == [1, 2]
@@ -228,7 +228,7 @@ class TestTheNextSeriesSettings:
         assert read(transactions, first_series).options == SECOND_SERIES_OPTIONS
 
     def test_a_save_that_names_another_series_than_the_tables_is_refused(self, service, transactions, first_series):
-        command = NextSettingsCommand("settings-late", first_series, 2, 12, SECOND_SERIES_OPTIONS)
+        command = NextSettingsCommand("settings-late", first_series, 2, 0, 12, SECOND_SERIES_OPTIONS)
         before = read(transactions, first_series)
 
         answer = service.change_next_settings(OPENER, command, ALL_THREE)
@@ -248,7 +248,7 @@ class TestTheNextSeriesSettings:
         assert again == first
         assert read(transactions, first_series).series.next_settings == self.SAVED
 
-    def test_two_saves_at_once_are_both_accepted_in_turn_and_the_later_one_stands(
+    def test_two_saves_at_once_on_the_same_settings_leave_one_accepted_and_one_refused_as_stale(
         self, service, transactions, engine, first_series
     ):
         answers = race(
@@ -257,8 +257,8 @@ class TestTheNextSeriesSettings:
         )
 
         saved = read(transactions, first_series).series.next_settings
-        assert [answer.refusal for answer in answers.values()] == [None, None]
-        assert saved.revision == 2
+        assert {answer.refusal for answer in answers.values()} == {None, Refusal.STALE_SETTINGS}
+        assert saved.revision == 1
         assert (saved.length, saved.options) in {(6, TableOptions()), (9, SECOND_SERIES_OPTIONS)}
         assert [row.number for row in series_rows(engine, first_series)] == [1, 2]
 

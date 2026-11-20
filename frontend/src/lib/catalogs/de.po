@@ -627,6 +627,10 @@ msgctxt "table.nextSeriesCancel"
 msgid "Abbrechen"
 msgstr ""
 
+msgctxt "table.nextSeriesChanged"
+msgid "Die Einstellungen wurden geändert. Hier sind die neuen."
+msgstr ""
+
 msgctxt "table.nextSeriesTakeBack"
 msgid "Speichern nimmt {names} „Neue Serie“ zurück."
 msgstr ""
