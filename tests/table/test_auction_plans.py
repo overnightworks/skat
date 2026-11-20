@@ -2,7 +2,6 @@
 for him as ruled, shows the plan to him alone and forgets it with the hand and the chair.
 """
 
-import itertools
 import random
 from dataclasses import replace
 from datetime import timedelta
@@ -39,7 +38,6 @@ if TYPE_CHECKING:
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 BID, HOLD, PASS = AuctionAction.BID, AuctionAction.HOLD, AuctionAction.PASS
 FIXED, ASK = PlanMode.FIXED, PlanMode.ASK
-STEP_NUMBERS = itertools.count(1)
 LADDER = VALID_BIDS[:5]
 assert LADDER == (18, 20, 22, 23, 24)  # the cases below name the first rungs of the ladder  # noqa: S101
 AGENT = Actor(account_id="account-mozart", display_name="Mozart", kind=OccupantKind.AGENT)
@@ -64,7 +62,7 @@ def play_out(seated: Seated, script) -> None:
             actor_at(seated, position),
             action,
             value=value[0] if value else None,
-            command_id=f"step-{next(STEP_NUMBERS)}",
+            command_id=f"step-at-version-{seated.table().version}",
         )
         assert result.refusal is None
 
