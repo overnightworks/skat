@@ -100,7 +100,6 @@ def tap(card: Locator) -> None:
 
 FIRST_FINGER = 0
 SECOND_FINGER = 1
-TWO_FRAMES = "() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))"
 
 
 class Pointer:
@@ -127,9 +126,6 @@ class Pointer:
         self.at = (x, y)
         self.button = button
         if self.touch:
-            # The compositor learns an element's touch-action from the frame that painted it; a finger down before
-            # that frame starts a scroll, and the browser cancels the pointer on the first move.
-            self.person.evaluate(TWO_FRAMES)
             self._touch_event("touchStart", {FIRST_FINGER: self.at})
         else:
             self.person.mouse.move(x, y)
