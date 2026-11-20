@@ -1015,6 +1015,7 @@ body {
 
 @media (min-width: 900px) {
     .sheet {
+        gap: 10px;
         width: 440px;
     }
 }
@@ -8022,6 +8023,38 @@ body {
     list-style: none;
 }
 
+/* The series' end card keeps the standings scene's own measures: 34px heading, 14px between blocks and a 480px panel from 900px, 30px heading and the tighter panel on a phone. */
+@media (min-width: 900px) {
+    .room .stage .result.standing:not(.closedseries) {
+        gap: 14px;
+        width: min(100%, 480px);
+        margin-top: 4px;
+        padding: 18px 16px 16px;
+    }
+
+    .room .result.standing:not(.closedseries) h3 {
+        font-size: 34px;
+    }
+}
+
+@media (max-width: 899px) {
+    .room .stage:has(> .result.standing:not(.closedseries)) {
+        padding-top: 0;
+        grid-template-rows: 0 auto minmax(0, auto) auto auto;
+    }
+
+    .room .result.standing:not(.closedseries) {
+        grid-row: 2 / 4;
+        align-self: start;
+        gap: 10px;
+        margin-top: 110px;
+    }
+
+    .room .result.standing:not(.closedseries) h3 {
+        font-size: 30px;
+    }
+}
+
 /* The series' end: what the next series begins with under the ranks, and the minute left before a silent seat ends the table. */
 .room .result .nextline {
     display: flex;
@@ -8047,7 +8080,8 @@ body {
 
 /* „Ändern“ ends the line, a button that reads as a link. */
 .room .nextline .change {
-    padding: 6px 4px;
+    position: relative;
+    padding: 0 4px;
     border: 0;
     color: var(--accent-stage);
     background: none;
@@ -8057,6 +8091,12 @@ body {
     text-decoration: underline;
     text-underline-offset: 3px;
     cursor: pointer;
+}
+
+.room .nextline .change::after {
+    content: "";
+    position: absolute;
+    inset: -10px -4px;
 }
 
 /* The next series' sheet names whose „Neue Serie“ a save takes back. */
@@ -8093,7 +8133,7 @@ body {
 
 @media (max-width: 899px) {
     .room .stage:has(> .result):has(> .plaque.timer) {
-        grid-template-rows: auto auto minmax(0, auto) auto auto auto;
+        grid-template-rows: 0 auto minmax(0, auto) auto auto auto;
     }
 
     .room .stage:has(> .result) > .plaque.timer {
@@ -8120,6 +8160,7 @@ body {
 .room .rank {
     display: flex;
     align-items: center;
+    box-sizing: border-box;
     gap: 12px;
     min-height: 56px;
     padding: 8px 16px 8px 10px;
@@ -8175,12 +8216,6 @@ body {
     font-size: 12px;
     font-style: normal;
     font-weight: 600;
-}
-
-.room .rank small {
-    color: var(--on-stage-soft);
-    font-size: 12.5px;
-    font-variant-numeric: tabular-nums;
 }
 
 .room .rank .sum {

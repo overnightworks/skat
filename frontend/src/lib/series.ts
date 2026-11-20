@@ -125,7 +125,6 @@ export type StandingRow = {
     seat: number;
     agent: boolean;
     total: string;
-    record: string;
     winner: boolean;
     // Left the series: no chair of the table is theirs any more.
     gone: boolean;
@@ -141,17 +140,20 @@ export type StandingsView = {
 const FIRST_PLACE = 1;
 
 // One account's place as the server ranked it. `seated` names the accounts that still hold a chair, by seat; with none
-// given nobody is judged to have left, as at a table that has ended.
-export function standingRow(standing: Standing, seated: ReadonlyMap<string, number> | null): StandingRow {
+// given nobody is judged to have left, as at a table that has ended. The `viewer` account reads „Du“ on its own row.
+export function standingRow(
+    standing: Standing,
+    seated: ReadonlyMap<string, number> | null,
+    viewer: string | null = null,
+): StandingRow {
     const name = standing.display_name ?? words["table.seriesNameless"];
     return {
         place: standing.place,
-        name,
+        name: standing.display_name !== null && standing.display_name === viewer ? words["table.sideYou"] : name,
         initial: name.slice(0, 1),
         seat: standing.seat,
         agent: standing.kind === "agent",
         total: withMinus(standing.total),
-        record: words["table.seriesRecord"]({ won: String(standing.won), lost: String(standing.lost) }),
         winner: standing.place === FIRST_PLACE,
         gone: seated !== null && !seated.has(name),
     };
@@ -166,8 +168,13 @@ export function standingsView(table: Table): StandingsView | null {
             chair.occupant_name === null ? [] : [[chair.occupant_name, chair.seat] as const],
         ),
     );
-    const rows = series.standings.map((standing) => standingRow(standing, seated));
-    const winnerSeats = new Set(rows.filter((row) => row.winner).flatMap((row) => seated.get(row.name) ?? []));
+    const viewer = table.chairs.find((chair) => chair.is_mine)?.occupant_name ?? null;
+    const rows = series.standings.map((standing) => standingRow(standing, seated, viewer));
+    const winnerSeats = new Set(
+        series.standings
+            .filter((standing) => standing.place === FIRST_PLACE)
+            .flatMap((standing) => seated.get(standing.display_name ?? "") ?? []),
+    );
     return {
         heading: words["table.seriesEnded"],
         sub: words["table.seriesGames"](series.game_number),

@@ -125,7 +125,6 @@ export type Words = {
     readonly "table.seriesListFailed": string;
     readonly "table.seriesEnded": string;
     readonly "table.seriesGames": (count: number) => string;
-    readonly "table.seriesRecord": (gaps: { readonly lost: string; readonly won: string }) => string;
     readonly "table.seriesGone": string;
     readonly "table.seriesNameless": string;
     readonly "table.seriesRamschOf": (gaps: { readonly name: string }) => string;
@@ -736,7 +735,6 @@ export const words: Words = {
         many: numberFormat.format(count) + " Spiele",
         other: numberFormat.format(count) + " Spiele",
     })[pluralRules.select(count)],
-    "table.seriesRecord": (gaps: { readonly lost: string; readonly won: string }) => gaps.won + " gewonnen · " + gaps.lost + " verloren",
     "table.seriesGone": "gegangen",
     "table.seriesNameless": "Jemand",
     "table.seriesRamschOf": (gaps: { readonly name: string }) => "Ramsch, " + gaps.name,

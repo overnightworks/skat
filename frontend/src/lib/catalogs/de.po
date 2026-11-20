@@ -519,10 +519,6 @@ msgctxt "table.seriesGames.other"
 msgid "{count} Spiele"
 msgstr ""
 
-msgctxt "table.seriesRecord"
-msgid "{won} gewonnen · {lost} verloren"
-msgstr ""
-
 msgctxt "table.seriesGone"
 msgid "gegangen"
 msgstr ""
