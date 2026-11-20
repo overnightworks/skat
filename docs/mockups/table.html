@@ -2758,8 +2758,10 @@ const fork=(seed,label)=>{let a=[...`${seed}/${label}`].reduce((h,ch)=>Math.imul
   return {between:(lo,hi)=>lo+(hi-lo)*next(),sign:()=>next()<.5?-1:1};};
 /* the seed is the table, the series and the game's number, which every view carries; the strips show game 8 */
 const seedOf=(game)=>`skatrunde/serie-14/spiel-${game}`,GAME=8;
-/* the lie: how far a card rests off its place, in card widths, and how far it is turned. It belongs to no motion set, so devices with different sets show the same resting picture */
+/* the lie: how far a card rests off its place, in card widths, and how far it is turned. It belongs to no motion set, so devices with different sets show the same resting picture. A card lies off sideways and upward, never downward: below every card hangs its name, and below the near card the own seat begins. The rule is one for every card, whichever slot a seat sees it in, so every seat draws the same lie */
 const LIE={reach:.12,turn:10};
+/* a name's lower edge hangs this far below its card's centre, in card widths, as the resting trick hangs it */
+const NAME_AT=.82;
 /* a motion set is one record: how a card is thrown, and how a finished trick rests, lifts, gathers and glides (seconds; lift and rise in card widths) */
 const SETS={
   dezent:{land:{dur:.18,lift:.1,swell:.04,spin:[2,5],grip:14,ease:.85,squash:.015,flips:false},trick:{rest:.5,liftAt:.2,rise:.1,springs:false,gather:0,glide:.28}},
@@ -2771,59 +2773,65 @@ const thrown=(t,o)=>{const u=phase(t,o.t0,o.dur),after=t-o.t0-o.dur,share=1/(1+(
   const left=Math.exp(-o.grip*after),y=o.to.y-dy*(1-share)*left;
   return {x:o.to.x-dx*(1-share)*left,y,g:y,r:o.to.r-o.carry*left,s:o.to.s*(1-o.squash*Math.exp(-22*after))};};
 /* the third trick: each card with the place the table gives it, its lie and the turn its throw carries */
-const trickOf=(d,seed,set)=>THIRD_TRICK.map(([rank,suit,who,slot],i)=>{const place=slotOf(d,slot),lie=fork(seed,`stich-3/karte-${i+1}/lage`),toss=fork(seed,`stich-3/karte-${i+1}/wurf`),off=()=>place.w*lie.between(-LIE.reach,LIE.reach);
-  return {rank,suit,who,place:{x:place.x,y:place.y,r:place.rot,s:1},rest:{x:place.x+off(),y:place.y+off(),r:place.rot+lie.between(-LIE.turn,LIE.turn),s:1},carry:mix(...set.land.spin,toss.between(0,1))*toss.sign()};});
+const trickOf=(d,seed,set)=>THIRD_TRICK.map(([rank,suit,who,slot],i)=>{const place=slotOf(d,slot),lie=fork(seed,`stich-3/karte-${i+1}/lage`),toss=fork(seed,`stich-3/karte-${i+1}/wurf`),reach=place.w*LIE.reach;
+  return {rank,suit,who,place:{x:place.x,y:place.y,r:place.rot,s:1},rest:{x:place.x+lie.between(-reach,reach),y:place.y+lie.between(-reach,0),r:place.rot+lie.between(-LIE.turn,LIE.turn),s:1},carry:mix(...set.land.spin,toss.between(0,1))*toss.sign()};});
 /* the own card leaves the hand where it stood lifted under the thumb, the fourth of eight; an opponent's card leaves the middle of the fan */
 const handHome=(d,w)=>{const hand=d?DESK_HAND:PHONE_HAND;return {x:hand.cx-hand.strip.base/2,y:(d?800:844)-hand.bottom-hand.w*1.2,r:-hand.rot/2,s:hand.w/w};};
 const fanHome=(fan,w)=>{const fw=parseFloat(fan.style.getPropertyValue('--w')),rot=parseFloat(fan.style.transform.slice(7)),a=rot*Math.PI/180;
   return {x:parseFloat(fan.style.left)+.7*fw*Math.sin(a),y:parseFloat(fan.style.top)-.7*fw*Math.cos(a),r:rot>180?rot-360:rot,s:fw/w};};
 
-/* a card lands; the clock starts when Felix lets go of his ace. A card without a home lies already */
+/* a card lands; the clock starts when Felix lets go of his ace. A card without a home lies already. A name never flies: it appears where its card comes to rest */
 const LAND={from:-1.9,starts:[-1.5,-.8,0],until:(set)=>set.land.dur+1.8,
   table:(d,w,felt)=>trickTable(d,w,{felt,annaLast:true,felixTricks:1}),
   plan:(d,seed,set,fans=[])=>{const w=nearSlot(d).w;return {set,w,cards:trickOf(d,seed,set),homes:[fans[0],fans[1],handHome(d,w)]};},
   pose:(t,P)=>({cards:P.cards.map((c,i)=>{const L=P.set.land,t0=LAND.starts[i],home=P.homes[i],own=i===2;
     if(!home)return {...c.rest,tag:1};
     const p=thrown(t,{...L,t0,lift:L.lift*P.w,from:own||L.flips?home:{...home,r:c.rest.r},to:c.rest,carry:c.carry});
-    return {...p,o:own?phase(t,t0-.06,.06):L.flips?+(t>=t0):phase(t,t0,L.dur*.4),f:own||!L.flips?1:-Math.cos(Math.PI*phase(t,t0+L.dur*.1,L.dur*.5)),tag:phase(t,t0+L.dur+.04,.14)};})}),
+    return {...p,o:own?phase(t,t0-.06,.06):L.flips?+(t>=t0):phase(t,t0,L.dur*.4),f:own||!L.flips?1:-Math.cos(Math.PI*phase(t,t0+L.dur*.1,L.dur*.5)),tag:phase(t,t0+L.dur+.04,.14),name:c.rest};})}),
   stills:({land:{dur}})=>[
     {label:'Flug',t:dur*.6,hint:'gestrichelt: ihr Weg',ways:[[2,0,dur+.3]]},
     {label:'Aufschlag',t:dur,hint:'gestrichelt: dort bleibt sie liegen',ghosts:(P)=>[P.cards[2].rest]},
     {label:'Ruhe',t:dur+.9,hint:'gestrichelt: der Platz jeder Karte',ghosts:(P)=>P.cards.map(c=>c.place)}]};
 
-/* a trick is gathered; the clock starts when its third card lies. The playful set pushes the cards to a heap, squares it, turns it over and throws it onto the pile; in the quiet set the taking card goes straight to the pile and collects the other two on its way */
-const GATHER={from:-.6,hit:({trick:T})=>T.springs?T.rest+T.gather+.64:T.rest+T.glide,until:(set)=>GATHER.hit(set)+1.7,
+/* a trick is gathered; the clock starts when its third card lies. The playful set pushes the cards to a heap, squares it, turns it over and throws it onto the pile; in the quiet set the taking card goes straight to the pile and collects the other two on its way. A name stays where its card lay and fades there */
+const GATHER={from:-.6,until:(set)=>GATHER.parts(set).hit+1.7,
+  /* the instants a set's record gives: the gather begins when the rest ends and the glide when the gather ends. The playful glide is a turn-over, a throw and a slide, so its heap hits the pile before the glide ends; the quiet one ends on the pile */
+  parts:({trick:T})=>{const gather=T.rest,glide=gather+T.gather,turn=T.glide*.32,fly=T.glide*.53;return {gather,glide,turn,fly,hit:glide+(T.springs?turn+fly:T.glide)};},
   table:(d,w,felt,live)=>trickTable(d,w,live?{felt,felixTricks:2}:{felt,annaLast:true,felixTricks:1}),
   plan:(d,seed,set)=>{const w=nearSlot(d).w,at=gatherAt(d),pile=PILE_AT.felix(d),cards=trickOf(d,seed,set);
     /* the second trick lies crossed on the first, where pile() lays it */
     return {set,w,at,cards,top:{x:pile.x,y:pile.y-2,r:87,s:PILE_W(d)/w},
       heap:[1,2,3].map(n=>{const f=fork(seed,`stich-3/haufen/karte-${n}`);return {x:at.x+w*f.between(-.1,.1),y:at.y+w*f.between(-.1,.1),r:f.between(-22,22),s:1};})};},
-  pose:(t,P)=>{const T=P.set.trick,w=P.w,hit=GATHER.hit(P.set),gather=T.rest,glide=gather+T.gather;
+  pose:(t,P)=>{const T=P.set.trick,w=P.w,{gather,glide,turn,fly,hit}=GATHER.parts(P.set),settled=hit+.3;
     const up=T.springs?spring(t-T.liftAt,3.5,.5):1-(1-phase(t,T.liftAt,.16))**3,rim=phase(t,T.liftAt,.12);
     /* the taking card comes up toward the eye: it rises only a little while its shade falls away below it, so it covers little of its neighbours' names */
     const took=P.cards[2].rest,lifted={...took,y:took.y-.35*T.rise*w*up,g:took.y+.65*T.rise*w*up,s:1+(T.springs?.06:0)*up};
     const cards=P.cards.map((c,i)=>{const takes=i===2,start=takes?lifted:c.rest;
-      if(!T.springs){const u=phase(t,gather,T.glide),lane=blend({...lifted,r:start.r},P.top,smooth(u));
-        return {...blend(start,lane,1-(1-u)**3),o:1-phase(t,gather+T.glide*.7,T.glide*.3),tag:1-phase(t,gather,.1),rim:takes?rim:0};}
-      const turn=phase(t,glide,.24),packet={x:mix(P.at.x,P.heap[i].x,.5),y:mix(P.at.y,P.heap[i].y,.5),r:P.heap[2].r*.5+(i-1)*9,s:1},air=Math.sin(Math.PI*turn);
+      if(!T.springs){const u=phase(t,glide,T.glide),lane=blend({...lifted,r:start.r},P.top,smooth(u));
+        return {...blend(start,lane,1-(1-u)**3),o:1-phase(t,glide+T.glide*.7,T.glide*.3),tag:1-phase(t,gather,.1),name:start,rim:takes?rim:0};}
+      const over=phase(t,glide,turn),packet={x:mix(P.at.x,P.heap[i].x,.5),y:mix(P.at.y,P.heap[i].y,.5),r:P.heap[2].r*.5+(i-1)*9,s:1},air=Math.sin(Math.PI*over);
       const p=t<=glide?blend(start,P.heap[i],spring(t-gather-i*.04,4,.8))
-        :turn<1?{...blend(P.heap[i],packet,smooth(turn)),f:Math.cos(Math.PI*turn)}
-        :{...thrown(t,{t0:glide+.24+i*.02,dur:.4,grip:14,ease:.6,squash:.03,swell:.05,lift:.14*w,from:packet,to:P.top,carry:6-(i-1)*7}),f:-1};
-      return {...p,...(turn>0&&turn<1?{y:p.y-.12*w*air,s:1+.05*air}:{}),o:+(t<hit+.3),tag:1-phase(t,gather,.18),rim:takes?rim*(1-phase(t,glide,.2)):0};});
-    return {cards,pile:T.springs?+(t>=hit+.3):phase(t,gather+T.glide*.7,T.glide*.3),flash:phase(t,hit,.1)*(1-phase(t,hit+.15,T.springs?.9:.3)),hop:T.springs?-5*hop(t-hit,.3):0};},
-  stills:(set)=>{const T=set.trick,gather=T.rest,glide=gather+T.gather,hit=GATHER.hit(set),all=(from,to)=>[0,1,2].map(i=>[i,from,to]);
+        :over<1?{...blend(P.heap[i],packet,smooth(over)),f:Math.cos(Math.PI*over)}
+        :{...thrown(t,{t0:glide+turn+i*.02,dur:fly,grip:14,ease:.6,squash:.03,swell:.05,lift:.14*w,from:packet,to:P.top,carry:6-(i-1)*7}),f:-1};
+      return {...p,...(over>0&&over<1?{y:p.y-.12*w*air,s:1+.05*air}:{}),o:+(t<settled),tag:1-phase(t,gather,.1),name:start,rim:takes?rim*(1-phase(t,glide,.2)):0};});
+    return {cards,pile:T.springs?+(t>=settled):phase(t,glide+T.glide*.7,T.glide*.3),flash:phase(t,hit,.1)*(1-phase(t,hit+.15,T.springs?.9:.3)),hop:T.springs?-5*hop(t-hit,.3):0};},
+  stills:(set)=>{const T=set.trick,{gather,glide,turn,fly,hit}=GATHER.parts(set),all=(from,to)=>[0,1,2].map(i=>[i,from,to]);
     return [{label:'Ruhe',t:T.liftAt/2},{label:'Anheben',t:T.rest-.05},
-      T.springs?{label:'Zusammenschieben',t:gather+.13,hint:'gestrichelt: der Weg jeder Karte',ways:all(gather,glide)}:{label:'Zusammenrücken',t:gather+T.glide*.3,hint:'gestrichelt: der Weg jeder Karte',ways:all(gather,hit)},
-      T.springs?{label:'Gleiten',t:glide+.44,hint:'gestrichelt: der Weg auf den Stapel',ways:[[2,glide+.24,hit+.4]]}:{label:'Gleiten',t:gather+T.glide*.62,hint:'gestrichelt: der Weg auf den Stapel',ways:[[2,gather,hit]]}];}};
+      T.springs?{label:'Zusammenschieben',t:gather+T.gather*.52,hint:'gestrichelt: der Weg jeder Karte',ways:all(gather,glide)}:{label:'Zusammenrücken',t:glide+T.glide*.3,hint:'gestrichelt: der Weg jeder Karte',ways:all(glide,hit)},
+      T.springs?{label:'Gleiten',t:glide+turn+fly*.5,hint:'gestrichelt: der Weg auf den Stapel',ways:[[2,glide+turn,hit+.4]]}:{label:'Gleiten',t:glide+T.glide*.62,hint:'gestrichelt: der Weg auf den Stapel',ways:[[2,glide,hit]]}];}};
 const MOMENTS={land:LAND,gather:GATHER};
 
-/* a pose becomes two transforms: the card's, and its shade's, which stays on the felt and grows wider and paler the higher the card is */
+/* a pose becomes three transforms: the card's; its shade's, which stays on the felt and grows wider and paler the higher the card is; and its name's, which hangs level below the card's lower edge. A name that cannot be seen takes no room */
 const look=(p,w)=>{const o=p.o??1,flat=Math.max(.04,Math.abs(p.f??1)),a=p.r*Math.PI/180,g=p.g??p.y,up=(g-p.y)/w,wide=p.s*(1+.3*up),turn=`translate(-50%,-50%) rotate(${p.r.toFixed(1)}deg)`;
+  const n=p.name??p,na=n.r*Math.PI/180,hang=n.s*NAME_AT*w,named=o*(p.tag??0);
   return {card:{transform:`translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px) ${turn} scale(${(p.s*flat).toFixed(3)},${p.s.toFixed(3)})`,opacity:o.toFixed(2)},
     shade:{transform:`translate(${(p.x-6*Math.sin(a)).toFixed(1)}px,${(g+6*Math.cos(a)).toFixed(1)}px) ${turn} scale(${(wide*flat).toFixed(3)},${wide.toFixed(3)})`,opacity:(o/(1+.6*up)).toFixed(2)},
-    face:(p.f??1)>0?1:0,rim:(p.rim??0).toFixed(2),tag:{transform:`translateX(-50%) rotate(${(-p.r).toFixed(1)}deg) scale(${(1/p.s).toFixed(3)})`,opacity:(p.tag??0).toFixed(2)}};};
-const part=(o)=>`transform:${o.transform};opacity:${o.opacity}`;
-const mover=(c,i,w,L)=>`<i class="tk-shade" data-tk="shade${i}" style="--w:${w}px;${part(L.shade)}"></i><div class="tk-card" data-tk="card${i}" style="--w:${w}px;${part(L.card)}"><div class="tk-face" style="opacity:${L.face}">${card(c.rank,c.suit)}</div><div class="tk-rear" style="opacity:${1-L.face}">${back()}</div><i class="tk-rim" style="opacity:${L.rim}"></i>${tag(c.who,'',part(L.tag))}</div>`;
+    face:(p.f??1)>0?1:0,rim:(p.rim??0).toFixed(2),
+    name:{transform:`translate(${(n.x-hang*Math.sin(na)).toFixed(1)}px,${(n.y+hang*Math.cos(na)).toFixed(1)}px) translate(-50%,-100%)`,opacity:named.toFixed(2),display:named<.005?'none':''}};};
+const part=(o)=>`transform:${o.transform};opacity:${o.opacity}${o.display?`;display:${o.display}`:''}`;
+const mover=(c,i,w,L)=>`<i class="tk-shade" data-tk="shade${i}" style="--w:${w}px;${part(L.shade)}"></i><div class="tk-card" data-tk="card${i}" style="--w:${w}px;${part(L.card)}"><div class="tk-face" style="opacity:${L.face}">${card(c.rank,c.suit)}</div><div class="tk-rear" style="opacity:${1-L.face}">${back()}</div><i class="tk-rim" style="opacity:${L.rim}"></i></div>`;
+/* the names follow the cards in the markup, so each lies above every card of the trick; a key frame leaves out a name that cannot be seen, the playing table keeps it hidden */
+const movers=(cards,w,looks,playing)=>cards.map((c,i)=>mover(c,i,w,looks[i])).join('')+cards.map((c,i)=>playing||!looks[i].name.display?tag(c.who,'tk-name',part(looks[i].name)):'').join('');
 /* drawn for the reader, never by the table: the way a card takes between two instants, and the outline of a place */
 const way=(moment,P,[i,from,to],W,H)=>{const pts=Array.from({length:33},(_,n)=>moment.pose(mix(from,to,n/32),P).cards[i]),end=pts[32],before=[...pts].reverse().find(p=>Math.hypot(end.x-p.x,end.y-p.y)>10)||pts[0],dir=Math.atan2(end.y-before.y,end.x-before.x);
   const barb=(turn)=>`M${end.x.toFixed(1)} ${end.y.toFixed(1)}l${(9*Math.cos(dir+turn)).toFixed(1)} ${(9*Math.sin(dir+turn)).toFixed(1)}`;
@@ -2835,41 +2843,41 @@ const cell=(caption,size,html,cls='',attrs='')=>`<figure class="tk-cell ${cls}">
 const strip=(id,title,name,setName,w,notes)=>{const d=w===1280,[size,W,H,note]=SIZE[w],moment=MOMENTS[name],set=SETS[setName],P=moment.plan(d,seedOf(GAME),set);
   const stills=moment.stills(set).map(({label,t,hint,ways=[],ghosts})=>{const pose=moment.pose(t,P);
     return cell(`<b>${label}</b>${t.toFixed(2).replace('.',',')} s${hint?` · ${hint}`:''}`,size,
-      moment.table(d,w,(ghosts?ghosts(P).map(p=>outline(p,P.w)).join(''):'')+ways.map(line=>way(moment,P,line,W,H)).join('')+P.cards.map((c,i)=>mover(c,i,P.w,look(pose.cards[i],P.w))).join('')));}).join('');
-  const live=cell('<b>läuft</b>„Nochmal“ spielt das nächste Spiel',`${size} tk-live`,moment.table(d,w,P.cards.map((c,i)=>mover(c,i,P.w,look({...c.rest,o:0},P.w))).join(''),true),'tk-runs',`data-moment="${name}" data-set="${setName}"`);
+      moment.table(d,w,(ghosts?ghosts(P).map(p=>outline(p,P.w)).join(''):'')+ways.map(line=>way(moment,P,line,W,H)).join('')+movers(P.cards,P.w,pose.cards.map(p=>look(p,P.w)))));}).join('');
+  const live=cell('<b>läuft</b>„Nochmal“ spielt das nächste Spiel',`${size} tk-live`,moment.table(d,w,movers(P.cards,P.w,P.cards.map(c=>look({...c.rest,o:0},P.w)),true),true),'tk-runs',`data-moment="${name}" data-set="${setName}"`);
   FRAMES.push([id,`<section class="shot"><h2>${title}<small>${note}</small><button class="replay" type="button">Nochmal</button></h2><div class="tk-strip" id="${id}">${stills}${live}</div>${notes.map(r=>`<p class="rule">${r}</p>`).join('')}</section>`]);ORDER.push(id);};
-const READER='Die gestrichelten Linien sind für den Leser gezeichnet, der Tisch zeichnet sie nicht. Das letzte Bild spielt die Bewegung ab, jede Runde das nächste Spiel, in dem die Karten anders liegen; allein geöffnet spielt es mit „&play“.';
-const LIES='Keine Karte liegt genau auf ihrem Platz: jede bekommt aus Tisch, Serie und Nummer des Spiels ihre eigene Lage, bis zu einem Achtel ihrer Breite versetzt und bis zu zehn Grad verdreht. Die Lage hängt weder am Stuhl noch am Gerät noch am gewählten Set: alle am Tisch und alle Zuschauer sehen dieselbe, auch nach dem Neuladen. Mit reduzierter Bewegung oder im verborgenen Fenster liegt die Karte sofort in dieser Lage.';
+const READER='Die gestrichelten Linien sind für den Leser gezeichnet, der Tisch zeichnet sie nicht. Das letzte Bild spielt die Bewegung ab, jede Runde das nächste Spiel der Serie, das die Marke oben mitzählt und in dem die Karten anders liegen; allein geöffnet spielt es mit „&play“.';
+const LIES='Keine Karte liegt genau auf ihrem Platz: jede bekommt aus Tisch, Serie und Nummer des Spiels ihre eigene Lage, bis zu einem Achtel ihrer Breite zur Seite und nach oben versetzt, nie nach unten auf ihren Namen und den eigenen Stuhl zu, und bis zu zehn Grad verdreht. Die Namen liegen über allen Karten des Stichs, so dass keine Karte einen Namen verdeckt; ein Name fliegt nie mit, er erscheint, wo seine Karte zur Ruhe kommt. Die Lage hängt weder am Stuhl noch am Gerät noch am gewählten Set: alle am Tisch und alle Zuschauer sehen dieselbe, auch nach dem Neuladen. Mit reduzierter Bewegung oder im verborgenen Fenster liegt die Karte sofort in dieser Lage.';
 const MOTION_SCENES=[
   ['motion-land','land','Karte landet',{
     dezent:['„dezent“: Felix spielt das Pik-Ass auf Annas König und Novas 7. Die Karte gleitet in 0,18 Sekunden flach und fast gerade aus der Hand an ihren Platz, kaum gedreht, und kommt mit einem kurzen Rutscher zur Ruhe; ihr Schatten bleibt auf dem Filz. Wenn sie aufschlägt, nicht wenn sie losfliegt, spielt das Kartengeräusch des gewählten Klangs. Die Karten der anderen kommen aufgedeckt aus ihrem Fächer.',LIES,READER],
     verspielt:['„verspielt“: Felix spielt das Pik-Ass auf Annas König und Novas 7. Die Karte fliegt in 0,28 Sekunden einen hohen Bogen aus der Hand, wird dabei größer und dreht sich mit eigenem Schwung; ihr Schatten bleibt auf dem Filz und löst sich von ihr. Sie schlägt ein Stück vor ihrem Platz auf, noch verdreht, und rutscht den Rest über den Filz, während die Drehung ausläuft. Wenn sie aufschlägt, nicht wenn sie losfliegt, spielt das Kartengeräusch des gewählten Klangs. Die Karten der anderen kommen verdeckt aus ihrem Fächer und drehen sich im Flug auf.',LIES,READER]}],
   ['motion-gather','gather','Stich einsammeln',{
-    dezent:['„dezent“: Der Stich ist vollständig, Felix’ Ass sticht. Die drei Karten liegen 0,5 Sekunden in ihrer Lage, mit ihren Namen, so dass jeder sieht, wer was gab; nach 0,2 Sekunden hebt sich die Karte, die sticht, ein wenig und trägt den Messingrand. Dann rücken die Karten zusammen und gleiten dabei in einem Zug von 0,28 Sekunden aufgedeckt auf Felix’ Stapel, wo sie zu seiner obersten, quer liegenden Karte werden; die Namen verblassen. Nichts federt, nichts dreht sich um. Der Messingrand wandert von Annas Stapel auf Felix’ Stapel, sein Stuhl blitzt kurz gold, und beim Gleiten spielt das Wischen des gewählten Klangs.',READER],
-    verspielt:['„verspielt“: Der Stich ist vollständig, Felix’ Ass sticht. Die drei Karten liegen 0,8 Sekunden in ihrer Lage, mit ihren Namen, so dass jeder sieht, wer was gab; nach 0,35 Sekunden hebt sich die Karte, die sticht, federnd an und trägt den Messingrand. Dann schieben sich die Karten in 0,25 Sekunden zu einem unordentlichen Häufchen zusammen, das Ass zuletzt obenauf, und die Namen verblassen. Das Häufchen wird gerade gerückt, umgedreht und rutscht mit einer Vierteldrehung auf Felix’ Stapel, 0,75 Sekunden vom Häufchen bis es liegt: es schlägt kurz vor dem Stapel auf und rutscht aus, quer auf den ersten Stich. Der Messingrand wandert von Annas Stapel auf Felix’ Stapel, sein Stuhl blitzt gold und hüpft, und beim Gleiten spielt das Wischen des gewählten Klangs.',READER]}],
+    dezent:['„dezent“: Der Stich ist vollständig, Felix’ Ass sticht. Die drei Karten liegen 0,5 Sekunden in ihrer Lage, mit ihren Namen, so dass jeder sieht, wer was gab; nach 0,2 Sekunden hebt sich die Karte, die sticht, ein wenig und trägt den Messingrand. Dann rücken die Karten zusammen und gleiten dabei in einem Zug von 0,28 Sekunden aufgedeckt auf Felix’ Stapel, wo sie zu seiner obersten, quer liegenden Karte werden; die Namen verblassen, wo die Karten lagen. Nichts federt, nichts dreht sich um. Der Messingrand wandert von Annas Stapel auf Felix’ Stapel, sein Stuhl blitzt kurz gold, und beim Gleiten spielt das Wischen des gewählten Klangs.',READER],
+    verspielt:['„verspielt“: Der Stich ist vollständig, Felix’ Ass sticht. Die drei Karten liegen 0,8 Sekunden in ihrer Lage, mit ihren Namen, so dass jeder sieht, wer was gab; nach 0,35 Sekunden hebt sich die Karte, die sticht, federnd an und trägt den Messingrand. Dann schieben sich die Karten in 0,25 Sekunden zu einem unordentlichen Häufchen zusammen, das Ass zuletzt obenauf, und die Namen verblassen, wo die Karten lagen. Das Häufchen wird gerade gerückt, umgedreht und rutscht mit einer Vierteldrehung auf Felix’ Stapel, 0,75 Sekunden vom Häufchen bis es liegt: es schlägt kurz vor dem Stapel auf und rutscht aus, quer auf den ersten Stich. Der Messingrand wandert von Annas Stapel auf Felix’ Stapel, sein Stuhl blitzt gold und hüpft, und beim Gleiten spielt das Wischen des gewählten Klangs.',READER]}],
 ];
 MOTION_SCENES.forEach(([id,name,title,notes])=>Object.keys(SETS).forEach(set=>[390,1280].forEach(w=>strip(`${id}-${set}-${w}`,`${title}: ${set}`,name,set,w,notes[set]))));
 if(new URLSearchParams(location.search).has('play'))document.body.classList.add('tk-play');
-/* the playing table runs its moment over and over while it is in view; with reduced motion or in a frozen page it shows the end pose at once */
+/* the playing table runs its moment over and over while it is in view, each round the next game of the series, which its series mark counts; with reduced motion or in a frozen page it shows the end pose at once */
 document.addEventListener('DOMContentLoaded',()=>{const calm=matchMedia('(prefers-reduced-motion:reduce)').matches||document.body.classList.contains('key')&&!document.body.classList.contains('tk-play');
   document.querySelectorAll('.tk-live').forEach(stage=>{const d=stage.classList.contains('d1280'),moment=MOMENTS[stage.dataset.moment],set=SETS[stage.dataset.set],until=moment.until(set),w=nearSlot(d).w;
     const piece=(name)=>stage.querySelector(`[data-tk="${name}"]`),own=stage.querySelector('.seat.own'),tops=[...stage.querySelectorAll('.pile .card:last-child')],fans=[...stage.querySelectorAll('.fan')].map(fan=>fanHome(fan,w));
-    const cards=[0,1,2].map(i=>{const el=piece(`card${i}`);return {el,shade:piece(`shade${i}`),face:el.querySelector('.tk-face'),rear:el.querySelector('.tk-rear'),rim:el.querySelector('.tk-rim'),tag:el.querySelector('.tag')};});
+    const names=stage.querySelectorAll('.tk-name'),count=stage.querySelector('.series span');
+    const cards=[0,1,2].map(i=>{const el=piece(`card${i}`);return {el,shade:piece(`shade${i}`),face:el.querySelector('.tk-face'),rear:el.querySelector('.tk-rear'),rim:el.querySelector('.tk-rim'),name:names[i]};});
     (own.querySelector('.chair')||own).insertAdjacentHTML('beforeend','<i class="tk-flash"></i>');
     const flash=own.querySelector('.tk-flash');
-    let game=GAME-1,P,t,seen=false,last=0;
-    const next=()=>{game+=1;P=moment.plan(d,seedOf(game),set,fans);t=moment.from;};
+    let game=GAME-1,P,t,seen=false,running=false,last=0;
+    const next=()=>{game=game%SERIES+1;count.textContent=`Spiel ${game} von ${SERIES}`;P=moment.plan(d,seedOf(game),set,fans);t=moment.from;};
     const draw=()=>{const pose=moment.pose(t,P),fade=calm?1:phase(t,moment.from,.25)*(1-phase(t,until-.3,.3));
-      pose.cards.forEach((p,i)=>{const L=look({...p,o:(p.o??1)*fade},P.w),c=cards[i];Object.assign(c.shade.style,L.shade);Object.assign(c.el.style,L.card);Object.assign(c.tag.style,L.tag);c.face.style.opacity=L.face;c.rear.style.opacity=1-L.face;c.rim.style.opacity=L.rim;});
+      pose.cards.forEach((p,i)=>{const L=look({...p,o:(p.o??1)*fade},P.w),c=cards[i];Object.assign(c.shade.style,L.shade);Object.assign(c.el.style,L.card);Object.assign(c.name.style,L.name);c.face.style.opacity=L.face;c.rear.style.opacity=1-L.face;c.rim.style.opacity=L.rim;});
       if(pose.pile===undefined)return;
       tops[1].style.opacity=pose.pile;tops[0].classList.toggle('last',pose.pile<.5);flash.style.opacity=pose.flash;own.style.translate=`0 ${pose.hop.toFixed(1)}px`;};
     next();
     if(calm){t=until-.5;draw();return;}
     draw();
-    new IntersectionObserver(([entry])=>{seen=entry.isIntersecting;}).observe(stage);
-    stage.closest('section').querySelector('.replay').addEventListener('click',next);
-    const tick=(now)=>{if(seen){t+=Math.min(.05,(now-last)/1000);if(t>until)next();draw();}last=now;requestAnimationFrame(tick);};
-    requestAnimationFrame(tick);});});
+    const tick=(now)=>{if(!seen){running=false;return;}t+=Math.min(.05,Math.max(0,now-last)/1000);last=now;if(t>until)next();draw();requestAnimationFrame(tick);};
+    new IntersectionObserver(([entry])=>{seen=entry.isIntersecting;stage.classList.toggle('tk-seen',seen);if(seen&&!running){running=true;last=performance.now();requestAnimationFrame(tick);}}).observe(stage);
+    stage.closest('section').querySelector('.replay').addEventListener('click',next);});});
 }
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
@@ -3406,7 +3414,7 @@ if(panels.length){hangPanels();document.fonts.ready.then(hangPanels);}}
 }
 </style>
 <style>
-/* ---------- Takt: a strip of key frames with the playing table last; a mover is a card laid by transform and opacity alone, its shade a piece of its own that stays on the felt ---------- */
+/* ---------- Takt: a strip of key frames with the playing table last; a mover is a card laid by transform and opacity alone, its shade a piece of its own that stays on the felt, its name another that lies above every card ---------- */
 .tk-strip{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-end}
 .tk-cell{margin:0;width:min-content;display:flex;flex-direction:column;gap:8px}
 .tk-cell figcaption{font-size:13px;line-height:1.45;color:var(--on-stage-soft);font-variant-numeric:tabular-nums}
@@ -3414,15 +3422,17 @@ if(panels.length){hangPanels();document.fonts.ready.then(hangPanels);}}
 body.solo .tk-cell figcaption{padding:8px 12px 0}
 body.solo .tk-runs,body.solo.tk-play .tk-cell:not(.tk-runs),body.solo.tk-play .tk-cell figcaption{display:none}
 body.solo.tk-play .tk-runs{display:flex}
-.tk-card,.tk-shade,.tk-ghost,.tk-way{left:0;top:0;pointer-events:none}
-.tk-card,.tk-shade{z-index:20;will-change:transform,opacity}
+.tk-card,.tk-shade,.tk-name,.tk-ghost,.tk-way{left:0;top:0;pointer-events:none}
+.tk-card,.tk-shade{z-index:20}
+.tk-name{z-index:21}
+/* only the table in view keeps layers for its movers */
+.tk-seen :is(.tk-card,.tk-shade,.tk-name){will-change:transform,opacity}
 .tk-card,.tk-ghost{width:var(--w)}
 /* the card keeps only its hairline edge; the soft shadow a lying card casts is the shade, 6 px below it */
 .tk-card .card{filter:drop-shadow(0 1px 1px rgba(0,0,0,.45))}
 .tk-shade{width:calc(var(--w) - 16px);height:calc(var(--w) * 1.4 - 16px);background:rgba(0,0,0,.35);box-shadow:0 0 8px 8px rgba(0,0,0,.35)}
 .tk-rear{position:absolute;inset:0}
 .tk-rim{position:absolute;inset:-5px;border:3px solid var(--brass-hi);border-radius:calc(var(--w) * .075 + 5px)}
-.tk-card .tag{position:absolute;left:50%;bottom:calc(var(--w) * -.12);z-index:2}
 .tk-ghost,.tk-way{z-index:19}
 .tk-ghost{aspect-ratio:100/140;border:1.5px dashed rgba(251,248,240,.6);border-radius:calc(var(--w) * .075)}
 .tk-way{overflow:visible}
