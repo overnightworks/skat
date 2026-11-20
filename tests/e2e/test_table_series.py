@@ -67,13 +67,6 @@ SAVE_RULES = text(SOURCE_LANGUAGE, "start.saveRules")
 RULE_KONTRA = text(SOURCE_LANGUAGE, "start.ruleKontra")
 RULE_RAMSCH = text(SOURCE_LANGUAGE, "start.ruleRamsch")
 ANSWER_CLOCK = ".stage > .plaque.timer"
-# The save of the next series' settings waits for `releaseSaves`, so the sheet is seen while it saves.
-HOLD_THE_SAVE = """suffix => {
-    const send = window.fetch;
-    const held = new Promise((release) => { window.releaseSaves = release; });
-    window.fetch = (...request) =>
-        String(request[0]).endsWith(suffix) ? held.then(() => send(...request)) : send(...request);
-}"""
 RAMSCH = text(SOURCE_LANGUAGE, "game.ramsch")
 YES = text(SOURCE_LANGUAGE, "table.yes")
 NO = text(SOURCE_LANGUAGE, "table.no")
@@ -621,8 +614,8 @@ def test_the_next_series_sheet_closes_on_cancel_and_escape_stays_while_it_saves_
     sheet.get_by_role("button", name=CANCEL, exact=True).click()
     expect(sheet).to_have_count(0)
 
-    second.route(f"**{TABLES_PATH}/*{TABLE_NEXT_SETTINGS_SUFFIX}", refuse)
-    second.evaluate(HOLD_THE_SAVE, TABLE_NEXT_SETTINGS_SUFFIX)
+    held: list[Route] = []
+    second.route(f"**{TABLES_PATH}/*{TABLE_NEXT_SETTINGS_SUFFIX}", lambda route: held.append(route))
     change.click()
     save = sheet.get_by_role("button", name=SAVE, exact=True)
     save.click()
@@ -630,7 +623,7 @@ def test_the_next_series_sheet_closes_on_cancel_and_escape_stays_while_it_saves_
     second.keyboard.press("Escape")
     expect(sheet).to_have_count(1)
 
-    second.evaluate("window.releaseSaves()")
+    refuse(held[0])
     expect(sheet.get_by_role("alert")).to_have_text(COMMAND_FAILED)
     expect(save).to_be_enabled()
     second.keyboard.press("Escape")
