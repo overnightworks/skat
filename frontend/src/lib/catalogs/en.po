@@ -99,6 +99,10 @@ msgctxt "lobby.noOpenTables"
 msgid "Sonst ist kein Tisch offen"
 msgstr "No other table is open"
 
+msgctxt "lobby.nobodyPlays"
+msgid "Gerade spielt niemand"
+msgstr "Nobody is playing right now"
+
 msgctxt "lobby.openTable"
 msgid "{title} öffnen"
 msgstr "Open {title}"
