@@ -1,16 +1,26 @@
 from collections.abc import Awaitable, Callable
 from functools import partial
-from typing import TYPE_CHECKING, Annotated, Final
+from typing import TYPE_CHECKING, Annotated, Final, Literal
 
 from fastapi import APIRouter, Request, Response
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.web.mcp import AUCTION_BID_MARK, AUCTION_HOLD_MARK, AUCTION_PASS_MARK, AUCTION_PLAY_MARK
+from skat.table.auction_plans import AuctionPlanCommand
+from skat.table.records import AuctionPlan, BidLimit, PassAhead, PlanMode
+from skat.web.mcp import (
+    AUCTION_BID_MARK,
+    AUCTION_HOLD_MARK,
+    AUCTION_PASS_MARK,
+    AUCTION_PLAY_MARK,
+    Exclusion,
+    excluded,
+)
 from skat.web.tables import (
     COMMAND_RESPONSES,
     TABLES_PATH,
     CommandRequest,
+    PlanKind,
     TableAnswer,
     TableIdInPath,
     TableVersion,
@@ -27,6 +37,8 @@ TABLE_AUCTION_BID_SUFFIX: Final = "/auction/bid"
 TABLE_AUCTION_HOLD_SUFFIX: Final = "/auction/hold"
 TABLE_AUCTION_PASS_SUFFIX: Final = "/auction/pass"  # noqa: S105 - the word for dropping out of the auction and no password
 TABLE_AUCTION_PLAY_SUFFIX: Final = "/auction/play"
+# A player's own plan for the auction: `TABLES_PATH/{table_id}` plus this.
+TABLE_AUCTION_PLAN_SUFFIX: Final = "/auction/plan"
 
 
 class _AuctionStepRequest(CommandRequest):
@@ -37,6 +49,42 @@ class _AuctionStepRequest(CommandRequest):
 
 class BidRequest(_AuctionStepRequest):
     value: Annotated[int, Field(strict=True)]
+
+
+class _LimitBody(BaseModel):
+    """A limit: one value of the bid ladder, `ask` unless the player fixes it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal[PlanKind.LIMIT]
+    value: Annotated[int, Field(strict=True)]
+    mode: PlanMode = PlanMode.ASK
+
+
+class _PassAheadBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal[PlanKind.PASS]
+
+
+_PlanBody = Annotated[_LimitBody | _PassAheadBody, Field(discriminator="kind")]
+
+
+class AuctionPlanRequest(CommandRequest):
+    """A player's plan, or null to take it back: no version, since a plan made off turn must not race another player's
+    step; its seat comes from the session.
+    """
+
+    plan: _PlanBody | None
+
+    def command_for(self, table_id: str) -> AuctionPlanCommand:
+        return AuctionPlanCommand(command_id=self.command_id, table_id=table_id, plan=_plan_of(self.plan))
+
+
+def _plan_of(body: _LimitBody | _PassAheadBody | None) -> AuctionPlan | None:
+    if body is None:
+        return None
+    return BidLimit(body.value, body.mode) if isinstance(body, _LimitBody) else PassAhead()
 
 
 type StepTaker = Callable[
@@ -140,6 +188,28 @@ def _add_play(router: APIRouter, take_step: StepTaker) -> None:
         return await take_step(table_id, body, request, response, AuctionAction.PLAY)
 
 
+def _add_plan(router: APIRouter, tables: TableService, presence: Presence) -> None:
+    @router.post(
+        TABLES_PATH + "/{table_id}" + TABLE_AUCTION_PLAN_SUFFIX,
+        response_model=TableAnswer,
+        responses=COMMAND_RESPONSES,
+        openapi_extra=excluded(Exclusion.AUCTION_PLAN),
+    )
+    async def plan(
+        table_id: TableIdInPath, body: AuctionPlanRequest, request: Request, response: Response
+    ) -> Response | TableAnswer:
+        """Set, change or clear the caller's private plan for the auction of a Skat table: „halten bis“ as a limit,
+        fixed or ask, or „Weg“ ahead as a pass.
+
+        The table steps for the caller as the plan says, in the same answer; only the caller's own view carries it.
+        Refused: no hand, not seated, a chair waiting for a sitter, the auction over, already passed, a limit that is
+        no bid value or is below the standing bid.
+        """
+        command = body.command_for(table_id)
+        set_plan = partial(tables.set_auction_plan, actor_of(request), command)
+        return await command_answer(set_plan, presence, table_id, response)
+
+
 def create_auction_router(tables: TableService, presence: Presence) -> APIRouter:
     router = APIRouter()
     take_step = _step_taker(tables, presence)
@@ -147,4 +217,5 @@ def create_auction_router(tables: TableService, presence: Presence) -> APIRouter
     _add_hold(router, take_step)
     _add_pass(router, take_step)
     _add_play(router, take_step)
+    _add_plan(router, tables, presence)
     return router
