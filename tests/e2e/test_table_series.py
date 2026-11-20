@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from skat.table.records import SERIES_LENGTH_STEP
 from skat.web.game_list import TABLE_LIST_SUFFIX
@@ -188,6 +188,38 @@ def the_scene_draws_the_wait_pill_in(person: Page) -> str:
         return scene.locator(f"[id='{frame}'] .cb.wide.glass", has_text=waiting_for(["Ben"])).evaluate(FONT_SIZE_OF)
     finally:
         scene.close()
+
+
+SHEET_MARGINS_OF = """sheet => {
+    const frame = sheet.closest("[id]").getBoundingClientRect();
+    const box = sheet.getBoundingClientRect();
+    return {above: box.top - frame.top, below: frame.bottom - box.bottom};
+}"""
+
+
+def the_scene_draws_the_settings_sheet_in(person: Page) -> dict[str, float]:
+    """The room above and below the sheet of the frozen scene seriesend-settings at the person's width."""
+    viewport = person.viewport_size
+    assert viewport is not None
+    frame = "seriesend-settings-1280" if viewport["width"] >= PHONE_BREAKPOINT else "seriesend-settings-390"
+    scene = person.context.new_page()
+    try:
+        scene.goto(f"{TABLE_SCENES.as_uri()}?f={frame}")
+        return scene.locator(f"[id='{frame}'] .setsheet").evaluate(SHEET_MARGINS_OF)
+    finally:
+        scene.close()
+
+
+def expect_the_sheet_placed_as_the_scene_draws_it(person: Page, sheet: Locator) -> None:
+    """The sheet leaves the room above and below it that the scene leaves, so the top keys stay in sight."""
+    viewport = person.viewport_size
+    assert viewport is not None
+    sheet.evaluate("element => Promise.all(element.getAnimations().map((animation) => animation.finished))")
+    box = sheet.bounding_box()
+    assert box is not None
+    scene = the_scene_draws_the_settings_sheet_in(person)
+    assert box["y"] == pytest.approx(scene["above"], abs=1)
+    assert viewport["height"] - box["y"] - box["height"] == pytest.approx(scene["below"], abs=1)
 
 
 def expect_the_wait_pill_to_hold_its_text_centred(person: Page) -> None:
@@ -504,6 +536,8 @@ def test_a_seated_member_changes_the_next_series_and_the_save_takes_back_every_n
 
     second.get_by_role("button", name=CHANGE, exact=True).click()
     sheet = second.locator(NEXT_SHEET)
+    expect(sheet).to_be_visible()
+    expect_the_sheet_placed_as_the_scene_draws_it(second, sheet)
     expect(sheet.get_by_role("spinbutton")).to_have_attribute("aria-valuenow", str(SERIES_LENGTH))
     expect(sheet.locator(".takeback")).to_be_visible()
     expect(sheet.get_by_role("radiogroup", name=RULE_SETS).get_by_role("radio", checked=True)).to_have_count(0)
