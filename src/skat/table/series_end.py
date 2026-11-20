@@ -4,7 +4,14 @@ from typing import TYPE_CHECKING, Final
 
 from skat.engine.deal import SEATS
 from skat.table.records import Decision, EndProposal, Refusal
-from skat.table.rules import bock_at_series_end, hand_runs, hand_was_dealt, seat_of, series_over
+from skat.table.rules import (
+    bock_at_series_end,
+    hand_runs,
+    hand_was_dealt,
+    new_series_ask_stands,
+    seat_of,
+    series_over,
+)
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -115,7 +122,7 @@ def new_series_lapsed(table: TableRecord, now: datetime) -> bool:
     ends. A minute with no silent seated chair left is no ask (`new_series_ask_stands`) and never lapses.
     """
     asked_at = None if table.series is None else table.series.new_series_asked_at
-    return asked_at is not None and answer_left(asked_at, now) <= timedelta(0)
+    return asked_at is not None and new_series_ask_stands(table) and answer_left(asked_at, now) <= timedelta(0)
 
 
 def decide_stop_playing(table: TableRecord, actor: Actor) -> Refusal | None:
