@@ -1,0 +1,8 @@
+claim_id = "e00621d6e2de41cf9fd761ff30ef6753"
+agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
+role = "builder"
+base = "e1558113489c908cba5ded4e7b20d06704750ab5"
+branch = "claude/issue-692-halten-bis-fixed-or-ask"
+scope = ["docs/mockups/table.html", "frontend/src", "src/skat", "tests"]
+opened_commit = "fd5be929d4f93777a7f97623aa378919cd67fdc5"
+whole_reason = "a stored auction field spans the engine, store, web view and the bid bar; the picture comes first"
