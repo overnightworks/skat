@@ -617,6 +617,37 @@ def test_a_sheet_open_while_another_seat_saves_says_the_settings_changed_and_sho
     assert page_errors == []
 
 
+def test_the_seat_that_saves_the_next_series_never_sees_its_own_sheet_say_the_settings_changed(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = PassedInTable(open_person, e2e_server, member_of, page_errors, PHONE)
+    pass_the_series_in(table)
+    first = table.pages[1]
+    first.evaluate(
+        """() => {
+            window.seenStatus = [];
+            new MutationObserver(() => {
+                const status = document.querySelector('.sheet.next-series [role=status]');
+                if (status) window.seenStatus.push(status.textContent);
+            }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
+        }""",
+    )
+    sheet = first.locator(NEXT_SHEET)
+    first.get_by_role("button", name=CHANGE, exact=True).click()
+    sheet.get_by_role("button", name=MORE_GAMES).click()
+    sheet.get_by_role("button", name=SAVE, exact=True).click()
+
+    expect(sheet).to_have_count(0)
+    longer = text(SOURCE_LANGUAGE, "table.seriesGames", count=SERIES_LENGTH + SERIES_LENGTH_STEP)
+    for person in table.everyone:
+        expect(person.locator(f"{NEXT_LINE} .chip.len")).to_have_text(longer)
+    assert first.evaluate("window.seenStatus") == []
+    assert page_errors == []
+
+
 def test_the_next_series_sheet_closes_on_cancel_and_escape_stays_while_it_saves_and_tells_a_refused_save(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,

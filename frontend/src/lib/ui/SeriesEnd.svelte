@@ -31,12 +31,16 @@
     // seat saved settings while the sheet was open, which then starts anew from the saved ones.
     let changing = $state<{ series: number; initial: NextSettings; changed: boolean } | null>(null);
 
+    // True from the save's sending until its answer: the revision the save itself makes arrives on the stream, and
+    // reads as another seat's save only when the save was refused or sent by another.
+    let saving = $state(false);
+
     function open(initial: NextSettings): void {
         changing = { series: seriesNumberOf(table), initial, changed: false };
     }
 
     $effect(() => {
-        if (changing !== null && changeable !== null && changeable.revision !== changing.initial.revision) {
+        if (!saving && changing !== null && changeable !== null && changeable.revision !== changing.initial.revision) {
             changing = { series: changing.series, initial: changeable, changed: true };
         }
     });
@@ -66,9 +70,16 @@
             {answerBy}
             takenBack={takenBackLine(table)}
             save={async (commandId: string, length: number, options: OptionsRequest | undefined) => {
-                const saved = await seat(changeNextSettings(id, commandId, series, initial.revision, length, options));
-                if (saved.kind === "table") changing = null;
-                return saved;
+                saving = true;
+                try {
+                    const saved = await seat(
+                        changeNextSettings(id, commandId, series, initial.revision, length, options),
+                    );
+                    if (saved.kind === "table") changing = null;
+                    return saved;
+                } finally {
+                    saving = false;
+                }
             }}
             oncancel={() => {
                 changing = null;
