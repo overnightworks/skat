@@ -100,6 +100,7 @@ def tap(card: Locator) -> None:
 
 FIRST_FINGER = 0
 SECOND_FINGER = 1
+TWO_FRAMES = "() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))"
 
 
 class Pointer:
@@ -126,6 +127,9 @@ class Pointer:
         self.at = (x, y)
         self.button = button
         if self.touch:
+            # The compositor learns an element's touch-action from the frame that painted it; a finger down before
+            # that frame starts a scroll, and the browser cancels the pointer on the first move.
+            self.person.evaluate(TWO_FRAMES)
             self._touch_event("touchStart", {FIRST_FINGER: self.at})
         else:
             self.person.mouse.move(x, y)
@@ -558,6 +562,7 @@ def test_a_card_moved_upward_past_the_threshold_plays_and_a_short_move_puts_it_b
     pointer.release()
     expect_on_the_felt(table, [(forehand_seat, lead)])
     assert len(posts) == 1
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(0)
 
     dimmed = middlehand.locator(DIMMED_CARD).first
     hand = middlehand.locator(".own-hand")
@@ -572,6 +577,25 @@ def test_a_card_moved_upward_past_the_threshold_plays_and_a_short_move_puts_it_b
     expect(middlehand.locator(LIFTED_CARD)).to_have_count(0)
     expect(middlehand.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
     assert middle_posts == []
+    assert page_errors == []
+
+
+def test_a_key_pressed_on_a_card_after_a_touch_drag_that_did_not_play_acts_at_once(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_playing_table(PHONE)
+    forehand = table.pages[table.seat_at["forehand"]]
+    held = card_in_hand(forehand, sorted(table.legal_cards(table.seat_at["forehand"]))[0])
+    pointer = Pointer(forehand, touch=True)
+    pointer.press(*strip_of(held))
+    pointer.move_by(0, -height_of(held) * SHORT_RISE)
+    pointer.release()
+    expect(forehand.locator(DRAGGED_CARD)).to_have_count(0)
+
+    held.locator("button").focus()
+    forehand.keyboard.press("Enter")
+
+    expect(forehand.locator(LIFTED_CARD)).to_have_count(1)
     assert page_errors == []
 
 
