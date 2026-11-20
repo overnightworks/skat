@@ -13,6 +13,7 @@ from skat.web.tables import RANK_TOKENS, SUIT_TOKENS
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable
+from tests.e2e.support.motion import FELT_SLOT
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
 
@@ -192,7 +193,7 @@ def test_the_open_rows_lose_each_card_the_declarer_plays_and_survive_a_reload(
             expect(chair.locator(OPEN_CARD)).to_have_count(CARDS_IN_A_HAND - len(played))
             assert not faces_of(chair.locator(OPEN_FACE)) & played
             rows = chair.locator(".open").element_handle()
-            for laid in person.locator(".trick .laid, .trick .laid .tag").all():
+            for laid in person.locator(f"{FELT_SLOT}, .trick .laid .tag").all():
                 assert not person.evaluate(BOXES_OVERLAP, [laid.element_handle(), rows])
 
     for person in onlookers(table):

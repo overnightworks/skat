@@ -9,6 +9,7 @@ from playwright.sync_api import Page, expect
 
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import deal_playing_table
+from tests.e2e.support.motion import FELT_SLOT
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.style import SCENE_TOLERANCE, in_the_scene
 from tests.e2e.support.table_menu import menu_button
@@ -158,9 +159,7 @@ def test_the_notice_about_the_chair_holds_its_sentence_covers_no_plaque_bubble_f
 
     for other in (*(page for other_seat, page in table.pages.items() if other_seat != seat), table.watcher):
         expect(other.locator(NOTICE)).to_have_count(1)
-        shown = other.locator(":root").evaluate(
-            NOTICE_ON_THE_PAGE, [NOTICE, ".trick .laid", list(NEVER_UNDER_THE_NOTICE)]
-        )
+        shown = other.locator(":root").evaluate(NOTICE_ON_THE_PAGE, [NOTICE, FELT_SLOT, list(NEVER_UNDER_THE_NOTICE)])
         assert shown is not None
         assert shown["sentenceInside"]
         assert shown["covered"] == []

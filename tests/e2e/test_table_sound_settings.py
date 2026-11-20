@@ -17,6 +17,7 @@ from tests.e2e.support.audio import (
     wait_for_recordings_decoded,
 )
 from tests.e2e.support.browser import record_page_errors
+from tests.e2e.support.motion import FADES_IN, arrival_of, motion_played, watch_the_motion
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.tables import open_new_table
 
@@ -606,8 +607,11 @@ def test_the_override_moves_a_card_in_the_chosen_set_and_the_device_setting_stil
     assert json.loads(stored_record(watcher) or "") == {"replayMotion": True}
     pick(watcher, MOTION, DEZENT)
     watcher.keyboard.press("Escape")
+    watch_the_motion(watcher)
     table.play_out(1)
-    expect(watcher.locator(FELT_FACE)).to_have_css("animation-name", "land-dezent")
+    expect(watcher.locator(FELT_FACE)).to_have_count(1)
+    # Out of a fan a card of the quiet set fades in; without the override it would lie at once.
+    assert arrival_of(motion_played(watcher)) == FADES_IN
     assert page_errors == []
 
 

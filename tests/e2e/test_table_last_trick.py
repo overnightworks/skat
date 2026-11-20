@@ -8,7 +8,7 @@ from playwright.sync_api import Page, expect
 from skat.engine.bidding import VALID_BIDS
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.audio import VOICES_OF_ONE_CARD, voices_started
-from tests.e2e.support.browser import record_page_errors
+from tests.e2e.support.browser import hide_the_tab, record_page_errors
 from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, holds, passes
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
@@ -118,16 +118,6 @@ def open_watcher(
     # The first key press wakes the sound.
     watcher.keyboard.press("Shift")
     return watcher
-
-
-def hide_the_tab(page: Page, *, hidden: bool) -> None:
-    page.evaluate(
-        """hidden => {
-            Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
-            document.dispatchEvent(new Event("visibilitychange"));
-        }""",
-        hidden,
-    )
 
 
 def run_until(page: Page, phase: str, count: int) -> int:
