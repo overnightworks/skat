@@ -54,15 +54,13 @@ class MemberActs:
     acts: tuple[Act, ...]
 
 
-def member_view_of(
-    table: TableRecord, account_id: str, present: frozenset[str], opener_account: str | None, now: datetime
-) -> MemberView | None:
-    """The view of the account that holds a chair at the table, `opener_account` being the account that opened it and
-    `now` the clock the chairs' statements are read on; None for an account that holds no chair.
+def member_view_of(table: TableRecord, account_id: str, present: frozenset[str], now: datetime) -> MemberView | None:
+    """The view of the account that holds a chair at the table, `now` being the clock the chairs' statements are read
+    on; None for an account that holds no chair.
     """
     if account_id not in {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}:
         return None
-    view = view_of(table, account_id, present, opener_account, now=now)
+    view = view_of(table, account_id, present, now=now)
     return MemberView(view, awaits_you(view))
 
 

@@ -4,7 +4,7 @@ import { loadKitWords, type KitWords } from "overnightworks-design/words";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import AgentsList from "#lib/ui/AgentsList.svelte";
 import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
-import { language } from "#lib/words.ts";
+import { language, words } from "#lib/words.ts";
 
 const TABLE_ID = "b".repeat(32);
 const CONTROL_PATH = `${TABLES_PATH}/${TABLE_ID}${TABLE_AGENTS_SUFFIX}`;
@@ -214,6 +214,41 @@ describe("the agents' list in the table menu", () => {
         flushSync();
 
         expect(fetcher.mock.calls).toHaveLength(1);
+    });
+
+    describe("when the read of the agents fails", () => {
+        const failing = () => Promise.resolve(new Response(null, { status: 503 }));
+        const failedLine = () => list()?.querySelector("[role=alert]")?.textContent;
+
+        it("leaves no call or send-away key and says the list cannot load, then brings the rows back with the next good read", async () => {
+            const here = { ...row, key: "key-luna", name: "Luna", state: "here" };
+            const fetcher = server({ control: { shown: true, rows: [row, here] } });
+            await show(1, true);
+            const rowsBefore = list()?.querySelectorAll(".act").length;
+            fetcher.mockImplementation(failing);
+
+            table.watchers = 1;
+            await settle();
+            flushSync();
+            const whileFailed = [list()?.querySelectorAll(".act").length, failedLine(), table.shown];
+            fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows: [row, here] })));
+            table.watchers = 2;
+            await settle();
+            flushSync();
+
+            expect(rowsBefore).toBe(2);
+            expect(whileFailed).toEqual([0, words["table.seriesListFailed"], true]);
+            expect([list()?.querySelectorAll(".act").length, failedLine()]).toEqual([2, undefined]);
+        });
+
+        it("shows the line and no key when the first read fails", async () => {
+            const fetcher = server({ control: { shown: true, rows: [row] } });
+            fetcher.mockImplementation(failing);
+
+            await show(1, true);
+
+            expect([callKey(), failedLine()]).toEqual([null, words["table.seriesListFailed"]]);
+        });
     });
 
     it("says that nobody is reachable when the list is empty", async () => {

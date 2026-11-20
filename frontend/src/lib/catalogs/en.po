@@ -99,6 +99,10 @@ msgctxt "lobby.noOpenTables"
 msgid "Sonst ist kein Tisch offen"
 msgstr "No other table is open"
 
+msgctxt "lobby.nobodyPlays"
+msgid "Gerade spielt niemand"
+msgstr "Nobody is playing right now"
+
 msgctxt "lobby.openTable"
 msgid "{title} öffnen"
 msgstr "Open {title}"
@@ -515,10 +519,6 @@ msgctxt "table.seriesGames.other"
 msgid "{count} Spiele"
 msgstr "{count} games"
 
-msgctxt "table.seriesRecord"
-msgid "{won} gewonnen · {lost} verloren"
-msgstr "{won} won · {lost} lost"
-
 msgctxt "table.seriesGone"
 msgid "gegangen"
 msgstr "left"
@@ -606,6 +606,46 @@ msgstr "Sweep"
 msgctxt "table.newSeries"
 msgid "Neue Serie"
 msgstr "New series"
+
+msgctxt "table.stopPlaying"
+msgid "Aufhören"
+msgstr "Stop playing"
+
+msgctxt "table.nextSeries"
+msgid "Nächste Serie"
+msgstr "Next series"
+
+msgctxt "table.nextSeriesChange"
+msgid "Ändern"
+msgstr "Change"
+
+msgctxt "table.nextSeriesSave"
+msgid "Speichern"
+msgstr "Save"
+
+msgctxt "table.nextSeriesCancel"
+msgid "Abbrechen"
+msgstr "Cancel"
+
+msgctxt "table.nextSeriesChanged"
+msgid "Die Einstellungen wurden geändert. Hier sind die neuen."
+msgstr "The settings have changed. Here are the new ones."
+
+msgctxt "table.nextSeriesTakeBack"
+msgid "Speichern nimmt {names} „Neue Serie“ zurück."
+msgstr "Saving takes back {names} “New series”."
+
+msgctxt "table.possessive"
+msgid "{name}s"
+msgstr "{name}’s"
+
+msgctxt "table.possessiveApostrophe"
+msgid "{name}’"
+msgstr "{name}’s"
+
+msgctxt "table.answerClockEnds"
+msgid "Ohne Antwort in {time} endet der Tisch"
+msgstr "The table ends with no answer in {time}"
 
 msgctxt "table.wantsToEndSeries"
 msgid "{name} möchte die Serie beenden"
@@ -1598,22 +1638,6 @@ msgid "Mitten ins Spiel setzen?"
 msgstr "Sit down in the middle of a game?"
 
 msgctxt "table.sitQuestionCancel"
-msgid "Abbrechen"
-msgstr "Cancel"
-
-msgctxt "table.close"
-msgid "Tisch schließen"
-msgstr "Close table"
-
-msgctxt "table.closeQuestion"
-msgid "Tisch für alle schließen?"
-msgstr "Close the table for everyone?"
-
-msgctxt "table.closeConfirm"
-msgid "Schließen"
-msgstr "Close"
-
-msgctxt "table.closeCancel"
 msgid "Abbrechen"
 msgstr "Cancel"
 

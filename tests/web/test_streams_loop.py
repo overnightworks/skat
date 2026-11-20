@@ -2,8 +2,9 @@ import asyncio
 
 import pytest
 
-from skat.table.records import CloseTable, CreateTable, SitDown
+from skat.table.records import CreateTable, SitDown
 from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamEvent, TableSource, stream_messages
+from tests.support.ended_tables import end_the_table
 from tests.support.fake_tables import in_memory_tables
 from tests.support.idle_presence import idle_presence
 from tests.web.support.skat import UNKNOWN_ID
@@ -168,7 +169,7 @@ async def started_the_lease_of_a_stranger(service, presence, table_id):
 
 
 async def closed_the_table(service, presence, table_id):
-    service.close(OPENER, CloseTable("command-close", table_id))
+    end_the_table(service, table_id)
 
 
 async def stated_a_turn(service, presence, table_id):

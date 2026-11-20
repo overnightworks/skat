@@ -112,7 +112,6 @@ class TestHandOnTheStream:
             "style",
             "bock",
             "ended",
-            "opened_by_me",
             "reactions",
         }
         assert json.loads(second_fresh.removeprefix("data: "))["version"] == opened["version"] + 1

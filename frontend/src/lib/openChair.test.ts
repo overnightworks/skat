@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cuesBetween } from "#lib/cues.ts";
-import { handWaits, lockedChairs, noticeStanding, seatNotice, sitQuestionLine } from "#lib/openChair.ts";
+import { handWaits, lockedChairs, noticeStanding, possessive, seatNotice, sitQuestionLine } from "#lib/openChair.ts";
 import { words } from "#lib/words.ts";
 import { declarerStage, type Chair, type Hand, type Table } from "../routes/(start)/tables.ts";
 
@@ -54,7 +54,6 @@ function tableOf(hand: Hand | null, ...chairs: Chair[]): Table {
         version: 1,
         chairs,
         watchers: 0,
-        opened_by_me: false,
         reactions: [],
         hand,
         result: null,
@@ -105,6 +104,16 @@ describe("the line under the question before a sit", () => {
 
     it("names no one for a chair freed before its holder was written down", () => {
         expect(sitQuestionLine(null)).toBe("Du übernimmst die Karten dieses Platzes.");
+    });
+});
+
+describe("possessive", () => {
+    it.each([
+        ["Anna", "Annas"],
+        ["Max", "Max’"],
+        ["Felix", "Felix’"],
+    ])("puts %s in the genitive: %s", (name, genitive) => {
+        expect(possessive(name)).toBe(genitive);
     });
 });
 

@@ -30,6 +30,7 @@ from skat.table.rules import decide_sit
 from skat.table.views import view_of
 from tests.support.open_chairs import PHASES, REARHAND_SEAT, newcomer, sent_away
 from tests.support.played_game import (
+    SAT_AT,
     a_whole_game,
     an_end_proposal,
     asked_by_an_opponent,
@@ -429,7 +430,7 @@ class TestAnOpenChair:
         waiting = sent_away(running, SEAT_OF[REARHAND])
         sitter = newcomer()
 
-        taken = decide_sit(waiting, sitter, SEAT_OF[REARHAND], None).table
+        taken = decide_sit(waiting, sitter, SEAT_OF[REARHAND], None, SAT_AT).table
 
         assert waiting_for(taken) == waiting_for(running)
         assert taken.version > waiting.version

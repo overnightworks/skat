@@ -98,6 +98,15 @@ export type Card = {
     chips: Chip[];
 };
 
+export type Scene = "pending" | "empty" | "open";
+
+// The page cannot tell which scene applies until the lists settle it: a table in either list makes the lobby, and only
+// both lists known and empty make the empty table.
+export function sceneOf(mine: readonly unknown[] | null, open: readonly unknown[] | null): Scene {
+    if ((mine?.length ?? 0) > 0 || (open?.length ?? 0) > 0) return "open";
+    return mine !== null && open !== null ? "empty" : "pending";
+}
+
 // The stream sends each whole list first and again after every change, so each list replaces the last. The shared
 // reader reconnects by itself; the returned function closes the stream.
 export function watchLobby(

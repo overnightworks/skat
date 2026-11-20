@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
     from skat.table.records import TableId
-    from skat.table.server_steps import ServerSteps
+    from skat.table.server_steps import EndAnswerLapse, ServerSteps
     from skat.table.transactions import HeldChair
 
 
@@ -54,7 +54,7 @@ class ServerStepCalls:
         """The server's step at its start; see `ServerSteps.resume_empty_waits`."""
         return self._server_steps().resume_empty_waits(empty_seconds)
 
-    def lapse_end_answers(self, table_id: TableId) -> float | None:
+    def lapse_end_answers(self, table_id: TableId) -> EndAnswerLapse:
         """The server's step of ending a proposal whose minute is over; see `ServerSteps.lapse_end_answers`."""
         return self._server_steps().lapse_end_answers(table_id)
 

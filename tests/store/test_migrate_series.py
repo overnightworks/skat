@@ -301,7 +301,7 @@ class TestFromTablesAtTheRevisionBefore:
     ):
         assert record_of(migrated, EARLY).series == Series(LENGTH, 7, number=2, ended_early=True)
         for seat, person in PEOPLE.items():
-            service.start_new_series(person, NewSeriesCommand(f"new-{seat}", EARLY, 2), ALL_THREE)
+            service.start_new_series(person, NewSeriesCommand(f"new-{seat}", EARLY, 2, 0), ALL_THREE)
 
         assert service.deal_next(TableId(EARLY), nullcontext(ALL_THREE)) is True
         dealt = record_of(migrated, EARLY)

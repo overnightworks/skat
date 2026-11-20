@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 import logline
 import pytest
 import structlog.testing
@@ -19,6 +21,8 @@ from tests.support.signed_in import cookie_header, seed_member
 
 PROXY_ADDRESS = "203.0.113.9"
 FORWARDED_CLIENT = "198.51.100.7"
+UNTRUSTED_PEER = "192.0.2.44"
+REFUSED_PATH = "/a%00b"
 
 
 @pytest.fixture
@@ -69,6 +73,27 @@ class TestRequestLine:
 
         (line,) = request_lines_of(logs)
         assert (line["sub"], line["ip"]) == (None, FORWARDED_CLIENT)
+
+    def test_names_the_peer_and_ignores_the_forwarded_header_of_a_peer_no_proxy_setting_trusts(self, app):
+        stranger = TestClient(
+            app,
+            base_url=TEST_PUBLIC_ORIGIN,
+            client=(UNTRUSTED_PEER, 50000),
+            headers={"x-forwarded-for": FORWARDED_CLIENT},
+        )
+
+        with structlog.testing.capture_logs() as logs:
+            stranger.get(LOGIN_PATH)
+
+        (line,) = request_lines_of(logs)
+        assert line["ip"] == UNTRUSTED_PEER
+
+    def test_names_the_forwarded_client_on_a_request_the_stack_refuses_before_the_app(self, browser):
+        with structlog.testing.capture_logs() as logs:
+            answer = browser.get(REFUSED_PATH)
+
+        (line,) = request_lines_of(logs)
+        assert (answer.status_code, line["status"], line["ip"]) == (HTTPStatus.BAD_REQUEST, 400, FORWARDED_CLIENT)
 
     def test_names_the_asset_mount_pattern_as_the_route_never_the_asset_path(self, browser):
         with structlog.testing.capture_logs() as logs:

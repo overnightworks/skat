@@ -28,6 +28,7 @@ export type Words = {
     readonly "lobby.myTables": string;
     readonly "lobby.openTables": string;
     readonly "lobby.noOpenTables": string;
+    readonly "lobby.nobodyPlays": string;
     readonly "lobby.openTable": (gaps: { readonly title: string }) => string;
     readonly "lobby.title": (gaps: { readonly name: string }) => string;
     readonly "lobby.titleSibilant": (gaps: { readonly name: string }) => string;
@@ -124,7 +125,6 @@ export type Words = {
     readonly "table.seriesListFailed": string;
     readonly "table.seriesEnded": string;
     readonly "table.seriesGames": (count: number) => string;
-    readonly "table.seriesRecord": (gaps: { readonly lost: string; readonly won: string }) => string;
     readonly "table.seriesGone": string;
     readonly "table.seriesNameless": string;
     readonly "table.seriesRamschOf": (gaps: { readonly name: string }) => string;
@@ -147,6 +147,16 @@ export type Words = {
     readonly "table.sheetDecided": string;
     readonly "table.sheetDurchmarsch": string;
     readonly "table.newSeries": string;
+    readonly "table.stopPlaying": string;
+    readonly "table.nextSeries": string;
+    readonly "table.nextSeriesChange": string;
+    readonly "table.nextSeriesSave": string;
+    readonly "table.nextSeriesCancel": string;
+    readonly "table.nextSeriesChanged": string;
+    readonly "table.nextSeriesTakeBack": (gaps: { readonly names: string }) => string;
+    readonly "table.possessive": (gaps: { readonly name: string }) => string;
+    readonly "table.possessiveApostrophe": (gaps: { readonly name: string }) => string;
+    readonly "table.answerClockEnds": (gaps: { readonly time: string }) => string;
     readonly "table.wantsToEndSeries": (gaps: { readonly name: string }) => string;
     readonly "table.endSeries": string;
     readonly "table.endSeriesSure": string;
@@ -390,10 +400,6 @@ export type Words = {
     readonly "table.playingOn": (gaps: { readonly names: string }) => string;
     readonly "table.sitQuestion": string;
     readonly "table.sitQuestionCancel": string;
-    readonly "table.close": string;
-    readonly "table.closeQuestion": string;
-    readonly "table.closeConfirm": string;
-    readonly "table.closeCancel": string;
     readonly "table.takeOverNamed": (gaps: { readonly name: string }) => string;
     readonly "table.takeOverApostrophe": (gaps: { readonly name: string }) => string;
     readonly "table.takeOverUnnamed": string;
@@ -576,6 +582,7 @@ export const words: Words = {
     "lobby.myTables": "Meine Tische",
     "lobby.openTables": "Offene Tische",
     "lobby.noOpenTables": "Sonst ist kein Tisch offen",
+    "lobby.nobodyPlays": "Gerade spielt niemand",
     "lobby.openTable": (gaps: { readonly title: string }) => gaps.title + " öffnen",
     "lobby.title": (gaps: { readonly name: string }) => gaps.name + "s Tisch",
     "lobby.titleSibilant": (gaps: { readonly name: string }) => gaps.name + "' Tisch",
@@ -728,7 +735,6 @@ export const words: Words = {
         many: numberFormat.format(count) + " Spiele",
         other: numberFormat.format(count) + " Spiele",
     })[pluralRules.select(count)],
-    "table.seriesRecord": (gaps: { readonly lost: string; readonly won: string }) => gaps.won + " gewonnen · " + gaps.lost + " verloren",
     "table.seriesGone": "gegangen",
     "table.seriesNameless": "Jemand",
     "table.seriesRamschOf": (gaps: { readonly name: string }) => "Ramsch, " + gaps.name,
@@ -751,6 +757,16 @@ export const words: Words = {
     "table.sheetDecided": "Entschieden",
     "table.sheetDurchmarsch": "Durchmarsch",
     "table.newSeries": "Neue Serie",
+    "table.stopPlaying": "Aufhören",
+    "table.nextSeries": "Nächste Serie",
+    "table.nextSeriesChange": "Ändern",
+    "table.nextSeriesSave": "Speichern",
+    "table.nextSeriesCancel": "Abbrechen",
+    "table.nextSeriesChanged": "Die Einstellungen wurden geändert. Hier sind die neuen.",
+    "table.nextSeriesTakeBack": (gaps: { readonly names: string }) => "Speichern nimmt " + gaps.names + " „Neue Serie“ zurück.",
+    "table.possessive": (gaps: { readonly name: string }) => gaps.name + "s",
+    "table.possessiveApostrophe": (gaps: { readonly name: string }) => gaps.name + "’",
+    "table.answerClockEnds": (gaps: { readonly time: string }) => "Ohne Antwort in " + gaps.time + " endet der Tisch",
     "table.wantsToEndSeries": (gaps: { readonly name: string }) => gaps.name + " möchte die Serie beenden",
     "table.endSeries": "Serie beenden",
     "table.endSeriesSure": "Wirklich beenden?",
@@ -1029,10 +1045,6 @@ export const words: Words = {
     "table.playingOn": (gaps: { readonly names: string }) => gaps.names + " spielen weiter",
     "table.sitQuestion": "Mitten ins Spiel setzen?",
     "table.sitQuestionCancel": "Abbrechen",
-    "table.close": "Tisch schließen",
-    "table.closeQuestion": "Tisch für alle schließen?",
-    "table.closeConfirm": "Schließen",
-    "table.closeCancel": "Abbrechen",
     "table.takeOverNamed": (gaps: { readonly name: string }) => "Du übernimmst " + gaps.name + "s Karten.",
     "table.takeOverApostrophe": (gaps: { readonly name: string }) => "Du übernimmst " + gaps.name + "’ Karten.",
     "table.takeOverUnnamed": "Du übernimmst die Karten dieses Platzes.",

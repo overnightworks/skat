@@ -56,7 +56,6 @@ SEAT_TILE_PAINT = ["backgroundImage", "backgroundColor", "color", "boxShadow"]
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
-CLOSE_KEY = text(SOURCE_LANGUAGE, "table.close")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 SEAT_AWAY = text(SOURCE_LANGUAGE, "table.seatAway")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
@@ -395,26 +394,11 @@ def test_the_wait_pill_stays_as_tall_as_the_weiter_key_with_two_25_character_nam
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_bar_of_the_opener_with_weiter_stays_inside_the_page_and_its_close_row_lies_in_the_menu(
-    deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
-) -> None:
-    table = deal_a_finished_hand(form_factor, joiners=FULL_LENGTH_NAMES, opener_name=FULL_LENGTH_OPENER)
-    opener = next(person for person in table.pages.values() if person.locator(".row.close").count() == 1)
-
-    expect(opener.locator(".actions").get_by_role("button", name=WEITER)).to_be_visible()
-    expect(opener.locator(".actions").get_by_role("button", name=CLOSE_KEY)).to_have_count(0)
-    expect(menu_button(opener, CLOSE_KEY)).to_be_visible()
-    close_table_menu(opener)
-
-    expect_the_bars_inside_the_pages(table)
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_stand_up_row_keeps_its_word_while_the_bar_waits(
     deal_a_finished_hand: Callable[..., PlayingTable], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_finished_hand(form_factor)
-    person = next(person for person in table.pages.values() if person.locator(".row.close").count() == 0)
+    person = next(iter(table.pages.values()))
     bar = person.locator(".actions")
     bar.get_by_role("button", name=WEITER).click()
     expect(bar.get_by_role("status")).to_be_visible()

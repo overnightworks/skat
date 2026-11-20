@@ -49,6 +49,7 @@ from tests.support.open_chairs import (
     sent_away,
 )
 from tests.support.played_game import (
+    SAT_AT,
     a_whole_game,
     asked_by_an_opponent,
     before_the_last_card,
@@ -290,7 +291,7 @@ def opened(table, seat, opening):
 
 
 def sat(table, sitter, seat):
-    decision = decide_sit(table, sitter, seat, None)
+    decision = decide_sit(table, sitter, seat, None, SAT_AT)
     assert decision.refusal is None
     return decision.table
 

@@ -196,8 +196,8 @@ class StandUp:
 
 
 @dataclass(frozen=True)
-class CloseTable:
-    """The command to close the table for everyone; only its opener may."""
+class StopPlaying:
+    """The command „Aufhören“ at the series' end: it ends the table for everyone; the chair comes from the session."""
 
     command_id: str
     table_id: str
@@ -229,6 +229,7 @@ class Refusal(StrEnum):
     NO_RESULT = "no-result"
     STALE_RESULT = "stale-result"
     STALE_SERIES = "stale-series"
+    STALE_SETTINGS = "stale-settings"
     SERIES_OVER = "series-over"
     NO_SERIES = "no-series"
     SERIES_NOT_OVER = "series-not-over"
@@ -239,6 +240,7 @@ class Refusal(StrEnum):
     NOT_AN_AGENT = "not-an-agent"
     SEAT_OPEN = "seat-open"
     OWN_SEAT_ONLY = "own-seat-only"
+    ANSWER_TIME_OVER = "answer-time-over"
     NOT_ALLOWED = "not-allowed"
     HAND_NOT_OPEN = "hand-not-open"
 
@@ -410,12 +412,42 @@ class EndProposal:
         return cls(proposer, frozenset({proposer}), asked_at)
 
 
+def check_series_length(length: int) -> None:
+    """A series runs a multiple of three games from three to ninety-nine, whoever sets the length."""
+    if not SERIES_LENGTH_MIN <= length <= SERIES_LENGTH_MAX or length % SERIES_LENGTH_STEP:
+        message = (
+            f"a series length is a multiple of {SERIES_LENGTH_STEP} from {SERIES_LENGTH_MIN} to {SERIES_LENGTH_MAX}"
+        )
+        raise ValueError(message)
+
+
+@dataclass(frozen=True)
+class NextSettings:
+    """What the next series of a table is dealt with: its `length` in games and its rule `options`. `revision` counts
+    the saves since the series ended, 0 for the settings the last series carries over, so a „Neue Serie“ names the
+    settings it answers.
+    """
+
+    length: int
+    options: TableOptions
+    revision: int
+
+    def __post_init__(self) -> None:
+        check_series_length(self.length)
+        if self.revision < 0:
+            message = "the revision of settings counts saves"
+            raise ValueError(message)
+
+
 @dataclass(frozen=True)
 class Series:
     """A table's series: its fixed `length` in games, the `deals` made so far, a passed-in hand included, whether it
     `ended_early` by consent of every seat before its last game and the `end_proposal` standing between two games.
     `end_refused_by` names the seats whose no, or silence, ended the last proposal, until the next deal. `number`
-    numbers the table's series, 1 for the first.
+    numbers the table's series, 1 for the first. Once the series is over, `new_series_asked_at` is the instant the
+    first seat chose „Neue Serie“, from which a seat that stays silent counts as no; the minute stands only while a
+    seated seat is still silent. `next_settings` holds the settings a seat saved for the next series, None while it
+    carries this one's over.
     """
 
     length: int
@@ -424,13 +456,11 @@ class Series:
     end_proposal: EndProposal | None = None
     end_refused_by: frozenset[int] = frozenset()
     number: int = 1
+    new_series_asked_at: datetime | None = None
+    next_settings: NextSettings | None = None
 
     def __post_init__(self) -> None:
-        if not SERIES_LENGTH_MIN <= self.length <= SERIES_LENGTH_MAX or self.length % SERIES_LENGTH_STEP:
-            message = (
-                f"a series length is a multiple of {SERIES_LENGTH_STEP} from {SERIES_LENGTH_MIN} to {SERIES_LENGTH_MAX}"
-            )
-            raise ValueError(message)
+        check_series_length(self.length)
         if not 0 <= self.deals <= self.length:
             message = f"a series of {self.length} games has no {self.deals} deals"
             raise ValueError(message)
@@ -445,6 +475,25 @@ class Series:
             raise ValueError(message)
         if self.number < 1:
             message = "a series is numbered from one"
+            raise ValueError(message)
+        self._check_the_ask_for_new_series()
+        if self.next_settings is not None and not self.is_over:
+            message = "only a series that is over holds settings for the next one"
+            raise ValueError(message)
+
+    @property
+    def is_over(self) -> bool:
+        """Its last game was played or it ended early; a running hand is no concern of the series itself."""
+        return self.ended_early or self.deals == self.length
+
+    def _check_the_ask_for_new_series(self) -> None:
+        if self.new_series_asked_at is None:
+            return
+        if not self.is_over:
+            message = "only a series that is over asks for its seats' „Neue Serie“"
+            raise ValueError(message)
+        if self.end_proposal is not None:
+            message = "a series that asks for „Neue Serie“ holds no proposal"
             raise ValueError(message)
 
 
@@ -469,7 +518,10 @@ class TableRecord:
 
 
 class EndReason(StrEnum):
-    """Why a table ended; the stored token and the one the answer carries."""
+    """Why a table ended; the stored token and the one the answer carries. `CLOSED` is a table ended for everyone by a
+    person: an opener's close names her, which only stored tombstones carry, and „Aufhören“ and the silent minute at
+    the series' end name nobody.
+    """
 
     EMPTY = "empty"
     UNPLAYED = "unplayed"
@@ -498,9 +550,11 @@ class Ending:
         return cls(EndReason.UNPLAYED, unplayed_days=days)
 
     @classmethod
-    def closed(cls, name: str) -> Self:
-        """The table's opener closed it, under the display name she had then."""
-        return cls(EndReason.CLOSED, closed_by_name=name)
+    def stopped(cls) -> Self:
+        """A seat chose „Aufhören“ at the series' end, or one stayed silent for the minute; it names nobody, so the
+        release before reads it as a close of unknown opener.
+        """
+        return cls(EndReason.CLOSED)
 
 
 @dataclass(frozen=True)

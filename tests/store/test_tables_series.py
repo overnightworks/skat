@@ -10,18 +10,18 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 
 from skat.engine.deal import Position, deal, positions_from
-from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer, Word
+from skat.engine.kontra import Word
 from skat.store.game_list import game_list
 from skat.store.migrate import create_store_engine
-from skat.store.schema import StepLogRewrittenError, hand_cards, options_of, series, tables
+from skat.store.schema import StepLogRewrittenError, hand_cards, options_of, tables
 from skat.store.series import SeriesSettingsChangedError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.ready import NewSeriesCommand
 from skat.table.records import (
-    Actor,
     CreateTable,
     Ending,
+    EndReason,
     HandProgress,
     Refusal,
     Series,
@@ -35,19 +35,21 @@ from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.migrations import run_in_transaction
 from tests.support.played_game import after_a_game, after_the_first_game, an_entry
+from tests.support.series_store import (
+    ALL_THREE,
+    FIRST_SERIES_OPTIONS,
+    OPENER,
+    PEOPLE,
+    SECOND_SERIES_OPTIONS,
+    THIRD_PLAYER,
+    VISITOR,
+    race,
+    read,
+    series_rows,
+    tap_all,
+)
 
 pytestmark = pytest.mark.postgres
-
-OPENER = Actor(account_id="account-opener", display_name="Anna")
-VISITOR = Actor(account_id="account-visitor", display_name="Ben")
-THIRD_PLAYER = Actor(account_id="account-third", display_name="Cleo")
-PEOPLE = {1: OPENER, 2: VISITOR, 3: THIRD_PLAYER}
-ALL_THREE = frozenset(person.account_id for person in PEOPLE.values())
-
-
-def read(transactions, table_id):
-    with transactions.begin() as transaction:
-        return transaction.table(TableId(table_id))
 
 
 def series_of(transactions, table_id):
@@ -155,12 +157,6 @@ def ended_series(service, transactions, table_id):
     return table_id
 
 
-def tap_all(service, table_id, round_name="new-series", series=1):
-    for seat, person in PEOPLE.items():
-        command = NewSeriesCommand(f"{round_name}-{seat}", table_id, series)
-        assert service.start_new_series(person, command, ALL_THREE).refusal is None
-
-
 class TestNewSeries:
     def test_the_three_taps_delete_nothing_and_the_deal_keeps_the_rows_shows_an_empty_list_and_counts_one(
         self, service, transactions, engine, ended_series
@@ -179,12 +175,15 @@ class TestNewSeries:
 
     def test_two_taps_leave_the_rows_and_deal_nothing(self, service, transactions, engine, ended_series):
         for seat in (1, 2):
-            service.start_new_series(PEOPLE[seat], NewSeriesCommand(f"new-series-{seat}", ended_series, 1), ALL_THREE)
+            service.start_new_series(
+                PEOPLE[seat], NewSeriesCommand(f"new-series-{seat}", ended_series, 1, 0), ALL_THREE
+            )
 
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is False
 
         assert rows_of(engine, game_list) == 1
-        assert read(transactions, ended_series).series == Series(3, 3)
+        asked = read(transactions, ended_series).series
+        assert (replace(asked, new_series_asked_at=None), asked.new_series_asked_at is not None) == (Series(3, 3), True)
 
     def test_a_failed_deal_keeps_the_old_list_the_count_and_the_marks_and_deals_no_hand(
         self, service, transactions, engine, ended_series
@@ -287,7 +286,7 @@ class TestNewSeries:
         service.deal_next(TableId(ended_series), nullcontext(ALL_THREE))
         dealt = read(transactions, ended_series)
 
-        again = service.start_new_series(OPENER, NewSeriesCommand("new-series-1", ended_series, 1), ALL_THREE)
+        again = service.start_new_series(OPENER, NewSeriesCommand("new-series-1", ended_series, 1, 0), ALL_THREE)
 
         assert again.refusal is None
         assert read(transactions, ended_series) == dealt
@@ -354,20 +353,6 @@ def say_no(service, seat, table_id, service_for=None):
     return (service_for or service).refuse_to_end_series(
         PEOPLE[seat], SeriesEndCommand(f"no-{seat}-{table_id}", table_id), ALL_THREE
     )
-
-
-def race(first, second):
-    answers = {}
-
-    def run(name, call):
-        answers[name] = call()
-
-    threads = [threading.Thread(target=run, args=item) for item in (("first", first), ("second", second))]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
-    return answers
 
 
 class TestEndingEarly:
@@ -576,7 +561,11 @@ class TestEndingEarly:
         ended = a_table_between_games(service, transactions)
         say_yes(service, 1, ended)
         with transactions.begin() as transaction:
-            transaction.end_table(TableId(ended), datetime(2026, 11, 9, 12, 0, tzinfo=UTC), Ending.closed("Anna"))
+            transaction.end_table(
+                TableId(ended),
+                datetime(2026, 11, 9, 12, 0, tzinfo=UTC),
+                Ending(EndReason.CLOSED, closed_by_name="Anna"),
+            )
         moved_on = a_table_between_games(service, transactions)
         for seat in (1, 2, 3):
             say_yes(service, seat, moved_on)
@@ -604,19 +593,6 @@ class TestEndingEarly:
         assert read(transactions, between_games).series == Series(3, 1, number=2)
         assert read(transactions, between_games).game_list == ()
         assert rows_of(engine, game_list) == 1
-
-
-def kontra_options(reach):
-    return TableOptions(kontra=KontraOptions(KontraSayer.ANY_OPPONENT, reach, KontraDeadline.OWN_CARD))
-
-
-FIRST_SERIES_OPTIONS = kontra_options(KontraReach.KONTRA_RE_STANDINGS)
-SECOND_SERIES_OPTIONS = kontra_options(KontraReach.KONTRA_RE)
-
-
-def series_rows(engine, table_id):
-    with engine.connect() as connection:
-        return connection.execute(select(series).where(series.c.table_id == table_id).order_by(series.c.number)).all()
 
 
 class TestTheSeriesRow:
@@ -698,7 +674,9 @@ class TestTheSeriesRow:
                 self.second_series(transactions, first_series, SECOND_SERIES_OPTIONS), played_at=None
             )
             transaction.end_table(
-                TableId(first_series), datetime(2026, 11, 9, 12, 0, tzinfo=UTC), Ending.closed("Anna")
+                TableId(first_series),
+                datetime(2026, 11, 9, 12, 0, tzinfo=UTC),
+                Ending(EndReason.CLOSED, closed_by_name="Anna"),
             )
 
         last = stored(transactions, first_series).last_series
@@ -713,6 +691,10 @@ class TestTheSeriesRow:
 
     def test_an_ended_table_that_finished_no_game_has_no_last_series(self, service, transactions, stored, table_id):
         with transactions.begin() as transaction:
-            transaction.end_table(TableId(table_id), datetime(2026, 11, 9, 12, 0, tzinfo=UTC), Ending.closed("Anna"))
+            transaction.end_table(
+                TableId(table_id),
+                datetime(2026, 11, 9, 12, 0, tzinfo=UTC),
+                Ending(EndReason.CLOSED, closed_by_name="Anna"),
+            )
 
         assert stored(transactions, table_id).last_series is None

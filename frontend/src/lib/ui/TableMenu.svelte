@@ -8,7 +8,6 @@
     import AgentsList from "./AgentsList.svelte";
     import AgentsMark from "./AgentsMark.svelte";
     import AnchoredPanel from "./AnchoredPanel.svelte";
-    import CloseQuestion from "./CloseQuestion.svelte";
     import CopyLinkKey from "./CopyLinkKey.svelte";
     import GiveUpKey from "./GiveUpKey.svelte";
     import MenuKey from "./MenuKey.svelte";
@@ -18,7 +17,6 @@
     import SeriesEndKey from "./SeriesEndKey.svelte";
     import StandKey from "./StandKey.svelte";
     import PaletteMark from "./PaletteMark.svelte";
-    import PowerMark from "./PowerMark.svelte";
     import StylePanel from "./StylePanel.svelte";
 
     import type { Table } from "../../routes/(start)/tables.ts";
@@ -61,16 +59,12 @@
     let open = $state(false);
     let styleOpen = $state(false);
     let agentsOpen = $state(false);
-    let closeAsked = $state(false);
     let agentsShown = $state(false);
     let viewportWidth = $state(0);
 
     const side = $derived(place === "strip" ? "above" : "below");
     const standOffered = $derived(seated);
-    const closeOffered = $derived(table.opened_by_me && !callMode);
-    const tableRows = $derived(
-        !callMode || agentsShown || styleOffered || standOffered || closeOffered || seriesEndOffered(table),
-    );
+    const tableRows = $derived(!callMode || agentsShown || styleOffered || standOffered || seriesEndOffered(table));
     const gameRows = $derived(
         shortenKey(table) || playOpenKey(table) || giveUpOffered(table) || abortView(table).offered,
     );
@@ -152,19 +146,6 @@
                 }}
             />
         {/if}
-        {#if closeOffered}
-            <button
-                type="button"
-                class="row close"
-                onclick={() => {
-                    close();
-                    closeAsked = true;
-                }}
-            >
-                <PowerMark />
-                <span class="label">{words["table.close"]}</span>
-            </button>
-        {/if}
         <SeriesEndKey {id} {table} bind:note onsent={close} />
     {/if}
     {#if gameRows}
@@ -199,13 +180,4 @@
 </AnchoredPanel>
 {#if styleOffered}
     <StylePanel {id} bind:note anchor={key} {side} bind:open={styleOpen} />
-{/if}
-{#if closeAsked}
-    <CloseQuestion
-        {id}
-        bind:note
-        onanswered={() => {
-            closeAsked = false;
-        }}
-    />
 {/if}

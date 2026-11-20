@@ -2,9 +2,10 @@
 
 import pytest
 
-from skat.table.records import CloseTable, CreateTable, SitDown
+from skat.table.records import CreateTable, SitDown
 from skat.table.service import TableService
 from skat.web.streams import IDLE_HEARTBEAT, StreamEvent, stream_messages
+from tests.support.ended_tables import end_the_table
 from tests.support.fake_tables import FakeTableStore
 from tests.web.support.lobby_scene import ANNA, BEN, CLEO, Scene, ids_of, next_mine, next_open
 from tests.web.support.streams import (
@@ -142,7 +143,7 @@ async def the_lease_of_a_stranger_starts(scene, table_id):
 
 
 async def anna_closes_the_table(scene, table_id):
-    scene.service.close(ANNA, CloseTable("close-anna", table_id))
+    end_the_table(scene.service, table_id)
 
 
 async def anna_states_a_turn(scene, table_id):

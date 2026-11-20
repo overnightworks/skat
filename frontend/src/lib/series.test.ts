@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { Chair } from "../routes/(start)/tables.ts";
+import type { Chair, Options, Table } from "../routes/(start)/tables.ts";
+import { possessive } from "#lib/openChair.ts";
 import { weiterBar } from "#lib/result.ts";
 import {
     gameRows,
     resultOnStage,
+    returnsToLobby,
     seriesCountText,
+    nextSeriesLine,
+    changeableSettingsOf,
+    nextSettingsOf,
+    nextSettingsRevisionOf,
+    seriesEndAnswerBy,
     seriesEndAsk,
     seriesEndMarks,
     seriesEndOffered,
@@ -13,6 +20,8 @@ import {
     seriesRefusalNotice,
     seriesOver,
     standingsView,
+    stopOffered,
+    takenBackLine,
 } from "#lib/series.ts";
 import {
     chairs,
@@ -252,16 +261,16 @@ describe("standingsView", () => {
         expect(standingsView(tableBetweenGames(1, seriesAt()))).toBeNull();
     });
 
-    it("ranks every account with its place, total and record as declarer", () => {
+    it("ranks every account with its place and total, and reads the viewer's own as Du", () => {
         const view = standingsView(ended());
 
         expect(view?.sub).toBe(words["table.seriesGames"](36));
-        expect(view?.rows.map((row) => [row.place, row.name, row.total, row.record])).toEqual([
-            [1, "player 1", "502", words["table.seriesRecord"]({ won: "10", lost: "4" })],
-            [2, "player 2", "−365", words["table.seriesRecord"]({ won: "7", lost: "3" })],
-            [2, "player 3", "−365", words["table.seriesRecord"]({ won: "7", lost: "3" })],
-            [4, "player 4", "118", words["table.seriesRecord"]({ won: "4", lost: "1" })],
-            [5, words["table.seriesNameless"], "5", words["table.seriesRecord"]({ won: "0", lost: "0" })],
+        expect(view?.rows.map((row) => [row.place, row.name, row.total])).toEqual([
+            [1, "player 1", "502"],
+            [2, words["table.sideYou"], "−365"],
+            [2, "player 3", "−365"],
+            [4, "player 4", "118"],
+            [5, words["table.seriesNameless"], "5"],
         ]);
     });
 
@@ -296,6 +305,22 @@ describe("standingsView", () => {
         const view = standingsView(table);
 
         expect(view?.rows.map((row) => row.gone)).toEqual([true]);
+        expect(view?.winnerSeats.size).toBe(0);
+    });
+
+    it("reads no name as Du for a watcher, and marks no chair for a nameless winner", () => {
+        const watching = tableBetweenGames(
+            WATCHER,
+            seriesAt({
+                over: true,
+                standings: [{ display_name: null, seat: 1, kind: "person", total: 5, won: 0, lost: 0, place: 1 }],
+                game_number: 36,
+            }),
+        );
+
+        const view = standingsView(watching);
+
+        expect(view?.rows.map((row) => row.name)).toEqual([words["table.seriesNameless"]]);
         expect(view?.winnerSeats.size).toBe(0);
     });
 
@@ -355,6 +380,151 @@ describe("weiterBar after the series ended", () => {
     it("gives no bar between games while the series runs", () => {
         expect(weiterBar(tableBetweenGames(1, seriesAt()))).toBeNull();
         expect(chairs(1)).toHaveLength(3);
+    });
+});
+
+describe("the series' end", () => {
+    const over = (mine: number, changes: Parameters<typeof seriesAt>[0] = {}) =>
+        tableBetweenGames(mine, seriesAt({ over: true, standings: [], ...changes }));
+    const NO_RULES: Options = {
+        show_running_points: false,
+        kontra: null,
+        bock: null,
+        ramsch: null,
+        give_up: { partner_agrees: false, any_time: false },
+    };
+
+    it.each([
+        { name: "a seated member of a series that is over", table: over(1), expected: true },
+        { name: "a watcher of a series that is over", table: over(WATCHER), expected: false },
+        { name: "a seated member of a series that runs", table: tableBetweenGames(1, seriesAt()), expected: false },
+        { name: "a seated member of a table with no series", table: tableBetweenGames(1, null), expected: false },
+    ])("offers „Aufhören“ to $name: $expected", ({ table, expected }) => {
+        expect(stopOffered(table)).toBe(expected);
+    });
+
+    it("names the length and the rules the next series begins with", () => {
+        const table = { ...over(1), options: NO_RULES };
+
+        expect(nextSeriesLine(table)).toEqual({
+            length: words["table.seriesGames"](36),
+            chips: [{ id: "official", word: words["rules.chipOfficial"], count: null }],
+        });
+    });
+
+    const WITH_KONTRA: Options = {
+        ...NO_RULES,
+        kontra: { sayer: "bidders-only", reach: "up-to-hirsch", deadline: "own-card" },
+    };
+
+    it("names the settings a seat saved for the next series over the last series' own", () => {
+        const table = {
+            ...over(1, { next_settings: { game_count: 12, options: WITH_KONTRA, revision: 2 } }),
+            options: NO_RULES,
+        };
+
+        expect(nextSeriesLine(table)).toEqual({
+            length: words["table.seriesGames"](12),
+            chips: [{ id: "kontra", word: words["rules.chipKontra"], count: null }],
+        });
+    });
+
+    it("starts the sheet and names the revision from the saved settings, else from the last series as revision 0", () => {
+        const saved = { game_count: 12, options: WITH_KONTRA, revision: 2 };
+
+        expect(nextSettingsOf({ ...over(1, { next_settings: saved }), options: NO_RULES })).toEqual(saved);
+        expect(nextSettingsOf({ ...over(1), options: NO_RULES })).toEqual({
+            game_count: 36,
+            options: NO_RULES,
+            revision: 0,
+        });
+        expect(nextSettingsOf(tableBetweenGames(1, seriesAt()))).toBeNull();
+    });
+
+    it("names the saved revision, else revision 0 when the table has no settings to name", () => {
+        const saved = { game_count: 12, options: WITH_KONTRA, revision: 2 };
+
+        expect([
+            nextSettingsRevisionOf({ ...over(1, { next_settings: saved }), options: NO_RULES }),
+            nextSettingsRevisionOf({ ...over(1), options: NO_RULES }),
+            nextSettingsRevisionOf(over(1)),
+        ]).toEqual([2, 0, 0]);
+    });
+
+    it.each([
+        { name: "a seated member of a series that is over", table: { ...over(1), options: NO_RULES }, expected: true },
+        { name: "a watcher of a series that is over", table: { ...over(WATCHER), options: NO_RULES }, expected: false },
+        {
+            name: "a seated member of a series that runs",
+            table: { ...tableBetweenGames(1, seriesAt()), options: NO_RULES },
+            expected: false,
+        },
+        { name: "a seated member of a table that has no options", table: over(1), expected: false },
+    ])("lets $name change the next settings: $expected", ({ table, expected }) => {
+        expect(changeableSettingsOf(table) !== null).toBe(expected);
+    });
+
+    it("names whose „Neue Serie“ a save takes back: the other seats that chose it", () => {
+        const table = tableBetweenGames(1, seriesAt({ over: true, standings: [] }), [1, 2]);
+
+        expect(takenBackLine(table)).toBe(words["table.nextSeriesTakeBack"]({ names: possessive("player 2") }));
+    });
+
+    it("names no one when no other seat has chosen „Neue Serie“", () => {
+        expect(takenBackLine(tableBetweenGames(1, seriesAt({ over: true, standings: [] }), [1]))).toBeNull();
+    });
+
+    it.each([
+        { name: "a series that runs", table: { ...tableBetweenGames(1, seriesAt()), options: NO_RULES } },
+        { name: "a table that has no options", table: over(1) },
+    ])("draws no line of next settings for $name", ({ table }) => {
+        expect(nextSeriesLine(table)).toBeNull();
+    });
+
+    it("gives the instant the silent seats end the table once the first chose „Neue Serie“", () => {
+        expect(seriesEndAnswerBy(over(1, { new_series_answer_by: ANSWER_BY }))).toBe(ANSWER_BY);
+    });
+
+    it.each([
+        { name: "no seat chose yet", table: over(1) },
+        { name: "the series runs", table: tableBetweenGames(1, seriesAt({ new_series_answer_by: ANSWER_BY })) },
+        { name: "there is no series", table: tableBetweenGames(1, null) },
+    ])("gives no minute while $name", ({ table }) => {
+        expect(seriesEndAnswerBy(table)).toBeNull();
+    });
+
+    const PLAYED = { standings: null, game_count: null };
+    const stopped: Table = {
+        ...over(1),
+        ended: { ...PLAYED, reason: "closed", empty_seconds: null, unplayed_days: null, closed_by_name: null },
+    };
+    const named: Table = {
+        ...over(1),
+        ended: { ...PLAYED, reason: "closed", empty_seconds: null, unplayed_days: null, closed_by_name: "Anna" },
+    };
+    const emptied: Table = {
+        ...over(1),
+        ended: { ...PLAYED, reason: "empty", empty_seconds: 60, unplayed_days: null, closed_by_name: null },
+    };
+
+    it.each([
+        {
+            name: "a page that showed the live table „Aufhören“ ended",
+            previous: over(1),
+            table: stopped,
+            expected: true,
+        },
+        {
+            name: "a page that opened the link of a stopped table",
+            previous: undefined,
+            table: stopped,
+            expected: false,
+        },
+        { name: "a page that already showed the stopped table", previous: stopped, table: stopped, expected: false },
+        { name: "a page whose live table ended another way", previous: over(1), table: emptied, expected: false },
+        { name: "a page whose live table an opener closed by name", previous: over(1), table: named, expected: false },
+    ])("returns to the lobby from $name: $expected", ({ previous, table, expected }) => {
+        expect(returnsToLobby(previous, table)).toBe(expected);
     });
 });
 

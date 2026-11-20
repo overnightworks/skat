@@ -99,6 +99,10 @@ msgctxt "lobby.noOpenTables"
 msgid "Sonst ist kein Tisch offen"
 msgstr ""
 
+msgctxt "lobby.nobodyPlays"
+msgid "Gerade spielt niemand"
+msgstr ""
+
 msgctxt "lobby.openTable"
 msgid "{title} öffnen"
 msgstr ""
@@ -515,10 +519,6 @@ msgctxt "table.seriesGames.other"
 msgid "{count} Spiele"
 msgstr ""
 
-msgctxt "table.seriesRecord"
-msgid "{won} gewonnen · {lost} verloren"
-msgstr ""
-
 msgctxt "table.seriesGone"
 msgid "gegangen"
 msgstr ""
@@ -605,6 +605,46 @@ msgstr ""
 
 msgctxt "table.newSeries"
 msgid "Neue Serie"
+msgstr ""
+
+msgctxt "table.stopPlaying"
+msgid "Aufhören"
+msgstr ""
+
+msgctxt "table.nextSeries"
+msgid "Nächste Serie"
+msgstr ""
+
+msgctxt "table.nextSeriesChange"
+msgid "Ändern"
+msgstr ""
+
+msgctxt "table.nextSeriesSave"
+msgid "Speichern"
+msgstr ""
+
+msgctxt "table.nextSeriesCancel"
+msgid "Abbrechen"
+msgstr ""
+
+msgctxt "table.nextSeriesChanged"
+msgid "Die Einstellungen wurden geändert. Hier sind die neuen."
+msgstr ""
+
+msgctxt "table.nextSeriesTakeBack"
+msgid "Speichern nimmt {names} „Neue Serie“ zurück."
+msgstr ""
+
+msgctxt "table.possessive"
+msgid "{name}s"
+msgstr ""
+
+msgctxt "table.possessiveApostrophe"
+msgid "{name}’"
+msgstr ""
+
+msgctxt "table.answerClockEnds"
+msgid "Ohne Antwort in {time} endet der Tisch"
 msgstr ""
 
 msgctxt "table.wantsToEndSeries"
@@ -1596,22 +1636,6 @@ msgid "Mitten ins Spiel setzen?"
 msgstr ""
 
 msgctxt "table.sitQuestionCancel"
-msgid "Abbrechen"
-msgstr ""
-
-msgctxt "table.close"
-msgid "Tisch schließen"
-msgstr ""
-
-msgctxt "table.closeQuestion"
-msgid "Tisch für alle schließen?"
-msgstr ""
-
-msgctxt "table.closeConfirm"
-msgid "Schließen"
-msgstr ""
-
-msgctxt "table.closeCancel"
 msgid "Abbrechen"
 msgstr ""
 

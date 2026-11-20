@@ -22,12 +22,15 @@ from skat.table.records import (
     Visibility,
     parsed_refusal,
 )
+from skat.table.rules import dealt_next, decide_sit, drawn_hand, new_series_ask_stands, with_occupant
 from skat.table.series_end import (
     END_ANSWER_SECONDS,
     SeriesEndCommand,
     decide_agree_to_end,
     decide_end_answer_lapse,
     decide_refuse_to_end,
+    decide_stop_playing,
+    new_series_lapsed,
     series_end_payload,
 )
 from tests.support.played_game import END_ASKED_AT, an_end_proposal, an_entry
@@ -305,3 +308,157 @@ class TestRecords:
 class TestPayload:
     def test_a_proposal_has_no_number_so_the_table_alone_is_the_payload(self):
         assert series_end_payload(SeriesEndCommand(command_id="command-end", table_id="0" * 32)) == "0" * 32
+
+
+def at_the_series_end(*ready_seats: int, asked_at=None, early: bool = False, silent_seats: tuple[int, ...] = ()):
+    """Three seated after the last game of a series of twelve, or after its early end; `ready_seats` chose „Neue
+    Serie“, the first at `asked_at`, and the chairs of `silent_seats` are empty.
+    """
+    base = between_games(ready_seats=ready_seats, series=Series(12, 4, ended_early=True) if early else Series(12, 12))
+    chairs = tuple(replace(chair, occupant=None) if chair.seat in silent_seats else chair for chair in base.chairs)
+    return replace(base, chairs=chairs, series=replace(base.series, new_series_asked_at=asked_at))
+
+
+class TestDecideStopPlaying:
+    @pytest.mark.parametrize("early", [False, True], ids=["after-the-last-game", "after-an-early-end"])
+    def test_every_seated_person_may_stop_at_the_series_end(self, early):
+        for actor in (ANNA, BEN, CLEO):
+            assert decide_stop_playing(at_the_series_end(early=early), actor) is None
+
+    @pytest.mark.parametrize(
+        ("table", "actor", "refusal"),
+        [
+            pytest.param(at_the_series_end(), DORA, Refusal.NOT_SEATED, id="a-viewer-without-a-chair"),
+            pytest.param(replace(at_the_series_end(), series=None), ANNA, Refusal.NO_SERIES, id="no-series"),
+            pytest.param(between_games(), ANNA, Refusal.SERIES_NOT_OVER, id="between-two-games"),
+            pytest.param(
+                replace(at_the_series_end(), hand=deal(random.Random(3))),  # noqa: S311 - a seeded source makes the deal reproducible
+                ANNA,
+                Refusal.SERIES_NOT_OVER,
+                id="a-hand-runs-at-the-last-game",
+            ),
+        ],
+    )
+    def test_the_first_refusal_that_applies_is_named(self, table, actor, refusal):
+        assert decide_stop_playing(table, actor) is refusal
+
+
+class TestDecideNewSeriesLapse:
+    MINUTE_OVER = END_ASKED_AT + MINUTE
+
+    def test_a_seated_seat_silent_for_the_minute_stops_the_table(self):
+        assert new_series_lapsed(at_the_series_end(1, 2, asked_at=END_ASKED_AT), self.MINUTE_OVER)
+
+    def test_a_seated_seat_silent_beside_an_empty_chair_that_chose_stops_the_table(self):
+        table = at_the_series_end(1, 3, asked_at=END_ASKED_AT, silent_seats=(3,))
+
+        assert new_series_lapsed(table, self.MINUTE_OVER)
+
+    @pytest.mark.parametrize(
+        "table",
+        [
+            pytest.param(at_the_series_end(1, 2, 3, asked_at=END_ASKED_AT), id="every-seated-seat-chose"),
+            pytest.param(
+                at_the_series_end(1, 2, 3, asked_at=END_ASKED_AT, silent_seats=(3,)), id="the-silent-seat-stood-up"
+            ),
+        ],
+    )
+    def test_a_minute_no_silent_seated_seat_is_left_in_never_lapses(self, table):
+        assert not new_series_lapsed(table, self.MINUTE_OVER)
+
+    @pytest.mark.parametrize(
+        "table",
+        [
+            pytest.param(at_the_series_end(1, asked_at=END_ASKED_AT), id="a-minute-with-time-left"),
+            pytest.param(at_the_series_end(), id="nobody-chose-yet"),
+            pytest.param(between_games(), id="between-two-games"),
+            pytest.param(replace(between_games(), series=None), id="no-series"),
+        ],
+    )
+    def test_nothing_changes_where_no_answer_has_run_out_of_time(self, table):
+        assert not new_series_lapsed(table, self.MINUTE_OVER - timedelta(seconds=1))
+
+
+class TestTheMinuteWhenASeatStandsUp:
+    def test_the_given_marks_stay_and_the_minute_runs_while_a_seated_seat_is_silent(self):
+        table = at_the_series_end(1, asked_at=END_ASKED_AT)
+
+        after = with_occupant(table, 2, None)
+
+        assert [chair.ready for chair in after.chairs] == [True, False, False]
+        assert after.series.new_series_asked_at == END_ASKED_AT
+
+    def test_the_last_silent_seat_standing_up_ends_the_minute_and_keeps_the_given_marks(self):
+        table = at_the_series_end(1, 2, asked_at=END_ASKED_AT)
+
+        after = with_occupant(table, 3, None)
+
+        assert [chair.ready for chair in after.chairs] == [True, True, False]
+        assert after.series.new_series_asked_at is None
+
+    def test_the_only_seat_that_chose_standing_up_ends_the_minute(self):
+        after = with_occupant(at_the_series_end(1, asked_at=END_ASKED_AT), 1, None)
+
+        assert after.series.new_series_asked_at is None
+
+    def test_a_minute_that_ended_that_way_stops_nothing_when_its_time_is_over(self):
+        after = with_occupant(at_the_series_end(1, 2, asked_at=END_ASKED_AT), 3, None)
+
+        assert not new_series_lapsed(after, END_ASKED_AT + MINUTE)
+
+    @pytest.mark.parametrize(
+        ("table", "stands"),
+        [
+            pytest.param(at_the_series_end(1, asked_at=END_ASKED_AT), True, id="a-seated-seat-is-silent"),
+            pytest.param(
+                at_the_series_end(1, 2, asked_at=END_ASKED_AT, silent_seats=(3,)), False, id="every-seated-seat-chose"
+            ),
+            pytest.param(at_the_series_end(asked_at=END_ASKED_AT), False, id="no-mark-stands"),
+        ],
+    )
+    def test_an_ask_stands_while_a_mark_stands_and_a_seated_seat_is_silent(self, table, stands):
+        assert new_series_ask_stands(table) is stands
+
+
+class TestTheMinuteWhenASeatSitsDown:
+    SAT_AT = END_ASKED_AT + timedelta(seconds=45)
+
+    @pytest.mark.parametrize(
+        "table",
+        [
+            pytest.param(at_the_series_end(1, 2, silent_seats=(3,)), id="the-minute-ended-with-the-last-silent-seat"),
+            pytest.param(at_the_series_end(1, asked_at=END_ASKED_AT, silent_seats=(3,)), id="a-minute-runs"),
+        ],
+    )
+    def test_a_sit_beside_a_mark_times_the_sitter_with_a_fresh_minute(self, table):
+        sat = decide_sit(table, DORA, 3, None, self.SAT_AT).table
+
+        assert sat.series.new_series_asked_at == self.SAT_AT
+        assert not new_series_lapsed(sat, self.SAT_AT + MINUTE - timedelta(seconds=1))
+        assert new_series_lapsed(sat, self.SAT_AT + MINUTE)
+
+    def test_a_sit_with_no_mark_standing_starts_no_minute(self):
+        sat = decide_sit(at_the_series_end(silent_seats=(3,)), DORA, 3, None, self.SAT_AT).table
+
+        assert sat.series.new_series_asked_at is None
+
+    def test_a_sit_between_two_games_starts_no_minute(self):
+        marked = between_games(ready_seats=(1,))
+        table = replace(marked, chairs=(*marked.chairs[:2], Chair(3, None)))
+
+        assert decide_sit(table, DORA, 3, None, self.SAT_AT).table.series.new_series_asked_at is None
+
+
+class TestAnswersRunOutOfTime:
+    def test_a_series_asks_for_its_answers_only_once_over_and_never_beside_a_proposal(self):
+        with pytest.raises(ValueError, match="series that is over"):
+            Series(12, 4, new_series_asked_at=END_ASKED_AT)
+        with pytest.raises(ValueError, match="no proposal"):
+            Series(12, 12, end_proposal=an_end_proposal(1), new_series_asked_at=END_ASKED_AT)
+
+    def test_a_deal_clears_the_ask_of_the_series_before(self):
+        table = at_the_series_end(1, 2, 3, asked_at=END_ASKED_AT)
+
+        dealt_table = dealt_next(table, drawn_hand(table, random.Random(3)))  # noqa: S311 - a seeded source makes the deal reproducible
+
+        assert dealt_table.series.new_series_asked_at is None

@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Final, Literal
 
-from sqlalchemy import Integer, delete, exists, func, insert, literal, select, update
+from sqlalchemy import Integer, delete, exists, func, insert, literal, or_, select, update
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.dialects.postgresql import insert as upsert
 from sqlalchemy.exc import IntegrityError
@@ -34,7 +34,16 @@ from skat.store.schema import (
     series,
     tables,
 )
-from skat.store.series import bock_of, insert_series, last_played_series, save_series, series_of, series_row
+from skat.store.series import (
+    bock_of,
+    insert_series,
+    last_played_series,
+    mark_revision_of,
+    mark_stands,
+    save_series,
+    series_row,
+    series_with_next_settings,
+)
 from skat.table.hand_state import auction_of
 from skat.table.records import (
     Chair,
@@ -56,7 +65,8 @@ from skat.table.records import (
     Visibility,
     parsed_refusal,
 )
-from skat.table.rules import CREATE_TABLE_COMMAND, series_number_of
+from skat.table.rules import CREATE_TABLE_COMMAND, series_number_of, with_standing_ask
+from skat.table.series_end import series_asked_at
 from skat.table.transactions import (
     DuplicateReceiptError,
     HeldChair,
@@ -118,13 +128,14 @@ def _read_hand(connection: Connection, table_id: str) -> Deal | None:
     )
 
 
-def _chair_of(seat: Row[*tuple[Any, ...]]) -> Chair:
+def _chair_of(seat: Row[*tuple[Any, ...]], revision: int | None) -> Chair:
     occupant = (
         None
         if seat.account_id is None
         else Occupant(seat.account_id, seat.display_name, OccupantKind(seat.occupant_kind), seat.owner_account)
     )
-    return Chair(seat.seat, occupant, ready=seat.ready, turn_state=_turn_state_of(seat))
+    ready = mark_stands(seat.ready, seat.ready_settings, revision)
+    return Chair(seat.seat, occupant, ready=ready, turn_state=_turn_state_of(seat))
 
 
 def _turn_state_of(seat: Row[*tuple[Any, ...]]) -> TurnStatement | None:
@@ -161,6 +172,7 @@ def _read_seats(connection: Connection, table_id: str) -> Sequence[Row[*tuple[An
             chairs.c.occupant_kind,
             chairs.c.owner_account,
             chairs.c.ready,
+            chairs.c.ready_settings,
             chairs.c.held_in_hand,
             chairs.c.former_holder_name,
             chairs.c.turn_state_account,
@@ -191,10 +203,13 @@ def _table_record(
         )
     seats = _read_seats(connection, table_id)
     current = series_row(connection, table_id, table.series_number)
-    return TableRecord(
+    played = series_with_next_settings(connection, table_id, current)
+    revision = mark_revision_of(played)
+    standing = tuple(_chair_of(seat, revision) for seat in seats)
+    record = TableRecord(
         id=TableId(table_id),
         version=table.version,
-        chairs=tuple(_chair_of(seat) for seat in seats),
+        chairs=standing,
         dealer=table.dealer,
         hand=_read_hand(connection, table_id),
         progress=HandProgress(
@@ -217,12 +232,13 @@ def _table_record(
             ),
         ),
         game_list=read_game_list(connection, table_id, table.series_number),
-        series=series_of(current),
+        series=played,
         options=options_of(current),
         bock=bock_of(current),
         visibility=Visibility(table.visibility),
         style=TableStyle(table.style),
     )
+    return with_standing_ask(record)
 
 
 def _position_of(text: str | None) -> Position | None:
@@ -345,6 +361,7 @@ class _PostgresTableTransaction:
         )
 
     def _write_chairs(self, table: TableRecord) -> None:
+        revision = mark_revision_of(table.series)
         for chair in table.chairs:
             occupant = chair.occupant
             self._connection.execute(
@@ -356,6 +373,7 @@ class _PostgresTableTransaction:
                     occupant_kind=None if occupant is None else occupant.kind.value,
                     owner_account=None if occupant is None else occupant.owner_account,
                     ready=chair.ready,
+                    ready_settings=revision if chair.ready else None,
                     held_in_hand=sorted(
                         mark.account_id for mark in table.progress.seats_held if mark.seat == chair.seat
                     ),
@@ -466,13 +484,6 @@ class _PostgresTableTransaction:
             delete(receipts).where(receipts.c.table_id == table_id.value, receipts.c.command != CREATE_TABLE_COMMAND)
         )
 
-    def opener_account(self, table_id: TableId) -> str | None:
-        return self._connection.execute(
-            select(receipts.c.account_id).where(
-                receipts.c.table_id == table_id.value, receipts.c.command == CREATE_TABLE_COMMAND
-            )
-        ).scalar_one_or_none()
-
     def played_before(self, cutoff: datetime) -> tuple[TableId, ...]:
         return tuple(
             TableId(table_id)
@@ -523,15 +534,24 @@ class _PostgresTableTransaction:
         )
 
     def live_end_asks(self) -> tuple[LiveAsk, ...]:
-        return tuple(
-            LiveAsk(TableId(row.table_id), row.end_asked_at)
-            for row in self._connection.execute(
-                select(series.c.table_id, series.c.end_asked_at)
-                .join(tables, (tables.c.id == series.c.table_id) & (tables.c.series_number == series.c.number))
-                .where(tables.c.end_reason.is_(None), series.c.end_proposer.is_not(None))
-                .order_by(series.c.table_id)
+        asking = self._connection.execute(
+            select(series.c.table_id)
+            .join(tables, (tables.c.id == series.c.table_id) & (tables.c.series_number == series.c.number))
+            .where(
+                tables.c.end_reason.is_(None),
+                or_(series.c.end_proposer.is_not(None), series.c.new_series_asked_at.is_not(None)),
             )
+            .order_by(series.c.table_id)
+        ).scalars()
+        records = (_table_record(self._connection, table_id, row_lock=None) for table_id in asking.all())
+        asks = (
+            LiveAsk(record.id, asked_at)
+            for record in records
+            if isinstance(record, TableRecord)
+            and record.series is not None
+            and (asked_at := series_asked_at(record.series)) is not None
         )
+        return tuple(asks)
 
     def store_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
         seated = (

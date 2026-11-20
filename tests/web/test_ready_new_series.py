@@ -1,14 +1,16 @@
 from dataclasses import replace
+from datetime import UTC, datetime
 
 import pytest
 
 from skat.engine.deal import next_dealer
-from skat.table.records import Refusal
+from skat.table.records import Ending, Refusal, TableId
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in, with_known_deal
 from tests.support.played_game import a_whole_game
 from tests.web.support.series import (
+    change_next_settings,
     deal_next,
     headers_of,
     play_a_series,
@@ -193,6 +195,8 @@ class TestTheNextSeries:
             "standings": None,
             "end_proposal": None,
             "end_refused_seats": [],
+            "new_series_answer_by": None,
+            "next_settings": None,
         }
         assert (seen["result"], marks(table.read_as(table.watcher))) == (None, [False, False, False])
         assert seen["hand"] is not None
@@ -279,6 +283,209 @@ class TestTheNextSeries:
 
         assert cards_in(seen.json()) == set()
         assert not any(account in seen.text for account in accounts)
+
+
+KONTRA = {"sayer": "bidders-only", "reach": "up-to-hirsch", "deadline": "own-card"}
+
+
+def next_settings_of_view(view):
+    return view["series"]["next_settings"]
+
+
+def next_settings_of(answer):
+    return next_settings_of_view(answer.json())
+
+
+class TestTheNextSettings:
+    def test_the_next_series_line_reads_the_last_series_until_a_save(self, skat, ended):
+        table, _ = ended
+
+        seen = table.read_as(table.watcher)
+
+        assert next_settings_of(seen) == {
+            "game_count": 3,
+            "options": table.read_as(table.watcher).json()["options"],
+            "revision": 0,
+        }
+
+    def test_a_seated_member_saves_and_every_viewer_reads_the_new_line(self, skat, ended):
+        table, _ = ended
+
+        saved = change_next_settings(
+            skat, headers_of(table)[1], table.table_id, "save-first", series_length=12, options={"kontra": KONTRA}
+        )
+
+        assert saved.status_code == 200, saved.text
+        for viewer in (*headers_of(table), table.watcher):
+            line = next_settings_of(table.read_as(viewer))
+            assert (line["game_count"], line["revision"], line["options"]["kontra"]) == (12, 1, KONTRA)
+
+    def test_every_open_stream_shows_the_saved_line_at_once(self, skat, ended):
+        table, _ = ended
+        people = [(headers, None) for headers in (*headers_of(table), table.watcher)]
+
+        with streams_of(skat, table.table_id, people) as streams:
+            saved = change_next_settings(skat, headers_of(table)[0], table.table_id, "save-first", series_length=9)
+            assert saved.status_code == 200, saved.text
+
+            seen = [next(messages) for messages in streams]
+
+        assert [next_settings_of_view(view)["game_count"] for view in seen] == [9] * 4
+
+    def test_a_save_leaves_the_series_that_ended_as_it_was(self, skat, ended):
+        table, _ = ended
+        before = table.read_as(table.watcher).json()
+
+        change_next_settings(skat, headers_of(table)[0], table.table_id, "save-first", series_length=12)
+
+        seen = table.read_as(table.watcher).json()
+        assert (seen["series"]["game_count"], seen["options"]) == (3, before["options"])
+
+    def test_a_save_takes_back_every_seats_new_series(self, skat, ended):
+        table, _ = ended
+        first, second, _ = headers_of(table)
+        tap_new_series(skat, first, table.table_id, "tap-new-1")
+        tap_new_series(skat, second, table.table_id, "tap-new-2")
+
+        saved = change_next_settings(skat, first, table.table_id, "save-first", series_length=12)
+
+        assert (marks(saved), saved.json()["series"]["new_series_answer_by"]) == ([False, False, False], None)
+
+    def test_a_watcher_is_refused_and_nothing_changes(self, skat, ended):
+        table, _ = ended
+        before = table.record
+
+        refused = change_next_settings(skat, table.watcher, table.table_id, "save-watcher", series_length=12)
+
+        assert (refused.status_code, refused.json()["reason"]) == (409, Refusal.NOT_SEATED)
+        assert table.record == before
+
+    def test_a_tap_on_older_settings_is_refused_and_a_tap_on_the_saved_ones_accepted(self, skat, ended):
+        table, _ = ended
+        first, second, _ = headers_of(table)
+        change_next_settings(skat, first, table.table_id, "save-first", series_length=12)
+
+        stale = tap_new_series(skat, second, table.table_id, "tap-stale", settings=0)
+        fresh = tap_new_series(skat, second, table.table_id, "tap-fresh", settings=1)
+
+        assert (stale.status_code, stale.json()["reason"]) == (409, Refusal.STALE_SETTINGS)
+        assert (fresh.status_code, marks(fresh)) == (200, [False, True, False])
+
+    def test_a_save_on_older_settings_is_refused_and_a_save_on_the_saved_ones_accepted(self, skat, ended):
+        table, _ = ended
+        first, second, _ = headers_of(table)
+        change_next_settings(skat, first, table.table_id, "save-first", series_length=12)
+
+        stale = change_next_settings(skat, second, table.table_id, "save-stale", series_length=15, revision=0)
+        fresh = change_next_settings(skat, second, table.table_id, "save-fresh", series_length=15, revision=1)
+
+        assert (stale.status_code, stale.json()["reason"]) == (409, Refusal.STALE_SETTINGS)
+        assert (fresh.status_code, fresh.json()["series"]["next_settings"]["game_count"]) == (200, 15)
+
+    def test_a_tap_naming_no_settings_is_accepted_on_unsaved_settings_and_refused_after_a_save(self, skat, ended):
+        table, _ = ended
+        first, second, _ = headers_of(table)
+
+        unsaved = tap_new_series(skat, first, table.table_id, "tap-unsaved", settings=None)
+        change_next_settings(skat, first, table.table_id, "save-first", series_length=12)
+        saved = tap_new_series(skat, second, table.table_id, "tap-saved", settings=None)
+
+        assert unsaved.status_code == 200
+        assert (saved.status_code, saved.json()["reason"]) == (409, Refusal.STALE_SETTINGS)
+
+    def test_the_next_series_is_dealt_with_the_saved_length_and_rules(self, skat, ended):
+        table, _ = ended
+        change_next_settings(
+            skat, headers_of(table)[0], table.table_id, "save-first", series_length=12, options={"kontra": KONTRA}
+        )
+        for number, headers in enumerate(headers_of(table), start=1):
+            assert tap_new_series(skat, headers, table.table_id, f"tap-new-{number}", settings=1).status_code == 200
+
+        assert deal_the_next_series(skat, table)
+
+        seen = table.read_as(table.watcher).json()
+        assert (seen["series"]["game_count"], seen["options"]["kontra"], seen["series"]["next_settings"]) == (
+            12,
+            KONTRA,
+            None,
+        )
+
+    @pytest.mark.parametrize("length", [0, 2, 4, 100, "12", 12.5], ids=str)
+    def test_a_length_the_opening_sheet_refuses_is_refused(self, skat, ended, length):
+        table, _ = ended
+        before = table.record
+
+        refused = change_next_settings(skat, headers_of(table)[0], table.table_id, "save-bad", series_length=length)
+
+        assert refused.status_code == 422
+        assert table.record == before
+
+    def test_options_the_opening_sheet_refuses_are_refused(self, skat, ended):
+        table, _ = ended
+        ramsch_after_bock = {
+            "occasion": "bock-rounds",
+            "scoring": "points",
+            "jungfrau": "doubled",
+            "durchmarsch": "wins-120",
+        }
+
+        refused = change_next_settings(
+            skat,
+            headers_of(table)[0],
+            table.table_id,
+            "save-bad",
+            series_length=12,
+            options={"ramsch": ramsch_after_bock},
+        )
+
+        assert refused.status_code == 422
+
+    def test_a_save_before_the_series_is_over_is_refused(self, skat):
+        table, _ = play_a_series(skat)
+        all_tap(skat, table)
+        assert deal_the_next_series(skat, table)
+
+        refused = change_next_settings(
+            skat, headers_of(table)[0], table.table_id, "save-late", series=2, series_length=12
+        )
+
+        assert (refused.status_code, refused.json()["reason"]) == (409, Refusal.SERIES_NOT_OVER)
+
+    def test_a_save_naming_another_series_is_stale(self, skat, ended):
+        table, _ = ended
+
+        refused = change_next_settings(
+            skat, headers_of(table)[0], table.table_id, "save-stale", series=2, series_length=12
+        )
+
+        assert (refused.status_code, refused.json()["reason"]) == (409, Refusal.STALE_SERIES)
+
+    def test_a_save_at_a_table_that_ended_finds_no_table(self, skat, ended):
+        table, _ = ended
+        with skat.store.begin() as transaction:
+            transaction.end_table(TableId(table.table_id), datetime.now(UTC), Ending.stopped())
+
+        gone = change_next_settings(skat, headers_of(table)[1], table.table_id, "save-late", series_length=12)
+
+        assert gone.status_code == 404
+
+    def test_a_retried_save_answers_the_first_outcome_and_counts_one_revision(self, skat, ended):
+        table, _ = ended
+        first = change_next_settings(skat, headers_of(table)[0], table.table_id, "save-first", series_length=12)
+
+        again = change_next_settings(skat, headers_of(table)[0], table.table_id, "save-first", series_length=12)
+
+        assert (again.status_code, next_settings_of(again)) == (200, next_settings_of(first))
+        assert next_settings_of(again)["revision"] == 1
+
+    def test_a_command_id_reused_for_other_settings_is_refused(self, skat, ended):
+        table, _ = ended
+        change_next_settings(skat, headers_of(table)[0], table.table_id, "save-first", series_length=12)
+
+        answer = change_next_settings(skat, headers_of(table)[0], table.table_id, "save-first", series_length=15)
+
+        assert answer.status_code == 409
+        assert "reused" in answer.json()["detail"]
 
 
 class TestARetry:

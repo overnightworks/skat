@@ -18,7 +18,7 @@ from tests.support.open_chairs import (
     newcomer,
     sent_away,
 )
-from tests.support.played_game import declared_herz_hand, table_in
+from tests.support.played_game import SAT_AT, declared_herz_hand, table_in
 
 NOBODY = frozenset[str]()
 VIEWERS = ("account-middlehand", "account-rearhand", "account-forehand", "account-watcher")
@@ -61,7 +61,7 @@ class TestTheWaitingSeat:
 
     def test_names_none_once_a_sitter_fills_the_chair(self):
         table = sent_away(PHASES["auction"](), REARHAND_SEAT)
-        taken = decide_sit(table, newcomer(), REARHAND_SEAT, None).table
+        taken = decide_sit(table, newcomer(), REARHAND_SEAT, None, SAT_AT).table
 
         assert view_of(taken, newcomer().account_id, NOBODY).hand.waiting_seat is None
 
@@ -97,7 +97,7 @@ class TestTheFormerHolder:
 
     def test_a_sit_leaves_no_name_for_any_viewer(self):
         table = sent_away(PHASES["auction"](), REARHAND_SEAT)
-        taken = decide_sit(table, newcomer(), REARHAND_SEAT, None).table
+        taken = decide_sit(table, newcomer(), REARHAND_SEAT, None, SAT_AT).table
 
         assert {chair.former_holder_name for viewer in VIEWERS for chair in view_of(taken, viewer, NOBODY).chairs} == {
             None
@@ -137,7 +137,7 @@ class TestTheChairToReturnTo:
         running = PHASES["auction"]()
         stood = decide_stand(running, actor_at(running, REARHAND_SEAT)).table
         leaver = running.chairs[REARHAND_SEAT - 1].occupant
-        sat = decide_sit(stood, newcomer(), REARHAND_SEAT, None).table
+        sat = decide_sit(stood, newcomer(), REARHAND_SEAT, None, SAT_AT).table
         both = sent_away(sat, FOREHAND_SEAT)
 
         assert [chair.is_mine_to_return for chair in view_of(both, leaver.account_id, NOBODY).chairs] == [

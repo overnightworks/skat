@@ -13,14 +13,12 @@ from skat.web.lobby import (
     LobbyChairAnswer,
     LobbyTableAnswer,
     MineAnswer,
-    OpenAnswer,
-    OpenChairAnswer,
-    OpenTableAnswer,
 )
 from skat.web.table_options import GiveUpOptionsAnswer, KontraOptionsAnswer, OptionsAnswer
 from skat.web.tables import TABLE_SIT_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
+from tests.e2e.support.lobby_stream import EVENT_STREAM, open_table_answer, serve_stream, stream_of
 from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import (
@@ -59,10 +57,7 @@ VISIBILITY_INFO_BUTTON = text(SOURCE_LANGUAGE, "start.visibilityInfoButton")
 VISIBILITY_INFO = text(SOURCE_LANGUAGE, "start.visibilityInfo")
 OPEN_TABLE = text(SOURCE_LANGUAGE, "start.openTable")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-CLOSE_KEY = text(SOURCE_LANGUAGE, "table.close")
-CLOSE_CONFIRM = text(SOURCE_LANGUAGE, "table.closeConfirm")
 ENGLISH: Language = "en"
-EVENT_STREAM = "text/event-stream"
 # A tap target is at least this many CSS pixels on each side.
 TAP_TARGET_PIXELS = 44
 
@@ -102,64 +97,6 @@ def open_private_table(person: Page, server: RunningServer) -> str:
     person.get_by_role("button", name=OPEN_TABLE).click()
     expect(person).to_have_url(TABLE_URL)
     return person.url.removeprefix(server.base_url)
-
-
-def stream_event(name: str, answer: str) -> str:
-    return f"event: {name}\ndata: {answer}\n\n"
-
-
-def stream_of(*, mine: str = '{"tables":[]}', open_tables: list[OpenTableAnswer]) -> str:
-    return stream_event("mine", mine) + stream_event("open", OpenAnswer(tables=open_tables).model_dump_json())
-
-
-def serve_stream(person: Page, body: str) -> None:
-    """The lobby stream answers the page with this body and ends, as a stream the network cuts does."""
-    person.route(
-        f"**{LOBBY_EVENTS_PATH}",
-        lambda route: route.fulfill(status=200, headers={"content-type": EVENT_STREAM}, body=body),
-    )
-
-
-def open_table_answer(
-    opener: str,
-    *,
-    options: OptionsAnswer | None = None,
-    names: tuple[str | None, ...] = (None, None, None),
-    away_hold: dict[int, int] | None = None,
-    waiting_seat: int | None = None,
-    ends_at: datetime | None = None,
-) -> OpenTableAnswer:
-    holds = away_hold or {}
-    chairs = [
-        OpenChairAnswer(
-            seat=seat,
-            occupant_name=name,
-            occupant_kind=None if name is None else OccupantKind.PERSON,
-            is_away=seat in holds,
-            hold_seconds_left=holds.get(seat),
-        )
-        for seat, name in enumerate(names)
-    ]
-    return OpenTableAnswer(
-        id=f"{ord(opener[0]):x}".ljust(32, "e"),
-        title_name=opener,
-        game_number=0,
-        game_count=SERIES_LENGTH_DEFAULT,
-        options=options
-        or OptionsAnswer(
-            show_running_points=False,
-            kontra=None,
-            bock=None,
-            ramsch=None,
-            give_up=GiveUpOptionsAnswer(partner_agrees=False, any_time=False),
-        ),
-        watchers=0,
-        free_chairs=sum(name is None for name in names),
-        dealt=ends_at is not None or waiting_seat is not None,
-        waiting_seat=waiting_seat,
-        ends_at=ends_at,
-        chairs=chairs,
-    )
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -274,9 +211,6 @@ def test_the_list_follows_create_sit_stand_and_close_without_a_reload(
     expect(sit_buttons_of(card)).to_have_count(1)
     menu_button(sitter, STAND_UP).click()
     expect(plates_of(card)).to_have_text([owner_name, SEAT_FREE, SEAT_FREE])
-    menu_button(owner, CLOSE_KEY).click()
-    owner.get_by_role("button", name=CLOSE_CONFIRM, exact=True).click()
-    expect(card).to_have_count(0)
     assert_never_reloaded(watcher)
 
 
@@ -307,13 +241,13 @@ def test_the_open_section_says_so_when_no_other_table_is_open(
 ) -> None:
     expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
     person = open_person(username="Xaver", **DESKTOP)
-    serve_stream(person, stream_of(open_tables=[]))
+    serve_stream(person, stream_with_only_own_table("Xaver"))
 
     person.goto(f"{e2e_server.base_url}/")
 
     expect(person.get_by_role("heading", name=OPEN_TABLES)).to_be_visible()
     expect(person.get_by_role("status").filter(has_text=NO_OPEN_TABLE)).to_be_visible()
-    expect(person.get_by_role("heading", name=MY_TABLES)).to_have_count(0)
+    expect(person.get_by_role("heading", name=MY_TABLES)).to_be_visible()
 
 
 def test_a_lobby_whose_account_holds_as_many_streams_as_it_may_says_so_instead_of_reconnecting(
@@ -374,6 +308,10 @@ def test_an_open_entry_shows_its_rules_its_state_and_the_minutes_an_away_chair_i
     expect(held.locator(".lobby-seat.away")).to_have_count(1)
     paused = open_card(person, "Jonas")
     expect(paused).to_contain_text(PAUSED)
+
+
+def stream_with_only_own_table(owner: str) -> str:
+    return stream_of(mine=MineAnswer(tables=[private_table_answer(owner)]).model_dump_json(), open_tables=[])
 
 
 def private_table_answer(owner: str) -> LobbyTableAnswer:
@@ -486,7 +424,7 @@ def test_the_empty_open_list_reads_in_english(
 ) -> None:
     expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
     person = open_person(username="Tilda", locale=ENGLISH, **DESKTOP)
-    serve_stream(person, stream_of(open_tables=[]))
+    serve_stream(person, stream_with_only_own_table("Tilda"))
 
     person.goto(f"{e2e_server.base_url}/")
 
@@ -495,7 +433,7 @@ def test_the_empty_open_list_reads_in_english(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_on_an_empty_lobby_the_new_table_button_stands_at_the_foot_of_the_screen(
+def test_on_a_lobby_with_no_open_table_the_new_table_button_stands_at_the_foot_of_the_screen(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     expected_request_failures: list[str],
@@ -503,7 +441,7 @@ def test_on_an_empty_lobby_the_new_table_button_stands_at_the_foot_of_the_screen
 ) -> None:
     expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
     person = open_person(username="Lone", **form_factor)
-    serve_stream(person, stream_of(open_tables=[]))
+    serve_stream(person, stream_with_only_own_table("Lone"))
 
     person.goto(f"{e2e_server.base_url}/")
     expect(person.get_by_role("status").filter(has_text=NO_OPEN_TABLE)).to_be_visible()

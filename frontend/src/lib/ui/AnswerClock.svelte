@@ -5,8 +5,8 @@
     import { words } from "#lib/words.ts";
 
     // `until` is the instant a silent seat counts as no; the line counts down to it and stays at 0:00 until the table
-    // brings the answer.
-    const { until }: { until: string } = $props();
+    // brings the answer. `ends` says that the silence ends the table, as it does at the series' end.
+    const { until, ends = false }: { until: string; ends?: boolean } = $props();
 
     let now = $state(Date.now());
     onMount(() => {
@@ -33,5 +33,5 @@
         <path d="M12 7v5l3 2" />
     </svg>
     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[...]} compiles to a `?? ""` branch no text can take -->
-    <span>{`${words["table.answerClock"]({ time })}`}</span>
+    <span>{`${words[ends ? "table.answerClockEnds" : "table.answerClock"]({ time })}`}</span>
 </div>

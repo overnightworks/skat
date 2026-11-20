@@ -1,16 +1,36 @@
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+import re
+from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
+from skat.table.records import SERIES_LENGTH_STEP
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX
-from skat.web.tables import TABLES_PATH
+from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.passed_in_series import (
+    CHANGE,
+    COMMAND_FAILED,
+    COUNT,
+    MORE_GAMES,
+    NEXT_LINE,
+    NEXT_SHEET,
+    SAVE,
+    SERIES_LENGTH,
+    PassedInTable,
+    game_count,
+    refuse,
+)
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
 from tests.e2e.support.result_card import MINUS, waiting_for
+from tests.e2e.support.series_scenes import (
+    FONT_SIZE_OF,
+    expect_the_boxes_to_sit_as_the_scene_draws_them,
+    the_scene_draws_the_settings_sheet_in,
+    the_scene_draws_the_wait_pill_in,
+)
 from tests.e2e.support.table_menu import close_table_menu, menu_button, open_table_menu
 
 if TYPE_CHECKING:
@@ -23,12 +43,10 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-SERIES_LENGTH = 3
 # A room this short cannot show two rows of the list beside its heading.
 SHORT_ROOM = 160
 # A room that holds the head of an opened game and leaves its tricks less height than they need.
 SHEET_ROOM = 480
-COUNT = ".series-count"
 GAME_LIST = ".game-list"
 ROWS = f"{GAME_LIST} .grow"
 SHEET = f"{GAME_LIST} .game-sheet"
@@ -49,35 +67,24 @@ COASTER = ".coaster"
 END_KEY = ".row.end-series"
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-PHONE_BREAKPOINT = 900
 NEW_SERIES = text(SOURCE_LANGUAGE, "table.newSeries")
+STOP_PLAYING = text(SOURCE_LANGUAGE, "table.stopPlaying")
+RULE_SETS = text(SOURCE_LANGUAGE, "start.ruleSets")
+SAVE_RULES = text(SOURCE_LANGUAGE, "start.saveRules")
+RULE_KONTRA = text(SOURCE_LANGUAGE, "start.ruleKontra")
+RULE_RAMSCH = text(SOURCE_LANGUAGE, "start.ruleRamsch")
+ANSWER_CLOCK = ".stage > .plaque.timer"
 RAMSCH = text(SOURCE_LANGUAGE, "game.ramsch")
 YES = text(SOURCE_LANGUAGE, "table.yes")
 NO = text(SOURCE_LANGUAGE, "table.no")
+YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 GONE = text(SOURCE_LANGUAGE, "table.seriesGone")
-STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
-REFUSED = 409
 # A point of the room outside the centred panel, where a tap lands on the backdrop of the list.
 BESIDE_THE_PANEL = (4, 4)
 
 
-def refuse(route: Route) -> None:
-    route.fulfill(status=REFUSED, content_type="application/json", body="{}")
-
-
-def game_count(game: int) -> str:
-    return text(SOURCE_LANGUAGE, "table.seriesCount", game=str(game), count=SERIES_LENGTH)
-
-
 def shown(total: int) -> str:
     return f"{MINUS}{-total}" if total < 0 else str(total)
-
-
-class PassedInTable(RamschTable):
-    """The same three people at a table without Ramsch, so a hand all pass is passed in and leaves no entry."""
-
-    options: ClassVar[dict[str, Any]] = {}
 
 
 def answer_the_ask(person: Page, word: str) -> None:
@@ -138,8 +145,6 @@ def expect_the_end_in_the_menu_and_the_bar_holding_only_weiter(person: Page) -> 
     expect(bar.get_by_role("button", name=WEITER, exact=True)).to_be_visible()
 
 
-TABLE_SCENES = Path(__file__).parents[2] / "docs" / "mockups" / "table.html"
-FONT_SIZE_OF = "element => getComputedStyle(element).fontSize"
 CENTRED_WITHIN = 2
 TEXT_BOX_OF = """pill => {
     const range = document.createRange();
@@ -155,17 +160,24 @@ TEXT_BOX_OF = """pill => {
 }"""
 
 
-def the_scene_draws_the_wait_pill_in(person: Page) -> str:
-    """The type size of the pill in the frozen scene series-next at the person's width, read from the scene itself."""
+def expect_the_sheet_placed_as_the_scene_draws_it(person: Page, sheet: Locator) -> None:
+    """The sheet leaves the room above and below it that the scene leaves, so the top keys stay in sight."""
     viewport = person.viewport_size
     assert viewport is not None
-    frame = "series-next-1280" if viewport["width"] >= PHONE_BREAKPOINT else "series-next-390"
-    scene = person.context.new_page()
-    try:
-        scene.goto(f"{TABLE_SCENES.as_uri()}?f={frame}")
-        return scene.locator(f"[id='{frame}'] .cb.wide.glass", has_text=waiting_for(["Ben"])).evaluate(FONT_SIZE_OF)
-    finally:
-        scene.close()
+    sheet.evaluate("element => Promise.all(element.getAnimations().map((animation) => animation.finished))")
+    box = sheet.bounding_box()
+    assert box is not None
+    scene = the_scene_draws_the_settings_sheet_in(person)
+    assert box["y"] == pytest.approx(scene["above"], abs=1)
+    assert viewport["height"] - box["y"] - box["height"] == pytest.approx(scene["below"], abs=1)
+    # The sheet shows the minute above its rows, which the scene does not draw, so the rows only keep their sizes.
+    expect_the_boxes_to_sit_as_the_scene_draws_them(
+        person,
+        "seriesend-settings",
+        f"{NEXT_SHEET} > :not(.clockline):nth-child(-n+4)",
+        ".setsheet > :nth-child(-n+3)",
+        sizes_only=True,
+    )
 
 
 def expect_the_wait_pill_to_hold_its_text_centred(person: Page) -> None:
@@ -189,7 +201,12 @@ def expect_the_proposal_asked(table: RamschTable) -> None:
         expect(person.get_by_role("button", name=WEITER, exact=True)).to_have_count(0)
 
 
-def expect_the_standings(person: Page, standings: list[dict[str, Any]]) -> None:
+def expect_the_end_card_placed_as_the_scene_draws_it(person: Page, scene: str) -> None:
+    for selector in (STANDING, f"{STANDING} .rank", NEXT_LINE):
+        expect_the_boxes_to_sit_as_the_scene_draws_them(person, scene, selector)
+
+
+def expect_the_standings(person: Page, standings: list[dict[str, Any]], own_name: str | None) -> None:
     expect(person.locator(STANDING)).to_have_count(1)
     expect(person.locator(ASK)).to_have_count(0)
     expect(person.locator(COUNT)).to_have_count(0)
@@ -199,7 +216,9 @@ def expect_the_standings(person: Page, standings: list[dict[str, Any]]) -> None:
     for index, standing in enumerate(standings):
         row = rows.nth(index)
         expect(row.locator(".place")).to_have_text(str(standing["place"]))
-        expect(row.locator("b")).to_contain_text(standing["display_name"])
+        name = YOU if standing["display_name"] == own_name else standing["display_name"]
+        expect(row.locator("b")).to_have_text(name)
+        expect(row.locator("small")).to_have_count(0)
         expect(row.locator(".sum")).to_have_text(shown(standing["total"]))
     expect(person.locator(f"{STANDING} .rank.win")).to_have_count(sum(standing["place"] == 1 for standing in standings))
 
@@ -355,6 +374,7 @@ def test_a_passed_in_hand_counts_and_a_passed_in_last_game_ends_the_series_with_
     for person in table.everyone:
         expect(person.locator(STANDING)).to_have_count(1)
         expect(person.locator(COUNT)).to_have_count(0)
+        expect(person.locator(f"{NEXT_LINE} .chip.official")).to_have_text(text(SOURCE_LANGUAGE, "rules.chipOfficial"))
     assert page_errors == []
 
 
@@ -384,8 +404,10 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
         expect(person.locator(STANDING)).to_have_count(1)
     series = table.view(1)["series"]
     assert series["over"] is True
-    for person in table.everyone:
-        expect_the_standings(person, series["standings"])
+    for seat, person in table.pages.items():
+        expect_the_standings(person, series["standings"], table.names[seat])
+    expect_the_standings(table.watcher, series["standings"], None)
+    expect_the_end_card_placed_as_the_scene_draws_it(first, "seriesend-end")
     watching = text(SOURCE_LANGUAGE, "table.watchingOnly")
     expect(table.watcher.get_by_text(watching)).to_be_visible()
     expect(table.watcher.get_by_role("button", name=NEW_SERIES, exact=True)).to_have_count(0)
@@ -404,6 +426,111 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
         expect(person.locator(COUNT)).to_have_text(game_count(1))
         expect(person.locator(STANDING)).to_have_count(0)
         expect(person.locator(".chair .coaster")).to_have_text(["0", "0", "0"])
+    assert page_errors == []
+
+
+def expect_the_minute_below_the_card(person: Page) -> None:
+    """The running minute is a pill of its own below the standings card, never a line inside it."""
+    card = person.locator(".result.standing").bounding_box()
+    minute = person.locator(ANSWER_CLOCK).bounding_box()
+    assert card is not None
+    assert minute is not None
+    assert minute["y"] >= card["y"] + card["height"]
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_series_end_offers_exactly_neue_serie_and_aufhoeren_and_aufhoeren_sends_every_page_to_the_lobby(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.pass_all()
+    table.play_out()
+    first, second, third = table.pages[1], table.pages[2], table.pages[3]
+    propose_the_end(first)
+    answer_the_ask(second, YES)
+    answer_the_ask(third, YES)
+    for person in table.everyone:
+        expect(person.locator(STANDING)).to_have_count(1)
+        expect(person.locator(NEXT_LINE)).to_have_count(1)
+        expect(person.locator(ANSWER_CLOCK)).to_have_count(0)
+    for person in table.pages.values():
+        expect(person.locator(".actions button")).to_have_text([NEW_SERIES, STOP_PLAYING])
+    expect(table.watcher.locator(".actions button")).to_have_count(0)
+
+    first.get_by_role("button", name=NEW_SERIES, exact=True).click()
+    for person in table.everyone:
+        expect(person.locator(ANSWER_CLOCK)).to_have_count(1)
+        expect(person.locator(".chair[data-seat='1'] .mark.ready")).to_have_count(1)
+        expect_the_minute_below_the_card(person)
+    expect_the_end_card_placed_as_the_scene_draws_it(first, "seriesend-silent")
+
+    second.get_by_role("button", name=STOP_PLAYING, exact=True).click()
+    lobby = re.compile(rf"^{re.escape(e2e_server.base_url)}/?$")
+    for person in table.everyone:
+        expect(person).to_have_url(lobby)
+    link = f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{table.api_path.removeprefix(TABLES_PATH + '/')}"
+    # The browser coverage collector aborts a Playwright navigation away from the lobby; a page's own one goes through.
+    table.watcher.evaluate("address => location.assign(address)", link)
+    expect(table.watcher.get_by_role("heading", name=text(SOURCE_LANGUAGE, "closed.seriesEnded"))).to_be_visible()
+    expect(table.watcher).to_have_url(link)
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_seated_member_changes_the_next_series_and_the_save_takes_back_every_neue_serie(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
+    table.pass_all()
+    table.play_out()
+    first, second, third = table.pages[1], table.pages[2], table.pages[3]
+    propose_the_end(first)
+    answer_the_ask(second, YES)
+    answer_the_ask(third, YES)
+    for person in table.everyone:
+        expect(person.locator(NEXT_LINE)).to_have_count(1)
+    expect(table.watcher.get_by_role("button", name=CHANGE, exact=True)).to_have_count(0)
+    first.get_by_role("button", name=NEW_SERIES, exact=True).click()
+    for person in table.everyone:
+        expect(person.locator(ANSWER_CLOCK)).to_have_count(1)
+
+    second.get_by_role("button", name=CHANGE, exact=True).click()
+    sheet = second.locator(NEXT_SHEET)
+    expect(sheet).to_be_visible()
+    expect_the_sheet_placed_as_the_scene_draws_it(second, sheet)
+    expect(sheet.get_by_role("spinbutton")).to_have_attribute("aria-valuenow", str(SERIES_LENGTH))
+    expect(sheet.locator(".takeback")).to_be_visible()
+    expect(sheet.locator(".clockline")).to_be_visible()
+    expect(sheet.get_by_role("radiogroup", name=RULE_SETS).get_by_role("radio", checked=True)).to_have_count(0)
+    expect(sheet.get_by_role("switch", name=RULE_RAMSCH, exact=True)).to_have_attribute("aria-checked", "true")
+    expect(sheet.get_by_role("switch", name=RULE_KONTRA, exact=True)).to_have_attribute("aria-checked", "false")
+    expect(sheet.get_by_role("group", name=SAVE_RULES)).to_have_count(0)
+    sheet.get_by_role("switch", name=RULE_KONTRA, exact=True).click()
+    expect(sheet.get_by_role("group", name=SAVE_RULES)).to_have_count(1)
+    sheet.get_by_role("button", name=MORE_GAMES).click()
+    sheet.get_by_role("button", name=SAVE, exact=True).click()
+
+    longer = text(SOURCE_LANGUAGE, "table.seriesGames", count=SERIES_LENGTH + SERIES_LENGTH_STEP)
+    for person in table.everyone:
+        expect(person.locator(f"{NEXT_LINE} .chip.len")).to_have_text(longer)
+        expect(person.locator(".chair .mark.ready")).to_have_count(0)
+        expect(person.locator(ANSWER_CLOCK)).to_have_count(0)
+    expect(second.locator(NEXT_SHEET)).to_have_count(0)
+
+    for person in table.pages.values():
+        person.get_by_role("button", name=NEW_SERIES, exact=True).click()
+    for person in table.everyone:
+        expect(person.locator(COUNT)).to_have_text(
+            text(SOURCE_LANGUAGE, "table.seriesCount", game="1", count=SERIES_LENGTH + SERIES_LENGTH_STEP),
+        )
     assert page_errors == []
 
 
@@ -492,6 +619,34 @@ def test_a_player_who_stands_up_from_the_ended_series_stays_in_the_standings_mar
     for person in table.everyone:
         leaver = person.locator(f"{STANDING} .rank b", has_text=table.names[3])
         expect(leaver.locator("em")).to_have_text(GONE)
+    assert page_errors == []
+
+
+def test_a_neue_serie_stays_given_and_waits_for_players_when_the_last_silent_seat_stands_up(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, PHONE)
+    table.pass_all()
+    table.play_out()
+    propose_the_end(table.pages[1])
+    answer_the_ask(table.pages[2], YES)
+    answer_the_ask(table.pages[3], YES)
+    first, second, third = table.pages[1], table.pages[2], table.pages[3]
+    for person in (first, second):
+        person.get_by_role("button", name=NEW_SERIES, exact=True).click()
+    expect(first.locator(ANSWER_CLOCK)).to_have_count(1)
+
+    menu_button(third, STAND_UP).click()
+
+    for person in (first, second):
+        expect(person.locator(ANSWER_CLOCK)).to_have_count(0)
+        expect(person.locator(".copy.wait")).to_have_text(text(SOURCE_LANGUAGE, "table.waitingForPlayers"))
+        expect(person.get_by_role("button", name=NEW_SERIES, exact=True)).to_have_count(0)
+    for seat in (1, 2):
+        expect(first.locator(f".chair[data-seat='{seat}'] .mark.ready")).to_have_count(1)
     assert page_errors == []
 
 

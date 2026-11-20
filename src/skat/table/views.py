@@ -24,7 +24,7 @@ from skat.table.kontra import kontra_view_of
 from skat.table.playing import PlayingView, playing_view_of
 from skat.table.pushing import PushingView, pushing_view_of
 from skat.table.records import CommandRefusal, EndedTable, EndReason, OccupantKind
-from skat.table.rules import hand_runs, seat_held_in_hand, series_over, waiting_seat_of
+from skat.table.rules import hand_runs, next_settings_of, seat_held_in_hand, series_over, waiting_seat_of
 from skat.table.turn_state import TurnStateView, turn_state_view_of
 
 if TYPE_CHECKING:
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from skat.engine.deal import Deal, Position
     from skat.engine.declaration import Declaring
     from skat.engine.schieberamsch import Pushing
-    from skat.table.records import Chair, EndProposal, TableOptions, TableRecord, TableStyle
+    from skat.table.records import Chair, EndProposal, NextSettings, TableOptions, TableRecord, TableStyle
 
 
 @dataclass(frozen=True)
@@ -144,7 +144,9 @@ class SeriesView:
     Once it is over, `standings` ranks every account the list seated, the same for every viewer. Between two games
     `end_proposal` names the seat that proposed ending the series, the seats that said yes and the instant it was
     made; once the series is over none stands. `end_refused_by` names the seats whose no, or silence, ended the last
-    proposal, until the next deal.
+    proposal, until the next deal. Once the series is over, `new_series_asked_at` is the instant the first seat
+    chose „Neue Serie“ and the chairs that are ready are the seats that chose it, None until one did. Then
+    `next_settings` is what the next series is played with.
     """
 
     number: int
@@ -154,13 +156,14 @@ class SeriesView:
     standings: tuple[Standing, ...] | None
     end_proposal: EndProposal | None
     end_refused_by: frozenset[int]
+    new_series_asked_at: datetime | None
+    next_settings: NextSettings | None
 
 
 @dataclass(frozen=True)
 class TableView:
     """A live table has no `ended`; an ended one has no chairs, watchers, hand, result, passed-in fact, series,
-    options, style or Bock games. A live table without Bock has no `bock`. `opened_by_me` is true only for the account
-    that opened the live table.
+    options, style or Bock games. A live table without Bock has no `bock`.
     """
 
     id: str
@@ -176,7 +179,6 @@ class TableView:
     style: TableStyle | None
     bock: BockView | None
     ended: EndedView | None = None
-    opened_by_me: bool = False
 
 
 def _is_occupied_by(chair: Chair, account_id: str) -> bool:
@@ -315,6 +317,8 @@ def _series_view(table: TableRecord) -> SeriesView | None:
         standings_of(table.game_list, reach_of(table.options)) if over else None,
         None if over else table.series.end_proposal,
         frozenset() if over else table.series.end_refused_by,
+        table.series.new_series_asked_at if over else None,
+        next_settings_of(table) if over else None,
     )
 
 
@@ -362,11 +366,10 @@ def view_of(
     table: TableRecord | EndedTable,
     viewer_account_id: str,
     connected_accounts: frozenset[str],
-    opener_account: str | None = None,
     now: datetime | None = None,
 ) -> TableView:
-    """The table as one account sees it: only the viewer's own chair is marked mine, and the table only if the viewer
-    is `opener_account`, the account that opened it. A chair shows thinking only when given `now`, the stamping clock.
+    """The table as one account sees it: only the viewer's own chair is marked mine. A chair shows thinking only when
+    given `now`, the stamping clock.
 
     The watchers are the connected accounts without a chair, each counted once. A chair is away when its occupant is not
     the viewer and has no connected stream; nothing is stored for it. While a hand runs, every chair shows its position
@@ -415,7 +418,6 @@ def view_of(
         options=table.options,
         style=table.style,
         bock=bock_view_of(table),
-        opened_by_me=opener_account == viewer_account_id,
     )
 
 

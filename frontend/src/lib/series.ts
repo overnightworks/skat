@@ -1,9 +1,17 @@
-import type { SeatNotice } from "#lib/openChair.ts";
+import { possessive, type SeatNotice } from "#lib/openChair.ts";
 import { facesOf, namesOf, type AnswerMark, type AskButton, type AskView } from "#lib/giveUp.ts";
 import { declaredResult, LEVEL_WORDS, ramschResultView, withMinus } from "#lib/result.ts";
+import { tableRules, type RuleChip } from "#lib/tableRules.ts";
 import { listFormat, words } from "#lib/words.ts";
 import type { SeriesEntry } from "../routes/(start)/seriesList.ts";
-import { gameLabel, type Game, type SeriesEndAnswer, type Standing, type Table } from "../routes/(start)/tables.ts";
+import {
+    gameLabel,
+    type Game,
+    type NextSettings,
+    type SeriesEndAnswer,
+    type Standing,
+    type Table,
+} from "../routes/(start)/tables.ts";
 
 // The series as the table answers it: the page counts, asks and ranks what the server decided and decides no rule.
 export function seriesOver(table: Table): boolean {
@@ -117,7 +125,6 @@ export type StandingRow = {
     seat: number;
     agent: boolean;
     total: string;
-    record: string;
     winner: boolean;
     // Left the series: no chair of the table is theirs any more.
     gone: boolean;
@@ -133,17 +140,20 @@ export type StandingsView = {
 const FIRST_PLACE = 1;
 
 // One account's place as the server ranked it. `seated` names the accounts that still hold a chair, by seat; with none
-// given nobody is judged to have left, as at a table that has ended.
-export function standingRow(standing: Standing, seated: ReadonlyMap<string, number> | null): StandingRow {
+// given nobody is judged to have left, as at a table that has ended. The `viewer` account reads „Du“ on its own row.
+export function standingRow(
+    standing: Standing,
+    seated: ReadonlyMap<string, number> | null,
+    viewer: string | null = null,
+): StandingRow {
     const name = standing.display_name ?? words["table.seriesNameless"];
     return {
         place: standing.place,
-        name,
+        name: standing.display_name !== null && standing.display_name === viewer ? words["table.sideYou"] : name,
         initial: name.slice(0, 1),
         seat: standing.seat,
         agent: standing.kind === "agent",
         total: withMinus(standing.total),
-        record: words["table.seriesRecord"]({ won: String(standing.won), lost: String(standing.lost) }),
         winner: standing.place === FIRST_PLACE,
         gone: seated !== null && !seated.has(name),
     };
@@ -158,14 +168,73 @@ export function standingsView(table: Table): StandingsView | null {
             chair.occupant_name === null ? [] : [[chair.occupant_name, chair.seat] as const],
         ),
     );
-    const rows = series.standings.map((standing) => standingRow(standing, seated));
-    const winnerSeats = new Set(rows.filter((row) => row.winner).flatMap((row) => seated.get(row.name) ?? []));
+    const viewer = table.chairs.find((chair) => chair.is_mine)?.occupant_name ?? null;
+    const rows = series.standings.map((standing) => standingRow(standing, seated, viewer));
+    const winnerSeats = new Set(
+        series.standings
+            .filter((standing) => standing.place === FIRST_PLACE)
+            .flatMap((standing) => seated.get(standing.display_name ?? "") ?? []),
+    );
     return {
         heading: words["table.seriesEnded"],
         sub: words["table.seriesGames"](series.game_number),
         rows,
         winnerSeats,
     };
+}
+
+// „Aufhören“ ends the table once the series is over, from any seated chair; a watcher of the standings has no such key.
+export function stopOffered(table: Table): boolean {
+    return seriesOver(table) && table.chairs.some((chair) => chair.is_mine);
+}
+
+export type NextSeriesLine = { length: string; chips: RuleChip[] };
+
+// What the next series begins with: the settings a seat saved for it, else the table's length and rules, which the
+// series end carries over.
+export function nextSeriesLine(table: Table): NextSeriesLine | null {
+    if (!seriesOver(table) || table.options === null || table.series === null) return null;
+    const saved = table.series.next_settings;
+    return {
+        length: words["table.seriesGames"](saved?.game_count ?? table.series.game_count),
+        chips: tableRules(saved?.options ?? table.options, null).chips,
+    };
+}
+
+// The settings the sheet starts from and the revision a „Neue Serie“ names: what the next series begins with.
+export function nextSettingsOf(table: Table): NextSettings | null {
+    if (!seriesOver(table) || table.options === null || table.series === null) return null;
+    return table.series.next_settings ?? { game_count: table.series.game_count, options: table.options, revision: 0 };
+}
+
+// The revision a „Neue Serie“ names; the first, 0, while the table cannot name settings.
+export function nextSettingsRevisionOf(table: Table): number {
+    return nextSettingsOf(table)?.revision ?? 0;
+}
+
+// Seated members change the next series' settings, which a watcher of the standings only reads; null for a watcher.
+export function changeableSettingsOf(table: Table): NextSettings | null {
+    return table.chairs.some((chair) => chair.is_mine) ? nextSettingsOf(table) : null;
+}
+
+// Whose „Neue Serie“ a save takes back, as the sheet says it: the other seats that chose it, in the order of their
+// chairs; null when no other seat has chosen.
+export function takenBackLine(table: Table): string | null {
+    const owners = table.chairs.flatMap((chair) =>
+        chair.ready && !chair.is_mine && chair.occupant_name !== null ? [possessive(chair.occupant_name)] : [],
+    );
+    return owners.length === 0 ? null : words["table.nextSeriesTakeBack"]({ names: listFormat.format(owners) });
+}
+
+// The instant a seat that has not chosen „Neue Serie“ ends the table; null until the first seat chose it.
+export function seriesEndAnswerBy(table: Table): string | null {
+    return seriesOver(table) ? (table.series?.new_series_answer_by ?? null) : null;
+}
+
+// A page that showed the live table returns to the lobby once „Aufhören“ or a silent minute ended it, which stores a
+// close that names nobody; a page that opens the link of such a table stays and shows the ended table.
+export function returnsToLobby(previous: Table | undefined, table: Table): boolean {
+    return previous?.ended === null && table.ended?.reason === "closed" && table.ended.closed_by_name === null;
 }
 
 // A result, the standings or a Ramsch's reckoning stands on the table.

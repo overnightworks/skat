@@ -73,7 +73,6 @@ function table(mine: number, changes: Partial<Playing> | null): Table {
         version: 7,
         chairs: chairs(mine),
         watchers: 0,
-        opened_by_me: false,
         reactions: [],
         result: null,
         hand: {

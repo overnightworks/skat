@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass, replace
 from datetime import UTC, timedelta
 from enum import Enum
@@ -19,6 +20,7 @@ from skat.table.records import (
     GiveUpOptions,
     HandProgress,
     NewHand,
+    NextSettings,
     NoWordSaid,
     Occupant,
     PlayedSeries,
@@ -164,7 +166,8 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
     a standing end proposal, of a standing give-up request, of a standing proposal to abort the hand and his no-word
     answers behind. While a hand runs, he is also marked as having held this chair, which bars him from any other
     chair of the hand. A change that leaves no chair of the hand open clears the proposal to abort it, and a change
-    that makes the standing yeses more than half of the seated chairs ends the hand at once, in the same version.
+    that makes the standing yeses more than half of the seated chairs ends the hand at once, in the same version. A
+    minute of „Neue Serie“ that no longer has a silent seated chair ends with it; the marks given stay.
     """
     ready = occupant is not None and result_pending(table) and not series_over(table)
     chairs = tuple(Chair(seat, occupant, ready=ready) if chair.seat == seat else chair for chair in table.chairs)
@@ -192,7 +195,7 @@ def with_occupant(table: TableRecord, seat: int, occupant: Occupant | None) -> T
         visibility=table.visibility,
         style=table.style,
     )
-    return _abort_if_agreed(_abort_while_open(changed))
+    return with_standing_ask(_abort_if_agreed(_abort_while_open(changed)))
 
 
 def _seats_held_after(table: TableRecord, seat: int, occupant: Occupant | None) -> frozenset[SeatHeld]:
@@ -355,6 +358,14 @@ def series_games_left(table: TableRecord) -> int | None:
     return table.series.length - table.series.deals + hand_runs(table)
 
 
+def next_settings_of(table: TableRecord) -> NextSettings:
+    """What the next series is dealt with: the settings a seat saved for it, else the ones the table's series was
+    played with, as revision 0. A table with no series has no next one.
+    """
+    assert table.series is not None  # noqa: S101 - narrows the type; only a table with a series has a next one
+    return table.series.next_settings or NextSettings(table.series.length, table.options, 0)
+
+
 def series_number_of(table: TableRecord) -> int:
     """The number of the table's series, 1 for the first and for a table with no series."""
     return 1 if table.series is None else table.series.number
@@ -373,8 +384,34 @@ def series_over(table: TableRecord) -> bool:
     """The series ran its last game or ended early by consent, and no hand runs any more; a table with no series
     never ends.
     """
-    ended_early = table.series is not None and table.series.ended_early and not hand_runs(table)
-    return ended_early or series_games_left(table) == 0
+    return table.series is not None and table.series.is_over and not hand_runs(table)
+
+
+def new_series_ask_stands(table: TableRecord) -> bool:
+    """At the series' end, „Neue Serie“ asks something while a chair's mark stands and a seated chair is still silent:
+    with no mark nobody chose, and with every seated chair chosen nobody is left whose silence could count as no.
+    """
+    return (
+        series_over(table)
+        and any(chair.ready for chair in table.chairs)
+        and any(chair.occupant is not None and not chair.ready for chair in table.chairs)
+    )
+
+
+def with_standing_ask(table: TableRecord) -> TableRecord:
+    """The table with its minute of „Neue Serie“ only while the ask stands, the one place that ends it."""
+    if table.series is None or table.series.new_series_asked_at is None or new_series_ask_stands(table):
+        return table
+    return copy.replace(table, series=replace(table.series, new_series_asked_at=None))
+
+
+def with_minute_started_at(table: TableRecord, now: datetime) -> TableRecord:
+    """The table with its minute of „Neue Serie“ started afresh at `now` while the ask stands: the one place that starts
+    it besides the first tap, so every silent seat has a full minute from the sit that made it silent.
+    """
+    if table.series is None or not new_series_ask_stands(table):
+        return table
+    return copy.replace(table, series=replace(table.series, new_series_asked_at=now))
 
 
 def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[str]:
@@ -387,19 +424,27 @@ def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[s
 def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord:
     """The table with a new hand: its dealer, its cards, an empty auction, no chair ready and one more deal counted
     in its series; at a series' end this deal is the next series' first, so the list empties, the count starts at
-    one and the series' number rises. A deal clears the end proposal and the early end. Every deal goes through here.
+    one, the series' number rises and its length and options are the saved next settings, else the last series'. A deal
+    clears the end proposal, the early end, the minute of „Neue Serie“ and the saved settings. Every deal goes through
+    here.
     """
     starts_series = series_over(table)
     series = table.series
+    options = table.options
     if series is not None:
+        saved = next_settings_of(table) if starts_series else None
         series = replace(
             series,
+            length=series.length if saved is None else saved.length,
             deals=1 if starts_series else series.deals + 1,
             ended_early=False,
             end_proposal=None,
             end_refused_by=frozenset(),
+            new_series_asked_at=None,
+            next_settings=None,
             number=series.number + 1 if starts_series else series.number,
         )
+        options = options if saved is None else saved.options
     return TableRecord(
         id=table.id,
         version=version,
@@ -409,7 +454,7 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
         progress=HandProgress(),
         game_list=() if starts_series else table.game_list,
         series=series,
-        options=table.options,
+        options=options,
         bock=table.bock,
         visibility=table.visibility,
         style=table.style,
@@ -583,14 +628,15 @@ def dealt_next(table: TableRecord, new_hand: NewHand) -> TableRecord:
     return dealt(table, new_hand, version=table.version + 1)
 
 
-def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | None) -> Decision:
+def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | None, now: datetime) -> Decision:
     """The actor takes a free chair; a taken chair names its holder, and nobody holds two chairs.
 
     The sit that fills the last chair deals `new_hand` in the same version bump, unless a result is pending; then
     the sitter counts as ready instead. At a series end nothing deals and the sitter is not ready. A chair that a
     stand-up or a send-away opened in a running hand is taken like any other, except by an account that left another
     chair of this hand: the sitter holds the seat's cards, role and turn, and the hand moves again once no chair is
-    open.
+    open. A sit into a series end whose „Neue Serie“ ask stands starts its minute afresh at `now`, since the sitter's
+    silence counts as no like the others'.
     """
     if seat_of(table, actor.account_id) is not None:
         return Decision(table, Refusal.ALREADY_SEATED)
@@ -600,7 +646,8 @@ def decide_sit(table: TableRecord, actor: Actor, seat: int, new_hand: NewHand | 
     holder = table.chairs[seat - 1].occupant
     if holder is not None:
         return Decision(table, Refusal.SEAT_TAKEN, holder.display_name)
-    seated = with_occupant(table, seat, Occupant(actor.account_id, actor.display_name, actor.kind, actor.owner_account))
+    occupant = Occupant(actor.account_id, actor.display_name, actor.kind, actor.owner_account)
+    seated = with_minute_started_at(with_occupant(table, seat, occupant), now)
     if new_hand is not None and sit_deals(table):
         seated = dealt(seated, new_hand, version=seated.version)
     return Decision(seated)

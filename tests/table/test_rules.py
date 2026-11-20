@@ -7,11 +7,13 @@ import pytest
 from skat.engine.bidding import Pass
 from skat.engine.bock import BockRounds
 from skat.engine.deal import Position, deal
+from skat.engine.kontra import KontraDeadline, KontraOptions, KontraReach, KontraSayer
 from skat.table.records import (
     Actor,
     Chair,
     HandProgress,
     NewHand,
+    NextSettings,
     Occupant,
     OccupantKind,
     Refusal,
@@ -40,7 +42,7 @@ from skat.table.rules import (
     series_over,
     sit_deals,
 )
-from tests.support.played_game import an_end_proposal, an_entry
+from tests.support.played_game import SAT_AT, an_end_proposal, an_entry
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
@@ -73,7 +75,7 @@ def occupants_of(table: TableRecord) -> list[str | None]:
 
 class TestSit:
     def test_seats_a_member_in_a_free_chair_and_bumps_the_version(self):
-        decision = decide_sit(table_with((1, ANNA)), BEN, 3, None)
+        decision = decide_sit(table_with((1, ANNA)), BEN, 3, None, SAT_AT)
 
         assert decision.refusal is None
         assert occupants_of(decision.table) == ["Anna", None, "Ben"]
@@ -81,14 +83,14 @@ class TestSit:
 
     @pytest.mark.parametrize("kind", list(OccupantKind))
     def test_seats_the_actor_with_the_kind_and_name_it_carries(self, kind):
-        decision = decide_sit(table_with(), replace(BEN, display_name="Mozart", kind=kind), 2, None)
+        decision = decide_sit(table_with(), replace(BEN, display_name="Mozart", kind=kind), 2, None, SAT_AT)
 
         assert decision.table.chairs[1].occupant == Occupant("account-ben", "Mozart", kind)
 
     def test_refuses_a_taken_chair_and_names_who_holds_it(self):
         table = table_with((2, ANNA))
 
-        decision = decide_sit(table, BEN, 2, None)
+        decision = decide_sit(table, BEN, 2, None, SAT_AT)
 
         assert (decision.refusal, decision.holder) == (Refusal.SEAT_TAKEN, "Anna")
         assert decision.table == table
@@ -96,16 +98,16 @@ class TestSit:
     def test_refuses_a_second_chair_to_a_seated_member(self):
         table = table_with((1, ANNA))
 
-        decision = decide_sit(table, ANNA, 2, None)
+        decision = decide_sit(table, ANNA, 2, None, SAT_AT)
 
         assert decision.refusal is Refusal.ALREADY_SEATED
         assert decision.table == table
 
     def test_refuses_the_own_chair_as_taken(self):
-        assert decide_sit(table_with((1, ANNA)), ANNA, 1, None).refusal is Refusal.ALREADY_SEATED
+        assert decide_sit(table_with((1, ANNA)), ANNA, 1, None, SAT_AT).refusal is Refusal.ALREADY_SEATED
 
     def test_keeps_every_chair_number(self):
-        decision = decide_sit(table_with((1, ANNA)), BEN, 2, None)
+        decision = decide_sit(table_with((1, ANNA)), BEN, 2, None, SAT_AT)
 
         assert [chair.seat for chair in decision.table.chairs] == [1, 2, 3]
 
@@ -130,7 +132,7 @@ class TestStand:
     def test_a_chair_stood_from_keeps_its_number_for_the_next_to_sit(self, seat):
         stood = decide_stand(table_with((seat, ANNA)), ANNA).table
 
-        assert occupants_of(decide_sit(stood, BEN, seat, None).table)[seat - 1] == "Ben"
+        assert occupants_of(decide_sit(stood, BEN, seat, None, SAT_AT).table)[seat - 1] == "Ben"
 
 
 def running_hand() -> TableRecord:
@@ -143,7 +145,7 @@ class TestDeal:
         others = [(seat, actor) for seat, actor in ((1, ANNA), (2, BEN), (3, CLEO)) if seat != last_free]
         table = table_with(*others)
 
-        decision = decide_sit(table, DORA, last_free, DRAWN)
+        decision = decide_sit(table, DORA, last_free, DRAWN, SAT_AT)
 
         assert decision.refusal is None
         assert (decision.table.dealer, decision.table.hand) == (DRAWN.dealer, DRAWN.hand)
@@ -154,7 +156,7 @@ class TestDeal:
         steps = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
         table = replace(table_with((1, ANNA), (2, BEN)), dealer=1, progress=HandProgress(steps))
 
-        decision = decide_sit(table, CLEO, 3, DRAWN)
+        decision = decide_sit(table, CLEO, 3, DRAWN, SAT_AT)
 
         assert (decision.table.dealer, decision.table.hand) == (DRAWN.dealer, DRAWN.hand)
         assert decision.table.progress == HandProgress()
@@ -164,14 +166,14 @@ class TestDeal:
     def test_a_sit_that_leaves_a_chair_free_deals_nothing(self, seated):
         free = next(seat for seat in (1, 2, 3) if seat not in dict(seated))
 
-        decision = decide_sit(table_with(*seated), CLEO, free, None)
+        decision = decide_sit(table_with(*seated), CLEO, free, None, SAT_AT)
 
         assert (decision.table.dealer, decision.table.hand) == (None, None)
 
     def test_a_sit_while_a_hand_runs_is_seat_taken_and_deals_nothing_more(self):
         table = running_hand()
 
-        decision = decide_sit(table, DORA, 2, NewHand(dealer=3, hand=deal(random.Random(4))))  # noqa: S311 - a seeded source makes the deal reproducible
+        decision = decide_sit(table, DORA, 2, NewHand(dealer=3, hand=deal(random.Random(4))), SAT_AT)  # noqa: S311 - a seeded source makes the deal reproducible
 
         assert (decision.refusal, decision.holder) == (Refusal.SEAT_TAKEN, "Ben")
         assert decision.table == table
@@ -366,7 +368,7 @@ class TestNextDealAfterAResult:
     def test_the_sit_that_deals_clears_every_mark(self):
         table = ready_at(table_with((1, ANNA), (2, BEN)), 1, 2)
 
-        decision = decide_sit(table, CLEO, 3, DRAWN)
+        decision = decide_sit(table, CLEO, 3, DRAWN, SAT_AT)
 
         assert decision.table.hand == DRAWN.hand
         assert ready_seats(decision.table) == []
@@ -381,14 +383,14 @@ class TestSitDuringAResult:
         assert sit_deals(a_free_chair_during_a_result()) is False
 
     def test_the_sitter_counts_as_ready_and_the_others_keep_their_marks(self):
-        decision = decide_sit(a_free_chair_during_a_result(1), DORA, 3, None)
+        decision = decide_sit(a_free_chair_during_a_result(1), DORA, 3, None, SAT_AT)
 
         assert decision.refusal is None
         assert (decision.table.hand, ready_seats(decision.table)) == (None, [1, 3])
         assert decision.table.version == played_out().version + 1
 
     def test_a_sit_outside_a_result_sets_no_mark(self):
-        decision = decide_sit(table_with((1, ANNA)), BEN, 2, None)
+        decision = decide_sit(table_with((1, ANNA)), BEN, 2, None, SAT_AT)
 
         assert ready_seats(decision.table) == []
 
@@ -415,6 +417,17 @@ class TestTheSeriesEnd:
 
         assert (next_series.game_list, next_series.series) == ((), Series(3, 1, number=2))
         assert (next_series.dealer, next_series.hand) == (DRAWN.dealer, DRAWN.hand)
+
+    def test_the_next_series_deals_with_the_settings_saved_for_it_and_forgets_them(self):
+        kontra = TableOptions(
+            kontra=KontraOptions(KontraSayer.BIDDERS_ONLY, KontraReach.UP_TO_HIRSCH, KontraDeadline.OWN_CARD)
+        )
+        table = at_the_series_end(replace(passed_in(), game_list=(an_entry(), an_entry())), 1, 2, 3)
+        saved = replace(table, series=replace(table.series, next_settings=NextSettings(12, kontra, 1)))
+
+        next_series = dealt_next(saved, DRAWN)
+
+        assert (next_series.series, next_series.options) == (Series(12, 1, number=2), kontra)
 
 
 class TestTheEarlyEnd:
@@ -454,14 +467,14 @@ class TestTheEarlyEnd:
     def test_a_standing_acceptance_survives_a_sit_in_another_chair(self):
         table = replace(a_free_chair_during_a_result(), series=Series(12, 2, end_proposal=an_end_proposal(1, 2)))
 
-        decision = decide_sit(table, DORA, 3, None)
+        decision = decide_sit(table, DORA, 3, None, SAT_AT)
 
         assert decision.table.series.end_proposal == an_end_proposal(1, 2)
 
     def test_a_sit_after_an_early_end_is_not_ready_and_deals_nothing(self):
         table = replace(a_free_chair_during_a_result(), series=Series(12, 2, ended_early=True))
 
-        decision = decide_sit(table, DORA, 3, DRAWN)
+        decision = decide_sit(table, DORA, 3, DRAWN, SAT_AT)
 
         assert (sit_deals(table), decision.table.hand, ready_seats(decision.table)) == (False, None, [])
 
@@ -480,6 +493,14 @@ class TestSeries:
     def test_refuses_a_number_below_one(self):
         with pytest.raises(ValueError, match="numbered from one"):
             Series(3, 1, number=0)
+
+    def test_refuses_settings_for_the_next_series_while_it_is_running(self):
+        with pytest.raises(ValueError, match="only a series that is over holds settings"):
+            Series(12, 3, next_settings=NextSettings(12, TableOptions(), 0))
+
+    def test_refuses_settings_whose_revision_counts_below_zero(self):
+        with pytest.raises(ValueError, match="revision of settings counts saves"):
+            NextSettings(12, TableOptions(), -1)
 
     def test_refuses_a_standing_proposal_beside_a_refusal(self):
         proposal = an_end_proposal(1)

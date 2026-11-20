@@ -4,6 +4,7 @@ transaction, over the table's row lock where it decides; `TableService` forwards
 """
 
 from contextlib import ExitStack, nullcontext
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
 from skat.table.member_place import agents_seated_at
@@ -22,7 +23,12 @@ from skat.table.rules import (
     present_at,
     resume_step,
 )
-from skat.table.series_end import answer_left, decide_end_answer_lapse, end_answer_left
+from skat.table.series_end import (
+    answer_left,
+    decide_end_answer_lapse,
+    end_answer_left,
+    new_series_lapsed,
+)
 
 if TYPE_CHECKING:
     import random
@@ -36,6 +42,16 @@ if TYPE_CHECKING:
 
 # The most due holds one sweep frees; the rest wait for the next.
 DUE_HOLDS_PER_SWEEP: Final = 100
+
+
+@dataclass(frozen=True)
+class EndAnswerLapse:
+    """What a lapse found: the seconds the answers it still waits for have left, None when none stand, and whether it
+    ended the table because a seated seat stayed silent at the series' end.
+    """
+
+    seconds_left: float | None
+    table_stopped: bool = False
 
 
 def members_of(transaction: TableTransaction, table: TableRecord) -> frozenset[str]:
@@ -165,24 +181,35 @@ class ServerSteps:
         self._tell(members)
         return True
 
-    def lapse_end_answers(self, table_id: TableId) -> float | None:
-        """End the table's standing proposal to end the series if its minute is over, on the server's own account, with
-        no actor, command id or receipt; the decision re-reads the table under the row lock, so a repeat, an answer
-        that came meanwhile or a table that ended changes nothing. The seconds a proposal that still stands has left,
-        None when none stands any more.
+    def lapse_end_answers(self, table_id: TableId) -> EndAnswerLapse:
+        """End what the table's minute of answers decides once it is over, on the server's own account, with no actor,
+        command id or receipt: a proposal to end the series ends, and at the series' end a seated seat that never chose
+        „Neue Serie“ ends the table in the same transaction. The decision re-reads the table under the row lock, so a
+        repeat, an answer that came meanwhile or a table that ended changes nothing. The seconds an ask that still
+        stands has left, None when none stands any more.
         """
         now = self._now()
         with self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
             if table is None:
-                return None
-            decision = decide_end_answer_lapse(table, now)
-            left = end_answer_left(table, now)
-            if decision.table.version == table.version:
-                return None if left is None else max(0.0, left.total_seconds())
-            transaction.save_table(decision.table, played_at=None)
-        self._tell_view(table_id, view_recipients(table, decision.table))
-        return None
+                return EndAnswerLapse(None)
+            members: frozenset[str] = frozenset()
+            decided = decide_end_answer_lapse(table, now).table
+            stops = new_series_lapsed(decided, now)
+            if stops:
+                members = members_of(transaction, table)
+                transaction.end_table(table_id, now, Ending.stopped())
+            else:
+                left = end_answer_left(decided, now)
+                if decided.version == table.version:
+                    return EndAnswerLapse(None if left is None else max(0.0, left.total_seconds()))
+                transaction.save_table(decided, played_at=None)
+        if stops:
+            self._tell_moments(members)
+            self._tell(members)
+            return EndAnswerLapse(None, table_stopped=True)
+        self._tell_view(table_id, view_recipients(table, decided))
+        return EndAnswerLapse(None)
 
     def pending_end_answers(self) -> dict[str, float]:
         """At the server's start: the seconds each live table's standing proposal still waits for its answers, zero

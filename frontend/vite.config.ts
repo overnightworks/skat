@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => ({
                 "src/lib/**/*.ts",
                 "src/routes/(start)/tables.ts",
                 "src/routes/(start)/seriesList.ts",
+                "src/routes/(start)/seriesCommands.ts",
                 "src/routes/(start)/reaction.ts",
                 "src/routes/(start)/flight.ts",
                 "src/routes/(start)/openTable.ts",

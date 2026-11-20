@@ -1,20 +1,21 @@
 import http.client
 import json
 import time
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import select
 
 from skat.store.schema import tables
+from skat.store.tables import PostgresTableTransactions
 from skat.table.rules import CREATE_TABLE_COMMAND
-from skat.web.closing import TABLE_CLOSE_SUFFIX
 from skat.web.settings import DEFAULT_ENDED_TABLE_DAYS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.e2e.support.raw_http import RawSession, self_signed_tolerant_context
 from tests.e2e.support.server import skat_on_new_database
+from tests.support.ended_tables import end_as_an_opener_closed_it
 from tests.support.signed_in import cookie_header, new_account, seed_member
 from tests.support.table_rows import rows_of
 
@@ -149,20 +150,16 @@ def test_an_undealt_table_left_before_a_restart_ends_no_sooner_than_the_wait_aft
     assert stored_times(restarted_server, table_id)[1] - left_at >= timedelta(seconds=RESTARTED_WAIT_SECONDS)
 
 
-def test_a_closed_table_with_no_game_ended_longer_ago_than_the_days_is_gone_after_a_restart(
+def test_a_table_an_opener_closed_with_no_game_ended_longer_ago_than_the_days_is_gone_after_a_restart(
     restarted_server: RunningServer,
 ) -> None:
     anna = signed_in(restarted_server)
     kept_id = json.loads(anna.post(TABLES_PATH, {"command_id": "forget-create-0001", "series_length": 36}))["id"]
     gone_id = json.loads(anna.post(TABLES_PATH, {"command_id": "forget-create-0002", "series_length": 36}))["id"]
-    for index, table_id in enumerate((kept_id, gone_id), start=1):
-        anna.post(f"{TABLES_PATH}/{table_id}{TABLE_CLOSE_SUFFIX}", {"command_id": f"forget-close-000{index}"})
-    with restarted_server.engine.begin() as connection:
-        connection.execute(
-            update(tables)
-            .where(tables.c.id == gone_id)
-            .values(ended_at=tables.c.ended_at - timedelta(days=DAYS_SINCE_THE_END))
-        )
+    transactions = PostgresTableTransactions(restarted_server.engine)
+    now = datetime.now(UTC)
+    end_as_an_opener_closed_it(transactions, kept_id, now)
+    end_as_an_opener_closed_it(transactions, gone_id, now - timedelta(days=DAYS_SINCE_THE_END))
 
     restarted_server.restart(while_stopping=lambda: None)
 

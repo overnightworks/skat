@@ -49,7 +49,6 @@ from skat.web.auction import (  # noqa: E402
 )
 from skat.web.call import CALL_ORIGIN_PATH  # noqa: E402
 from skat.web.calling import TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX  # noqa: E402
-from skat.web.closing import TABLE_CLOSE_SUFFIX  # noqa: E402
 from skat.web.constants import (  # noqa: E402
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -89,9 +88,10 @@ from skat.web.pushing import (  # noqa: E402
     TABLE_PUSHING_TAKE_SUFFIX,
 )
 from skat.web.reacting import TABLE_REACTION_SUFFIX  # noqa: E402
-from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_READY_SUFFIX  # noqa: E402
+from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_NEXT_SETTINGS_SUFFIX, TABLE_READY_SUFFIX  # noqa: E402
 from skat.web.rule_sets import RULE_SETS_PATH  # noqa: E402
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX, TABLE_SERIES_END_REFUSE_SUFFIX  # noqa: E402
+from skat.web.stopping import TABLE_STOP_PLAYING_SUFFIX  # noqa: E402
 from skat.web.style import TABLE_STYLE_SUFFIX  # noqa: E402
 from skat.web.table_options import options_answer_of  # noqa: E402
 from skat.web.tables import (  # noqa: E402
@@ -197,7 +197,7 @@ def path_constants() -> dict[str, str]:
         "TABLE_EVENTS_SUFFIX": TABLE_EVENTS_SUFFIX,
         "TABLE_SIT_SUFFIX": TABLE_SIT_SUFFIX,
         "TABLE_STAND_SUFFIX": TABLE_STAND_SUFFIX,
-        "TABLE_CLOSE_SUFFIX": TABLE_CLOSE_SUFFIX,
+        "TABLE_STOP_PLAYING_SUFFIX": TABLE_STOP_PLAYING_SUFFIX,
         "TABLE_DECLARING_TAKE_SUFFIX": TABLE_DECLARING_TAKE_SUFFIX,
         "TABLE_DECLARING_PUT_BACK_SUFFIX": TABLE_DECLARING_PUT_BACK_SUFFIX,
         "TABLE_DECLARING_DECLARE_SUFFIX": TABLE_DECLARING_DECLARE_SUFFIX,
@@ -220,6 +220,7 @@ def path_constants() -> dict[str, str]:
         "TABLE_NO_WORD_SUFFIX": TABLE_NO_WORD_SUFFIX,
         "TABLE_READY_SUFFIX": TABLE_READY_SUFFIX,
         "TABLE_NEW_SERIES_SUFFIX": TABLE_NEW_SERIES_SUFFIX,
+        "TABLE_NEXT_SETTINGS_SUFFIX": TABLE_NEXT_SETTINGS_SUFFIX,
         "TABLE_STYLE_SUFFIX": TABLE_STYLE_SUFFIX,
         "TABLE_SERIES_END_AGREE_SUFFIX": TABLE_SERIES_END_AGREE_SUFFIX,
         "TABLE_SERIES_END_REFUSE_SUFFIX": TABLE_SERIES_END_REFUSE_SUFFIX,

@@ -74,6 +74,8 @@ CONTINUE_AFTER_RESULT_TOOL: Final = "continue_after_result"
 AGREE_TO_END_SERIES_TOOL: Final = "agree_to_end_series"
 REFUSE_TO_END_SERIES_TOOL: Final = "refuse_to_end_series"
 START_NEW_SERIES_TOOL: Final = "start_new_series"
+CHANGE_NEXT_SERIES_SETTINGS_TOOL: Final = "change_next_series_settings"
+STOP_PLAYING_TOOL: Final = "stop_playing"
 AGREE_TO_ABORT_HAND_TOOL: Final = "agree_to_abort_hand"
 REFUSE_TO_ABORT_HAND_TOOL: Final = "refuse_to_abort_hand"
 TAKE_SKAT_TOOL: Final = "take_skat"
@@ -131,6 +133,10 @@ CONTINUE_AFTER_RESULT_MARK: Final = agent_tool(name=CONTINUE_AFTER_RESULT_TOOL, 
 AGREE_TO_END_SERIES_MARK: Final = agent_tool(name=AGREE_TO_END_SERIES_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 REFUSE_TO_END_SERIES_MARK: Final = agent_tool(name=REFUSE_TO_END_SERIES_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 START_NEW_SERIES_MARK: Final = agent_tool(name=START_NEW_SERIES_TOOL, effect=ToolEffect.SIDE_EFFECTING)
+CHANGE_NEXT_SERIES_SETTINGS_MARK: Final = agent_tool(
+    name=CHANGE_NEXT_SERIES_SETTINGS_TOOL, effect=ToolEffect.SIDE_EFFECTING
+)
+STOP_PLAYING_MARK: Final = agent_tool(name=STOP_PLAYING_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 AGREE_TO_ABORT_HAND_MARK: Final = agent_tool(name=AGREE_TO_ABORT_HAND_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 REFUSE_TO_ABORT_HAND_MARK: Final = agent_tool(name=REFUSE_TO_ABORT_HAND_TOOL, effect=ToolEffect.SIDE_EFFECTING)
 TAKE_SKAT_MARK: Final = agent_tool(name=TAKE_SKAT_TOOL, effect=ToolEffect.SIDE_EFFECTING)
@@ -173,6 +179,8 @@ TABLE_COMMAND_TOOLS: Final = frozenset(
         AGREE_TO_END_SERIES_TOOL,
         REFUSE_TO_END_SERIES_TOOL,
         START_NEW_SERIES_TOOL,
+        CHANGE_NEXT_SERIES_SETTINGS_TOOL,
+        STOP_PLAYING_TOOL,
         AGREE_TO_ABORT_HAND_TOOL,
         REFUSE_TO_ABORT_HAND_TOOL,
         TAKE_SKAT_TOOL,
@@ -236,7 +244,8 @@ TOOLS_OF_MOMENT: Final[Mapping[TableMoment, frozenset[str]]] = {
     TableMoment.OPEN_CHAIR: _SEATED_TOOLS | _ABORT_TOOLS,
     TableMoment.RESULT: _SEATED_TOOLS
     | {CONTINUE_AFTER_RESULT_TOOL, AGREE_TO_END_SERIES_TOOL, REFUSE_TO_END_SERIES_TOOL},
-    TableMoment.SERIES_END: _SEATED_TOOLS | {START_NEW_SERIES_TOOL},
+    TableMoment.SERIES_END: _SEATED_TOOLS
+    | {START_NEW_SERIES_TOOL, CHANGE_NEXT_SERIES_SETTINGS_TOOL, STOP_PLAYING_TOOL},
 }
 
 type MomentsOf = Callable[[Principal], Awaitable[Collection[TableMoment]]]

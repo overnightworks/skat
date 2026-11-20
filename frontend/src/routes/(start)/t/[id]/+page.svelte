@@ -1,5 +1,7 @@
 <script lang="ts">
     import { onMount, untrack } from "svelte";
+    import { goto } from "$app/navigation";
+    import { resolve } from "$app/paths";
     import { page } from "$app/state";
     import type { PageProps } from "./$types";
     import { chairMarks, decidingMarks, decidingPlaque, PASSED_IN_MARKS, passedInScene } from "#lib/auctionMarks.ts";
@@ -27,7 +29,16 @@
         type PlayingHand,
     } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
-    import { resultOnStage, seriesCountText, seriesEndView, seriesOver, standingsView } from "#lib/series.ts";
+    import {
+        nextSettingsRevisionOf,
+        resultOnStage,
+        returnsToLobby,
+        seriesCountText,
+        seriesEndView,
+        seriesOver,
+        standingsView,
+        stopOffered,
+    } from "#lib/series.ts";
     import { declaredResult, ramschResultView, resultView, weiterBar, withMinus } from "#lib/result.ts";
     import { AiMark, Marked } from "overnightworks-design";
     import AgentSparkle from "#lib/ui/AgentSparkle.svelte";
@@ -60,14 +71,16 @@
     import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
     import ResultCard from "#lib/ui/ResultCard.svelte";
     import SeatNoticeLine from "#lib/ui/SeatNoticeLine.svelte";
-    import Standings from "#lib/ui/Standings.svelte";
+    import SeriesEnd from "#lib/ui/SeriesEnd.svelte";
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
+    import TakenNotice from "#lib/ui/TakenNotice.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
     import KlassikDecor from "#lib/ui/KlassikDecor.svelte";
     import StrandDecor from "#lib/ui/StrandDecor.svelte";
     import ThrownEmotes from "#lib/ui/ThrownEmotes.svelte";
     import StyleScene from "#lib/ui/StyleScene.svelte";
     import TrickPile from "#lib/ui/TrickPile.svelte";
+    import WaitingLine from "#lib/ui/WaitingLine.svelte";
     import WaitingPlaque from "#lib/ui/WaitingPlaque.svelte";
     import TrickStage from "#lib/ui/TrickStage.svelte";
     import TableBar from "#lib/ui/TableBar.svelte";
@@ -99,15 +112,13 @@
         drawingOrder,
         gameLabel,
         isSuitGame,
-        markReady,
         positionWord,
         readGameSheet,
         readTable,
         seatedAgentsKey,
-        seriesNumberOf,
         sitDown,
         standUp,
-        startNewSeries,
+        stopPlaying,
         takeAuctionStep,
         watchTable,
         type AbortAnswer,
@@ -120,6 +131,7 @@
         type Table,
     } from "../../tables.ts";
     import { nudgedNote } from "../../nudge.ts";
+    import { markReady, seriesNumberOf, startNewSeries } from "../../seriesCommands.ts";
     import { reactionName, reactionsBetween, throwReaction } from "../../reaction.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
@@ -203,6 +215,7 @@
         }
         if (table.result === null) countedOrdinal = null;
         outcome = { kind: "table", table };
+        if (returnsToLobby(previous, table)) void goto(resolve("/(start)"));
         // The stage may show the result at once, so nothing of this table is set after it.
         receiveOnStage(previous, cues, closing);
     };
@@ -342,7 +355,7 @@
         send(
             table,
             seriesOver(table)
-                ? startNewSeries(id, crypto.randomUUID(), seriesNumberOf(table))
+                ? startNewSeries(id, crypto.randomUUID(), seriesNumberOf(table), nextSettingsRevisionOf(table))
                 : markReady(
                       id,
                       crypto.randomUUID(),
@@ -387,14 +400,6 @@
     {:else if outcome !== null}
         <MenuKey {place} kitWords={data.kitWords} />
     {/if}
-{/snippet}
-
-{#snippet waitingLine()}
-    <span class="gives">
-        <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-        {`${words["table.waitingForPlayers"]}`}
-        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-    </span>
 {/snippet}
 
 <div
@@ -531,7 +536,7 @@
                         {/if}
                         <KontraLines kontra={inPlay.playing.kontra} {wait} />
                         {#if waits}
-                            {@render waitingLine()}
+                            <WaitingLine />
                         {/if}
                         {#if bock !== null}
                             <div class="bock-line"><Marked parts={bock} marked={{ factor }} /></div>
@@ -542,7 +547,7 @@
                     </div>
                 {/if}
             {:else if !outcome.table.hand?.declaring}
-                <WaitingPlaque table={outcome.table} {passedIn} {waits} {waitingLine} />
+                <WaitingPlaque table={outcome.table} {passedIn} {waits} />
             {/if}
             <div class="felt">
                 <StrandDecor {id} />
@@ -550,7 +555,7 @@
                 <ThrownEmotes chairs={outcome.table.chairs} />
             </div>
             {#if standing !== null}
-                <Standings view={standing} />
+                <SeriesEnd {id} table={outcome.table} view={standing} {seat} />
             {:else if view !== null}
                 <ResultCard
                     {view}
@@ -744,8 +749,11 @@
                         newSeries={seriesOver(current)}
                         sent={sentFromVersion === current.version}
                         ontap={() => tapWeiter(current)}
+                        onstop={stopOffered(current)
+                            ? () => send(current, stopPlaying(id, crypto.randomUUID()))
+                            : undefined}
                     />
-                    {#if callMode}
+                    {#if callMode && standing === null}
                         <SoundButton place="strip" />
                         {@render tableMenu("strip")}
                     {/if}
@@ -773,12 +781,7 @@
                 />
             {/if}
             {#if taken !== null}
-                <p class="notice" role="status">
-                    <span class="dot" aria-hidden="true">{taken.slice(0, 1)}</span>
-                    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
-                    <span class="label">{`${words["table.seatTaken"]}`}</span>
-                    <b>{taken}</b>
-                </p>
+                <TakenNotice name={taken} />
             {/if}
         {:else if outcome?.kind === "missing"}
             <TableClosed ended={null} />

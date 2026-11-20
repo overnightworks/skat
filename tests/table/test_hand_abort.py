@@ -23,7 +23,7 @@ from skat.table.rules import (
 from skat.table.send_away import decide_send_away
 from skat.table.views import view_of
 from tests.support.open_chairs import ALL_PASS, RAMSCH, actor_at, newcomer, sent_away
-from tests.support.played_game import an_entry, table_in, with_agents
+from tests.support.played_game import SAT_AT, an_entry, table_in, with_agents
 
 NOBODY = frozenset[str]()
 ONE_BOCK_ROUND = BockRounds((3,))
@@ -161,14 +161,14 @@ class TestAChangeOfTheChairs:
     def test_the_sit_that_leaves_no_chair_open_clears_the_proposal_and_the_hand_goes_on(self):
         proposed = standing(3, voted=(1,))
 
-        sat = decide_sit(proposed, newcomer(), 3, None).table
+        sat = decide_sit(proposed, newcomer(), 3, None, SAT_AT).table
 
         assert (sat.progress.abort_yes, hand_runs(sat), waiting_seat_of(sat)) == (frozenset(), True, None)
 
     def test_a_sit_while_another_chair_stays_open_keeps_the_proposal_and_the_newcomer_may_vote(self):
         proposed = standing(2, 3, voted=(1,))
 
-        sat = decide_sit(proposed, newcomer(), 2, None).table
+        sat = decide_sit(proposed, newcomer(), 2, None, SAT_AT).table
         ended = decide_agree_to_abort(sat, newcomer()).table
 
         assert (sat.progress.abort_yes, waiting_seat_of(sat)) == (frozenset({1}), 3)
@@ -210,16 +210,16 @@ class TestAfterTheAbort:
         assert view_of(full, "account-middlehand", NOBODY).aborted.next_dealer_seat == 3
 
     def test_the_sit_of_the_third_deals_the_next_hand_at_once(self, aborted):
-        two_seated = decide_sit(aborted, newcomer(name="Dora"), 2, None).table
+        two_seated = decide_sit(aborted, newcomer(name="Dora"), 2, None, SAT_AT).table
         new_hand = NewHand(3, table_in(HandProgress()).hand)
 
-        dealt = decide_sit(two_seated, newcomer(name="Eve"), 3, new_hand).table
+        dealt = decide_sit(two_seated, newcomer(name="Eve"), 3, new_hand, SAT_AT).table
 
         assert (hand_runs(dealt), dealt.dealer, dealt.progress, dealt.series.deals) == (True, 3, HandProgress(), 4)
 
     def test_three_connected_after_an_abort_are_due_without_a_tap(self, aborted):
         full = decide_sit(
-            decide_sit(aborted, newcomer(name="Dora"), 2, None).table, newcomer(name="Eve"), 3, None
+            decide_sit(aborted, newcomer(name="Dora"), 2, None, SAT_AT).table, newcomer(name="Eve"), 3, None, SAT_AT
         ).table
 
         assert next_deal_due(full, frozenset({"account-middlehand", "account-dora", "account-eve"})) is True

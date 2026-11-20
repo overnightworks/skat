@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from logline import RequestLineMiddleware
 from starlette.concurrency import run_in_threadpool
 from webauth.config import install_web_auth_config, installed_web_auth_config
-from webauth.middleware import install_web_auth_middleware
+from webauth.middleware import ClientAddressMiddleware, install_web_auth_middleware
 from webauth.policies import (
     CacheControlRule,
     CspDirective,
@@ -34,7 +34,6 @@ from skat.web.account import create_account_router
 from skat.web.auction import create_auction_router
 from skat.web.call import create_call_router
 from skat.web.calling import AgentRecords, AgentRoster, CallerMembership, create_calling_router
-from skat.web.closing import create_closing_router
 from skat.web.constants import (
     HEALTH_PATH,
     NO_CACHE_PATH_RULES,
@@ -65,7 +64,6 @@ from skat.web.presence import (
 from skat.web.pushing import create_pushing_router
 from skat.web.reacting import create_reacting_router
 from skat.web.ready import create_ready_router
-from skat.web.request_line import ClientAddressNoting, SignedInPersonNoting
 from skat.web.routes import create_router
 from skat.web.rule_sets import create_rule_sets_router
 from skat.web.run_line import RunLine
@@ -80,6 +78,7 @@ from skat.web.sign_in import (
     build_sign_in_configs,
     install_sign_in,
 )
+from skat.web.stopping import create_stopping_router
 from skat.web.streams import StreamSlots, StreamSource, create_streams_router
 from skat.web.style import create_style_router
 from skat.web.tables import create_tables_router
@@ -93,8 +92,10 @@ if TYPE_CHECKING:
     from webauth.config import WebAuthConfig
     from webauth.oidc import OidcRelyingParty
     from webauth.ports import AgentFacts, RateLimitBackend, SessionRecordStore
+    from webauth.proxies import TrustedProxies
 
     from skat.table.rule_sets import RuleSetService
+    from skat.table.server_steps import EndAnswerLapse
     from skat.table.service import TableService
     from skat.web.page_build import PageBuild
     from skat.web.presence_roster import StreamLeases
@@ -161,8 +162,6 @@ def _content_security_policy(page_build: PageBuild, call_origin: str | None) -> 
 def _install_web_auth(
     app: FastAPI, sessions: SessionRecordStore, page_build: PageBuild, call_origin: str | None, mcp: McpAccess
 ) -> None:
-    # Added before the library stack, this runs inside the session gate and sees the person it admitted.
-    app.add_middleware(SignedInPersonNoting)
     install_web_auth_middleware(
         app,
         sign_in_paths=SIGN_IN_PATHS,
@@ -176,8 +175,12 @@ def _install_web_auth(
         bearer_gate=mcp.bearer_gate,
         session_gate=session_gate(sessions, mcp.public_rule),
     )
-    # Added after the library stack, these sit outside it and see every request, a refused one included.
-    app.add_middleware(ClientAddressNoting)
+
+
+def _install_request_line(app: FastAPI, trusted_proxies: TrustedProxies) -> None:
+    # Added after the library stack, these sit outside it and see every request, a refused one included; the writer
+    # sits directly inside logline's middleware because webauth cannot see one placed inside another answering layer.
+    app.add_middleware(ClientAddressMiddleware, trusted_proxies=trusted_proxies)
     app.add_middleware(RequestLineMiddleware)
 
 
@@ -277,7 +280,7 @@ def _next_deal(tables: TableService) -> NextDeal:
 
 
 def _end_answers(tables: TableService) -> EndAnswers:
-    async def lapse(table_id: str) -> float | None:
+    async def lapse(table_id: str) -> EndAnswerLapse:
         return await run_in_threadpool(tables.lapse_end_answers, TableId(table_id))
 
     return EndAnswers(lapse)
@@ -326,7 +329,7 @@ def _include_table_routers(
     web_auth: WebAuthConfig,
 ) -> None:
     app.include_router(create_seating_router(tables, presence, wakes))
-    app.include_router(create_closing_router(tables, presence))
+    app.include_router(create_stopping_router(tables, presence))
     app.include_router(create_tables_router(tables, page_build, presence, sessions, web_auth))
 
 
@@ -617,5 +620,6 @@ def create_app(
     _include_stream_routers(app, settings, tables, presence, wakes, slots, stores.sessions, heartbeat_seconds)
     _install_sign_in(app, sign_in_configs, relying_party, stores, page_build)
     _install_agent_front(app, settings, tables, presence, scheduler, roster, changes, relying_party, stores, page_build)
+    _install_request_line(app, sign_in_configs.trusted_proxies)
 
     return app

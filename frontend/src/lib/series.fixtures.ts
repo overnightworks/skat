@@ -29,6 +29,8 @@ export function seriesAt(changes: Partial<Series> = {}): Series {
         standings: null,
         end_proposal: null,
         end_refused_seats: [],
+        new_series_answer_by: null,
+        next_settings: null,
         ...changes,
     };
 }
@@ -49,7 +51,6 @@ export function tableBetweenGames(mine: number, series: Series | null, ready: nu
         style: null,
         bock: null,
         ended: null,
-        opened_by_me: false,
         reactions: [],
     };
 }

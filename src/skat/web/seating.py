@@ -5,19 +5,12 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import Field
 from starlette.concurrency import run_in_threadpool
 
-from skat.table.records import (
-    SERIES_LENGTH_MAX,
-    SERIES_LENGTH_MIN,
-    SERIES_LENGTH_STEP,
-    CreateTable,
-    SitDown,
-    StandUp,
-    Visibility,
-)
+from skat.table.records import CreateTable, SitDown, StandUp, Visibility
 from skat.table.rules import CHAIRS_PER_TABLE
+from skat.table.series_end import END_ANSWER_SECONDS
 from skat.table.service import CommandIdReusedError
 from skat.web.mcp import OPEN_TABLE_MARK, SIT_DOWN_MARK, STAND_UP_MARK
-from skat.web.table_options import OptionsRequest, table_options_of
+from skat.web.table_options import OptionsRequest, SeriesLengthRequest, table_options_of
 from skat.web.tables import (
     COMMAND_RESPONSES,
     TABLE_SIT_SUFFIX,
@@ -44,9 +37,7 @@ class CreateTableRequest(CommandRequest):
     holders only.
     """
 
-    series_length: Annotated[
-        int, Field(strict=True, ge=SERIES_LENGTH_MIN, le=SERIES_LENGTH_MAX, multiple_of=SERIES_LENGTH_STEP)
-    ]
+    series_length: SeriesLengthRequest
     options: OptionsRequest | None = None
     visibility: Visibility = Visibility.OPEN
 
@@ -86,6 +77,9 @@ def _create_chairs_router(tables: TableService, presence: Presence, wakes: WakeL
             wakes.wake(AccountTopic(actor_of(request).account_id))
             if answer.result is not None:
                 await presence.deal_now(table_id)
+            # A sit into a waiting series end starts the one minute afresh; an earlier timer finds it not over yet.
+            if answer.series is not None and answer.series.new_series_answer_by:
+                presence.end_answer_watch.watch(table_id, END_ANSWER_SECONDS)
         return answer
 
     @router.post(

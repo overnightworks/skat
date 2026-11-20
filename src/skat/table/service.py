@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
 from skat.table.command_log import command_step, noted
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
-from skat.table.ending import close_table, end_unplayed_table, forget_ended_tables, table_with_opener, unplayed_tables
+from skat.table.ending import end_unplayed_table, forget_ended_tables, stop_playing, unplayed_tables
 from skat.table.game_reads import GameListReads
 from skat.table.hand_abort import (
     AGREE_TO_ABORT_COMMAND,
@@ -73,17 +73,20 @@ from skat.table.playing import (
 from skat.table.pushing import PUSHING_STEP_COMMAND, PushingCommand, decide_pushing_step, pushing_payload
 from skat.table.ready import (
     NEW_SERIES_COMMAND,
+    NEXT_SETTINGS_COMMAND,
     READY_COMMAND,
     NewSeriesCommand,
+    NextSettingsCommand,
     ReadyCommand,
+    decide_change_next_settings,
     decide_new_series,
     decide_ready,
     new_series_payload,
+    next_settings_payload,
     ready_payload,
 )
 from skat.table.records import (
     Actor,
-    CloseTable,
     CreateTable,
     Decision,
     EndedTable,
@@ -91,6 +94,7 @@ from skat.table.records import (
     SendAway,
     SitDown,
     StandUp,
+    StopPlaying,
     TableId,
     TableRecord,
 )
@@ -222,7 +226,7 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
         with self._transactions.begin() as transaction:
             replay = transaction.replay(actor.account_id, command.command_id)
             if replay is not None:
-                return view_of(replayed_table(replay, command), actor.account_id, frozenset(), actor.account_id)
+                return view_of(replayed_table(replay, command), actor.account_id, frozenset())
             table = decide_create(
                 actor, self._new_table_id(), command.series_length, command.options, command.visibility
             )
@@ -230,7 +234,7 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))
         self._tell_seats(agents_seated_at(table))
-        return view_of(table, actor.account_id, frozenset(), actor.account_id)
+        return view_of(table, actor.account_id, frozenset())
 
     def sit(self, actor: Actor, command: SitDown, connected_accounts: frozenset[str]) -> CommandResult | None:
         return self._run_command(
@@ -241,7 +245,11 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             SIT_DOWN_COMMAND,
             sit_payload(command),
             lambda table: decide_sit(
-                table, actor, command.seat, drawn_hand(table, self._random_source) if sit_deals(table) else None
+                table,
+                actor,
+                command.seat,
+                drawn_hand(table, self._random_source) if sit_deals(table) else None,
+                self._now(),
             ),
         )
 
@@ -459,7 +467,20 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             command.command_id,
             NEW_SERIES_COMMAND,
             new_series_payload(command),
-            lambda table: decide_new_series(table, actor, command),
+            lambda table: decide_new_series(table, actor, command, self._now()),
+        )
+
+    def change_next_settings(
+        self, actor: Actor, command: NextSettingsCommand, connected_accounts: frozenset[str]
+    ) -> CommandResult | None:
+        return self._run_command(
+            actor,
+            connected_accounts,
+            command.table_id,
+            command.command_id,
+            NEXT_SETTINGS_COMMAND,
+            next_settings_payload(command),
+            lambda table: decide_change_next_settings(table, actor, command, self._now()),
         )
 
     def agree_to_end_series(
@@ -544,15 +565,15 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
     def forget_ended_tables(self, days: int) -> int:
         return forget_ended_tables(self._transactions, days, self._now())
 
-    def close(self, actor: Actor, command: CloseTable) -> CommandResult | None:
-        """Close the table for everyone if the actor opened it, the ended table as the answer, else the refusal
-        `not-allowed`; None when no live table has the id.
+    def stop_playing(self, actor: Actor, command: StopPlaying) -> CommandResult | None:
+        """End the table for everyone from a seated person's chair once its series is over, the ended table as the
+        answer, else the refusal; None when no live table has the id.
         """
-        closed = close_table(self._transactions, actor, command, self._now)
-        if closed is None:
+        stopped = stop_playing(self._transactions, actor, command, self._now)
+        if stopped is None:
             return None
-        self._tell_seats(closed.members)
-        return closed.result
+        self._tell_seats(stopped.members)
+        return stopped.result
 
     def invite_agent(self, table_id: TableId, facts: CallFacts, lasting: timedelta) -> InvitationOffer | InviteRefusal:
         """Write the call as an invitation standing `lasting` from now, if the decision under the locks offers it."""
@@ -696,7 +717,7 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             if replay is None:
                 seated_when_hand_ended = seated_if_hand_ended(table, decision.table)
             result = CommandResult(
-                view_of(decision.table, actor.account_id, present, transaction.opener_account(identifier), self._now()),
+                view_of(decision.table, actor.account_id, present, self._now()),
                 decision.refusal,
                 decision.holder,
                 seated_when_hand_ended,
@@ -715,7 +736,7 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             transaction.set_empty_since(after.id, None)
 
     def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str]) -> TableView | None:
-        table, opener = table_with_opener(self._transactions, table_id)
+        table = self._table_read(table_id)
         if table is None:
             return None
         present = (
@@ -723,7 +744,7 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             if isinstance(table, EndedTable)
             else present_at(table, connected_accounts, self._live_leases())
         )
-        return view_of(table, actor.account_id, present, opener, self._now())
+        return view_of(table, actor.account_id, present, self._now())
 
     def accounts_at_the_table(self, table_id: TableId, connected_accounts: frozenset[str]) -> frozenset[str]:
         """Who is at the live table for a call; an ended or missing table counts the open streams only."""
@@ -734,11 +755,11 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
         """The live table's view for the account that holds a chair there, with whether the table waits for it; None
         for any other account, an ended table and a table that is not there.
         """
-        table, opener = table_with_opener(self._transactions, table_id)
+        table = self._table_read(table_id)
         if not isinstance(table, TableRecord):
             return None
         present = present_at(table, connected_accounts, self._live_leases())
-        return member_view_of(table, account_id, present, opener, self._now())
+        return member_view_of(table, account_id, present, self._now())
 
     def member_acts(self, account_id: str, table_id: str) -> MemberActs | None:
         """The acts of the live table's latest hand for the account that holds a chair there; None for any other

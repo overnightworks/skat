@@ -30,7 +30,7 @@ import {
     type TABLE_STYLE_TOKENS,
     SUIT_TOKENS,
     TABLE_CARD_SUFFIX,
-    TABLE_CLOSE_SUFFIX,
+    TABLE_STOP_PLAYING_SUFFIX,
     TABLE_DECLARING_DECLARE_SUFFIX,
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
@@ -44,13 +44,11 @@ import {
     TABLE_KONTRA_SUFFIX,
     TABLE_NO_WORD_SUFFIX,
     TABLE_LIST_SUFFIX,
-    TABLE_NEW_SERIES_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_PUSHING_GRAND_HAND_SUFFIX,
     TABLE_PUSHING_PUSH_SUFFIX,
     TABLE_PUSHING_PUT_BACK_SUFFIX,
     TABLE_PUSHING_TAKE_SUFFIX,
-    TABLE_READY_SUFFIX,
     TABLE_SERIES_END_AGREE_SUFFIX,
     TABLE_SERIES_END_REFUSE_SUFFIX,
     TABLE_SIT_SUFFIX,
@@ -255,8 +253,9 @@ export type Result = {
 export type PassedIn = { next_dealer_seat: number | null };
 export type EndReason = (typeof END_REASON_TOKENS)[number];
 // Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, the days nobody played,
-// or the name its opener had when closing it, which is null once the days of the link's reason have passed and for a
-// table that finished a game. Such a table carries the games its last series played and their standings, whatever the
+// or, for a close, the name of the opener who closed it before „Aufhören“, which is null once the days of the link's
+// reason have passed and for a table that finished a game; a table whose series ended by „Aufhören“ or by a silent seat
+// is a close that names nobody. Such a table carries the games its last series played and their standings, whatever the
 // reason; one that finished none carries neither.
 type EndedPlayed = { standings: Standing[]; game_count: number } | { standings: null; game_count: null };
 export type Ended = EndedPlayed &
@@ -310,6 +309,9 @@ export type Standing = {
 // The seat that proposed ending the series early, the seats that have said yes so far and the instant a seat that
 // stays silent counts as no, which a proposal made on the release before has not.
 export type EndProposal = { proposer_seat: number; agreed_seats: number[]; answer_by: string | null };
+// What the next series is played with once the series is over: the last series' length and rules until a seat saves
+// others. `revision` counts the saves and is what „Neue Serie“ names.
+export type NextSettings = { game_count: number; options: Options; revision: number };
 // Which series of the table this is, 1 for the first, which of its games runs (0 before the first deal) and whether it
 // is over; the standings come once it is, the same for every viewer.
 export type Series = {
@@ -321,6 +323,11 @@ export type Series = {
     end_proposal: EndProposal | null;
     // The seats whose no, or silence, ended the last proposal; empty after the next hand is dealt.
     end_refused_seats: number[];
+    // The instant a seat that has not chosen „Neue Serie“ ends the table, once the first has; null before and while
+    // the series runs.
+    new_series_answer_by: string | null;
+    // Null while the series runs.
+    next_settings: NextSettings | null;
 };
 export type TableStyle = (typeof TABLE_STYLE_TOKENS)[number];
 
@@ -341,8 +348,6 @@ export type Table = {
     style: TableStyle | null;
     bock: Bock | null;
     ended: Ended | null;
-    // True only for the account that opened the table, who may close it.
-    opened_by_me: boolean;
     // The reactions thrown at the table in the last seconds, oldest first.
     reactions: Thrown[];
 };
@@ -406,8 +411,9 @@ export function standUp(id: string, commandId: string): Promise<Outcome> {
     return post(id, TABLE_STAND_SUFFIX, { command_id: commandId });
 }
 
-export function closeTable(id: string, commandId: string): Promise<Outcome> {
-    return post(id, TABLE_CLOSE_SUFFIX, { command_id: commandId });
+// Ends the table once its series is over; it names nobody afterwards.
+export function stopPlaying(id: string, commandId: string): Promise<Outcome> {
+    return post(id, TABLE_STOP_PLAYING_SUFFIX, { command_id: commandId });
 }
 
 export type DeclaringStep =
@@ -475,21 +481,6 @@ export function sayKontra(id: string, version: number, commandId: string, word: 
 // The viewer's seat gives up the word it owes before the first card; the table stops asking it and the word is gone.
 export function sayNoWord(id: string, version: number, commandId: string): Promise<Outcome> {
     return post(id, TABLE_NO_WORD_SUFFIX, { command_id: commandId, version });
-}
-
-// A table opened without a series has none and counts as the first series, as the server counts it.
-export function seriesNumberOf(table: Pick<Table, "series">): number {
-    return table.series?.number ?? 1;
-}
-
-// „Weiter“ names the result and the series it saw, so a tap on a result or series that has since been replaced is refused.
-export function markReady(id: string, commandId: string, ordinal: number, series: number): Promise<Outcome> {
-    return post(id, TABLE_READY_SUFFIX, { command_id: commandId, ordinal, series });
-}
-
-// „Neue Serie“ names the series it saw as „Weiter“ does, so a tap on a series that has since been replaced is refused.
-export function startNewSeries(id: string, commandId: string, series: number): Promise<Outcome> {
-    return post(id, TABLE_NEW_SERIES_SUFFIX, { command_id: commandId, series });
 }
 
 // A seated person gives the table a style; the stream brings it to every page at the table, so the answer's table is

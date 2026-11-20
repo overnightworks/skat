@@ -92,20 +92,6 @@ describe("the table menu", () => {
         ]);
     });
 
-    it("offers the opener the close row, and its tap asks before anything is sent", () => {
-        vi.stubGlobal("fetch", vi.fn());
-        show({ ...tableWith(FIRST_OPPONENT, null), opened_by_me: true });
-
-        (document.querySelector(".row.close") as HTMLButtonElement).click();
-        flushSync();
-
-        expect([
-            rows().includes(words["table.close"]),
-            document.querySelector("[role=dialog][aria-modal]")?.getAttribute("aria-label"),
-            vi.mocked(fetch).mock.calls.length,
-        ]).toEqual([true, words["table.closeQuestion"], 0]);
-    });
-
     it("tells the page when the link row is tapped", () => {
         show(tableWith(DECLARER, null));
 
