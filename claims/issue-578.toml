@@ -3,5 +3,5 @@ agent = "Claude 2ff274b2-d89c-4a5d-baf7-dd8a1d9bed87"
 role = "builder"
 base = "7854617419dfc209128e3b4361157c158cb74fa2"
 branch = "claude/issue-578-a-card-activated-by-keyboard-right-after"
-scope = ["frontend/src/lib/ui/OwnHand.svelte", "tests/e2e/test_table_playing.py"]
+scope = ["frontend/src/lib/ui/OwnHand.svelte", "frontend/src/lib/ui/OwnHand.svelte.test.ts", "tests/e2e/test_table_playing.py"]
 opened_commit = "85b242bbc8b957f8d57aee58093ac002609b0ba4"
