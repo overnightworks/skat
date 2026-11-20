@@ -43,7 +43,6 @@
     let placed: ReadonlySet<string> = new Set();
     let posted: readonly PostedSeat[] = [];
     let postedText = "";
-    let openKeys: ReadonlySet<string> = new Set();
     let fullPostWanted = false;
     let frame: number | undefined;
     let keys: SeatKeys | null = null;
@@ -94,8 +93,7 @@
 
     function paintHoles(current: Table | null, keysAreCurrent: boolean): void {
         const occupancyNow = new Map((current?.chairs ?? []).map((chair) => [chair.seat, occupancyOf(chair)]));
-        const open = openSeats({ posted, placed, occupancyNow, current: keysAreCurrent, open: openKeys });
-        openKeys = new Set(open.map(({ entry }) => entry.key));
+        const open = openSeats({ posted, placed, occupancyNow, current: keysAreCurrent });
         const openSeatNumbers = new Set(open.map(({ seat }) => seat));
         for (const chair of document.querySelectorAll<HTMLElement>(CHAIRS)) {
             chair.toggleAttribute("data-see-through", openSeatNumbers.has(Number(chair.dataset.seat)));

@@ -192,20 +192,16 @@ export function acceptedPlacements(keys: readonly string[], posted: readonly Pos
 
 /**
  * The chairs that are see-through: the key is in the placed set and in the last posted `seats` entry for that chair, and
- * the chair still holds who it held when it was posted. A hole opens only while the keys are current; held back, the
- * open ones stay as long as their chair holds the same.
+ * the chair still holds who it held when it was posted. A hole stays shut unless the keys are those of the view's version.
  */
 export function openSeats(state: {
     readonly posted: readonly PostedSeat[];
     readonly placed: ReadonlySet<string>;
     readonly occupancyNow: ReadonlyMap<number, string>;
     readonly current: boolean;
-    readonly open: ReadonlySet<string>;
 }): PostedSeat[] {
+    if (!state.current) return [];
     return state.posted.filter(
-        ({ seat, occupancy, entry }) =>
-            state.placed.has(entry.key) &&
-            state.occupancyNow.get(seat) === occupancy &&
-            (state.current || state.open.has(entry.key)),
+        ({ seat, occupancy, entry }) => state.placed.has(entry.key) && state.occupancyNow.get(seat) === occupancy,
     );
 }

@@ -252,7 +252,6 @@ describe("openSeats", () => {
             placed: new Set([KEY_1, KEY_2]),
             occupancyNow: occupied,
             current: true,
-            open: new Set(),
             ...overrides,
         }).map((seat) => seat.seat);
     }
@@ -286,18 +285,8 @@ describe("openSeats", () => {
         expect(open({ occupancyNow: new Map() })).toEqual([]);
     });
 
-    it("keeps a hole open while held and opens none new", () => {
-        expect(open({ current: false, open: new Set([KEY_1]) })).toEqual([1]);
-    });
-
-    it("opens no hole while held when none was open", () => {
+    it("closes every hole while the keys are not those of the view's version", () => {
         expect(open({ current: false })).toEqual([]);
-    });
-
-    it("closes a held hole at once when the occupant changed", () => {
-        const changed = new Map(occupied).set(1, "person-new");
-
-        expect(open({ current: false, open: new Set([KEY_1]), occupancyNow: changed })).toEqual([]);
     });
 });
 
