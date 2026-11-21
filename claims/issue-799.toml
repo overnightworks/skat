@@ -1,8 +1,0 @@
-claim_id = "89b3c64ca9a5496bb410cafe444a7dad"
-agent = "Claude 08329d5b-8776-4078-b270-c37efe5b15d8"
-role = "builder"
-base = "5ab7be5fd7a6ab974b9b6d8d28ed01f37229e8bf"
-branch = "claude/issue-799-result-keeps-the-name"
-scope = ["frontend/src", "src/skat/table/game_list.py", "src/skat/web/result_answer.py", "tests"]
-opened_commit = "f512a747f9fd1b2b66902f8035aeb24b3b894516"
-whole_reason = "The result names each seat by the name stored with the game, from the record through the answer to both result cards and their tests."
