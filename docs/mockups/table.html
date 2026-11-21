@@ -3376,6 +3376,58 @@ document.addEventListener('DOMContentLoaded',()=>{const reduced=matchMedia('(pre
     new IntersectionObserver(([entry])=>{seen=entry.isIntersecting;stage.classList.toggle('tk-seen',seen);run();}).observe(stage);
     stage.closest('section').querySelector('.replay').addEventListener('click',()=>{next();run();});});});
 }
+/* ===== an agent's turn state: its runner states that its turns here do not answer, or that its model works on one. A stated stop is the kit's part beside the name, at the chair's plate and in the here row; the working model is Skat's thought bubble at the plate. With nothing stated the chair shows nothing extra ===== */
+{
+/* the kit's four outcomes and its German words (words/de.ts) */
+const TURN_WORDS={not_enabled:'Nicht freigeschaltet',busy:'Gerade ausgelastet',budget_spent:'Budget aufgebraucht',unavailable:'Gerade gestört'};
+const turnState=(outcome)=>`<span class="turn-state"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v6M12 16.5v.5" /></svg>${TURN_WORDS[outcome]}</span>`;
+const atPlate=(chair,part)=>chair.replace('</b></span>',`</b>${part}</span>`);
+const statedSeat=(k,pos,outcome)=>atPlate(seat(k,pos),turnState(outcome)).replace('class="seat','class="seat stated');
+/* the thought bubble; o.set is the motion set that moves it, none is the still form of reduced motion; --k is the instant a single frame holds */
+const thought=(set='',k=1.2)=>`<span class="thought ${set}" role="img" aria-label="denkt" title="denkt" style="--k:${k}s"><svg viewBox="0 0 31 26" aria-hidden="true"><circle class="t1 mo" cx="3.6" cy="23.2" r="1.9"/><circle class="t2 mo" cx="9" cy="19.2" r="2.9"/>`
+  +`<path class="cloud" d="M13 16a4.6 4.6 0 0 1-.9-9.1A6.2 6.2 0 0 1 23.9 5.2 5.4 5.4 0 0 1 24 16z"/><path class="spark mo" d="M18.6 5l1.25 3.35L23.2 9.6l-3.35 1.25L18.6 14.2l-1.25-3.35L14 9.6l3.35-1.25z"/></svg></span>`;
+const thinkingSeat=(k,pos,set,at_)=>atPlate(seat(k,pos),thought(set,at_));
+/* the kit's here row with the part: the list's own row, its name and the part in the kit's wrapping box */
+const herePop=(outcome)=>agentsPop(NOVA_HERE).replace('<li class="agent">','<li class="agent stated">').replace('<span class="name">Nova</span>',`<span class="who"><span class="name">Nova</span>${turnState(outcome)}</span>`);
+/* game 8 of 36, a hand of Kreuz: Anna led the ♠ king. o.answered: Nova gave her card and Felix has the turn; otherwise the table waits on Nova */
+const kreuzTable=(d,nova,o={})=>{const L=seatsOf(d);
+  return tableOf(d,{fans:8,count:true,glow:o.answered?turnGlow(d):novaGlow(d)})+kreuz(d)+lead(d,'anna','left')+(o.answered?answered(d):'')
+    +seat('anna',{...L.anna,marks:['decl']})+nova({...L.nova,marks:o.answered?[]:['turn']})+seat('felix',{...L.you,marks:o.answered?['turn']:[]})+chairCoasters(L,TOTALS_BEFORE)
+    +ownCards(d,o.answered?FELIX_FOLLOWS:FELIX_HAND)+stripOf(d,{pill:o.pill||agentPill(d)});};
+const SAME_FOR_ALL='Das Zeichen und das Wort sind die des Kits, für jeden am Tisch und jeden Zuschauer gleich; Skat zeichnet nichts Eigenes dazu, der Stuhl bleibt sonst, wie er ist. „Nicht freigeschaltet“ und „Gerade gestört“ stehen genauso da. Sagt der Runner nichts, steht am Schild nur der Name.';
+const TURN_SCENES=[
+  ['turn-busy','Zugstatus: gerade ausgelastet',[360,390,1280],(d)=>kreuzTable(d,(pos)=>statedSeat('nova',pos,'busy')),
+    ['Der Tisch wartet auf Nova, und ihr Runner meldet, dass ihre Züge hier gerade nicht antworten: unter ihrem Namen steht am Schild das Zeichen mit „Gerade ausgelastet“. Der Name bleibt, wo er immer steht; das Schild wächst nach unten und, wo der Stuhl schmaler ist als das Wort, vom Bildschirmrand zur Tischmitte.',SAME_FOR_ALL],true],
+  ['turn-budget','Zugstatus: Budget aufgebraucht',[360,390,1280],(d)=>kreuzTable(d,(pos)=>statedSeat('nova',pos,'budget_spent'),{answered:true}),
+    ['Nova hat ihre Karte noch gegeben, dann meldet ihr Runner „Budget aufgebraucht“. Die Zeile steht am Schild, solange die Meldung gilt, auch wenn Nova gerade nicht dran ist: Felix sieht vor seinem Zug, dass der Tisch bei ihr stehen bleiben wird.',SAME_FOR_ALL],true],
+  ['turn-here','Zugstatus: in der Agentenliste',[360,390,1280],(d)=>kreuzTable(d,(pos)=>statedSeat('nova',pos,'budget_spent'),{answered:true,pill:agentPill(d,{open:true,panel:herePop('budget_spent')})}),
+    ['Felix öffnet „⋯“ und „Agenten“: Novas Zeile trägt neben dem Namen dasselbe Zeichen mit „Budget aufgebraucht“, davor „AI“, dahinter „Bitten zu gehen“. Die Zeile liest den Stuhl und ändert sich mit ihm; wo die Tafel schmal ist, rückt die Taste unter den Namen.'],true],
+  ['turn-thinking','Zugstatus: Nova denkt',[360,390,1280],(d)=>kreuzTable(d,(pos)=>thinkingSeat('nova',pos,'verspielt')),
+    ['Der Tisch wartet auf Nova, und ihr Runner meldet, dass ihr Modell an diesem Zug arbeitet: an ihrem Schild steigt eine Gedankenblase aus dem Namen, darin der Funke des Agenten. Annas Stuhl daneben ist unverändert. Die Blase steht nur am Stuhl, nicht in der Agentenliste und nicht in der Lobby, von der Meldung bis zur nächsten Meldung an diesem Platz, längstens 120 Sekunden.',
+     'Sie ist kein Alarm und kein Kreisel: ihr Umriss steht still, nur ihr Inneres lebt. Der blaue Ring und das Dreieck sagen weiter „dran“, der Mond „nicht da“, die drei Punkte „wartet auf Antwort“; die Blase sagt allein „denkt“.'],true],
+];
+agentScenes(TURN_SCENES);
+/* the thought bubble's strips: Nova's chair cut out of its table, in the phone's and the desktop's size; the last cell of a set plays */
+const CUT={390:{d:false,cw:190,ch:176,pos:{...PB.nova,x:22,y:20},note:'Stuhl am Handy'},1280:{d:true,cw:320,ch:268,pos:{...DB.nova,x:26,y:22},note:'Stuhl am Desktop'}};
+const cut=(w,caption,chair,cls='',k)=>`<figure class="tk-cell ${cls}"><figcaption>${caption}</figcaption><div class="frame turn-cut ${CUT[w].d?'d1280':'p390'} ${k===undefined?'':'held'}" style="--cw:${CUT[w].cw}px;--ch:${CUT[w].ch}px${k===undefined?'':`;--k:${k}s`}">${chair}${DRAFT}</div></figure>`;
+const onTurn=(w)=>({...CUT[w].pos,marks:['turn']});
+const seconds=(t)=>`${t.toFixed(2).replace('.',',')} s`;
+const thinkStrip=(id,title,w,cells,notes)=>{FRAMES.push([`${id}-${w}`,`<section class="shot"><h2>${title}<small>${CUT[w].note}</small><button class="replay" type="button">Nochmal</button></h2><div class="tk-strip" id="${id}-${w}">${cells}</div>${notes.map(r=>`<p class="rule">${r}</p>`).join('')}</section>`]);ORDER.push(`${id}-${w}`);};
+/* a set's key instants, each with what it shows */
+const THINK_SETS={
+  dezent:{stills:[[0,'Funke leise'],[1.2,'Funke hell']],
+    note:'„dezent“: die Blase steht, nur der Funke in ihr atmet, in 2,4 Sekunden leise und wieder hell, im selben Takt wie der blaue Ring des Stuhls. Nichts wandert, nichts dreht sich.'},
+  verspielt:{stills:[[.34,'erstes Bläschen'],[.59,'zweites Bläschen'],[1.12,'Funke leuchtet auf']],
+    note:'„verspielt“: die zwei Bläschen blähen sich nacheinander zur Wolke hin, dann leuchtet der Funke auf und ruht; nach 2,8 Sekunden beginnt es von vorn. Wolke und Bläschen bleiben dabei an ihrem Platz.'}};
+[390,1280].forEach(w=>{
+  thinkStrip('motion-think-still','Denkt: ohne Bewegung',w,
+    cut(w,'<b>dran</b>nichts gemeldet',seat('nova',onTurn(w)))+cut(w,'<b>denkt</b>steht still',thinkingSeat('nova',onTurn(w),'')),
+    ['Links der Stuhl, auf den der Tisch wartet, ohne Meldung: Ring und Dreieck, sonst nichts. Rechts derselbe Stuhl mit der Meldung „denkt“, so wie ihn ein Gerät mit „Bewegung reduzieren“ zeigt: die ganze Blase mit beiden Bläschen und hellem Funken, ohne jede Bewegung. Form und Platz tragen das Zeichen, die Bewegung kommt nur dazu.']);
+  Object.entries(THINK_SETS).forEach(([set,{stills,note}])=>thinkStrip(`motion-think-${set}`,`Denkt: ${set}`,w,
+    stills.map(([t,hint])=>cut(w,`<b>denkt</b>${seconds(t)} · ${hint}`,thinkingSeat('nova',onTurn(w),set,t),'',t)).join('')
+      +cut(w,'<b>läuft</b>solange Nova denkt',thinkingSeat('nova',onTurn(w),set),'tk-runs'),
+    [note,'Das letzte Bild spielt die Bewegung ab; allein geöffnet spielt es mit „&play“.']));});
+}
 const byId=Object.fromEntries(FRAMES);
 document.head.insertAdjacentHTML('beforeend',`<style>${KEYFRAMES.join('\n')}</style>`);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
@@ -3942,6 +3994,44 @@ body.solo.tk-play .tk-runs{display:flex}
 /* the taker's chair flashes gold: the glow is drawn once and only fades */
 .tk-flash{position:absolute;inset:0;border-radius:inherit;opacity:0;pointer-events:none;box-shadow:0 0 0 4px #f3cf7a,0 0 40px 10px rgba(243,207,122,.55)}
 .seat.bar .tk-flash{box-shadow:0 0 0 2px #f3cf7a,0 0 20px rgba(243,207,122,.5)}
+</style>
+<style>
+/* ---------- an agent's turn state: the kit's part for a stated stop at the plate and in the here row, Skat's thought bubble at the plate while the model works ---------- */
+/* the kit's TurnState, as it ships (TurnState.svelte); it takes the muted colour of its place */
+.turn-state{display:inline-flex;flex:none;align-items:center;gap:6px;color:var(--text-muted);font-family:var(--font-body);font-size:13px;white-space:nowrap}
+.turn-state svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* at the chair the part is the plate's second line: the name keeps its place, the plate grows downward, and at a chair narrower than the word it grows from the screen's edge toward the table's middle */
+.seat.stated .plate{top:calc(100% - 12px);bottom:auto;transform:translateX(-50%);gap:1px;padding-bottom:5px;font-weight:600;--text-muted:rgba(43,29,5,.76)}
+.seat.sm.stated .plate{top:calc(100% - 11px);left:auto;right:-4px;transform:none;align-items:flex-end}
+/* the kit's here row since it carries the part: the name and the part share a wrapping box, the key keeps the right */
+.agent-control .agent.stated{flex-wrap:wrap;gap:4px 10px}
+.agent-control .who{display:flex;flex:1 1 0;flex-wrap:wrap;align-items:center;column-gap:8px;min-width:min-content}
+.agent-control .who .name{flex:1 1 auto;contain:inline-size;min-width:5em}
+.agent-control .agent.stated .act{margin-left:auto}
+/* the thought bubble: a cream cloud whose two small bubbles rise from the name, the agent's spark inside; its outline never changes, only the life inside it */
+.thought{position:absolute;left:calc(100% - 26px);bottom:calc(100% + 1px);width:40px;display:block;line-height:0;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.65))}
+.thought svg{display:block;width:100%;height:auto;overflow:visible}
+.thought :is(.cloud,.t1,.t2){fill:var(--cream);stroke:rgba(20,24,29,.4);stroke-width:.7}
+.thought .spark{fill:#3558ab}
+.thought .mo{transform-box:fill-box;transform-origin:center}
+.d1280 .seat:not(.sm) .thought{width:64px;left:calc(100% - 34px);bottom:calc(100% + 2px)}
+/* a chair cut out of its table, for the strips of the thought bubble */
+.frame.turn-cut{width:var(--cw);height:var(--ch)}
+/* a still of the strip holds its instant on every page, as a single frame does */
+.turn-cut.held .mo{animation-play-state:paused!important;animation-delay:calc(var(--k) * -1)!important}
+body.tk-play .tk-runs .thought .mo{animation-play-state:running!important;animation-delay:0s!important}
+@media (prefers-reduced-motion:no-preference){
+  /* „dezent“: only the spark breathes, in the turn ring's own time */
+  .thought.dezent .spark{animation:think-breath 2.4s ease-in-out infinite}
+  @keyframes think-breath{0%,100%{opacity:.28}50%{opacity:1}}
+  /* „verspielt“: the two bubbles puff one after the other toward the cloud, then the spark lights up and rests */
+  .thought.verspielt .t1{animation:think-puff-1 2.8s ease-in-out infinite}
+  .thought.verspielt .t2{animation:think-puff-2 2.8s ease-in-out infinite}
+  .thought.verspielt .spark{animation:think-light 2.8s ease-in-out infinite}
+  @keyframes think-puff-1{0%,26%,100%{scale:1}12%{scale:1.5}}
+  @keyframes think-puff-2{0%,9%,36%,100%{scale:1}21%{scale:1.4}}
+  @keyframes think-light{0%,24%{scale:.55;opacity:.28}40%{scale:1.22;opacity:1}50%,78%{scale:1;opacity:1}100%{scale:.55;opacity:.28}}
+}
 </style>
 </body>
 </html>
