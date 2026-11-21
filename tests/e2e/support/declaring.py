@@ -20,7 +20,7 @@ from skat.web.tables import TABLE_SIT_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.raw_http import RawSession
-from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch_together
+from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
 from tests.support.payload_cards import wire_cards
 from tests.support.played_game import after_a_game
 
@@ -104,14 +104,15 @@ class DeclaringTable:
         self.table_id = table_id_of(path)
         self.api_path = f"{TABLES_PATH}/{self.table_id}"
         people = {1: opener}
-        joined = [self._person(open_person, username, page_errors, form_factor, console) for username in joiners]
-        self.watcher = self._person(open_person, "dora", page_errors, form_factor, console)
-        watch_together([*joined, self.watcher], server, path)
-        for seat, person in zip((2, 3), joined, strict=True):
+        for seat, username in zip((2, 3), joiners, strict=True):
+            person = self._person(open_person, username, page_errors, form_factor, console)
+            watch(person, server, path)
             # The sit that fills the third chair deals, so the chairs read below hold the hands once it is answered.
             with person.expect_response(lambda response: urlsplit(response.url).path.endswith(TABLE_SIT_SUFFIX)):
                 sit_in(person, seat)
             people[seat] = person
+        self.watcher = self._person(open_person, "dora", page_errors, form_factor, console)
+        watch(self.watcher, server, path)
         self.sessions = {seat: RawSession(server, member_of(person)) for seat, person in people.items()}
         self.people = people
         seat_at = self._seat_at()

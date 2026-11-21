@@ -15,7 +15,7 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterator
 
     from playwright.sync_api import Page
 
@@ -92,18 +92,6 @@ def table_id_of(path: str) -> str:
 def watch(person: Page, server: RunningServer, path: str) -> None:
     person.goto(f"{server.base_url}{path}")
     expect(person.locator(".chair")).to_have_count(3)
-
-
-def watch_together(people: Iterable[Page], server: RunningServer, path: str) -> None:
-    """Every page watches the table, their loads running side by side instead of one after the other.
-
-    A navigation the page starts itself does not wait for its load, as `open_start_page` relies on.
-    """
-    pages = list(people)
-    for person in pages:
-        person.evaluate("address => location.assign(address)", f"{server.base_url}{path}")
-    for person in pages:
-        expect(person.locator(".chair")).to_have_count(3)
 
 
 def watch_until_the_agents_are_read(person: Page, server: RunningServer, path: str) -> None:
