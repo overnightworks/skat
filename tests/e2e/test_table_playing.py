@@ -351,8 +351,9 @@ def expect_the_felt_and_the_far_chairs_shown(person: Page) -> None:
     expect(person.locator(".chair:not(.mine)")).to_have_count(2)
 
 
+@pytest.mark.parametrize("table_style", STYLES)
 def test_on_a_desktop_the_resting_trick_lies_on_the_felt_and_the_hand_sits_below_the_own_bar(
-    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str]
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], table_style: TableStyle
 ) -> None:
     table = deal_a_playing_table(DESKTOP)
     table.leave_the_last_trick_on_the_felt()
