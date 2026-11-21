@@ -1,0 +1,8 @@
+claim_id = "b5383e2fb77c4832b9da739dfed5fe7c"
+agent = "Claude 08329d5b-8776-4078-b270-c37efe5b15d8"
+role = "builder"
+base = "0b4ba6a3e321118e0dd2c66a036840ec19bcf058"
+branch = "claude/issue-813-an-unknown-address-shows-skat-s-error-pa"
+scope = ["src/skat/host/app.py", "src/skat/web/routes.py", "tests/e2e/support", "tests/e2e/test_calling_agents.py", "tests/e2e/test_table_result.py", "tests/e2e/test_table_series.py", "tests/e2e/test_table_series_settings.py", "tests/web/test_calling_roster.py", "tests/web/test_routes.py", "tests/web/test_series_end.py"]
+opened_commit = "96a67f079793f35fb0a5fadeb6e5a3d35d1c8355"
+whole_reason = "Three small follow-ups of #560 bundled into one lane: the page's 404 and two test hygiene fixes, each a few lines in its own owner."
