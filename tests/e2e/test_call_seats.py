@@ -9,8 +9,11 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import expect
 
+from skat.engine.bidding import VALID_BIDS
 from skat.store.tables import PostgresTableTransactions
+from skat.table.auction import AuctionAction
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.bidding import BiddingTable, position_of, step
 from tests.e2e.support.call_frame import (
     CALL_ORIGIN,
     CHAIR,
@@ -43,6 +46,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
+STAND_UP_ARMED = text(SOURCE_LANGUAGE, "table.standUpArmed")
 YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 OTHER_ORIGIN = f"https://{OTHER_HOST}:{OTHER_PORT}"
 FOREIGN_KEY = "f" * 64
@@ -55,6 +59,17 @@ LIVE_BOXES = """chairs => chairs
         return { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
     })"""
 DESKTOP_WIDTH = 900
+# Keeps on window.closedHoles the seat of each chair that stops being see-through, from now on.
+WATCHING_THE_HOLES = """() => {
+    window.closedHoles = [];
+    new MutationObserver((records) => {
+        for (const { target } of records) {
+            if (!target.hasAttribute("data-see-through")) closedHoles.push(Number(target.dataset.seat));
+        }
+    }).observe(document.querySelector(".room"), {
+        subtree: true, attributes: true, attributeFilter: ["data-see-through"],
+    });
+}"""
 
 # How far each clipped backdrop paints beyond its box by its outer shadows, and how far its clip path reaches beyond it.
 CLIP_COVERS_SHADOWS = """backdrops => backdrops.map((backdrop) => {
@@ -305,8 +320,78 @@ def test_a_placed_that_drops_a_key_closes_only_that_chairs_hole(
         call.visitor.evaluate("keys => place(keys)", [keys[0], keys[2]])
 
         until(call, lambda: shows_the_table(call, boxes[1]))
-        assert shows_the_stand_in(call, boxes[0])
-        assert shows_the_stand_in(call, boxes[2])
+        expect(call.table.locator(".chair[data-see-through]")).to_have_count(2)
+
+
+def bid_behind_the_page(call: Call, server: RunningServer) -> None:
+    """The middlehand's first bid, taken as the player's other device would."""
+    table_id = table_id_of(call.path)
+    by_position = {position_of(person, server, table_id): person for person in (call.visitor, *call.others)}
+    table = BiddingTable(
+        server,
+        table_id,
+        by_position["forehand"],
+        by_position["middlehand"],
+        by_position["rearhand"],
+        call.visitor,
+    )
+    step(table.middlehand, table, AuctionAction.BID, VALID_BIDS[0])
+
+
+def count_key_reads(call: Call) -> list[str]:
+    """The urls of the person-keys reads the page makes from now on; each is let through."""
+    reads: list[str] = []
+
+    def let_through(route: Route) -> None:
+        reads.append(route.request.url)
+        route.continue_()
+
+    call.visitor.route("**/person-keys", let_through)
+    return reads
+
+
+def test_a_bid_step_keeps_every_hole_open_and_reads_no_keys_and_a_stand_closes_its_chairs_hole_at_once(
+    open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
+) -> None:
+    with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True) as call:
+        expect(call.table.locator(".skat-card")).to_have_count(2)
+        wait_for_seat_messages(call, 1)
+        until(call, lambda: posted_boxes(call) == live_boxes(call))
+        boxes = posted_boxes(call)
+        place_all(call)
+        until(call, lambda: all(shows_the_stand_in(call, box) for box in boxes))
+        call.table.locator("body").evaluate(WATCHING_THE_HOLES)
+        reads = count_key_reads(call)
+
+        bid_behind_the_page(call, framing_server)
+
+        expect(call.table.locator(".bubble .said")).to_have_count(1)
+        call.visitor.evaluate(TWO_FRAMES)
+
+        # The own seat settles into its new box and posts it; the call draws its stand-ins again where it is told.
+        def placed_at_the_live_boxes() -> bool:
+            place_all(call)
+            return posted_boxes(call) == live_boxes(call)
+
+        until(call, placed_at_the_live_boxes)
+        boxes = posted_boxes(call)
+        until(call, lambda: all(shows_the_stand_in(call, box) for box in boxes))
+        assert call.table.locator("body").evaluate("() => closedHoles") == []
+        assert reads == []
+
+        # The stand's read is held back, so the chair's hole shuts by what the table shows alone.
+        held: list[Route] = []
+        call.visitor.unroute("**/person-keys")
+        call.visitor.route("**/person-keys", lambda route: held.append(route))
+        menu_button(call.others[0], STAND_UP).click()
+        call.others[0].get_by_role("button", name=STAND_UP_ARMED).click()
+
+        until(call, lambda: shows_the_table(call, boxes[1]))
+        expect(call.table.locator(".chair[data-see-through]")).to_have_count(2)
+        assert call.table.locator("body").evaluate("() => closedHoles") == [2]
+        call.visitor.unroute("**/person-keys")
+        for route in held:
+            route.continue_()
 
 
 BAD_SENDERS = ["a sibling on another origin", "a sibling on the call origin"]

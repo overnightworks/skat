@@ -3,6 +3,7 @@ import {
     acceptedPlacements,
     holdOf,
     holesPath,
+    keysFitView,
     occupancyBySeat,
     occupancyOf,
     openSeats,
@@ -246,33 +247,79 @@ describe("occupancyOf", () => {
     });
 });
 
-describe("holdOf", () => {
+describe("keysFitView", () => {
     const keys = { version: 5, keys: new Map([[1, KEY_1]]) };
+    const chair = (seat: number, name: string | null) => ({
+        seat,
+        occupant_name: name,
+        occupant_kind: name === null ? null : "person",
+        is_mine: false,
+    });
+    const keyed = occupancyBySeat([chair(1, "anna"), chair(2, "ben"), chair(3, null)]);
 
     it.each([
-        { name: "a closed table", closed: true, failed: false, keys, viewVersion: null, expected: "closed" },
         {
-            name: "a closed table with a failed read",
-            closed: true,
-            failed: true,
-            keys,
-            viewVersion: 5,
-            expected: "closed",
-        },
-        { name: "a failed read", closed: false, failed: true, keys, viewVersion: 5, expected: "failed" },
-        {
-            name: "a failed read before any keys",
-            closed: false,
-            failed: true,
+            name: "no keys yet",
             keys: null,
-            viewVersion: 5,
-            expected: "failed",
+            keyedOccupancy: keyed,
+            view: { version: 5, chairs: [chair(1, "anna")] },
+            fits: false,
         },
-        { name: "keys of the view's version", closed: false, failed: false, keys, viewVersion: 5, expected: "current" },
-        { name: "keys older than the view", closed: false, failed: false, keys, viewVersion: 6, expected: "held" },
-        { name: "keys newer than the view", closed: false, failed: false, keys, viewVersion: 4, expected: "held" },
-        { name: "no keys yet", closed: false, failed: false, keys: null, viewVersion: 5, expected: "held" },
-        { name: "no view yet", closed: false, failed: false, keys, viewVersion: null, expected: "held" },
+        { name: "no view yet", keys, keyedOccupancy: keyed, view: null, fits: false },
+        {
+            name: "keys of the view's version",
+            keys,
+            keyedOccupancy: null,
+            view: { version: 5, chairs: [] },
+            fits: true,
+        },
+        {
+            name: "an older view version whose every chair holds what it held",
+            keys,
+            keyedOccupancy: keyed,
+            view: { version: 6, chairs: [chair(1, "anna"), chair(2, "ben"), chair(3, null)] },
+            fits: true,
+        },
+        {
+            name: "a chair that stood",
+            keys,
+            keyedOccupancy: keyed,
+            view: { version: 6, chairs: [chair(1, "anna"), chair(2, null), chair(3, null)] },
+            fits: false,
+        },
+        {
+            name: "a free chair that was taken",
+            keys,
+            keyedOccupancy: keyed,
+            view: { version: 6, chairs: [chair(1, "anna"), chair(2, "ben"), chair(3, "cleo")] },
+            fits: false,
+        },
+        {
+            name: "a view whose version differs and whose keyed view is not known",
+            keys,
+            keyedOccupancy: null,
+            view: { version: 6, chairs: [chair(1, "anna"), chair(2, "ben"), chair(3, null)] },
+            fits: false,
+        },
+        {
+            name: "a view with fewer chairs",
+            keys,
+            keyedOccupancy: keyed,
+            view: { version: 6, chairs: [chair(1, "anna"), chair(2, "ben")] },
+            fits: false,
+        },
+    ])("is $fits for $name", ({ fits, ...state }) => {
+        expect(keysFitView(state)).toBe(fits);
+    });
+});
+
+describe("holdOf", () => {
+    it.each([
+        { name: "a closed table", closed: true, failed: false, fits: true, expected: "closed" },
+        { name: "a closed table with a failed read", closed: true, failed: true, fits: true, expected: "closed" },
+        { name: "a failed read", closed: false, failed: true, fits: true, expected: "failed" },
+        { name: "keys that fit the view", closed: false, failed: false, fits: true, expected: "current" },
+        { name: "keys that do not fit the view", closed: false, failed: false, fits: false, expected: "held" },
     ])("is $expected for $name", ({ expected, ...state }) => {
         expect(holdOf(state)).toBe(expected);
     });
@@ -307,7 +354,6 @@ describe("openSeats", () => {
             posted: seats,
             placed: new Set([KEY_1, KEY_2]),
             occupancyNow: occupied,
-            current: true,
             ...overrides,
         }).map((seat) => seat.seat);
     }
@@ -339,10 +385,6 @@ describe("openSeats", () => {
 
     it("closes every chair when the table is gone", () => {
         expect(open({ occupancyNow: new Map() })).toEqual([]);
-    });
-
-    it("closes every hole while the keys are not those of the view's version", () => {
-        expect(open({ current: false })).toEqual([]);
     });
 });
 

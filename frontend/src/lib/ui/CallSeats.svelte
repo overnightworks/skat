@@ -7,6 +7,7 @@
         acceptedPlacements,
         holdOf,
         holesPath,
+        keysFitView,
         occupancyBySeat,
         occupancyOf,
         openSeats,
@@ -57,6 +58,8 @@
     let fullPostWanted = false;
     let frame: number | undefined;
     let keys: SeatKeys | null = null;
+    // What each chair held in the view whose version the keys have, once the page has seen that view.
+    let keyedOccupancy: ReadonlyMap<number, string> | null = null;
     let keysFailed = false;
     let failedReads = 0;
     // An object: what happens during a request is not narrowed away by the code that waits for it.
@@ -102,9 +105,9 @@
         fullPostWanted = false;
     }
 
-    function paintHoles(current: Table | null, keysAreCurrent: boolean): void {
+    function paintHoles(current: Table | null): void {
         const occupancyNow = occupancyBySeat(current?.chairs ?? []);
-        const open = openSeats({ posted, placed, occupancyNow, current: keysAreCurrent });
+        const open = openSeats({ posted, placed, occupancyNow });
         const openSeatNumbers = new Set(open.map(({ seat }) => seat));
         for (const chair of document.querySelectorAll<HTMLElement>(CHAIRS)) {
             chair.toggleAttribute("data-see-through", openSeatNumbers.has(Number(chair.dataset.seat)));
@@ -119,16 +122,20 @@
         }
     }
 
-    // The boxes go out only while the keys are those of the view; a failed read or a table that ended or is gone posts an
-    // empty list, and keys of another version leave the call its last layout.
+    // The boxes go out only while the keys fit the view; a failed read or a table that ended or is gone posts an empty
+    // list, and keys that do not fit leave the call its last layout, whose holes stay open for each chair that holds
+    // what it held when it was posted.
     function flush(): void {
-        const hold = holdOf({ closed, failed: keysFailed, keys, viewVersion: view?.version ?? null });
+        if (keyedOccupancy === null && keys !== null && view !== null && keys.version === view.version) {
+            keyedOccupancy = occupancyBySeat(view.chairs);
+        }
+        const hold = holdOf({ closed, failed: keysFailed, fits: keysFitView({ keys, keyedOccupancy, view }) });
         if (hold === "closed" || hold === "failed") post([]);
         else if (hold === "current" && view !== null && table !== null && keys !== null) {
             const tiles = readTiles(table.chairs, keys);
             post(postedSeats(shownAsInView(tiles, occupancyBySeat(view.chairs))));
         }
-        paintHoles(view, hold === "current");
+        paintHoles(view);
     }
 
     function runFrames(): void {
@@ -156,6 +163,7 @@
             failedReads += 1;
         } else {
             keys = read;
+            keyedOccupancy = view?.version === read.version ? occupancyBySeat(view.chairs) : null;
             keysFailed = false;
             failedReads = 0;
         }
@@ -163,6 +171,11 @@
             reads.again = false;
             void readKeys();
         }
+    }
+
+    // A view that leaves every chair as it was needs no new keys, unless the last read failed.
+    function readKeysUnlessTheyFit(): void {
+        if (keysFailed || !keysFitView({ keys, keyedOccupancy, view })) void readKeys();
     }
 
     function hello(first: boolean): void {
@@ -209,6 +222,6 @@
     // A new version of the view asks for the keys of the newest; one request runs at a time.
     const version = $derived(view?.version ?? null);
     $effect(() => {
-        if (greeted && version !== null) untrack(() => void readKeys());
+        if (greeted && version !== null) untrack(readKeysUnlessTheyFit);
     });
 </script>

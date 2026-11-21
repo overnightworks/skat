@@ -198,20 +198,35 @@ export function occupancyOf(chair: Occupant): string {
 }
 
 /**
+ * Whether the keys are good for the view: they are those of its version, or every chair of the view holds what it held
+ * in the view the keys were read for, so no key can have changed.
+ */
+export function keysFitView(state: {
+    readonly keys: SeatKeys | null;
+    readonly keyedOccupancy: ReadonlyMap<number, string> | null;
+    readonly view: {
+        readonly version: number;
+        readonly chairs: readonly (Occupant & { readonly seat: number })[];
+    } | null;
+}): boolean {
+    const { keys, keyedOccupancy, view } = state;
+    if (keys === null || view === null) return false;
+    if (keys.version === view.version) return true;
+    if (keyedOccupancy === null) return false;
+    const now = occupancyBySeat(view.chairs);
+    return now.size === keyedOccupancy.size && [...now].every(([seat, held]) => keyedOccupancy.get(seat) === held);
+}
+
+/**
  * Whether the table posts, holds back or tells the call that it has no chairs: a failed read and a table that ended or
- * is gone post an empty list; keys of another version than the view are not posted and leave the call its last layout.
+ * is gone post an empty list; keys that do not fit the view are not posted and leave the call its last layout.
  */
 export type Hold = "closed" | "failed" | "held" | "current";
 
-export function holdOf(state: {
-    readonly closed: boolean;
-    readonly failed: boolean;
-    readonly keys: SeatKeys | null;
-    readonly viewVersion: number | null;
-}): Hold {
+export function holdOf(state: { readonly closed: boolean; readonly failed: boolean; readonly fits: boolean }): Hold {
     if (state.closed) return "closed";
     if (state.failed) return "failed";
-    return state.keys !== null && state.keys.version === state.viewVersion ? "current" : "held";
+    return state.fits ? "current" : "held";
 }
 
 /** The keys of a `placed` that the last posted `seats` carries; any other key is ignored on its own. */
@@ -222,15 +237,14 @@ export function acceptedPlacements(keys: readonly string[], posted: readonly Pos
 
 /**
  * The chairs that are see-through: the key is in the placed set and in the last posted `seats` entry for that chair, and
- * the chair still holds who it held when it was posted. A hole stays shut unless the keys are those of the view's version.
+ * the chair still holds who it held when it was posted, so a hole stays open through any table event that leaves a chair
+ * as it was and shuts at once for a chair whose occupant changed.
  */
 export function openSeats(state: {
     readonly posted: readonly PostedSeat[];
     readonly placed: ReadonlySet<string>;
     readonly occupancyNow: ReadonlyMap<number, string>;
-    readonly current: boolean;
 }): PostedSeat[] {
-    if (!state.current) return [];
     return state.posted.filter(
         ({ seat, occupancy, entry }) => state.placed.has(entry.key) && state.occupancyNow.get(seat) === occupancy,
     );
