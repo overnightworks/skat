@@ -3,7 +3,6 @@ import {
     acceptedPlacements,
     holdOf,
     holesPath,
-    keysFitView,
     occupancyBySeat,
     occupancyOf,
     openSeats,
@@ -247,72 +246,6 @@ describe("occupancyOf", () => {
     });
 });
 
-describe("keysFitView", () => {
-    const keys = { version: 5, keys: new Map([[1, KEY_1]]) };
-    const chair = (seat: number, name: string | null) => ({
-        seat,
-        occupant_name: name,
-        occupant_kind: name === null ? null : "person",
-        is_mine: false,
-    });
-    const keyed = occupancyBySeat([chair(1, "anna"), chair(2, "ben"), chair(3, null)]);
-
-    it.each([
-        {
-            name: "no keys yet",
-            keys: null,
-            keyedOccupancy: keyed,
-            view: { version: 5, chairs: [chair(1, "anna")] },
-            fits: false,
-        },
-        { name: "no view yet", keys, keyedOccupancy: keyed, view: null, fits: false },
-        {
-            name: "keys of the view's version",
-            keys,
-            keyedOccupancy: null,
-            view: { version: 5, chairs: [] },
-            fits: true,
-        },
-        {
-            name: "an older view version whose every chair holds what it held",
-            keys,
-            keyedOccupancy: keyed,
-            view: { version: 6, chairs: [chair(1, "anna"), chair(2, "ben"), chair(3, null)] },
-            fits: true,
-        },
-        {
-            name: "a chair that stood",
-            keys,
-            keyedOccupancy: keyed,
-            view: { version: 6, chairs: [chair(1, "anna"), chair(2, null), chair(3, null)] },
-            fits: false,
-        },
-        {
-            name: "a free chair that was taken",
-            keys,
-            keyedOccupancy: keyed,
-            view: { version: 6, chairs: [chair(1, "anna"), chair(2, "ben"), chair(3, "cleo")] },
-            fits: false,
-        },
-        {
-            name: "a view whose version differs and whose keyed view is not known",
-            keys,
-            keyedOccupancy: null,
-            view: { version: 6, chairs: [chair(1, "anna"), chair(2, "ben"), chair(3, null)] },
-            fits: false,
-        },
-        {
-            name: "a view with fewer chairs",
-            keys,
-            keyedOccupancy: keyed,
-            view: { version: 6, chairs: [chair(1, "anna"), chair(2, "ben")] },
-            fits: false,
-        },
-    ])("is $fits for $name", ({ fits, ...state }) => {
-        expect(keysFitView(state)).toBe(fits);
-    });
-});
-
 describe("holdOf", () => {
     it.each([
         { name: "a closed table", closed: true, failed: false, fits: true, expected: "closed" },
@@ -354,6 +287,11 @@ describe("openSeats", () => {
             posted: seats,
             placed: new Set([KEY_1, KEY_2]),
             occupancyNow: occupied,
+            keysNow: new Map([
+                [1, KEY_1],
+                [2, KEY_2],
+                [3, KEY_3],
+            ]),
             ...overrides,
         }).map((seat) => seat.seat);
     }
@@ -374,6 +312,20 @@ describe("openSeats", () => {
         const changed = new Map(occupied).set(2, "agent-2");
 
         expect(open({ occupancyNow: changed })).toEqual([1]);
+    });
+
+    it("closes a chair whose re-read key is not the posted one, though its occupancy reads the same", () => {
+        const retaken = new Map([
+            [1, KEY_1],
+            [2, "e".repeat(64)],
+            [3, KEY_3],
+        ]);
+
+        expect(open({ keysNow: retaken })).toEqual([1]);
+    });
+
+    it("closes a chair that has no key in the keys read last", () => {
+        expect(open({ keysNow: new Map([[2, KEY_2]]) })).toEqual([2]);
     });
 
     it("closes a chair that is free now", () => {

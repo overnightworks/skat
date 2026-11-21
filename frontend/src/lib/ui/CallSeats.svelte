@@ -7,7 +7,6 @@
         acceptedPlacements,
         holdOf,
         holesPath,
-        keysFitView,
         occupancyBySeat,
         occupancyOf,
         openSeats,
@@ -25,6 +24,9 @@
     // `placed` and makes the chairs the call placed see-through. It draws nothing itself; the rules are in callSeats.ts.
     // Who sits and which version the keys must match follow the newest table the stream brought, at once; the table the
     // page shows may lag behind it while an auction is told or a closing waits, and only the tiles are read from that.
+    // The keys are read again for every version of that table, one request at a time. While the keys are older than the
+    // table, nothing new is posted and a chair whose occupant is unchanged keeps its hole; a chair whose occupant changed
+    // shuts at once, and one whose re-read key differs from the posted one shuts when the keys arrive.
     // While the page is greeted and visible, every animation frame reads the tiles, so a move without a resize is
     // caught; a posted payload and a written clip path are each posted or written only when they differ from the last.
     const {
@@ -58,8 +60,6 @@
     let fullPostWanted = false;
     let frame: number | undefined;
     let keys: SeatKeys | null = null;
-    // What each chair held in the view whose version the keys have, once the page has seen that view.
-    let keyedOccupancy: ReadonlyMap<number, string> | null = null;
     let keysFailed = false;
     let failedReads = 0;
     // An object: what happens during a request is not narrowed away by the code that waits for it.
@@ -107,7 +107,7 @@
 
     function paintHoles(current: Table | null): void {
         const occupancyNow = occupancyBySeat(current?.chairs ?? []);
-        const open = openSeats({ posted, placed, occupancyNow });
+        const open = openSeats({ posted, placed, occupancyNow, keysNow: keys?.keys ?? new Map() });
         const openSeatNumbers = new Set(open.map(({ seat }) => seat));
         for (const chair of document.querySelectorAll<HTMLElement>(CHAIRS)) {
             chair.toggleAttribute("data-see-through", openSeatNumbers.has(Number(chair.dataset.seat)));
@@ -122,14 +122,11 @@
         }
     }
 
-    // The boxes go out only while the keys fit the view; a failed read or a table that ended or is gone posts an empty
-    // list, and keys that do not fit leave the call its last layout, whose holes stay open for each chair that holds
-    // what it held when it was posted.
+    // The boxes go out only while the keys are those of the view's version; a failed read or a table that ended or is
+    // gone posts an empty list, and keys of an older version leave the call its last layout, whose holes stay open for each
+    // chair that holds what it held when it was posted.
     function flush(): void {
-        if (keyedOccupancy === null && keys !== null && view !== null && keys.version === view.version) {
-            keyedOccupancy = occupancyBySeat(view.chairs);
-        }
-        const hold = holdOf({ closed, failed: keysFailed, fits: keysFitView({ keys, keyedOccupancy, view }) });
+        const hold = holdOf({ closed, failed: keysFailed, fits: keys !== null && keys.version === view?.version });
         if (hold === "closed" || hold === "failed") post([]);
         else if (hold === "current" && view !== null && table !== null && keys !== null) {
             const tiles = readTiles(table.chairs, keys);
@@ -163,7 +160,6 @@
             failedReads += 1;
         } else {
             keys = read;
-            keyedOccupancy = view?.version === read.version ? occupancyBySeat(view.chairs) : null;
             keysFailed = false;
             failedReads = 0;
         }
@@ -171,11 +167,6 @@
             reads.again = false;
             void readKeys();
         }
-    }
-
-    // A view that leaves every chair as it was needs no new keys, unless the last read failed.
-    function readKeysUnlessTheyFit(): void {
-        if (keysFailed || !keysFitView({ keys, keyedOccupancy, view })) void readKeys();
     }
 
     function hello(first: boolean): void {
@@ -219,9 +210,11 @@
         };
     });
 
-    // A new version of the view asks for the keys of the newest; one request runs at a time.
+    // Every new version of the view asks for the keys of the newest, so a read that ends older than the view runs again;
+    // one request runs at a time. Meanwhile nothing new is posted, a chair whose occupant is unchanged keeps its hole, and
+    // a chair whose re-read key is not the posted one shuts when the read lands.
     const version = $derived(view?.version ?? null);
     $effect(() => {
-        if (greeted && version !== null) untrack(readKeysUnlessTheyFit);
+        if (greeted && version !== null) untrack(() => void readKeys());
     });
 </script>

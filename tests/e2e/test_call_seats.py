@@ -338,19 +338,7 @@ def bid_behind_the_page(call: Call, server: RunningServer) -> None:
     step(table.middlehand, table, AuctionAction.BID, VALID_BIDS[0])
 
 
-def count_key_reads(call: Call) -> list[str]:
-    """The urls of the person-keys reads the page makes from now on; each is let through."""
-    reads: list[str] = []
-
-    def let_through(route: Route) -> None:
-        reads.append(route.request.url)
-        route.continue_()
-
-    call.visitor.route("**/person-keys", let_through)
-    return reads
-
-
-def test_a_bid_step_keeps_every_hole_open_and_reads_no_keys_and_a_stand_closes_its_chairs_hole_at_once(
+def test_a_bid_step_keeps_every_hole_open_and_a_stand_closes_its_chairs_hole_at_once(
     open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
 ) -> None:
     with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True) as call:
@@ -361,7 +349,6 @@ def test_a_bid_step_keeps_every_hole_open_and_reads_no_keys_and_a_stand_closes_i
         place_all(call)
         until(call, lambda: all(shows_the_stand_in(call, box) for box in boxes))
         call.table.locator("body").evaluate(WATCHING_THE_HOLES)
-        reads = count_key_reads(call)
 
         bid_behind_the_page(call, framing_server)
 
@@ -377,11 +364,9 @@ def test_a_bid_step_keeps_every_hole_open_and_reads_no_keys_and_a_stand_closes_i
         boxes = posted_boxes(call)
         until(call, lambda: all(shows_the_stand_in(call, box) for box in boxes))
         assert call.table.locator("body").evaluate("() => closedHoles") == []
-        assert reads == []
 
         # The stand's read is held back, so the chair's hole shuts by what the table shows alone.
         held: list[Route] = []
-        call.visitor.unroute("**/person-keys")
         call.visitor.route("**/person-keys", lambda route: held.append(route))
         menu_button(call.others[0], STAND_UP).click()
         call.others[0].get_by_role("button", name=STAND_UP_ARMED).click()
@@ -392,6 +377,35 @@ def test_a_bid_step_keeps_every_hole_open_and_reads_no_keys_and_a_stand_closes_i
         call.visitor.unroute("**/person-keys")
         for route in held:
             route.continue_()
+
+
+def test_a_bid_step_reads_the_keys_again_and_a_chair_whose_key_differs_closes_its_hole(
+    open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
+) -> None:
+    """A successor of the same name and kind leaves the view's occupancy as it was; only the re-read key tells."""
+    with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True) as call:
+        expect(call.table.locator(".skat-card")).to_have_count(2)
+        wait_for_seat_messages(call, 1)
+        until(call, lambda: posted_boxes(call) == live_boxes(call))
+        boxes = posted_boxes(call)
+        place_all(call)
+        until(call, lambda: all(shows_the_stand_in(call, box) for box in boxes))
+
+        def answer_a_differing_key_for_the_middle_chair(route: Route) -> None:
+            answer = route.fetch()
+            read = answer.json()
+            read["keys"] = sorted(read["keys"], key=lambda entry: entry["seat"])
+            read["keys"][1]["key"] = FOREIGN_KEY
+            route.fulfill(response=answer, json=read)
+
+        call.visitor.route("**/person-keys", answer_a_differing_key_for_the_middle_chair)
+
+        bid_behind_the_page(call, framing_server)
+
+        call.visitor.wait_for_function("key => lastSeats().seats.some((seat) => seat.key === key)", arg=FOREIGN_KEY)
+        boxes = posted_boxes(call)
+        until(call, lambda: shows_the_table(call, boxes[1]))
+        until(call, lambda: shows_the_stand_in(call, boxes[0]) and shows_the_stand_in(call, boxes[2]))
 
 
 BAD_SENDERS = ["a sibling on another origin", "a sibling on the call origin"]
