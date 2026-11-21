@@ -34,6 +34,7 @@ class KontraResultAnswer(BaseModel):
 class ResultAnswer(BaseModel):
     kind: Literal["declared"]
     ordinal: int
+    seat_names: list[str | None]
     declarer_seat: int
     game: GameToken
     hand: bool
@@ -72,6 +73,7 @@ class RamschSeatAnswer(BaseModel):
 class RamschResultAnswer(BaseModel):
     kind: Literal["ramsch"]
     ordinal: int
+    seat_names: list[str | None]
     seats: list[RamschSeatAnswer]
     durchmarsch_seat: int | None
     jungfrau: bool
@@ -88,6 +90,7 @@ def result_answer_of(result: ResultView | RamschResultView | None) -> ResultAnsw
         return RamschResultAnswer(
             kind="ramsch",
             ordinal=result.ordinal,
+            seat_names=list(result.seat_names),
             seats=[RamschSeatAnswer(seat=each.seat, points=each.points, score=each.score) for each in result.seats],
             durchmarsch_seat=result.durchmarsch_seat,
             jungfrau=result.jungfrau,
@@ -100,6 +103,7 @@ def result_answer_of(result: ResultView | RamschResultView | None) -> ResultAnsw
     return ResultAnswer(
         kind="declared",
         ordinal=result.ordinal,
+        seat_names=list(result.seat_names),
         declarer_seat=result.declarer_seat,
         game=GAME_TOKENS[declaration.kind],
         hand=declaration.hand,

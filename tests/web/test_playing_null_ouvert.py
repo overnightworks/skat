@@ -170,7 +170,7 @@ class TestNullOuvertReachesItsResult:
     def test_the_game_ends_at_the_declarers_first_trick_or_its_tenth_and_scores_its_fixed_value(self, table, game):
         game.reach_the_end(table)
 
-        assert table.result() == game.result
+        assert table.result() == table.seated_result(game.result)
         assert table.record.hand is None
 
 
@@ -205,4 +205,4 @@ class TestAfterAnEarlyEnd:
 
         table.refused(table.at[FOREHAND], card("S7"), Refusal.NO_HAND)
 
-        assert table.result() == game.result
+        assert table.result() == table.seated_result(game.result)

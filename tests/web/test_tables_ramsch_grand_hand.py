@@ -19,6 +19,7 @@ from tests.web.support.playing import (
     bock_of,
     cards,
     three_pass,
+    without_seat_names,
 )
 from tests.web.support.ramsch_stage import (
     FOREHAND_SEAT,
@@ -207,7 +208,7 @@ class TestDeclaringAGrandHandInstead:
         table.played_out(game)
 
         result = table.result()
-        assert result == wanted.result()
+        assert without_seat_names(result) == without_seat_names(wanted.result())
         assert (result["kind"], result["hand"], result["bid"], result["announcement"]) == ("declared", True, 18, "none")
         assert "pushes" not in result
         row, wanted_row = (list_rows(each)[0] | {"declarer_name": None} for each in (table, wanted))
