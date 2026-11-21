@@ -1,0 +1,8 @@
+claim_id = "8e5e2da0ba494c8097cb66f383f605d6"
+agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
+role = "builder"
+base = "7ec56824b591e415aa209c2632c91f63fb2e2a94"
+branch = "claude/issue-758-e2e-scene-substance"
+scope = ["tests/e2e"]
+opened_commit = "86f92feb711fbf58ca73a94c266e1b0d3a7e130f"
+whole_reason = "One kind of assertion, pixel fidelity to a scene, removed across the e2e suite in one pass."
