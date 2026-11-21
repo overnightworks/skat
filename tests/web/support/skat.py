@@ -6,6 +6,7 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from agents.mcp_wire import PROTOCOL_VERSION, PROTOCOL_VERSION_HEADER
 from fastapi.testclient import TestClient
 from mcp.shared.inbound import MCP_METHOD_HEADER, MCP_NAME_HEADER, NAME_BEARING_METHODS
@@ -18,11 +19,11 @@ from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
-from tests.support.fake_rule_sets import FakeRuleSetStore
-from tests.support.fake_tables import FakeTableStore
+from tests.support.fake_rule_sets import FakeRuleSetStore, in_memory_rule_sets
+from tests.support.fake_tables import FakeTableStore, in_memory_tables
 from tests.support.in_memory_stores import in_memory_stores, single_pod
 from tests.support.page_build import fixture_page_build
-from tests.support.payload_cards import DEALER_SEAT, with_known_deal
+from tests.support.payload_cards import DEALER_SEAT, seated_three, with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, new_account, seed_member
 from tests.web.support.playing import Table
@@ -49,6 +50,7 @@ class FakeTime:
         self._scheduled = []
         self.callers = []
 
+    # a clock reading of this fake
     def clock(self):
         return self.now
 
@@ -258,3 +260,99 @@ class AgentTable(Table):
         with_known_deal(skat, self.table_id)
         self.at = {held: by_seat[seat] for seat, held in positions_from(DEALER_SEAT).items()}
         self.watcher = people[2][0]
+
+
+def advance(skat, time, seconds):
+    skat.client.portal.call(time.advance, seconds)
+
+
+def message_body(raw):
+    return json.loads(raw.removeprefix("data: "))
+
+
+def message_at_version(lines, version):
+    """The stream's message at a version; someone joining wakes the stream with the old one first."""
+    for line in unnamed_lines(lines):
+        if line.startswith("data: ") and message_body(line)["version"] == version:
+            return line
+    return pytest.fail(f"the stream ended before version {version}")
+
+
+def account_of(skat, agent):
+    return skat.stores.accounts.get(agent.subject).id
+
+
+def read(skat, headers, table_id):
+    return skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
+
+
+def skat_app(sign_in_settings, stores):
+    return create_app(
+        sign_in_settings().settings,
+        page_build=fixture_page_build(),
+        tables=in_memory_tables(),
+        rule_sets=in_memory_rule_sets(),
+        stores=stores,
+        **single_pod(),
+    )
+
+
+def restarted(skat, hold, **options):
+    """The same stores under a freshly built app, as after a restart."""
+    return Skat(lambda: hold, store=skat.store, stores=skat.stores, **options)
+
+
+def seated_table(server):
+    """Anna, Ben and Cleo in seats 1 to 3, the fourth member Dora watching; returns the id and all four."""
+    table_id, people = seated_three(server)
+    server.client.cookies.clear()
+    return table_id, people
+
+
+class WaitsOnTheClock:
+    """The base of a scene with a `skat` and a fake `time`: it waits by advancing the clock."""
+
+    def wait(self, seconds):
+        advance(self.skat, self.time, seconds)
+
+
+def running_skat(hold, issuer, time, **wiring):
+    """A Skat with its client open, for a fixture to `yield from`; `wiring` is passed on to `Skat`."""
+    skat = Skat(
+        lambda: hold,
+        issuer_transports=issuer.transports,
+        chair_clock=time.clock,
+        chair_scheduler=time,
+        now=time.moment,
+        **wiring,
+    )
+    with skat.client:
+        yield skat
+
+
+def issuer_skat(hold, issuer):
+    """A Skat whose issuer transports are the fake issuer's, with its client open, for a fixture named `skat`."""
+    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
+    with skat.client:
+        yield skat
+
+
+def changing_skat(hold, issuer, time, changes):
+    """`running_skat` whose resource changes are the recorded ones, for a fixture named `skat`."""
+    yield from running_skat(hold, issuer, time, resource_changes=changes.wired)
+
+
+class IssuerSkat:
+    """The base of a test class whose `skat` is `issuer_skat`: a fixture named `skat` cannot be assigned in a class."""
+
+    @pytest.fixture
+    def skat(self, hold, issuer):
+        yield from issuer_skat(hold, issuer)
+
+
+class HeldSkat:
+    """The base of a test class whose `skat` is one plain app on the hold's settings."""
+
+    @pytest.fixture
+    def skat(self, hold):
+        return Skat(lambda: hold)

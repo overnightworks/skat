@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 
 from skat.engine.deal import Position, deal, positions_from
@@ -35,6 +35,7 @@ from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.migrations import run_in_transaction
 from tests.support.played_game import after_a_game, after_the_first_game, an_entry
+from tests.support.postgres import row_count
 from tests.support.seated_tables import save
 from tests.support.series_store import (
     ALL_THREE,
@@ -113,6 +114,7 @@ def test_two_checks_at_once_deal_one_hand_and_count_one_deal(service, transactio
     racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
     answers = []
 
+    # a closure over this test's own racing service and answers
     def check():
         answers.append(racing.deal_next(TableId(table_id), nullcontext(ALL_THREE)))
 
@@ -130,11 +132,6 @@ def test_a_replay_of_the_sit_that_dealt_counts_no_second_deal(service, transacti
     service.sit(THIRD_PLAYER, SitDown("command-third", table_id, 3), frozenset())
 
     assert series_of(transactions, table_id) == Series(3, 1)
-
-
-def rows_of(engine, table):
-    with engine.connect() as connection:
-        return connection.execute(select(func.count()).select_from(table)).scalar_one()
 
 
 def stored_series_and_ordinals(engine):
@@ -163,7 +160,7 @@ class TestNewSeries:
         self, service, transactions, engine, ended_series
     ):
         tap_all(service, ended_series)
-        assert rows_of(engine, game_list) == 1
+        assert row_count(engine, game_list) == 1
         assert read(transactions, ended_series).series == Series(3, 3)
 
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is True
@@ -172,7 +169,7 @@ class TestNewSeries:
         assert (dealt.series, dealt.game_list) == (Series(3, 1, number=2), ())
         assert [chair.ready for chair in dealt.chairs] == [False, False, False]
         assert stored_series_and_ordinals(engine) == [(1, 1)]
-        assert rows_of(engine, hand_cards) == 32
+        assert row_count(engine, hand_cards) == 32
 
     def test_two_taps_leave_the_rows_and_deal_nothing(self, service, transactions, engine, ended_series):
         for seat in (1, 2):
@@ -182,7 +179,7 @@ class TestNewSeries:
 
         assert service.deal_next(TableId(ended_series), nullcontext(ALL_THREE)) is False
 
-        assert rows_of(engine, game_list) == 1
+        assert row_count(engine, game_list) == 1
         asked = read(transactions, ended_series).series
         assert (replace(asked, new_series_asked_at=None), asked.new_series_asked_at is not None) == (Series(3, 3), True)
 
@@ -200,7 +197,7 @@ class TestNewSeries:
             failing.deal_next(table_id, sources)
 
         assert read(transactions, ended_series) == before
-        assert (rows_of(engine, game_list), rows_of(engine, hand_cards)) == (1, 0)
+        assert (row_count(engine, game_list), row_count(engine, hand_cards)) == (1, 0)
         assert [chair.ready for chair in before.chairs] == [True, True, True]
 
     def test_a_restart_between_the_last_tap_and_the_deal_keeps_the_marks_and_the_deal_follows(
@@ -215,7 +212,7 @@ class TestNewSeries:
             assert TableService(restarted_transactions).deal_next(TableId(ended_series), nullcontext(ALL_THREE))
 
             assert read(restarted_transactions, ended_series).series == Series(3, 1, number=2)
-            assert rows_of(restarted_engine, game_list) == 1
+            assert row_count(restarted_engine, game_list) == 1
         finally:
             restarted_engine.dispose()
 
@@ -237,7 +234,7 @@ class TestNewSeries:
 
         assert sorted(answers) == [False, True]
         assert read(transactions, ended_series).series == Series(3, 1, number=2)
-        assert rows_of(engine, game_list) == 1
+        assert row_count(engine, game_list) == 1
 
     def test_a_second_new_series_reads_number_three_and_keeps_both_earlier_series(
         self, service, transactions, engine, ended_series
@@ -291,7 +288,7 @@ class TestNewSeries:
 
         assert again.refusal is None
         assert read(transactions, ended_series) == dealt
-        assert rows_of(engine, game_list) == 1
+        assert row_count(engine, game_list) == 1
 
     @pytest.mark.parametrize(
         ("deals", "dealt"),
@@ -316,7 +313,7 @@ class TestNewSeries:
         with pytest.raises(StepLogRewrittenError):
             save(transactions, rewritten)
 
-        assert rows_of(engine, game_list) == 1
+        assert row_count(engine, game_list) == 1
         assert read(transactions, ended_series) == record
 
 
@@ -372,7 +369,7 @@ class TestEndingEarly:
 
         ended = read(transactions, between_games)
 
-        assert rows_of(engine, game_list) == 1
+        assert row_count(engine, game_list) == 1
         assert [chair.ready for chair in ended.chairs] == [False, False, False]
 
     @pytest.mark.parametrize(
@@ -589,7 +586,7 @@ class TestEndingEarly:
 
         assert read(transactions, between_games).series == Series(3, 1, number=2)
         assert read(transactions, between_games).game_list == ()
-        assert rows_of(engine, game_list) == 1
+        assert row_count(engine, game_list) == 1
 
 
 class TestTheSeriesRow:

@@ -4,7 +4,7 @@ from skat.engine.tricks import ALL_POINTS
 from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from tests.support.payload_cards import cards_in_text
-from tests.web.support.playing import DECLARER_SEAT, Table, card, cards, ending_of, points_of_cards
+from tests.web.support.playing import DECLARER_SEAT, card, cards, ending_of, points_of_cards
 from tests.web.support.skat import streams_of
 
 # Middlehand declares; the known deal's first trick is S7 S9 D7, which he takes with S9 and leads the next.
@@ -18,17 +18,6 @@ HERZ_HAND_LOST_AT_30 = {
     "list_bonus": -50,
     "announcement_missed": False,
 }
-
-
-@pytest.fixture
-def table(skat):
-    return Table(skat)
-
-
-@pytest.fixture
-def herz_hand(table):
-    table.declared_hand_game()
-    return table
 
 
 def give_up(table, headers=None, *, body=None):

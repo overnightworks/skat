@@ -6776,6 +6776,34 @@ body {
     }
 }
 
+/* The Anruf key: a pill in the bottom strip, the camera and the word on a phone as on a desktop, a link to the call app's start page. */
+.room .call-key {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 52px;
+    padding: 0 20px 0 16px;
+    gap: 8px;
+    border-radius: 26px;
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--on-stage);
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.room .call-key svg {
+    flex: none;
+    width: 24px;
+    height: 24px;
+}
+
+.room .call-key:focus-visible {
+    outline: 2px solid var(--accent-stage, #7aa7f0);
+    outline-offset: 2px;
+}
+
 /* The overlay is the panel's popover: it covers the viewport and is clear, so the tap that closes the panel lands on it and on nothing below. */
 .room .anchored-overlay {
     position: fixed;

@@ -32,7 +32,7 @@ from tests.web.support.open_play import (
     plays_open,
     waiting_for,
 )
-from tests.web.support.playing import HERZ_GAME, Table, ending_of, gains
+from tests.web.support.playing import HERZ_GAME, ending_of, gains
 from tests.web.support.shortening import (
     everyone,
     herz_hand_with_63_points_against,
@@ -40,21 +40,10 @@ from tests.web.support.shortening import (
     shortens,
     undecided_herz_at_22,
 )
-from tests.web.support.skat import AgentTable, Skat
+from tests.web.support.skat import AgentTable, HeldSkat, IssuerSkat, restarted
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 OPPONENTS = [pytest.param(FOREHAND, id="forehand"), pytest.param(REARHAND, id="rearhand")]
-
-
-@pytest.fixture
-def table(skat):
-    return Table(skat)
-
-
-@pytest.fixture
-def herz_hand(table):
-    table.declared_hand_game()
-    return table
 
 
 class TestTheDeclarerCouldTakeNoFurtherTrick:
@@ -290,16 +279,7 @@ class TestTheDeclarerPlaysOn:
         assert herz_hand.record.progress.give_up is None
 
 
-def restarted(skat, hold, **options):
-    """The same stores under a freshly built app, as after a restart."""
-    return Skat(lambda: hold, store=skat.store, stores=skat.stores, **options)
-
-
-class TestAcrossARestart:
-    @pytest.fixture
-    def skat(self, hold):
-        return Skat(lambda: hold)
-
+class TestAcrossARestart(HeldSkat):
     def test_a_waiting_open_play_is_read_after_a_restart_and_the_declarers_yes_ends_the_game(
         self, skat, hold, herz_hand
     ):
@@ -324,13 +304,7 @@ class TestAcrossARestart:
         )
 
 
-class TestThroughTheMcpTools:
-    @pytest.fixture
-    def skat(self, hold, issuer):
-        skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-        with skat.client:
-            yield skat
-
+class TestThroughTheMcpTools(IssuerSkat):
     def test_an_agent_opponent_plays_open_and_the_person_declarer_accepts(self, skat, agent):
         table = AgentTable(skat, agent, FOREHAND)
         table.declared_hand_game()

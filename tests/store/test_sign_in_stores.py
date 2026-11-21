@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import SecretStr
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.exc import DataError
 from webauth.ports import AccountEvent, AccountEventKind, AccountKind
 from webauth.store_contract import STORE_CHECKS, StoreAdapter
@@ -19,6 +19,7 @@ from skat.store.migrate import SIGN_IN_LOCK_KEY, create_store_engine
 from skat.store.schema import accounts, sessions
 from skat.store.sign_in import PostgresSignInStores
 from skat.web.sign_in import LoggingAuditSink
+from tests.support.postgres import row_count
 
 pytestmark = pytest.mark.postgres
 
@@ -101,11 +102,6 @@ def an_entry_waits_for_the_lock(engine):
     return waiting > 0
 
 
-def count(engine, table):
-    with engine.connect() as connection:
-        return connection.execute(select(func.count()).select_from(table)).scalar_one()
-
-
 class TestTheStoreContract:
     @pytest.mark.parametrize("check", STORE_CHECKS, ids=lambda check: check.name)
     def test_keeps_the_duty_of_the_ports(self, check, engine, stores, database_url):
@@ -134,7 +130,7 @@ class TestASignInEntry:
         with pytest.raises(RuntimeError, match="the entry fails"):
             failing_sign_in()
 
-        assert (count(engine, accounts), count(engine, sessions), audit.events) == (0, 0, [])
+        assert (row_count(engine, accounts), row_count(engine, sessions), audit.events) == (0, 0, [])
 
     def test_whose_audit_sink_raises_when_the_events_are_reported_is_rolled_back(self, engine, stores, audit):
         audit.failure = RuntimeError("the sink fails")
@@ -142,7 +138,7 @@ class TestASignInEntry:
         with pytest.raises(RuntimeError, match="the sink fails"):
             sign_in(stores)
 
-        assert (count(engine, accounts), count(engine, sessions)) == (0, 0)
+        assert (row_count(engine, accounts), row_count(engine, sessions)) == (0, 0)
 
     def test_whose_session_write_fails_keeps_the_tokens_out_of_the_error_text(self, stores):
         with pytest.raises(DataError, match="NUL") as failure:
@@ -197,7 +193,7 @@ class TestASignInEntry:
         for thread in threads:
             thread.join(WAIT_DEADLINE_SECONDS)
 
-        assert (failures, count(engine, accounts), count(engine, sessions)) == ([], 1, 2)
+        assert (failures, row_count(engine, accounts), row_count(engine, sessions)) == ([], 1, 2)
 
 
 class TestAnAccount:
@@ -306,7 +302,7 @@ class TestTheStoredSession:
         stores.sessions.delete("an-id-nobody-holds")
         stores.sessions.delete(session.id)
 
-        assert (count(engine, sessions), count(engine, accounts)) == (0, 1)
+        assert (row_count(engine, sessions), row_count(engine, accounts)) == (0, 1)
 
 
 class TestTheExpirySweep:

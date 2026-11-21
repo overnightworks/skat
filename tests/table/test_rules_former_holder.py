@@ -5,15 +5,9 @@ from dataclasses import replace
 import pytest
 
 from skat.table.records import FormerHolder, HandProgress, NewHand
-from skat.table.rules import dealt_next, decide_sit, decide_stand
-from tests.support.open_chairs import MIDDLEHAND_SEAT, PHASES, REARHAND_SEAT, actor_at, newcomer, sent_away
+from skat.table.rules import dealt_next, decide_sit
+from tests.support.open_chairs import MIDDLEHAND_SEAT, PHASES, REARHAND_SEAT, actor_at, newcomer, sent_away, stood_up
 from tests.support.played_game import SAT_AT
-
-
-def stood_up(table, seat):
-    decision = decide_stand(table, actor_at(table, seat))
-    assert decision.refusal is None
-    return decision.table
 
 
 def name_of(table, seat):

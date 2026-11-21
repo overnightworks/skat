@@ -40,14 +40,38 @@ def seated_game(service, transactions, stored, options=TableOptions()):  # noqa:
     return Game(service, transactions, stored, seated_table_id(service, options))
 
 
-class Game:
-    """A table whose middlehand won at 18 and declared a Herz Hand game; forehand leads."""
+class PlaysOfRecord:
+    """The base of a test table that reads the cards played from its `record`."""
+
+    @property
+    def plays(self):
+        return self.record.progress.plays
+
+
+class StoredHand(PlaysOfRecord):
+    """A table of the Postgres tests: its service, its transactions and the reader of its stored record."""
 
     def __init__(self, service, transactions, stored, table_id):
         self.service = service
         self.transactions = transactions
         self.stored = stored
         self.table_id = table_id
+
+    @property
+    def record(self):
+        return self.stored(self.transactions, self.table_id)
+
+    def legal_card(self):
+        state = playing_of(self.record)
+        first = state.current[0] if state.current else None
+        return state.turn, legal_cards(state.hands[state.turn], first, state.declared.declaration.kind)[0]
+
+
+class Game(StoredHand):
+    """A table whose middlehand won at 18 and declared a Herz Hand game; forehand leads."""
+
+    def __init__(self, service, transactions, stored, table_id):
+        super().__init__(service, transactions, stored, table_id)
         by_seat = {1: person("Anna"), 2: person("Ben"), 3: person("Cleo")}
         self.actors = {position: by_seat[seat] for seat, position in positions_from(self.record.dealer).items()}
         self._auction(Position.MIDDLEHAND, AuctionAction.BID, 18, "bid")
@@ -60,24 +84,11 @@ class Game:
             nobody_connected(),
         )
 
-    @property
-    def record(self):
-        return self.stored(self.transactions, self.table_id)
-
-    @property
-    def plays(self):
-        return self.record.progress.plays
-
     def _auction(self, position, action, value, command_id):
         command = AuctionCommand(
             command_id=command_id, table_id=self.table_id, version=self.record.version, action=action, value=value
         )
         self.service.take_auction_step(self.actors[position], command, nobody_connected())
-
-    def legal_card(self):
-        state = playing_of(self.record)
-        first = state.current[0] if state.current else None
-        return state.turn, legal_cards(state.hands[state.turn], first, state.declared.declaration.kind)[0]
 
     def send(self, position, card, *, command_id, version=None, service=None):
         command = PlayCardCommand(

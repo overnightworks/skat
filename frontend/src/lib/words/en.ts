@@ -111,6 +111,7 @@ const translated = {
     "table.loadFailedHint": "Reload the page to try again.",
     "table.watchers": "Spectators",
     "table.lobby": "Lobby",
+    "table.call": "Call",
     "table.lobbyWaiting": (count: number) => ({
         zero: "Lobby, " + numberFormat.format(count) + " tables are waiting for you",
         one: "Lobby, " + numberFormat.format(count) + " table is waiting for you",

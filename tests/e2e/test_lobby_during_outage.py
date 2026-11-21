@@ -31,6 +31,7 @@ THROWING_CODE = "throw new Error('the start page has a defect');"
 ROUTE_THAT_DOES_NOT_EXIST = "/no-such-page"
 
 
+# its own settings: this file's constants differ from the other file's, whose fixture reads the same
 @pytest.fixture
 def behind_edge(tmp_path_factory: pytest.TempPathFactory) -> Iterator[BehindEdge]:
     with skat_behind_an_edge(
@@ -39,6 +40,7 @@ def behind_edge(tmp_path_factory: pytest.TempPathFactory) -> Iterator[BehindEdge
         yield behind
 
 
+# its own settings: this file's constants differ from the other file's, whose fixture reads the same
 @pytest.fixture
 def e2e_server(behind_edge: BehindEdge) -> RunningServer:
     return behind_edge.server

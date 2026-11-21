@@ -41,6 +41,7 @@ from skat.table.records import (
     TableOptions,
     TableRecord,
 )
+from skat.table.rules import decide_stand
 from skat.table.send_away import decide_send_away
 from tests.support.played_game import a_whole_game, declared_herz_hand, table_in, with_agents
 
@@ -204,3 +205,13 @@ HAND_COMMANDS = tuple(_hand_commands(in_the_auction()))
 def hand_command(name: str, table: TableRecord, actor: Actor):
     """The decision of the named hand command by `actor` at the table's current version."""
     return _hand_commands(table)[name](actor)
+
+
+def ready_seats(table: TableRecord) -> list[int]:
+    return [chair.seat for chair in table.chairs if chair.ready]
+
+
+def stood_up(table, seat):
+    decision = decide_stand(table, actor_at(table, seat))
+    assert decision.refusal is None
+    return decision.table

@@ -4,7 +4,6 @@ before: the watcher of the killed pod stays counted while its lease runs.
 
 import time
 from contextlib import suppress
-from typing import TYPE_CHECKING
 
 import httpx2
 import pytest
@@ -12,10 +11,6 @@ import pytest
 from skat.store.redis_clients import STREAM_LEASE_LASTS
 from skat.web.presence import LAPSE_SWEEP_EVERY, STREAM_RENEWAL_EVERY
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
-from tests.support.pods import Pods, running_pods
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
 
 pytestmark = [pytest.mark.postgres, pytest.mark.redis]
 
@@ -25,12 +20,6 @@ MARGIN_SECONDS = 10
 WITHIN_SECONDS = STREAM_LEASE_LASTS.total_seconds() + LAPSE_SWEEP_EVERY.total_seconds() + MARGIN_SECONDS
 # The last renewal is up to one renewal interval old when the pod dies, and the lease runs from it.
 NOT_BEFORE_SECONDS = (STREAM_LEASE_LASTS - STREAM_RENEWAL_EVERY).total_seconds() - 1
-
-
-@pytest.fixture(scope="module")
-def pods(postgres_template, tmp_path_factory) -> Iterator[Pods]:
-    with running_pods(postgres_template, tmp_path_factory.mktemp("pods")) as running:
-        yield running
 
 
 def test_a_killed_pods_watcher_is_counted_by_the_other_pod_until_its_lease_runs_out_and_not_longer(pods):

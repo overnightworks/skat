@@ -10,7 +10,7 @@ from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import Table
 from tests.web.support.series import deal_next as deal_the_next
 from tests.web.support.series import headers_of, pass_the_hand_in, play_a_series, tap_weiter
-from tests.web.support.skat import FETCH
+from tests.web.support.skat import FETCH, read
 
 SERIES_LENGTH = 12
 
@@ -27,10 +27,6 @@ def open_series(skat, length=36):
         skat.sit(headers, table_id, seat, command_id=f"command-sit-{seat}")
     with_known_deal(skat, table_id)
     return table_id, people
-
-
-def read(skat, headers, table_id):
-    return skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
 
 
 def deal_next(skat, table_id, people):

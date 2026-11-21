@@ -191,6 +191,7 @@ class _WaitingTransaction:
                 self._barrier.wait()
         return table
 
+    # the delegation of a wrapper to the store it wraps; each wrapper has its own methods
     def __getattr__(self, name):
         return getattr(self._inner, name)
 
@@ -222,5 +223,6 @@ class _HoldingTransaction:
         self._holder.held.set()
         assert self._holder.release.wait(WAIT_DEADLINE_SECONDS), "the held command was never released"
 
+    # the delegation of a wrapper to the store it wraps; each wrapper has its own methods
     def __getattr__(self, name):
         return getattr(self._inner, name)

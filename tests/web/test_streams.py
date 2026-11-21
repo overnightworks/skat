@@ -4,12 +4,11 @@ from datetime import timedelta
 
 import pytest
 
-from skat.table.records import Actor, CreateTable, SitDown, StandUp, TableId
+from skat.table.records import Actor, SitDown, StandUp, TableId
 from skat.table.service import TableService
 from skat.web.presence import Presence
 from skat.web.stream_holder import StreamHolder
 from skat.web.streams import IDLE_HEARTBEAT
-from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.idle_presence import (
     idle_agent_lease,
@@ -30,7 +29,9 @@ from tests.web.support.streams import (
     SHORT_HEARTBEAT_SECONDS,
     VISITOR,
     Admission,
+    EventsRoute,
     next_view,
+    opened_table_id,
     reader,
     run_on_a_loop_of_its_own,
     stream_of,
@@ -44,9 +45,7 @@ def service():
     return TableService(FakeTableStore(), new_table_id=lambda: TableId("1" * 32))
 
 
-@pytest.fixture
-def table_id(service):
-    return service.create(OPENER, CreateTable(command_id="command-1")).id
+table_id = pytest.fixture(name="table_id")(opened_table_id)
 
 
 async def idle_heartbeats_through(stream):
@@ -411,10 +410,7 @@ class TestReadmission:
         assert run_on_a_loop_of_its_own(presence.connected(table_id)) == frozenset()
 
 
-class TestWatchTableAdmission:
-    def events(self, table_id):
-        return f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}"
-
+class TestWatchTableAdmission(EventsRoute):
     def test_signed_out_gets_no_stream_and_no_table_data(self, skat):
         headers, _ = skat.member()
         table_id = skat.create(headers).json()["id"]

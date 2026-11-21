@@ -24,6 +24,7 @@ from skat.table.records import (
 from skat.table.service import TableService
 from tests.support.calls import call_facts
 from tests.support.faulty_tables import BothReadBeforeEitherWrites
+from tests.support.postgres import stored_table
 
 pytestmark = pytest.mark.postgres
 
@@ -35,6 +36,7 @@ NOBODY = frozenset[str]()
 MOZARTS_SEAT = 3
 
 
+# this file's own opener, visitor and agent
 @pytest.fixture
 def table_id(service):
     """A dealt table where Mozart, an agent, holds chair 3."""
@@ -44,6 +46,7 @@ def table_id(service):
     return table_id
 
 
+# this file's own opener and agent
 def send_mozart_away(service, table_id):
     return service.send_away(
         OPENER,
@@ -110,11 +113,6 @@ class TestAnOpenChairBesideAStoredHand:
 
 def stand_up(service, person, table_id, command_id="command-stand"):
     return service.stand(person, StandUp(command_id, table_id), NOBODY)
-
-
-def stored_table(engine, table_id):
-    with PostgresTableTransactions(engine).begin() as transaction:
-        return transaction.table(TableId(table_id))
 
 
 class TestTheSeatMarkAcrossTheStore:

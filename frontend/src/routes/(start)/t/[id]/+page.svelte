@@ -9,7 +9,7 @@
     import { grumblingAt, ring, stopRinging } from "#lib/bell.svelte.ts";
     import { tableShowing, type DecidingTrick, type Presenter } from "#lib/closingHand.ts";
     import { springsUp, stampBetween, type BidSaid } from "#lib/cues.ts";
-    import { isFramedInCallMode } from "#lib/callFrame.ts";
+    import { browserCallHost, callStartAddress, isFramedInCallMode, readCallOrigin } from "#lib/callFrame.ts";
     import {
         answerGiveUp,
         giveUpAsk,
@@ -44,6 +44,7 @@
     import AnswerMarks from "#lib/ui/AnswerMarks.svelte";
     import AskPlaque from "#lib/ui/AskPlaque.svelte";
     import AwayMark from "#lib/ui/AwayMark.svelte";
+    import CallKey from "#lib/ui/CallKey.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
     import CallSeats from "#lib/ui/CallSeats.svelte";
     import DecidingPlaque from "#lib/ui/DecidingPlaque.svelte";
@@ -298,7 +299,16 @@
     const callMode = isFramedInCallMode();
     // The call's first valid greeting takes Skat's own bar away; a call that never greets leaves it.
     let greeted = $state(false);
+    // The Anruf key stands in the bottom strip of a seated player, only where the call app's origin is configured, and not inside a call, which already is one.
+    let callOrigin: string | null = $state(null);
+    const callAddress = $derived(callOrigin === null ? null : callStartAddress(callOrigin, id));
     onMount(armSound);
+    onMount(() => {
+        if (callMode) return;
+        void readCallOrigin(browserCallHost().fetch.bind(browserCallHost())).then((origin) => {
+            callOrigin = origin;
+        });
+    });
 
     // While a hand runs the sit asks first, because the sitter takes over the open chair's cards; a person returns to
     // her own chair without the question.
@@ -738,6 +748,9 @@
                     {#if callMode && standing === null}
                         <SoundButton place="strip" />
                         {@render tableMenu("strip")}
+                    {/if}
+                    {#if seated && callAddress !== null}
+                        <CallKey address={callAddress} />
                     {/if}
                 </div>
                 <p class="note" role="status">{note}</p>

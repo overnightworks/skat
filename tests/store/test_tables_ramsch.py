@@ -20,7 +20,7 @@ from skat.table.hand_state import game_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import RamschOccasion, RamschSetting, TableId, TableOptions
 from tests.support.seated_tables import restarted
-from tests.support.stored_game import count_rows, nobody_connected, person, seated_table_id
+from tests.support.stored_game import StoredHand, count_rows, nobody_connected, person, seated_table_id
 
 pytestmark = pytest.mark.postgres
 
@@ -31,16 +31,13 @@ SETTING = RamschSetting(
 OPTIONS = TableOptions(ramsch=SETTING)
 
 
-class RamschTable:
+class RamschTable(StoredHand):
     """A table with Ramsch where all three passed, or with `ramsch_games` Ramsch-round games pending where the hand is
     dealt as a Ramsch with no auction; the cards are played legally, the first in deck order.
     """
 
     def __init__(self, service, transactions, stored, options=OPTIONS, ramsch_games=0):
-        self.service = service
-        self.transactions = transactions
-        self.stored = stored
-        self.table_id = seated_table_id(service, options)
+        super().__init__(service, transactions, stored, seated_table_id(service, options))
         by_seat = {1: person("Anna"), 2: person("Ben"), 3: person("Cleo")}
         self.actors = {position: by_seat[seat] for seat, position in positions_from(self.record.dealer).items()}
         if ramsch_games:
@@ -54,10 +51,7 @@ class RamschTable:
             )
             service.take_auction_step(self.actors[position], command, nobody_connected())
 
-    @property
-    def record(self):
-        return self.stored(self.transactions, self.table_id)
-
+    # the Ramsch card loop of this file's table; the other file's stage table plays its own deal
     def play(self, number):
         for _ in range(number):
             state = game_of(self.record)

@@ -14,7 +14,7 @@ from tests.e2e.support.call_frame import call_label, sits_note
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.listening_agent import ListeningAgent
 from tests.e2e.support.people import DESKTOP, WIDTHS
-from tests.e2e.support.server import skat_on_new_database
+from tests.e2e.support.server import server_of_its_own
 from tests.e2e.support.table_menu import (
     AGENTS,
     AGENTS_PANEL,
@@ -27,7 +27,7 @@ from tests.e2e.support.table_menu import (
 from tests.e2e.support.tables import open_new_table, plate_of, sit_in, watch
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable
 
     from playwright.sync_api import Page, Route
 
@@ -383,11 +383,8 @@ def test_a_caller_who_left_the_calling_group_keeps_the_list_until_he_has_read_th
         agent.close()
 
 
-@pytest.fixture
-def server_without_agents(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
-    # A server of its own: the agents of the other tests keep their roster entries for a few seconds after they stop.
-    with skat_on_new_database(tmp_path_factory) as server:
-        yield server
+# A server of its own: the agents of the other tests keep their roster entries for a few seconds after they stop.
+server_without_agents = pytest.fixture(name="server_without_agents")(server_of_its_own)
 
 
 def test_the_list_says_so_when_no_agent_is_reachable(

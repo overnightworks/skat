@@ -47,6 +47,7 @@ def deal_a_playing_table(
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
 ) -> Callable[..., PlayingTable]:
+    # its own settings: this file's constants differ from the other file's, whose closure reads the same
     def deal(form_factor: dict[str, Any]) -> PlayingTable:
         return deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, game="kreuz")
 

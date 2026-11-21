@@ -42,6 +42,7 @@ from skat.table.rules import (
     series_over,
     sit_deals,
 )
+from tests.support.open_chairs import ready_seats
 from tests.support.played_game import SAT_AT, an_end_proposal, an_entry
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
@@ -282,10 +283,6 @@ class TestResultPending:
 
 def ready_at(table: TableRecord, *seats: int) -> TableRecord:
     return replace(table, chairs=tuple(replace(chair, ready=chair.seat in seats) for chair in table.chairs))
-
-
-def ready_seats(table: TableRecord) -> list[int]:
-    return [chair.seat for chair in table.chairs if chair.ready]
 
 
 def at_the_series_end(table: TableRecord, *seats: int) -> TableRecord:

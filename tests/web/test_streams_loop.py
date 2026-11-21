@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from skat.table.records import CreateTable, SitDown
+from skat.table.records import SitDown
 from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamEvent, TableSource, stream_messages
 from tests.support.ended_tables import end_the_table
 from tests.support.fake_tables import in_memory_tables
@@ -18,6 +18,7 @@ from tests.web.support.streams import (
     leased_reader,
     next_item,
     next_view,
+    opened_table_id,
     reader,
     run_on_a_loop_of_its_own,
     stream_of,
@@ -30,9 +31,7 @@ def service():
     return in_memory_tables()
 
 
-@pytest.fixture
-def table_id(service):
-    return service.create(OPENER, CreateTable(command_id="command-1")).id
+table_id = pytest.fixture(name="table_id")(opened_table_id)
 
 
 class TestStreamLoop:

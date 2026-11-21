@@ -1,5 +1,7 @@
 import itertools
 from dataclasses import replace
+from functools import cached_property
+from typing import Any
 
 from skat.engine.bock import BockRounds
 from skat.engine.cards import Card, Rank, Suit
@@ -11,11 +13,13 @@ from skat.web.declaring import (
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
 )
+from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, seated_three
 from tests.support.played_game import a_ramsch_entry
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.support.stored_game import PlaysOfRecord
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 # Middlehand declares in every played-out game; seats 1, 2, 3 are middlehand, rearhand, forehand.
@@ -47,6 +51,7 @@ HERZ_GAME = game_of(
     "S7 S9 D7 / H7 DJ CJ / S8 ST D8 / SQ D9 C7 / SK DT C8",
     "SA DQ C9 / SJ HJ CT / H8 HQ CQ / HK CK H9 / HA CA HT",
 )
+EIGHT_CARDS = HERZ_GAME[:4]
 
 
 def deal_of(forehand, middlehand, rearhand, skat):
@@ -136,7 +141,26 @@ def gains(declarer, each_opponent):
     ]
 
 
-class Table:
+class StoredTable(PlaysOfRecord):
+    """A table the tests drive through a `Skat`: its stored record and the ids of the commands sent to it."""
+
+    skat: Any
+    table_id: str
+
+    @property
+    def record(self):
+        return self.skat.store.tables[self.table_id]
+
+    # a counter of the web table's commands; the scene base counts its own
+    @cached_property
+    def _commands(self):
+        return itertools.count(1)
+
+    def fresh_id(self):
+        return f"step-{next(self._commands):04d}"
+
+
+class Table(StoredTable):
     """A dealt table with its people told apart by position, and the watcher left over."""
 
     def __init__(self, skat, options=None):
@@ -145,7 +169,6 @@ class Table:
         self._by_seat = {seat: people[seat - 1][0] for seat in (1, 2, 3)}
         self.at = self._at(DEALER_SEAT)
         self.watcher = people[3][0]
-        self._commands = itertools.count(1)
 
     def _at(self, dealer):
         return {position: self._by_seat[seat] for seat, position in positions_from(dealer).items()}
@@ -153,17 +176,6 @@ class Table:
     def reseated_for_the_next_hand(self):
         """The people by position once the deal has moved to the next dealer."""
         self.at = self._at(self.record.dealer)
-
-    @property
-    def record(self):
-        return self.skat.store.tables[self.table_id]
-
-    @property
-    def plays(self):
-        return self.record.progress.plays
-
-    def fresh_id(self):
-        return f"step-{next(self._commands):04d}"
 
     def read_as(self, headers):
         self.skat.client.cookies.clear()
@@ -328,3 +340,33 @@ def with_totals(table, *seat_scores):
     accounts = tuple(chair.occupant.account_id for chair in sorted(table.record.chairs, key=lambda chair: chair.seat))
     earlier = a_ramsch_entry(seat_scores, accounts)
     table.skat.store.tables[table.table_id] = replace(table.record, game_list=(earlier,))
+
+
+def shown(result, *keys):
+    return {key: result[key] for key in keys}
+
+
+def gains_of(result):
+    return [each["gain"] for each in result["gains"]]
+
+
+def say(table, position, word):
+    answer = table.act(TABLE_KONTRA_SUFFIX, table.at[position], body={"word": word})
+    assert answer.status_code == 200, answer.text
+
+
+def declared_body(game=GameToken.HERZ, *, hand=False, ouvert=False, announcement=AnnouncementToken.NONE):
+    return {"game": game, "hand": hand, "ouvert": ouvert, "announcement": announcement}
+
+
+def declared_herz_hand_game(table):
+    table.declared_hand_game()
+
+
+class ViewedAtATable:
+    """The base of a viewer of a table: a position, or none for the watcher."""
+
+    position: Position | None
+
+    def headers_at(self, table):
+        return table.watcher if self.position is None else table.at[self.position]

@@ -331,3 +331,9 @@ def skat_in_directory(
                 yield server
         finally:
             engine.dispose()
+
+
+def server_of_its_own(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
+    """A Skat on a database of its own, for a fixture whose server nobody else's test shares."""
+    with skat_on_new_database(tmp_path_factory) as server:
+        yield server

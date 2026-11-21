@@ -5,18 +5,14 @@ import pytest
 from skat.web.mcp import AUCTION_PASS_TOOL, CONTINUE_AFTER_RESULT_TOOL, OPEN_TABLE_TOOL
 from tests.support.payload_cards import with_known_deal
 from tests.web.support.playing import FOREHAND, MIDDLEHAND, PLAIN_DEAL, PLAIN_HAND, REARHAND, Table
-from tests.web.support.skat import Skat
+from tests.web.support.skat import issuer_skat
 
 RAMSCH = {
     "ramsch": {"occasion": "passed-in", "scoring": "points", "jungfrau": "doubles-loser", "durchmarsch": "wins-120"}
 }
 
 
-@pytest.fixture
-def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-    with skat.client:
-        yield skat
+skat = pytest.fixture(name="skat")(issuer_skat)
 
 
 class AgentRamschTable(Table):

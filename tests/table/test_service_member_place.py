@@ -1,6 +1,5 @@
 """A table is a member place: an agent is a member exactly while it holds a chair or an invitation to it is open."""
 
-import copy
 import itertools
 import random
 from contextlib import nullcontext
@@ -22,11 +21,11 @@ from skat.table.member_place import (
     SeatedOffer,
     TableStanding,
 )
-from skat.table.records import Actor, CreateTable, HandProgress, OccupantKind, Series, SitDown, StandUp, TableId
+from skat.table.records import Actor, CreateTable, HandProgress, OccupantKind, Series, TableId
 from skat.table.rules import decide_free_chair
 from skat.table.service import TableService
 from tests.support.calls import call_facts
-from tests.support.fake_tables import FakeTableStore
+from tests.support.fake_tables import FakeTableStore, ServiceScene
 from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.played_game import after_the_first_game
 
@@ -46,13 +45,12 @@ def seated_facts(account):
     return replace(call_facts(account, OWNER), agent_listens=False, owner_account=None, owner_present=False)
 
 
-class Scene:
+class Scene(ServiceScene):
     """A seeded service on a clock the test moves: Anna opened a table, and Mozart's owner is Anna."""
 
     def __init__(self) -> None:
         self.store = FakeTableStore()
         self.now = START
-        self.commands = itertools.count(1)
         numbers = itertools.count(1)
         self.service = TableService(
             self.store,
@@ -70,10 +68,6 @@ class Scene:
         shown = tuple(standing for account in sorted(accounts) for standing in self.service.standings_of(account))
         self.signals.append((accounts, shown))
 
-    @property
-    def table(self):
-        return self.store.tables[self.table_id]
-
     def invite(self, agent=MOZART, *, owner=OWNER, inviter=OWNER, lasting=INVITATION_SECONDS, table_id=None, **facts):
         return self.service.invite_agent(
             TableId(table_id or self.table_id),
@@ -85,12 +79,7 @@ class Scene:
         arguments = {"table_id": self.table_id, "invitation_id": offer.id, "epoch": offer.epoch, **changes}
         return self.service.accept_invitation(agent, owner, Acceptance(**arguments), connected)
 
-    def sit(self, person, seat):
-        return self.service.sit(person, SitDown(f"command-{next(self.commands)}", self.table_id, seat), NOBODY)
-
-    def stand(self, person):
-        return self.service.stand(person, StandUp(f"command-{next(self.commands)}", self.table_id), NOBODY)
-
+    # reads this file's own MOZART
     def standing(self, agent=MOZART):
         return self.service.standings_of(agent.account_id)
 
@@ -105,13 +94,6 @@ class Scene:
 
     def occupants(self):
         return [None if chair.occupant is None else chair.occupant.display_name for chair in self.table.chairs]
-
-    def at(self, moment: datetime) -> Scene:
-        self.now = moment
-        return self
-
-    def snapshot(self):
-        return copy.deepcopy((self.store.tables, self.store.book))
 
 
 @pytest.fixture

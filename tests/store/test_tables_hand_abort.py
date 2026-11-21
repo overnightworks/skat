@@ -6,12 +6,11 @@ import pytest
 from sqlalchemy import text
 
 from skat.engine.deal import Position, positions_from
-from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.hand_abort import AbortVoteCommand
 from skat.table.records import Actor, CreateTable, OccupantKind, SendAway, SitDown, StandUp
-from skat.table.service import TableService
 from tests.support.open_chairs import RAMSCH
+from tests.support.postgres import service_on
 from tests.support.stored_game import count_rows, nobody_connected, person, seated_table_id
 
 pytestmark = pytest.mark.postgres
@@ -24,6 +23,7 @@ NOBODY = frozenset[str]()
 MOZARTS_SEAT = 3
 
 
+# this file's own opener, visitor and agent
 @pytest.fixture
 def table_id(service):
     """A dealt table where Mozart, an agent, holds chair 3."""
@@ -33,6 +33,7 @@ def table_id(service):
     return table_id
 
 
+# this file's own opener and agent
 def send_mozart_away(service, table_id):
     return service.send_away(
         OPENER, SendAway("command-away", table_id, MOZART.account_id), frozenset({OPENER.account_id}), is_member=True
@@ -43,24 +44,20 @@ def agree(service, voter, table_id):
     return service.agree_to_abort_hand(voter, AbortVoteCommand(f"command-agree-{voter.display_name}", table_id), NOBODY)
 
 
-def restarted(engine):
-    return TableService(PostgresTableTransactions(engine))
-
-
 class TestARestartInEachState:
     def test_the_open_chair_the_standing_proposal_and_the_aborted_end_read_back_the_same(
         self, service, engine, table_id
     ):
         send_mozart_away(service, table_id)
-        read = {"open": restarted(engine).view(OPENER, table_id, NOBODY)}
+        read = {"open": service_on(engine).view(OPENER, table_id, NOBODY)}
         assert read["open"] == service.view(OPENER, table_id, NOBODY)
 
         agree(service, OPENER, table_id)
-        read["proposal"] = restarted(engine).view(VISITOR, table_id, NOBODY)
+        read["proposal"] = service_on(engine).view(VISITOR, table_id, NOBODY)
         assert read["proposal"] == service.view(VISITOR, table_id, NOBODY)
 
         agree(service, VISITOR, table_id)
-        read["aborted"] = restarted(engine).view(OPENER, table_id, NOBODY)
+        read["aborted"] = service_on(engine).view(OPENER, table_id, NOBODY)
         assert read["aborted"] == service.view(OPENER, table_id, NOBODY)
 
         assert (read["proposal"].hand.abort, read["aborted"].hand, read["aborted"].aborted is not None) == (
@@ -73,7 +70,7 @@ class TestARestartInEachState:
         send_mozart_away(service, table_id)
         agree(service, OPENER, table_id)
 
-        ended = agree(restarted(engine), VISITOR, table_id)
+        ended = agree(service_on(engine), VISITOR, table_id)
 
         assert (ended.refusal, ended.view.aborted is not None) == (None, True)
 
@@ -112,6 +109,6 @@ class TestTheAbortedHand:
         agree(service, person("Anna"), table_id)
         agree(service, person("Ben"), table_id)
 
-        view = restarted(engine).view(person("Anna"), table_id, nobody_connected())
+        view = service_on(engine).view(person("Anna"), table_id, nobody_connected())
         assert (view.passed_in, view.aborted is not None, view.hand) == (None, True, None)
         assert [count_rows(engine, name) for name in ("hand_cards", "auction_actions", "played_cards")] == [0, 0, 0]

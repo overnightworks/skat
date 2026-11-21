@@ -20,7 +20,7 @@ from tests.web.support.presence import (
     occupied_seats,
     view_of_version,
 )
-from tests.web.support.skat import FakeTime, Skat, streams_of
+from tests.web.support.skat import FakeTime, Skat, advance, seated_table, streams_of
 
 FIRST_RESULT = 1
 
@@ -46,16 +46,7 @@ def stored_marks(server, table_id):
     return [chair.ready for chair in server.store.tables[table_id].chairs]
 
 
-def advance(server, time, seconds):
-    server.client.portal.call(time.advance, seconds)
-
-
-@pytest.fixture
-def table(server):
-    """Anna, Ben and Cleo in seats 1 to 3, the fourth member Dora watching; returns the id and all four."""
-    table_id, people = seated_three(server)
-    server.client.cookies.clear()
-    return table_id, people
+table = pytest.fixture(name="table")(seated_table)
 
 
 class TestWeiter:

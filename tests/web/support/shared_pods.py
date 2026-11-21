@@ -8,8 +8,8 @@ from tests.support.fake_tables import FakeTableStore
 from tests.support.in_memory_agent_records import InMemoryAgentRecords
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.in_memory_stores import in_memory_stores
-from tests.web.support.calling import running_skat
 from tests.web.support.changes import ControlledPlaceStore, RecordedChanges
+from tests.web.support.skat import running_skat
 
 
 class SharedBackends:

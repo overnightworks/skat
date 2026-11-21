@@ -1,9 +1,9 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-from skat.table.records import Actor, TableId
+from skat.table.records import Actor, CreateTable, TableId
 from skat.web.streams import SourceMessage, TableSource, stream_messages
-from skat.web.tables import TableAnswer
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH, TableAnswer
 
 OPENER = Actor(account_id="opener", display_name="Anna")
 VISITOR = Actor(account_id="visitor", display_name="Ben")
@@ -100,3 +100,14 @@ class Admission:
         if isinstance(answer, Exception):
             raise answer
         return self.actor if answer else None
+
+
+def opened_table_id(service):
+    return service.create(OPENER, CreateTable(command_id="command-1")).id
+
+
+class EventsRoute:
+    """The base of a test class that reads a table's event stream."""
+
+    def events(self, table_id):
+        return f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}"

@@ -1,9 +1,8 @@
 import pytest
 from sqlalchemy import text
 
-from skat.store.tables import PostgresTableTransactions
-from skat.table.records import TableId
 from tests.support.migrations import upgrade_to
+from tests.support.postgres import stored_table
 
 pytestmark = pytest.mark.postgres
 
@@ -26,15 +25,10 @@ def before_the_upgrade(unmigrated_engine):
     return unmigrated_engine
 
 
-def stored(engine):
-    with PostgresTableTransactions(engine).begin() as transaction:
-        return transaction.table(TableId(TABLE))
-
-
 def test_a_chair_freed_before_the_upgrade_reads_with_no_former_holder(before_the_upgrade):
     upgrade_to(before_the_upgrade, "head")
 
-    record = stored(before_the_upgrade)
+    record = stored_table(before_the_upgrade, TABLE)
 
     assert record.progress.former_holders == frozenset()
     assert [chair.occupant is None for chair in record.chairs] == [False, True, False]

@@ -40,6 +40,7 @@ NOT_FOUND_HEADING = text(SOURCE_LANGUAGE, "closed.notFound")
 TRANSPARENT_COLOR = "rgba(0, 0, 0, 0)"
 
 
+# its own settings: this file's constants differ from the other file's, whose fixture reads the same
 @pytest.fixture(scope="module")
 def ended_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
     """A Skat whose empty table ends after a short wait, so that one table can end within the test."""
@@ -47,6 +48,7 @@ def ended_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningSe
         yield server
 
 
+# waits for this file's own ENDS_WITHIN_SECONDS, which the other file's copy reads as its own constant
 def wait_for_end(server: RunningServer, table_id: str) -> None:
     deadline = time.monotonic() + ENDS_WITHIN_SECONDS
     while time.monotonic() < deadline:

@@ -14,7 +14,6 @@ from skat.engine.deal import Position, positions_from
 from skat.engine.declaration import Announcement, Declaration, Declare
 from skat.engine.games import GameKind
 from skat.engine.kontra import KontraReach
-from skat.engine.play import legal_cards
 from skat.engine.tricks import CardPlayed
 from skat.engine.value import Matadors
 from skat.store.game_list import read_game_cards, read_game_list
@@ -24,13 +23,12 @@ from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
 from skat.table.game_list import GameEnding, ListEntry, RamschEntry, standings_of
-from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import CreateTable, OccupantKind, SitDown
 from skat.table.service import TableService
 from tests.support.played_game import a_game_cards
 from tests.support.seated_tables import save
-from tests.support.stored_game import person
+from tests.support.stored_game import StoredHand, person
 
 pytestmark = pytest.mark.postgres
 
@@ -43,21 +41,16 @@ FINISHED_AT = datetime(2026, 11, 11, 20, 15, tzinfo=UTC)
 SEATED = (person("Anna"), person("Ben"), person("Cleo"))
 
 
-class Game:
+class Game(StoredHand):
     """A seated table whose middlehand won at 18 and declared a Herz Hand game, played card by card."""
 
     def __init__(self, service, transactions, stored):
-        self.service = service
-        self.transactions = transactions
-        self.stored = stored
-        self.table_id = service.create(SEATED[0], CreateTable(command_id="command-open")).id
+        super().__init__(
+            service, transactions, stored, service.create(SEATED[0], CreateTable(command_id="command-open")).id
+        )
         for seat, actor in enumerate(SEATED[1:], start=2):
             service.sit(actor, SitDown(f"command-sit-{seat}", self.table_id, seat), NOBODY_CONNECTED)
         self.actors = {position: SEATED[seat - 1] for seat, position in positions_from(self.record.dealer).items()}
-
-    @property
-    def record(self):
-        return self.stored(self.transactions, self.table_id)
 
     def bid(self, position, action, command_id, value=None):
         command = AuctionCommand(command_id, self.table_id, self.record.version, action, value)
@@ -72,11 +65,6 @@ class Game:
         self.service.take_declaring_step(self.actors[Position.MIDDLEHAND], command, NOBODY_CONNECTED)
         return self
 
-    def next_card(self):
-        state = playing_of(self.record)
-        first = state.current[0] if state.current else None
-        return state.turn, legal_cards(state.hands[state.turn], first, state.declared.declaration.kind)[0]
-
     def play(self, position, card, command_id, version=None):
         version = self.record.version if version is None else version
         command = PlayCardCommand(command_id, self.table_id, version, card)
@@ -84,9 +72,9 @@ class Game:
 
     def played_to_the_last_card(self):
         for number in range(1, 30):
-            position, card = self.next_card()
+            position, card = self.legal_card()
             assert self.play(position, card, f"card-{number}").refusal is None
-        return self.next_card()
+        return self.legal_card()
 
 
 def an_entry(declaration, **numbers):

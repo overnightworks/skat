@@ -10,13 +10,13 @@ from skat.web.reaction_log import REACTION_SHOWN_SECONDS
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import FOREHAND, MIDDLEHAND, REARHAND, Table
-from tests.web.support.skat import UNKNOWN_ID, streams_of
+from tests.web.support.skat import UNKNOWN_ID, WaitsOnTheClock, streams_of
 
 # The chairs by name: Anna holds seat 1 (middlehand), Ben seat 2 and Cleo seat 3; Dora has none.
 SEAT_OF = {"anna": 1, "ben": 2, "cleo": 3}
 
 
-class Room:
+class Room(WaitsOnTheClock):
     """A table of three people and a watcher with one open stream each, and a stranger who has the table closed."""
 
     def __init__(self, skat, time, table, streams):
@@ -53,9 +53,6 @@ class Room:
         answer = self.table.read_as(self.headers[who])
         assert answer.status_code == 200, answer.text
         return answer.json()
-
-    def wait(self, seconds):
-        self.skat.client.portal.call(self.time.advance, seconds)
 
 
 @pytest.fixture

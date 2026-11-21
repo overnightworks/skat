@@ -18,6 +18,7 @@ BACH = "account-bach"
 UNREACHABLE_URL = "redis://127.0.0.1:1/0"
 
 
+# one asyncio.run, which the web tests' `run` also is; a one-line wrapper that no neutral support module is worth
 def run(scenario):
     return asyncio.run(scenario)
 

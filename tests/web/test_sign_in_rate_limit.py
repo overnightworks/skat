@@ -55,6 +55,7 @@ class LimiterClock:
     def __init__(self) -> None:
         self.now = 1000.0
 
+    # a clock reading of this test's own fake
     def monotonic(self) -> float:
         return self.now
 

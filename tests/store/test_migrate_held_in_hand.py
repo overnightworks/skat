@@ -4,9 +4,10 @@ from sqlalchemy.exc import IntegrityError
 
 from skat.store.migrate import migrate
 from skat.store.tables import PostgresTableTransactions
-from skat.table.records import Actor, SitDown, TableId
+from skat.table.records import Actor, SitDown
 from skat.table.service import TableService
 from tests.support.migrations import run_in_transaction, upgrade_to
+from tests.support.postgres import stored_table
 
 pytestmark = pytest.mark.postgres
 
@@ -102,13 +103,8 @@ def migrated(before_the_upgrade):
     return engine
 
 
-def stored(engine):
-    with PostgresTableTransactions(engine).begin() as transaction:
-        return transaction.table(TableId(TABLE))
-
-
 def test_every_chair_keeps_its_occupant_and_reads_with_no_mark(migrated):
-    record = stored(migrated)
+    record = stored_table(migrated, TABLE)
 
     assert [chair.occupant.display_name for chair in record.chairs] == ["Anna", "Ben", "Mozart"]
     assert record.progress.seats_held == frozenset()

@@ -64,6 +64,7 @@ from tests.support.open_chairs import (
     hand_command,
     newcomer,
     sent_away,
+    stood_up,
 )
 from tests.support.played_game import (
     SAT_AT,
@@ -452,13 +453,6 @@ def totals_of(table):
     return {
         standing.account_id: standing.total for standing in view_of(table, "account-nobody", NOBODY).series.standings
     }
-
-
-def stood_up(table, seat):
-    """The table once the occupant of `seat` stood up."""
-    decision = decide_stand(table, actor_at(table, seat))
-    assert decision.refusal is None
-    return decision.table
 
 
 def sat(table, actor, seat):

@@ -27,6 +27,7 @@ from skat.engine.kontra import (
 )
 from skat.engine.score import Reckoning, Settlement, reckon
 from skat.engine.tricks import CardPlayed, Playing, play_card, start_play
+from tests.support.playing_scenes import first_accepted
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KONTRA, RE, SUPRA, HIRSCH = Word.KONTRA, Word.RE, Word.SUPRA, Word.HIRSCH
@@ -71,19 +72,12 @@ def playing_with(declarer: Position) -> Playing:
     return start_play(outcome.state, deal)
 
 
-def next_card(state: Playing) -> Playing:
-    position = state.turn
-    return next(
-        outcome.state for card in state.hands[position] if (outcome := play_card(state, position, card)).refusal is None
-    )
-
-
 def advanced(state: Playing, event: str) -> Playing:
     if event == CARD:
-        return next_card(state)
+        return first_accepted(state)
     if event == TENTH_TRICK:
         while state.result is None:
-            state = next_card(state)
+            state = first_accepted(state)
         return state
     outcome = give_up(state) if event == GIVE_UP else throw_down(state, FOREHAND)
     assert outcome.refusal is None

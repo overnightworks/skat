@@ -78,6 +78,7 @@ def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServ
         yield server
 
 
+# waits for this file's own ENDS_WITHIN_SECONDS, which the other file's copy reads as its own constant
 def wait_for_end(server: RunningServer, table_id: str) -> None:
     deadline = time.monotonic() + ENDS_WITHIN_SECONDS
     while time.monotonic() < deadline:

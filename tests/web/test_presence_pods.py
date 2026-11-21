@@ -3,12 +3,11 @@
 import asyncio
 
 import pytest
-from redis.asyncio import Redis
-from tandem.testing import settle_epoch
 
-from skat.store.redis_clients import WAKE_KEY_PREFIX, shared_stream_leases
+from skat.store.redis_clients import shared_stream_leases
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
+from tests.support.redis import settle_wake_epoch
 from tests.web.support.presence import TABLE
 
 pytestmark = pytest.mark.redis
@@ -25,14 +24,7 @@ def run():
 def leases(redis_url, run):
     """The shared leases on a Redis whose restart grace is over: a roster without a person then means they are gone."""
 
-    async def settle():
-        client = Redis.from_url(redis_url)  # pyright: ignore[reportUnknownMemberType]
-        try:
-            await settle_epoch(client, key_prefix=WAKE_KEY_PREFIX)
-        finally:
-            await client.aclose()
-
-    run(settle())
+    run(settle_wake_epoch(redis_url))
     return shared_stream_leases(redis_url)
 
 

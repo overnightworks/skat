@@ -5,9 +5,8 @@ from fastapi import HTTPException
 
 from skat.web.lobby import LOBBY_EVENTS_PATH
 from skat.web.streams import StreamSlots, event_stream_response
-from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.web.support.skat import UNKNOWN_ID, Skat
-from tests.web.support.streams import run_on_a_loop_of_its_own
+from tests.web.support.streams import EventsRoute, run_on_a_loop_of_its_own
 
 
 class TestStreamSlots:
@@ -84,10 +83,7 @@ class TestStreamSlots:
         slots.take("account-a")
 
 
-class TestStreamSlotsAtTheRoutes:
-    def events(self, table_id):
-        return f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}"
-
+class TestStreamSlotsAtTheRoutes(EventsRoute):
     def test_streams_of_both_kinds_count_against_one_limit_of_the_account_and_a_stranger_is_not_counted(
         self, sign_in_settings
     ):

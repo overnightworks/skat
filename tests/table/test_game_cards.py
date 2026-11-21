@@ -8,8 +8,9 @@ from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, Ram
 from skat.engine.schieberamsch import GrandHandRule, Push, PushingRule, Put, Take
 from skat.table.game_cards import GameCards, SeatedCard
 from skat.table.playing import PlayCardCommand, ThrowDownCommand, decide_card, decide_throw_down
-from skat.table.records import Actor, HandProgress, RamschOccasion, RamschSetting, TableOptions
+from skat.table.records import HandProgress, RamschOccasion, RamschSetting, TableOptions
 from tests.support.played_game import HERZ_HAND, a_whole_game, declared_herz_hand, table_in
+from tests.support.seated_tables import actor_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 # table_in deals from seat 2: forehand sits in seat 3, middlehand in seat 1, rearhand in seat 2.
@@ -17,10 +18,6 @@ SEATS = seats_from(2)
 RECKONING = RamschOptions(RamschScoring.POINTS, JungfrauRule.DOUBLES_LOSER, DurchmarschRule.WINS_120)
 DEALT = (DECK[10:20], DECK[20:30], DECK[0:10])
 SKAT = DECK[30:32]
-
-
-def actor_of(position):
-    return Actor(account_id=f"account-{position.name.lower()}", display_name=position.name)
 
 
 def a_card(table, card, position):

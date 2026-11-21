@@ -34,6 +34,7 @@ POLL_SECONDS = 0.2
 DAYS_SINCE_THE_END = DEFAULT_ENDED_TABLE_DAYS + 1
 
 
+# its own settings: this file's constants differ from the other file's, whose fixture reads the same
 @pytest.fixture(scope="module")
 def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
     """This module's Skat, with an empty-table wait short enough to wait out."""

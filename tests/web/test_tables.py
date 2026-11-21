@@ -55,7 +55,7 @@ from tests.support.payload_cards import (
 )
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import card, card_body
-from tests.web.support.skat import FETCH, NAVIGATION, UNKNOWN_ID
+from tests.web.support.skat import FETCH, NAVIGATION, UNKNOWN_ID, read
 
 
 class TestCreateTable:
@@ -497,10 +497,6 @@ HAND_KEYS = {
     "abort",
     "abortable",
 }
-
-
-def read(skat, headers, table_id):
-    return skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
 
 
 class TestHandInPayloads:

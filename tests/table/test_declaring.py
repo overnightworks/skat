@@ -11,7 +11,6 @@ from skat.engine.games import GameKind
 from skat.table.declaring import DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.hand_state import declaring_of
 from skat.table.records import (
-    Actor,
     Chair,
     HandProgress,
     Occupant,
@@ -24,6 +23,7 @@ from skat.table.records import (
     Visibility,
     parsed_refusal,
 )
+from tests.support.seated_tables import actor
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 
@@ -38,10 +38,6 @@ def herz_declaration():
 
 def won():
     return (Bid(MIDDLEHAND, 20), Pass(FOREHAND), Pass(REARHAND))
-
-
-def actor(account_id):
-    return Actor(account_id=account_id, display_name="Anna")
 
 
 def table_in(progress):

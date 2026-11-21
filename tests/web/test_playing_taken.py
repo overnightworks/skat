@@ -13,11 +13,6 @@ EVERY_VIEWER = [
 ]
 
 
-@pytest.fixture
-def table(skat):
-    return Table(skat)
-
-
 def taken_as_read(table, viewer):
     headers = table.watcher if viewer is None else table.at[viewer]
     return table.read_as(headers).json()["hand"]["playing"]["taken"]
