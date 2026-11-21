@@ -154,12 +154,10 @@
             for (const mark of card.querySelectorAll(".rim, .seal")) fade(mark, each.rim, seconds, HELD);
         }
         fade(top, tracks.pile, seconds);
-        const tile = stage.querySelector(`.chair[data-seat="${String(seat)}"] .tile`);
-        if (tile !== null) {
-            const taker = takerTimeline(set);
-            if (taker.tracks.hop !== null) move(tile, taker.tracks.hop, taker.seconds);
-            fade(tile, taker.tracks.flash, taker.seconds, { pseudoElement: "::after" });
-        }
+        const tile = stage.querySelector(`.chair[data-seat="${String(seat)}"] .tile`) as HTMLElement;
+        const taker = takerTimeline(set);
+        if (taker.tracks.hop !== null) move(tile, taker.tracks.hop, taker.seconds);
+        fade(tile, taker.tracks.flash, taker.seconds, { pseudoElement: "::after" });
         return () => {
             letRest(top);
         };

@@ -49,6 +49,8 @@ ON_THE_PILE_PIXELS = 2
 # A seal is read: it stands pressed on its card at least this long before the trick is gathered.
 SEAL_STANDS_PRESSED_MILLISECONDS = 250
 RIMMED_PILE = ".pile.last"
+# The room names its motion set while one is in force.
+MOVING_ROOM = ".room[data-motion]"
 LAST_TRICK_SHOWN = ".lastshow"
 SETTINGS_KEY = "skat.settings"
 CARDS_IN_A_TRICK = 3
@@ -114,6 +116,20 @@ def table(
     form_factor: dict[str, Any],
 ) -> PlayingTable:
     return deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor)
+
+
+@pytest.fixture
+def won_table(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> PlayingTable:
+    """A Kreuz the forehand declares at the lowest bid; he wins it when every seat plays its first legal card."""
+    return deal_playing_table(
+        open_person, e2e_server, member_of, page_errors, form_factor, declaring=DeclarerLeadsTable
+    )
 
 
 def open_watcher(
@@ -395,6 +411,26 @@ def test_the_result_waits_for_the_last_trick_to_rest_and_sweep_to_its_winner(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_won_hand_holds_the_card_that_took_its_last_trick_under_a_gold_seal_before_the_result(
+    won_table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    watcher = open_watcher(open_person, page_errors, won_table, form_factor)
+    won_table.play_out(CARDS_IN_A_HAND)
+
+    expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+    run_until(watcher, TAKING_CARD, 1)
+
+    expect(watcher.locator(f"{TAKING_CARD} .seal.won")).to_have_count(1)
+    expect(watcher.locator(RESULT_CARD)).to_have_count(0)
+    run_until(watcher, RESULT_CARD, 1)
+    assert won_table.result()["won"] is True
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_result_shows_at_once_with_reduced_motion(
     table: PlayingTable,
     open_person: Callable[..., Page],
@@ -580,6 +616,27 @@ def test_with_reduced_motion_the_trick_is_piled_at_once_and_still_sounds(
     expect(watcher.locator(f".chair.turn[data-seat='{table.turn_seat()}']")).to_have_count(1)
     assert len(voices_started(watcher)) == sounded_before + VOICES_OF_ONE_CARD + VOICES_OF_ONE_SWEEP
     assert motion_played(watcher) == []
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_device_that_asks_for_reduced_motion_while_a_trick_lies_sees_it_piled_with_nothing_more_played(
+    table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    watcher = open_watcher(open_person, page_errors, table, form_factor)
+    table.play_out(CARDS_IN_A_TRICK)
+    expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+
+    watcher.emulate_media(reduced_motion="reduce")
+    expect(watcher.locator(MOVING_ROOM)).to_have_count(0)
+    played = len(motion_played(watcher))
+    run_until(watcher, FELT_CARD, 0)
+
+    assert len(motion_played(watcher)) == played
+    expect_the_piles(watcher, table)
     assert page_errors == []
 
 
