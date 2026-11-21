@@ -11,8 +11,8 @@ from skat.web.streams import SourceMessage, StreamEvent
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from skat.web.wakes import AccountTopic, TableTopic
 from tests.support.fake_tables import FakeTableStore
+from tests.web.support.calling import issuer_skat
 from tests.web.support.lobby_scene import DAYS, Scene
-from tests.web.support.skat import Skat
 from tests.web.support.streams import run_on_a_loop_of_its_own
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
@@ -21,11 +21,7 @@ CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 DORA = Actor(account_id="account-dora", display_name="Dora")
 
 
-@pytest.fixture
-def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-    with skat.client:
-        yield skat
+skat = pytest.fixture(name="skat")(issuer_skat)
 
 
 def waits_for(scene, person):

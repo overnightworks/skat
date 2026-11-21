@@ -38,9 +38,7 @@ PERSON_SUBJECT = "person-subject"
 PERSON_AT_THE_AGENTS_PATH = {"groups": [MCP_GROUP], "agent_owner": None, "agent_name": None}
 
 
-@pytest.fixture
-def skat(hold, issuer, time):
-    yield from running_skat(hold, issuer, time)
+skat = pytest.fixture(name="skat")(running_skat)
 
 
 @pytest.fixture

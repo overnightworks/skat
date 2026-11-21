@@ -138,3 +138,23 @@ class CallingTable:
         """Felix has an open stream on his table."""
         with streams_of(skat, table_id, [(felix.headers, None)]):
             yield
+
+
+def issuer_skat(hold, issuer):
+    """A Skat whose issuer transports are the fake issuer's, with its client open, for a fixture named `skat`."""
+    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
+    with skat.client:
+        yield skat
+
+
+def changing_skat(hold, issuer, time, changes):
+    """`running_skat` whose resource changes are the recorded ones, for a fixture named `skat`."""
+    yield from running_skat(hold, issuer, time, resource_changes=changes.wired)
+
+
+class IssuerSkat:
+    """The base of a test class whose `skat` is `issuer_skat`: a fixture named `skat` cannot be assigned in a class."""
+
+    @pytest.fixture
+    def skat(self, hold, issuer):
+        yield from issuer_skat(hold, issuer)

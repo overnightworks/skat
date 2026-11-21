@@ -33,8 +33,9 @@ from tests.support.payload_cards import (
 )
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, Agent, person_passes, person_steps
+from tests.web.support.calling import issuer_skat
 from tests.web.support.playing import card_body
-from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat, stored, streams_of
+from tests.web.support.skat import FETCH, UNKNOWN_ID, stored, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 PUT_BACK_CARDS = (MIDDLEHAND_CARDS[0], SKAT_CARDS[0])
@@ -42,11 +43,7 @@ STEP_SUFFIXES = (TABLE_DECLARING_TAKE_SUFFIX, TABLE_DECLARING_PUT_BACK_SUFFIX, T
 RETIRED_UNION_SUFFIX = "/declaration"
 
 
-@pytest.fixture
-def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-    with skat.client:
-        yield skat
+skat = pytest.fixture(name="skat")(issuer_skat)
 
 
 def declare_fields(game=GameToken.HERZ, *, hand=False, ouvert=False, announcement=AnnouncementToken.NONE):

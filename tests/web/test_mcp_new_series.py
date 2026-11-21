@@ -12,17 +12,14 @@ from skat.web.mcp import (
 )
 from tests.support.payload_cards import DEALER_SEAT
 from tests.web.support.agent import SUBJECT, Agent
+from tests.web.support.calling import issuer_skat
 from tests.web.support.series import change_next_settings, play_the_dealt_series, tap_new_series
-from tests.web.support.skat import AgentTable, Skat, stored, streams_of
+from tests.web.support.skat import AgentTable, stored, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 
 
-@pytest.fixture
-def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-    with skat.client:
-        yield skat
+skat = pytest.fixture(name="skat")(issuer_skat)
 
 
 def start_new_series(agent, table, *, command_id="agent-new-series-0001", series=1, settings=0):

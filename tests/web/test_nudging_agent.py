@@ -14,7 +14,7 @@ from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import Agent, view_uri_of
-from tests.web.support.calling import running_skat
+from tests.web.support.calling import changing_skat
 from tests.web.support.changes import RecordedChanges
 from tests.web.support.sdk_agent import SdkAgent
 
@@ -28,9 +28,7 @@ def changes():
     return RecordedChanges()
 
 
-@pytest.fixture
-def skat(hold, issuer, time, changes):
-    yield from running_skat(hold, issuer, time, resource_changes=changes.wired)
+skat = pytest.fixture(name="skat")(changing_skat)
 
 
 @pytest.fixture

@@ -13,6 +13,7 @@ from skat.web.mcp import (
 )
 from skat.web.pushing import TABLE_PUSHING_PUSH_SUFFIX
 from tests.support.payload_cards import cards_in_text, with_known_deal
+from tests.web.support.calling import issuer_skat
 from tests.web.support.playing import (
     DECLARER_SEAT,
     FOREHAND,
@@ -33,14 +34,9 @@ from tests.web.support.playing import (
 )
 from tests.web.support.ramsch_stage import accepted, list_rows, play_stage, read, stage_table
 from tests.web.support.series import deal_next, headers_of, tap_new_series, tap_weiter
-from tests.web.support.skat import AgentTable, Skat
+from tests.web.support.skat import AgentTable
 
-
-@pytest.fixture
-def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-    with skat.client:
-        yield skat
+skat = pytest.fixture(name="skat")(issuer_skat)
 
 
 POINTS = {"occasion": "passed-in", "scoring": "points", "jungfrau": "doubles-loser", "durchmarsch": "wins-120"}

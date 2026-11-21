@@ -15,6 +15,7 @@ from skat.web.playing import (
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in, cards_in_text, wire_cards
 from tests.web.support.agent import Agent
+from tests.web.support.calling import IssuerSkat
 from tests.web.support.giving_up import (
     HEAVY_DEAL,
     HEAVY_THREE_TRICKS,
@@ -519,14 +520,8 @@ class TestARequestAcrossARestart:
         assert open_cards_read(herz_hand) == [declarers_cards()] * 4
 
 
-class TestThroughTheMcpTools:
+class TestThroughTheMcpTools(IssuerSkat):
     """An agent declarer shortens; agent opponents answer."""
-
-    @pytest.fixture
-    def skat(self, hold, issuer):
-        skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-        with skat.client:
-            yield skat
 
     @pytest.fixture
     def declarer_asked(self, skat, agent):

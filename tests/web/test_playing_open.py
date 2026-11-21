@@ -13,6 +13,7 @@ from skat.web.playing import (
     TABLE_THROW_DOWN_SUFFIX,
 )
 from tests.support.payload_cards import cards_in, wire_cards
+from tests.web.support.calling import IssuerSkat
 from tests.web.support.giving_up import (
     SEAT,
     assert_the_request_ended_and_play_goes_on,
@@ -324,13 +325,7 @@ class TestAcrossARestart:
         )
 
 
-class TestThroughTheMcpTools:
-    @pytest.fixture
-    def skat(self, hold, issuer):
-        skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-        with skat.client:
-            yield skat
-
+class TestThroughTheMcpTools(IssuerSkat):
     def test_an_agent_opponent_plays_open_and_the_person_declarer_accepts(self, skat, agent):
         table = AgentTable(skat, agent, FOREHAND)
         table.declared_hand_game()

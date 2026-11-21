@@ -9,17 +9,14 @@ from agents.mcp_server.route_call import ARGUMENTS_REFUSED_TEXT
 from agents.member import SET_TURN_STATE_TOOL
 
 from skat.table.turn_state import THINKING_CAP_SECONDS
-from tests.web.support.skat import Skat, streams_of
+from tests.web.support.calling import issuer_skat
+from tests.web.support.skat import streams_of
 
 AGENTS_SEAT = 2
 NOT_HELD = {"refused": "not_held"}
 
 
-@pytest.fixture
-def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-    with skat.client:
-        yield skat
+skat = pytest.fixture(name="skat")(issuer_skat)
 
 
 @pytest.fixture

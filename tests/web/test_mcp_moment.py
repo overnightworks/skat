@@ -53,9 +53,7 @@ SEATED = READS | {
 NOT_OFFERED = "the tool is not offered now"
 
 
-@pytest.fixture
-def skat(hold, issuer, time):
-    yield from running_skat(hold, issuer, time)
+skat = pytest.fixture(name="skat")(running_skat)
 
 
 @pytest.fixture

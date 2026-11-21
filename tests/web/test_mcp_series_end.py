@@ -6,14 +6,10 @@ from skat.table.records import Refusal
 from skat.table.series_end import END_ANSWER_SECONDS
 from skat.web.mcp import AGREE_TO_END_SERIES_TOOL, GIVE_UP_GAME_TOOL, REFUSE_TO_END_SERIES_TOOL
 from skat.web.tables import TABLES_PATH
+from tests.web.support.calling import issuer_skat
 from tests.web.support.skat import AgentTable, Skat
 
-
-@pytest.fixture
-def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-    with skat.client:
-        yield skat
+skat = pytest.fixture(name="skat")(issuer_skat)
 
 
 def test_the_series_of_a_table_reads_at_the_tool_as_the_route_gives_it(skat, agent):
