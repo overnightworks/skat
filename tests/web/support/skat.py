@@ -104,23 +104,30 @@ class WiredTableService(TableService):
         return clone
 
 
-# The clocks a test sets by the name it has always used, which `Skat` hands the app as one `Clocks`.
-CLOCK_OPTIONS = (("chair", "chair_clock"), ("wall", "wall_clock"))
-
-
 class Skat:
     def __init__(
-        self, sign_in_settings, store=None, stores=None, now=None, view_signal_through=None, pod=None, **app_options
+        self,
+        sign_in_settings,
+        store=None,
+        stores=None,
+        now=None,
+        view_signal_through=None,
+        pod=None,
+        chair_clock=None,
+        wall_clock=None,
+        **app_options,
     ):
         self.stores = stores if stores is not None else in_memory_stores()
         self.store = store if store is not None else FakeTableStore()
-        if isinstance(self.store, FakeTableStore) and "chair_clock" in app_options:
+        if isinstance(self.store, FakeTableStore) and chair_clock is not None:
             # The store's clock, on which a chair hold falls due, runs with the presence's.
-            chair_clock = app_options["chair_clock"]
             self.store.clock = lambda: FAKE_EPOCH + timedelta(seconds=chair_clock())
         self.rule_set_store = FakeRuleSetStore()
         self._wired = []
-        clocks = Clocks(**{field: app_options.pop(option) for field, option in CLOCK_OPTIONS if option in app_options})
+        clocks = Clocks(
+            **({} if chair_clock is None else {"chair": chair_clock}),
+            **({} if wall_clock is None else {"wall": wall_clock}),
+        )
         self.app = create_app(
             sign_in_settings().settings,
             page_build=fixture_page_build(),
