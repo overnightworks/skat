@@ -3,6 +3,6 @@ agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
 role = "builder"
 base = "30bb1076ed74abb08700978d3d1a52a57f707da1"
 branch = "claude/issue-764-bid-bar-one-grip"
-scope = ["frontend/src", "src/skat/table", "src/skat/web", "tests"]
+scope = ["docs/ARCHITECTURE.md", "frontend/src", "scripts/generate_wire.py", "src/skat/engine/value.py", "src/skat/table", "src/skat/web", "tests"]
 opened_commit = "51e77c129c51b3318b0737c497f062f53cb4b436"
 whole_reason = "The surface over #761's plan spans the view field, the bid bar and the cues; the scale may split off."
