@@ -26,9 +26,11 @@ from tests.e2e.support.result_card import (
     CARD,
     LOST,
     OVERBID,
+    SERIES_GONE,
     TIMES,
     WON,
     YOU,
+    expect_a_new_sitter_reads_the_leaver_as_gone,
     expect_the_page_around_the_card,
     expect_the_seat_tiles_inside_the_card,
     loosely,
@@ -60,7 +62,6 @@ COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 SEAT_AWAY = text(SOURCE_LANGUAGE, "table.seatAway")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
-SERIES_GONE = text(SOURCE_LANGUAGE, "table.seriesGone")
 READY_MARK = ".mark.ready"
 OWN_HAND_CARD = ".own-hand .card"
 CARDS_IN_A_HAND = 10
@@ -441,6 +442,7 @@ def test_a_declarer_who_stands_up_stays_on_the_card_by_name_marked_gone(
         expect(coaster_name).to_contain_text(table.names[declarer])
         expect(coaster_name.locator("em")).to_have_text(SERIES_GONE)
         expect(person.locator(CARD)).not_to_contain_text(SEAT_FREE)
+    expect_a_new_sitter_reads_the_leaver_as_gone(table.watcher, declarer, table.names[declarer])
     assert page_errors == []
 
 
