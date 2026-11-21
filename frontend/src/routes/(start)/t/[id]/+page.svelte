@@ -417,9 +417,7 @@
             table={outcome?.kind === "table" ? outcome.table : null}
             newest={newestTable}
             missing={outcome?.kind === "missing"}
-            ongreeted={() => {
-                greeted = true;
-            }}
+            ongreeted={() => (greeted = true)}
         />
     {/if}
     <StyleScene style={outcome?.kind === "table" ? outcome.table.style : null} />
