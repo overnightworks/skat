@@ -27,7 +27,7 @@ const REACHED: Auction["hand_values"] = [
 const ASK_36: AuctionPlan = { kind: "limit", value: 36, mode: "ask" };
 const FIXED_36: AuctionPlan = { kind: "limit", value: 36, mode: "fixed" };
 const PASS_AHEAD: AuctionPlan = { kind: "pass", value: null, mode: null };
-const MY_PASS: Auction["words"] = [{ seat: ME, action: "pass", value: null }];
+const MY_PASS: Auction["steps"] = [{ seat: ME, action: "pass", value: null }];
 
 // A table in its auction as the viewer in the middlehand's chair is told it; `viewer` seats somebody else or nobody.
 function tableWith(auction: Partial<Auction>, hand: Partial<Hand> = {}, viewer: number | null = ME): Table {
@@ -57,13 +57,13 @@ describe("who gets the bid bar", () => {
         { name: "an auction that is over", table: tableWith({ awaiting: null }) },
         { name: "a viewer without a chair", table: tableWith({}, {}, null) },
         { name: "a hand that waits for a sitter", table: tableWith({}, { waiting_seat: REARHAND }) },
-        { name: "a player who passed", table: tableWith({ words: MY_PASS }) },
+        { name: "a player who passed", table: tableWith({ steps: MY_PASS }) },
     ])("is not $name", ({ table }) => {
         expect(bidBar(table)).toBeNull();
     });
 
     it("is a player while another chair has passed", () => {
-        expect(bidBar(tableWith({ words: [{ seat: REARHAND, action: "pass", value: null }] }))).not.toBeNull();
+        expect(bidBar(tableWith({ steps: [{ seat: REARHAND, action: "pass", value: null }] }))).not.toBeNull();
     });
 });
 
@@ -180,17 +180,17 @@ describe("a plan a tap takes back", () => {
 
 describe("his fixed limit after the table said „Weg“ for him", () => {
     it("stays in his sight with its game, in place of the bar", () => {
-        const passed = tableWith({ plan: FIXED_36, words: MY_PASS, standing: 40 });
+        const passed = tableWith({ plan: FIXED_36, steps: MY_PASS, standing: 40 });
 
         expect([passedLimit(passed), bidBar(passed)]).toEqual([{ value: 36, game: "kreuz", mode: "fixed" }, null]);
     });
 
     it.each([
         { name: "before his pass", table: tableWith({ plan: FIXED_36 }) },
-        { name: "after his own pass above an ask limit", table: tableWith({ plan: ASK_36, words: MY_PASS }) },
-        { name: "after his „Weg“ said ahead", table: tableWith({ plan: PASS_AHEAD, words: MY_PASS }) },
-        { name: "after a pass without a plan", table: tableWith({ words: MY_PASS }) },
-        { name: "once the auction is over", table: tableWith({ plan: FIXED_36, words: MY_PASS, awaiting: null }) },
+        { name: "after his own pass above an ask limit", table: tableWith({ plan: ASK_36, steps: MY_PASS }) },
+        { name: "after his „Weg“ said ahead", table: tableWith({ plan: PASS_AHEAD, steps: MY_PASS }) },
+        { name: "after a pass without a plan", table: tableWith({ steps: MY_PASS }) },
+        { name: "once the auction is over", table: tableWith({ plan: FIXED_36, steps: MY_PASS, awaiting: null }) },
     ])("is not shown $name", ({ table }) => {
         expect(passedLimit(table)).toBeNull();
     });

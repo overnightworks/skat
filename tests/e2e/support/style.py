@@ -19,17 +19,18 @@ STYLES = [pytest.param(TableStyle.KLASSIK, id="klassik"), pytest.param(TableStyl
 DECORATIONS = {TableStyle.STRANDBAR: 2, TableStyle.KLASSIK: 1}
 
 # The cocktail and the shell lie under everything the people at the table read and touch: no sampled point of a card,
-# tag, key, chair, plaque or the result is painted by one of them (their pointer events are switched on so the page
-# can say what it paints there), no key of the bid bar paints the middle of one of them, and the page gains no sideways
-# scroll from the rim round the felt. A chair's stool is drawn behind its chair and the cards, as the scenes draw it,
-# and covers nothing.
+# tag, key, chair, plaque, counter or the result is painted by one of them (their pointer events are switched on so the
+# page can say what it paints there), no key of the bid bar paints the middle of one of them, and the page gains no
+# sideways scroll from the rim round the felt. A chair's stool is drawn behind its chair and the cards, as the scenes
+# draw it, and covers nothing.
 FURNITURE_CLEAR = """() => {
     const all = (selector) => [...document.querySelectorAll(selector)];
     const decor = all('.decor');
     for (const element of decor) element.style.pointerEvents = 'auto';
     const covered = all(
         '.own-hand .card, .chair .fan, .chair .tile, .chair .plate, .chair .coaster, .trick .face, .trick .tag, '
-        + '.actions > *, .plaque, .result, .skat-card, .ladder, .bid-keys > *, .bid-chips > *, .bid-line > *'
+        + '.actions > *, .plaque, .counter, .duel, .result, .skat-card, .ladder, .bid-keys > *, .bid-chips > *, '
+        + '.bid-line > *'
     ).flatMap((element) => {
         const box = element.getBoundingClientRect();
         const points = [0.1, 0.5, 0.9].flatMap((across) =>

@@ -127,6 +127,7 @@ const translated = {
     "table.seatTaken": "Seat taken",
     "table.commandFailed": "That did not work",
     "table.bidding": "Bidding",
+    "table.duel": (gaps: { readonly bidder: string; readonly listener: string }) => "Bids: " + gaps.bidder + ". Answers: " + gaps.listener + ".",
     "table.pass": "Pass",
     "table.waitingFor": (gaps: { readonly names: string }) => "Waiting for " + gaps.names,
     "table.wantsToGiveUp": (gaps: { readonly name: string }) => gaps.name + " wants to give up",

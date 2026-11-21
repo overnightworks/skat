@@ -13,6 +13,7 @@
         type BidLimit,
         type ScaleValue,
     } from "#lib/bidBar.ts";
+    import { tableSpeaks } from "#lib/stage.svelte.ts";
     import LockIcon from "#lib/ui/LockIcon.svelte";
     import { words } from "#lib/words.ts";
     import {
@@ -50,7 +51,8 @@
 
     const bar = $derived(bidBar(table));
     const passed = $derived(passedLimit(table));
-    const disabled = $derived(sentAtVersion === table.version);
+    // While the table tells the words of a run, his keys are those of the table before it and say nothing.
+    const disabled = $derived(sentAtVersion === table.version || tableSpeaks());
 
     // The open scale, a pick and the word of a plan taken back belong to his part in one auction and do not outlive it.
     $effect(() => {
@@ -335,9 +337,11 @@
             {:else if bar.passAhead}
                 <span class="said">{@render icon(CROSS, 2.8)}{@render word(words["bid.passAhead"])}</span>
             {:else if back !== null}
-                <span class="said" role="status">{@render icon(CHECK, 2.8)}{@render word(TAKEN_BACK[back])}</span>
+                <span class="said" aria-hidden="true">{@render icon(CHECK, 2.8)}{@render word(TAKEN_BACK[back])}</span>
             {/if}
         </div>
+        <!-- The live region stands in the bar before a word enters it, so a reader hears the word. -->
+        <p class="sr-only" role="status">{@render word(back === null ? "" : TAKEN_BACK[back])}</p>
     </div>
 {:else if passed !== null}
     <div class="bid">

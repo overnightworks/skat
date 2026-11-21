@@ -35,6 +35,9 @@ function showing(readSheet: (ordinal: number) => Promise<GameSheet | null>) {
         readSheet,
         () => stageIsMoving,
         (deciding) => stillTricks.push(deciding),
+        () => {
+            throw new Error("no table of these tests brings a run");
+        },
     );
     return { shown, presented, resultShown, declarerWon, stillTricks };
 }

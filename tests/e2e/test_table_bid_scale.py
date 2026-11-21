@@ -1,20 +1,26 @@
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, Route, expect
 
 from skat.engine.bidding import VALID_BIDS
 from skat.table.auction import AuctionAction
 from skat.table.records import PlanMode
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.auction_told import auction_shown, shown, watch_the_auction, words_heard
+from tests.e2e.support.audio import RECORDING_COUNT, tap, wait_for_recordings_decoded
 from tests.e2e.support.bidding import (
     LIMIT_KEY,
     LIMIT_VALUE,
     MORE,
+    PASS,
     SCALE,
     SKAT_CARD,
     STEP_KEY,
     UP_TO,
+    YOU,
+    answer_of,
     assert_page_fits,
     chip,
     dealt_table,
@@ -24,9 +30,13 @@ from tests.e2e.support.bidding import (
     own_plan,
     own_values,
     own_word,
+    plan_ahead,
     step,
 )
-from tests.e2e.support.people import DESKTOP, WIDTHS
+from tests.e2e.support.motion import motion_played, watch_the_motion
+from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
+from tests.e2e.support.tables import RECONNECT_MILLISECONDS
+from tests.e2e.support.turn_key import let_it_move
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -58,6 +68,19 @@ HAS_A_BAR_AND_ITS_ROOM = """(view) => {
         && scale.offsetHeight > parseFloat(getComputedStyle(scale).getPropertyValue('--height'));
 }"""
 TOP_OF_THE_HAND = "() => document.querySelector('.own-hand').getBoundingClientRect().top"
+DUEL = ".duel b"
+DUEL_READ_ALOUD = ".duel .sr-only"
+STANDING_READ_ALOUD = ".counter .sr-only"
+RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
+# The counter's drums that turn when the table bids 18, 20 and 22 for a plan: both, both, and the ones alone.
+DRUMS_ROLLED = 5
+# The drums that turn from 18 to 20.
+BOTH_DRUMS = 2
+# The recordings a hearing seat has started with each thing it shows: a recording lasts longer than the table waits
+# between two words, so the voice leaves every word unsaid but the last and holds no word back.
+HEARD_WITH_EACH_SHOWN = [0, 0, 0, 0, 0, 1]
+# Six words are told within two seconds; this leaves a loaded machine its time.
+TOLD_WITHIN_MILLISECONDS = 15_000
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -218,3 +241,105 @@ def test_a_mouse_wheels_the_scale_to_the_top_value_and_has_a_bar_to_drag(
 
     expect(table.forehand.locator(STEP_KEY)).to_have_text(HOLD)
     assert own_word(middlehand, table) == (AuctionAction.BID.value, TOP_BID)
+
+
+@pytest.mark.parametrize("motion_set", ["dezent", "verspielt"])
+@pytest.mark.parametrize("form_factor", FORM_FACTORS)
+def test_two_plans_words_show_one_by_one_alike_on_two_seats_the_voice_never_slowing_them_and_at_once_without_motion(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    motion_set: str,
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    moving, still = (table.forehand, table.rearhand), table.watcher
+    hearing = table.rearhand
+    chairs = answer_of(still, table)["chairs"]
+    forehand, middlehand, rearhand = (
+        next(chair for chair in chairs if chair["hand"]["position"] == position)
+        for position in ("forehand", "middlehand", "rearhand")
+    )
+    fore, middle, rear = forehand["seat"], middlehand["seat"], rearhand["seat"]
+    for page in moving:
+        let_it_move(page, motion_set)
+    tap(hearing)
+    wait_for_recordings_decoded(hearing, RECORDING_COUNT)
+    for page in table.everyone:
+        expect(page.locator(DUEL)).to_have_count(2)
+        watch_the_motion(page)
+        watch_the_auction(page)
+    expect(still.locator(DUEL)).to_have_text([middlehand["occupant_name"], forehand["occupant_name"]])
+    plan_ahead(table.forehand, table, limit_at(SECOND_BID, PlanMode.FIXED))
+
+    plan_ahead(table.middlehand, table, limit_at(THIRD_BID, PlanMode.ASK))
+
+    for page in table.everyone:
+        expect(page.locator(f".chair[data-seat='{fore}'] .mark.pass")).to_have_count(
+            1, timeout=TOLD_WITHIN_MILLISECONDS
+        )
+    silent: dict[int, tuple[str | None, bool]] = {fore: (None, False), middle: (None, False), rear: (None, False)}
+    word_by_word = [
+        shown("", silent),
+        shown(str(LOWEST_BID), {**silent, middle: (str(LOWEST_BID), False)}),
+        shown(str(LOWEST_BID), {**silent, middle: (str(LOWEST_BID), False), fore: (HOLD, False)}),
+        shown(str(SECOND_BID), {**silent, middle: (str(SECOND_BID), False), fore: (HOLD, False)}),
+        shown(str(THIRD_BID), {**silent, middle: (str(THIRD_BID), False), fore: (HOLD, False)}),
+        shown(str(THIRD_BID), {**silent, middle: (str(THIRD_BID), False), fore: (PASS, True)}),
+    ]
+    for page in moving:
+        assert auction_shown(page) == word_by_word
+        pieces = [played["piece"] for played in motion_played(page)]
+        assert (pieces.count("reel"), pieces.count("duel")) == (DRUMS_ROLLED, 1)
+    assert words_heard(hearing) == HEARD_WITH_EACH_SHOWN
+    assert auction_shown(still) == [word_by_word[0], word_by_word[-1]]
+    assert [played["piece"] for played in motion_played(still)] == []
+    expect(table.rearhand.locator(DUEL)).to_have_text([YOU, middlehand["occupant_name"]])
+    expect(still.locator(DUEL)).to_have_text([rearhand["occupant_name"], middlehand["occupant_name"]])
+    expect(still.locator(DUEL_READ_ALOUD)).to_have_text(
+        text(SOURCE_LANGUAGE, "table.duel", bidder=rearhand["occupant_name"], listener=middlehand["occupant_name"])
+    )
+    for page in table.everyone:
+        assert_page_fits(page)
+    assert page_errors == []
+
+
+def test_a_seat_whose_stream_dropped_shows_the_auction_as_it_stands_and_moves_only_for_what_it_sees_said_after(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    page_errors: list[str],
+    expected_request_failures: list[str],
+) -> None:
+    # The stream the test refuses is the console error the browser logs, so only script errors are recorded.
+    expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}/")
+    table = dealt_table(open_person, e2e_server, page_errors, DESKTOP, console=False)
+    away = table.rearhand
+    middlehand = next(
+        chair["occupant_name"]
+        for chair in answer_of(away, table)["chairs"]
+        if chair["hand"]["position"] == "middlehand"
+    )
+    events = f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}"
+
+    def refuse(route: Route) -> None:
+        route.abort()
+
+    away.route(events, refuse)
+    let_it_move(away)
+    expect(away.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
+    expect(away.locator(DUEL)).to_have_count(2)
+    watch_the_motion(away)
+    step(table.middlehand, table, AuctionAction.BID, LOWEST_BID)
+    step(table.forehand, table, AuctionAction.PASS)
+
+    away.unroute(events, refuse)
+
+    expect(away.locator(STANDING_READ_ALOUD)).to_have_text(str(LOWEST_BID), timeout=RECONNECT_MILLISECONDS)
+    expect(away.locator(DUEL)).to_have_text([YOU, middlehand])
+    assert motion_played(away) == []
+
+    step(table.rearhand, table, AuctionAction.BID, SECOND_BID)
+
+    expect(away.locator(STANDING_READ_ALOUD)).to_have_text(str(SECOND_BID))
+    assert [played["piece"] for played in motion_played(away)].count("reel") == BOTH_DRUMS
+    assert page_errors == []

@@ -1775,6 +1775,180 @@ body {
     }
 }
 
+/* The auction's counter stands where the plaque stands, as the scenes draw it: a brass plate with its word over cream
+   drums, and under it the line of who bids against whom. It hangs into the row below, between the far chairs, so the
+   rows keep the heights they have under a plaque. */
+.room .bid-counter {
+    --drum: 60px;
+    grid-column: 1 / 3;
+    grid-row: 1;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    height: fit-content;
+    margin-bottom: -63px;
+}
+
+.room .counter {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.room .counter .word {
+    position: relative;
+    z-index: 1;
+    margin-bottom: -3px;
+    padding: 3px 16px 5px;
+    border-radius: 8px 8px 0 0;
+    color: #2b1d05;
+    background: linear-gradient(180deg, var(--brass-hi), var(--brass));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.room .counter .drums {
+    display: flex;
+    gap: 5px;
+    padding: 6px 9px;
+    border-radius: 10px;
+    background:
+        radial-gradient(circle at 6px 6px, #7a5a22 0 1.4px, transparent 2px),
+        radial-gradient(circle at calc(100% - 6px) calc(100% - 6px), #7a5a22 0 1.4px, transparent 2px),
+        linear-gradient(180deg, var(--brass-hi), var(--brass) 55%, #8c6a2f);
+    box-shadow:
+        0 10px 20px -8px rgba(0, 0, 0, 0.85),
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+}
+
+.room .counter .drum {
+    width: calc(var(--drum) * 0.73);
+    height: var(--drum);
+    overflow: hidden;
+    border-radius: 7px;
+    background: linear-gradient(180deg, #cfc7b2, var(--cream) 26%, var(--cream) 74%, #cfc7b2);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.room .counter .reel {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 100%;
+    color: var(--ink);
+    font-family: var(--font-mark, "Oswald", Arial, sans-serif);
+    font-size: calc(var(--drum) * 0.78);
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1;
+    white-space: pre;
+}
+
+/* The digit a drum showed before lies right above the one it shows, outside the drum's window, so a roll carries it out. */
+.room .counter .reel::before {
+    content: attr(data-was);
+    position: absolute;
+    inset: -100% 0 100%;
+    display: grid;
+    place-items: center;
+}
+
+.room .duel {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--glass-dark);
+    backdrop-filter: blur(12px);
+    font-size: 13.5px;
+    white-space: nowrap;
+}
+
+.room .duel b {
+    max-width: 9ch;
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+}
+
+.room .duel .dot {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    color: #2b1d05;
+    background: linear-gradient(150deg, #f1d898, var(--brass));
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.room .duel .dot.agent {
+    background: radial-gradient(circle at 34% 30%, #d9e6ff, #4467b8 60%, #1d2c55);
+}
+
+.room .duel .dot.agent svg {
+    color: #fff;
+}
+
+.room .duel .dot svg {
+    width: 11px;
+    height: 11px;
+}
+
+.room .duel .to {
+    display: grid;
+    color: var(--accent-stage, #7aa7f0);
+}
+
+.room .duel .to svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* On a phone the counter stands between the far chairs and its duel under them, above the skat. */
+@media (max-width: 899px) {
+    .room .bid-counter {
+        --drum: 38px;
+        position: relative;
+        grid-row: 2;
+        align-self: start;
+        gap: 6px;
+        margin-top: calc(var(--chair-width) * 0.75 - 14px);
+        margin-bottom: calc(var(--table-card-width) * -1.07);
+    }
+
+    .room .counter .word {
+        padding: 2px 12px 4px;
+        font-size: 10.5px;
+    }
+
+    .room .counter .drums {
+        gap: 4px;
+        padding: 5px 7px;
+    }
+
+    .room .counter .drum {
+        border-radius: 5px;
+    }
+
+    .room .duel {
+        height: 24px;
+        font-size: 12.5px;
+    }
+}
+
 .room .dots {
     display: inline-flex;
     gap: 4px;
@@ -3034,12 +3208,10 @@ body {
     font-size: 13px;
 }
 
+/* A „Ja“ and a „Weg“ stand in a bubble as a bid does, smaller than a number. */
 .room .bubble.quiet {
     padding: 3px 12px 3px 4px;
-    color: var(--on-stage-soft);
-    background: #3a3f45;
-    font-size: 15px;
-    --bubble-fill: #3a3f45;
+    font-size: 17px;
 }
 
 .room .bubble.quiet .dot {
@@ -3511,7 +3683,7 @@ body {
 
 /* His fixed limit after the table said „Weg“ for him: it stays where it stood under the chips, with nothing to tap. */
 .room .bid-line.dim {
-    margin-top: calc(var(--chip) + var(--rows));
+    margin-top: calc(var(--chip) + 2 * var(--rows));
     opacity: 0.62;
 }
 

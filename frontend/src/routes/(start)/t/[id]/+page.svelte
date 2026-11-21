@@ -96,6 +96,7 @@
         receiveOnStage,
         resetStage,
         stageMoves,
+        tellOnStage,
         trickIsMoving,
     } from "#lib/stage.svelte.ts";
     import { beatOf, receiveReactions, resetReactions } from "#lib/tableReactions.svelte.ts";
@@ -161,7 +162,7 @@
     let playedThisHand = $state<Card[]>([]);
     // The latest word said at this table in the running hand, which the stamp shows for a moment.
     let stamp = $state<Stamp | null>(null);
-    // The bids of the latest update that brought any, whose bubbles spring up.
+    // The bids of the latest update that brought any, whose bubbles spring up; a table shown as it stands has none.
     let bidsSaid = $state<BidSaid[]>([]);
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
     // The version of the latest streamed table, which the control that calls agents follows.
@@ -182,7 +183,7 @@
         seatNoteTimer = setTimeout(() => (seatNote = null), SEAT_NOTICE_MILLISECONDS);
     }
 
-    const presentTable: Presenter = (previous, table, cues, closing) => {
+    const presentTable: Presenter = (previous, table, cues, closing, saidWithinSeconds) => {
         streamedVersion = table.version;
         streamedWatchers = table.watchers;
         seatedAgents = seatedAgentsKey(previous, table);
@@ -193,10 +194,10 @@
         if (!handWaits(table.hand)) asking = null;
         if (previous === undefined || cues.some((cue) => cue.kind === "dealt")) playedThisHand = [];
         stamp = stampBetween(previous, table) ?? stamp;
-        soundForCues(cues, table);
+        soundForCues(cues, table, saidWithinSeconds);
         receiveReactions(reactionsBetween(previous, table));
         const said = cues.filter((cue) => cue.kind === "bid-said");
-        if (said.length > 0) bidsSaid = said;
+        if (previous === undefined || said.length > 0) bidsSaid = said;
         for (const cue of cues) {
             if (cue.kind === "card-played") {
                 playedThisHand = [...playedThisHand, cue.card];
@@ -222,6 +223,7 @@
         (ordinal) => readGameSheet(id, ordinal),
         stageMoves,
         (deciding) => (stillTrick = deciding),
+        tellOnStage,
     );
 
     // SvelteKit keeps this component when the address changes from one table to another.
@@ -538,7 +540,7 @@
                     </div>
                 {/if}
             {:else if !outcome.table.hand?.declaring}
-                <WaitingPlaque table={outcome.table} {passedIn} {waits} />
+                <WaitingPlaque table={outcome.table} {passedIn} {waits} said={bidsSaid} />
             {/if}
             <div class="felt-paint" aria-hidden="true"></div>
             <div class="felt">

@@ -1,3 +1,4 @@
+import type { BidSet } from "./takt/bids.ts";
 import type { GatherSet } from "./takt/gather.ts";
 import type { LandSet } from "./takt/land.ts";
 import type { Key } from "./words.ts";
@@ -10,6 +11,8 @@ export interface MotionSet {
     readonly land: LandSet;
     /** From the cue to the moment a bid's bubble has sprung up. */
     readonly bidSpringsSeconds: number;
+    /** How the words of an auction are paced and how its counter rolls; Takt plays it, and the set's CSS keeps none of it. */
+    readonly bids: BidSet;
     /** From the cue to the moment the Kontra stamp hits the felt. */
     readonly stampLandsSeconds: number;
     /** How a finished trick rests, lifts the card that took it and is gathered onto its taker's pile; Takt plays it, and the set's CSS keeps none of it. */
@@ -51,6 +54,15 @@ export const MOTION_SETS = {
             flips: false,
         },
         bidSpringsSeconds: 0.04,
+        bids: {
+            answerAfterSeconds: [0.35, 0.45],
+            bidAfterSeconds: [0.5, 0.6],
+            runSeconds: 1.4,
+            rollSeconds: 0.2,
+            swing: 0,
+            staggerSeconds: 0,
+            duelAppearsSeconds: 0.14,
+        },
         stampLandsSeconds: 0.18,
         trick: {
             restSeconds: 0.5,
@@ -86,6 +98,15 @@ export const MOTION_SETS = {
             flips: true,
         },
         bidSpringsSeconds: 0.04,
+        bids: {
+            answerAfterSeconds: [0.4, 0.6],
+            bidAfterSeconds: [0.6, 0.85],
+            runSeconds: 1.6,
+            rollSeconds: 0.42,
+            swing: 0.14,
+            staggerSeconds: 0.07,
+            duelAppearsSeconds: 0.24,
+        },
         stampLandsSeconds: 0.3,
         trick: {
             restSeconds: 0.8,

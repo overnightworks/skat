@@ -1,3 +1,4 @@
+import { hasPassed } from "#lib/auctionMarks.ts";
 import { handWaits } from "#lib/openChair.ts";
 import { VALID_BIDS } from "#lib/wire.ts";
 import type {
@@ -60,8 +61,7 @@ function partIn(table: Table): Part | null {
     const seat = table.chairs.find((chair) => chair.is_mine)?.seat;
     if (auction === undefined || auction.awaiting === null || seat === undefined) return null;
     if (handWaits(table.hand)) return null;
-    const passed = auction.words.some((word) => word.seat === seat && word.action === "pass");
-    return { auction, awaiting: auction.awaiting, seat, passed };
+    return { auction, awaiting: auction.awaiting, seat, passed: hasPassed(auction, seat) };
 }
 
 function gameAt({ hand_values: reached }: Auction, value: number): Game | null {

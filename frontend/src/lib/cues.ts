@@ -138,6 +138,17 @@ export function springsUp(said: readonly BidSaid[], seat: number, bubble: Bubble
     );
 }
 
+// Whether the bid that stands is one this page saw said in the latest update that brought any, to which the counter
+// rolls.
+export function rollsTo(said: readonly BidSaid[], standing: number | null): boolean {
+    return said.some(({ word }) => word.action === "bid" && word.value === standing);
+}
+
+// Whether this page saw a chair say „Weg“ in the latest update that brought words, after which another pair bids.
+export function pairTurned(said: readonly BidSaid[]): boolean {
+    return said.some(({ word }) => word.action === "pass");
+}
+
 // A chair that was open and holds someone now was taken. A chair that was held and is open now stood up, and opened for
 // the running hand when the hand waits for a sitter in `next`.
 function chairCuesBetween(previous: Table, next: Table): ChairCue[] {
