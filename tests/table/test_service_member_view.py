@@ -208,6 +208,13 @@ class TestTheTracesAMemberReads:
         assert self.traced_acts(scene) == [(ActKind.DEAL, None), (ActKind.BID, "trace-of-the-bid")]
         assert scene.view_of(actor_of(Position.FOREHAND).account_id).traceparent == "trace-of-the-bid"
 
+    def test_an_opened_table_carries_the_trace_of_the_request_that_opened_it(self, scene):
+        scene.trace = "trace-of-the-opening"
+
+        table_id = scene.service.create(ANNA, CreateTable(command_id="command-open-traced")).id
+
+        assert scene.view_of(ANNA.account_id, table_id).traceparent == "trace-of-the-opening"
+
     def test_a_later_request_leaves_the_trace_of_an_earlier_act_and_takes_the_version(self, scene):
         self.bid_in_the_trace_of(scene, "trace-of-the-bid")
         holder = actor_of(Position.FOREHAND)

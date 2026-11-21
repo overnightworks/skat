@@ -1,5 +1,6 @@
 import copy
 import secrets
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -91,6 +92,7 @@ from skat.table.records import (
     CreateTable,
     Decision,
     EndedTable,
+    EntryTraces,
     Refusal,
     SendAway,
     SitDown,
@@ -236,9 +238,10 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             replay = transaction.replay(actor.account_id, command.command_id)
             if replay is not None:
                 return view_of(replayed_table(replay, command), actor.account_id, frozenset())
-            table = decide_create(
+            opened = decide_create(
                 actor, self._new_table_id(), command.series_length, command.options, command.visibility
             )
+            table = replace(opened, traces=EntryTraces(self._trace()))
             transaction.add_table(table, actor.display_name)
             transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))

@@ -447,6 +447,8 @@ class _PostgresTableTransaction:
             insert(tables).values(
                 id=table.id.value,
                 version=table.version,
+                traceparent=table.traces.version,
+                traceparent_version=None if table.traces.version is None else table.version,
                 opener_name=opener_name,
                 series_number=series_number_of(table),
                 visibility=table.visibility.value,

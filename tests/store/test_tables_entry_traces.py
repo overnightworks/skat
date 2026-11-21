@@ -7,7 +7,7 @@ import random
 import pytest
 from sqlalchemy import text
 
-from skat.table.records import EntryTraces
+from skat.table.records import Actor, CreateTable, EntryTraces
 from skat.table.service import TableService
 from tests.support.seated_tables import seated_table
 from tests.support.series_store import read
@@ -28,6 +28,12 @@ def test_a_commit_stores_its_trace_with_the_version_and_the_act_it_wrote(traced,
     traces = read(transactions, table_id.value).traces
 
     assert (traces.version, [each for _, each in traces.acts]) == (TRACE, [TRACE])
+
+
+def test_an_opened_table_stores_the_trace_of_the_request_that_opened_it(traced, transactions):
+    opened = traced.create(Actor("account-opener", "Opener"), CreateTable(command_id="command-open"))
+
+    assert read(transactions, opened.id).traces == EntryTraces(TRACE)
 
 
 def test_a_version_the_release_before_moved_reads_with_no_trace_and_its_acts_keep_theirs(traced, transactions, engine):
