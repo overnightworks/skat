@@ -96,6 +96,7 @@
         receiveOnStage,
         resetStage,
         stageMoves,
+        tellOnStage,
         trickIsMoving,
     } from "#lib/stage.svelte.ts";
     import { beatOf, receiveReactions, resetReactions } from "#lib/tableReactions.svelte.ts";
@@ -193,7 +194,7 @@
         if (!handWaits(table.hand)) asking = null;
         if (previous === undefined || cues.some((cue) => cue.kind === "dealt")) playedThisHand = [];
         stamp = stampBetween(previous, table) ?? stamp;
-        soundForCues(cues, table);
+        const spokenSeconds = soundForCues(cues, table);
         receiveReactions(reactionsBetween(previous, table));
         const said = cues.filter((cue) => cue.kind === "bid-said");
         if (said.length > 0) bidsSaid = said;
@@ -215,6 +216,7 @@
         if (returnsToLobby(previous, table)) void goto(resolve("/(start)"));
         // The stage may show the result at once, so nothing of this table is set after it.
         receiveOnStage(previous, cues, closing);
+        return spokenSeconds;
     };
 
     const tables = tableShowing(
@@ -222,6 +224,7 @@
         (ordinal) => readGameSheet(id, ordinal),
         stageMoves,
         (deciding) => (stillTrick = deciding),
+        tellOnStage,
     );
 
     // SvelteKit keeps this component when the address changes from one table to another.

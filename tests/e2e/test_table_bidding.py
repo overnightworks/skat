@@ -83,6 +83,7 @@ PLACE_AND_OPACITY = "(line) => [Math.round(line.getBoundingClientRect().top), Nu
 TURN_CHAIR = ".chair.mine.turn"
 FAR_TURN_CHAIR = ".chair.turn:not(.mine)"
 PLAQUE = ".plaque"
+COUNTER_WORD = ".counter .word"
 CARD_FACE = ".card-face"
 BUBBLE = ".bubble"
 VERDICT = ".plaque .verdict"
@@ -150,11 +151,11 @@ def test_the_middlehand_opens_and_only_the_one_whose_turn_it_is_gets_the_key_tha
         expect_painted_as_the_scene(middlehand, "strand-auction", CHIPS, ".bid-chip", PAINT)
     expect(middlehand.locator(TURN_CHAIR)).to_have_count(1)
     for other in (table.forehand, table.rearhand):
-        expect(other.locator(PLAQUE)).to_have_text(BIDDING)
+        expect(other.locator(COUNTER_WORD)).to_have_text(BIDDING)
         assert_the_chips(other, table)
         expect(other.locator(STEP_KEY)).to_have_count(0)
         expect(other.locator(TURN_CHAIR)).to_have_count(0)
-    expect(table.watcher.locator(PLAQUE)).to_have_text(BIDDING)
+    expect(table.watcher.locator(COUNTER_WORD)).to_have_text(BIDDING)
     assert_no_controls(table.watcher)
 
     chip(table.rearhand, own_values(table.rearhand, table)[-1]).click()
@@ -398,7 +399,7 @@ def test_a_limit_moved_to_another_chip_stays_fixed_and_above_it_the_table_passes
     above = first_bid_above(lowest)
     step(table.middlehand, table, AuctionAction.BID, above)
 
-    assert_scene(table, Scene(PASSED, Marks(bubble=str(above)), ON_TURN, waits=("rearhand", "middlehand")))
+    assert_scene(table, Scene(JUST_PASSED, Marks(bubble=str(above)), ON_TURN, waits=("rearhand", "middlehand")))
     assert own_word(forehand, table) == (AuctionAction.PASS.value, None)
     expect(forehand.locator(LIMIT_VALUE)).to_have_text(str(lowest))
     expect(fixed).to_have_attribute("aria-pressed", "true")
@@ -457,7 +458,7 @@ def test_weg_said_ahead_can_be_taken_back_and_passes_for_its_owner_at_his_turn(
     expect(note).to_have_text(PASS_AHEAD)
     step(table.middlehand, table, AuctionAction.PASS)
 
-    assert_scene(table, Scene(ON_TURN, PASSED, PASSED, waits=None))
+    assert_scene(table, Scene(ON_TURN, PASSED, JUST_PASSED, waits=None))
     assert_no_controls(rearhand)
     assert own_word(rearhand, table) == (AuctionAction.PASS.value, None)
 
@@ -483,7 +484,7 @@ def test_every_step_the_table_takes_for_two_plans_is_heard_and_shown_as_its_chai
         "voice.pass",
     ]
     assert {first_hold, second_hold} <= CONFIRMATIONS
-    assert_scene(table, Scene(PASSED, Marks(bubble=str(THIRD_BID)), ON_TURN, waits=("rearhand", "middlehand")))
+    assert_scene(table, Scene(JUST_PASSED, Marks(bubble=str(THIRD_BID)), ON_TURN, waits=("rearhand", "middlehand")))
     assert page_errors == []
 
 
@@ -594,8 +595,10 @@ def assert_scene(table: BiddingTable, scene: Scene) -> None:
 
 
 BIDDER = Marks(bubble=str(LOWEST_BID))
-HOLDER = Marks(bubble=str(LOWEST_BID), quiet=True)
+HOLDER = Marks(bubble=HOLD, quiet=True)
 PASSED = Marks(passed=True)
+# The chair whose „Weg“ is the table's latest word says it in a bubble.
+JUST_PASSED = Marks(bubble=PASS, quiet=True, passed=True)
 ON_TURN = Marks(turn=True)
 SILENT = Marks()
 
@@ -620,7 +623,7 @@ def test_every_viewer_sees_each_chairs_last_word_whose_turn_it_is_and_who_waits_
         (
             table.middlehand,
             AuctionAction.PASS,
-            Scene(HOLDER, PASSED, ON_TURN, waits=("rearhand", "forehand")),
+            Scene(HOLDER, JUST_PASSED, ON_TURN, waits=("rearhand", "forehand")),
         ),
     ]
 
@@ -643,7 +646,7 @@ def test_after_two_passes_the_forehand_takes_18_with_nobody_waiting_and_two_chai
     step(table.middlehand, table, AuctionAction.PASS)
     step(table.rearhand, table, AuctionAction.PASS)
 
-    assert_scene(table, Scene(ON_TURN, PASSED, PASSED, waits=None))
+    assert_scene(table, Scene(ON_TURN, PASSED, JUST_PASSED, waits=None))
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -665,7 +668,7 @@ def test_the_plaque_waits_for_the_player_on_turn_while_they_are_away(
     watch(returning, table.server, f"{TABLE_PAGE_PREFIX}{table.id}")
 
     for person in (*others, returning):
-        expect(person.locator(PLAQUE)).to_have_text(BIDDING)
+        expect(person.locator(COUNTER_WORD)).to_have_text(BIDDING)
 
 
 def passed_in_table(
@@ -719,7 +722,7 @@ def test_after_three_passes_every_viewer_sees_eingepasst_and_the_next_dealer_the
     held_deal_pause.release()
 
     for person in table.everyone:
-        expect(person.locator(PLAQUE)).to_have_text(BIDDING)
+        expect(person.locator(COUNTER_WORD)).to_have_text(BIDDING)
         expect(person.locator(DECK)).to_have_count(0)
         expect(person.locator(SKAT_CARD)).to_have_count(2)
 
@@ -750,4 +753,4 @@ def test_while_a_member_is_away_eingepasst_stays_without_a_dealer_until_they_ret
     for person in (*present, returning):
         expect(person.locator(GIVES_LINE)).to_have_text(text(SOURCE_LANGUAGE, "table.gives", name=dealer[1]))
     for person in (*present, returning):
-        expect(person.locator(PLAQUE)).to_have_text(BIDDING)
+        expect(person.locator(COUNTER_WORD)).to_have_text(BIDDING)

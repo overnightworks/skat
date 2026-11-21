@@ -45,7 +45,8 @@ export interface TableSoundParts {
 export interface TableSound {
     /** Wakes the sound at every tap and key on the target; the returned function stops it. */
     arm(target: Pick<EventTarget, "addEventListener" | "removeEventListener">): () => void;
-    forCues(cues: readonly Cue[], table: Table): void;
+    /** Sounds the cues and says how many seconds from now the voice has said their words, none while it says nothing. */
+    forCues(cues: readonly Cue[], table: Table): number;
     /** Sounds a reaction thrown at the table once the emote has landed or the object has made its first move. */
     forReaction(reaction: Reaction): void;
     /** Sounds the swept trick at the moment it begins to glide, when it has gathered. */
@@ -65,7 +66,7 @@ interface Moment {
     readonly gain: number;
 }
 
-// A cue without a sound maps to nothing: the table already shows what it tells. A pass has no bubble to tap.
+// A cue without a sound maps to nothing: the table already shows what it tells.
 function momentOf(cue: Cue, table: Table): Moment | undefined {
     switch (cue.kind) {
         case "card-played": {
@@ -73,7 +74,7 @@ function momentOf(cue: Cue, table: Table): Moment | undefined {
             return { moment: "card-played", gain: own ? OWN_CARD_GAIN : FOREIGN_CARD_GAIN };
         }
         case "bid-said":
-            return cue.word.action === "pass" ? undefined : { moment: "bid-said", gain: 1 };
+            return { moment: "bid-said", gain: 1 };
         case "word-said":
             return { moment: "word-said", gain: 1 };
         case "dealt":
@@ -181,9 +182,9 @@ export function createTableSound({
                 );
             const ticks = countVoices(cues, set, moving);
             if (voices.length + ticks.length > 0) sound.play([...voices, ...ticks]);
-            if (!voiceOn()) return;
             // The words of one update follow each other: a word starts once the word before it has been said.
             let sayingEnds = 0;
+            if (!voiceOn()) return sayingEnds;
             for (const { cue, lands } of landings) {
                 const due = lands + (cue.kind === "nudged" ? GRUMBLE_AFTER_THE_RING_SECONDS : 0);
                 for (const key of voiceKeysOf(cue)) {
@@ -191,6 +192,7 @@ export function createTableSound({
                     if (url !== undefined) sayingEnds = sound.speak(url, Math.max(due, sayingEnds));
                 }
             }
+            return sayingEnds;
         },
         forReaction(reaction) {
             const moving = motion();
@@ -266,9 +268,9 @@ export function armSound(): () => void {
     return pageSound().arm(window);
 }
 
-/** Sounds the cues a table update brought. */
-export function soundForCues(cues: readonly Cue[], table: Table): void {
-    pageSound().forCues(cues, table);
+/** Sounds the cues a table update brought, and says how many seconds from now the voice has said their words. */
+export function soundForCues(cues: readonly Cue[], table: Table): number {
+    return pageSound().forCues(cues, table);
 }
 
 /** Sounds a reaction thrown at the table. */

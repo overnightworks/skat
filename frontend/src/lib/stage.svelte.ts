@@ -1,3 +1,4 @@
+import type { BidRun } from "./bidRun.ts";
 import { outcomeSeal, type Closing, type Seal } from "./closingHand.ts";
 import { isChairCue, type ChairCue, type Cue } from "./cues.ts";
 import { MOTION_SETS, type MotionSet } from "./motionSets.ts";
@@ -13,6 +14,7 @@ import {
     type Step,
 } from "./stage.ts";
 import { soundForGlide, soundForTurn } from "./tableSound.ts";
+import { toldAfterSeconds, type ToldWord } from "./takt/bids.ts";
 import type { LastTrick, Table } from "../routes/(start)/tables.ts";
 
 // The one stage of the page's table: the pacing of the trick that is on the move, apart from the received table.
@@ -32,6 +34,12 @@ let dealing = $state(false);
 let dealTimer: ReturnType<typeof setTimeout> | undefined;
 /** The cards of a deal take well under this long to fly in. */
 const DEAL_MILLISECONDS = 2000;
+// Whether the table tells the words of a run, of which it has not told the last.
+let speaking = $state(false);
+let tellTimer: ReturnType<typeof setTimeout> | undefined;
+// Tells the last word of the run on the stage at once.
+let tellTheLast: (() => void) | undefined;
+const MILLISECONDS = 1000;
 
 // The cues are those of the update that brought the step, which the turn waits for when it is shown at once.
 function apply(step: Step, cues: readonly Cue[] = []): void {
@@ -85,9 +93,49 @@ function stopChairs(): void {
     moving = [];
 }
 
+function stopTelling(): void {
+    clearTimeout(tellTimer);
+    tellTheLast = undefined;
+    speaking = false;
+}
+
+/** Whether the table tells the words of a run, so nobody says a word of their own until its last. */
+export function tableSpeaks(): boolean {
+    return speaking;
+}
+
+/**
+ * Tells the words of a run one after another: `tell` shows the word of a number and says how many seconds the voice
+ * speaks it. The first word is told at once and each next one after the pause its set takes, or once the word before
+ * it has been said; a stage that stops moving meanwhile tells the last word at once, which brings the table as it is.
+ */
+export function tellOnStage(run: BidRun, tell: (word: number) => number): void {
+    const last = run.words.length - 1;
+    const step = (word: number): void => {
+        // The last word may bring the next run, so this one is over before that word is told.
+        if (word === last) stopTelling();
+        const spokenSeconds = tell(word);
+        if (word === last) return;
+        const bids = motionOnStage()?.bids;
+        if (bids === undefined) {
+            step(last);
+            return;
+        }
+        const pause = toldAfterSeconds(bids, run.seed, run.words[word + 1] as ToldWord, spokenSeconds);
+        tellTimer = setTimeout(step, pause * MILLISECONDS, word + 1);
+    };
+    stopTelling();
+    speaking = true;
+    tellTheLast = () => {
+        step(last);
+    };
+    step(0);
+}
+
 /** The first table of a page, a reconnect and a table left behind show at once, as the received table says. */
 export function resetStage(): void {
     clearTimeout(timer);
+    stopTelling();
     showResult = undefined;
     clearTimeout(dealTimer);
     stage = SETTLED;
@@ -159,6 +207,7 @@ export function receiveOnStage(previous: Table | undefined, cues: readonly Cue[]
 
 /** A hidden window shows the received table at once. */
 export function jumpStage(): void {
+    tellTheLast?.();
     stopChairs();
     apply(jump(stage));
 }

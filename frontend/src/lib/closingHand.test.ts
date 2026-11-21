@@ -14,6 +14,7 @@ import type { GameSheet, Table } from "../routes/(start)/tables.ts";
 type Presented = { previous: Table | undefined; table: Table; cues: readonly Cue[] };
 
 const SLOW_SHEET_MILLISECONDS = 1500;
+const UNHEARD = 0;
 const nextHand: Table = { ...beforeTheLastCard, version: 20 };
 const afterwards: Table = { ...afterTheLastCard, version: 21 };
 const lastTrickSheet = sheetOfTheLastTrick(MIDDLEHAND);
@@ -28,13 +29,17 @@ function showing(readSheet: (ordinal: number) => Promise<GameSheet | null>) {
     const shown = tableShowing(
         (previous, table, cues, closing) => {
             presented.push({ previous, table, cues });
-            if (closing === undefined) return;
+            if (closing === undefined) return UNHEARD;
             resultShown.push(closing.whenResultShown);
             declarerWon.push(closing.declarerWon);
+            return UNHEARD;
         },
         readSheet,
         () => stageIsMoving,
         (deciding) => stillTricks.push(deciding),
+        () => {
+            throw new Error("no table of these tests brings a run");
+        },
     );
     return { shown, presented, resultShown, declarerWon, stillTricks };
 }

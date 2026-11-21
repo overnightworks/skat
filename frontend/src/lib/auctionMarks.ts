@@ -9,7 +9,8 @@ import {
     type Table,
 } from "../routes/(start)/tables.ts";
 
-export type Bubble = { kind: "bid" | "hold"; value: number };
+// What a chair says in a bubble: its bid, its „Ja“ to the bid that stands, or its „Weg“.
+export type Bubble = { kind: "bid" | "hold"; value: number } | { kind: "pass"; value: null };
 // The declarer's mark slams in as `won` at the moment the auction ended and stays as `decl` after it.
 export type DeclarerMark = "won" | "decl";
 export type ChairMarks = {
@@ -25,11 +26,29 @@ export const PASSED_IN_MARKS: ChairMarks = { bubble: null, passed: true, turn: f
 
 const NO_MARKS: ChairMarks = { bubble: null, passed: false, turn: false, waits: false, declarer: null };
 
+/** Whether the chair of `seat` has said „Weg“ in the auction. */
+export function hasPassed(auction: Auction, seat: number): boolean {
+    return auction.words.some((word) => word.seat === seat && word.action === "pass");
+}
+
+// A „Weg“ stands in a bubble only while it is the table's latest word; after that its chair carries the pass mark alone.
 function bubbleOf(auction: Auction, seat: number): Bubble | null {
     const word = auction.words.find((spoken) => spoken.seat === seat);
+    if (word?.action === "pass") return auction.steps.at(-1)?.seat === seat ? { kind: "pass", value: null } : null;
     if (word?.action !== "bid" && word?.action !== "hold") return null;
     // The server names a value with every bid and every hold.
     return { kind: word.action, value: word.value as number };
+}
+
+/** Who bids against whom: the chair that names the values, and the chair that hears them. */
+export type Duel = { bidder: Chair; listener: Chair };
+
+/** The duel the auction stands in, none once only one chair is left to speak. */
+export function duelOf(auction: Auction, chairs: readonly Chair[]): Duel | null {
+    const turn = chairs.find((chair) => chair.seat === auction.turn_seat);
+    const facing = chairs.find((chair) => chair.seat === auction.facing_seat);
+    if (turn === undefined || facing === undefined) return null;
+    return auction.awaiting === "bid" ? { bidder: turn, listener: facing } : { bidder: facing, listener: turn };
 }
 
 // What a chair carries while the auction runs, as one viewer sees it; nothing before a deal or once it is over. While
@@ -43,7 +62,7 @@ export function chairMarks(
     if (auction === undefined || auction.awaiting === null) return NO_MARKS;
     return {
         bubble: bubbleOf(auction, seat),
-        passed: auction.words.some((word) => word.seat === seat && word.action === "pass"),
+        passed: hasPassed(auction, seat),
         turn: !waiting && auction.turn_seat === seat,
         waits: !waiting && auction.turn_seat === viewerSeat && auction.facing_seat === seat,
         declarer: null,

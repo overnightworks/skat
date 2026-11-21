@@ -12,6 +12,28 @@ import {
     tableSeenFrom,
 } from "./tableSound.fixtures.ts";
 
+describe("how long the voice speaks the words of one update", () => {
+    it("is until the last of them has been said, counted from the update", () => {
+        const port = new FakePort();
+
+        const spoken = soundAt(port, { voice: true, motion: "verspielt" }).forCues(
+            [BID_EIGHTEEN, PASS],
+            tableSeenFrom(OWN_SEAT),
+        );
+
+        const lastStarts = port.spoken.at(-1)?.afterSeconds as number;
+        expect(spoken).toBeGreaterThanOrEqual(2 * RECORDING_SECONDS);
+        expect(spoken).toBeLessThanOrEqual(lastStarts + RECORDING_SECONDS);
+    });
+
+    it.each([
+        { name: "the voice is off", options: { voice: false }, cues: [BID_EIGHTEEN] },
+        { name: "the update brought no word to say", options: { voice: true }, cues: [] },
+    ])("is no time while $name", ({ options, cues }) => {
+        expect(soundAt(new FakePort(), options).forCues(cues, tableSeenFrom(OWN_SEAT))).toBe(0);
+    });
+});
+
 describe("the voice of one update", () => {
     it("says the words of one update one after another, each once the one before has ended", () => {
         const port = new FakePort();

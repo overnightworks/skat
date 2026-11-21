@@ -4,13 +4,14 @@ import {
     chairMarks,
     decidingMarks,
     decidingPlaque,
+    duelOf,
     passedInScene,
     type ChairMarks,
     type DecidingPlaque,
 } from "#lib/auctionMarks.ts";
 import { auctionWith } from "#lib/table.fixtures.ts";
 import { words } from "#lib/words.ts";
-import type { Auction, Chair, Declaring, PassedIn, Stage, Table } from "../routes/(start)/tables.ts";
+import type { Auction, AuctionWord, Chair, Declaring, PassedIn, Stage, Table } from "../routes/(start)/tables.ts";
 
 const FOREHAND = 1;
 const MIDDLEHAND = 2;
@@ -30,6 +31,9 @@ const middlehandBid18 = auction({
     words: [{ seat: MIDDLEHAND, action: "bid", value: 18 }],
 });
 
+const MIDDLEHAND_PASSED: AuctionWord = { seat: MIDDLEHAND, action: "pass", value: null };
+const REARHAND_BID_18: AuctionWord = { seat: REARHAND, action: "bid", value: 18 };
+
 describe("the marks on a chair during the auction", () => {
     it.each([
         {
@@ -45,8 +49,18 @@ describe("the marks on a chair during the auction", () => {
             marks: { bubble: { kind: "hold", value: 18 } },
         },
         {
-            name: "a pass greys the chair and drops its bubble",
-            state: auction({ turn_seat: REARHAND, words: [{ seat: MIDDLEHAND, action: "pass", value: null }] }),
+            name: "a pass that is the table's latest word greys the chair and stands in a bubble",
+            state: auction({ turn_seat: REARHAND, words: [MIDDLEHAND_PASSED], steps: [MIDDLEHAND_PASSED] }),
+            seat: MIDDLEHAND,
+            marks: { passed: true, bubble: { kind: "pass", value: null } },
+        },
+        {
+            name: "a pass another chair has spoken after greys the chair and carries no bubble",
+            state: auction({
+                turn_seat: FOREHAND,
+                words: [MIDDLEHAND_PASSED, REARHAND_BID_18],
+                steps: [MIDDLEHAND_PASSED, REARHAND_BID_18],
+            }),
             seat: MIDDLEHAND,
             marks: { passed: true },
         },
@@ -181,6 +195,32 @@ function chair(seat: number, changes: Partial<Chair> = {}): Chair {
         ...changes,
     };
 }
+
+describe("who bids against whom", () => {
+    const chairs = [FOREHAND, MIDDLEHAND, REARHAND].map((seat) => ({ seat }) as Chair);
+    const seatsOf = (state: Auction): number[] | undefined => {
+        const duel = duelOf(state, chairs);
+        return duel === null ? undefined : [duel.bidder.seat, duel.listener.seat];
+    };
+
+    it("is the chair on turn against the chair it faces while the table awaits a bid", () => {
+        expect(seatsOf(auction({}))).toEqual([MIDDLEHAND, FOREHAND]);
+    });
+
+    it("stays the bidder against the listener while the listener is on turn to answer", () => {
+        expect(seatsOf(middlehandBid18)).toEqual([MIDDLEHAND, FOREHAND]);
+    });
+
+    it.each([
+        {
+            name: "forehand is left alone to play or pass",
+            state: auction({ turn_seat: FOREHAND, facing_seat: null, awaiting: "play" }),
+        },
+        { name: "the auction is over", state: auctionWith() },
+    ] satisfies { name: string; state: Auction }[])("is nobody once $name", ({ state }) => {
+        expect(seatsOf(state)).toBeUndefined();
+    });
+});
 
 describe("whom the plaque waits for", () => {
     it("names the player on turn while they are away", () => {

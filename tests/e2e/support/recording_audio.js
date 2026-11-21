@@ -120,7 +120,8 @@
 
         decodeAudioData(bytes) {
             window.recordingsDecoded += 1;
-            return Promise.resolve({ length: 2, url: urlOfBytes.get(bytes) });
+            // A decoded recording lasts a while, as a real one does, which the page counts on between the words it says.
+            return Promise.resolve({ length: 2, duration: 0.2, url: urlOfBytes.get(bytes) });
         }
 
         createBuffer(_channels, length) {

@@ -248,12 +248,12 @@ describe("the sound of a bid", () => {
         expect(new Set(sets.map(heard)).size).toBe(sets.length);
     });
 
-    it("taps nothing for a pass, which has no bubble", () => {
-        const port = new FakePort();
+    it("taps for a pass as for a bid, since both spring up in a bubble", () => {
+        const [passed, bid] = [new FakePort(), new FakePort()];
+        soundAt(passed).forCues([PASS], tableSeenFrom(OWN_SEAT));
+        soundAt(bid).forCues([BID_EIGHTEEN], tableSeenFrom(OWN_SEAT));
 
-        soundAt(port).forCues([PASS], tableSeenFrom(OWN_SEAT));
-
-        expect(port.played).toEqual([]);
+        expect(passed.played).toEqual(bid.played);
     });
 
     it("taps when the bubble has sprung in the set the table moves in", () => {
