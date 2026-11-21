@@ -5929,6 +5929,10 @@ body {
     color: var(--ladder-mit-ink);
 }
 
+.room .result .ladder > span.held.mit {
+    color: var(--ladder-held-mit-ink);
+}
+
 .room .result .eq {
     display: flex;
     align-items: center;
