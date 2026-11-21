@@ -27,7 +27,7 @@ from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, passe
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
 from tests.e2e.support.table_menu import AGENTS, MENU, MENU_KEY, menu_button
-from tests.e2e.support.tables import open_new_table, table_id_of
+from tests.e2e.support.tables import open_new_table, sit_in, table_id_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -166,11 +166,26 @@ def test_the_anruf_key_opens_the_call_apps_start_link_for_the_table_in_a_new_tab
     visitor = open_person(server=framing_server, **form_factor)
 
     visitor.goto(f"{framing_server.base_url}{path}")
+    sit_in(visitor, 2)
 
-    key = visitor.get_by_role("link", name=CALL)
+    key = visitor.locator(".actions").get_by_role("link", name=CALL)
+    expect(key).to_be_visible()
     expect(key).to_have_attribute("href", f"{CALL_ORIGIN}/c/new?app=skat&context={table_id_of(path)}")
     expect(key).to_have_attribute("target", "_blank")
     expect(key).to_have_attribute("rel", "noopener")
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_watcher_has_no_anruf_key(
+    open_person: Callable[..., Page], framing_server: RunningServer, form_factor: dict[str, Any]
+) -> None:
+    path = new_table(open_person, framing_server)
+    visitor = open_person(server=framing_server, **form_factor)
+
+    visitor.goto(f"{framing_server.base_url}{path}")
+
+    expect(visitor.locator(CHAIR)).to_have_count(THREE_CHAIRS)
+    expect(visitor.get_by_role("link", name=CALL)).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

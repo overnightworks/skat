@@ -50,6 +50,7 @@
     import AnswerMarks from "#lib/ui/AnswerMarks.svelte";
     import AskPlaque from "#lib/ui/AskPlaque.svelte";
     import AwayMark from "#lib/ui/AwayMark.svelte";
+    import CallKey from "#lib/ui/CallKey.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
     import DecidingPlaque from "#lib/ui/DecidingPlaque.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
@@ -303,7 +304,7 @@
     const callMode = isFramedInCallMode();
     // The call's first valid greeting takes Skat's own bar away; a call that never greets leaves it.
     let greeted = $state(false);
-    // The Anruf key stands only where the call app's origin is configured, and not inside a call, which already is one.
+    // The Anruf key stands in the bottom strip of a seated player, only where the call app's origin is configured, and not inside a call, which already is one.
     let callOrigin: string | null = $state(null);
     const callAddress = $derived(callOrigin === null ? null : callStartAddress(callOrigin, id));
     onMount(armSound);
@@ -423,7 +424,6 @@
     {#if !greeted}
         <TableBar
             {callMode}
-            {callAddress}
             {attention}
             {connected}
             bind:rulesOpen
@@ -753,6 +753,9 @@
                     {#if callMode && standing === null}
                         <SoundButton place="strip" />
                         {@render tableMenu("strip")}
+                    {/if}
+                    {#if seated && callAddress !== null}
+                        <CallKey address={callAddress} />
                     {/if}
                 </div>
                 <p class="note" role="status">{note}</p>

@@ -6732,70 +6732,32 @@ body {
     }
 }
 
-/* The Anruf key: the speaker's twin, a link to the call app's start page, after the speaker in the table's top row; the word shows from 900 px. */
+/* The Anruf key: a pill in the bottom strip, the camera and the word on a phone as on a desktop, a link to the call app's start page. */
 .room .call-key {
     flex: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    height: 52px;
+    padding: 0 20px 0 16px;
+    gap: 8px;
+    border-radius: 26px;
+    background: rgba(255, 255, 255, 0.15);
     color: var(--on-stage);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     text-decoration: none;
 }
 
-.room .call-face {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: var(--round-key-tint);
-    backdrop-filter: blur(14px);
-    box-shadow:
-        inset 0 0 0 1px rgba(255, 255, 255, 0.3),
-        0 4px 10px -4px rgba(0, 0, 0, 0.7);
-}
-
-.room .call-face svg {
+.room .call-key svg {
     flex: none;
-    width: 22px;
-    height: 22px;
-}
-
-.room .call-word {
-    display: none;
+    width: 24px;
+    height: 24px;
 }
 
 .room .call-key:focus-visible {
     outline: 2px solid var(--accent-stage, #7aa7f0);
     outline-offset: 2px;
-}
-
-@media (min-width: 900px) {
-    .room .call-key {
-        width: auto;
-        margin-right: 8px;
-    }
-
-    .room .call-face {
-        width: auto;
-        padding: 0 16px 0 12px;
-        border-radius: 999px;
-    }
-
-    .room .call-face svg {
-        width: 20px;
-        height: 20px;
-    }
-
-    .room .call-word {
-        display: inline;
-    }
 }
 
 /* The overlay is the panel's popover: it covers the viewport and is clear, so the tap that closes the panel lands on it and on nothing below. */
