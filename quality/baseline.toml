@@ -75,9 +75,6 @@ create_declaring_router = [["src/skat/web/pushing.py", "create_pushing_router"]]
 [clones."src/skat/web/ready.py"]
 "create_ready_router.tap_weiter" = [["src/skat/web/series_end.py", "create_series_end_router.refuse_to_end_series"]]
 
-[clones."tests/e2e/support/tables.py"]
-watch = [["tests/e2e/test_table_cards.py", "watch"], ["tests/e2e/test_table_deal_marks.py", "watch"], ["tests/e2e/test_table_watch.py", "watch"]]
-
 [clones."tests/e2e/test_my_tables.py"]
 test_going_back_from_a_table_returns_to_a_current_list = [["tests/e2e/test_tables.py", "test_a_reload_shows_the_same_table_with_the_opener_still_in_chair_one"]]
 
@@ -90,20 +87,11 @@ played_out_table = [["tests/e2e/test_table_result_count.py", "deal_a_finished_ha
 [clones."tests/e2e/test_table_card_lands.py"]
 deal_a_playing_table = [["tests/e2e/test_table_coasters.py", "play_a_table"]]
 
-[clones."tests/e2e/test_table_cards.py"]
-watch = [["tests/e2e/test_table_deal_marks.py", "watch"], ["tests/e2e/test_table_watch.py", "watch"]]
-
 [clones."tests/e2e/test_table_closed.py"]
 wait_for_end = [["tests/e2e/test_table_home.py", "wait_for_end"]]
 
-[clones."tests/e2e/test_table_deal_marks.py"]
-watch = [["tests/e2e/test_table_watch.py", "watch"]]
-
 [clones."tests/e2e/test_table_declaring.py"]
 test_choosing_null_hides_the_levels_and_declares_null_hand_without_an_announcement = [["tests/e2e/test_table_ouvert.py", "test_the_ouvert_rung_clears_on_a_second_tap_and_the_levels_return_after_null"]]
-
-[clones."tests/e2e/test_table_end.py"]
-signed_in = [["tests/e2e/test_table_hand.py", "signed_in"]]
 
 [clones."tests/engine/test_bock.py"]
 trick_worth = [["tests/engine/test_score.py", "trick_worth"], ["tests/engine/test_value.py", "trick_worth"]]
@@ -211,7 +199,7 @@ person_steps = [["tests/web/support/playing.py", "Table._post"]]
 post_pass = [["tests/web/test_declaring.py", "post_declaring"]]
 
 [clones."tests/web/support/ramsch_stage.py"]
-list_rows = [["tests/web/test_ready_new_series.py", "entries_of"], ["tests/web/test_tables_ramsch.py", "read_list"], ["tests/web/test_tables_ramsch_bock.py", "list_rows"]]
+list_rows = [["tests/web/test_ready_new_series.py", "entries_of"]]
 
 [clones."tests/web/test_auction.py"]
 "Table.__init__" = [["tests/web/test_declaring.py", "Table.__init__"]]
@@ -256,14 +244,8 @@ say = [["tests/web/test_tables_bock.py", "say"]]
 "TestWhenTheServerStops.test_stopping_cancels_every_pending_wait" = [["tests/web/test_presence_next_deal.py", "TestNextDealPause.test_the_server_stopping_during_the_pause_cancels_the_deal_and_a_later_request_starts_none"]]
 "TestWhenTheTimerStarts.test_each_table_has_its_own_wait" = [["tests/web/test_presence_next_deal.py", "TestNextDealPause.test_asks_for_the_deal_with_who_is_connected_when_the_pause_ends"]]
 
-[clones."tests/web/test_ready_new_series.py"]
-entries_of = [["tests/web/test_tables_ramsch.py", "read_list"], ["tests/web/test_tables_ramsch_bock.py", "list_rows"]]
-
 [clones."tests/web/test_tables.py"]
 "TestCreateTable.test_refuses_a_malformed_command_id" = [["tests/web/test_tables_series.py", "TestOpening.test_refuses_a_length_outside_the_range_or_not_an_integer_and_stores_nothing"], ["tests/web/test_tables_series.py", "TestOptions.test_refuses_options_that_are_no_strict_switch_and_stores_nothing"]]
 
 [clones."tests/web/test_tables_bock.py"]
 "TestOpeningATable.test_a_request_that_is_no_valid_bock_option_opens_no_table" = [["tests/web/test_tables_ramsch.py", "TestOpeningARamschTable.test_refuses_an_option_that_is_no_ramsch_with_422_and_opens_no_table"]]
-
-[clones."tests/web/test_tables_ramsch.py"]
-read_list = [["tests/web/test_tables_ramsch_bock.py", "list_rows"]]
