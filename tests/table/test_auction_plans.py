@@ -225,6 +225,13 @@ class TestTheDeciderStepsForAPlan:
         assert seated.table().hand is None
         assert seated.table().progress.plans == frozenset()
 
+    def test_a_stored_pass_ahead_passes_the_hand_in_when_both_others_pass(self, seated: Seated) -> None:
+        plan_as(seated, FOREHAND, PassAhead())
+
+        play_out(seated, [(MIDDLEHAND, PASS), (REARHAND, PASS)])
+
+        assert (seated.table().hand, seated.table().progress.plans) == (None, frozenset())
+
     def test_the_runner_takes_no_step_while_the_hand_waits_for_a_sitter(self, seated: Seated) -> None:
         play_out(seated, [(MIDDLEHAND, BID, 18)])
         table = with_occupant(seated.table(), seated.seat_of(seated.rearhand), None)
@@ -407,15 +414,18 @@ class TestThePlanEnds:
 
         assert next_deal.progress.plans == frozenset()
 
-    @pytest.mark.parametrize("another_sits", [False, True], ids=["when-he-stands", "when-another-sits-down"])
-    def test_at_a_change_of_the_occupant(self, seated: Seated, another_sits: bool) -> None:
+    @pytest.mark.parametrize(
+        "sitter", [None, DORA, "same-account"], ids=["when-he-stands", "when-another-sits-down", "when-he-sits-again"]
+    )
+    def test_at_a_change_of_the_occupant(self, seated: Seated, sitter) -> None:
         plan_as(seated, FOREHAND, PassAhead())
         seat = seated.seat_of(seated.forehand)
         plan_as(seated, REARHAND, BidLimit(30, ASK), command_id="plan-rear")
 
         seated.service.stand(seated.forehand, StandUp("stand", seated.table_id), NOBODY_CONNECTED)
-        if another_sits:
-            seated.service.sit(DORA, SitDown("sit", seated.table_id, seat), NOBODY_CONNECTED)
+        if sitter is not None:
+            returning = seated.forehand if sitter == "same-account" else sitter
+            seated.service.sit(returning, SitDown("sit", seated.table_id, seat), NOBODY_CONNECTED)
 
         remaining = seated.table().progress.plans
         assert remaining == frozenset({SeatPlan(seated.seat_of(seated.rearhand), BidLimit(30, ASK))})
