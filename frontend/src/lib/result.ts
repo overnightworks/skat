@@ -1,5 +1,6 @@
 import { listFormat, words } from "#lib/words.ts";
 import { sideNames, type SideNames } from "#lib/playView.ts";
+import { hasLeft, seatedNames } from "#lib/series.ts";
 import {
     gameLabel,
     gameWord,
@@ -20,7 +21,9 @@ import {
 
 export type ReckoningRow = {
     seat: number;
-    name: string | null;
+    name: string;
+    // The player is no longer seated: the name stands from the game's record.
+    gone: boolean;
     initial: string;
     gain: number;
     gainText: string;
@@ -114,9 +117,25 @@ function nameOf(chairs: readonly Chair[], seat: number): string | null {
     return (chairs.find((chair) => chair.seat === seat) as Chair).occupant_name;
 }
 
-// A chair that has been left while the result stands reads as free, as its coaster does.
-function shownName(chairs: readonly Chair[], seat: number): string {
-    return nameOf(chairs, seat) ?? words["result.seatFree"];
+// Who played a seat: the name stored with the game, the live chair's for an entry stored before names were kept.
+function playerOf(chairs: readonly Chair[], names: readonly (string | null)[], seat: number): string | null {
+    return names[seat - 1] ?? nameOf(chairs, seat);
+}
+
+// A seat with no name from either source reads as free.
+function shownName(chairs: readonly Chair[], names: readonly (string | null)[], seat: number): string {
+    return playerOf(chairs, names, seat) ?? words["result.seatFree"];
+}
+
+// The chairs as the game was played: whoever sits in a seat whose stored player was someone else did not play it, so
+// that chair is no longer the viewer's own and the card reads for them as for a watcher.
+function chairsAsPlayed(chairs: readonly Chair[], names: readonly (string | null)[]): readonly Chair[] {
+    return chairs.map((chair) => {
+        const player = names[chair.seat - 1];
+        return chair.is_mine && player !== null && player !== undefined && player !== chair.occupant_name
+            ? { ...chair, is_mine: false }
+            : chair;
+    });
 }
 
 // The viewer's own chair comes first, then the others in seat order; a watcher has no own chair.
@@ -201,7 +220,7 @@ export function declaredResult(table: Table): Result | null {
 
 // Whether the result is good news for the viewer: a seated viewer's own gain won, a watcher's the declarer's win.
 export function resultIsGood(result: Result, chairs: readonly Chair[]): boolean {
-    const own = chairs.find((chair) => chair.is_mine);
+    const own = chairsAsPlayed(chairs, result.seat_names).find((chair) => chair.is_mine);
     return own === undefined ? result.won : (result.gains.find((one) => one.seat === own.seat) as SeatGain).won;
 }
 
@@ -215,7 +234,7 @@ const ENDING_STAMPS: Partial<Record<GameEnding, string>> = {
 function stampOf(result: Result, chairs: readonly Chair[]): Stamp | null {
     const ending = ENDING_STAMPS[result.ending];
     if (ending !== undefined) {
-        const decider = nameOf(chairs, result.ended_by_seat as number);
+        const decider = playerOf(chairs, result.seat_names, result.ended_by_seat as number);
         return { word: ending, face: decider === null ? null : decider.slice(0, 1) };
     }
     return result.overbid ? { word: words["result.overbid"], face: null } : null;
@@ -224,11 +243,11 @@ function stampOf(result: Result, chairs: readonly Chair[]): Stamp | null {
 // The card reads only what the server counted: the sides, the ticks and the glow follow its answer.
 export function resultView(table: Table): ResultView {
     const result = declaredResult(table) as Result;
-    const { chairs } = table;
+    const chairs = chairsAsPlayed(table.chairs, result.seat_names);
     const own = chairs.find((chair) => chair.is_mine);
     const isDeclarer = own?.seat === result.declarer_seat;
-    const declarerName = nameOf(chairs, result.declarer_seat) ?? "";
-    const sides = sideNames(chairs, result.declarer_seat);
+    const declarerName = playerOf(chairs, result.seat_names, result.declarer_seat) ?? "";
+    const sides = sideNames(chairs, result.declarer_seat, declarerName);
     const good = resultIsGood(result, chairs);
     let word: string;
     if (own === undefined) {
@@ -272,18 +291,25 @@ export function resultView(table: Table): ResultView {
             result.levels.length > SNUG_LEVELS ||
             result.kontra !== null ||
             result.ending === "played-open",
-        rows: reckoningRows(chairs, result.gains),
+        rows: reckoningRows(chairs, result.seat_names, result.gains),
     };
 }
 
 // The coasters: each seat's gain with the viewer's own chair first.
-function reckoningRows(chairs: readonly Chair[], gains: readonly SeatGain[]): ReckoningRow[] {
+function reckoningRows(
+    chairs: readonly Chair[],
+    names: readonly (string | null)[],
+    gains: readonly SeatGain[],
+): ReckoningRow[] {
+    const seated = seatedNames(chairs);
     return ownFirst(chairs).map(({ seat, is_mine }) => {
         const { gain, won } = gains.find((one) => one.seat === seat) as SeatGain;
+        const player = playerOf(chairs, names, seat);
         return {
             seat,
-            initial: (nameOf(chairs, seat) ?? "").slice(0, 1),
-            name: is_mine ? words["result.sideYou"] : nameOf(chairs, seat),
+            initial: (player ?? "").slice(0, 1),
+            name: is_mine ? words["result.sideYou"] : shownName(chairs, names, seat),
+            gone: !is_mine && player !== null && hasLeft(player, seated),
             gain,
             gainText: gain > 0 ? signed(gain) : withMinus(gain),
             won,
@@ -312,7 +338,7 @@ function ramschHead(
             : { word: words["result.durchmarsch"], mark: null, lost: false };
     }
     if (strong.some((one) => one.seat === own?.seat)) return { word: words["result.lost"], mark: "cross", lost: true };
-    const names = strong.map((one) => shownName(chairs, one.seat));
+    const names = strong.map((one) => shownName(chairs, result.seat_names, one.seat));
     return {
         word:
             names.length === 1
@@ -327,7 +353,7 @@ function ramschHead(
 export function ramschResultView(table: Table): RamschView | null {
     const result = table.result;
     if (result?.kind !== "ramsch") return null;
-    const { chairs } = table;
+    const chairs = chairsAsPlayed(table.chairs, result.seat_names);
     const sweeper = result.seats.find((one) => one.seat === result.durchmarsch_seat);
     const strong = sweeper === undefined ? result.seats.filter((one) => one.score < 0) : [sweeper];
     const lead = strong[0] as RamschSeat;
@@ -345,13 +371,14 @@ export function ramschResultView(table: Table): RamschView | null {
         counts: ownFirst(chairs).map(({ seat, is_mine }) => ({
             seat,
             text: words["result.eyeCount"]({
-                name: is_mine ? words["result.sideYou"] : shownName(chairs, seat),
+                name: is_mine ? words["result.sideYou"] : shownName(chairs, result.seat_names, seat),
                 points: String((result.seats.find((one) => one.seat === seat) as RamschSeat).points),
             }),
             strong: strong.some((one) => one.seat === seat),
         })),
         rows: reckoningRows(
             chairs,
+            result.seat_names,
             result.seats.map(({ seat, score }) => ({ seat, gain: score, won: score > 0 })),
         ),
     };

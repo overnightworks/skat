@@ -188,9 +188,11 @@ class DeclaringTable:
     def list_the_game(self, entry: ListEntry) -> None:
         """Ends the running hand with `entry` as its game, through the store and with the version a move of the table
         raises; the open pages come to its result when their streams read the table again, as they do after a lost
-        wake.
+        wake. The game is listed with the names the seats hold, as a game played at this table is.
         """
-        ended = after_a_game(self.stored(), entry)
+        record = self.stored()
+        seat_names = tuple(chair.occupant.display_name for chair in record.chairs)
+        ended = after_a_game(record, replace(entry, seat_names=seat_names))
         with PostgresTableTransactions(self.server.engine).begin() as transaction:
             transaction.save_table(replace(ended, version=ended.version + 1), played_at=None)
 

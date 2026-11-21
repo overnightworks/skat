@@ -33,6 +33,7 @@ from tests.web.support.playing import (
     gains,
     game_of,
     three_pass,
+    without_seat_names,
 )
 from tests.web.support.series import tap_weiter
 from tests.web.support.shortening import (
@@ -302,8 +303,8 @@ class TestAnOpponentGivesUpUnderTheIsko:
             results.append(ended_by_giving_up(table, position))
 
         assert [ending_of(result)[1] for result in results] == [SEAT[FOREHAND], SEAT[REARHAND]]
-        assert {key: value for key, value in results[0].items() if key != "ended_by_seat"} == {
-            key: value for key, value in results[1].items() if key != "ended_by_seat"
+        assert {key: value for key, value in without_seat_names(results[0]).items() if key != "ended_by_seat"} == {
+            key: value for key, value in without_seat_names(results[1]).items() if key != "ended_by_seat"
         }
 
     def test_two_deals_differing_in_the_skat_alone_end_the_same(self, skat):

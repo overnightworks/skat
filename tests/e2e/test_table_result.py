@@ -26,9 +26,11 @@ from tests.e2e.support.result_card import (
     CARD,
     LOST,
     OVERBID,
+    SERIES_GONE,
     TIMES,
     WON,
     YOU,
+    expect_a_new_sitter_reads_the_leaver_as_gone,
     expect_the_page_around_the_card,
     expect_the_seat_tiles_inside_the_card,
     loosely,
@@ -422,6 +424,25 @@ def test_a_member_who_stands_up_leaves_a_free_chair_and_the_card_stays(
         expect(person.locator(f".chair[data-seat='{leaver}'] {READY_MARK}")).to_have_count(0)
         expect(person.locator(CARD)).to_have_count(1)
     expect(table.watcher.locator(f".chair[data-seat='{leaver}']").get_by_role("button", name=SIT_DOWN)).to_be_visible()
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_declarer_who_stands_up_stays_on_the_card_by_name_marked_gone(
+    deal_a_finished_hand: Callable[..., PlayingTable], page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = deal_a_finished_hand(form_factor)
+    declarer = table.declarer_seat
+
+    menu_button(table.pages[declarer], STAND_UP).click()
+
+    for person in (*(page for seat, page in table.pages.items() if seat != declarer), table.watcher):
+        expect(person.locator(f".chair[data-seat='{declarer}'] .plate")).to_have_text(SEAT_FREE)
+        coaster_name = person.locator(CARD).locator(f".reck[data-seat='{declarer}'] .nm")
+        expect(coaster_name).to_contain_text(table.names[declarer])
+        expect(coaster_name.locator("em")).to_have_text(SERIES_GONE)
+        expect(person.locator(CARD)).not_to_contain_text(SEAT_FREE)
+    expect_a_new_sitter_reads_the_leaver_as_gone(table.watcher, declarer, table.names[declarer])
     assert page_errors == []
 
 
