@@ -3,6 +3,6 @@ agent = "Claude 08329d5b-8776-4078-b270-c37efe5b15d8"
 role = "builder"
 base = "4b61383ea6ecb8fa2775a5533e08d37cad1164ad"
 branch = "claude/issue-670-place-lines-carry-their-trace"
-scope = ["src/skat", "tests"]
+scope = ["docs/ARCHITECTURE.md", "src/skat", "tests"]
 opened_commit = "ee6f78245c4e03db58bd3231b5881239133b88fb"
 whole_reason = "The trace is stored by the store, carried by the table core's records and served at the member MCP boundary; one column without its reader or a field without its value proves nothing."
