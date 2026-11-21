@@ -19,6 +19,7 @@
         <rect x="3" y="6.5" width="12" height="11" rx="2.5" />
         <path d="m15 11 6-3.5v9L15 13z" />
     </svg>
-    {words["table.call"]}
+    <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-template-expression -- a bare {words[key]} compiles to a `?? ""` branch no word can take -->
+    {`${words["table.call"]}`}
 </a>
 <!-- eslint-enable svelte/no-navigation-without-resolve -->
