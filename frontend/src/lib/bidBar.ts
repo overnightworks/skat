@@ -107,7 +107,7 @@ export function bidBar(table: Table): BidBar | null {
 // His fixed limit once the table said „Weg“ for him above it, which stays in his sight while the auction runs.
 export function passedLimit(table: Table): BidLimit | null {
     const part = partIn(table);
-    if (part === null || !part.passed) return null;
+    if (!part?.passed) return null;
     const limit = limitOf(part.auction);
     return limit?.mode === "fixed" ? limit : null;
 }
