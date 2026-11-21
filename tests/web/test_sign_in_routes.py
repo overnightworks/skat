@@ -13,8 +13,9 @@ from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from webauth.admission import AppRole
-from webauth.config import WebAuthConfig, install_web_auth_config, web_auth_config
+from webauth.config import WebAuthConfig, web_auth_config
 from webauth.dependencies import ConnectionRefusal, admit_session, session_id_from_request
+from webauth.policies import SecurityHeadersPolicy, default_content_security_policy
 from webauth.ports import AccountEventKind, AccountKind
 
 from skat.web.constants import (
@@ -37,15 +38,16 @@ from skat.web.secret_files import StartRefusedError
 from skat.web.sign_in import (
     IssuerTransports,
     LoggingAuditSink,
-    build_relying_party,
     build_sign_in_configs,
-    install_sign_in,
+    build_web_auth,
+    create_pages_router,
 )
 from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import LANGUAGES, SOURCE_LANGUAGE, text
 from tests.support.end_session_page import EndSessionPage
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.in_memory_stores import in_memory_stores, in_process_rate_limits
+from tests.support.log_lines import lines_of, logged
 from tests.support.page_build import fixture_page_build, served_page
 from tests.support.sign_in_settings import TEST_ISSUER, TEST_PUBLIC_ORIGIN, SignInSettings
 from tests.support.signed_in import new_id_token
@@ -108,9 +110,9 @@ class SignInHarness:
             BACKCHANNEL_LOGOUT_PATH, content=urlencode(fields), headers={"content-type": content_type}
         )
 
-    def log_out(self, browser: TestClient) -> Response:
-        """What the page's log-out button sends: a POST. This harness has no origin check; test_gate proves it."""
-        return browser.post(LOGOUT_PATH)
+    def log_out(self, browser: TestClient, **headers: str) -> Response:
+        """What the page's log-out button sends: a POST from the app's own origin."""
+        return browser.post(LOGOUT_PATH, headers={"origin": TEST_PUBLIC_ORIGIN, **headers})
 
     def who(self, browser: TestClient) -> dict[str, object]:
         return browser.get(WHO_AM_I_PATH).json()
@@ -139,16 +141,16 @@ def make_harness(sign_in_settings) -> Callable[..., SignInHarness]:
             transports = IssuerTransports(transports.post_token_request, key_set_of.fetch_key_set)
         stores = in_memory_stores(audit)
         accounts, sessions = stores.accounts, stores.sessions
-        app = FastAPI()
-        install_web_auth_config(app, configs.web_auth)
-        install_sign_in(
-            app,
-            build_relying_party(configs, transports),
-            stores.transaction,
-            fixture_page_build() if page_build is None else page_build,
-            stores.sessions,
-            configs.web_auth,
+        pages = fixture_page_build() if page_build is None else page_build
+        auth = build_web_auth(
+            configs,
+            transports,
+            stores,
+            pages,
+            security_headers=SecurityHeadersPolicy(content_security_policy=default_content_security_policy()),
         )
+        app = FastAPI()
+        app.include_router(create_pages_router(pages, stores.sessions, configs.web_auth))
 
         @app.get(WHO_AM_I_PATH)
         def who_am_i(request: Request) -> dict[str, object]:
@@ -161,6 +163,7 @@ def make_harness(sign_in_settings) -> Callable[..., SignInHarness]:
                 return {"user": None}
             return {"user": {"id": admitted.id, "username": admitted.username}, "session_id": session_id}
 
+        auth.install(app, bearer=None)
         return SignInHarness(sign_in, issuer, accounts, sessions, configs.web_auth, app)
 
     return make
@@ -425,7 +428,7 @@ class TestLogout:
         browser = harness.browser()
         harness.sign_in_through(browser)
 
-        page = EndSessionPage(browser.post(LOGOUT_PATH, headers={"accept-language": language}).text)
+        page = EndSessionPage(harness.log_out(browser, **{"accept-language": language}).text)
 
         assert (page.language, page.button_label) == (language, text(language, "logout.button"))
 
@@ -734,21 +737,23 @@ class TestLogs:
         ("groups", "endpoint_is_down", "reason"),
         [([], False, "not-a-member"), ([LOGIN_GROUP], True, "token-endpoint-failed")],
     )
-    def test_a_refusal_logs_one_line_with_its_reason_and_no_identity(self, harness, groups, endpoint_is_down, reason):
+    def test_a_refusal_logs_one_line_with_its_reason_and_no_identity(
+        self, harness, capsys, groups, endpoint_is_down, reason
+    ):
         harness.issuer.token_endpoint_is_down = endpoint_is_down
-        with structlog.testing.capture_logs() as logs:
+        with logged(capsys) as lines:
             harness.sign_in_through(harness.browser(), groups=groups)
-        refusals = [log for log in logs if log["event"] == "sign_in.refused"]
+        refusals = lines_of(lines, "sign_in.refused")
         assert [log["reason"] for log in refusals] == [reason]
         assert SUBJECT not in json.dumps(refusals)
         assert USERNAME not in json.dumps(refusals)
 
-    def test_a_client_secret_with_a_carriage_return_shows_as_a_refused_token_request(self, make_harness):
+    def test_a_client_secret_with_a_carriage_return_shows_as_a_refused_token_request(self, make_harness, capsys):
         harness = make_harness(windows_line_ending=True)
-        with structlog.testing.capture_logs() as logs:
+        with logged(capsys) as lines:
             response = harness.sign_in_through(harness.browser())
         assert_refused(harness, response)
-        assert [(log["reason"], log["idp_error"]) for log in logs if log["event"] == "sign_in.refused"] == [
+        assert [(log["reason"], log["idp_error"]) for log in lines_of(lines, "sign_in.refused")] == [
             ("token-request-refused", "invalid_client")
         ]
 

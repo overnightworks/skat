@@ -10,7 +10,7 @@ dependencies = [
     "overnightworks-agents[mcp-server] @ git+https://github.com/overnightworks/agents@v0.62.0",
     "overnightworks-logline @ git+https://github.com/overnightworks/logline@v1.7.0",
     "overnightworks-tandem @ git+https://github.com/overnightworks/tandem@v0.13.1",
-    "overnightworks-webauth[redis] @ git+https://github.com/overnightworks/webauth@v0.42.0",
+    "overnightworks-webauth[redis] @ git+https://github.com/overnightworks/webauth@v0.43.0",
     "psycopg[binary]>=3.2",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
