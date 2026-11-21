@@ -168,11 +168,10 @@ class TestTheNextSeriesSettings:
         with engine.begin() as connection:
             connection.execute(update(chairs).where(chairs.c.table_id == table_id).values(ready=True))
 
-    def test_marks_the_release_before_gives_after_a_save_start_no_minute_that_runs_out_on_the_next_choice(
+    def test_a_minute_that_no_standing_mark_started_is_no_ask_and_runs_out_on_no_choice(
         self, service, transactions, engine, first_series
     ):
         self.save(service, first_series)
-        self.mark_as_the_release_before_does(engine, first_series)
         with engine.begin() as connection:
             connection.execute(
                 update(series)
