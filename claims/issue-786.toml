@@ -1,7 +1,0 @@
-claim_id = "1c32daa9dbf94b6e9856fc6b7c618bd4"
-agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
-role = "builder"
-base = "7cc65e42ce9e470a49b0a3488099a483beee9113"
-branch = "claude/issue-786-e2e-shards-room"
-scope = [".github/workflows/ci.yml"]
-opened_commit = "44f3294f424916960e74ea2d9e66f4b606ae1a99"
