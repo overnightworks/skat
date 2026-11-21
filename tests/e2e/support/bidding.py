@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 PASS = text(SOURCE_LANGUAGE, "bid.pass")
 UP_TO = text(SOURCE_LANGUAGE, "bid.upTo")
 YOU = text(SOURCE_LANGUAGE, "table.sideYou")
-# A read on a connection the server closed for idling meets a reset; Playwright retries only that error.
+# A request on a connection the server closed for idling meets a reset; Playwright retries only that error.
 RESET_RETRIES = 3
 SKAT_CARD = ".skat-card"
 BAR = ".bid"
@@ -109,6 +109,7 @@ def send(person: Page, table: BiddingTable, suffix: str, payload: dict[str, Any]
         f"{table.server.base_url}{TABLES_PATH}/{table.id}{suffix}",
         data={"command_id": uuid.uuid4().hex, **payload},
         headers={"Origin": table.server.base_url},
+        max_retries=RESET_RETRIES,
     )
     assert response.ok, response.text()
 
