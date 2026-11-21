@@ -399,6 +399,9 @@ def test_a_new_hello_closes_every_hole_and_the_table_posts_its_seats_in_full_aga
 ) -> None:
     with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True) as call:
         wait_for_seat_messages(call, 1)
+        # A chair that still settles posts its new box on its own, so the post to repeat is the settled table's last.
+        until(call, lambda: posted_boxes(call) == live_boxes(call))
+        posted_before = len(seat_messages(call))
         boxes = posted_boxes(call)
         place_all(call)
         until(call, lambda: all(shows_the_stand_in(call, box) for box in boxes))
@@ -406,9 +409,9 @@ def test_a_new_hello_closes_every_hole_and_the_table_posts_its_seats_in_full_aga
         call.visitor.evaluate("placedKeys = []")
         greet(call)
 
-        wait_for_seat_messages(call, 2)
+        wait_for_seat_messages(call, posted_before + 1)
         until(call, lambda: all(shows_the_table(call, box) for box in boxes))
-        assert seat_messages(call)[0] == seat_messages(call)[1]
+        assert seat_messages(call)[posted_before - 1] == seat_messages(call)[posted_before]
         assert call.table.locator(".felt-paint").evaluate("paint => paint.style.clipPath") == ""
 
 
