@@ -6,11 +6,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 from fastapi.testclient import TestClient
-from logline import RequestLineMiddleware
 from starlette.requests import Request
 from webauth.config import WebAuthConfig, installed_web_auth_config
 from webauth.dependencies import session_id_from_request
-from webauth.middleware import ClientAddressMiddleware
 
 from skat.host.app import create_app, end_with_sigterm
 from skat.table.records import Actor, CreateTable, EndReason, SitDown
@@ -336,18 +334,6 @@ class TestCreateApp:
         )
         assert isinstance(config, WebAuthConfig)
         assert config.session_secret.get_secret_value() == sign_in.session_secret
-
-    def test_holds_webauths_client_address_writer_directly_inside_the_request_line(self, sign_in_settings):
-        app = create_app(
-            sign_in_settings().settings,
-            page_build=fixture_page_build(),
-            tables=in_memory_tables(),
-            rule_sets=in_memory_rule_sets(),
-            stores=in_memory_stores(),
-            **single_pod(),
-        )
-
-        assert [entry.cls for entry in app.user_middleware[:2]] == [RequestLineMiddleware, ClientAddressMiddleware]
 
     def test_does_not_start_without_its_sign_in_files(self, sign_in_settings):
         settings = sign_in_settings().settings

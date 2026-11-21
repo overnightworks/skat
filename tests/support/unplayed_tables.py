@@ -1,10 +1,7 @@
 import asyncio
 import threading
 from contextlib import contextmanager
-from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-
-from webauth.config import install_web_auth_config, installed_web_auth_config
 
 from skat.host.app import END_ANSWER_RECOVERY_SECONDS, UNPLAYED_SWEEP_SECONDS, create_app
 from skat.table.records import Actor, CreateTable, SitDown, TableId
@@ -102,7 +99,7 @@ class UnplayedTables:
     def play_on(self, days, seconds=0):
         self.clock[0] = NOW + timedelta(days=days, seconds=seconds)
 
-    def app(self):
+    def app(self, **options):
         return create_app(
             self.settings,
             page_build=fixture_page_build(),
@@ -110,14 +107,13 @@ class UnplayedTables:
             rule_sets=in_memory_rule_sets(),
             chair_scheduler=self.scheduler,
             stores=self.stores,
+            **options,
             **single_pod(),
         )
 
     def app_on_a_clock(self, wall_clock):
         """The app with webauth reading `wall_clock`, as the sessions' expiry is judged by it."""
-        app = self.app()
-        install_web_auth_config(app, replace(installed_web_auth_config(app), wall_clock=wall_clock))
-        return app
+        return self.app(wall_clock=wall_clock)
 
     async def stop_while_held(self, reached, free, *, free_during_the_stop):
         """Serve until the hourly run, started past the days, reaches the hold `reached`, then stop the server.

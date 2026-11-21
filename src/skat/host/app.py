@@ -1,7 +1,7 @@
 import asyncio
 import signal
 import time
-from contextlib import asynccontextmanager, nullcontext
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Final, NoReturn, cast
@@ -13,14 +13,11 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from logline import RequestLineMiddleware
 from starlette.concurrency import run_in_threadpool
-from webauth.config import install_web_auth_config, installed_web_auth_config
-from webauth.middleware import ClientAddressMiddleware, install_web_auth_middleware
+from webauth.config import installed_web_auth_config
 from webauth.policies import (
     CacheControlRule,
     CspDirective,
-    CsrfPolicy,
     PathRules,
     RateLimitPolicy,
     SecurityHeadersPolicy,
@@ -37,7 +34,6 @@ from skat.web.calling import AgentRecords, AgentRoster, CallerMembership, create
 from skat.web.constants import (
     HEALTH_PATH,
     NO_CACHE_PATH_RULES,
-    SIGN_IN_PATHS,
     STREAM_HEARTBEAT_SECONDS,
 )
 from skat.web.declaring import create_declaring_router
@@ -74,9 +70,10 @@ from skat.web.sign_in import (
     IssuerTransports,
     SignInConfigs,
     SignInPorts,
-    build_relying_party,
     build_sign_in_configs,
-    install_sign_in,
+    build_web_auth,
+    create_pages_router,
+    sessions_entry,
 )
 from skat.web.stopping import create_stopping_router
 from skat.web.streams import StreamSlots, StreamSource, create_streams_router
@@ -91,8 +88,8 @@ if TYPE_CHECKING:
     from agents.mcp_server import PlaceStore
     from webauth.config import WebAuthConfig
     from webauth.oidc import OidcRelyingParty
-    from webauth.ports import AgentFacts, RateLimitBackend, SessionRecordStore
-    from webauth.proxies import TrustedProxies
+    from webauth.ports import AgentFacts, RateLimitBackend, SessionRecordStore, WallClock
+    from webauth.web_auth import WebAuth
 
     from skat.table.rule_sets import RuleSetService
     from skat.table.server_steps import EndAnswerLapse
@@ -159,40 +156,26 @@ def _content_security_policy(page_build: PageBuild, call_origin: str | None) -> 
     return default_content_security_policy(page_build.script_hashes, added_sources=added_sources)
 
 
-def _install_web_auth(
-    app: FastAPI, sessions: SessionRecordStore, page_build: PageBuild, call_origin: str | None, mcp: McpAccess
-) -> None:
-    install_web_auth_middleware(
-        app,
-        sign_in_paths=SIGN_IN_PATHS,
+def _build_web_auth(
+    sign_in_configs: SignInConfigs,
+    issuer_transports: IssuerTransports,
+    stores: SignInPorts,
+    page_build: PageBuild,
+    call_origin: str | None,
+) -> WebAuth:
+    return build_web_auth(
+        sign_in_configs,
+        issuer_transports,
+        stores,
+        page_build,
         security_headers=SecurityHeadersPolicy(
             content_security_policy=_content_security_policy(page_build, call_origin),
             cache_control_rules=(CacheControlRule(paths=NO_CACHE_PATH_RULES, value="no-cache"),),
         ),
-        csrf_origin=CsrfPolicy(),
         # /health is the edge's readiness probe.
         rate_limit=RateLimitPolicy(exempt=PathRules(exact=frozenset({HEALTH_PATH}))),
-        bearer_gate=mcp.bearer_gate,
-        session_gate=session_gate(sessions, mcp.public_rule),
+        gate=session_gate(),
     )
-
-
-def _install_request_line(app: FastAPI, trusted_proxies: TrustedProxies) -> None:
-    # Added after the library stack, these sit outside it and see every request, a refused one included; the writer
-    # sits directly inside logline's middleware because webauth cannot see one placed inside another answering layer.
-    app.add_middleware(ClientAddressMiddleware, trusted_proxies=trusted_proxies)
-    app.add_middleware(RequestLineMiddleware)
-
-
-def _install_sign_in(
-    app: FastAPI,
-    sign_in_configs: SignInConfigs,
-    relying_party: OidcRelyingParty,
-    stores: SignInPorts,
-    page_build: PageBuild,
-) -> None:
-    install_web_auth_config(app, sign_in_configs.web_auth)
-    install_sign_in(app, relying_party, stores.transaction, page_build, stores.sessions, sign_in_configs.web_auth)
 
 
 def _chair_hold(
@@ -231,10 +214,10 @@ def _agent_lease(tables: TableService) -> AgentLease:
 def _caller_membership(
     relying_party: OidcRelyingParty,
     sign_in_configs: SignInConfigs,
-    sessions: SessionRecordStore,
+    stores: SignInPorts,
     clock: Callable[[], float],
 ) -> CallerMembership:
-    groups = SessionGroups(relying_party, lambda: nullcontext(sessions), sign_in_configs.web_auth)
+    groups = SessionGroups(relying_party, sessions_entry(stores), sign_in_configs.web_auth)
     return CallerMembership(groups, sign_in_configs.web_auth, relying_party.issuer, clock)
 
 
@@ -540,7 +523,7 @@ def _new_app(lifespan: Callable[[FastAPI], AbstractAsyncContextManager[None]]) -
     return app
 
 
-def _install_agent_front(
+def _mount_agent_front(
     app: FastAPI,
     settings: ServerSettings,
     tables: TableService,
@@ -548,20 +531,17 @@ def _install_agent_front(
     scheduler: Scheduler,
     roster: AgentRoster,
     changes: ResourceChanges,
-    relying_party: OidcRelyingParty,
-    stores: SignInPorts,
-    page_build: PageBuild,
-) -> None:
+    issuer: str,
+) -> McpAccess:
     mcp = mount_mcp(
         app,
-        relying_party,
-        stores.transaction,
+        issuer,
         settings.public_origin,
         _agent_heard(presence, roster),
         member_front(tables, presence, changes, scheduler, presence.waits),
     )
     app.state.mcp_front = mcp.front
-    _install_web_auth(app, stores.sessions, page_build, settings.call_origin, mcp)
+    return mcp
 
 
 def create_app(
@@ -573,6 +553,7 @@ def create_app(
     stores: SignInPorts,
     pods: PodLinks,
     issuer_transports: IssuerTransports = ISSUER_OVER_HTTPS,
+    wall_clock: WallClock = time.time,
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     chair_clock: Callable[[], float] = time.monotonic,
     chair_scheduler: Scheduler | None = None,
@@ -580,9 +561,10 @@ def create_app(
     resource_changes: Callable[[PlaceStore], ResourceChanges] = _agent_changes,
     database_ready: Callable[[], Awaitable[bool]] = _always_ready,
 ) -> FastAPI:
-    sign_in_configs = build_sign_in_configs(settings, pods.rate_limits)
+    sign_in_configs = build_sign_in_configs(settings, pods.rate_limits, wall_clock)
 
-    relying_party = build_relying_party(sign_in_configs, issuer_transports)
+    auth = _build_web_auth(sign_in_configs, issuer_transports, stores, page_build, settings.call_origin)
+    relying_party = auth.relying_party
 
     changes = resource_changes(pods.place_store)
     roster = _agent_roster(changes, relying_party, pods.agent_records, sign_in_configs)
@@ -612,14 +594,14 @@ def create_app(
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))
     _include_table_routers(app, tables, page_build, presence, wakes, stores.sessions, sign_in_configs.web_auth)
-    membership = _caller_membership(relying_party, sign_in_configs, stores.sessions, chair_clock)
+    membership = _caller_membership(relying_party, sign_in_configs, stores, chair_clock)
     app.include_router(create_calling_router(tables, presence, roster, membership))
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)
     app.include_router(create_nudging_router(tables, presence, nudge_signal(changes, relying_party.issuer)))
     _include_stream_routers(app, settings, tables, presence, wakes, slots, stores.sessions, heartbeat_seconds)
-    _install_sign_in(app, sign_in_configs, relying_party, stores, page_build)
-    _install_agent_front(app, settings, tables, presence, scheduler, roster, changes, relying_party, stores, page_build)
-    _install_request_line(app, sign_in_configs.trusted_proxies)
+    app.include_router(create_pages_router(page_build, stores.sessions, sign_in_configs.web_auth))
+    mcp = _mount_agent_front(app, settings, tables, presence, scheduler, roster, changes, relying_party.issuer)
+    auth.install(app, bearer=mcp.bearer_gate)
 
     return app

@@ -1,11 +1,10 @@
 import threading
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import pytest
 from fastapi.testclient import TestClient
-from webauth.config import install_web_auth_config, installed_web_auth_config
 from webauth.policies import RateLimitPolicy
 
 from skat.host.app import create_app
@@ -143,10 +142,7 @@ def make_deployment(sign_in_settings: Callable[..., SignInSettings]) -> Callable
             issuer_transports=issuer.transports,
             database_ready=database_ready or readiness(ready=True),
             stores=in_memory_stores(),
-            **single_pod(),
-        )
-        install_web_auth_config(
-            app, replace(installed_web_auth_config(app), rate_limits=ClockedRateLimitBackend(clock))
+            **single_pod(rate_limits=ClockedRateLimitBackend(clock)),
         )
         return Deployment(app, issuer, clock)
 

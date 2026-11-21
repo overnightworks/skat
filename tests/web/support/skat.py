@@ -3,7 +3,6 @@ import itertools
 import json
 import threading
 from contextlib import ExitStack, contextmanager
-from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -11,7 +10,7 @@ from agents.mcp_wire import PROTOCOL_VERSION, PROTOCOL_VERSION_HEADER
 from fastapi.testclient import TestClient
 from mcp.shared.inbound import MCP_METHOD_HEADER, MCP_NAME_HEADER, NAME_BEARING_METHODS
 from mcp_types import CLIENT_CAPABILITIES_META_KEY, PROTOCOL_VERSION_META_KEY
-from webauth.config import install_web_auth_config, installed_web_auth_config
+from webauth.config import installed_web_auth_config
 
 from skat.engine.deal import positions_from
 from skat.host.app import END_ANSWER_RECOVERY_SECONDS, UNPLAYED_SWEEP_SECONDS, create_app
@@ -138,11 +137,6 @@ class Skat:
     def tables(self):
         """The table service as the app wired it, which tells a listening agent when its standing changed."""
         return self._wired[-1]
-
-    def run_on_clock(self, now):
-        """Reads webauth's time from `now[0]`, a list the test moves; call before the first member is seeded."""
-        self.config = replace(self.config, wall_clock=lambda: now[0])
-        install_web_auth_config(self.app, self.config)
 
     def member(self, account=None, **seed_options):
         """A member with a session of their own; with `account`, a further device of that account."""
