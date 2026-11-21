@@ -14,9 +14,8 @@ from skat.web.declaring import (
 )
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.e2e.support.hands import deal_playing_table
-from tests.e2e.support.raw_http import RawSession
+from tests.e2e.support.raw_http import RawSession, signed_in
 from tests.support.payload_cards import cards_in_text, wire_cards
-from tests.support.signed_in import new_account, seed_member
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -42,11 +41,6 @@ def cards_held_by(table: TableRecord, account_id: str) -> tuple[Card, ...]:
         if chair.occupant is not None and chair.occupant.account_id == account_id:
             return table.hand.hands[positions[chair.seat]]
     return ()
-
-
-def signed_in(server: RunningServer) -> RawSession:
-    member = seed_member(server.stores, server.config, account=new_account(server.stores, server.config))
-    return RawSession(server, member)
 
 
 class DealtTable:

@@ -23,6 +23,7 @@ from tests.e2e.support.tables import (
     TABLE_URL,
     click_new_table,
     open_new_table,
+    open_new_table_sheet,
     table_id_of,
 )
 
@@ -81,11 +82,6 @@ def test_a_member_opens_a_table_and_sits_in_chair_one_with_two_free_chairs(
     )
 
 
-def a_sheet(person: Page, server: RunningServer) -> None:
-    person.goto(f"{server.base_url}/")
-    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
-
-
 def series_length_reading(length: int) -> str:
     return f"{length} {word_text(SOURCE_LANGUAGE, 'start.seriesGames', count=length)}"
 
@@ -101,7 +97,7 @@ def test_the_sheet_offers_the_default_series_length_in_steps_and_stops_at_both_e
         "spinbutton", name=word_text(SOURCE_LANGUAGE, "start.seriesGames", count=SERIES_LENGTH_DEFAULT)
     )
 
-    a_sheet(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
 
     expect(person.get_by_role("dialog")).to_be_visible()
     expect(reading).to_have_text(series_length_reading(SERIES_LENGTH_DEFAULT), use_inner_text=True)
@@ -123,7 +119,7 @@ def test_the_sheet_fits_inside_the_screen(
 ) -> None:
     person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
 
-    a_sheet(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
 
     expect(person.get_by_role("dialog")).to_be_visible()
     box = person.get_by_role("dialog").bounding_box()
@@ -137,7 +133,7 @@ def test_a_sheet_reopened_after_cancelling_reads_the_default_length_again(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
-    a_sheet(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.seriesFewer")).click()
 
     person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.cancelNewTable")).click()
@@ -158,7 +154,7 @@ def test_a_table_opens_with_the_chosen_length_in_one_request_even_when_the_butto
     requests: list[str] = []
     person.on("request", lambda request: requests.append(request.post_data or "") if request.method == "POST" else None)
     before = table_count(e2e_server)
-    a_sheet(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     for _ in range(2):
         person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.seriesFewer")).click()
 
@@ -188,7 +184,7 @@ def test_a_table_opens_with_the_running_points_as_switched_in_one_request_even_w
         "request",
         lambda request: requests.append(json.loads(request.post_data or "{}")) if request.method == "POST" else None,
     )
-    a_sheet(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     running_points_switch = person.get_by_role("switch", name=RUNNING_POINTS_SWITCH)
     expect(running_points_switch).to_have_attribute("aria-checked", "false")
     if running_points:
@@ -211,7 +207,7 @@ def test_a_sheet_reopened_after_cancelling_reads_the_switch_off_again(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
-    a_sheet(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     person.get_by_role("switch", name=RUNNING_POINTS_SWITCH).press("Space")
     expect(person.get_by_role("switch", name=RUNNING_POINTS_SWITCH)).to_have_attribute("aria-checked", "true")
 
@@ -229,7 +225,7 @@ def test_cancelling_the_sheet_closes_it_and_sends_nothing(
     requests: list[str] = []
     person.on("request", lambda request: requests.append(request.url) if request.method == "POST" else None)
     before = table_count(e2e_server)
-    a_sheet(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
 
     person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.cancelNewTable")).click()
 
@@ -431,7 +427,7 @@ def test_a_length_changed_after_a_lost_answer_opens_a_table_at_the_new_length(
     expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}")
     person = record_page_errors(open_person(username="anna", **DESKTOP), page_errors, console=False)
     attempts = lose_the_first_answer_of_opening_a_table(person)
-    a_sheet(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     person.get_by_role("button", name=OPEN_TABLE).click()
     expect(person.get_by_role("alert")).to_have_text(word_text(SOURCE_LANGUAGE, "start.newTableFailed"))
 
@@ -460,7 +456,7 @@ def test_a_sheet_reopened_after_a_lost_answer_replays_the_lost_table_unless_the_
     person = record_page_errors(open_person(username="anna", **DESKTOP), page_errors, console=False)
     attempts = lose_the_first_answer_of_opening_a_table(person)
     before = table_count(e2e_server)
-    a_sheet(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     for _ in range(steps_before_the_lost_answer):
         person.get_by_role("button", name=word_text(SOURCE_LANGUAGE, "start.seriesFewer")).click()
     person.get_by_role("button", name=OPEN_TABLE).click()
@@ -558,7 +554,7 @@ def test_a_switch_flipped_after_a_lost_answer_opens_a_table_at_the_new_choice(
     expected_request_failures.append(f"{e2e_server.base_url}{TABLES_PATH}")
     person = record_page_errors(open_person(username="anna", **DESKTOP), page_errors, console=False)
     attempts = lose_the_first_answer_of_opening_a_table(person)
-    a_sheet(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     person.get_by_role("button", name=OPEN_TABLE).click()
     expect(person.get_by_role("alert")).to_have_text(word_text(SOURCE_LANGUAGE, "start.newTableFailed"))
 

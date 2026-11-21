@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, Route, expect
+from playwright.sync_api import Page, expect
 
 from skat.engine.bidding import VALID_BIDS
 from skat.table.auction import AuctionAction
@@ -33,6 +33,7 @@ from tests.e2e.support.bidding import (
     plan_ahead,
     step,
 )
+from tests.e2e.support.browser import abort_request
 from tests.e2e.support.motion import motion_played, watch_the_motion
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
 from tests.e2e.support.tables import RECONNECT_MILLISECONDS
@@ -321,10 +322,7 @@ def test_a_seat_whose_stream_dropped_shows_the_auction_as_it_stands_and_moves_on
     )
     events = f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}"
 
-    def refuse(route: Route) -> None:
-        route.abort()
-
-    away.route(events, refuse)
+    away.route(events, abort_request)
     let_it_move(away)
     expect(away.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
     expect(away.locator(DUEL)).to_have_count(2)
@@ -332,7 +330,7 @@ def test_a_seat_whose_stream_dropped_shows_the_auction_as_it_stands_and_moves_on
     step(table.middlehand, table, AuctionAction.BID, LOWEST_BID)
     step(table.forehand, table, AuctionAction.PASS)
 
-    away.unroute(events, refuse)
+    away.unroute(events, abort_request)
 
     expect(away.locator(STANDING_READ_ALOUD)).to_have_text(str(LOWEST_BID), timeout=RECONNECT_MILLISECONDS)
     expect(away.locator(DUEL)).to_have_text([YOU, middlehand])

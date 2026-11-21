@@ -16,6 +16,7 @@ from skat.web.auction import (
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, cards_in_text, seated_three
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.web.support.playing import reason_of
 from tests.web.support.skat import FETCH, UNKNOWN_ID
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -38,10 +39,6 @@ def post_step(skat, headers, table_id, *, command_id, version, step, **fields):
         json={"command_id": command_id, "version": version, **fields},
         headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
     )
-
-
-def reason_of(answer):
-    return answer.json()["reason"]
 
 
 def suit_games_worth(karo, herz, pik, kreuz):

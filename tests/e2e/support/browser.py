@@ -21,6 +21,8 @@ ACCOUNT_MENU = "#accountMenu"
 # Chromium words a 401 answer to a fetch like this, and names the address in the message location.
 SIGNED_OUT_ANSWER_LINE = "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
 NEW_TABLE_BUTTON = text(SOURCE_LANGUAGE, "start.newTable")
+# A tap target is at least this many CSS pixels on each side.
+TAP_TARGET_PIXELS = 44
 
 
 def hide_the_tab(page: Page, *, hidden: bool) -> None:
@@ -85,3 +87,7 @@ def sign_in_at_issuer(page: Page, server: RunningServer, *, username: str, group
         )
 
     page.context.route(f"**{AUTH_START_PATH}**", answer)
+
+
+def abort_request(route: Route) -> None:
+    route.abort()

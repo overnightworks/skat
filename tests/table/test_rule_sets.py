@@ -59,8 +59,9 @@ class TestName:
 
 
 class TestDecideSave:
-    def test_a_new_name_is_saved_as_given(self):
-        candidate = a_set(2, "Neu")
+    @pytest.mark.parametrize("name", ["Neu", "abend"], ids=["a new name", "a name differing in case"])
+    def test_a_name_that_is_new_or_differs_only_in_case_is_saved_as_given(self, name):
+        candidate = a_set(2, name)
 
         assert decide_save([a_set(1)], candidate) == candidate
 
@@ -69,11 +70,6 @@ class TestDecideSave:
 
     def test_the_same_name_with_other_options_is_refused(self):
         assert decide_save([a_set(1)], a_set(2, options=KONTRA)) is RuleSetRefusal.NAME_TAKEN
-
-    def test_a_name_differing_in_case_is_another_name(self):
-        candidate = a_set(2, "abend")
-
-        assert decide_save([a_set(1)], candidate) == candidate
 
 
 class TestOrder:

@@ -1,6 +1,9 @@
 from datetime import UTC, datetime
 
+from skat.store.migrate import create_store_engine
+from skat.store.tables import PostgresTableTransactions
 from skat.table.records import Actor, CreateTable, Ending, SitDown, TableId
+from skat.table.service import TableService
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.played_game import after_the_first_game
 
@@ -43,3 +46,8 @@ def ended_at(transactions, table_id, ending=None):
     with transactions.begin() as transaction:
         assert transaction.locked_table(table_id) is not None
         transaction.end_table(table_id, ENDED_AT, ending or Ending.empty(DEFAULT_EMPTY_TABLE_SECONDS))
+
+
+def restarted(database_url):
+    engine = create_store_engine(database_url)
+    return engine, TableService(PostgresTableTransactions(engine))

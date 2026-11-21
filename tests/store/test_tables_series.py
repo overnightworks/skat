@@ -35,6 +35,7 @@ from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.migrations import run_in_transaction
 from tests.support.played_game import after_a_game, after_the_first_game, an_entry
+from tests.support.seated_tables import save
 from tests.support.series_store import (
     ALL_THREE,
     FIRST_SERIES_OPTIONS,
@@ -312,12 +313,8 @@ class TestNewSeries:
             source = random.Random(3)  # noqa: S311 - a seeded source makes the deal reproducible
             rewritten = replace(rewritten, hand=deal(source), dealer=1, progress=HandProgress())
 
-        def save():
-            with transactions.begin() as transaction:
-                transaction.save_table(rewritten, played_at=None)
-
         with pytest.raises(StepLogRewrittenError):
-            save()
+            save(transactions, rewritten)
 
         assert rows_of(engine, game_list) == 1
         assert read(transactions, ended_series) == record

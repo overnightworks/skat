@@ -5,6 +5,8 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from skat.web.constants import CALL_MODE, MODE_QUERY_NAME
+from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.server import loopback_sign_in, running_skat
 from tests.e2e.support.tables import open_new_table
 
@@ -143,3 +145,11 @@ def chair_look(scope: Page | FrameLocator) -> dict[str, int]:
     """Counts of the chairs' marks and rims as `_CHAIR_LOOK_PROBE` reads them in `scope`."""
     look: dict[str, int] = scope.locator(CHAIR).evaluate_all(_CHAIR_LOOK_PROBE)
     return look
+
+
+def call_label(name: str) -> str:
+    return kit_text("agent.callLabel", name=name)
+
+
+def sits_note(name: str) -> str:
+    return text(SOURCE_LANGUAGE, "table.agentSits", name=name)

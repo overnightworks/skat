@@ -31,6 +31,7 @@ from tests.support.payload_cards import (
     wire_cards,
 )
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.web.support.playing import reason_of
 from tests.web.support.skat import FETCH, UNKNOWN_ID, unnamed_lines
 
 if TYPE_CHECKING:
@@ -74,10 +75,6 @@ def post_declaring(skat, headers, table_id, *, command_id, version, suffix, **fi
         json={"command_id": command_id, "version": version, **fields},
         headers={"origin": TEST_PUBLIC_ORIGIN, **headers},
     )
-
-
-def reason_of(answer):
-    return answer.json()["reason"]
 
 
 class Table:

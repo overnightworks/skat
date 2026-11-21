@@ -11,7 +11,7 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.table_menu import menu_button
-from tests.e2e.support.tables import plate_of
+from tests.e2e.support.tables import chair_of, plate_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -61,10 +61,6 @@ NOTICE_ON_THE_PAGE = (
 
 def stand_key_of(person: Page):
     return menu_button(person, STAND_UP)
-
-
-def chair_of(person: Page, seat: int):
-    return person.locator(f".chair[data-seat='{seat}']")
 
 
 def stands_up_through_the_key(person: Page) -> None:

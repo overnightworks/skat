@@ -22,6 +22,7 @@ from skat.web.settings import DatabaseSettings
 from tests.e2e.support.server import SERVER_STOP_TIMEOUT_SECONDS
 from tests.support.migrations import head_revision, revision_before_head, serve_only, upgrade_to
 from tests.support.page_build import FIXTURE_DIRECTORY
+from tests.support.pods import without_password
 
 
 class ServerRecorder:
@@ -50,10 +51,6 @@ def logging_restored_after_main():
 @pytest.fixture
 def server() -> ServerRecorder:
     return ServerRecorder()
-
-
-def without_password(database_url: str) -> str:
-    return make_url(database_url).set(drivername="postgresql", password=None).render_as_string()
 
 
 @pytest.fixture

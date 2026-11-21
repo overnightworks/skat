@@ -8,7 +8,7 @@ from playwright.sync_api import Page, expect
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of
 from tests.e2e.support.hands import deal_playing_table
-from tests.e2e.support.kontra import KONTRA_OPTIONS, ContestedTable, FirstCardTable
+from tests.e2e.support.kontra import KONTRA_OPTIONS, ContestedTable, FirstCardTable, decline_of
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE
 from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
 
@@ -55,10 +55,6 @@ class AnyOpponentTable(ContestedTable):
     """The rearhand, who did not bid, may say Kontra as well."""
 
     kontra_options: ClassVar[dict[str, str]] = KONTRA_OPTIONS
-
-
-def decline_of(word: str) -> str:
-    return text(SOURCE_LANGUAGE, "kontra.decline", word=word)
 
 
 def exactly(label: str) -> re.Pattern[str]:

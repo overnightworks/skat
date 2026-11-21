@@ -280,6 +280,18 @@ class TestResultPending:
         assert decision.table.game_list == table.game_list
 
 
+def ready_at(table: TableRecord, *seats: int) -> TableRecord:
+    return replace(table, chairs=tuple(replace(chair, ready=chair.seat in seats) for chair in table.chairs))
+
+
+def ready_seats(table: TableRecord) -> list[int]:
+    return [chair.seat for chair in table.chairs if chair.ready]
+
+
+def at_the_series_end(table: TableRecord, *seats: int) -> TableRecord:
+    return replace(ready_at(table, *seats), series=Series(3, 3))
+
+
 class TestNextDeal:
     @pytest.mark.parametrize(
         ("table", "connected", "due"),
@@ -296,44 +308,6 @@ class TestNextDeal:
             ),
             pytest.param(running_hand(), ALL_THREE, False, id="a-hand-runs"),
             pytest.param(replace(passed_in(), dealer=None), ALL_THREE, False, id="never-dealt"),
-        ],
-    )
-    def test_is_due_only_when_no_hand_runs_a_dealer_exists_and_all_three_occupants_are_connected(
-        self, table, connected, due
-    ):
-        assert next_deal_due(table, connected) is due
-
-    def test_the_next_hand_replaces_the_cards_and_steps_keeps_the_chairs_and_bumps_the_version_once(self):
-        table = passed_in()
-
-        next_hand = dealt_next(table, DRAWN)
-
-        assert (next_hand.dealer, next_hand.hand, next_hand.progress) == (DRAWN.dealer, DRAWN.hand, HandProgress())
-        assert next_hand.chairs == table.chairs
-        assert next_hand.version == table.version + 1
-
-    def test_the_next_hand_keeps_the_game_list(self):
-        table = replace(passed_in(), game_list=(an_entry(),))
-
-        assert dealt_next(table, DRAWN).game_list == table.game_list
-
-
-def ready_at(table: TableRecord, *seats: int) -> TableRecord:
-    return replace(table, chairs=tuple(replace(chair, ready=chair.seat in seats) for chair in table.chairs))
-
-
-def ready_seats(table: TableRecord) -> list[int]:
-    return [chair.seat for chair in table.chairs if chair.ready]
-
-
-def at_the_series_end(table: TableRecord, *seats: int) -> TableRecord:
-    return replace(ready_at(table, *seats), series=Series(3, 3))
-
-
-class TestNextDealAfterAResult:
-    @pytest.mark.parametrize(
-        ("table", "connected", "due"),
-        [
             pytest.param(ready_at(played_out(), 1, 2, 3), ALL_THREE, True, id="all-three-ready-and-connected"),
             pytest.param(ready_at(played_out(), 1, 2), ALL_THREE, False, id="one-not-ready"),
             pytest.param(played_out(), ALL_THREE, False, id="nobody-ready"),
@@ -356,9 +330,27 @@ class TestNextDealAfterAResult:
             ),
         ],
     )
-    def test_is_due_only_with_all_three_marked_and_connected(self, table, connected, due):
+    def test_is_due_only_when_no_hand_runs_a_dealer_exists_a_result_is_marked_by_all_three_and_all_three_are_connected(
+        self, table, connected, due
+    ):
         assert next_deal_due(table, connected) is due
 
+    def test_the_next_hand_replaces_the_cards_and_steps_keeps_the_chairs_and_bumps_the_version_once(self):
+        table = passed_in()
+
+        next_hand = dealt_next(table, DRAWN)
+
+        assert (next_hand.dealer, next_hand.hand, next_hand.progress) == (DRAWN.dealer, DRAWN.hand, HandProgress())
+        assert next_hand.chairs == table.chairs
+        assert next_hand.version == table.version + 1
+
+    def test_the_next_hand_keeps_the_game_list(self):
+        table = replace(passed_in(), game_list=(an_entry(),))
+
+        assert dealt_next(table, DRAWN).game_list == table.game_list
+
+
+class TestNextDealAfterAResult:
     def test_a_passed_in_hand_needs_no_mark(self):
         assert next_deal_due(replace(passed_in(), game_list=(an_entry(),)), ALL_THREE) is True
 
