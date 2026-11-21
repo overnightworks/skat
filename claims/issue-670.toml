@@ -1,0 +1,8 @@
+claim_id = "34cf9cfed22e403c80f0769af3d087fa"
+agent = "Claude 49ff381e-3e9f-45ed-9b1e-bb7b4fd71df0"
+role = "builder"
+base = "4b61383ea6ecb8fa2775a5533e08d37cad1164ad"
+branch = "claude/issue-670-place-lines-carry-their-trace"
+scope = ["src/skat", "tests"]
+opened_commit = "ee6f78245c4e03db58bd3231b5881239133b88fb"
+whole_reason = "The trace is stored by the store, carried by the table core's records and served at the member MCP boundary; one column without its reader or a field without its value proves nothing."
