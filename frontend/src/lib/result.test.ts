@@ -549,6 +549,17 @@ describe("the reckoning row", () => {
         expect(view.rows.find(({ seat }) => seat === 3)).toMatchObject({ name: "Cleo", gone: false });
     });
 
+    it("reads for someone who sat down in the declarer's chair as for a watcher", () => {
+        const stored = { seat_names: ["Anna", "Ben", "Cleo"] };
+        const sitter = { 1: { occupant_name: "Anna" }, 2: { occupant_name: "Dora" }, 3: { occupant_name: "Cleo" } };
+        const view = resultView(table(2, stored, sitter));
+
+        expect(view.word).toBe(words["result.declarerWins"]({ name: "Ben" }));
+        expect(view.sides.declarer).toBe("Ben");
+        expect(view.rows.find(({ seat }) => seat === 2)).toMatchObject({ name: "Ben", gone: true });
+        expect(view.rows.some(({ name }) => name === words["result.sideYou"])).toBe(false);
+    });
+
     it("keeps the row of a chair that has been left, without a name", () => {
         const rows = resultView(table(2, {}, { 1: { occupant_name: null } })).rows;
 

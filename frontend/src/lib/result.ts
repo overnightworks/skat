@@ -127,6 +127,17 @@ function shownName(chairs: readonly Chair[], names: readonly (string | null)[], 
     return playerOf(chairs, names, seat) ?? words["result.seatFree"];
 }
 
+// The chairs as the game was played: whoever sits in a seat whose stored player was someone else did not play it, so
+// that chair is no longer the viewer's own and the card reads for them as for a watcher.
+function chairsAsPlayed(chairs: readonly Chair[], names: readonly (string | null)[]): readonly Chair[] {
+    return chairs.map((chair) => {
+        const player = names[chair.seat - 1];
+        return chair.is_mine && player !== null && player !== undefined && player !== chair.occupant_name
+            ? { ...chair, is_mine: false }
+            : chair;
+    });
+}
+
 // The viewer's own chair comes first, then the others in seat order; a watcher has no own chair.
 function ownFirst(chairs: readonly Chair[]): Chair[] {
     const own = chairs.filter((chair) => chair.is_mine);
@@ -209,7 +220,7 @@ export function declaredResult(table: Table): Result | null {
 
 // Whether the result is good news for the viewer: a seated viewer's own gain won, a watcher's the declarer's win.
 export function resultIsGood(result: Result, chairs: readonly Chair[]): boolean {
-    const own = chairs.find((chair) => chair.is_mine);
+    const own = chairsAsPlayed(chairs, result.seat_names).find((chair) => chair.is_mine);
     return own === undefined ? result.won : (result.gains.find((one) => one.seat === own.seat) as SeatGain).won;
 }
 
@@ -232,7 +243,7 @@ function stampOf(result: Result, chairs: readonly Chair[]): Stamp | null {
 // The card reads only what the server counted: the sides, the ticks and the glow follow its answer.
 export function resultView(table: Table): ResultView {
     const result = declaredResult(table) as Result;
-    const { chairs } = table;
+    const chairs = chairsAsPlayed(table.chairs, result.seat_names);
     const own = chairs.find((chair) => chair.is_mine);
     const isDeclarer = own?.seat === result.declarer_seat;
     const declarerName = playerOf(chairs, result.seat_names, result.declarer_seat) ?? "";
@@ -342,7 +353,7 @@ function ramschHead(
 export function ramschResultView(table: Table): RamschView | null {
     const result = table.result;
     if (result?.kind !== "ramsch") return null;
-    const { chairs } = table;
+    const chairs = chairsAsPlayed(table.chairs, result.seat_names);
     const sweeper = result.seats.find((one) => one.seat === result.durchmarsch_seat);
     const strong = sweeper === undefined ? result.seats.filter((one) => one.score < 0) : [sweeper];
     const lead = strong[0] as RamschSeat;
