@@ -59,7 +59,7 @@ export const MOTION_SETS = {
             springs: false,
             gatherSeconds: 0,
             glideSeconds: 0.28,
-            lastHoldSeconds: 0,
+            lastHoldSeconds: 0.3,
         },
         chairSitsSeconds: 0.9,
         chairEmptiesSeconds: 0.3,

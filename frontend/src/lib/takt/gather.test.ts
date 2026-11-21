@@ -7,9 +7,8 @@ import {
     takerTimeline,
     type Gathered,
     type Gathering,
-    type GatherSet,
 } from "#lib/takt/gather.ts";
-import { sampled, type Place, type Pose } from "#lib/takt/timeline.ts";
+import { sampled, type Place, type Pose, type Track } from "#lib/takt/timeline.ts";
 import { RANK_TOKENS, SUIT_TOKENS } from "#lib/wire.ts";
 import type { Card } from "../../routes/(start)/tables.ts";
 
@@ -61,12 +60,6 @@ describe.each(SETS)("a finished trick in the set $id", ({ trick }) => {
         expect(lifts).toBeLessThan(gathers);
         expect(gathers).toBeLessThanOrEqual(glides);
         expect(glides).toBeLessThan(piled);
-    });
-
-    it("moves for as long as lies between its gathering and its pile", () => {
-        const { gathers, piled } = gatherInstants(trick);
-
-        expect(gatherTimeline(trick, SEED, SEEN).seconds).toBeCloseTo(piled - gathers);
     });
 });
 
@@ -305,26 +298,24 @@ describe.each(SETS)("the chair that takes a trick in the set $id", ({ trick }) =
         expect(Math.max(...instants.map(tracks.flash))).toBeCloseTo(1);
         expect(tracks.flash(seconds)).toBeCloseTo(0);
     });
-
-    it("stands where it stood before the trick arrives and when the flash is over", () => {
-        for (const at of [0, seconds]) {
-            expect(tracks.hop(at).y).toBeCloseTo(0);
-            expect(tracks.hop(at)).toMatchObject({ x: 0, turn: 0, wide: 1, tall: 1, opacity: 1 });
-        }
-    });
 });
 
 describe("the chair that takes a trick", () => {
-    const hopOf = (trick: GatherSet): number[] => {
-        const { tracks, seconds } = takerTimeline(trick);
-        return instantsOf(seconds).map((at) => tracks.hop(at).y);
-    };
+    const { tracks, seconds } = takerTimeline(SPRINGING);
+    const hop = tracks.hop as Track<Pose>;
 
     it("hops as the trick lands in a set that springs", () => {
-        expect(Math.min(...hopOf(SPRINGING))).toBeLessThan(-1);
+        expect(Math.min(...instantsOf(seconds).map((at) => hop(at).y))).toBeLessThan(-1);
     });
 
-    it("stands still in a set that does not spring", () => {
-        expect(new Set(hopOf(OPEN))).toEqual(new Set([0]));
+    it("stands where it stood before the trick arrives and when the flash is over", () => {
+        for (const at of [0, seconds]) {
+            expect(hop(at).y).toBeCloseTo(0);
+            expect(hop(at)).toMatchObject({ x: 0, turn: 0, wide: 1, tall: 1, opacity: 1 });
+        }
+    });
+
+    it("has no hop in a set that does not spring", () => {
+        expect(takerTimeline(OPEN).tracks.hop).toBeNull();
     });
 });

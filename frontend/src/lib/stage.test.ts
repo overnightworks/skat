@@ -11,8 +11,9 @@ import {
     type Received,
     type Timing,
 } from "#lib/stage.ts";
-import { gatherInstants } from "#lib/takt/gather.ts";
+import { gatherInstants, liftTimeline } from "#lib/takt/gather.ts";
 import { landInstants } from "#lib/takt/land.ts";
+import { sampled } from "#lib/takt/timeline.ts";
 import type { LastTrick, Playing } from "../routes/(start)/tables.ts";
 
 const NOW = 10_000;
@@ -304,5 +305,29 @@ describe("the result of the hand the last trick ends", () => {
         const step = finishing({ closing: true, mode: "stay", timing: null });
 
         expect(step).toEqual({ stage: SETTLED, beats: ["result-shown"] });
+    });
+});
+
+describe("the last trick of a hand in the set „dezent“", () => {
+    // No key waits on motion longer than this, and the result's keys wait for a hand's last trick.
+    const A_KEY_WAITS_AT_MOST_MILLISECONDS = 1600;
+    const set = MOTION_SETS.dezent;
+    const resting = finishing({ closing: true, timing: timingOf(set, false) }).stage;
+    const lifting = advance(resting, resting.until).stage;
+    const gliding = advance(lifting, lifting.until).stage;
+
+    it("holds its taking card lifted until the seal has stood pressed on it for about a third of a second", () => {
+        const { tracks, seconds } = liftTimeline(set.trick, { x: 0, y: 0, width: 70, turn: 0 });
+        const pressedAfter = sampled((at) => at, seconds, 0.001).find((at) => {
+            const { wide, opacity } = tracks.seal(at);
+            return opacity === 1 && wide <= 1;
+        }) as number;
+
+        expect((lifting.until - resting.until) / 1000 - pressedAfter).toBeCloseTo(0.3, 1);
+    });
+
+    it("shows the result no later than a key may wait", () => {
+        expect(advance(gliding, gliding.until)).toEqual({ stage: SETTLED, beats: ["result-shown"] });
+        expect(gliding.until - NOW).toBeLessThanOrEqual(A_KEY_WAITS_AT_MOST_MILLISECONDS);
     });
 });

@@ -133,6 +133,14 @@ def rim_goes_after(played: list[dict[str, Any]]) -> float:
     return last / (len(rim["frames"]) - 1) * rim["milliseconds"]
 
 
+def seal_pressed_after(played: list[dict[str, Any]]) -> float:
+    """The milliseconds into these animations at which the seal has come down whole, no larger than it stays."""
+    seal = next(piece for piece in played if piece["piece"] == "seal")
+    widths = [float(frame["transform"].rsplit("scale(", 1)[1].split(",")[0]) for frame in seal["frames"]]
+    pressed = next(index for index, frame in enumerate(seal["frames"]) if frame["opacity"] == 1 and widths[index] <= 1)
+    return pressed / (len(seal["frames"]) - 1) * seal["milliseconds"]
+
+
 def arrival_of(played: list[dict[str, Any]]) -> str:
     """How the one card these animations move came onto the felt."""
     if not played:

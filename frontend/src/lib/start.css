@@ -5459,13 +5459,11 @@ body {
     animation: count 1.1s ease-out 0.3s both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
+/* The count names only where it starts and ends at the cell's own value: a browser reads a keyframe's var() once, as
+   the count starts, which can be before the cell holds its target. */
 @keyframes count {
     from {
         --n: 0;
-    }
-
-    to {
-        --n: var(--to);
     }
 }
 

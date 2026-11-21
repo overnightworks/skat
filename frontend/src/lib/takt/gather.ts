@@ -67,7 +67,8 @@ export interface GatherTracks {
 export interface TakerTracks {
     /** How much of the gold ring round the taker's chair shows. */
     readonly flash: Track<number>;
-    readonly hop: Track<Pose>;
+    /** The chair's hop, which only a set that springs has. */
+    readonly hop: Track<Pose> | null;
 }
 
 // The taking card comes up toward the eye: it rises a little while its shade falls away below it by this share of its
@@ -301,8 +302,9 @@ export function gatherTimeline(set: GatherSet, seed: string, gathering: Gatherin
             name: (at) => 1 - phase(at, 0, NAME_FADES_SECONDS),
         };
     };
+    const instants = gatherInstants(set);
     return {
-        seconds: set.gatherSeconds + set.glideSeconds,
+        seconds: instants.piled - instants.gathers,
         tracks: { cards: gathering.cards.map(tracksOf), pile: (at) => piled(set, at) },
     };
 }
@@ -321,14 +323,16 @@ export function takerTimeline(set: GatherSet): Timeline<TakerTracks> {
             flash: (seconds) =>
                 phase(seconds, touches, FLASH_RISES_SECONDS) *
                 (1 - phase(seconds, touches + FLASH_STANDS_SECONDS, fades)),
-            hop: (seconds) => ({
-                x: 0,
-                y: set.springs ? -HOP_PIXELS * 4 * hopped(seconds) * (1 - hopped(seconds)) : 0,
-                turn: 0,
-                wide: 1,
-                tall: 1,
-                opacity: 1,
-            }),
+            hop: set.springs
+                ? (seconds) => ({
+                      x: 0,
+                      y: -HOP_PIXELS * 4 * hopped(seconds) * (1 - hopped(seconds)),
+                      turn: 0,
+                      wide: 1,
+                      tall: 1,
+                      opacity: 1,
+                  })
+                : null,
         },
     };
 }

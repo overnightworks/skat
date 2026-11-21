@@ -45,8 +45,12 @@
     // own hand when the viewer's seat played it elsewhere, else from the player's fan, which hides its faces.
     function leavingOf(card: Card, seat: number): { from: Place | undefined; faceDown: boolean } {
         const chair = `.chair[data-seat="${String(seat)}"]`;
-        const held = chairs.some((each) => each.is_mine && each.seat === seat) ? placesOf(".own-hand .card") : [];
-        const shown = letGoPlaceOf(card) ?? placesOf(`${chair} .open .card`)[0] ?? held[Math.floor(held.length / 2)];
+        const midOwnHand = (): Place | undefined => {
+            if (!chairs.some((each) => each.is_mine && each.seat === seat)) return undefined;
+            const held = placesOf(".own-hand .card");
+            return held[Math.floor(held.length / 2)];
+        };
+        const shown = letGoPlaceOf(card) ?? placesOf(`${chair} .open .card`)[0] ?? midOwnHand();
         return { from: shown ?? placesOf(`${chair} .fan`)[0], faceDown: shown === undefined };
     }
 
@@ -153,7 +157,7 @@
         const tile = stage.querySelector(`.chair[data-seat="${String(seat)}"] .tile`);
         if (tile !== null) {
             const taker = takerTimeline(set);
-            move(tile, taker.tracks.hop, taker.seconds);
+            if (taker.tracks.hop !== null) move(tile, taker.tracks.hop, taker.seconds);
             fade(tile, taker.tracks.flash, taker.seconds, { pseudoElement: "::after" });
         }
         return () => {

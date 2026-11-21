@@ -16,6 +16,7 @@ from tests.e2e.support.motion import (
     hold_the_trick_at,
     motion_played,
     rim_goes_after,
+    seal_pressed_after,
     trick_as_drawn,
     watch_the_motion,
 )
@@ -45,6 +46,8 @@ COMPOSED_PROPERTIES = {"transform", "opacity"}
 HEAP_SEEN = 0.05
 HEAP_TURN_SEEN = 2
 ON_THE_PILE_PIXELS = 2
+# A seal is read: it stands pressed on its card at least this long before the trick is gathered.
+SEAL_STANDS_PRESSED_MILLISECONDS = 250
 RIMMED_PILE = ".pile.last"
 LAST_TRICK_SHOWN = ".lastshow"
 SETTINGS_KEY = "skat.settings"
@@ -626,13 +629,15 @@ def test_a_muted_page_sweeps_without_a_sound(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_null_lost_early_rests_its_deciding_trick_then_lifts_the_declarers_card_under_a_red_seal_before_the_result(
+@pytest.mark.parametrize("motion_set", ["verspielt", "dezent"])
+def test_a_null_lost_early_rests_its_deciding_trick_then_holds_the_declarers_card_under_a_red_seal_before_the_result(
     null_table: PlayingTable,
     open_person: Callable[..., Page],
     page_errors: list[str],
     form_factor: dict[str, Any],
+    motion_set: str,
 ) -> None:
-    watcher = open_watcher(open_person, page_errors, null_table, form_factor)
+    watcher = open_watcher(open_person, page_errors, null_table, form_factor, stored={"motionSet": motion_set})
 
     played = null_table.play_until_the_declarer_takes_a_trick()
 
@@ -648,7 +653,10 @@ def test_a_null_lost_early_rests_its_deciding_trick_then_lifts_the_declarers_car
     expect(watcher.locator(f"{TAKING_CARD} .rim")).to_have_count(1)
     expect(watcher.locator(f"{FELT_CARD} .seal")).to_have_count(1)
     expect(watcher.locator(f"{TAKING_CARD} .seal.lost")).to_have_count(1)
+    pressed = seal_pressed_after(motion_played(watcher))
 
+    assert run_until(watcher, SWEEPING, 1) - pressed >= SEAL_STANDS_PRESSED_MILLISECONDS
+    expect(watcher.locator(RESULT_CARD)).to_have_count(0)
     run_until(watcher, RESULT_CARD, 1)
 
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
