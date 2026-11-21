@@ -74,7 +74,7 @@ class BockTable(DeclaringTable):
             for position in ("middlehand", "rearhand", "forehand"):
                 self.step(seat_at[position], TABLE_AUCTION_PASS_SUFFIX)
             expect(self.watcher.locator(".plaque .verdict")).to_have_text(PASSED_IN)
-            expect(self.watcher.locator(".plaque")).to_have_text(BIDDING)
+            expect(self.watcher.locator(".counter .word")).to_have_text(BIDDING)
             seat_at = self._seat_at()
             self.counts.append(self.bock()["games_left"])
         self._name_the_declarer(seat_at)

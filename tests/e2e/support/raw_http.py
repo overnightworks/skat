@@ -5,7 +5,7 @@ import time
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
-from tests.support.signed_in import cookie_header
+from tests.support.signed_in import cookie_header, new_account, seed_member
 
 if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
@@ -94,3 +94,8 @@ class RawStream:
 
     def close(self) -> None:
         self._connection.close()
+
+
+def signed_in(server: RunningServer) -> RawSession:
+    member = seed_member(server.stores, server.config, account=new_account(server.stores, server.config))
+    return RawSession(server, member)

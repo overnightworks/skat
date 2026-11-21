@@ -1,5 +1,4 @@
 import json
-import re
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -7,9 +6,11 @@ from playwright.sync_api import Page, expect
 
 from skat.engine.bidding import VALID_BIDS
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_HOLD_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
-from skat.web.words import SOURCE_LANGUAGE, WORDS, text
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.audio import (
+    CONFIRMATIONS,
     RECORDING_COUNT,
+    keys_said,
     recordings_started,
     tap,
     voices_started,
@@ -35,10 +36,6 @@ pytestmark = pytest.mark.e2e
 SETTINGS_KEY = "skat.settings"
 SOUND_PANEL = text(SOURCE_LANGUAGE, "sound.panelName")
 VOICE = text(SOURCE_LANGUAGE, "sound.voice")
-# The file of a recording is named by its catalog key and a hash of its bytes, after a dot.
-RECORDED_KEY = re.compile(r"/(voice\.\w+)\.[\w-]+\.mp3$")
-# The confirmations the voice says for a hold instead of its number.
-CONFIRMATIONS = {key for key in WORDS[SOURCE_LANGUAGE] if key.startswith("voice.hold")}
 SOUND_SETS = ("leise", "stammtisch", "funkeln")
 # The voices one word of Kontra starts in each sound set, at the table's first tap.
 KONTRA_KNOCK_VOICES = {"leise": 6, "stammtisch": 7, "funkeln": 7}
@@ -100,12 +97,6 @@ def deal(
         game=GAME,
         declaring=table_with_settings(stored, kontra=kontra),
     )
-
-
-def keys_said(page: Page) -> list[str]:
-    """The catalog keys of the recordings the page played, in the order they started."""
-    found = [RECORDED_KEY.search(recording["url"]) for recording in recordings_started(page)]
-    return [match.group(1) for match in found if match is not None]
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

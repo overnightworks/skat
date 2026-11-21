@@ -19,16 +19,18 @@ STYLES = [pytest.param(TableStyle.KLASSIK, id="klassik"), pytest.param(TableStyl
 DECORATIONS = {TableStyle.STRANDBAR: 2, TableStyle.KLASSIK: 1}
 
 # The cocktail and the shell lie under everything the people at the table read and touch: no sampled point of a card,
-# tag, key, chair, plaque or the result is painted by one of them (their pointer events are switched on so the page
-# can say what it paints there), and the page gains no sideways scroll from the rim round the felt. A chair's stool is
-# drawn behind its chair and the cards, as the scenes draw it, and covers nothing.
+# tag, key, chair, plaque, counter or the result is painted by one of them (their pointer events are switched on so the
+# page can say what it paints there), no key of the bid bar paints the middle of one of them, and the page gains no
+# sideways scroll from the rim round the felt. A chair's stool is drawn behind its chair and the cards, as the scenes
+# draw it, and covers nothing.
 FURNITURE_CLEAR = """() => {
     const all = (selector) => [...document.querySelectorAll(selector)];
     const decor = all('.decor');
     for (const element of decor) element.style.pointerEvents = 'auto';
     const covered = all(
         '.own-hand .card, .chair .fan, .chair .tile, .chair .plate, .chair .coaster, .trick .face, .trick .tag, '
-        + '.actions > *, .plaque, .result, .skat-card, .ladder'
+        + '.actions > *, .plaque, .counter, .duel, .result, .skat-card, .ladder, .bid-keys > *, .bid-chips > *, '
+        + '.bid-line > *'
     ).flatMap((element) => {
         const box = element.getBoundingClientRect();
         const points = [0.1, 0.5, 0.9].flatMap((across) =>
@@ -39,6 +41,12 @@ FURNITURE_CLEAR = """() => {
             .filter((found) => found)
             .map((found) => `${found.classList[1]} covers ${element.className}`);
     });
+    for (const element of decor) {
+        const box = element.getBoundingClientRect();
+        const above = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        if (above?.closest('.bid-keys > *, .bid-chips > *, .bid-line > *, .scale'))
+            covered.push(`the bid bar hides the ${element.classList[1]}`);
+    }
     for (const element of decor) element.style.pointerEvents = '';
     if (document.documentElement.scrollWidth > window.innerWidth) covered.push('the page scrolls sideways');
     return [...new Set(covered)];
@@ -93,56 +101,3 @@ def expect_painted_as_the_scene(person: Page, scene: str, live: str, drawn: str,
         person, scene, f"(frame, properties) => ({PAINT})(frame.querySelector({drawn!r}), properties)", properties
     )
     assert person.locator(live).first.evaluate(PAINT, properties) == in_scene
-
-
-# The boxes of everything `selector` finds, left to right, measured from the frame's top left corner, with the radii
-# its top left corner is drawn with, after the browser shrinks radii too long for the box; the page measures from the
-# window's, which a scene's frame stands for.
-BOXES = """(frame, selector) => {
-    const origin = frame === document.documentElement ? { left: 0, top: 0 } : frame.getBoundingClientRect();
-    const length = (value, whole) => (value.endsWith('%') ? (parseFloat(value) / 100) * whole : parseFloat(value));
-    return [...frame.querySelectorAll(selector)]
-        .map((element) => {
-            const box = element.getBoundingClientRect();
-            const [across, down = across] = getComputedStyle(element).borderTopLeftRadius.split(' ');
-            const [x, y] = [length(across, box.width), length(down, box.height)];
-            const shrink = Math.min(1, box.width / (2 * x), box.height / (2 * y));
-            return {
-                left: box.left - origin.left,
-                top: box.top - origin.top,
-                width: box.width,
-                height: box.height,
-                cornerWidth: x * shrink,
-                cornerHeight: y * shrink,
-            };
-        })
-        .sort((first, second) => first.left - second.left);
-}"""
-
-
-def boxes_in_the_scene(person: Page, scene: str, selector: str) -> list[dict[str, Any]]:
-    """The boxes the blessed `scene` draws for `selector` at the width of `person`'s page."""
-    return in_the_scene(person, scene, BOXES, selector)
-
-
-def boxes_on_the_page(person: Page, selector: str) -> list[dict[str, Any]]:
-    """The boxes `person`'s page draws for `selector`, measured as `boxes_in_the_scene` measures the scene's."""
-    return person.locator(":root").evaluate(BOXES, selector)
-
-
-# A box on the page stands where the scene draws it, to the pixel the browser rounds to.
-SCENE_TOLERANCE = 2
-# Where a box stands and how large it is, how round its corners are drawn, and only how high it stands.
-PLACE = ("left", "top", "width", "height")
-SHAPE = ("cornerWidth", "cornerHeight")
-TOP = ("top",)
-
-
-def expect_drawn_as_the_scene(
-    page_boxes: list[dict[str, Any]], scene_boxes: list[dict[str, Any]], measures: tuple[str, ...]
-) -> None:
-    """Each box of the page, left to right, has the `measures` of the scene's box in its place."""
-    assert len(page_boxes) == len(scene_boxes)
-    for on_page, in_scene in zip(page_boxes, scene_boxes, strict=True):
-        for measure in measures:
-            assert abs(on_page[measure] - in_scene[measure]) <= SCENE_TOLERANCE, (measure, on_page, in_scene)

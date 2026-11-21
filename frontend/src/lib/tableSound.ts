@@ -1,9 +1,10 @@
-import type { Cue } from "./cues.ts";
+import type { BidSaid, Cue } from "./cues.ts";
 import { watchDeviceMotion } from "./deviceMotion.svelte.ts";
 import { MOTION_SETS, type MotionSet } from "./motionSets.ts";
 import { currentSettings, loadSettings, motionInForce, soundSettings } from "./settings.svelte.ts";
 import { createSound, type Ambience, type AudioPort, type SoundSettings, type Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundMoment, type SoundSet } from "./soundSets.ts";
+import { gatherInstants } from "./takt/gather.ts";
 import { landInstants } from "./takt/land.ts";
 import { everyRecording, recordingOf, voiceKeysOf, type VoiceKey } from "./voice.ts";
 import { createWebAudioPort } from "./webAudio.ts";
@@ -20,6 +21,7 @@ const MOMENT_STAGGER_SECONDS = 0.12;
 /** The grumble follows the ring this far behind. */
 const GRUMBLE_AFTER_THE_RING_SECONDS = 0.5;
 const ARMING_EVENTS = ["pointerup", "keydown"] as const;
+const MILLISECONDS = 1000;
 /** One short buzz, for a device that can vibrate. */
 const TURN_VIBRATION_MILLISECONDS: readonly number[] = [40];
 
@@ -39,12 +41,19 @@ export interface TableSoundParts {
     readonly recording: (key: VoiceKey) => string | undefined;
     /** Every recording of the page's language, which the voice fetches before it is needed. */
     readonly recordings: () => readonly string[];
+    /** The seconds of a clock that never runs back. */
+    readonly now: () => number;
 }
 
 export interface TableSound {
     /** Wakes the sound at every tap and key on the target; the returned function stops it. */
     arm(target: Pick<EventTarget, "addEventListener" | "removeEventListener">): () => void;
-    forCues(cues: readonly Cue[], table: Table): void;
+    /**
+     * Sounds the cues and says their words. `saidWithinSeconds` is given for a word of a run, which the table tells in
+     * updates of its own: such a word waits until the voice is free and stays unsaid when it would not end within those
+     * seconds, which are without end for the run's last word.
+     */
+    forCues(cues: readonly Cue[], table: Table, saidWithinSeconds?: number): void;
     /** Sounds a reaction thrown at the table once the emote has landed or the object has made its first move. */
     forReaction(reaction: Reaction): void;
     /** Sounds the swept trick at the moment it begins to glide, when it has gathered. */
@@ -64,7 +73,12 @@ interface Moment {
     readonly gain: number;
 }
 
-// A cue without a sound maps to nothing: the table already shows what it tells. A pass has no bubble to tap.
+// A „Weg“ springs up in a bubble only while the auction still awaits a word, so the one that ends it has none to tap.
+function springsUpInABubble({ word }: BidSaid, table: Table): boolean {
+    return word.action !== "pass" || (table.hand?.auction.awaiting ?? null) !== null;
+}
+
+// A cue without a sound maps to nothing: the table already shows what it tells.
 function momentOf(cue: Cue, table: Table): Moment | undefined {
     switch (cue.kind) {
         case "card-played": {
@@ -72,7 +86,7 @@ function momentOf(cue: Cue, table: Table): Moment | undefined {
             return { moment: "card-played", gain: own ? OWN_CARD_GAIN : FOREIGN_CARD_GAIN };
         }
         case "bid-said":
-            return cue.word.action === "pass" ? undefined : { moment: "bid-said", gain: 1 };
+            return springsUpInABubble(cue, table) ? { moment: "bid-said", gain: 1 } : undefined;
         case "word-said":
             return { moment: "word-said", gain: 1 };
         case "dealt":
@@ -117,6 +131,13 @@ function landsAfter(cue: Cue, motion: MotionSet | undefined): number {
     return cue.kind === "card-played" ? landInstants(motion.land).impact : LANDS_AFTER[cue.kind](motion);
 }
 
+// A trick sounds its sweep as it leaves the middle, counted from its first move.
+function glidesAfter(motion: MotionSet | undefined): number {
+    if (motion === undefined) return 0;
+    const { gathers, glides } = gatherInstants(motion.trick);
+    return glides - gathers;
+}
+
 // The gains count up from the moment the result has risen, and tick as long as the set's count runs.
 function countVoices(cues: readonly Cue[], set: SoundSet, motion: MotionSet | undefined): Voice[] {
     if (motion === undefined) return [];
@@ -138,8 +159,11 @@ export function createTableSound({
     voiceOn,
     recording,
     recordings,
+    now,
 }: TableSoundParts): TableSound {
     const sound = createSound(port, settings);
+    // When the voice has said every word it was given, on the clock: the one owner the words of a run wait for.
+    let saysUntil = 0;
 
     async function prepareVoice(): Promise<void> {
         if (voiceOn()) await sound.prepare(recordings());
@@ -156,7 +180,7 @@ export function createTableSound({
                 for (const event of ARMING_EVENTS) target.removeEventListener(event, wake, options);
             };
         },
-        forCues(cues, table) {
+        forCues(cues, table, saidWithinSeconds) {
             const set = soundSet();
             const moving = motion();
             const landings = cues.map((cue) => ({ cue, lands: landsAfter(cue, moving) }));
@@ -174,15 +198,18 @@ export function createTableSound({
             const ticks = countVoices(cues, set, moving);
             if (voices.length + ticks.length > 0) sound.play([...voices, ...ticks]);
             if (!voiceOn()) return;
-            // The words of one update follow each other: a word starts once the word before it has been said.
-            let sayingEnds = 0;
+            const asked = now();
+            // The words of one update follow each other: a word starts once the word before it has been said. A word
+            // of a run also follows what the voice still says, so the run never talks over itself.
+            let sayingEnds = saidWithinSeconds === undefined ? 0 : Math.max(0, saysUntil - asked);
             for (const { cue, lands } of landings) {
                 const due = lands + (cue.kind === "nudged" ? GRUMBLE_AFTER_THE_RING_SECONDS : 0);
                 for (const key of voiceKeysOf(cue)) {
                     const url = recording(key);
-                    if (url !== undefined) sayingEnds = sound.speak(url, Math.max(due, sayingEnds));
+                    if (url !== undefined) sayingEnds = sound.speak(url, Math.max(due, sayingEnds), saidWithinSeconds);
                 }
             }
+            saysUntil = Math.max(saysUntil, asked + sayingEnds);
         },
         forReaction(reaction) {
             const moving = motion();
@@ -195,11 +222,11 @@ export function createTableSound({
             );
         },
         forGlide() {
-            const gathers = motion()?.trickGatherSeconds ?? 0;
+            const glides = glidesAfter(motion());
             sound.play(
                 soundSet()
                     .voices["trick-swept"](1)
-                    .map((voice) => ({ ...voice, at: voice.at + gathers })),
+                    .map((voice) => ({ ...voice, at: voice.at + glides })),
             );
         },
         forTurn(cues) {
@@ -248,6 +275,7 @@ function pageSound(): TableSound {
             voiceOn: () => currentSettings().voice,
             recording: recordingOf,
             recordings: everyRecording,
+            now: () => performance.now() / MILLISECONDS,
         });
     }
     return shared;
@@ -258,9 +286,9 @@ export function armSound(): () => void {
     return pageSound().arm(window);
 }
 
-/** Sounds the cues a table update brought. */
-export function soundForCues(cues: readonly Cue[], table: Table): void {
-    pageSound().forCues(cues, table);
+/** Sounds the cues a table update brought; a word of a run has `saidWithinSeconds` for its voice. */
+export function soundForCues(cues: readonly Cue[], table: Table, saidWithinSeconds?: number): void {
+    pageSound().forCues(cues, table, saidWithinSeconds);
 }
 
 /** Sounds a reaction thrown at the table. */

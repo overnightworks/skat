@@ -580,6 +580,18 @@ describe("recordings", () => {
         expect(port.playRecording(ACHTZEHN, 0)).toBe(RECORDING_SECONDS);
     });
 
+    it("say how long they last before they are played, none for one that is not loaded", async () => {
+        const port = await readyPort();
+        const woken = onlyContext().sources.length;
+
+        expect(port.recordingSeconds(ACHTZEHN)).toBe(0);
+
+        await port.loadRecordings([ACHTZEHN]);
+
+        expect(port.recordingSeconds(ACHTZEHN)).toBe(RECORDING_SECONDS);
+        expect(onlyContext().sources).toHaveLength(woken);
+    });
+
     it.each([
         { name: "that cannot be fetched", fetchRejects: true, decodeRejects: false },
         { name: "that cannot be decoded", fetchRejects: false, decodeRejects: true },

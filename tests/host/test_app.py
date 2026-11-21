@@ -405,9 +405,20 @@ class TestCreateApp:
         assert session is not None
         assert session.user.id == "subject"
 
-    @pytest.mark.parametrize("path", ["/", SIGN_IN_STYLESHEET])
-    def test_serves_the_page_and_its_assets_to_a_member(self, sign_in_settings, path):
-        assert signed_in_client(sign_in_settings().settings).get(path).status_code == 200
+    @pytest.mark.parametrize(
+        ("path", "status"),
+        [
+            ("/", 200),
+            (SIGN_IN_STYLESHEET, 200),
+            ("/docs", 404),
+            ("/redoc", 404),
+            ("/openapi.json", 404),
+        ],
+    )
+    def test_serves_the_page_and_its_assets_to_a_member_and_not_the_generated_documentation(
+        self, sign_in_settings, path, status
+    ):
+        assert signed_in_client(sign_in_settings().settings).get(path).status_code == status
 
     @pytest.mark.parametrize("path", [f"{TABLE_PAGE_PREFIX}table-1%0A", f"{TABLES_PATH}/table-1%0A"])
     def test_a_path_with_a_control_character_answers_400_through_the_app(self, sign_in_settings, path):
@@ -441,10 +452,6 @@ class TestCreateApp:
         assert configured.pop("frame-ancestors") == origin
         unset.pop("frame-ancestors")
         assert configured == unset
-
-    @pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
-    def test_generated_documentation_is_not_served(self, sign_in_settings, path):
-        assert signed_in_client(sign_in_settings().settings).get(path).status_code == 404
 
 
 def test_the_process_is_ended_by_a_sigterm_to_itself_as_an_orchestrator_stops_it():

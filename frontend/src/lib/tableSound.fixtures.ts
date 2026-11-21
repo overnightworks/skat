@@ -1,9 +1,11 @@
 import type { Cue } from "./cues.ts";
+import { EVERY_HAND_DEALT, table } from "./cues.fixtures.ts";
 import { MOTION_SETS, type MotionSetId } from "./motionSets.ts";
 import type { Ambience, AudioPort, Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundSetId } from "./soundSets.ts";
+import { auctionWith } from "./table.fixtures.ts";
 import { createTableSound, type TableSound } from "./tableSound.ts";
-import type { Card, Chair, LastTrick, Table } from "../routes/(start)/tables.ts";
+import type { Card, Chair, Hand, LastTrick, Table } from "../routes/(start)/tables.ts";
 
 export const OWN_SEAT = 1;
 export const OTHER_SEAT = 2;
@@ -52,6 +54,10 @@ export class FakePort implements AudioPort {
     loadRecordings(urls: readonly string[]): Promise<void> {
         this.loaded.push(...urls);
         return Promise.resolve();
+    }
+
+    recordingSeconds(): number {
+        return RECORDING_SECONDS;
     }
 
     playRecording(url: string, afterSeconds: number): number {
@@ -107,6 +113,16 @@ export function tableSeenFrom(ownSeat: number): Table {
     };
 }
 
+/** The table as `ownSeat` sees it while its auction awaits a word. */
+export function tableAwaitingAWord(ownSeat: number): Table {
+    const dealt = table(2, EVERY_HAND_DEALT, { declaring: null });
+    return { ...dealt, chairs: tableSeenFrom(ownSeat).chairs, hand: handAwaitingAnAnswer(dealt) };
+}
+
+function handAwaitingAnAnswer(dealt: Table): Hand {
+    return { ...(dealt.hand as Hand), auction: auctionWith({ awaiting: "answer" }) };
+}
+
 export const RECORDING_OF = (key: string): string => `/voice/${key}.mp3`;
 
 interface Options {
@@ -116,6 +132,8 @@ interface Options {
     muted?: boolean;
     background?: boolean;
     vibration?: boolean;
+    /** The seconds the sound's clock shows; a sound that is not asked for the time stands at none. */
+    now?: () => number;
 }
 
 export function soundAt(port: FakePort, options: Options = {}): TableSound {
@@ -130,6 +148,7 @@ export function soundAt(port: FakePort, options: Options = {}): TableSound {
         voiceOn: () => options.voice ?? false,
         recording: (key) => (key === "voice.supra" ? undefined : RECORDING_OF(key)),
         recordings: () => [RECORDING_OF("voice.kontra"), RECORDING_OF("voice.re")],
+        now: options.now ?? (() => 0),
     });
 }
 

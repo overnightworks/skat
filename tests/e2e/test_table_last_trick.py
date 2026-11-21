@@ -1,4 +1,5 @@
 import json
+import math
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -11,6 +12,14 @@ from tests.e2e.support.audio import VOICES_OF_ONE_CARD, voices_started
 from tests.e2e.support.browser import hide_the_tab, record_page_errors
 from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, holds, passes
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
+from tests.e2e.support.motion import (
+    hold_the_trick_at,
+    motion_played,
+    rim_goes_after,
+    seal_pressed_after,
+    trick_as_drawn,
+    watch_the_motion,
+)
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.server import AlwaysTheSameDeal, skat_on_new_database
 from tests.e2e.support.turn_key import POPS_RINGS_AND_SHINES, motion_of
@@ -24,9 +33,24 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 FELT_CARD = ".trick .laid"
-SWEEPING = ".trick.sweeping"
+# The card that took a finished trick, once the trick has lain: it lifts in a brass rim.
+TAKING_CARD = ".trick .laid.took"
+# While a trick glides to its taker, the top card of the taker's pile is the one it becomes.
+SWEEPING = ".pile .card.landing"
 PILE = ".pile"
+# Takt moves a card of the trick, its shade, its back and its player's name, and writes only these two properties.
+PIECES_OF_A_CARD = {"face", "shade", "rear", "tag"}
+COMPOSED_PROPERTIES = {"transform", "opacity"}
+# Two views show a heaped card alike within a twentieth of a card's width and two degrees, and a card on the pile
+# within two pixels of the pile's top card.
+HEAP_SEEN = 0.05
+HEAP_TURN_SEEN = 2
+ON_THE_PILE_PIXELS = 2
+# A seal is read: it stands pressed on its card at least this long before the trick is gathered.
+SEAL_STANDS_PRESSED_MILLISECONDS = 250
 RIMMED_PILE = ".pile.last"
+# The room names its motion set while one is in force.
+MOVING_ROOM = ".room[data-motion]"
 LAST_TRICK_SHOWN = ".lastshow"
 SETTINGS_KEY = "skat.settings"
 CARDS_IN_A_TRICK = 3
@@ -94,6 +118,20 @@ def table(
     return deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor)
 
 
+@pytest.fixture
+def won_table(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> PlayingTable:
+    """A Kreuz the forehand declares at the lowest bid; he wins it when every seat plays its first legal card."""
+    return deal_playing_table(
+        open_person, e2e_server, member_of, page_errors, form_factor, declaring=DeclarerLeadsTable
+    )
+
+
 def open_watcher(
     open_person: Callable[..., Page],
     page_errors: list[str],
@@ -108,6 +146,7 @@ def open_watcher(
     watcher = record_page_errors(
         open_person(reduced_motion="no-preference" if moving else "reduce", **form_factor), page_errors
     )
+    watch_the_motion(watcher)
     if stored is not None:
         watcher.add_init_script(f"localStorage.setItem({SETTINGS_KEY!r}, {json.dumps(json.dumps(stored))})")
     if clock:
@@ -134,6 +173,62 @@ def rest_and_sweep(page: Page) -> tuple[int, int]:
     """Runs a finished trick through its rest and its sweep; the milliseconds each took."""
     rest = run_until(page, SWEEPING, 1)
     return rest, run_until(page, FELT_CARD, 0)
+
+
+def rest_until_gathered(page: Page) -> tuple[int, list[dict[str, Any]]]:
+    """Runs a lying trick until it glides; the milliseconds its rest took and what the page plays to gather it."""
+    rest = run_until(page, TAKING_CARD, 1)
+    lifted = len(motion_played(page))
+    rest += run_until(page, SWEEPING, 1)
+    return rest, motion_played(page)[lifted:]
+
+
+def cards_among(page: Page, gathering: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The pieces of the trick's three cards among what `page` plays to gather it, composed and none of them CSS."""
+    cards = [piece for piece in gathering if piece["seat"] is not None]
+    assert len({piece["seat"] for piece in cards}) == CARDS_IN_A_TRICK
+    assert {written for piece in gathering for frame in piece["frames"] for written in frame} <= COMPOSED_PROPERTIES
+    assert css_animations_on_the_trick_and_the_piles(page) == 0
+    return cards
+
+
+def heap_of_a_trick_turned_over_and_piled(page: Page, taking_pile: str) -> dict[str, dict[str, Any]]:
+    """Rests the trick of `page` until it is gathered; its heap as drawn, seen turned over and landed on the pile."""
+    _, gathering = rest_until_gathered(page)
+    cards = cards_among(page, gathering)
+    assert {piece["piece"] for piece in cards} >= PIECES_OF_A_CARD
+    # Every card starts face up and ends face down.
+    backs = [piece["frames"] for piece in cards if piece["piece"] == "rear"]
+    assert [(frames[0]["opacity"], frames[-1]["opacity"]) for frames in backs] == [(0, 1)] * CARDS_IN_A_TRICK
+    # The heap lies whole and face up until it is turned over, which is when the taking card's rim goes.
+    hold_the_trick_at(page, rim_goes_after(cards))
+    heap = trick_as_drawn(page, taking_pile)
+    assert not any(card["backUp"] for card in heap.values())
+    hold_the_trick_at(page, max(piece["milliseconds"] for piece in cards))
+    on_the_pile = trick_as_drawn(page, taking_pile)
+    assert all(card["backUp"] for card in on_the_pile.values())
+    assert max(card["pixelsOff"] for card in on_the_pile.values()) < ON_THE_PILE_PIXELS
+    return heap
+
+
+def seated_with_motion(table: PlayingTable, seat: int) -> Page:
+    """The page of the player at `seat`, moving and watched, with a clock only the test moves."""
+    player = table.pages[seat]
+    player.emulate_media(reduced_motion="no-preference")
+    watch_the_motion(player)
+    player.clock.install()
+    player.clock.pause_at(datetime.now(UTC) + CLOCK_HOLD_LEAD)
+    player.reload()
+    expect(player.locator(".chair")).to_have_count(3)
+    return player
+
+
+def css_animations_on_the_trick_and_the_piles(page: Page) -> int:
+    return page.evaluate(
+        """() => [...document.querySelectorAll('.trick, .pile')]
+            .flatMap((part) => part.getAnimations({ subtree: true }))
+            .filter((played) => played instanceof CSSAnimation).length"""
+    )
 
 
 def taker_of_the_last_trick(table: PlayingTable) -> int:
@@ -175,22 +270,29 @@ def test_a_finished_trick_rests_then_sweeps_to_its_winner_with_one_sweep_sound_a
     first_taker = taker_of_the_last_trick(table)
     expect_nobody_on_turn(watcher)
     expect(watcher.locator(PILE)).to_have_count(0)
-    expect(watcher.locator(SWEEPING)).to_have_count(0)
+    expect(watcher.locator(TAKING_CARD)).to_have_count(0)
     sounded_before = len(voices_started(watcher))
+
+    assert run_until(watcher, TAKING_CARD, 1) > 0
+
+    # The card that took the trick lifts in the brass rim; no seal marks a trick that decides nothing.
+    expect(watcher.locator(TAKING_CARD)).to_have_attribute("data-seat", str(first_taker))
+    expect(watcher.locator(f"{TAKING_CARD} .rim")).to_have_count(1)
+    expect(watcher.locator(f"{TAKING_CARD} .seal")).to_have_count(0)
+    expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+    expect(watcher.locator(PILE)).to_have_count(0)
+    assert len(voices_started(watcher)) == sounded_before
 
     assert run_until(watcher, SWEEPING, 1) > 0
 
-    expect(watcher.locator(SWEEPING)).to_have_count(1)
-    expect(watcher.locator(f".chair.got[data-seat='{first_taker}']")).to_have_count(1)
-    names = watcher.locator(FELT_CARD).first.evaluate("card => card.getAnimations().map(each => each.animationName)")
-    assert "sweep-verspielt" in names
     assert len(voices_started(watcher)) == sounded_before + VOICES_OF_ONE_SWEEP
     expect(watcher.locator(f"{PILE}[data-seat='{first_taker}'] .card.landing")).to_have_count(1)
+    expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
 
     run_until(watcher, FELT_CARD, 0)
 
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
-    expect(watcher.locator(".chair.got")).to_have_count(0)
+    expect(watcher.locator(SWEEPING)).to_have_count(0)
     expect_the_piles(watcher, table)
     expect_the_rim_on(watcher, first_taker)
     expect(watcher.locator(f".chair.turn[data-seat='{table.turn_seat()}']")).to_have_count(1)
@@ -208,6 +310,81 @@ def test_a_finished_trick_rests_then_sweeps_to_its_winner_with_one_sweep_sound_a
     expect_the_rim_on(watcher, second_taker)
     second_trick = CARDS_IN_A_TRICK * VOICES_OF_ONE_CARD + VOICES_OF_ONE_SWEEP
     assert len(voices_started(watcher)) == sounded_after_first_sweep + second_trick
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+@pytest.mark.parametrize("motion_set", ["verspielt", "dezent"])
+def test_a_trick_rests_from_when_its_last_card_lies_and_only_then_lifts_the_card_that_took_it(
+    table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    motion_set: str,
+) -> None:
+    watcher = open_watcher(open_person, page_errors, table, form_factor, stored={"motionSet": motion_set})
+    table.play_out(CARDS_IN_A_TRICK - 1)
+    expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK - 1)
+    last_seat = table.turn_seat()
+
+    table.play_out(1)
+
+    expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+    landing = [piece for piece in motion_played(watcher) if piece["seat"] == last_seat]
+    assert {piece["piece"] for piece in landing} == PIECES_OF_A_CARD
+    landed = len(motion_played(watcher))
+    watcher.clock.run_for(math.ceil(max(piece["milliseconds"] for piece in landing)))
+    # The last card lies now, and the trick has only begun to rest: nothing lifts, nothing is gathered.
+    expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+    expect(watcher.locator(TAKING_CARD)).to_have_count(0)
+    expect(watcher.locator(SWEEPING)).to_have_count(0)
+    assert len(motion_played(watcher)) == landed
+
+    assert run_until(watcher, TAKING_CARD, 1) > 0
+
+    taker = taker_of_the_last_trick(table)
+    lift = motion_played(watcher)[landed:]
+    assert {piece["seat"] for piece in lift} == {taker}
+    assert {"face", "shade", "rim"} <= {piece["piece"] for piece in lift}
+    assert {written for piece in lift for frame in piece["frames"] for written in frame} <= COMPOSED_PROPERTIES
+    expect(watcher.locator(SWEEPING)).to_have_count(0)
+    assert run_until(watcher, SWEEPING, 1) > 0
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_playful_set_heaps_the_trick_alike_for_a_player_and_a_watcher_turns_it_over_and_throws_it_onto_the_pile(
+    table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    watcher = open_watcher(open_person, page_errors, table, form_factor)
+    watchers_near_seat = watcher.locator(".chair").nth(2).get_attribute("data-seat")
+    player = seated_with_motion(table, next(seat for seat in table.pages if str(seat) != watchers_near_seat))
+    table.play_out(CARDS_IN_A_TRICK)
+    taking_pile = f"{PILE}[data-seat='{taker_of_the_last_trick(table)}'] .card.landing"
+
+    expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+    expect(player.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+
+    seen = heap_of_a_trick_turned_over_and_piled(watcher, taking_pile)
+    played = heap_of_a_trick_turned_over_and_piled(player, taking_pile)
+
+    assert seen.keys() == played.keys()
+    # The two pages show the trick from different sides, yet each card lies in the heap alike.
+    assert watcher.locator(f"{FELT_CARD}.near").get_attribute("data-seat") != player.locator(
+        f"{FELT_CARD}.near"
+    ).get_attribute("data-seat")
+    for card, heaped in seen.items():
+        assert heaped["x"] == pytest.approx(played[card]["x"], abs=HEAP_SEEN), card
+        assert heaped["y"] == pytest.approx(played[card]["y"], abs=HEAP_SEEN), card
+        assert abs((heaped["turn"] - played[card]["turn"] + 180) % 360 - 180) < HEAP_TURN_SEEN, card
+        assert math.hypot(heaped["x"], heaped["y"]) < 1 / 2, card
+        assert heaped["pixelsOff"] > ON_THE_PILE_PIXELS
+    for page in (watcher, player):
+        run_until(page, FELT_CARD, 0)
+        expect_the_piles(page, table)
     assert page_errors == []
 
 
@@ -230,6 +407,26 @@ def test_the_result_waits_for_the_last_trick_to_rest_and_sweep_to_its_winner(
 
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
     assert table.result()["ordinal"] > 0
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_won_hand_holds_the_card_that_took_its_last_trick_under_a_gold_seal_before_the_result(
+    won_table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    watcher = open_watcher(open_person, page_errors, won_table, form_factor)
+    won_table.play_out(CARDS_IN_A_HAND)
+
+    expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+    run_until(watcher, TAKING_CARD, 1)
+
+    expect(watcher.locator(f"{TAKING_CARD} .seal.won")).to_have_count(1)
+    expect(watcher.locator(RESULT_CARD)).to_have_count(0)
+    run_until(watcher, RESULT_CARD, 1)
+    assert won_table.result()["won"] is True
     assert page_errors == []
 
 
@@ -301,7 +498,7 @@ def test_the_weiter_key_pops_with_a_short_scale_and_a_ring_around_it_when_the_re
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_quiet_set_rests_shorter_and_glides_straight(
+def test_the_quiet_set_rests_shorter_and_glides_the_trick_open_onto_the_pile(
     table: PlayingTable,
     open_person: Callable[..., Page],
     page_errors: list[str],
@@ -313,10 +510,14 @@ def test_the_quiet_set_rests_shorter_and_glides_straight(
     expect(quiet.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
     expect(playful.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
 
-    quiet_rest = run_until(quiet, SWEEPING, 1)
+    quiet_rest, gathering = rest_until_gathered(quiet)
 
-    names = quiet.locator(FELT_CARD).first.evaluate("card => card.getAnimations().map(each => each.animationName)")
-    assert "sweep-dezent" in names
+    cards = cards_among(quiet, gathering)
+    # No back comes up on the way, and the way ends on the pile's top card.
+    assert {frame["opacity"] for piece in cards if piece["piece"] == "rear" for frame in piece["frames"]} == {0}
+    taking_pile = f"{PILE}[data-seat='{taker_of_the_last_trick(table)}'] .card.landing"
+    hold_the_trick_at(quiet, max(piece["milliseconds"] for piece in cards))
+    assert max(card["pixelsOff"] for card in trick_as_drawn(quiet, taking_pile).values()) < ON_THE_PILE_PIXELS
     quiet_sweep = run_until(quiet, FELT_CARD, 0)
     expect_the_piles(quiet, table)
     playful_rest, playful_sweep = rest_and_sweep(playful)
@@ -414,6 +615,28 @@ def test_with_reduced_motion_the_trick_is_piled_at_once_and_still_sounds(
     expect_the_rim_on(watcher, taker_of_the_last_trick(table))
     expect(watcher.locator(f".chair.turn[data-seat='{table.turn_seat()}']")).to_have_count(1)
     assert len(voices_started(watcher)) == sounded_before + VOICES_OF_ONE_CARD + VOICES_OF_ONE_SWEEP
+    assert motion_played(watcher) == []
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_device_that_asks_for_reduced_motion_while_a_trick_lies_sees_it_piled_with_nothing_more_played(
+    table: PlayingTable,
+    open_person: Callable[..., Page],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    watcher = open_watcher(open_person, page_errors, table, form_factor)
+    table.play_out(CARDS_IN_A_TRICK)
+    expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+
+    watcher.emulate_media(reduced_motion="reduce")
+    expect(watcher.locator(MOVING_ROOM)).to_have_count(0)
+    played = len(motion_played(watcher))
+    run_until(watcher, FELT_CARD, 0)
+
+    assert len(motion_played(watcher)) == played
+    expect_the_piles(watcher, table)
     assert page_errors == []
 
 
@@ -427,16 +650,20 @@ def test_a_reload_and_a_window_that_turns_hidden_show_the_trick_piled(
     watcher = open_watcher(open_person, page_errors, table, form_factor)
     table.play_out(CARDS_IN_A_TRICK)
     expect(watcher.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
+    landed = len(motion_played(watcher))
 
     hide_the_tab(watcher, hidden=True)
 
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
     expect_the_piles(watcher, table)
+    # Nothing lifts and nothing is gathered for a window nobody sees, nor for a table that is read anew.
+    assert len(motion_played(watcher)) == landed
 
     watcher.reload()
     expect(watcher.locator(".chair")).to_have_count(3)
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
     expect_the_piles(watcher, table)
+    assert motion_played(watcher) == []
     assert page_errors == []
 
 
@@ -459,13 +686,15 @@ def test_a_muted_page_sweeps_without_a_sound(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_null_lost_early_rests_its_deciding_trick_then_lifts_the_declarers_card_in_a_red_rim_before_the_result(
+@pytest.mark.parametrize("motion_set", ["verspielt", "dezent"])
+def test_a_null_lost_early_rests_its_deciding_trick_then_holds_the_declarers_card_under_a_red_seal_before_the_result(
     null_table: PlayingTable,
     open_person: Callable[..., Page],
     page_errors: list[str],
     form_factor: dict[str, Any],
+    motion_set: str,
 ) -> None:
-    watcher = open_watcher(open_person, page_errors, null_table, form_factor)
+    watcher = open_watcher(open_person, page_errors, null_table, form_factor, stored={"motionSet": motion_set})
 
     played = null_table.play_until_the_declarer_takes_a_trick()
 
@@ -474,11 +703,17 @@ def test_a_null_lost_early_rests_its_deciding_trick_then_lifts_the_declarers_car
     expect(watcher.locator(RESULT_CARD)).to_have_count(0)
     expect(watcher.locator(f"{FELT_CARD}.took")).to_have_count(0)
 
-    assert run_until(watcher, f"{FELT_CARD}.took.lost", 1) > 0
+    assert run_until(watcher, TAKING_CARD, 1) > 0
 
     expect(watcher.locator(RESULT_CARD)).to_have_count(0)
-    expect(watcher.locator(f"{FELT_CARD}.took.lost")).to_have_attribute("data-seat", str(null_table.declarer_seat))
+    expect(watcher.locator(TAKING_CARD)).to_have_attribute("data-seat", str(null_table.declarer_seat))
+    expect(watcher.locator(f"{TAKING_CARD} .rim")).to_have_count(1)
+    expect(watcher.locator(f"{FELT_CARD} .seal")).to_have_count(1)
+    expect(watcher.locator(f"{TAKING_CARD} .seal.lost")).to_have_count(1)
+    pressed = seal_pressed_after(motion_played(watcher))
 
+    assert run_until(watcher, SWEEPING, 1) - pressed >= SEAL_STANDS_PRESSED_MILLISECONDS
+    expect(watcher.locator(RESULT_CARD)).to_have_count(0)
     run_until(watcher, RESULT_CARD, 1)
 
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
@@ -500,9 +735,9 @@ def test_with_reduced_motion_a_null_lost_early_shows_its_deciding_trick_as_a_row
     expect(watcher.locator(RESULT_CARD)).to_have_count(1)
     expect(watcher.locator(RESULT_CARD).get_by_role("list", name=DECIDING_TRICK)).to_have_count(1)
     expect(watcher.locator(DECIDING_ROW_CARD)).to_have_count(CARDS_IN_A_TRICK)
-    expect(watcher.locator(f"{DECIDING_ROW_CARD}.took.lost")).to_have_attribute(
-        "data-seat", str(null_table.declarer_seat)
-    )
+    expect(watcher.locator(f"{DECIDING_ROW_CARD}.took")).to_have_attribute("data-seat", str(null_table.declarer_seat))
+    expect(watcher.locator(f"{DECIDING_ROW_CARD} .seal")).to_have_count(1)
+    expect(watcher.locator(f"{DECIDING_ROW_CARD}.took .seal.lost")).to_have_count(1)
     expect(watcher.locator(FELT_CARD)).to_have_count(0)
     assert page_errors == []
 

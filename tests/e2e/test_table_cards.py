@@ -7,7 +7,7 @@ from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
-from tests.e2e.support.tables import open_new_table
+from tests.e2e.support.tables import open_new_table, sit_in, watch
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -33,15 +33,6 @@ ANIMATIONS_OF_THE_HAND = """() => [...document.querySelectorAll('.own-hand .card
     (card) => card.getAnimations().map((animation) => animation.playState)
 )"""
 HAND_HAS_SETTLED = f"() => ({ANIMATIONS_OF_THE_HAND})().every((state) => state === 'finished')"
-
-
-def watch(person: Page, server: RunningServer, path: str) -> None:
-    person.goto(f"{server.base_url}{path}")
-    expect(person.locator(".chair")).to_have_count(3)
-
-
-def sit_in(person: Page, seat: int) -> None:
-    person.locator(f".chair[data-seat='{seat}']").get_by_role("button", name=SIT_DOWN).click()
 
 
 def note_of(person: Page) -> Locator:
@@ -107,7 +98,7 @@ def test_each_seated_player_sees_their_own_ten_cards_after_the_deal_and_a_reload
 
     for person in players:
         expect(card_faces_of(person)).to_have_count(CARDS_IN_A_HAND)
-        expect(note_of(person)).to_have_text(BIDDING)
+        expect(person.locator(".counter .word")).to_have_text(BIDDING)
         person.wait_for_function(HAND_HAS_SETTLED)
         assert_whole_hand_inside_the_viewport(person)
     for person in players:
@@ -142,7 +133,7 @@ def test_a_watcher_sees_no_card_and_a_stream_message_leaves_a_players_hand_as_it
 
     expect(watcher.locator(WATCHER_COUNT)).to_have_text("1")
     expect(opener.locator(WATCHER_COUNT)).to_have_text("1")
-    expect(note_of(watcher)).to_have_text(BIDDING)
+    expect(watcher.locator(".counter .word")).to_have_text(BIDDING)
     expect(card_faces_of(watcher)).to_have_count(0)
     expect(first_card).to_have_attribute("data-kept-across-messages", "yes")
     assert drawn_cards_of(opener) == cards_before_the_message

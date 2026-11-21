@@ -75,16 +75,14 @@ class TestFromADealtLiveTableAnUndealtTableAndAnEndedTableAtRevisionTwentyThree:
         with pytest.raises(IntegrityError):
             run_in_transaction(migrated, text(update))
 
-    def test_accepts_the_end_that_clears_both_facts(self, migrated):
-        run_in_transaction(
-            migrated,
-            text(
-                "UPDATE tables SET ended_at = now(), end_reason = 'empty', empty_seconds = 60, dealer = NULL,"
-                " last_played_at = NULL, opener_name = NULL WHERE id = 'dealt'"
-            ),
-        )
-
-    def test_accepts_a_name_and_a_time_on_a_dealt_live_table(self, migrated):
-        run_in_transaction(
-            migrated, text("UPDATE tables SET opener_name = 'Ben', last_played_at = now() WHERE id = 'dealt'")
-        )
+    @pytest.mark.parametrize(
+        "update",
+        [
+            "UPDATE tables SET ended_at = now(), end_reason = 'empty', empty_seconds = 60, dealer = NULL,"
+            " last_played_at = NULL, opener_name = NULL WHERE id = 'dealt'",
+            "UPDATE tables SET opener_name = 'Ben', last_played_at = now() WHERE id = 'dealt'",
+        ],
+        ids=["the end that clears both facts", "a name and a time on a dealt live table"],
+    )
+    def test_accepts_a_row_the_table_can_hold(self, migrated, update):
+        run_in_transaction(migrated, text(update))

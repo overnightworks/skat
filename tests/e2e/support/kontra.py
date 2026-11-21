@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, ClassVar
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.kontra import Word
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
+from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, command_numbers, holds, passes
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.tables import open_table_with_options
@@ -104,3 +105,7 @@ def say_kontra_as_an_opponent(table: PlayingTable) -> None:
     }
     table.declaring.sessions[seat].post(f"{table.declaring.api_path}{TABLE_KONTRA_SUFFIX}", body)
     assert table.playing()["kontra"]["factor"] == Word.KONTRA.factor
+
+
+def decline_of(word: str) -> str:
+    return text(SOURCE_LANGUAGE, "kontra.decline", word=word)

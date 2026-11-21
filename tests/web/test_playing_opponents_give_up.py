@@ -17,19 +17,22 @@ from skat.web.playing import (
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, cards_in, cards_in_text
 from tests.web.support.giving_up import (
-    HEAVY_DEAL,
-    HEAVY_THREE_TRICKS,
-    HEAVY_TWO_TRICKS,
     NULL_DEAL,
     NULL_TWO_TRICKS,
     SEAT,
-    declared_herz_at_22,
     everyones_streams,
     own_cards_of,
     playing_as,
 )
 from tests.web.support.playing import Table, card, cards, ending_of, gains, game_of, three_pass
 from tests.web.support.series import tap_weiter
+from tests.web.support.shortening import (
+    herz_at_22_with_42_points_against,
+    herz_hand_with_63_points_against,
+    herz_hand_won_by_tricks_and_skat,
+    null_hand_before_a_trick,
+    undecided_herz_at_22,
+)
 from tests.web.support.skat import AgentTable, Skat, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -159,33 +162,6 @@ def shown(result, expected):
 
 def undecided_herz_hand(table):
     table.declared_hand_game()
-
-
-def undecided_herz_at_22(table):
-    table.with_deal(HEAVY_DEAL)
-    declared_herz_at_22(table)
-
-
-def herz_at_22_with_42_points_against(table):
-    undecided_herz_at_22(table)
-    table.played_out(HEAVY_TWO_TRICKS)
-
-
-def herz_hand_won_by_tricks_and_skat(table):
-    table.declared_hand_game()
-    table.played_out(SEVEN_TRICKS)
-
-
-def herz_hand_with_63_points_against(table):
-    table.with_deal(HEAVY_DEAL)
-    table.declared_hand_game()
-    table.played_out(HEAVY_THREE_TRICKS)
-
-
-def null_hand_before_a_trick(table):
-    table.with_deal(NULL_DEAL)
-    table.declared_hand_game(GameToken.NULL)
-    table.played_out(NULL_TWO_TRICKS)
 
 
 def null_before_a_trick(table):

@@ -12,6 +12,7 @@ from tests.e2e.support.kontra import (
     ContestedTable,
     FirstCardTable,
     LeadingFirstCardTable,
+    decline_of,
     expect_nothing_to_overflow,
 )
 from tests.e2e.support.people import PHONE, WIDTHS
@@ -35,10 +36,6 @@ DIMMED_HAND = ".controls.held"
 DIMMED_FAN = ".fan.dim"
 DIMMED_OPEN_CARD = ".open .card"
 TURN_CHAIR = ".chair.turn"
-
-
-def decline_of(word: str) -> str:
-    return text(SOURCE_LANGUAGE, "kontra.decline", word=word)
 
 
 def owing_page(table: PlayingTable, position: str) -> Page:

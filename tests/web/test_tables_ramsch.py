@@ -6,7 +6,6 @@ from skat.engine.deal import next_dealer, positions_from
 from skat.table.records import Refusal, Series
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_DECLARE_SUFFIX
-from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.playing import (
     TABLE_GIVE_UP_AGREE_SUFFIX,
@@ -35,6 +34,7 @@ from tests.web.support.playing import (
     reason_of,
     three_pass,
 )
+from tests.web.support.ramsch_stage import list_rows, read
 from tests.web.support.series import deal_next, headers_of, play_the_dealt_series, tap_new_series, tap_weiter
 from tests.web.support.skat import streams_of
 
@@ -73,11 +73,6 @@ def ramsch_table(skat, deal, options=RAMSCH):
     table.with_deal(deal)
     three_pass(table)
     return table
-
-
-def read(table, position=None):
-    headers = table.watcher if position is None else table.at[position]
-    return table.read_as(headers).json()
 
 
 class TestTheThirdPass:
@@ -284,7 +279,7 @@ class TestTheEndOfARamsch:
         scores = {seat["seat"]: seat["score"] for seat in result["seats"]}
         totals = {chair["seat"]: chair["total"] for chair in read(table)["chairs"]}
         assert totals == scores
-        row = read_list(table)[0]
+        row = list_rows(table)[0]
         assert (row["kind"], row["number"], row["jungfrau"], row["durchmarsch"]) == (
             "ramsch",
             1,
@@ -325,13 +320,6 @@ def tap(table, position, ordinal):
         json={"command_id": table.fresh_id(), "ordinal": ordinal, "series": 1},
         headers={"origin": TEST_PUBLIC_ORIGIN, **table.at[position]},
     )
-
-
-def read_list(table):
-    table.skat.client.cookies.clear()
-    answer = table.skat.client.get(f"{TABLES_PATH}/{table.table_id}{TABLE_LIST_SUFFIX}", headers=table.watcher)
-    assert answer.status_code == 200, answer.text
-    return answer.json()["entries"]
 
 
 class TestOpeningARamschTable:
@@ -427,5 +415,5 @@ class TestARamschEndingASeries:
 
         series = read(table)["series"]
         assert (series["game_number"], series["over"], series["standings"]) == (1, False, None)
-        assert read_list(table) == []
+        assert list_rows(table) == []
         assert [chair["total"] for chair in read(table)["chairs"]] == [0, 0, 0]

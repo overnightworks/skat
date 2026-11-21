@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -21,6 +22,10 @@ FELT_FACE = ".trick .laid .face"
 VOICES_OF_ONE_CARD = 3
 # The recordings of the page's language, which the page decodes once its voice is on.
 RECORDING_COUNT = sum(key.startswith("voice.") for key in WORDS[SOURCE_LANGUAGE])
+# The file of a recording is named by its catalog key and a hash of its bytes, after a dot.
+RECORDED_KEY = re.compile(r"/(voice\.\w+)\.[\w-]+\.mp3$")
+# The confirmations the voice says for a hold instead of its number.
+CONFIRMATIONS = {key for key in WORDS[SOURCE_LANGUAGE] if key.startswith("voice.hold")}
 
 
 def voices_started(page: Page) -> list[dict[str, Any]]:
@@ -59,6 +64,12 @@ def tap(page: Page) -> None:
 def recordings_started(page: Page) -> list[dict[str, Any]]:
     """The recordings the page played on the stand-in in the order they started, with the path each came from."""
     return page.evaluate("window.recordingsStarted")
+
+
+def keys_said(page: Page) -> list[str]:
+    """The catalog keys of the recordings the page played, in the order they started."""
+    found = [RECORDED_KEY.search(recording["url"]) for recording in recordings_started(page)]
+    return [match.group(1) for match in found if match is not None]
 
 
 def wait_for_recordings_decoded(page: Page, count: int) -> None:

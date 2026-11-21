@@ -12,13 +12,12 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import button_of
 from tests.e2e.support.early_end import expect_nothing_to_overflow
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
+from tests.e2e.support.passed_in_series import refuse
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.table_menu import close_table_menu, menu_button, open_table_menu
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from playwright.sync_api import Route
 
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -30,7 +29,6 @@ ABORT_SURE = text(SOURCE_LANGUAGE, "table.abortSure")
 WAIT = text(SOURCE_LANGUAGE, "table.abortWait")
 ABORTED = text(SOURCE_LANGUAGE, "table.aborted")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
-REFUSED = 409
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 KEY = ".row.abort"
@@ -158,9 +156,6 @@ def test_a_refused_yes_shows_the_failure_and_offers_the_key_again(
 ) -> None:
     # The browser logs the refused yes as a console error; that refusal is the point of this test.
     table, proposer, answerer = deal_a_waiting_hand(PHONE, console=False)
-
-    def refuse(route: Route) -> None:
-        route.fulfill(status=REFUSED, content_type="application/json", body="{}")
 
     proposer.route(f"**{table.declaring.api_path}{TABLE_ABORT_AGREE_SUFFIX}", refuse)
     open_table_menu(proposer)

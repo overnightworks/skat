@@ -1,3 +1,4 @@
+import { auctionWith } from "#lib/table.fixtures.ts";
 import type { Card, Chair, Hand, Options, Pushing, Stage, Table } from "../routes/(start)/tables.ts";
 
 type GrandHand = NonNullable<NonNullable<NonNullable<Options["ramsch"]>["pushing"]>["grand_hand"]>;
@@ -73,15 +74,7 @@ export function table(
             waiting_seat: null,
             abort: null,
             abortable: false,
-            auction: {
-                turn_seat: null,
-                facing_seat: null,
-                awaiting: null,
-                standing: null,
-                values: [],
-                words: [],
-                declared: null,
-            },
+            auction: auctionWith(),
             declaring: null,
             playing: null,
             ramsch: true,

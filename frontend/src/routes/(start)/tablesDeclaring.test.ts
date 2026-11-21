@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TABLE_ID } from "#lib/table.fixtures.ts";
+import { auctionWith, TABLE_ID } from "#lib/table.fixtures.ts";
 import { words } from "#lib/words.ts";
 import {
     bidLineWhileDeclaring,
@@ -14,16 +14,6 @@ import {
 } from "./tables.ts";
 
 const NO_PUSHES = { ramsch: false, pushing: null, pushes: 0, push_factor: 1 };
-
-const auctionWith = (declared: Auction["declared"]): Auction => ({
-    turn_seat: null,
-    facing_seat: null,
-    awaiting: null,
-    standing: null,
-    values: [],
-    words: [],
-    declared,
-});
 
 describe("what the declaring stage asks of this viewer", () => {
     const seats = (mine: number): Chair[] =>
@@ -63,7 +53,7 @@ describe("what the declaring stage asks of this viewer", () => {
             abort: null,
             abortable: false,
             ...NO_PUSHES,
-            auction: auctionWith(bidWon),
+            auction: auctionWith({ declared: bidWon }),
             declaring,
             playing: null,
         },
@@ -119,7 +109,7 @@ describe("the auction's value while declaring", () => {
             abort: null,
             abortable: false,
             ...NO_PUSHES,
-            auction: auctionWith(declared),
+            auction: auctionWith({ declared }),
             declaring,
             playing: null,
         },

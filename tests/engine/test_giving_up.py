@@ -64,9 +64,18 @@ def test_karo_mit_1_bid_20_given_up_before_the_first_card_is_lost_at_27() -> Non
     assert settle(result, 20) == Settlement(won=False, value=27, score=-54)
 
 
-def test_the_declarer_can_give_up_after_the_first_trick_while_holding_nine_cards() -> None:
+@pytest.mark.parametrize(
+    ("bid", "settlement"),
+    [
+        pytest.param(20, Settlement(won=False, value=27, score=-54), id="a bid the schneider lifts"),
+        pytest.param(18, Settlement(won=False, value=18, score=-36), id="schneider not counted for 21 points"),
+    ],
+)
+def test_the_declarer_can_give_up_after_the_first_trick_while_holding_nine_cards_and_settles_at_the_bid(
+    bid: int, settlement: Settlement
+) -> None:
     state = after_first_trick(declarer_takes=True)
-    assert settle(given_up(state), 20) == Settlement(won=False, value=27, score=-54)
+    assert settle(given_up(state), bid) == settlement
 
 
 def test_the_declarer_can_give_up_in_the_second_trick_before_his_own_card() -> None:
@@ -140,11 +149,6 @@ def test_a_given_up_game_is_valued_by_its_declared_levels_and_lost(
 ) -> None:
     result = given_up(started(kind, bid, jacks=jacks, **declaration))  # type: ignore[arg-type]
     assert settle(result, bid) == Settlement(won=False, value=-score // 2, score=score)
-
-
-def test_schneider_is_not_counted_for_a_declarer_holding_21_points_who_gives_up() -> None:
-    state = after_first_trick(declarer_takes=True)
-    assert settle(given_up(state), 18) == Settlement(won=False, value=18, score=-36)
 
 
 def test_a_lost_given_up_game_gives_the_declarer_minus_50_and_each_opponent_40() -> None:

@@ -8,7 +8,7 @@ from skat.table.records import SERIES_LENGTH_DEFAULT, OccupantKind
 from skat.web.lobby import LOBBY_EVENTS_PATH, LobbyChairAnswer, LobbyTableAnswer, MineAnswer
 from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
+from tests.e2e.support.browser import NEW_TABLE_BUTTON, TAP_TARGET_PIXELS, record_page_errors
 from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import (
@@ -39,8 +39,6 @@ LENGTH = text(SOURCE_LANGUAGE, "lobby.length", count=SERIES_LENGTH_DEFAULT)
 RESULT_WAITS = text(SOURCE_LANGUAGE, "lobby.chipResultWaits")
 SERIES_OVER = text(SOURCE_LANGUAGE, "lobby.chipSeriesOver")
 ENDS_IN_DAYS = re.compile(r"endet in \d+ Tagen")
-# A tap target is at least this many CSS pixels on each side.
-TAP_TARGET_PIXELS = 44
 EVENT_STREAM = "text/event-stream"
 SEAT_COUNT = 3
 

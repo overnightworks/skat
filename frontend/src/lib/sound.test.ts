@@ -45,6 +45,10 @@ class FakePort implements AudioPort {
         return Promise.resolve();
     }
 
+    recordingSeconds(): number {
+        return RECORDING_SECONDS;
+    }
+
     playRecording(url: string, afterSeconds: number): number {
         this.spoken.push({ url, afterSeconds });
         return RECORDING_SECONDS;
@@ -191,6 +195,24 @@ describe("speak", () => {
         soundOver(port, { muted: false, volume: 100 }).speak("/voice/achtzehn.mp3", 0);
 
         expect(port.loudness).toEqual([1]);
+    });
+
+    it("plays a recording that ends within the time it is given", () => {
+        const port = new FakePort();
+
+        const ends = soundOver(port).speak("/voice/achtzehn.mp3", 0.25, 0.25 + RECORDING_SECONDS);
+
+        expect(port.spoken).toHaveLength(1);
+        expect(ends).toBe(0.25 + RECORDING_SECONDS);
+    });
+
+    it("leaves a recording unsaid that would end later than the time it is given, and says so", () => {
+        const port = new FakePort();
+
+        const ends = soundOver(port).speak("/voice/achtzehn.mp3", 0.25, RECORDING_SECONDS);
+
+        expect(port.spoken).toEqual([]);
+        expect(ends).toBe(0.25);
     });
 });
 

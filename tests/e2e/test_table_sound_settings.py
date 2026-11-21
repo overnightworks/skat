@@ -16,7 +16,7 @@ from tests.e2e.support.audio import (
     voices_started,
     wait_for_recordings_decoded,
 )
-from tests.e2e.support.browser import record_page_errors
+from tests.e2e.support.browser import TAP_TARGET_PIXELS, record_page_errors
 from tests.e2e.support.motion import FADES_IN, arrival_of, motion_played, watch_the_motion
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.tables import open_new_table
@@ -57,8 +57,6 @@ STAY = text(SOURCE_LANGUAGE, "sound.lastTrickStay")
 # The voices of a card in the sets "Leise" and "Funkeln", in the order they start.
 LEISE_KINDS = ["noise", "tone"]
 FUNKELN_KINDS = ["tone", "noise", "tone"]
-# A tap target is at least this many CSS pixels on each side.
-TAP_TARGET_PIXELS = 44
 # The desktop layout starts at this width, where the speaker carries its word.
 DESKTOP_FROM_PIXELS = 900
 # From this width the speaker stands left of the watchers; below it, right after the reaction key.

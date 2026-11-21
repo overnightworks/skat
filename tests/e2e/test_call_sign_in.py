@@ -23,7 +23,7 @@ from skat.web.constants import (
 )
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.browser import LEGAL_LINKS, LEGAL_ORIGIN, record_page_errors, sign_in_at_issuer
+from tests.e2e.support.browser import LEGAL_LINKS, LEGAL_ORIGIN, abort_request, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.call_frame import (
     CALL_ORIGIN,
     CALL_PORT,
@@ -106,10 +106,6 @@ class FramedTable:
 
     def has_session(self) -> bool:
         return any(cookie["name"] == self.session_cookie for cookie in self.visitor.context.cookies())
-
-
-def abort_request(route: Route) -> None:
-    route.abort()
 
 
 def wait_for_script(framed: FramedTable) -> None:

@@ -323,20 +323,25 @@
     background-color: rgba(28, 17, 22, 0.74);
 }
 
-/* The bid's chips and its give-up are dark glass with light text, the held rung a shade darker. */
-.room[data-style="strandbar"] .ladder > span:not(.now, .held),
-.room[data-style="strandbar"] .higher button,
-.room[data-style="strandbar"] .button-glass {
+/* The levels of a declared hand, the bid's chips and „Weg“ are dark glass with light text, a held rung and the
+   parts of his plan a shade darker. */
+.room[data-style="strandbar"] .ladder > span:not(.held) {
     background-color: rgba(28, 17, 22, 0.74);
     color: var(--on-stage);
 }
 
-.room[data-style="strandbar"] .ladder > span.held {
+.room[data-style="strandbar"] .ladder > span.held,
+.room[data-style="strandbar"] .bid :is(.mode, .clear, .said) {
     background-color: rgba(28, 17, 22, 0.8);
+}
+
+.room[data-style="strandbar"] .bid {
+    --unlit: rgba(28, 17, 22, 0.78);
 }
 
 .room[data-style="strandbar"] .button-glass {
     background-color: rgba(28, 17, 22, 0.62);
+    color: var(--on-stage);
 }
 
 /* The score tiles under the result card are woven straw like the seat's mat. */

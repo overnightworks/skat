@@ -1324,6 +1324,8 @@ body {
     /* The pile and the last trick shown again. */
     --brass-hi: #f1d898;
     --pile-card: 32px;
+    /* The brass a mark, a chip or a key is made of. */
+    --brass-face: linear-gradient(180deg, var(--brass-hi), var(--brass) 55%, #a6823f);
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
@@ -1775,6 +1777,180 @@ body {
         align-self: start;
         margin-top: calc(var(--chair-width) * 0.75 + 18px);
         margin-bottom: calc(var(--table-card-width) * -1.07);
+    }
+}
+
+/* The auction's counter stands where the plaque stands, as the scenes draw it: a brass plate with its word over cream
+   drums, and under it the line of who bids against whom. It hangs into the row below, between the far chairs, so the
+   rows keep the heights they have under a plaque. */
+.room .bid-counter {
+    --drum: 60px;
+    grid-column: 1 / 3;
+    grid-row: 1;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    height: fit-content;
+    margin-bottom: -63px;
+}
+
+.room .counter {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.room .counter .word {
+    position: relative;
+    z-index: 1;
+    margin-bottom: -3px;
+    padding: 3px 16px 5px;
+    border-radius: 8px 8px 0 0;
+    color: #2b1d05;
+    background: linear-gradient(180deg, var(--brass-hi), var(--brass));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.room .counter .drums {
+    display: flex;
+    gap: 5px;
+    padding: 6px 9px;
+    border-radius: 10px;
+    background:
+        radial-gradient(circle at 6px 6px, #7a5a22 0 1.4px, transparent 2px),
+        radial-gradient(circle at calc(100% - 6px) calc(100% - 6px), #7a5a22 0 1.4px, transparent 2px),
+        linear-gradient(180deg, var(--brass-hi), var(--brass) 55%, #8c6a2f);
+    box-shadow:
+        0 10px 20px -8px rgba(0, 0, 0, 0.85),
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+}
+
+.room .counter .drum {
+    width: calc(var(--drum) * 0.73);
+    height: var(--drum);
+    overflow: hidden;
+    border-radius: 7px;
+    background: linear-gradient(180deg, #cfc7b2, var(--cream) 26%, var(--cream) 74%, #cfc7b2);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.room .counter .reel {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 100%;
+    color: var(--ink);
+    font-family: var(--font-mark, "Oswald", Arial, sans-serif);
+    font-size: calc(var(--drum) * 0.78);
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1;
+    white-space: pre;
+}
+
+/* The digit a drum showed before lies right above the one it shows, outside the drum's window, so a roll carries it out. */
+.room .counter .reel::before {
+    content: attr(data-was);
+    position: absolute;
+    inset: -100% 0 100%;
+    display: grid;
+    place-items: center;
+}
+
+.room .duel {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--glass-dark);
+    backdrop-filter: blur(12px);
+    font-size: 13.5px;
+    white-space: nowrap;
+}
+
+.room .duel b {
+    max-width: 9ch;
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+}
+
+.room .duel .dot {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    color: #2b1d05;
+    background: linear-gradient(150deg, #f1d898, var(--brass));
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.room .duel .dot.agent {
+    background: radial-gradient(circle at 34% 30%, #d9e6ff, #4467b8 60%, #1d2c55);
+}
+
+.room .duel .dot.agent svg {
+    color: #fff;
+}
+
+.room .duel .dot svg {
+    width: 11px;
+    height: 11px;
+}
+
+.room .duel .to {
+    display: grid;
+    color: var(--accent-stage, #7aa7f0);
+}
+
+.room .duel .to svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* On a phone the counter stands between the far chairs and its duel under them, above the skat. */
+@media (max-width: 899px) {
+    .room .bid-counter {
+        --drum: 38px;
+        position: relative;
+        grid-row: 2;
+        align-self: start;
+        gap: 6px;
+        margin-top: calc(var(--chair-width) * 0.75 - 14px);
+        margin-bottom: calc(var(--table-card-width) * -1.07);
+    }
+
+    .room .counter .word {
+        padding: 2px 12px 4px;
+        font-size: 10.5px;
+    }
+
+    .room .counter .drums {
+        gap: 4px;
+        padding: 5px 7px;
+    }
+
+    .room .counter .drum {
+        border-radius: 5px;
+    }
+
+    .room .duel {
+        height: 24px;
+        font-size: 12.5px;
     }
 }
 
@@ -2484,7 +2660,7 @@ body {
     width: 26px;
     height: 26px;
     color: #2b1d05;
-    background: linear-gradient(180deg, #f1d898, var(--brass) 55%, #a6823f);
+    background: var(--brass-face);
     box-shadow:
         0 4px 10px -3px rgba(0, 0, 0, 0.8),
         inset 0 1px 0 rgba(255, 255, 255, 0.55);
@@ -2562,8 +2738,8 @@ body {
     }
 }
 
-/* The own turn: the ladder takes a row of its own between the skat and the own chair, so no control covers a card,
-   and the skat's row is only as tall as the skat, so the whole own hand stays on the screen. */
+/* A player's auction: the bid bar takes a row of its own between the skat and the own chair, so no control covers a
+   card, and the skat's row is only as tall as the skat, so the whole own hand stays on the screen. */
 .room .stage:has(> .bid) {
     grid-template-rows: auto minmax(136px, 1fr) auto auto auto auto;
 }
@@ -2572,10 +2748,20 @@ body {
     .room .stage:has(> .bid) :is(.felt, .felt-paint) {
         grid-row: 2 / 6;
     }
+
+    /* The bid bar reaches the felt's rim on both sides, so the furniture stands below it, beside the own chair. */
+    .room .stage:has(> .bid) .felt .decor {
+        bottom: 2%;
+    }
 }
 
 .room .stage:has(> .bid) .skat-spot {
     grid-row: 3;
+}
+
+/* The open scale takes the skat's place, as the scenes draw it, so the own hand keeps its place under it. */
+.room .stage:has(.scale) .skat-spot {
+    display: none;
 }
 
 .room .stage:has(> .bid) .chair:nth-child(3) {
@@ -3066,12 +3252,10 @@ body {
     font-size: 13px;
 }
 
+/* A „Ja“ and a „Weg“ stand in a bubble as a bid does, smaller than a number. */
 .room .bubble.quiet {
     padding: 3px 12px 3px 4px;
-    color: var(--on-stage-soft);
-    background: #3a3f45;
-    font-size: 15px;
-    --bubble-fill: #3a3f45;
+    font-size: 17px;
 }
 
 .room .bubble.quiet .dot {
@@ -3208,6 +3392,16 @@ body {
         align-self: end;
     }
 
+    /* The open scale lies where the skat lay, between the far chairs: the row above it gives up the skat's room, so
+       the chips and the hand keep their place, and the card counts under the far fans make way for its ends. */
+    .room .stage:has(.scale) {
+        grid-template-rows: auto minmax(96px, 1fr) auto auto auto auto;
+    }
+
+    .room .stage:has(.scale) .count-tag {
+        display: none;
+    }
+
     .room .chair.turn::before {
         width: 640px;
         height: 170px;
@@ -3327,18 +3521,550 @@ body {
     }
 }
 
+/* The bid bar, as the scenes of the one grip draw it: the key that says his next word, the whole scale while it is
+   open, the chips of what his cards reach with „Weg“ before them, and his plan in a line under them. Blue is what he
+   says now, brass what the table does for him. */
 .room .bid {
-    --strip: 214px;
+    --unlit: linear-gradient(180deg, rgba(4, 14, 10, 0.62), rgba(10, 22, 16, 0.5));
+    --chip: 46px;
+    --rows: 8px;
     grid-column: 1 / 3;
     grid-row: 4;
     z-index: 2;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 14px;
-    margin: 12px 0 24px;
+    gap: var(--rows);
+    margin: 8px 0 12px;
     width: 100%;
     min-width: 0;
+}
+
+.room :is(.bid-keys, .bid-chips, .bid-line) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+}
+
+.room .bid-keys {
+    gap: 10px;
+}
+
+.room .bid-keys .button {
+    min-width: 128px;
+}
+
+.room .button-brass {
+    color: #2b1d05;
+    background: var(--brass-face);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        0 8px 18px -8px rgba(0, 0, 0, 0.8);
+}
+
+.room .bid-chips {
+    gap: 4px;
+}
+
+.room .bid-chip {
+    flex: none;
+    height: var(--chip);
+    padding: 0 6px 0 3px;
+    border: 0;
+    border-radius: 15px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--on-stage);
+    background: var(--unlit);
+    box-shadow:
+        inset 0 0 0 1.2px rgba(201, 164, 100, 0.55),
+        0 8px 16px -10px rgba(0, 0, 0, 0.8);
+    cursor: pointer;
+}
+
+.room .bid-chip.more {
+    width: 30px;
+    padding: 0;
+    justify-content: center;
+}
+
+.room .bid-chip.more svg {
+    width: 20px;
+    height: 20px;
+}
+
+.room .bid-chips .button-glass {
+    height: var(--chip);
+    padding: 0 8px;
+    gap: 4px;
+    border-radius: 15px;
+    font-size: 14.5px;
+}
+
+.room .bid-chips .button-glass svg {
+    width: 15px;
+    height: 15px;
+}
+
+.room :is(.bid-chip, .bid-chips .button-glass).lit {
+    color: #2b1d05;
+    background: var(--brass-face);
+    box-shadow:
+        0 0 0 2px rgba(255, 243, 201, 0.55),
+        0 0 22px rgba(241, 216, 152, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.room .bid-chip.gone {
+    opacity: 0.34;
+    cursor: default;
+}
+
+.room .bid-chip.gone b {
+    text-decoration: line-through 2px;
+}
+
+.room .bid-chip.rest {
+    opacity: 0.42;
+}
+
+.room .bid :is(.bid-chip, .v, .clear, .mode button):focus-visible {
+    outline: 2px solid var(--accent-stage, #7aa7f0);
+    outline-offset: 2px;
+}
+
+.room .bid .suit {
+    flex: none;
+    width: 21px;
+    height: 21px;
+}
+
+.room .bid .suit svg {
+    width: 13px;
+    height: 13px;
+}
+
+/* His plan under the chips, which only his page draws; the line keeps its height, so the chips never move. */
+.room .bid-line {
+    gap: 6px;
+    height: 34px;
+    white-space: nowrap;
+}
+
+.room .bid .bis {
+    height: 28px;
+    padding: 0 11px 0 9px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #2b1d05;
+    background: var(--brass-face);
+    box-shadow:
+        0 6px 14px -6px rgba(0, 0, 0, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.room .bid :is(.bis, .v) .suit {
+    width: 18px;
+    height: 18px;
+    box-shadow: none;
+}
+
+.room .bid :is(.bis, .v) .suit svg {
+    width: 11px;
+    height: 11px;
+}
+
+.room .bid :is(.mode, .clear, .said) {
+    height: 28px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    background: var(--glass-dark);
+}
+
+.room .bid .mode {
+    padding: 2px;
+    box-sizing: border-box;
+    backdrop-filter: blur(12px);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.3);
+}
+
+.room .bid .mode button {
+    position: relative;
+    height: 100%;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--on-stage-soft);
+    background: none;
+    cursor: pointer;
+}
+
+.room .bid .mode .on {
+    color: var(--ink);
+    background: var(--cream);
+}
+
+.room .bid .mode button:disabled {
+    cursor: default;
+}
+
+/* His fixed limit after the table said „Weg“ for him: it stays where it stood under the chips, with nothing to tap. */
+.room .bid-line.dim {
+    margin-top: calc(var(--chip) + 2 * var(--rows));
+    opacity: 0.62;
+}
+
+.room .bid :is(.mode, .said) svg {
+    width: 13px;
+    height: 13px;
+}
+
+.room .bid .clear {
+    position: relative;
+    width: 28px;
+    padding: 0;
+    border: 0;
+    justify-content: center;
+    color: var(--brass-hi);
+    box-shadow: inset 0 0 0 1.2px rgba(201, 164, 100, 0.6);
+    cursor: pointer;
+}
+
+/* A finger gets the height of the whole line for the small parts of his plan. */
+.room .bid :is(.mode button, .clear)::before {
+    content: "";
+    position: absolute;
+    inset: -8px 0;
+}
+
+.room .bid .clear svg {
+    width: 12px;
+    height: 12px;
+}
+
+.room .bid .said {
+    padding: 0 12px;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--on-stage);
+}
+
+/* The table asks him above an ask limit: his turn, in the colour of what he says now. */
+.room .bid .asks {
+    margin: 0;
+    height: 34px;
+    padding: 0 14px 0 5px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--cream);
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 10px 22px -6px rgba(0, 0, 0, 0.8);
+}
+
+.room .bid .asks .bis {
+    height: 24px;
+    padding: 0 9px 0 6px;
+    font-size: 13px;
+    box-shadow: none;
+}
+
+/* The whole scale behind „⋯“: every valid value, the bid ones struck out, the suit over each value his cards reach,
+   hatched above them, where a pick takes a hold; under the values a rail, brass up to the standing bid, and the brass
+   rider under his limit. */
+@property --hold {
+    syntax: "<percentage>";
+    inherits: false;
+    initial-value: 100%;
+}
+
+.room .scale {
+    --cell: 30px;
+    --gap: 3px;
+    --fade-start: 26px;
+    --fade-end: 40px;
+    --height: 80px;
+    width: min(100%, 358px);
+    height: var(--height);
+    border-radius: 18px;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(4, 9, 7, 0.9), rgba(10, 18, 14, 0.84));
+    box-shadow:
+        inset 0 0 0 1.2px rgba(201, 164, 100, 0.6),
+        0 18px 34px -14px rgba(0, 0, 0, 0.9);
+}
+
+/* The fades sit where the values continue; the padding keeps the first and the last value clear of them, and a
+   value the keyboard reaches scrolls clear of them too. */
+.room .scale .view {
+    position: relative;
+    box-sizing: border-box;
+    height: 100%;
+    padding: 0 var(--fade-end) 20px var(--fade-start);
+    display: flex;
+    align-items: flex-end;
+    gap: var(--gap);
+    overflow: auto hidden;
+    scroll-padding-inline: var(--fade-start) var(--fade-end);
+    scrollbar-width: none;
+    mask-image: linear-gradient(
+        90deg,
+        transparent,
+        #000 var(--fade-start),
+        #000 calc(100% - var(--fade-end)),
+        transparent
+    );
+}
+
+/* A mouse has no swipe: it gets a bar to drag, and the scale the room for it. */
+@media (hover: hover) and (pointer: fine) {
+    .room .scale {
+        height: calc(var(--height) + 10px);
+    }
+
+    .room .scale .view {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(244, 246, 248, 0.45) transparent;
+    }
+}
+
+.room .scale .v {
+    position: relative;
+    flex: none;
+    width: var(--cell);
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--on-stage);
+    background: rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.room .scale .v::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: calc(-1 * var(--gap));
+    bottom: -11px;
+    height: 4px;
+    background: rgba(201, 164, 100, 0.28);
+}
+
+.room .scale .v.gone::before {
+    background: var(--brass-hi);
+}
+
+.room .scale .v.at::before {
+    background: linear-gradient(90deg, var(--brass-hi) 50%, rgba(201, 164, 100, 0.28) 50%);
+}
+
+.room .scale .v .suit {
+    position: absolute;
+    left: 50%;
+    top: -21px;
+    translate: -50% 0;
+    box-shadow: inset 0 0 0 1.2px var(--brass);
+}
+
+.room .scale .v.gone {
+    color: rgba(244, 246, 248, 0.3);
+    background: rgba(255, 255, 255, 0.03); /* NOSONAR(S7924) a value already bid is a disabled key that fades */
+    text-decoration: line-through;
+    cursor: default;
+}
+
+.room .scale .v.gone .suit {
+    opacity: 0.3;
+}
+
+.room .scale .v.at {
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 0 0 1.5px var(--on-stage-soft);
+}
+
+.room .scale .v.over {
+    color: var(--brass-hi);
+    background: repeating-linear-gradient(135deg, rgba(201, 164, 100, 0.3) 0 5px, rgba(255, 255, 255, 0.04) 5px 10px);
+}
+
+.room .scale .v.mine {
+    color: #2b1d05;
+    background: var(--brass-face);
+}
+
+.room .scale .v.mine::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -19px;
+    width: 28px;
+    height: 15px;
+    translate: -50% 0;
+    border-radius: 3px 3px 7px 7px;
+    background: linear-gradient(180deg, var(--brass-hi), var(--brass) 60%, #8c6a2f);
+    box-shadow:
+        0 3px 6px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.room .scale .v.pick {
+    color: var(--ink);
+    background: var(--cream);
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 8px 16px -6px rgba(0, 0, 0, 0.8);
+}
+
+.room .scale .hold {
+    position: absolute;
+    inset: -5px;
+    padding: 3px;
+    border-radius: 14px;
+    background: conic-gradient(var(--brass-hi) var(--hold), rgba(255, 255, 255, 0.12) 0);
+    mask:
+        linear-gradient(#000 0 0) content-box exclude,
+        linear-gradient(#000 0 0);
+    pointer-events: none;
+}
+
+.room[data-motion] .scale .hold {
+    animation: hold-fills var(--hold-time) linear both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes hold-fills {
+    from {
+        --hold: 0%;
+    }
+}
+
+.room .scale .hint {
+    position: absolute;
+    left: 0;
+    top: -22px;
+    height: 18px;
+    padding: 0 7px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    color: #2b1d05;
+    background: var(--brass-hi);
+}
+
+@media (max-width: 379px) {
+    .room .bid-chips {
+        gap: 3px;
+    }
+
+    .room .bid-chip {
+        padding: 0 5px 0 3px;
+        font-size: 14.5px;
+    }
+
+    .room .bid-chip.more {
+        width: 26px;
+        padding: 0;
+    }
+
+    .room .bid-chips .button-glass {
+        padding: 0 7px;
+        gap: 3px;
+        font-size: 14px;
+    }
+
+    .room .bid-chips .suit {
+        width: 19px;
+        height: 19px;
+    }
+
+    .room .bid-chips .suit svg {
+        width: 11px;
+        height: 11px;
+    }
+}
+
+@media (min-width: 900px) {
+    .room .bid {
+        --chip: 52px;
+    }
+
+    .room .bid-chips {
+        gap: 8px;
+    }
+
+    .room .bid-chip {
+        padding: 0 13px 0 6px;
+        gap: 7px;
+        border-radius: 17px;
+        font-size: 20px;
+    }
+
+    .room .bid-chip.more {
+        width: 46px;
+        padding: 0;
+    }
+
+    .room .bid-chips .button-glass {
+        padding: 0 16px;
+        border-radius: 17px;
+        font-size: 16px;
+    }
+
+    .room .bid-chips .suit {
+        width: 30px;
+        height: 30px;
+    }
+
+    .room .bid-chips .suit svg {
+        width: 17px;
+        height: 17px;
+    }
+
+    /* The far chairs overhang the stage: the scale is as wide as the scenes draw it where their fans leave the
+       room, and as wide as the gap between the fans in a narrower window. */
+    .room .scale {
+        --cell: 44px;
+        --gap: 4px;
+        --height: 88px;
+        width: min(560px, 100% - 2 * (var(--chair-width) + 20px));
+    }
+
+    .room .scale .v {
+        height: 40px;
+        font-size: 18px;
+    }
 }
 
 .room .ladder {
@@ -3349,8 +4075,7 @@ body {
     max-width: 100%;
 }
 
-.room .ladder > span,
-.room .higher button {
+.room .ladder > span {
     flex: none;
     box-sizing: border-box;
     min-width: 40px;
@@ -3377,60 +4102,6 @@ body {
     width: 13px;
     height: 13px;
     color: var(--ok-stage);
-}
-
-.room .ladder > span.now {
-    min-width: 62px;
-    height: 48px;
-    font-size: 26px;
-    background: var(--cream);
-    color: var(--ink);
-    box-shadow:
-        0 0 0 3px var(--accent-stage, #7aa7f0),
-        0 8px 18px -6px rgba(0, 0, 0, 0.7);
-}
-
-.room .higher {
-    flex: 0 1 var(--strip);
-    min-width: 0;
-    display: flex;
-    gap: 6px;
-    padding: 4px 26px 4px 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-    /* The fade sits where higher values continue; the padding above keeps the last value clear of it. */
-    mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
-    scrollbar-width: none;
-}
-
-.room .higher button {
-    border: 0;
-    font-family: inherit;
-    background: var(--glass);
-    color: var(--on-stage);
-    cursor: pointer;
-}
-
-.room .higher button:focus-visible {
-    outline: 2px solid var(--accent-stage, #7aa7f0);
-    outline-offset: -2px;
-}
-
-.room .higher button:disabled {
-    cursor: default;
-    opacity: 0.45;
-}
-
-@media (hover: hover) and (pointer: fine) {
-    .room .higher {
-        scrollbar-width: thin;
-        scrollbar-color: rgba(244, 246, 248, 0.45) transparent;
-    }
-}
-
-.room .bid-buttons {
-    display: flex;
-    gap: 10px;
 }
 
 .room .button {
@@ -3468,12 +4139,6 @@ body {
     background: var(--glass);
     color: var(--on-stage);
     backdrop-filter: blur(14px);
-}
-
-@media (min-width: 900px) {
-    .room .bid {
-        --strip: 380px;
-    }
 }
 
 .room .controls {
@@ -3878,11 +4543,6 @@ body {
     margin: calc(var(--card-width) * -0.7) 0 0 calc(var(--card-width) * -0.5);
 }
 
-/* A swept card swings about its lower right corner. */
-.room .laid {
-    transform-origin: 100% 100%;
-}
-
 .room .laid.left {
     left: 28%;
     top: 48%;
@@ -3932,8 +4592,21 @@ body {
 .room .laid .hang {
     position: absolute;
     inset: 0;
-    z-index: 1;
+    z-index: 2;
     transform: rotate(var(--slot-turn));
+}
+
+/* The card that took a finished trick lies above the other cards and below every name, and carries a brass rim. Takt
+   lifts it, shows the rim and gathers the trick onto its taker's pile; no rule here keeps a time or a way of it. */
+.room .laid.took .lying {
+    z-index: 1;
+}
+
+.room .laid .rim {
+    position: absolute;
+    inset: -5px;
+    border: 3px solid var(--brass-hi);
+    border-radius: calc(var(--card-width) * 0.075 + 5px);
 }
 
 /* A card this page saw laid is thrown onto its place by Takt, which moves these pieces and nothing else; each rests here.
@@ -4033,7 +4706,7 @@ body {
     transform: rotate(-4deg);
 }
 
-.room .plaque .suit {
+.room :is(.plaque, .bid) .suit {
     display: grid;
     place-items: center;
     width: 26px;
@@ -4049,19 +4722,19 @@ body {
 }
 
 /* The same pips the cards draw. */
-.room .plaque .suit.kreuz {
+.room :is(.plaque, .bid) .suit.kreuz {
     fill: #17191c;
 }
 
-.room .plaque .suit.pik {
+.room :is(.plaque, .bid) .suit.pik {
     fill: #14873f;
 }
 
-.room .plaque .suit.herz {
+.room :is(.plaque, .bid) .suit.herz {
     fill: #d81f35;
 }
 
-.room .plaque .suit.karo {
+.room :is(.plaque, .bid) .suit.karo {
     fill: #ec9800;
 }
 
@@ -5495,13 +6168,11 @@ body {
     animation: count 1.1s ease-out 0.3s both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
 }
 
+/* The count names only where it starts and ends at the cell's own value: a browser reads a keyframe's var() once, as
+   the count starts, which can be before the cell holds its target. */
 @keyframes count {
     from {
         --n: 0;
-    }
-
-    to {
-        --n: var(--to);
     }
 }
 
@@ -8477,132 +9148,8 @@ body {
     }
 }
 
-/* The trick gathers in the middle and glides onto the pile; the page measures each card's way and sets it as
-   --gx --gy --gr (to the middle) and --wx --wy --ps (to the pile). Only a table that moves has these. */
-.room[data-motion="verspielt"] .trick.sweeping .laid {
-    animation: sweep-verspielt 1s both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
-}
-
-.room[data-motion="verspielt"] .trick.sweeping .laid .tag {
-    animation: fade-out 200ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
-}
-
-@keyframes sweep-verspielt {
-    0% {
-        translate: 0 0;
-        rotate: 0deg;
-        animation-timing-function: cubic-bezier(0.5, 0, 0.4, 1);
-    }
-
-    25% {
-        translate: var(--gx) var(--gy);
-        rotate: var(--gr);
-        animation-timing-function: cubic-bezier(0.45, 0.05, 0.3, 1);
-    }
-
-    90% {
-        opacity: 1;
-    }
-
-    100% {
-        translate: var(--wx) var(--wy);
-        rotate: 84deg;
-        scale: var(--ps);
-        opacity: 0;
-    }
-}
-
-@keyframes fade-out {
-    to {
-        opacity: 0;
-    }
-}
-
-.room[data-motion="dezent"] .trick.sweeping .laid {
-    animation: sweep-dezent 280ms cubic-bezier(0.45, 0.05, 0.3, 1) both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
-}
-
-.room[data-motion="dezent"] .trick.sweeping .laid .tag {
-    animation: fade-out 120ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
-}
-
-@keyframes sweep-dezent {
-    to {
-        translate: var(--wx) var(--wy);
-        rotate: 84deg;
-        scale: var(--ps);
-        opacity: 0;
-    }
-}
-
-/* The top back of the pile the trick lands on appears as the cards arrive. */
-.room[data-motion="verspielt"] .pile .card.landing {
-    animation: pile-lands 1s ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
-}
-
-.room[data-motion="dezent"] .pile .card.landing {
-    animation: pile-lands 280ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
-}
-
-@keyframes pile-lands {
-    0%,
-    84% {
-        opacity: 0;
-        scale: 1.15;
-    }
-
-    100% {
-        opacity: 1;
-        scale: 1;
-    }
-}
-
-/* The dotted arc the trick travels, drawn only for the playful set. */
-.room .trick .trail {
-    position: absolute;
-    left: 0;
-    top: 0;
-    display: none;
-    width: 0;
-    height: 0;
-    pointer-events: none;
-}
-
-.room .trick .trail svg {
-    overflow: visible;
-}
-
-.room .trick .trail path {
-    fill: none;
-    stroke: rgba(251, 248, 240, 0.6);
-    stroke-width: 2.5;
-    stroke-dasharray: 1 8;
-    stroke-linecap: round;
-}
-
-.room[data-motion="verspielt"] .trick.sweeping .trail {
-    display: block;
-    animation: trail 1s ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
-}
-
-@keyframes trail {
-    0%,
-    20% {
-        opacity: 0;
-    }
-
-    35%,
-    65% {
-        opacity: 1;
-    }
-
-    100% {
-        opacity: 0;
-    }
-}
-
-/* The chair that takes the trick flashes gold as the trick lands, and the chair that is taken glows once as its sitter fills it: a still ring whose opacity is all that moves. */
-.room .chair:is(.got, [data-moving="chair-taken"]) .tile::after {
+/* The chair that takes the trick flashes gold as the trick reaches its pile, which Takt plays, and the chair that is taken glows once as its sitter fills it: a still ring whose opacity is all that moves. */
+.room .chair .tile::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -8612,29 +9159,6 @@ body {
         0 0 34px 6px rgba(243, 207, 122, 0.45);
     opacity: 0;
     pointer-events: none;
-}
-
-.room[data-motion="verspielt"] .chair.got .tile::after {
-    animation: got 1s ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
-}
-
-.room[data-motion="dezent"] .chair.got .tile::after {
-    animation: got 280ms ease-out both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
-}
-
-@keyframes got {
-    0%,
-    45% {
-        opacity: 0;
-    }
-
-    85% {
-        opacity: 1;
-    }
-
-    100% {
-        opacity: 0.6;
-    }
 }
 
 /* A chair that is taken fills in the motion set the table carries, which none carries while the device asks for reduced motion and the player has not overridden it:
@@ -8806,24 +9330,39 @@ body {
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
 }
 
-/* The card that took a hand's deciding trick wears the rim of the declarer's outcome, on the felt and in the result's
-   row alike, as the scenes deciding-lost, deciding-won and deciding-still draw it: red when he lost, gold when he won,
-   the pile's brass in a Ramsch. */
-.room :is(.laid, .deciding-card).took.lost {
-    --took-rim: var(--leave);
+/* The card that took a hand's deciding trick carries a seal no other trick carries, on the felt and in the result's
+   row alike, as the scenes deciding-lost, deciding-won and deciding-still draw it: a gold disc with a check when the
+   declarer won, a red one with a cross when he lost, and none in a Ramsch. It sits on the card's right edge. */
+.room .seal {
+    position: absolute;
+    z-index: 3;
+    right: calc(var(--card-width) * -0.23);
+    top: calc(var(--card-width) * 0.27);
+    display: grid;
+    place-items: center;
+    width: calc(var(--card-width) * 0.46);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    rotate: -10deg;
+    box-shadow:
+        inset 0 0 0 1.5px rgba(255, 255, 255, 0.4),
+        0 0 0 1.5px rgba(13, 16, 19, 0.6),
+        0 4px 9px -2px rgba(0, 0, 0, 0.75);
 }
 
-.room :is(.laid, .deciding-card).took.won {
-    --took-rim: var(--brass-hi);
+.room .seal svg {
+    width: 62%;
+    height: 62%;
 }
 
-/* The last trick of a hand lifts the card that took it until the result rises. */
-.room .laid.took .face {
-    transform: translateY(-12%);
-    border-radius: calc(var(--card-width) * 0.075);
-    outline: 3px solid var(--took-rim, var(--brass-hi));
-    outline-offset: 2px;
-    transition: transform 200ms ease-out;
+.room .seal.won {
+    background: linear-gradient(180deg, var(--brass-hi), var(--brass) 55%, #a6823f);
+    color: #2b1d05;
+}
+
+.room .seal.lost {
+    background: var(--leave);
+    color: #fff;
 }
 
 /* With motion still, the result of a game decided before its tenth trick carries that trick as a row, as the scene
@@ -8845,6 +9384,7 @@ body {
 }
 
 .room .result .deciding-card .face {
+    position: relative;
     display: block;
     width: 34px;
     aspect-ratio: 100 / 140;
@@ -8852,8 +9392,14 @@ body {
 }
 
 .room .result .deciding-card.took .face {
-    outline: 2px solid var(--took-rim, var(--brass-hi));
+    outline: 2px solid var(--brass-hi);
     outline-offset: 2px;
+}
+
+.room .result .deciding-card .seal {
+    right: -8px;
+    top: -8px;
+    width: 18px;
 }
 
 /* Under each card the face of who played it, in the felt's dark tag without the name. */

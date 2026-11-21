@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tableOfWire, type WireTable } from "#lib/wireTable.ts";
+import { EVERY_HAND_DEALT, table as dealtTable } from "#lib/cues.fixtures.ts";
 import { seriesAt, tableBetweenGames } from "#lib/series.fixtures.ts";
 
 const ANSWER_BY = "2026-11-19T12:01:00Z";
@@ -22,6 +23,20 @@ describe("tableOfWire", () => {
 
     it("keeps a table without a series", () => {
         expect(tableOfWire(tableBetweenGames(1, null)).series).toBeNull();
+    });
+
+    it("keeps a dealt table of this release as it is", () => {
+        const table = dealtTable(1, EVERY_HAND_DEALT, { spoken: [{ seat: 2, action: "bid", value: 18 }] });
+
+        expect(tableOfWire(table)).toEqual(table);
+    });
+
+    it("reads an auction of the release before as one that tells no steps, no plan and no hand values", () => {
+        const table = dealtTable(1, EVERY_HAND_DEALT);
+        const older = { ...table.hand?.auction, steps: undefined, plan: undefined, hand_values: undefined };
+        const sent = JSON.parse(JSON.stringify({ ...table, hand: { ...table.hand, auction: older } })) as WireTable;
+
+        expect(tableOfWire(sent)).toEqual(table);
     });
 
     it("reads a series of the release before without a proposal as one with no refusals and no minute running", () => {

@@ -407,15 +407,20 @@ class TestThePlanEnds:
 
         assert next_deal.progress.plans == frozenset()
 
-    @pytest.mark.parametrize("another_sits", [False, True], ids=["when-he-stands", "when-another-sits-down"])
-    def test_at_a_change_of_the_occupant(self, seated: Seated, another_sits: bool) -> None:
+    @pytest.mark.parametrize(
+        ("someone_sits", "the_same_account"),
+        [(False, False), (True, False), (True, True)],
+        ids=["when-he-stands", "when-another-sits-down", "when-he-sits-again"],
+    )
+    def test_at_a_change_of_the_occupant(self, seated: Seated, someone_sits: bool, the_same_account: bool) -> None:
         plan_as(seated, FOREHAND, PassAhead())
         seat = seated.seat_of(seated.forehand)
         plan_as(seated, REARHAND, BidLimit(30, ASK), command_id="plan-rear")
 
         seated.service.stand(seated.forehand, StandUp("stand", seated.table_id), NOBODY_CONNECTED)
-        if another_sits:
-            seated.service.sit(DORA, SitDown("sit", seated.table_id, seat), NOBODY_CONNECTED)
+        if someone_sits:
+            returning = seated.forehand if the_same_account else DORA
+            seated.service.sit(returning, SitDown("sit", seated.table_id, seat), NOBODY_CONNECTED)
 
         remaining = seated.table().progress.plans
         assert remaining == frozenset({SeatPlan(seated.seat_of(seated.rearhand), BidLimit(30, ASK))})
@@ -458,3 +463,19 @@ class TestOnlyTheOwnerSeesThePlan:
         words = seated.service.view(DORA, seated.table_id, NOBODY_CONNECTED).hand.auction.words
 
         assert AuctionWord(seated.seat_of(seated.forehand), HOLD, 18) in words
+
+    def test_every_viewer_reads_each_step_two_plans_took_in_one_decision_as_its_chairs_own_in_order(
+        self, seated: Seated
+    ) -> None:
+        plan_as(seated, MIDDLEHAND, BidLimit(20, FIXED))
+        plan_as(seated, FOREHAND, BidLimit(20, FIXED), command_id="plan-2")
+        middlehand, forehand = seated.seat_of(seated.middlehand), seated.seat_of(seated.forehand)
+
+        for viewer in (seated.forehand, seated.middlehand, seated.rearhand, DORA, AGENT):
+            assert seated.service.view(viewer, seated.table_id, NOBODY_CONNECTED).hand.auction.steps == (
+                AuctionWord(middlehand, BID, 18),
+                AuctionWord(forehand, HOLD, 18),
+                AuctionWord(middlehand, BID, 20),
+                AuctionWord(forehand, HOLD, 20),
+                AuctionWord(middlehand, PASS, None),
+            )

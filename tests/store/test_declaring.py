@@ -12,17 +12,13 @@ from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
-from skat.table.records import Actor, Refusal
+from skat.table.records import Refusal
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.played_game import HERZ_HAND
-from tests.support.stored_game import seated_table_id
+from tests.support.stored_game import person, seated_table_id
 
 pytestmark = pytest.mark.postgres
-
-
-def person(name):
-    return Actor(account_id=f"account-{name.lower()}", display_name=name)
 
 
 def nobody_connected() -> frozenset[str]:

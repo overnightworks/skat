@@ -71,6 +71,7 @@ export type Words = {
     readonly "table.seatTaken": string;
     readonly "table.commandFailed": string;
     readonly "table.bidding": string;
+    readonly "table.duel": (gaps: { readonly bidder: string; readonly listener: string }) => string;
     readonly "table.pass": string;
     readonly "table.waitingFor": (gaps: { readonly names: string }) => string;
     readonly "table.wantsToGiveUp": (gaps: { readonly name: string }) => string;
@@ -253,6 +254,17 @@ export type Words = {
     readonly "kontra.you": string;
     readonly "bid.hold": string;
     readonly "bid.pass": string;
+    readonly "bid.upTo": string;
+    readonly "bid.ask": string;
+    readonly "bid.fixed": string;
+    readonly "bid.aboveLimit": string;
+    readonly "bid.clearLimit": string;
+    readonly "bid.limitCleared": string;
+    readonly "bid.asked": string;
+    readonly "bid.passAhead": string;
+    readonly "bid.takenBack": string;
+    readonly "bid.allValues": string;
+    readonly "bid.pressAndHold": string;
     readonly "voice.pass": string;
     readonly "voice.kontra": string;
     readonly "voice.re": string;
@@ -674,6 +686,7 @@ export const words: Words = {
     "table.seatTaken": "Platz vergeben",
     "table.commandFailed": "Das hat nicht geklappt",
     "table.bidding": "Reizen",
+    "table.duel": (gaps: { readonly bidder: string; readonly listener: string }) => "Reizt: " + gaps.bidder + ". Hört: " + gaps.listener + ".",
     "table.pass": "Weg",
     "table.waitingFor": (gaps: { readonly names: string }) => "Warte auf " + gaps.names,
     "table.wantsToGiveUp": (gaps: { readonly name: string }) => gaps.name + " will aufgeben",
@@ -898,6 +911,17 @@ export const words: Words = {
     "kontra.you": "dich",
     "bid.hold": "Ja",
     "bid.pass": "Weg",
+    "bid.upTo": "bis",
+    "bid.ask": "Fragen",
+    "bid.fixed": "Fest",
+    "bid.aboveLimit": "Über dem Limit",
+    "bid.clearLimit": "Limit löschen",
+    "bid.limitCleared": "Limit gelöscht",
+    "bid.asked": "nachschieben oder weg?",
+    "bid.passAhead": "Weg, sobald du dran bist",
+    "bid.takenBack": "Zurückgenommen",
+    "bid.allValues": "Alle Werte",
+    "bid.pressAndHold": "halten",
     "voice.pass": "Weg",
     "voice.kontra": "Kontra",
     "voice.re": "Re",

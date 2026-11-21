@@ -13,10 +13,10 @@ from skat.store.tables import PostgresTableTransactions
 from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.web.settings import DEFAULT_ENDED_TABLE_DAYS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
-from tests.e2e.support.raw_http import RawSession, self_signed_tolerant_context
+from tests.e2e.support.raw_http import RawSession, self_signed_tolerant_context, signed_in
 from tests.e2e.support.server import skat_on_new_database
 from tests.support.ended_tables import end_as_an_opener_closed_it
-from tests.support.signed_in import cookie_header, new_account, seed_member
+from tests.support.signed_in import cookie_header
 from tests.support.table_rows import rows_of
 
 if TYPE_CHECKING:
@@ -46,11 +46,6 @@ def restarted_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Runni
     """A Skat of its own, with a wait that outlasts its restart, so restarting it leaves the module's server alone."""
     with skat_on_new_database(tmp_path_factory, empty_table_seconds=RESTARTED_WAIT_SECONDS) as server:
         yield server
-
-
-def signed_in(server: RunningServer) -> RawSession:
-    member = seed_member(server.stores, server.config, account=new_account(server.stores, server.config))
-    return RawSession(server, member)
 
 
 def open_stream(server: RunningServer, person: RawSession, path: str) -> http.client.HTTPSConnection:

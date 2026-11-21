@@ -195,7 +195,7 @@ describe("the sound of a swept trick", () => {
         soundAt(playful, { motion: "verspielt" }).forGlide();
 
         expect(earliest(quiet)).toBe(0);
-        expect(earliest(playful)).toBe(MOTION_SETS.verspielt.trickGatherSeconds);
+        expect(earliest(playful)).toBeCloseTo(MOTION_SETS.verspielt.trick.gatherSeconds);
     });
 
     it("is silent while muted", () => {
@@ -246,14 +246,6 @@ describe("the sound of a bid", () => {
         const sets = Object.keys(SOUND_SETS) as SoundSetId[];
 
         expect(new Set(sets.map(heard)).size).toBe(sets.length);
-    });
-
-    it("taps nothing for a pass, which has no bubble", () => {
-        const port = new FakePort();
-
-        soundAt(port).forCues([PASS], tableSeenFrom(OWN_SEAT));
-
-        expect(port.played).toEqual([]);
     });
 
     it("taps when the bubble has sprung in the set the table moves in", () => {

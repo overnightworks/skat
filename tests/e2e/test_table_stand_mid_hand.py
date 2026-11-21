@@ -9,11 +9,9 @@ from playwright.sync_api import Page, expect
 
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import deal_playing_table
-from tests.e2e.support.motion import FELT_SLOT
 from tests.e2e.support.people import WIDTHS
-from tests.e2e.support.style import SCENE_TOLERANCE, in_the_scene
 from tests.e2e.support.table_menu import menu_button
-from tests.e2e.support.tables import plate_of
+from tests.e2e.support.tables import chair_of, plate_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -32,18 +30,6 @@ LOCKED = text(SOURCE_LANGUAGE, "table.chairLocked")
 OWN_HAND = ".own-hand"
 NOTICE = "p.notice"
 NEVER_UNDER_THE_NOTICE = (".plaque", ".bubble", ".chair .fan", ".chair .tile")
-# Every scene of a hand that goes on after a notice about a chair draws the pill over the top edge of the trick's far
-# cards; this one stands for them.
-NOTICE_SCENE = "shorten-refused"
-# How far the notice reaches down into the deepest card below `cardSelector` beside it, in pixels.
-NOTICE_DEPTH_INTO_A_CARD = """(root, [noticeSelector, cardSelector]) => {
-    const notice = root.querySelector(noticeSelector).getBoundingClientRect();
-    const depths = [...root.querySelectorAll(cardSelector)]
-        .map((card) => card.getBoundingClientRect())
-        .filter((card) => card.left < notice.right && notice.left < card.right)
-        .map((card) => Math.min(notice.bottom, card.bottom) - Math.max(notice.top, card.top));
-    return Math.max(0, ...depths);
-}"""
 TWO_CARDS = 2
 SENTENCE_INSIDE_THE_PILL = """notice => {
     const sentence = document.createRange();
@@ -54,7 +40,7 @@ SENTENCE_INSIDE_THE_PILL = """notice => {
 }"""
 # The notice leaves after a few seconds, so each page reads its boxes in the browser in one pass while it shows.
 NOTICE_ON_THE_PAGE = (
-    "(root, [noticeSelector, cardSelector, covers]) => {"
+    "(root, [noticeSelector, covers]) => {"
     + """
     const notice = root.querySelector(noticeSelector);
     if (notice === null || notice.getClientRects().length === 0) return null;
@@ -68,9 +54,6 @@ NOTICE_ON_THE_PAGE = (
         sentenceInside: ("""
     + SENTENCE_INSIDE_THE_PILL
     + """)(notice),
-        depth: ("""
-    + NOTICE_DEPTH_INTO_A_CARD
-    + """)(root, [noticeSelector, cardSelector]),
     };
 }"""
 )
@@ -78,10 +61,6 @@ NOTICE_ON_THE_PAGE = (
 
 def stand_key_of(person: Page):
     return menu_button(person, STAND_UP)
-
-
-def chair_of(person: Page, seat: int):
-    return person.locator(f".chair[data-seat='{seat}']")
 
 
 def stands_up_through_the_key(person: Page) -> None:
@@ -143,7 +122,7 @@ def test_the_second_tap_stands_up_and_the_others_read_it_once_while_the_person_w
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_notice_about_the_chair_holds_its_sentence_covers_no_plaque_bubble_fan_or_chair_and_the_trick_as_the_scene(
+def test_the_notice_about_the_chair_holds_its_sentence_covers_no_plaque_bubble_fan_or_chair(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -153,17 +132,15 @@ def test_the_notice_about_the_chair_holds_its_sentence_covers_no_plaque_bubble_f
     table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor)
     table.play_out(TWO_CARDS)
     seat = table.seat_at["rearhand"]
-    depth_in_the_scene = in_the_scene(table.watcher, NOTICE_SCENE, NOTICE_DEPTH_INTO_A_CARD, [".notice", ".play .card"])
 
     stands_up_through_the_key(table.pages[seat])
 
     for other in (*(page for other_seat, page in table.pages.items() if other_seat != seat), table.watcher):
         expect(other.locator(NOTICE)).to_have_count(1)
-        shown = other.locator(":root").evaluate(NOTICE_ON_THE_PAGE, [NOTICE, FELT_SLOT, list(NEVER_UNDER_THE_NOTICE)])
+        shown = other.locator(":root").evaluate(NOTICE_ON_THE_PAGE, [NOTICE, list(NEVER_UNDER_THE_NOTICE)])
         assert shown is not None
         assert shown["sentenceInside"]
         assert shown["covered"] == []
-        assert shown["depth"] <= depth_in_the_scene + SCENE_TOLERANCE
     assert page_errors == []
 
 

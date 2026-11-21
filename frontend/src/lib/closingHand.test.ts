@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { outcomeRim, tableShowing, type DecidingTrick, type TableShowing } from "#lib/closingHand.ts";
+import { outcomeSeal, tableShowing, type DecidingTrick, type TableShowing } from "#lib/closingHand.ts";
 import {
     afterTheLastCard,
     beforeTheLastCard,
@@ -35,6 +35,9 @@ function showing(readSheet: (ordinal: number) => Promise<GameSheet | null>) {
         readSheet,
         () => stageIsMoving,
         (deciding) => stillTricks.push(deciding),
+        () => {
+            throw new Error("no table of these tests brings a run");
+        },
     );
     return { shown, presented, resultShown, declarerWon, stillTricks };
 }
@@ -343,12 +346,12 @@ describe("the table that follows the last card", () => {
     });
 });
 
-describe("the rim of the card that took a hand's deciding trick", () => {
+describe("the seal of the card that took a hand's deciding trick", () => {
     it.each([
-        { name: "gold when the declarer won", declarerWon: true, rim: "won" },
-        { name: "red when he lost", declarerWon: false, rim: "lost" },
-        { name: "none of its own in a Ramsch, which has no declarer", declarerWon: null, rim: null },
-    ])("is $name", ({ declarerWon, rim }) => {
-        expect(outcomeRim(declarerWon)).toBe(rim);
+        { name: "that of a game won when the declarer won", declarerWon: true, seal: "won" },
+        { name: "that of a game lost when he lost", declarerWon: false, seal: "lost" },
+        { name: "none in a Ramsch, which has no declarer", declarerWon: null, seal: null },
+    ])("is $name", ({ declarerWon, seal }) => {
+        expect(outcomeSeal(declarerWon)).toBe(seal);
     });
 });

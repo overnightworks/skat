@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { declinableWord, firstCardWait, keyWord, plaqueLine } from "#lib/kontra.ts";
 import { words } from "#lib/words.ts";
+import { auctionWith } from "#lib/table.fixtures.ts";
 import type { Chair, Hand, Kontra, Table, Word } from "../routes/(start)/tables.ts";
 
 const OPPONENT = 1;
@@ -55,15 +56,7 @@ function table(version: number, playingKontra: Kontra | null | "no hand"): Table
         pushing: null,
         pushes: 0,
         push_factor: 1,
-        auction: {
-            turn_seat: null,
-            facing_seat: null,
-            awaiting: null,
-            standing: null,
-            values: [],
-            words: [],
-            declared: null,
-        },
+        auction: auctionWith(),
         declaring: null,
         playing: {
             turn_seat: OPPONENT,

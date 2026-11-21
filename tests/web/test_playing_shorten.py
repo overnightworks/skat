@@ -39,7 +39,7 @@ from tests.web.support.shortening import (
     declarers_cards,
     everyone,
     herz_hand_with_63_points_against,
-    null_before_a_trick,
+    null_hand_before_a_trick,
     open_cards_read,
     refusals_read,
     says_no,
@@ -349,8 +349,8 @@ class TestWhatTheDeclarerMayAsk:
         [
             pytest.param(herz_hand_with_63_points_against, SCHNEIDER, PlayRefusal.CLAIM_OUT_OF_REACH, id="schneider"),
             pytest.param(herz_hand_with_63_points_against, SCHWARZ, PlayRefusal.CLAIM_OUT_OF_REACH, id="schwarz"),
-            pytest.param(null_before_a_trick, SCHNEIDER, PlayRefusal.CLAIM_OUT_OF_REACH, id="null-schneider"),
-            pytest.param(null_before_a_trick, SCHWARZ, PlayRefusal.CLAIM_OUT_OF_REACH, id="null-schwarz"),
+            pytest.param(null_hand_before_a_trick, SCHNEIDER, PlayRefusal.CLAIM_OUT_OF_REACH, id="null-schneider"),
+            pytest.param(null_hand_before_a_trick, SCHWARZ, PlayRefusal.CLAIM_OUT_OF_REACH, id="null-schwarz"),
         ],
     )
     def test_a_level_out_of_reach_is_refused_before_anyone_is_asked(self, table, scene, claim, reason):

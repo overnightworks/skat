@@ -9,15 +9,14 @@ from sqlalchemy import delete, update
 from skat.store.schema import hand_cards, tables
 from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.bidding import STEP_KEY, assert_page_fits
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.table_menu import close_table_menu, menu_button
-from tests.e2e.support.tables import open_new_table, table_id_of
+from tests.e2e.support.tables import chair_of, open_new_table, sit_in, table_id_of, watch
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from playwright.sync_api import Locator
 
     from tests.e2e.support.server import RunningServer
 
@@ -32,7 +31,6 @@ DEALER = text(SOURCE_LANGUAGE, "table.dealer")
 USUAL_TIMEOUT_SECONDS = 5
 POLL_MILLISECONDS = 100
 SKAT_CARD = ".skat-card"
-MAIN_STEP = ".bid-buttons .button-stage"
 # The page's chairs reduced to what a hand draws on them; the keys are this test's own, compared with the answer's.
 DRAWN_TABLE = """() => ({
     skat: document.querySelectorAll('.skat-card').length,
@@ -48,12 +46,16 @@ DRAWN_TABLE = """() => ({
 EMPTY_CHAIRS = """() => document.querySelectorAll(
     '.fan, .skat-card, .count-tag, .mark.pos, .mark.dealer'
 ).length"""
-PLAQUE_OVERLAPS_A_CHAIR = """() => {
-    const plaque = document.querySelector('.plaque').getBoundingClientRect();
+# In the middle of a hand that has no declarer yet stands the plaque, or the auction's counter over its duel line.
+THE_MIDDLE_OVERLAPS_A_CHAIR = """() => {
+    const middle = [...document.querySelectorAll('.plaque, .counter, .duel')].map(
+        (part) => part.getBoundingClientRect()
+    );
+    if (middle.length === 0) throw new Error('nothing stands in the middle');
     return [...document.querySelectorAll('.chair .tile, .chair .mark, .chair .bubble')].some((part) => {
         const box = part.getBoundingClientRect();
-        return box.width > 0 && box.left < plaque.right && box.right > plaque.left
-            && box.top < plaque.bottom && box.bottom > plaque.top;
+        return box.width > 0 && middle.some((over) => box.left < over.right && box.right > over.left
+            && box.top < over.bottom && box.bottom > over.top);
     });
 }"""
 DEAL_ANIMATIONS = "[...document.querySelectorAll('.deal')].map((card) => getComputedStyle(card).animationName)"
@@ -67,19 +69,6 @@ class Players:
     ben: Page
     cleo: Page
     watcher: Page
-
-
-def watch(person: Page, server: RunningServer, path: str) -> None:
-    person.goto(f"{server.base_url}{path}")
-    expect(person.locator(".chair")).to_have_count(3)
-
-
-def sit_in(person: Page, seat: int) -> None:
-    person.locator(f".chair[data-seat='{seat}']").get_by_role("button", name=SIT_DOWN).click()
-
-
-def chair_of(person: Page, seat: int) -> Locator:
-    return person.locator(f".chair[data-seat='{seat}']")
 
 
 def expect_the_stand_up_row(person: Page) -> None:
@@ -183,12 +172,8 @@ def assert_drawn_again(person: Page, drawn: dict[str, Any]) -> None:
     assert drawn_table(person) == drawn
 
 
-def assert_no_horizontal_scroll(person: Page) -> None:
-    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-
-
-def assert_plaque_is_clear_of_the_chairs(person: Page) -> None:
-    assert person.evaluate(PLAQUE_OVERLAPS_A_CHAIR) is False
+def assert_the_middle_is_clear_of_the_chairs(person: Page) -> None:
+    assert person.evaluate(THE_MIDDLE_OVERLAPS_A_CHAIR) is False
 
 
 def assert_no_hand_is_drawn(person: Page) -> None:
@@ -216,8 +201,8 @@ def test_every_viewer_sees_the_hand_as_the_server_answers_and_again_after_a_relo
         answer, drawn = page_and_answer_agree(person, e2e_server, players.table_id)
         assert {chair["backs"] for chair in drawn["chairs"] if not _is_mine(answer, chair["seat"])} == {10}
         assert drawn["skat"] == 2
-        assert_no_horizontal_scroll(person)
-        assert_plaque_is_clear_of_the_chairs(person)
+        assert_page_fits(person)
+        assert_the_middle_is_clear_of_the_chairs(person)
 
         person.reload()
         wait_for_the_hand(person)
@@ -259,22 +244,22 @@ def person_at(players: Players, server: RunningServer, position: str) -> Page:
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_auctions_bubbles_and_marks_stay_clear_of_the_plaque_for_every_viewer(
+def test_the_auctions_bubbles_and_marks_stay_clear_of_the_counter_and_its_duel_for_every_viewer(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     players = dealt_table(open_person, e2e_server, page_errors, form_factor)
     everyone = (players.anna, players.ben, players.cleo, players.watcher)
 
     middlehand = person_at(players, e2e_server, "middlehand")
-    middlehand.locator(MAIN_STEP).click()
-    person_at(players, e2e_server, "forehand").locator(MAIN_STEP).click()
+    middlehand.locator(STEP_KEY).click()
+    person_at(players, e2e_server, "forehand").locator(STEP_KEY).click()
 
     expect(middlehand.locator(".mark.waits")).to_have_count(1)
     for person in everyone:
         expect(person.locator(".bubble")).to_have_count(2)
         expect(person.locator(".mark.turn")).to_have_count(1)
-        assert_no_horizontal_scroll(person)
-        assert_plaque_is_clear_of_the_chairs(person)
+        assert_page_fits(person)
+        assert_the_middle_is_clear_of_the_chairs(person)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -314,7 +299,7 @@ def test_a_player_whose_stream_ends_shows_away_and_keeps_chair_and_cards(
     expect(cleo_chair.locator(".fan.dim")).to_be_visible()
     answer = answer_of(players.anna, e2e_server, players.table_id)
     assert drawn_table(players.anna) == picture_of_answer(answer)
-    assert_no_horizontal_scroll(players.anna)
+    assert_page_fits(players.anna)
 
 
 def test_the_deal_animates_and_holds_still_for_reduced_motion(

@@ -12,6 +12,7 @@ import type {
     Shortening,
     Table,
 } from "../routes/(start)/tables.ts";
+import { auctionWith } from "./table.fixtures.ts";
 
 export const FOREHAND = 1;
 export const MIDDLEHAND = 2;
@@ -19,16 +20,10 @@ export const REARHAND = 3;
 
 export const EVERY_HAND_DEALT: [number, number, number] = [10, 10, 10];
 
-export function auction(spoken: AuctionWord[] = []): Auction {
-    return {
-        turn_seat: null,
-        facing_seat: null,
-        awaiting: null,
-        standing: null,
-        values: [],
-        words: spoken,
-        declared: null,
-    };
+// The auction after the words `said` in this order: its words are each chair's latest.
+export function auction(said: AuctionWord[] = []): Auction {
+    const latest = new Map(said.map((word) => [word.seat, word]));
+    return auctionWith({ words: [...latest.values()], steps: said });
 }
 
 export function declaringAt(stage: Declaring["stage"]): Declaring {

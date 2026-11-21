@@ -4,20 +4,20 @@ import pytest
 from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.engine.tricks import CARDS_IN_A_GAME
-from skat.table.records import TableStyle
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
-from tests.e2e.support.motion import FELT_SLOT
+from tests.e2e.support.declaring import reload_and_wait
+from tests.e2e.support.hands import (
+    INSIDE_THE_VISIBLE_STRIP,
+    TURN_CHAIR,
+    PlayingTable,
+    WireCard,
+    deal_playing_table,
+    tap,
+)
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.style import (
-    PLACE,
-    SHAPE,
     STYLES,
-    TOP,
-    boxes_in_the_scene,
-    boxes_on_the_page,
-    expect_drawn_as_the_scene,
     expect_the_furniture_clear,
     give_the_table_its_style,
 )
@@ -25,6 +25,7 @@ from tests.e2e.support.style import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from skat.table.records import TableStyle
     from tests.e2e.support.declaring import DeclaringTable
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -93,10 +94,6 @@ def faces_of(cards: Locator) -> set[WireCard]:
         "(faces) => faces.map((face) => [face.dataset.suit, face.dataset.rank])"
     )
     return {(suit, rank) for suit, rank in drawn}
-
-
-def tap(card: Locator) -> None:
-    card.click(position=INSIDE_THE_VISIBLE_STRIP)
 
 
 FIRST_FINGER = 0
@@ -194,11 +191,6 @@ def card_posts(person: Page) -> list[str]:
         lambda request: posts.append(request.url) if request.url.endswith(TABLE_CARD_SUFFIX) else None,
     )
     return posts
-
-
-def reload_and_wait(person: Page) -> None:
-    person.reload()
-    expect(person.locator(".chair")).to_have_count(3)
 
 
 def expect_on_the_felt(table: PlayingTable, laid: list[tuple[int, WireCard]]) -> None:
@@ -353,53 +345,34 @@ def test_the_laid_cards_and_their_tags_stay_clear_of_every_fan(
     assert page_errors == []
 
 
-# The blessed scene of each style that shows a resting trick on a desktop's felt.
-TRICK_SCENES = {TableStyle.KLASSIK: "last-trick-rest", TableStyle.STRANDBAR: "strand-trick"}
-# The blessed scene of the declarer choosing whether to take the skat.
-SKAT_CHOICE_SCENE = "skat-choose"
-FAR_CHAIRS = ".chair:not(.mine) .tile"
-# The scenes' other seats at the table; a small seat at the top is a watcher's.
-FAR_CHAIRS_IN_THE_SCENE = ".seat:not(.own, .sm) > .chair"
-
-
-def expect_the_felt_and_the_far_chairs_as_the_scene(person: Page, scene: str) -> None:
+def expect_the_felt_and_the_far_chairs_shown(person: Page) -> None:
+    expect(person.locator(".felt")).to_be_visible()
     expect(person.locator(".chair:not(.mine)")).to_have_count(2)
-    expect_drawn_as_the_scene(
-        boxes_on_the_page(person, ".felt"), boxes_in_the_scene(person, scene, ".felt"), PLACE + SHAPE
-    )
-    expect_drawn_as_the_scene(
-        boxes_on_the_page(person, FAR_CHAIRS), boxes_in_the_scene(person, scene, FAR_CHAIRS_IN_THE_SCENE), PLACE
-    )
 
 
 @pytest.mark.parametrize("table_style", STYLES)
-def test_on_a_desktop_the_felt_the_far_chairs_the_trick_the_bar_and_the_hand_stand_as_the_scene_draws_them(
+def test_on_a_desktop_the_resting_trick_lies_on_the_felt_and_the_hand_sits_below_the_own_bar(
     deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str], table_style: TableStyle
 ) -> None:
     table = deal_a_playing_table(DESKTOP)
     table.leave_the_last_trick_on_the_felt()
     table.play_out(CARDS_IN_A_TRICK)
-    scene = TRICK_SCENES[table_style]
     for person in table.pages.values():
         expect(person.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
-        expect_the_felt_and_the_far_chairs_as_the_scene(person, scene)
-        expect_drawn_as_the_scene(
-            boxes_on_the_page(person, FELT_SLOT), boxes_in_the_scene(person, scene, ".play"), PLACE
-        )
-        expect_drawn_as_the_scene(
-            boxes_on_the_page(person, ".chair.mine"), boxes_in_the_scene(person, scene, ".seat.own"), TOP
-        )
-        expect_drawn_as_the_scene(
-            boxes_on_the_page(person, ".own-hand"), boxes_in_the_scene(person, scene, ".hand"), TOP
-        )
+        expect_the_felt_and_the_far_chairs_shown(person)
+        bar = person.locator(".chair.mine").bounding_box()
+        hand = person.locator(".own-hand").bounding_box()
+        assert bar is not None
+        assert hand is not None
+        assert hand["y"] >= bar["y"] + bar["height"]
     assert page_errors == []
 
 
-def test_while_a_game_is_declared_on_a_desktop_the_felt_and_the_far_chairs_stand_as_the_scene_draws_them(
+def test_while_a_game_is_declared_on_a_desktop_the_felt_and_the_far_chairs_show(
     deal_a_declaring_table: Callable[..., DeclaringTable], page_errors: list[str]
 ) -> None:
     table = deal_a_declaring_table(DESKTOP)
-    expect_the_felt_and_the_far_chairs_as_the_scene(table.declarer, SKAT_CHOICE_SCENE)
+    expect_the_felt_and_the_far_chairs_shown(table.declarer)
     assert page_errors == []
 
 

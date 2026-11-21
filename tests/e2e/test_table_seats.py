@@ -8,7 +8,16 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.table_menu import menu_button
-from tests.e2e.support.tables import SIT_DOWN, assert_never_reloaded, mark_page, open_new_table, plate_of, sit_in, watch
+from tests.e2e.support.tables import (
+    SIT_DOWN,
+    assert_never_reloaded,
+    mark_page,
+    open_new_table,
+    plate_of,
+    sit_in,
+    watch,
+    watchers_of,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -28,10 +37,6 @@ YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 # The page hides its notice after a few seconds.
 NOTICE_GONE_TIMEOUT_MILLISECONDS = 10_000
 SEAT_BUTTON = "button.tile.free"
-
-
-def watchers_of(person: Page):
-    return person.locator(".watchers span")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

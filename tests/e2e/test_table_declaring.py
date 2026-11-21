@@ -12,7 +12,7 @@ from skat.web.declaring import (
 )
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
-from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, PlayingTable
+from tests.e2e.support.hands import PlayingTable, tap
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.turn_key import POPS_RINGS_AND_SHINES, let_it_move, motion_of
 
@@ -82,10 +82,6 @@ def drawn_cards_of(person: Page) -> set[tuple[str, str]]:
         "(faces) => faces.map((face) => [face.dataset.suit, face.dataset.rank])"
     )
     return {(suit, rank) for suit, rank in drawn}
-
-
-def tap(card: Locator) -> None:
-    card.click(position=INSIDE_THE_VISIBLE_STRIP)
 
 
 def expect_lifted(card: Locator) -> None:
