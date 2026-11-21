@@ -1,8 +1,0 @@
-claim_id = "f5e7fd600efa4e72af7814f62abae155"
-agent = "Claude 49ff381e-3e9f-45ed-9b1e-bb7b4fd71df0"
-role = "builder"
-base = "5ab7be5fd7a6ab974b9b6d8d28ed01f37229e8bf"
-branch = "claude/issue-741-rollout-protections-go"
-scope = ["docs/ARCHITECTURE.md", "src/skat/store", "tests"]
-opened_commit = "23a122f1516bbfb512fc270e4ac52b31edbb1cc7"
-whole_reason = "A migration, the store's record reader and their tests."
