@@ -483,8 +483,9 @@ def test_the_turn_cue_switches_are_stored_and_hold_after_a_reload(
     for name in (TURN_IN_BACKGROUND, VIBRATION):
         expect(panel_of(watcher).get_by_role("switch", name=name)).not_to_be_checked()
 
+    # The keyboard flips the focused switch wherever the rows sit; a pointer can meet a row that shifted.
     for name in (TURN_IN_BACKGROUND, VIBRATION):
-        panel_of(watcher).get_by_role("switch", name=name).set_checked(True)
+        panel_of(watcher).get_by_role("switch", name=name).press("Space")
 
     assert json.loads(stored_record(watcher) or "") == {"turnInBackground": True, "vibration": True}
     watcher.reload()
