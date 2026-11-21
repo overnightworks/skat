@@ -18,6 +18,7 @@ from sqlalchemy import (
     false,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from webauth.ports import AccountKind
 
 from skat.engine.bock import GAMES_IN_A_ROUND, BockOptions, BockOverlap, BockTrigger
@@ -254,6 +255,12 @@ tables = Table(
     Column("played_open", ARRAY(Text), nullable=False, server_default=text("'{}'")),
     Column("abort_yes_seats", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
     Column("hand_aborted", Boolean, nullable=False, server_default=false()),
+    # The trace of the request that moved the table to `traceparent_version`, and the trace of each act of the latest
+    # hand by its number. The release before writes neither: a version it moves differs from `traceparent_version`
+    # and an act it adds has no entry, so neither reads as traced.
+    Column("traceparent", Text),
+    Column("traceparent_version", Integer),
+    Column("act_traceparents", JSONB),
     CheckConstraint("dealer BETWEEN 1 AND 3", name="tables_dealer_is_a_seat"),
     CheckConstraint("(ended_at IS NULL) = (end_reason IS NULL)", name="tables_end_time_comes_with_its_reason"),
     CheckConstraint(

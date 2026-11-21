@@ -145,7 +145,7 @@ from skat.table.series_end import (
 from skat.table.server_step_calls import ServerStepCalls
 from skat.table.server_steps import ServerSteps
 from skat.table.style import STYLE_COMMAND, StyleCommand, decide_style, style_payload
-from skat.table.transactions import retried_on_duplicate_receipt
+from skat.table.transactions import retried_on_duplicate_receipt, save_traced
 from skat.table.views import CommandResult, TableView, view_of
 
 if TYPE_CHECKING:
@@ -178,6 +178,7 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
         self._standings_changed: Callable[[frozenset[str]], None] = lambda _accounts: None
         self._view_changed: ViewSignal = lambda _table_id, _accounts: None
         self._tools_changed: Callable[[frozenset[str]], None] = lambda _accounts: None
+        self._trace: Callable[[], str | None] = lambda: None
         self._now = now
         self._new_table_id = new_table_id
         self._random_source = secrets.SystemRandom() if random_source is None else random_source
@@ -214,6 +215,14 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
         """
         clone = copy.copy(self)
         clone._tools_changed = signal  # noqa: SLF001 - the clone is this class's own instance
+        return clone
+
+    def with_trace(self, trace: Callable[[], str | None]) -> TableService:
+        """The same service where each commit that saves a table stores what `trace` answers, read on the thread the
+        command ran on, as the trace its version and its acts entered in; an answer of None stores none.
+        """
+        clone = copy.copy(self)
+        clone._trace = trace  # noqa: SLF001 - the clone is this class's own instance
         return clone
 
     def create(self, actor: Actor, command: CreateTable) -> TableView:
@@ -560,6 +569,7 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             self._tell_seats,
             self._tell_view,
             self._tell_moments,
+            self._trace,
         )
 
     def unplayed_tables(self, days: int) -> tuple[TableId, ...]:
@@ -744,7 +754,7 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
         self, transaction: TableTransaction, command: str, before: TableRecord, after: TableRecord
     ) -> None:
         played = is_deal_or_step_of_play(command, before, after)
-        transaction.save_table(after, played_at=self._now() if played else None)
+        save_traced(transaction, before, after, self._trace(), played_at=self._now() if played else None)
         if hand_was_dealt(after) and not hand_was_dealt(before):
             transaction.set_empty_since(after.id, None)
 
