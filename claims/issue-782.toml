@@ -1,8 +1,0 @@
-claim_id = "edf75f56757940838e91381ad04e3b9d"
-agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
-role = "builder"
-base = "a1fddb0c2a9cc8a40aa45ee2ee21aaf6cc076c93"
-branch = "claude/issue-782-anruf-fixed-link"
-scope = ["README.md", "frontend/src", "src/skat/web", "tests"]
-opened_commit = "bb668492521aa3d1f8654b75cbd6f0d7e42168d9"
-whole_reason = "One key on the table page, its link built from one setting, and its proof."
