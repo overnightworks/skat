@@ -1,6 +1,5 @@
 import copy
 import secrets
-from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -9,7 +8,6 @@ from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_pay
 from skat.table.command_log import command_step, noted
 from skat.table.declaring import DECLARING_STEP_COMMAND, DeclaringCommand, decide_declaring_step, declaring_payload
 from skat.table.ending import end_unplayed_table, forget_ended_tables, stop_playing, unplayed_tables
-from skat.table.game_reads import GameListReads
 from skat.table.hand_abort import (
     AGREE_TO_ABORT_COMMAND,
     REFUSE_TO_ABORT_COMMAND,
@@ -29,9 +27,7 @@ from skat.table.member_place import (
     MemberRefusal,
     TableOffers,
     TableStanding,
-    agent_in_chair,
     agents_seated_at,
-    at_the_table,
     decide_accept,
     decide_invite,
     keep_turn_state,
@@ -39,16 +35,10 @@ from skat.table.member_place import (
     standings_of,
 )
 from skat.table.member_view import (
-    MemberActs,
-    MemberView,
     ViewSignal,
-    member_acts_of,
-    member_view_of,
-    moment_at,
     moment_recipients,
     view_recipients,
 )
-from skat.table.moment import TableMoment
 from skat.table.playing import (
     AgreeToGiveUpCommand,
     DeclineGiveUpCommand,
@@ -91,7 +81,6 @@ from skat.table.records import (
     Actor,
     CreateTable,
     Decision,
-    EndedTable,
     EntryTraces,
     Refusal,
     SendAway,
@@ -147,6 +136,7 @@ from skat.table.series_end import (
 from skat.table.server_step_calls import ServerStepCalls
 from skat.table.server_steps import ServerSteps
 from skat.table.style import STYLE_COMMAND, StyleCommand, decide_style, style_payload
+from skat.table.table_reads import TableReads
 from skat.table.transactions import retried_on_duplicate_receipt, save_traced
 from skat.table.views import CommandResult, TableView, view_of
 
@@ -165,7 +155,7 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-class TableService(LobbyReads, GameListReads, ServerStepCalls):
+class TableService(LobbyReads, TableReads, ServerStepCalls):
     """The table commands and views; every command is one transaction."""
 
     def __init__(
@@ -238,10 +228,14 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
             replay = transaction.replay(actor.account_id, command.command_id)
             if replay is not None:
                 return view_of(replayed_table(replay, command), actor.account_id, frozenset())
-            opened = decide_create(
-                actor, self._new_table_id(), command.series_length, command.options, command.visibility
+            table = decide_create(
+                actor,
+                self._new_table_id(),
+                command.series_length,
+                command.options,
+                command.visibility,
+                EntryTraces(self._trace()),
             )
-            table = replace(opened, traces=EntryTraces(self._trace()))
             transaction.add_table(table, actor.display_name)
             transaction.set_empty_since(table.id, self._now())
             transaction.add_receipt(create_receipt(actor, command, table))
@@ -760,52 +754,3 @@ class TableService(LobbyReads, GameListReads, ServerStepCalls):
         save_traced(transaction, before, after, self._trace(), played_at=self._now() if played else None)
         if hand_was_dealt(after) and not hand_was_dealt(before):
             transaction.set_empty_since(after.id, None)
-
-    def view(self, actor: Actor, table_id: str, connected_accounts: frozenset[str]) -> TableView | None:
-        table = self._table_read(table_id)
-        if table is None:
-            return None
-        present = (
-            connected_accounts
-            if isinstance(table, EndedTable)
-            else present_at(table, connected_accounts, self._live_leases())
-        )
-        return view_of(table, actor.account_id, present, self._now())
-
-    def accounts_at_the_table(self, table_id: TableId, connected_accounts: frozenset[str]) -> frozenset[str]:
-        """Who is at the live table for a call; an ended or missing table counts the open streams only."""
-        table = self._table_read(table_id.value)
-        return at_the_table(table, connected_accounts) if isinstance(table, TableRecord) else connected_accounts
-
-    def member_view(self, account_id: str, table_id: str, connected_accounts: frozenset[str]) -> MemberView | None:
-        """The live table's view for the account that holds a chair there, with whether the table waits for it; None
-        for any other account, an ended table and a table that is not there.
-        """
-        table = self._table_read(table_id)
-        if not isinstance(table, TableRecord):
-            return None
-        present = present_at(table, connected_accounts, self._live_leases())
-        return member_view_of(table, account_id, present, self._now())
-
-    def member_acts(self, account_id: str, table_id: str) -> MemberActs | None:
-        """The acts of the live table's latest hand for the account that holds a chair there; None for any other
-        account, an ended table and a table that is not there.
-        """
-        table = self._table_read(table_id)
-        return member_acts_of(table, account_id) if isinstance(table, TableRecord) else None
-
-    def moments_of(self, account_id: str) -> frozenset[TableMoment]:
-        """The moments of the account's seats at the live tables it holds a chair at, from one read; the lobby moment
-        when it holds none.
-        """
-        with self._transactions.begin() as transaction:
-            tables = [transaction.table(held.table_id) for held in transaction.tables_of(account_id)]
-        moments = frozenset(moment_at(table, account_id) for table in tables if isinstance(table, TableRecord))
-        return moments or frozenset({TableMoment.LOBBY})
-
-    def agent_in_chair(self, table_id: str, seat: int) -> str | None:
-        """The account of the agent that holds the chair `seat` of the live table; None for a person, a free chair,
-        a table that ended and a table that is not there.
-        """
-        table = self._table_read(table_id)
-        return agent_in_chair(table, seat) if isinstance(table, TableRecord) else None
