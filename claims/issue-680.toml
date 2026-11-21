@@ -1,0 +1,8 @@
+claim_id = "dbe3c1854b204534883698742301a7d6"
+agent = "Claude 49ff381e-3e9f-45ed-9b1e-bb7b4fd71df0"
+role = "builder"
+base = "5ab7be5fd7a6ab974b9b6d8d28ed01f37229e8bf"
+branch = "claude/issue-680-logline-current"
+scope = ["pyproject.toml", "src/skat/host", "tests/host", "uv.lock"]
+opened_commit = "0c1f16aeb9e0add4f9fd9946fe79b55683e7835f"
+whole_reason = "One dependency pin with its lock, and the host's logging setup with its tests."
