@@ -83,8 +83,6 @@
     --reck-loss-ink: #4a3a2e;
 
     --hand-card-filter: drop-shadow(0 1px 1px rgba(30, 15, 10, 0.5)) drop-shadow(0 6px 8px rgba(30, 15, 10, 0.4));
-    --open-card-filter: var(--hand-card-filter);
-    --pile-card-filter: var(--hand-card-filter);
 
     isolation: isolate;
 }
@@ -259,13 +257,23 @@
     }
 }
 
-/* A seat's own turn ring would beat the look's own-seat shadow on a phone: the two rules keep the look's ring, plain and in a call. */
+/* Shared state rules out-rank the token reads, so the look names where its own value wins: the own seat's ring over a
+   turn's or a win's ring on a phone, plain and in a call, and its dark glass on the lobby's back key. */
 @media (max-width: 899px) {
-    .room[data-style="strandbar"] .chair.mine.turn .tile {
+    .room[data-style="strandbar"] .chair.mine:is(.turn, .win) .tile {
         box-shadow: var(--tile-mine-shadow);
     }
 
-    .room.framed[data-style="strandbar"] .chair.mine.turn .tile {
+    .room.framed[data-style="strandbar"] .chair.mine:is(.turn, .win) .tile {
         box-shadow: var(--tile-mine-framed-shadow);
     }
+}
+
+.room[data-style="strandbar"] .lobby .lobby-face {
+    background-color: var(--button-glass);
+}
+
+/* Every card in the look carries its drop shadow, where no shared rule of a state sets another. */
+.room[data-style="strandbar"] .card {
+    filter: var(--hand-card-filter);
 }
