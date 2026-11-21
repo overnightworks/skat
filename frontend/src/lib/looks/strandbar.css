@@ -258,3 +258,10 @@
         color: inherit;
     }
 }
+
+/* A seat's own turn ring would beat the look's framed own-seat shadow on a phone: the look keeps its ring. */
+@media (max-width: 899px) {
+    .room.framed[data-style="strandbar"] .chair.mine.turn .tile {
+        box-shadow: var(--tile-mine-framed-shadow);
+    }
+}
