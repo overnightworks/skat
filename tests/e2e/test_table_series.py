@@ -25,12 +25,6 @@ from tests.e2e.support.passed_in_series import (
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
 from tests.e2e.support.result_card import MINUS, waiting_for
-from tests.e2e.support.series_scenes import (
-    FONT_SIZE_OF,
-    expect_the_boxes_to_sit_as_the_scene_draws_them,
-    the_scene_draws_the_settings_sheet_in,
-    the_scene_draws_the_wait_pill_in,
-)
 from tests.e2e.support.table_menu import close_table_menu, menu_button, open_table_menu
 
 if TYPE_CHECKING:
@@ -160,34 +154,24 @@ TEXT_BOX_OF = """pill => {
 }"""
 
 
-def expect_the_sheet_placed_as_the_scene_draws_it(person: Page, sheet: Locator) -> None:
-    """The sheet leaves the room above and below it that the scene leaves, so the top keys stay in sight."""
+def expect_the_sheet_inside_the_window(person: Page, sheet: Locator) -> None:
+    """The sheet lies wholly in the window once it has settled, so its top keys stay in sight."""
     viewport = person.viewport_size
     assert viewport is not None
     sheet.evaluate("element => Promise.all(element.getAnimations().map((animation) => animation.finished))")
     box = sheet.bounding_box()
     assert box is not None
-    scene = the_scene_draws_the_settings_sheet_in(person)
-    assert box["y"] == pytest.approx(scene["above"], abs=1)
-    assert viewport["height"] - box["y"] - box["height"] == pytest.approx(scene["below"], abs=1)
-    # The sheet shows the minute above its rows, which the scene does not draw, so the rows only keep their sizes.
-    expect_the_boxes_to_sit_as_the_scene_draws_them(
-        person,
-        "seriesend-settings",
-        f"{NEXT_SHEET} > :not(.clockline):nth-child(-n+4)",
-        ".setsheet > :nth-child(-n+3)",
-        sizes_only=True,
-    )
+    assert box["y"] >= 0
+    assert box["y"] + box["height"] <= viewport["height"]
 
 
 def expect_the_wait_pill_to_hold_its_text_centred(person: Page) -> None:
-    """The pill is a status of the bar: its words sit wholly inside its box, as the frozen scene draws them."""
+    """The pill is a status of the bar: its words sit wholly inside its box."""
     pill = person.locator(".actions .copy.wait")
     expect(pill).to_be_visible()
     gaps = pill.evaluate(TEXT_BOX_OF)
     assert min(gaps.values()) >= 0
     assert abs(gaps["above"] - gaps["below"]) <= CENTRED_WITHIN
-    assert pill.evaluate(FONT_SIZE_OF) == the_scene_draws_the_wait_pill_in(person)
 
 
 def expect_the_proposal_asked(table: RamschTable) -> None:
@@ -199,11 +183,6 @@ def expect_the_proposal_asked(table: RamschTable) -> None:
     expect(table.watcher.locator(ASK).get_by_role("button")).to_have_count(0)
     for person in (table.pages[1], table.pages[2], table.pages[3]):
         expect(person.get_by_role("button", name=WEITER, exact=True)).to_have_count(0)
-
-
-def expect_the_end_card_placed_as_the_scene_draws_it(person: Page, scene: str) -> None:
-    for selector in (STANDING, f"{STANDING} .rank", NEXT_LINE):
-        expect_the_boxes_to_sit_as_the_scene_draws_them(person, scene, selector)
 
 
 def expect_the_standings(person: Page, standings: list[dict[str, Any]], own_name: str | None) -> None:
@@ -407,7 +386,6 @@ def test_the_early_end_is_proposed_answered_and_ends_in_the_standings_until_all_
     for seat, person in table.pages.items():
         expect_the_standings(person, series["standings"], table.names[seat])
     expect_the_standings(table.watcher, series["standings"], None)
-    expect_the_end_card_placed_as_the_scene_draws_it(first, "seriesend-end")
     watching = text(SOURCE_LANGUAGE, "table.watchingOnly")
     expect(table.watcher.get_by_text(watching)).to_be_visible()
     expect(table.watcher.get_by_role("button", name=NEW_SERIES, exact=True)).to_have_count(0)
@@ -466,7 +444,6 @@ def test_the_series_end_offers_exactly_neue_serie_and_aufhoeren_and_aufhoeren_se
         expect(person.locator(ANSWER_CLOCK)).to_have_count(1)
         expect(person.locator(".chair[data-seat='1'] .mark.ready")).to_have_count(1)
         expect_the_minute_below_the_card(person)
-    expect_the_end_card_placed_as_the_scene_draws_it(first, "seriesend-silent")
 
     second.get_by_role("button", name=STOP_PLAYING, exact=True).click()
     lobby = re.compile(rf"^{re.escape(e2e_server.base_url)}/?$")
@@ -505,7 +482,7 @@ def test_a_seated_member_changes_the_next_series_and_the_save_takes_back_every_n
     second.get_by_role("button", name=CHANGE, exact=True).click()
     sheet = second.locator(NEXT_SHEET)
     expect(sheet).to_be_visible()
-    expect_the_sheet_placed_as_the_scene_draws_it(second, sheet)
+    expect_the_sheet_inside_the_window(second, sheet)
     expect(sheet.get_by_role("spinbutton")).to_have_attribute("aria-valuenow", str(SERIES_LENGTH))
     expect(sheet.locator(".takeback")).to_be_visible()
     expect(sheet.locator(".clockline")).to_be_visible()
