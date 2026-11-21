@@ -6070,6 +6070,13 @@ body {
     white-space: nowrap;
 }
 
+.room .result .reck .nm em {
+    margin-left: 8px;
+    color: #4f545d;
+    font-size: 12px;
+    font-style: normal;
+}
+
 .room .result .reck .dl {
     --ink: var(--reck-gain-ink);
     color: var(--ink);

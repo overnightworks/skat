@@ -127,6 +127,11 @@ def result_fields(**changed):
     return plain | changed
 
 
+def without_seat_names(result):
+    """A result with the names of its seats left out, to compare the games of two tables that seat different people."""
+    return {key: value for key, value in result.items() if key != "seat_names"}
+
+
 def ending_of(result):
     return result["ending"], result["ended_by_seat"]
 
@@ -180,6 +185,13 @@ class Table(StoredTable):
     def read_as(self, headers):
         self.skat.client.cookies.clear()
         return self.skat.client.get(f"{TABLES_PATH}/{self.table_id}", headers=headers)
+
+    def seated_result(self, result):
+        """A declared result as the answer carries it: the figures a test names plus the seats' names."""
+        return result | {"seat_names": [chair.occupant.display_name for chair in self.record.chairs]}
+
+    def result_fields(self, **changed):
+        return self.seated_result(result_fields(**changed))
 
     def result(self):
         answer = self.read_as(self.watcher)

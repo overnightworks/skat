@@ -24,6 +24,7 @@ from tests.web.support.playing import (
     game_of,
     reason_of,
     takers,
+    without_seat_names,
 )
 from tests.web.support.skat import UNKNOWN_ID, message_at_version, message_body
 
@@ -733,7 +734,7 @@ class TestRunningPoints:
             each.played_out(HERZ_GAME)
             results.append(message_body(read(each, each.watcher)))
 
-        assert results[0]["result"] == results[1]["result"]
+        assert without_seat_names(results[0]["result"]) == without_seat_names(results[1]["result"])
         hidden: dict[str, object] = {"show_running_points": False, "kontra": None, "bock": None, "ramsch": None}
         hidden["give_up"] = {"partner_agrees": False, "any_time": False}
         assert [body["options"] for body in results] == [hidden, {**hidden, "show_running_points": True}]
@@ -751,6 +752,7 @@ class TestEveryViewersResult:
     def test_the_last_card_s_answer_a_read_and_a_new_stream_carry_the_result_and_no_account_card_or_hand(
         self, table, viewer, declare, script, result
     ):
+        result = table.seated_result(result)
         declare(table)
         table.played_out(script[:-1])
         accounts = {chair.occupant.account_id for chair in table.record.chairs}
