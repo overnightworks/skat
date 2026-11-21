@@ -19,6 +19,8 @@ import {
     type KONTRA_DEADLINE_TOKENS,
     type KONTRA_REACH_TOKENS,
     type KONTRA_SAYER_TOKENS,
+    type PLAN_KIND_TOKENS,
+    type PLAN_MODE_TOKENS,
     type POSITION_TOKENS,
     type PUSHING_RULE_TOKENS,
     type RAMSCH_OCCASION_TOKENS,
@@ -39,6 +41,7 @@ import {
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
     TABLE_AUCTION_PASS_SUFFIX,
+    TABLE_AUCTION_PLAN_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
     TABLE_EVENTS_SUFFIX,
     TABLE_KONTRA_SUFFIX,
@@ -90,6 +93,13 @@ export type Declaring = {
 export type Awaiting = (typeof AWAITING_TOKENS)[number];
 export type AuctionAction = (typeof AUCTION_ACTION_TOKENS)[number];
 export type AuctionWord = { seat: number; action: AuctionAction; value: number | null };
+export type PlanMode = (typeof PLAN_MODE_TOKENS)[number];
+// The viewer's own plan as the table tells it: a limit carries its value and mode, a pass said ahead neither.
+export type AuctionPlan = { kind: (typeof PLAN_KIND_TOKENS)[number]; value: number | null; mode: PlanMode | null };
+// A plan as a player sets it; null takes the plan back.
+export type PlanChoice = { kind: "limit"; value: number; mode: PlanMode } | { kind: "pass" } | null;
+// `words` holds each chair's latest word, `steps` every word in the order it was said. `plan` and `hand_values`, what
+// the viewer's own ten cards reach in each suit game, are the viewer's alone.
 export type Auction = {
     turn_seat: number | null;
     facing_seat: number | null;
@@ -97,7 +107,10 @@ export type Auction = {
     standing: number | null;
     values: number[];
     words: AuctionWord[];
+    steps: AuctionWord[];
     declared: { seat: number; value: number } | null;
+    plan: AuctionPlan | null;
+    hand_values: { game: Game; value: number }[];
 };
 export type SeatedCard = { seat: number; card: Card };
 export type Sides = { declarer: number; opponents: number };
@@ -518,6 +531,11 @@ export function takeAuctionStep(
     value?: number,
 ): Promise<Outcome> {
     return post(id, AUCTION_STEP_SUFFIXES[action], { command_id: commandId, version, value });
+}
+
+// A plan names no version: one made off turn must not race another player's step.
+export function setAuctionPlan(id: string, commandId: string, plan: PlanChoice): Promise<Outcome> {
+    return post(id, TABLE_AUCTION_PLAN_SUFFIX, { command_id: commandId, plan });
 }
 
 export function readTable(id: string): Promise<Outcome> {

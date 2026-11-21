@@ -4,6 +4,7 @@ import pytest
 
 from skat.engine.bidding import VALID_BIDS, Bid, BidRefusal, Declared, Hold, Pass
 from skat.engine.deal import Position, next_dealer, positions_from
+from skat.engine.value import suit_values
 from skat.table.auction import AuctionAction
 from skat.table.hand_state import auction_of
 from skat.table.records import Refusal
@@ -13,8 +14,9 @@ from skat.web.auction import (
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
 )
+from skat.web.declaration_tokens import GAME_TOKENS
 from skat.web.tables import TABLES_PATH
-from tests.support.payload_cards import DEALER_SEAT, cards_in_text, seated_three
+from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, cards_in_text, seated_three
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.skat import FETCH, UNKNOWN_ID
 
@@ -42,6 +44,11 @@ def post_step(skat, headers, table_id, *, command_id, version, step, **fields):
 
 def reason_of(answer):
     return answer.json()["reason"]
+
+
+def wire_values(cards):
+    """What the engine says the cards reach in each suit game, as the answer carries it."""
+    return [{"game": GAME_TOKENS[each.kind].value, "value": each.value} for each in suit_values(cards)]
 
 
 class Table:
@@ -427,6 +434,7 @@ class TestAuctionOnTheWire:
             ]
         }
 
+        own = {name: auction.pop("hand_values") for name, auction in auctions.items()}
         assert auctions["middlehand"] == {
             "turn_seat": seat_of_middlehand,
             "facing_seat": seat_of_forehand,
@@ -434,11 +442,31 @@ class TestAuctionOnTheWire:
             "standing": None,
             "values": list(VALID_BIDS),
             "words": [],
+            "steps": [],
             "declared": None,
             "plan": None,
         }
         for name in ("forehand", "rearhand", "watcher"):
             assert auctions[name] == {**auctions["middlehand"], "values": []}
+        assert own == {
+            "forehand": wire_values(KNOWN_DEAL.forehand),
+            "middlehand": wire_values(KNOWN_DEAL.middlehand),
+            "rearhand": wire_values(KNOWN_DEAL.rearhand),
+            "watcher": [],
+        }
+        assert own["rearhand"] != own["forehand"]
+
+    def test_every_viewer_reads_each_step_in_the_order_it_was_said(self, table):
+        table.play_out([(MIDDLEHAND, BID, 18), (FOREHAND, HOLD), (MIDDLEHAND, BID, 20), (FOREHAND, PASS)])
+        seats = {position: seat for seat, position in positions_from(DEALER_SEAT).items()}
+
+        for headers in (table.at[FOREHAND], table.at[REARHAND], table.watcher):
+            assert self.auction_read_by(table, headers)["steps"] == [
+                {"seat": seats[MIDDLEHAND], "action": "bid", "value": 18},
+                {"seat": seats[FOREHAND], "action": "hold", "value": 18},
+                {"seat": seats[MIDDLEHAND], "action": "bid", "value": 20},
+                {"seat": seats[FOREHAND], "action": "pass", "value": None},
+            ]
 
     def test_a_played_auction_answers_each_chairs_word_and_who_declared(self, table):
         table.play_out([(MIDDLEHAND, PASS), (REARHAND, PASS), (FOREHAND, PLAY)])

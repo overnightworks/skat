@@ -9,7 +9,7 @@ from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaration, Declaring, declare, put_back, take_skat
 from skat.engine.games import NULL_VALUES, GameKind, NullLevels, Trump
 from skat.engine.tricks import CompletedTrick, PlayedOut
-from skat.engine.value import Level, Matadors, levels_of, matadors, value_of
+from skat.engine.value import HandValue, Level, Matadors, levels_of, matadors, suit_values, value_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KARO, HERZ, KREUZ, GRAND, NULL = GameKind.KARO, GameKind.HERZ, GameKind.KREUZ, GameKind.GRAND, GameKind.NULL
@@ -307,3 +307,29 @@ def test_the_levels_a_game_counts_come_in_the_order_of_the_rules(played: PlayedO
 def test_a_null_game_counts_no_levels() -> None:
     declaration = Declaration(NULL, hand=False, ouvert=False, announcement=NONE)
     assert levels_of(declaration, schneider=False, schwarz=False) == ()
+
+
+@pytest.mark.parametrize(
+    ("hand", "reached"),
+    [
+        pytest.param(
+            (HEARTS_JACK, DIAMONDS_JACK),
+            (HandValue(KARO, 27), HandValue(HERZ, 30), HandValue(GameKind.PIK, 33), HandValue(KREUZ, 36)),
+            id="ohne-two-is-game-three-in-every-suit",
+        ),
+        pytest.param(
+            (*JACKS, *diamonds(Rank.ACE)),
+            (HandValue(HERZ, 50), HandValue(KARO, 54), HandValue(GameKind.PIK, 55), HandValue(KREUZ, 60)),
+            id="a-run-into-its-own-suit-lifts-that-suit-alone",
+        ),
+        pytest.param(
+            (*JACKS, Card(Suit.HERZ, Rank.ACE)),
+            (HandValue(KARO, 45), HandValue(GameKind.PIK, 55), HandValue(KREUZ, 60)),
+            id="of-two-games-worth-the-same-the-higher-base-value-stands",
+        ),
+    ],
+)
+def test_a_hand_reaches_each_suit_game_at_its_own_matadors_in_rising_order(
+    hand: tuple[Card, ...], reached: tuple[HandValue, ...]
+) -> None:
+    assert suit_values(hand) == reached

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { abortView } from "#lib/abort.ts";
 import { words } from "#lib/words.ts";
+import { auctionWith } from "#lib/table.fixtures.ts";
 import type { Chair, Table } from "../routes/(start)/tables.ts";
 
 const WATCHER = 0;
@@ -49,15 +50,7 @@ function tableWith(mine: number, open: number | null, yes: number[] | null): Tab
             pushing: null,
             pushes: 0,
             push_factor: 1,
-            auction: {
-                turn_seat: null,
-                facing_seat: null,
-                awaiting: null,
-                standing: null,
-                values: [],
-                words: [],
-                declared: null,
-            },
+            auction: auctionWith(),
             declaring: null,
             playing: null,
         },

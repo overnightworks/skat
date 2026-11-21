@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cuesBetween } from "#lib/cues.ts";
 import { handWaits, lockedChairs, noticeStanding, possessive, seatNotice, sitQuestionLine } from "#lib/openChair.ts";
 import { words } from "#lib/words.ts";
+import { auctionWith } from "#lib/table.fixtures.ts";
 import { declarerStage, type Chair, type Hand, type Table } from "../routes/(start)/tables.ts";
 
 const OPEN_SEAT = 3;
@@ -34,15 +35,7 @@ function handOf(waitingSeat: number | null): Hand {
         pushing: null,
         pushes: 0,
         push_factor: 1,
-        auction: {
-            turn_seat: null,
-            facing_seat: null,
-            awaiting: null,
-            standing: null,
-            values: [],
-            words: [],
-            declared: null,
-        },
+        auction: auctionWith(),
         declaring: null,
         playing: null,
     };

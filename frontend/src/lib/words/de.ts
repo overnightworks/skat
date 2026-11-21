@@ -253,6 +253,15 @@ export type Words = {
     readonly "kontra.you": string;
     readonly "bid.hold": string;
     readonly "bid.pass": string;
+    readonly "bid.upTo": string;
+    readonly "bid.ask": string;
+    readonly "bid.fixed": string;
+    readonly "bid.aboveLimit": string;
+    readonly "bid.clearLimit": string;
+    readonly "bid.asked": string;
+    readonly "bid.passAhead": string;
+    readonly "bid.allValues": string;
+    readonly "bid.pressAndHold": string;
     readonly "voice.pass": string;
     readonly "voice.kontra": string;
     readonly "voice.re": string;
@@ -898,6 +907,15 @@ export const words: Words = {
     "kontra.you": "dich",
     "bid.hold": "Ja",
     "bid.pass": "Weg",
+    "bid.upTo": "bis",
+    "bid.ask": "Fragen",
+    "bid.fixed": "Fest",
+    "bid.aboveLimit": "Über dem Limit",
+    "bid.clearLimit": "Limit löschen",
+    "bid.asked": "nachschieben oder weg?",
+    "bid.passAhead": "Weg, sobald du dran bist",
+    "bid.allValues": "Alle Werte",
+    "bid.pressAndHold": "halten",
     "voice.pass": "Weg",
     "voice.kontra": "Kontra",
     "voice.re": "Re",

@@ -28,7 +28,7 @@ FURNITURE_CLEAR = """() => {
     for (const element of decor) element.style.pointerEvents = 'auto';
     const covered = all(
         '.own-hand .card, .chair .fan, .chair .tile, .chair .plate, .chair .coaster, .trick .face, .trick .tag, '
-        + '.actions > *, .plaque, .result, .skat-card, .ladder'
+        + '.actions > *, .plaque, .result, .skat-card, .ladder, .bid-keys > *, .bid-chips > *, .bid-line > *'
     ).flatMap((element) => {
         const box = element.getBoundingClientRect();
         const points = [0.1, 0.5, 0.9].flatMap((across) =>

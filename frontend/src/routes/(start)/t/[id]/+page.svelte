@@ -7,9 +7,8 @@
     import { chairMarks, decidingMarks, decidingPlaque, PASSED_IN_MARKS, passedInScene } from "#lib/auctionMarks.ts";
     import { abortView } from "#lib/abort.ts";
     import { grumblingAt, ring, stopRinging } from "#lib/bell.svelte.ts";
-    import { bidLadder } from "#lib/bidLadder.ts";
     import { tableShowing, type DecidingTrick, type Presenter } from "#lib/closingHand.ts";
-    import { springsUp, stampBetween, type BidWord } from "#lib/cues.ts";
+    import { springsUp, stampBetween, type BidSaid } from "#lib/cues.ts";
     import { browserCallHost, greetCall, isFramedInCallMode } from "#lib/callFrame.ts";
     import {
         answerGiveUp,
@@ -120,11 +119,9 @@
         sitDown,
         standUp,
         stopPlaying,
-        takeAuctionStep,
         watchTable,
         type AbortAnswer,
         type SeriesEndAnswer,
-        type AuctionAction,
         type Card,
         type Options,
         type Outcome,
@@ -165,8 +162,8 @@
     let playedThisHand = $state<Card[]>([]);
     // The latest word said at this table in the running hand, which the stamp shows for a moment.
     let stamp = $state<Stamp | null>(null);
-    // The latest bid this page saw said, whose bubble springs up.
-    let bidSaid = $state<{ seat: number; word: BidWord } | null>(null);
+    // The bids of the latest update that brought any, whose bubbles spring up.
+    let bidsSaid = $state<BidSaid[]>([]);
     let wonTimer: ReturnType<typeof setTimeout> | undefined;
     // The version of the latest streamed table, which the control that calls agents follows.
     let streamedVersion = $state<number | null>(null);
@@ -199,11 +196,11 @@
         stamp = stampBetween(previous, table) ?? stamp;
         soundForCues(cues, table);
         receiveReactions(reactionsBetween(previous, table));
+        const said = cues.filter((cue) => cue.kind === "bid-said");
+        if (said.length > 0) bidsSaid = said;
         for (const cue of cues) {
             if (cue.kind === "card-played") {
                 playedThisHand = [...playedThisHand, cue.card];
-            } else if (cue.kind === "bid-said") {
-                bidSaid = cue;
             } else if (cue.kind === "nudged") {
                 ring(cue);
             } else if (cue.kind === "result-appeared") {
@@ -242,7 +239,7 @@
         asking = null;
         playedThisHand = [];
         stamp = null;
-        bidSaid = null;
+        bidsSaid = [];
         resetStage();
         stopRinging();
         resetReactions();
@@ -293,11 +290,6 @@
     });
 
     const seated = $derived(outcome?.kind === "table" && outcome.table.chairs.some((chair) => chair.is_mine));
-    const ownTurnLadder = $derived.by(() => {
-        if (outcome?.kind !== "table" || outcome.table.hand === null) return null;
-        const viewerSeat = outcome.table.chairs.find((chair) => chair.is_mine)?.seat;
-        return bidLadder(outcome.table.hand.auction, viewerSeat, handWaits(outcome.table.hand));
-    });
     // The version a step was sent from: the controls stay off until a newer version arrives or the step fails.
     let sentFromVersion: number | null = $state(null);
 
@@ -364,8 +356,6 @@
                       seriesNumberOf(table),
                   ),
         );
-    const takeStep = (table: Table, action: AuctionAction, value?: number): Promise<void> =>
-        send(table, takeAuctionStep(id, crypto.randomUUID(), table.version, action, value));
 </script>
 
 <svelte:head>
@@ -653,7 +643,7 @@
                                     <SpeechBubble
                                         bubble={grumblingAt(chair.seat) === null ? marks.bubble : null}
                                         initial={chair.occupant_name.slice(0, 1)}
-                                        fresh={springsUp(bidSaid, chair.seat, marks.bubble)}
+                                        fresh={springsUp(bidsSaid, chair.seat, marks.bubble)}
                                     />
                                     <RamschMarks marks={ramschMark} initial={chair.occupant_name.slice(0, 1)} />
                                     <NudgeBell
@@ -727,16 +717,7 @@
             <DeclareControls {id} table={outcome.table} bind:picking={declarePicking} bind:note />
             <PushControls {id} table={outcome.table} bind:picking={pushPicking} bind:note />
             <PlayControls {id} table={outcome.table} bind:playing bind:note />
-            {#if ownTurnLadder !== null}
-                {@const table = outcome.table}
-                <BidControls
-                    ladder={ownTurnLadder}
-                    disabled={sentFromVersion === table.version}
-                    onstep={(action: AuctionAction, value?: number) => {
-                        void takeStep(table, action, value);
-                    }}
-                />
-            {/if}
+            <BidControls {id} table={outcome.table} bind:note />
             <div class="controls" class:held={giveUp?.cardsHeld === true || wait?.held(ownChair?.seat)}>
                 {#if ownCards.length > 0}
                     <OwnHand cards={ownCards} game={declaredGame} {picking} {playing} />

@@ -9,6 +9,7 @@ from sqlalchemy import delete, update
 from skat.store.schema import hand_cards, tables
 from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.bidding import STEP_KEY
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.table_menu import close_table_menu, menu_button
@@ -32,7 +33,6 @@ DEALER = text(SOURCE_LANGUAGE, "table.dealer")
 USUAL_TIMEOUT_SECONDS = 5
 POLL_MILLISECONDS = 100
 SKAT_CARD = ".skat-card"
-MAIN_STEP = ".bid-buttons .button-stage"
 # The page's chairs reduced to what a hand draws on them; the keys are this test's own, compared with the answer's.
 DRAWN_TABLE = """() => ({
     skat: document.querySelectorAll('.skat-card').length,
@@ -266,8 +266,8 @@ def test_the_auctions_bubbles_and_marks_stay_clear_of_the_plaque_for_every_viewe
     everyone = (players.anna, players.ben, players.cleo, players.watcher)
 
     middlehand = person_at(players, e2e_server, "middlehand")
-    middlehand.locator(MAIN_STEP).click()
-    person_at(players, e2e_server, "forehand").locator(MAIN_STEP).click()
+    middlehand.locator(STEP_KEY).click()
+    person_at(players, e2e_server, "forehand").locator(STEP_KEY).click()
 
     expect(middlehand.locator(".mark.waits")).to_have_count(1)
     for person in everyone:

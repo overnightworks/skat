@@ -122,6 +122,28 @@ def value_reached_by_levels(matador_count: int, levels: tuple[Level, ...], base_
     return multiplier_of(matador_count, levels) * base_value
 
 
+@dataclass(frozen=True)
+class HandValue:
+    """A suit game and the value a hand reaches in it."""
+
+    kind: GameKind
+    value: int
+
+
+def suit_values(hand: Collection[Card]) -> tuple[HandValue, ...]:
+    """What each suit game is worth with the hand's own matadors and no level above the game, in rising order; of two
+    games worth the same, the one of the higher base value stands for the value.
+    """
+    reached: dict[int, tuple[int, GameKind]] = {}
+    for kind in GameKind:
+        held, base = matadors(hand, kind), kind.base_value
+        if kind.suit is None or held is None or base is None:
+            continue
+        value = value_reached_by_levels(held.count, (Level.SPIEL,), base)
+        reached[value] = max(reached.get(value, (base, kind)), (base, kind), key=lambda game: game[0])
+    return tuple(HandValue(reached[value][1], value) for value in sorted(reached))
+
+
 _LEVEL_STEPS: Final = ((False, False), (True, False), (True, True))  # schneider, schwarz
 _FIRST_STEP_OF: Final = {Announcement.NONE: 0, Announcement.SCHNEIDER: 1, Announcement.SCHWARZ: 2}
 

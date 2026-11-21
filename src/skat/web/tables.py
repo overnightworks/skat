@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from webauth.config import WebAuthConfig
     from webauth.ports import AuthenticatedUser, SessionRecordStore
 
-    from skat.table.auction import AuctionView
+    from skat.table.auction import AuctionView, AuctionWord
     from skat.table.declaring import DeclaringView
     from skat.table.kontra import KontraView
     from skat.table.nudging import NudgeState
@@ -211,15 +211,28 @@ class AuctionPlanAnswer(BaseModel):
     mode: PlanMode | None
 
 
+class HandValueAnswer(BaseModel):
+    """A suit game and the value the viewer's own ten cards reach in it without the skat."""
+
+    game: GameToken
+    value: int
+
+
 class AuctionAnswer(BaseModel):
+    """`words` is each chair's latest word, `steps` every word in the order it was said; `plan` and `hand_values` are
+    the viewer's own.
+    """
+
     turn_seat: int | None
     facing_seat: int | None
     awaiting: AwaitingToken | None
     standing: int | None
     values: list[int]
     words: list[AuctionWordAnswer]
+    steps: list[AuctionWordAnswer]
     declared: AuctionDeclaredAnswer | None
     plan: AuctionPlanAnswer | None
+    hand_values: list[HandValueAnswer]
 
 
 class DeclarationAnswer(BaseModel):
@@ -439,6 +452,10 @@ def auction_plan_answer_of(plan: AuctionPlan | None) -> AuctionPlanAnswer | None
     return AuctionPlanAnswer(kind=PlanKind.PASS, value=None, mode=None)
 
 
+def _word_answer_of(word: AuctionWord) -> AuctionWordAnswer:
+    return AuctionWordAnswer(seat=word.seat, action=word.action, value=word.value)
+
+
 def auction_answer_of(auction: AuctionView) -> AuctionAnswer:
     declared = auction.declared
     return AuctionAnswer(
@@ -447,9 +464,11 @@ def auction_answer_of(auction: AuctionView) -> AuctionAnswer:
         awaiting=None if auction.awaiting is None else AWAITING_TOKENS[auction.awaiting],
         standing=auction.standing,
         values=list(auction.values),
-        words=[AuctionWordAnswer(seat=word.seat, action=word.action, value=word.value) for word in auction.words],
+        words=[_word_answer_of(word) for word in auction.words],
+        steps=[_word_answer_of(word) for word in auction.steps],
         declared=None if declared is None else AuctionDeclaredAnswer(seat=declared.seat, value=declared.value),
         plan=auction_plan_answer_of(auction.plan),
+        hand_values=[HandValueAnswer(game=GAME_TOKENS[each.kind], value=each.value) for each in auction.hand_values],
     )
 
 

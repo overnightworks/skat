@@ -1319,6 +1319,8 @@ body {
     /* The pile and the last trick shown again. */
     --brass-hi: #f1d898;
     --pile-card: 32px;
+    /* The brass a mark, a chip or a key is made of. */
+    --brass-face: linear-gradient(180deg, var(--brass-hi), var(--brass) 55%, #a6823f);
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
@@ -2477,7 +2479,7 @@ body {
     width: 26px;
     height: 26px;
     color: #2b1d05;
-    background: linear-gradient(180deg, #f1d898, var(--brass) 55%, #a6823f);
+    background: var(--brass-face);
     box-shadow:
         0 4px 10px -3px rgba(0, 0, 0, 0.8),
         inset 0 1px 0 rgba(255, 255, 255, 0.55);
@@ -2555,8 +2557,8 @@ body {
     }
 }
 
-/* The own turn: the ladder takes a row of its own between the skat and the own chair, so no control covers a card,
-   and the skat's row is only as tall as the skat, so the whole own hand stays on the screen. */
+/* A player's auction: the bid bar takes a row of its own between the skat and the own chair, so no control covers a
+   card, and the skat's row is only as tall as the skat, so the whole own hand stays on the screen. */
 .room .stage:has(> .bid) {
     grid-template-rows: auto minmax(136px, 1fr) auto auto auto auto;
 }
@@ -2565,10 +2567,20 @@ body {
     .room .stage:has(> .bid) :is(.felt, .felt-paint) {
         grid-row: 2 / 6;
     }
+
+    /* The bid bar reaches the felt's rim, so the lamp and the cocktail stand below it, beside the own chair. */
+    .room .stage:has(> .bid) .felt .decor:is(.lamp, .cocktail) {
+        bottom: 2%;
+    }
 }
 
 .room .stage:has(> .bid) .skat-spot {
     grid-row: 3;
+}
+
+/* The open scale takes the skat's place, as the scenes draw it, so the own hand keeps its place under it. */
+.room .stage:has(.scale) .skat-spot {
+    display: none;
 }
 
 .room .stage:has(> .bid) .chair:nth-child(3) {
@@ -3164,6 +3176,16 @@ body {
         align-self: end;
     }
 
+    /* The open scale lies where the skat lay, between the far chairs: the row above it gives up the skat's room, so
+       the chips and the hand keep their place, and the card counts under the far fans make way for its ends. */
+    .room .stage:has(.scale) {
+        grid-template-rows: auto minmax(96px, 1fr) auto auto auto auto;
+    }
+
+    .room .stage:has(.scale) .count-tag {
+        display: none;
+    }
+
     .room .chair.turn::before {
         width: 640px;
         height: 170px;
@@ -3283,18 +3305,539 @@ body {
     }
 }
 
+/* The bid bar, as the scenes of the one grip draw it: the key that says his next word, the whole scale while it is
+   open, the chips of what his cards reach with „Weg“ before them, and his plan in a line under them. Blue is what he
+   says now, brass what the table does for him. */
 .room .bid {
-    --strip: 214px;
+    --unlit: linear-gradient(180deg, rgba(4, 14, 10, 0.62), rgba(10, 22, 16, 0.5));
+    --chip: 46px;
     grid-column: 1 / 3;
     grid-row: 4;
     z-index: 2;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 14px;
-    margin: 12px 0 24px;
+    gap: 8px;
+    margin: 8px 0 12px;
     width: 100%;
     min-width: 0;
+}
+
+.room :is(.bid-keys, .bid-chips, .bid-line) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+}
+
+.room .bid-keys {
+    gap: 10px;
+}
+
+.room .bid-keys .button {
+    min-width: 128px;
+}
+
+.room .button-brass {
+    color: #2b1d05;
+    background: var(--brass-face);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        0 8px 18px -8px rgba(0, 0, 0, 0.8);
+}
+
+.room .bid-chips {
+    gap: 4px;
+}
+
+.room .bid-chip {
+    flex: none;
+    height: var(--chip);
+    padding: 0 6px 0 3px;
+    border: 0;
+    border-radius: 15px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--on-stage);
+    background: var(--unlit);
+    box-shadow:
+        inset 0 0 0 1.2px rgba(201, 164, 100, 0.55),
+        0 8px 16px -10px rgba(0, 0, 0, 0.8);
+    cursor: pointer;
+}
+
+.room .bid-chip.more {
+    width: 30px;
+    padding: 0;
+    justify-content: center;
+}
+
+.room .bid-chip.more svg {
+    width: 20px;
+    height: 20px;
+}
+
+.room .bid-chips .button-glass {
+    height: var(--chip);
+    padding: 0 8px;
+    gap: 4px;
+    border-radius: 15px;
+    font-size: 14.5px;
+}
+
+.room .bid-chips .button-glass svg {
+    width: 15px;
+    height: 15px;
+}
+
+.room :is(.bid-chip, .bid-chips .button-glass).lit {
+    color: #2b1d05;
+    background: var(--brass-face);
+    box-shadow:
+        0 0 0 2px rgba(255, 243, 201, 0.55),
+        0 0 22px rgba(241, 216, 152, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.room .bid-chip.gone {
+    opacity: 0.34;
+    cursor: default;
+}
+
+.room .bid-chip.gone b {
+    text-decoration: line-through 2px;
+}
+
+.room .bid-chip.rest {
+    opacity: 0.42;
+}
+
+.room .bid :is(.bid-chip, .v, .clear, .mode button):focus-visible {
+    outline: 2px solid var(--accent-stage, #7aa7f0);
+    outline-offset: 2px;
+}
+
+.room .bid .suit {
+    flex: none;
+    width: 21px;
+    height: 21px;
+}
+
+.room .bid .suit svg {
+    width: 13px;
+    height: 13px;
+}
+
+/* His plan under the chips, which only his page draws; the line keeps its height, so the chips never move. */
+.room .bid-line {
+    gap: 6px;
+    height: 34px;
+    white-space: nowrap;
+}
+
+.room .bid .bis {
+    height: 28px;
+    padding: 0 11px 0 9px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #2b1d05;
+    background: var(--brass-face);
+    box-shadow:
+        0 6px 14px -6px rgba(0, 0, 0, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.room .bid :is(.bis, .v) .suit {
+    width: 18px;
+    height: 18px;
+    box-shadow: none;
+}
+
+.room .bid :is(.bis, .v) .suit svg {
+    width: 11px;
+    height: 11px;
+}
+
+.room .bid :is(.mode, .clear, .said) {
+    height: 28px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    background: var(--glass-dark);
+}
+
+.room .bid .mode {
+    padding: 2px;
+    box-sizing: border-box;
+    backdrop-filter: blur(12px);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.3);
+}
+
+.room .bid .mode button {
+    position: relative;
+    height: 100%;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--on-stage-soft);
+    background: none;
+    cursor: pointer;
+}
+
+.room .bid .mode .on {
+    color: var(--ink);
+    background: var(--cream);
+}
+
+.room .bid :is(.mode, .said) svg {
+    width: 13px;
+    height: 13px;
+}
+
+.room .bid .clear {
+    position: relative;
+    width: 28px;
+    padding: 0;
+    border: 0;
+    justify-content: center;
+    color: var(--brass-hi);
+    box-shadow: inset 0 0 0 1.2px rgba(201, 164, 100, 0.6);
+    cursor: pointer;
+}
+
+/* A finger gets the height of the whole line for the small parts of his plan. */
+.room .bid :is(.mode button, .clear)::before {
+    content: "";
+    position: absolute;
+    inset: -8px 0;
+}
+
+.room .bid .clear svg {
+    width: 12px;
+    height: 12px;
+}
+
+.room .bid .said {
+    padding: 0 12px;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--on-stage);
+}
+
+/* The table asks him above an ask limit: his turn, in the colour of what he says now. */
+.room .bid .asks {
+    margin: 0;
+    height: 34px;
+    padding: 0 14px 0 5px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--cream);
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 10px 22px -6px rgba(0, 0, 0, 0.8);
+}
+
+.room .bid .asks .bis {
+    height: 24px;
+    padding: 0 9px 0 6px;
+    font-size: 13px;
+    box-shadow: none;
+}
+
+/* The whole scale behind „⋯“: every valid value, the bid ones struck out, the suit over each value his cards reach,
+   hatched above them, where a pick takes a hold; under the values a rail, brass up to the standing bid, and the brass
+   rider under his limit. */
+@property --hold {
+    syntax: "<percentage>";
+    inherits: false;
+    initial-value: 100%;
+}
+
+.room .scale {
+    --cell: 30px;
+    --gap: 3px;
+    --fade-start: 26px;
+    --fade-end: 40px;
+    --height: 80px;
+    width: min(100%, 358px);
+    height: var(--height);
+    border-radius: 18px;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(4, 9, 7, 0.9), rgba(10, 18, 14, 0.84));
+    box-shadow:
+        inset 0 0 0 1.2px rgba(201, 164, 100, 0.6),
+        0 18px 34px -14px rgba(0, 0, 0, 0.9);
+}
+
+/* The fades sit where the values continue; the padding keeps the first and the last value clear of them, and a
+   value the keyboard reaches scrolls clear of them too. */
+.room .scale .view {
+    position: relative;
+    box-sizing: border-box;
+    height: 100%;
+    padding: 0 var(--fade-end) 20px var(--fade-start);
+    display: flex;
+    align-items: flex-end;
+    gap: var(--gap);
+    overflow: auto hidden;
+    scroll-padding-inline: var(--fade-start) var(--fade-end);
+    scrollbar-width: none;
+    mask-image: linear-gradient(
+        90deg,
+        transparent,
+        #000 var(--fade-start),
+        #000 calc(100% - var(--fade-end)),
+        transparent
+    );
+}
+
+/* A mouse has no swipe: it gets a bar to drag, and the scale the room for it. */
+@media (hover: hover) and (pointer: fine) {
+    .room .scale {
+        height: calc(var(--height) + 10px);
+    }
+
+    .room .scale .view {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(244, 246, 248, 0.45) transparent;
+    }
+}
+
+.room .scale .v {
+    position: relative;
+    flex: none;
+    width: var(--cell);
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--on-stage);
+    background: rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.room .scale .v::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: calc(-1 * var(--gap));
+    bottom: -11px;
+    height: 4px;
+    background: rgba(201, 164, 100, 0.28);
+}
+
+.room .scale .v.gone::before {
+    background: var(--brass-hi);
+}
+
+.room .scale .v.at::before {
+    background: linear-gradient(90deg, var(--brass-hi) 50%, rgba(201, 164, 100, 0.28) 50%);
+}
+
+.room .scale .v .suit {
+    position: absolute;
+    left: 50%;
+    top: -21px;
+    translate: -50% 0;
+    box-shadow: inset 0 0 0 1.2px var(--brass);
+}
+
+.room .scale .v.gone {
+    color: rgba(244, 246, 248, 0.3);
+    background: rgba(255, 255, 255, 0.03);
+    text-decoration: line-through;
+    cursor: default;
+}
+
+.room .scale .v.gone .suit {
+    opacity: 0.3;
+}
+
+.room .scale .v.at {
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 0 0 1.5px var(--on-stage-soft);
+}
+
+.room .scale .v.over {
+    color: var(--brass-hi);
+    background: repeating-linear-gradient(135deg, rgba(201, 164, 100, 0.3) 0 5px, rgba(255, 255, 255, 0.04) 5px 10px);
+}
+
+.room .scale .v.mine {
+    color: #2b1d05;
+    background: var(--brass-face);
+}
+
+.room .scale .v.mine::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -19px;
+    width: 28px;
+    height: 15px;
+    translate: -50% 0;
+    border-radius: 3px 3px 7px 7px;
+    background: linear-gradient(180deg, var(--brass-hi), var(--brass) 60%, #8c6a2f);
+    box-shadow:
+        0 3px 6px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.room .scale .v.pick {
+    color: var(--ink);
+    background: var(--cream);
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 8px 16px -6px rgba(0, 0, 0, 0.8);
+}
+
+.room .scale .hold {
+    position: absolute;
+    inset: -5px;
+    padding: 3px;
+    border-radius: 14px;
+    background: conic-gradient(var(--brass-hi) var(--hold), rgba(255, 255, 255, 0.12) 0);
+    mask:
+        linear-gradient(#000 0 0) content-box exclude,
+        linear-gradient(#000 0 0);
+    pointer-events: none;
+}
+
+.room[data-motion] .scale .hold {
+    animation: hold-fills var(--hold-time) linear both; /* NOSONAR(S9440) data-motion is set only while the device allows motion or the player overrides it */
+}
+
+@keyframes hold-fills {
+    from {
+        --hold: 0%;
+    }
+}
+
+.room .scale .hint {
+    position: absolute;
+    left: 0;
+    top: -22px;
+    height: 18px;
+    padding: 0 7px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    color: #2b1d05;
+    background: var(--brass-hi);
+}
+
+@media (max-width: 379px) {
+    .room .bid-chips {
+        gap: 3px;
+    }
+
+    .room .bid-chip {
+        padding: 0 5px 0 3px;
+        font-size: 14.5px;
+    }
+
+    .room .bid-chip.more {
+        width: 26px;
+        padding: 0;
+    }
+
+    .room .bid-chips .button-glass {
+        padding: 0 7px;
+        gap: 3px;
+        font-size: 14px;
+    }
+
+    .room .bid-chips .suit {
+        width: 19px;
+        height: 19px;
+    }
+
+    .room .bid-chips .suit svg {
+        width: 11px;
+        height: 11px;
+    }
+}
+
+@media (min-width: 900px) {
+    .room .bid {
+        --chip: 52px;
+    }
+
+    .room .bid-chips {
+        gap: 8px;
+    }
+
+    .room .bid-chip {
+        padding: 0 13px 0 6px;
+        gap: 7px;
+        border-radius: 17px;
+        font-size: 20px;
+    }
+
+    .room .bid-chip.more {
+        width: 46px;
+        padding: 0;
+    }
+
+    .room .bid-chips .button-glass {
+        padding: 0 16px;
+        border-radius: 17px;
+        font-size: 16px;
+    }
+
+    .room .bid-chips .suit {
+        width: 30px;
+        height: 30px;
+    }
+
+    .room .bid-chips .suit svg {
+        width: 17px;
+        height: 17px;
+    }
+
+    /* The far chairs overhang the stage: the scale is as wide as the scenes draw it where their fans leave the
+       room, and as wide as the gap between the fans in a narrower window. */
+    .room .scale {
+        --cell: 44px;
+        --gap: 4px;
+        --height: 88px;
+        width: min(560px, 100% - 2 * (var(--chair-width) + 20px));
+    }
+
+    .room .scale .v {
+        height: 40px;
+        font-size: 18px;
+    }
 }
 
 .room .ladder {
@@ -3305,8 +3848,7 @@ body {
     max-width: 100%;
 }
 
-.room .ladder > span,
-.room .higher button {
+.room .ladder > span {
     flex: none;
     box-sizing: border-box;
     min-width: 40px;
@@ -3333,60 +3875,6 @@ body {
     width: 13px;
     height: 13px;
     color: var(--ok-stage);
-}
-
-.room .ladder > span.now {
-    min-width: 62px;
-    height: 48px;
-    font-size: 26px;
-    background: var(--cream);
-    color: var(--ink);
-    box-shadow:
-        0 0 0 3px var(--accent-stage, #7aa7f0),
-        0 8px 18px -6px rgba(0, 0, 0, 0.7);
-}
-
-.room .higher {
-    flex: 0 1 var(--strip);
-    min-width: 0;
-    display: flex;
-    gap: 6px;
-    padding: 4px 26px 4px 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-    /* The fade sits where higher values continue; the padding above keeps the last value clear of it. */
-    mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
-    scrollbar-width: none;
-}
-
-.room .higher button {
-    border: 0;
-    font-family: inherit;
-    background: var(--glass);
-    color: var(--on-stage);
-    cursor: pointer;
-}
-
-.room .higher button:focus-visible {
-    outline: 2px solid var(--accent-stage, #7aa7f0);
-    outline-offset: -2px;
-}
-
-.room .higher button:disabled {
-    cursor: default;
-    opacity: 0.45;
-}
-
-@media (hover: hover) and (pointer: fine) {
-    .room .higher {
-        scrollbar-width: thin;
-        scrollbar-color: rgba(244, 246, 248, 0.45) transparent;
-    }
-}
-
-.room .bid-buttons {
-    display: flex;
-    gap: 10px;
 }
 
 .room .button {
@@ -3424,12 +3912,6 @@ body {
     background: var(--glass);
     color: var(--on-stage);
     backdrop-filter: blur(14px);
-}
-
-@media (min-width: 900px) {
-    .room .bid {
-        --strip: 380px;
-    }
 }
 
 .room .controls {
@@ -4005,7 +4487,7 @@ body {
     transform: rotate(-4deg);
 }
 
-.room .plaque .suit {
+.room :is(.plaque, .bid) .suit {
     display: grid;
     place-items: center;
     width: 26px;
@@ -4021,19 +4503,19 @@ body {
 }
 
 /* The same pips the cards draw. */
-.room .plaque .suit.kreuz {
+.room :is(.plaque, .bid) .suit.kreuz {
     fill: #17191c;
 }
 
-.room .plaque .suit.pik {
+.room :is(.plaque, .bid) .suit.pik {
     fill: #14873f;
 }
 
-.room .plaque .suit.herz {
+.room :is(.plaque, .bid) .suit.herz {
     fill: #d81f35;
 }
 
-.room .plaque .suit.karo {
+.room :is(.plaque, .bid) .suit.karo {
     fill: #ec9800;
 }
 
