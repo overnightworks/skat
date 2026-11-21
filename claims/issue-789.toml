@@ -1,8 +1,0 @@
-claim_id = "7b465fe9eac747f0a95eafe8ac2b14bb"
-agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
-role = "builder"
-base = "6088d3ec0f18274dd04f5c5532fdf053aea5c6a0"
-branch = "claude/issue-789-result-test-waits-on-state"
-scope = ["tests/e2e/support", "tests/e2e/test_table_result.py"]
-opened_commit = "1edf1251dfbb2b1c16c8a32871f12ad33327cd44"
-whole_reason = "One test family and the e2e support it waits through."
