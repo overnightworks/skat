@@ -12,6 +12,7 @@ from playwright.sync_api import expect
 from skat.engine.bidding import VALID_BIDS
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction
+from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.bidding import BiddingTable, position_of, step
 from tests.e2e.support.call_frame import (
@@ -246,8 +247,13 @@ def test_the_keys_stay_over_a_reload(
 
 
 def test_a_table_that_ends_while_the_call_runs_posts_no_seats_and_closes_every_hole(
-    open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
+    open_person: Callable[..., Page],
+    browser_coverage: BrowserCoverage,
+    framing_server: RunningServer,
+    expected_request_failures: list[str],
 ) -> None:
+    # The page asks again while the test holds the connection off, and that request fails on purpose.
+    expected_request_failures.append(f"{framing_server.base_url}{TABLES_PATH}/")
     with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True) as call:
         wait_for_seat_messages(call, 1)
         boxes = posted_boxes(call)
@@ -575,8 +581,11 @@ def test_a_page_that_leaves_the_table_answers_no_further_hello_with_seats(
     open_person: Callable[..., Page],
     browser_coverage: BrowserCoverage,
     framing_server: RunningServer,
+    expected_request_failures: list[str],
     greets: bool,
 ) -> None:
+    # The page asks again while the test holds the connection off, and that request fails on purpose.
+    expected_request_failures.append(f"{framing_server.base_url}{TABLES_PATH}/")
     with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=greets, other_seats=()) as call:
         end_as_an_opener_closed_it(
             PostgresTableTransactions(framing_server.engine), table_id_of(call.path), datetime.now(UTC), None
