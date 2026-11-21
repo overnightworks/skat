@@ -97,7 +97,16 @@ def in_the_scene(person: Page, scene: str, script: str, argument: object) -> Any
 
 def expect_painted_as_the_scene(person: Page, scene: str, live: str, drawn: str, properties: list[str]) -> None:
     """`live` has the computed `properties` that `drawn` has in the blessed scene at this width."""
+    expect_everyone_painted_as_the_scene([person], scene, live, drawn, properties)
+
+
+def expect_everyone_painted_as_the_scene(
+    everyone: Iterable[Page], scene: str, live: str, drawn: str, properties: list[str]
+) -> None:
+    """Like `expect_painted_as_the_scene` for pages of one width, which share one read of the scene."""
+    pages = list(everyone)
     in_scene = in_the_scene(
-        person, scene, f"(frame, properties) => ({PAINT})(frame.querySelector({drawn!r}), properties)", properties
+        pages[0], scene, f"(frame, properties) => ({PAINT})(frame.querySelector({drawn!r}), properties)", properties
     )
-    assert person.locator(live).first.evaluate(PAINT, properties) == in_scene
+    for person in pages:
+        assert person.locator(live).first.evaluate(PAINT, properties) == in_scene
