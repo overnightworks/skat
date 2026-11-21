@@ -1,5 +1,5 @@
 claim_id = "5d409aec1b6c44999c2b0c2015476278"
-agent = "Claude 49ff381e-3e9f-45ed-9b1e-bb7b4fd71df0"
+agent = "Claude 08329d5b-8776-4078-b270-c37efe5b15d8"
 role = "builder"
 base = "634eb9943a8d572e8429d5095c54f1a94d19e9a1"
 branch = "claude/issue-804-draw-and-bless-the-scenes-of-an-agent-s"
