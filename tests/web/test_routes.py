@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -88,7 +90,7 @@ class TestHeadRequests:
 
 
 class TestUnknownAddress:
-    HTML = {"Accept": "text/html,application/xhtml+xml"}
+    HTML: ClassVar[dict[str, str]] = {"Accept": "text/html,application/xhtml+xml"}
 
     @pytest.mark.parametrize("method", ["get", "head"])
     def test_a_page_request_gets_the_shell_with_404(self, client, method):
