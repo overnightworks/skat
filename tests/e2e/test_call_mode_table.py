@@ -27,7 +27,7 @@ from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, passe
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
 from tests.e2e.support.table_menu import AGENTS, MENU, MENU_KEY, menu_button
-from tests.e2e.support.tables import open_new_table
+from tests.e2e.support.tables import open_new_table, table_id_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -47,6 +47,7 @@ APP_NAME = text(SOURCE_LANGUAGE, "app.name")
 COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
 NEW_TABLE = text(SOURCE_LANGUAGE, "start.newTable")
 LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
+CALL = text(SOURCE_LANGUAGE, "table.call")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
 SOUND_ON_NAME = text(SOURCE_LANGUAGE, "sound.panelName")
@@ -155,6 +156,46 @@ def test_a_top_level_call_mode_table_offers_the_lobby_button_and_its_copy_link(
     expect(visitor.locator(CHAIR)).to_have_count(THREE_CHAIRS)
     expect(visitor.get_by_role("link", name=LOBBY)).to_be_visible()
     expect(menu_button(visitor, COPY_LINK)).to_be_visible()
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_anruf_key_opens_the_call_apps_start_link_for_the_table_in_a_new_tab_when_the_origin_is_set(
+    open_person: Callable[..., Page], framing_server: RunningServer, form_factor: dict[str, Any]
+) -> None:
+    path = new_table(open_person, framing_server)
+    visitor = open_person(server=framing_server, **form_factor)
+
+    visitor.goto(f"{framing_server.base_url}{path}")
+
+    key = visitor.get_by_role("link", name=CALL)
+    expect(key).to_have_attribute("href", f"{CALL_ORIGIN}/c/new?app=skat&context={table_id_of(path)}")
+    expect(key).to_have_attribute("target", "_blank")
+    expect(key).to_have_attribute("rel", "noopener")
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_the_anruf_key_is_absent_when_no_call_origin_is_set(
+    open_person: Callable[..., Page], e2e_server: RunningServer, form_factor: dict[str, Any]
+) -> None:
+    path = new_table(open_person, e2e_server)
+    visitor = open_person(server=e2e_server, **form_factor)
+
+    visitor.goto(f"{e2e_server.base_url}{path}")
+
+    expect(visitor.locator(CHAIR)).to_have_count(THREE_CHAIRS)
+    expect(visitor.get_by_role("link", name=CALL)).to_have_count(0)
+
+
+def test_a_framed_call_mode_table_has_no_anruf_key(
+    open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
+) -> None:
+    path = new_table(open_person, framing_server)
+    visitor = open_person(server=framing_server)
+
+    with in_the_call_frame(visitor, browser_coverage, table_url(framing_server, path)) as table:
+        expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
+
+        expect(table.get_by_role("link", name=CALL)).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

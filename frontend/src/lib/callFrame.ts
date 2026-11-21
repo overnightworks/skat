@@ -80,6 +80,14 @@ export function isHello(data: unknown): data is HelloMessage {
     );
 }
 
+/** The call app's fixed start link for a table: its first tap starts the table's call and later taps join it. */
+export function callStartAddress(callOrigin: string, tableId: string): string {
+    const address = new URL("/c/new", callOrigin);
+    address.searchParams.set("app", "skat");
+    address.searchParams.set("context", tableId);
+    return address.href;
+}
+
 /** The call's origin from the signed-in route; anything but a 200 naming one counts as no origin. */
 export async function readCallOrigin(fetchRoute: CallHost["fetch"]): Promise<string | null> {
     try {

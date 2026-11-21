@@ -259,6 +259,10 @@ msgctxt "table.lobby"
 msgid "Lobby"
 msgstr "Lobby"
 
+msgctxt "table.call"
+msgid "Anruf"
+msgstr "Call"
+
 msgctxt "table.lobbyWaiting.one"
 msgid "Lobby, {count} Tisch wartet auf dich"
 msgstr "Lobby, {count} table is waiting for you"

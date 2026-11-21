@@ -1,6 +1,7 @@
 <script lang="ts">
     import { words } from "#lib/words.ts";
     import type { Snippet } from "svelte";
+    import CallKey from "./CallKey.svelte";
     import LobbyButton from "./LobbyButton.svelte";
     import ReactionKey from "./ReactionKey.svelte";
     import ReactionTray from "./ReactionTray.svelte";
@@ -16,6 +17,7 @@
     // a running table; a table that does not run has no strip, so the bar carries its menu.
     let {
         callMode,
+        callAddress,
         attention,
         connected,
         live,
@@ -23,6 +25,7 @@
         rulesOpen = $bindable(false),
     }: {
         callMode: boolean;
+        callAddress: string | null;
         attention: number;
         menu: Snippet;
         rulesOpen?: boolean;
@@ -53,6 +56,9 @@
         <ReactionTray id={live.id} />
         {#if !callMode}
             <SoundButton place="bar" />
+            {#if callAddress !== null}
+                <CallKey address={callAddress} />
+            {/if}
         {/if}
         <div
             class="watchers"
