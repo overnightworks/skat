@@ -1,27 +1,16 @@
 import json
-from dataclasses import replace
 from datetime import timedelta
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode, urlsplit
 
 import pytest
 import structlog.testing
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from webauth.config import WebAuthConfig, install_web_auth_config, installed_web_auth_config
-from webauth.middleware import ClientAddressMiddleware, install_web_auth_middleware
+from webauth.config import installed_web_auth_config
 from webauth.middleware.security_headers import STRICT_TRANSPORT_SECURITY
-from webauth.policies import (
-    CsrfPolicy,
-    PathRules,
-    PublicRule,
-    SecurityHeadersPolicy,
-    default_content_security_policy,
-)
 from webauth.ports import AccountEventKind
-from webauth.proxies import TrustedProxies
 
-from skat.host.app import create_app
+from skat.host.app import Clocks, create_app
 from skat.web.constants import (
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -34,15 +23,12 @@ from skat.web.constants import (
     LOGIN_PATH,
     LOGOUT_PATH,
     NO_ACCESS_PATH,
-    SIGN_IN_PATHS,
 )
-from skat.web.gate import session_gate
-from skat.web.sign_in import build_sign_in_configs
 from skat.web.words import SOURCE_LANGUAGE
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
-from tests.support.in_memory_stores import in_memory_stores, in_process_rate_limits, single_pod
+from tests.support.in_memory_stores import in_memory_stores, single_pod
 from tests.support.page_build import (
     ANNOUNCER_STYLE_HASH,
     CALL_PAGE_MODULE,
@@ -61,7 +47,6 @@ from tests.support.signed_in import SeededMember, cookie_header, seed_member
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from webauth.single_process_stores import SingleProcessStores
 
 BROWSER_ACCEPT = {"accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
 FETCH_ACCEPT = {"accept": "application/json"}
@@ -462,28 +447,14 @@ class TestRevalidation:
 
 class TestSessionLifetime:
     def test_a_session_ends_after_twelve_hours(self, sign_in_settings):
-        sign_in = sign_in_settings()
-        stores = in_memory_stores()
         now = [1_800_000_000.0]
-        config: WebAuthConfig = replace(
-            build_sign_in_configs(sign_in.settings, in_process_rate_limits()).web_auth, wall_clock=lambda: now[0]
-        )
-        member = seed_member(stores, config)
-        app = FastAPI()
-        install_web_auth_config(app, config)
-        install_gate(app, stores)
-
-        @app.get("/")
-        def home() -> str:
-            return "home"
-
-        client = TestClient(app, base_url=TEST_PUBLIC_ORIGIN, follow_redirects=False)
-        headers = {**BROWSER_ACCEPT, "cookie": cookie_header(member.set_cookie_headers)}
+        application = Application(sign_in_settings(), clocks=Clocks(wall=lambda: now[0]))
+        member = application.seed()
 
         now[0] += SESSION_LIFETIME.total_seconds() - 1
-        assert client.get("/", headers=headers).status_code == 200
+        assert application.get("/", member, **BROWSER_ACCEPT).status_code == 200
         now[0] += 2
-        assert client.get("/", headers=headers).status_code == 302
+        assert application.get("/", member, **BROWSER_ACCEPT).status_code == 302
 
 
 class TestPageBuildAssets:
@@ -511,17 +482,6 @@ class TestPageBuildAssets:
         response = application.get(VERSION_FILE, application.seed(), **FETCH_ACCEPT)
 
         assert (response.status_code, response.headers["cache-control"]) == (200, "no-cache")
-
-
-def install_gate(app: FastAPI, stores: SingleProcessStores) -> None:
-    install_web_auth_middleware(
-        app,
-        sign_in_paths=SIGN_IN_PATHS,
-        security_headers=SecurityHeadersPolicy(content_security_policy=default_content_security_policy()),
-        csrf_origin=CsrfPolicy(),
-        session_gate=session_gate(stores.sessions, PublicRule(PathRules(exact=frozenset()))),
-    )
-    app.add_middleware(ClientAddressMiddleware, trusted_proxies=TrustedProxies())
 
 
 class TestSecurityHeaders:

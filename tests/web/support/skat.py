@@ -3,7 +3,6 @@ import itertools
 import json
 import threading
 from contextlib import ExitStack, contextmanager
-from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -11,10 +10,10 @@ from agents.mcp_wire import PROTOCOL_VERSION, PROTOCOL_VERSION_HEADER
 from fastapi.testclient import TestClient
 from mcp.shared.inbound import MCP_METHOD_HEADER, MCP_NAME_HEADER, NAME_BEARING_METHODS
 from mcp_types import CLIENT_CAPABILITIES_META_KEY, PROTOCOL_VERSION_META_KEY
-from webauth.config import install_web_auth_config, installed_web_auth_config
+from webauth.config import installed_web_auth_config
 
 from skat.engine.deal import positions_from
-from skat.host.app import END_ANSWER_RECOVERY_SECONDS, UNPLAYED_SWEEP_SECONDS, create_app
+from skat.host.app import END_ANSWER_RECOVERY_SECONDS, UNPLAYED_SWEEP_SECONDS, Clocks, create_app
 from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
@@ -107,16 +106,28 @@ class WiredTableService(TableService):
 
 class Skat:
     def __init__(
-        self, sign_in_settings, store=None, stores=None, now=None, view_signal_through=None, pod=None, **app_options
+        self,
+        sign_in_settings,
+        store=None,
+        stores=None,
+        now=None,
+        view_signal_through=None,
+        pod=None,
+        chair_clock=None,
+        wall_clock=None,
+        **app_options,
     ):
         self.stores = stores if stores is not None else in_memory_stores()
         self.store = store if store is not None else FakeTableStore()
-        if isinstance(self.store, FakeTableStore) and "chair_clock" in app_options:
+        if isinstance(self.store, FakeTableStore) and chair_clock is not None:
             # The store's clock, on which a chair hold falls due, runs with the presence's.
-            chair_clock = app_options["chair_clock"]
             self.store.clock = lambda: FAKE_EPOCH + timedelta(seconds=chair_clock())
         self.rule_set_store = FakeRuleSetStore()
         self._wired = []
+        clocks = Clocks(
+            **({} if chair_clock is None else {"chair": chair_clock}),
+            **({} if wall_clock is None else {"wall": wall_clock}),
+        )
         self.app = create_app(
             sign_in_settings().settings,
             page_build=fixture_page_build(),
@@ -128,6 +139,7 @@ class Skat:
             ),
             rule_sets=RuleSetService(self.rule_set_store),
             stores=self.stores,
+            clocks=clocks,
             **app_options,
             **single_pod(**(pod or {})),
         )
@@ -138,11 +150,6 @@ class Skat:
     def tables(self):
         """The table service as the app wired it, which tells a listening agent when its standing changed."""
         return self._wired[-1]
-
-    def run_on_clock(self, now):
-        """Reads webauth's time from `now[0]`, a list the test moves; call before the first member is seeded."""
-        self.config = replace(self.config, wall_clock=lambda: now[0])
-        install_web_auth_config(self.app, self.config)
 
     def member(self, account=None, **seed_options):
         """A member with a session of their own; with `account`, a further device of that account."""
