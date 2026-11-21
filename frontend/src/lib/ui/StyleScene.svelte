@@ -10,6 +10,8 @@
 
     $effect(() => {
         showTableStyle(style);
+        // The page-wide style is this table's: leaving the table hands it back.
+        return () => showTableStyle(null);
     });
 </script>
 

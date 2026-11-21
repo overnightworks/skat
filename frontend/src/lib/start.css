@@ -1013,7 +1013,8 @@ body {
     padding: 20px 16px 16px;
     border-radius: 24px;
     color: var(--on-stage);
-    background: rgba(12, 14, 17, 0.8);
+    /* The start page's sheets stand outside a table and take the fallback. */
+    background: var(--sheet-glass, rgba(12, 14, 17, 0.8));
     backdrop-filter: blur(14px);
     box-shadow:
         inset 0 0 0 1.5px rgba(240, 214, 150, 0.32),
@@ -1641,6 +1642,88 @@ body {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* The panel's one row, as the blessed picture sets it: the label over the two tiles, then the note under them. */
+.room .style-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 16px 12px;
+}
+
+@media (min-width: 900px) {
+    .room .style-row {
+        padding: 8px 16px 10px;
+    }
+}
+
+.room .style-label {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.room .style-note {
+    padding: 2px 16px 14px;
+}
+
+.room .style-tiles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.room .style-tile {
+    display: block;
+    cursor: pointer;
+}
+
+.room .style-tile input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.room .style-face {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 6px 8px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.22);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.room .style-tile input:checked + .style-face {
+    color: var(--stage-ink, #0c0e11);
+    background: var(--accent-stage, #7aa7f0);
+}
+
+.room .style-tile input:focus-visible + .style-face {
+    outline: 2px solid var(--on-stage);
+    outline-offset: 2px;
+}
+
+.room .style-preview {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 9px;
+}
+
+.room .style-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 20px;
+}
+
+.room .style-name svg {
+    width: 14px;
+    height: 14px;
+}
+
 .room .table-menu .row {
     position: relative;
     display: flex;
@@ -1745,7 +1828,7 @@ body {
     margin-bottom: 28px;
     padding: 8px 16px;
     border-radius: 16px;
-    background: rgba(6, 40, 27, 0.82);
+    background: var(--plaque-glass);
     box-shadow: inset 0 0 0 1px rgba(240, 214, 150, 0.18);
     font-size: 15px;
     font-weight: 600;
@@ -1995,13 +2078,8 @@ body {
 
 .room .felt-paint {
     position: relative;
-    background: radial-gradient(ellipse at 50% 40%, #24855f, #166443 60%, #0b3b2a);
-    /* The rim is wood with a brass inlay line in it. */
-    box-shadow:
-        0 0 0 5.1px #57331b,
-        0 0 0 6.5px rgba(201, 164, 100, 0.8),
-        0 0 0 10px #57331b,
-        0 24px 40px -12px rgba(0, 0, 0, 0.9);
+    background: var(--felt-background);
+    box-shadow: var(--felt-shadow);
 }
 
 .room .chairs {
@@ -2041,13 +2119,13 @@ body {
     inset: 0;
     display: grid;
     place-items: center;
-    border-radius: 22px 22px 12px 12px;
-    background: linear-gradient(160deg, #4a3330, #241918);
-    box-shadow: inset 0 0 0 2px rgba(240, 214, 150, 0.2);
+    border-radius: var(--tile-radius);
+    background: var(--tile-background);
+    box-shadow: var(--tile-shadow);
 }
 
 .room .chair.mine .tile {
-    box-shadow: inset 0 0 0 3px var(--brass);
+    box-shadow: var(--tile-mine-shadow);
 }
 
 /* The marks of a chair: a row of their own only in a call, where the video lies in the tile's box. */
@@ -2060,21 +2138,25 @@ body {
 }
 
 .room .tile.empty {
-    background: rgba(12, 14, 17, 0.55);
-    box-shadow: inset 0 0 0 2px rgba(244, 246, 248, 0.2);
+    background: var(--tile-empty-background);
+    box-shadow: var(--tile-empty-shadow);
 }
 
 /* An agent's chair is a glowing orb in a night sky with a dashed accent outline, never a person's colour. */
 :is(.room, .lobby-card) .tile.agent {
     container-type: size;
-    background:
+    /* A lobby card stands outside a table and takes the fallback, the night sky. */
+    background: var(
+        --tile-agent-background,
         radial-gradient(1.2px 1.2px at 18% 24%, #fff, transparent),
         radial-gradient(1px 1px at 78% 30%, #cfe0ff, transparent),
         radial-gradient(1.4px 1.4px at 64% 78%, #fff, transparent),
         radial-gradient(1px 1px at 30% 70%, #cfe0ff, transparent),
         radial-gradient(1px 1px at 88% 64%, #fff, transparent),
         radial-gradient(60% 60% at 50% 46%, rgba(122, 167, 240, 0.22), transparent 70%),
-        linear-gradient(160deg, #1c2a44, #0c1220);
+        linear-gradient(160deg, #1c2a44, #0c1220)
+    );
+    background-color: var(--tile-agent-color, transparent);
 }
 
 :is(.room, .lobby-card) .tile.agent::before {
@@ -2123,12 +2205,8 @@ body {
     width: var(--coaster-size);
     aspect-ratio: 1;
     border-radius: 50%;
-    background:
-        radial-gradient(circle, transparent 62%, rgba(45, 107, 79, 0.55) 63% 66%, transparent 67%),
-        repeating-conic-gradient(from 0deg, rgba(0, 0, 0, 0.05) 0 6deg, transparent 6deg 12deg), #f4ecd9;
-    box-shadow:
-        0 3px 0 #d8ccb0,
-        0 8px 14px -4px rgba(0, 0, 0, 0.8);
+    background: var(--coaster-background);
+    box-shadow: var(--coaster-shadow);
     color: var(--ink);
     font-size: calc(var(--coaster-size) * 0.34);
     font-variant-numeric: tabular-nums;
@@ -2157,9 +2235,10 @@ body {
     max-width: 140%;
     padding: 3px 12px;
     overflow: hidden;
-    border-radius: 8px;
-    color: #2b1d05;
-    background: linear-gradient(180deg, #f1d898, #c9a464);
+    border-radius: var(--plate-radius);
+    color: var(--plate-ink);
+    background: var(--plate-background);
+    box-shadow: var(--plate-shadow);
     font-size: 13.5px;
     font-weight: 600;
     text-overflow: ellipsis;
@@ -2201,11 +2280,15 @@ body {
     padding-inline: 8px;
 }
 
+.room .plate small {
+    color: var(--plate-small-ink);
+}
+
 .room .plate .away-note {
     display: block;
     font-size: 10.5px;
     font-weight: 600;
-    color: rgba(43, 29, 5, 0.72);
+    color: var(--plate-note-ink);
 }
 
 /* A passed-in hand: the verdict above the line that names the next dealer. */
@@ -2455,7 +2538,7 @@ body {
     width: var(--open-width);
     aspect-ratio: 100 / 140;
     border-radius: calc(var(--open-width) * 0.075);
-    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+    filter: var(--open-card-filter);
 }
 
 /* While the first card waits for a word the leader holds its cards back, open ones as well as hidden. */
@@ -2767,7 +2850,7 @@ body {
 
 /* In a call the video lies in the tile's box, so the tile's rim, the own ring and the agent's dashed line lie outside it, clear of the call's own ring inside the box; no mark lies in the top-left quarter, where the call draws its own, so the marks stand in one row at the top right, the first of them rightmost, and wrap before they cross the tile's midline. The position's label keeps its place on the corner, so the row starts below it. */
 .room.framed .tile {
-    box-shadow: 0 0 0 2px rgba(240, 214, 150, 0.2);
+    box-shadow: var(--tile-framed-shadow);
 }
 
 .room.framed .tile.empty {
@@ -2780,7 +2863,7 @@ body {
 
 @media (max-width: 899px) {
     .room.framed .chair.mine .tile {
-        box-shadow: 0 0 0 3px var(--brass);
+        box-shadow: var(--tile-mine-framed-shadow);
     }
 }
 
@@ -3481,7 +3564,7 @@ body {
    open, the chips of what his cards reach with „Weg“ before them, and his plan in a line under them. Blue is what he
    says now, brass what the table does for him. */
 .room .bid {
-    --unlit: linear-gradient(180deg, rgba(4, 14, 10, 0.62), rgba(10, 22, 16, 0.5));
+    --unlit: var(--bid-unlit);
     --chip: 46px;
     --rows: 8px;
     grid-column: 1 / 3;
@@ -3645,7 +3728,7 @@ body {
     border-radius: 999px;
     display: inline-flex;
     align-items: center;
-    background: var(--glass-dark);
+    background: var(--bid-pill-glass);
 }
 
 .room .bid .mode {
@@ -4043,12 +4126,12 @@ body {
     font-size: 15px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    background: rgba(0, 0, 0, 0.28);
-    color: rgba(244, 246, 248, 0.45);
+    background: var(--ladder-glass);
+    color: var(--ladder-ink);
 }
 
 .room .ladder > span.held {
-    background: rgba(0, 0, 0, 0.35);
+    background: var(--ladder-held-glass);
     color: var(--on-stage);
     display: inline-flex;
     gap: 3px;
@@ -4092,7 +4175,7 @@ body {
 }
 
 .room .button-glass {
-    background: var(--glass);
+    background: var(--button-glass);
     color: var(--on-stage);
     backdrop-filter: blur(14px);
 }
@@ -4116,7 +4199,7 @@ body {
     border: 0;
     border-radius: 999px;
     color: var(--on-stage);
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--copy-glass);
     backdrop-filter: blur(14px);
     font: inherit;
     font-size: 16px;
@@ -4154,7 +4237,7 @@ body {
     aspect-ratio: 100 / 140;
     margin-left: calc(var(--strip) - var(--card-width));
     border-radius: calc(var(--card-width) * 0.075);
-    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+    filter: var(--hand-card-filter);
     transform-origin: 50% 100%;
     transform: translate(var(--drag-x, 0px), var(--drag-y, 0px))
         translateY(calc(var(--step) * var(--step) * var(--fan-drop) + var(--lift, 0px)))
@@ -5457,17 +5540,13 @@ body {
         margin: 0;
     }
 
-    /* Klassik's felt is long with round ends, in a rim of wood with a brass line. */
-    .room[data-style="klassik"] :is(.felt, .felt-paint) {
-        border-radius: 999px;
+    /* A look may shape the felt differently from the scenes' oval: the rim and the shadow are its tokens. */
+    .room :is(.felt, .felt-paint) {
+        border-radius: var(--felt-radius-wide, 50%);
     }
 
-    .room[data-style="klassik"] .felt-paint {
-        box-shadow:
-            0 0 0 calc(var(--rim) * 0.58) #57331b,
-            0 0 0 calc(var(--rim) * 0.58 + 1.4px) rgba(201, 164, 100, 0.8),
-            0 0 0 var(--rim) #57331b,
-            0 40px 70px -20px rgba(0, 0, 0, 0.9);
+    .room .felt-paint {
+        box-shadow: var(--felt-shadow-wide, var(--felt-shadow));
     }
 
     /* While a hand is played the near chair lies beside the trick, so the hand and the bar stay on the screen. */
@@ -5693,11 +5772,9 @@ body {
     scrollbar-width: thin;
     scrollbar-color: rgba(244, 246, 248, 0.45) transparent;
     border-radius: 24px;
-    background: rgba(12, 14, 17, 0.74);
+    background: var(--result-glass);
     backdrop-filter: blur(14px);
-    box-shadow:
-        inset 0 0 0 1.5px rgba(240, 214, 150, 0.32),
-        0 24px 50px -16px rgba(0, 0, 0, 0.9);
+    box-shadow: var(--result-shadow);
 }
 
 .room .result h3 {
@@ -5849,7 +5926,7 @@ body {
 }
 
 .room .result .ladder > span.mit {
-    color: #f3cf7a;
+    color: var(--ladder-mit-ink);
 }
 
 .room .result .eq {
@@ -5962,18 +6039,13 @@ body {
     gap: 4px;
     padding: 10px 4px;
     border-radius: 50% 50% 16px 16px / 34% 34% 16px 16px;
-    color: #14181d;
-    background: #f4ecd9;
-    box-shadow:
-        0 3px 0 #d8ccb0,
-        0 10px 18px -6px rgba(0, 0, 0, 0.8);
+    color: var(--reck-ink);
+    background: var(--reck-background);
+    box-shadow: var(--reck-shadow);
 }
 
 .room .result .reck.win {
-    box-shadow:
-        0 0 0 3px #f3cf7a,
-        0 3px 0 #d8ccb0,
-        0 10px 22px -6px rgba(243, 207, 122, 0.5);
+    box-shadow: var(--reck-win-shadow);
 }
 
 .room .result .reck .dot {
@@ -5999,7 +6071,7 @@ body {
 }
 
 .room .result .reck .dl {
-    --ink: #1f7a4d;
+    --ink: var(--reck-gain-ink);
     color: var(--ink);
     font-size: 22px;
     font-weight: 700;
@@ -6007,7 +6079,7 @@ body {
 }
 
 .room .result .reck .dl.minus {
-    --ink: #6b6f78;
+    --ink: var(--reck-loss-ink);
 }
 
 /* The card packs as tight as the 390 px scene draws it, so its seat tiles stay whole on a short phone. */
@@ -9030,6 +9102,7 @@ body {
         0 1px 0 #d9d2c2,
         0 2px 0 #aaa18e,
         0 7px 12px -5px rgba(0, 0, 0, 0.75);
+    filter: var(--pile-card-filter);
     transform: translateY(var(--lift, 0px)) rotate(var(--rot, 0deg));
 }
 
