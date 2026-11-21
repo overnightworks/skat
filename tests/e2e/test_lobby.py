@@ -17,7 +17,7 @@ from skat.web.lobby import (
 from skat.web.table_options import GiveUpOptionsAnswer, KontraOptionsAnswer, OptionsAnswer
 from skat.web.tables import TABLE_SIT_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
+from tests.e2e.support.browser import NEW_TABLE_BUTTON, TAP_TARGET_PIXELS, record_page_errors
 from tests.e2e.support.lobby_stream import EVENT_STREAM, open_table_answer, serve_stream, stream_of
 from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.table_menu import menu_button
@@ -59,7 +59,6 @@ OPEN_TABLE = text(SOURCE_LANGUAGE, "start.openTable")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 ENGLISH: Language = "en"
 # A tap target is at least this many CSS pixels on each side.
-TAP_TARGET_PIXELS = 44
 
 
 def name_at(base: str, form_factor: dict[str, Any]) -> str:

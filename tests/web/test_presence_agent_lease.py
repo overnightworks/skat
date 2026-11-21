@@ -18,14 +18,13 @@ from tests.support.log_lines import logged
 from tests.support.payload_cards import DEALER_SEAT
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, Agent, person_passes
-from tests.web.support.calling import running_skat
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
     end_the_first_game,
     failed_timers,
     occupied_seats,
 )
-from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, FakeTime, Skat, streams_of
+from tests.web.support.skat import FETCH, UNKNOWN_ID, FakeTime, Skat, advance, running_skat, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 SEAT_OF = seats_from(DEALER_SEAT)
@@ -38,24 +37,14 @@ PERSON_SUBJECT = "person-subject"
 PERSON_AT_THE_AGENTS_PATH = {"groups": [MCP_GROUP], "agent_owner": None, "agent_name": None}
 
 
-@pytest.fixture
-def skat(hold, issuer, time):
-    yield from running_skat(hold, issuer, time)
+skat = pytest.fixture(name="skat")(running_skat)
 
 
 @pytest.fixture
-def hand_table(skat, agent):
-    """A dealt table, no step taken, where the agent holds the middlehand chair."""
-    table = AgentTable(skat, agent, MIDDLEHAND)
-    skat.client.cookies.clear()
-    return table
-
-
-@pytest.fixture
-def result_table(skat, hand_table):
+def result_table(skat, middlehand_auction):
     """The table after its first game, no chair ready."""
-    end_the_first_game(skat.store, hand_table.table_id)
-    return hand_table
+    end_the_first_game(skat.store, middlehand_auction.table_id)
+    return middlehand_auction
 
 
 @pytest.fixture
@@ -70,10 +59,6 @@ def undealt_table(skat, agent):
     agent.sit_down(table_id, UNDEALT_AGENT_SEAT)
     skat.client.cookies.clear()
     return owner, table_id
-
-
-def advance(skat, time, seconds):
-    skat.client.portal.call(time.advance, seconds)
 
 
 def stay_connected(skat, time, agent, seconds, *, table_id=UNKNOWN_ID):
@@ -261,24 +246,26 @@ class TestWhenTheLeaseLapses:
         assert before == {1, 2}
         assert occupied_seats(skat, table_id) == {1}
 
-    def test_during_a_hand_nothing_frees_the_chair_and_the_hand_waits(self, skat, time, hand_table, hold_seconds):
-        before = hand_table.record
+    def test_during_a_hand_nothing_frees_the_chair_and_the_hand_waits(
+        self, skat, time, middlehand_auction, hold_seconds
+    ):
+        before = middlehand_auction.record
         advance(skat, time, LEASE_SECONDS + hold_seconds * 2)
 
-        assert hand_table.record == before
-        assert is_away(hand_table, AGENT_SEAT)
+        assert middlehand_auction.record == before
+        assert is_away(middlehand_auction, AGENT_SEAT)
 
     def test_a_hand_that_ends_after_the_lapse_leaves_the_agents_chair_alone(
-        self, skat, time, agent, hand_table, hold_seconds
+        self, skat, time, agent, middlehand_auction, hold_seconds
     ):
-        agent.take_step(AUCTION_PASS_TOOL, hand_table, command_id="agent-pass")
+        agent.take_step(AUCTION_PASS_TOOL, middlehand_auction, command_id="agent-pass")
         advance(skat, time, LEASE_SECONDS + hold_seconds + 10)
-        person_passes(hand_table, REARHAND)
-        person_passes(hand_table, FOREHAND)
+        person_passes(middlehand_auction, REARHAND)
+        person_passes(middlehand_auction, FOREHAND)
 
         advance(skat, time, hold_seconds * 3)
 
-        assert AGENT_SEAT in occupied_seats(skat, hand_table.table_id)
+        assert AGENT_SEAT in occupied_seats(skat, middlehand_auction.table_id)
 
     def test_a_return_before_the_hold_ends_clears_the_mark_and_keeps_the_chair(
         self, skat, time, agent, result_table, hold_seconds
@@ -350,19 +337,19 @@ class TestTheNextDeal:
         ],
     )
     def test_a_refused_weiter_is_a_failed_result_with_its_reason_and_spends_the_command_id(
-        self, skat, agent, hand_table, state, ordinal, reason
+        self, skat, agent, middlehand_auction, state, ordinal, reason
     ):
         if state == "result":
-            end_the_first_game(skat.store, hand_table.table_id)
-        before = skat.store.tables[hand_table.table_id]
+            end_the_first_game(skat.store, middlehand_auction.table_id)
+        before = skat.store.tables[middlehand_auction.table_id]
 
         every_tool = agent.offered_every_tool()
-        refused = continues(every_tool, hand_table, ordinal=ordinal)
-        again = continues(every_tool, hand_table, ordinal=FIRST_RESULT)
+        refused = continues(every_tool, middlehand_auction, ordinal=ordinal)
+        again = continues(every_tool, middlehand_auction, ordinal=FIRST_RESULT)
 
         assert (refused.is_error, refused.json()["reason"]) == (True, reason)
         assert again.is_error
-        assert skat.store.tables[hand_table.table_id] == before
+        assert skat.store.tables[middlehand_auction.table_id] == before
 
     def test_a_weiter_naming_another_series_is_a_failed_result_and_changes_nothing(self, skat, agent, result_table):
         before = skat.store.tables[result_table.table_id]
@@ -397,24 +384,24 @@ class TestTheNextDeal:
 
         assert hand_of(result_table) is not None
 
-    def test_a_passed_in_hand_deals_after_its_pause_while_the_lease_runs(self, skat, time, agent, hand_table):
-        with persons_streams(hand_table):
-            pass_the_hand_in(hand_table, agent)
+    def test_a_passed_in_hand_deals_after_its_pause_while_the_lease_runs(self, skat, time, agent, middlehand_auction):
+        with persons_streams(middlehand_auction):
+            pass_the_hand_in(middlehand_auction, agent)
             advance(skat, time, NEXT_DEAL_PAUSE_SECONDS - 1)
-            waiting = hand_of(hand_table)
+            waiting = hand_of(middlehand_auction)
             advance(skat, time, 1)
 
         assert waiting is None
-        assert hand_of(hand_table) is not None
+        assert hand_of(middlehand_auction) is not None
 
     def test_a_hand_that_ends_while_the_lease_runs_leaves_every_chair_in_place(
-        self, skat, time, agent, hand_table, hold_seconds
+        self, skat, time, agent, middlehand_auction, hold_seconds
     ):
-        pass_the_hand_in(hand_table, agent)
+        pass_the_hand_in(middlehand_auction, agent)
 
         stay_connected(skat, time, agent, hold_seconds + 1)
 
-        assert occupied_seats(skat, hand_table.table_id) == {1, 2, 3}
+        assert occupied_seats(skat, middlehand_auction.table_id) == {1, 2, 3}
 
     def test_a_lapsed_agent_gets_the_deal_asked_again_when_it_returns_and_it_comes_once(
         self, skat, time, agent, result_table

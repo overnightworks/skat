@@ -42,6 +42,7 @@ class _HoldingTransaction:
         self._inner = inner
         self._hold = hold
 
+    # the delegation of a wrapper to the store it wraps; each wrapper has its own methods
     def __getattr__(self, name):
         return getattr(self._inner, name)
 

@@ -27,6 +27,7 @@ class FakeClock:
     def __init__(self) -> None:
         self.now = 0.0
 
+    # a clock reading of this test's own fake
     def __call__(self) -> float:
         return self.now
 

@@ -36,10 +36,12 @@ class TestOneMomentRead:
         dealing.sit(CLEO, SitDown("command-cleo", table_id, 3), frozenset())
         return self.read(engine, table_id)
 
+    # a class-level fixture on this file's own opener; a conftest fixture cannot be assigned into a class
     @pytest.fixture
     def table_id(self, service):
         return service.create(OPENER, CreateTable(command_id="command-open")).id
 
+    # a method of this class on its own engine
     def read(self, engine, table_id):
         with PostgresTableTransactions(engine).begin() as transaction:
             return transaction.table(TableId(table_id))

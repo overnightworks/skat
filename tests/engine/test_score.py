@@ -1,5 +1,3 @@
-from itertools import combinations_with_replacement
-
 import pytest
 
 from skat.engine.bidding import Declared
@@ -10,25 +8,16 @@ from skat.engine.games import GameKind, Trump
 from skat.engine.score import Reckoning, Settlement, announcement_missed, list_bonus, overbid, reckon, settle
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import value_of
+from tests.support.playing_scenes import trick_worth
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KARO, HERZ, NULL = GameKind.KARO, GameKind.HERZ, GameKind.NULL
 CLUBS_JACK, SPADES_JACK = Card(Suit.KREUZ, Rank.JACK), Card(Suit.PIK, Rank.JACK)
 HEARTS_JACK = Card(Suit.HERZ, Rank.JACK)
-CARD_POINTS = (0, 2, 3, 4, 10, 11)
-RANKS_BY_POINTS = {0: Rank.SEVEN, 2: Rank.JACK, 3: Rank.QUEEN, 4: Rank.KING, 10: Rank.TEN, 11: Rank.ACE}
 WIN = (30, 30, 20)  # 80 points, the opponents 40: no Schneider
 WIN_SCHNEIDER = (30, 30, 30, 5)  # 95 points, the opponents 25
 LOST = (30, 20)  # 50 points
 SEVENTY_POINTS = (30, 30, 10)
-
-
-def trick_worth(points: int) -> tuple[Card, Card, Card]:
-    for combination in combinations_with_replacement(CARD_POINTS, 3):
-        if sum(combination) == points:
-            first, second, third = (Card(Suit.KARO, RANKS_BY_POINTS[each]) for each in combination)
-            return first, second, third
-    raise AssertionError(points)
 
 
 def twelve_holding(kind: GameKind, trumps: tuple[Card, ...]) -> tuple[Card, ...]:

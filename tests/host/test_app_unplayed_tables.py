@@ -22,11 +22,6 @@ from tests.support.unplayed_tables import (
 )
 
 
-@pytest.fixture
-def unplayed(sign_in_settings):
-    return UnplayedTables(sign_in_settings)
-
-
 class TestUnplayedTables:
     @pytest.mark.parametrize(
         ("seconds_past_the_end", "ends"),

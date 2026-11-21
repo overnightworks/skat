@@ -2,7 +2,6 @@
 for its recovery, and none for a run that found nothing to do.
 """
 
-import pytest
 from fastapi.testclient import TestClient
 from logline import Outcome
 
@@ -11,11 +10,6 @@ from tests.support.log_lines import lines_of, logged
 from tests.support.unplayed_tables import UNPLAYED_DAYS, UnplayedTables
 
 EVENT = "table_sweep.ended"
-
-
-@pytest.fixture
-def unplayed(sign_in_settings):
-    return UnplayedTables(sign_in_settings)
 
 
 class TestTheTableSweepLine:

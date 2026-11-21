@@ -1,12 +1,12 @@
 from dataclasses import replace
-from itertools import combinations
+from itertools import combinations, combinations_with_replacement
 
 from skat.engine.bidding import Declared
 from skat.engine.cards import DECK, Card, Rank, Suit
 from skat.engine.deal import Deal, Position
 from skat.engine.declaration import Announcement, Declaring, declare, put_back, take_skat
 from skat.engine.games import GameKind
-from skat.engine.tricks import CompletedTrick, Playing, start_play
+from skat.engine.tricks import CompletedTrick, Playing, play_card, start_play
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KARO = GameKind.KARO
@@ -57,3 +57,23 @@ def scenario(kind: GameKind, bid: int, taken: tuple[tuple[Position, int], ...] =
     tricks = tuple(stand_in_trick(taker, points) for taker, points in taken)
     declarer_hand = state.hands[FOREHAND][: 10 - len(tricks)]
     return replace(state, declared=declared, tricks=tricks, hands={**state.hands, FOREHAND: declarer_hand})
+
+
+CARD_POINTS = (0, 2, 3, 4, 10, 11)
+RANKS_BY_POINTS = {0: Rank.SEVEN, 2: Rank.JACK, 3: Rank.QUEEN, 4: Rank.KING, 10: Rank.TEN, 11: Rank.ACE}
+
+
+def trick_worth(points: int) -> tuple[Card, Card, Card]:
+    for combination in combinations_with_replacement(CARD_POINTS, 3):
+        if sum(combination) == points:
+            first, second, third = (Card(Suit.KARO, RANKS_BY_POINTS[each]) for each in combination)
+            return first, second, third
+    raise AssertionError(points)
+
+
+def first_accepted(state: Playing) -> Playing:
+    """The player on turn plays the first card of its hand that is accepted."""
+    position = state.turn
+    return next(
+        outcome.state for card in state.hands[position] if (outcome := play_card(state, position, card)).refusal is None
+    )

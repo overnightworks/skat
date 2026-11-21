@@ -54,17 +54,6 @@ def other_route(route):
     return TABLE_THROW_DOWN_SUFFIX if route == TABLE_GIVE_UP_SUFFIX else TABLE_GIVE_UP_SUFFIX
 
 
-@pytest.fixture
-def table(skat):
-    return Table(skat)
-
-
-@pytest.fixture
-def herz_hand(table):
-    table.declared_hand_game()
-    return table
-
-
 def ready(table, position):
     table.skat.client.cookies.clear()
     answer = table.skat.client.post(

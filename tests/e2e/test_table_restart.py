@@ -14,11 +14,11 @@ from skat.web.words import text as word_text
 from tests.e2e.support.browser import sign_in_at_issuer
 from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
-from tests.e2e.support.server import skat_on_new_database
+from tests.e2e.support.server import server_of_its_own
 from tests.e2e.support.sessions import holds_a_session
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable
 
     from _pytest.logging import LogCaptureFixture
 
@@ -116,11 +116,7 @@ def expect_back_at_the_table(table: PlayingTable, restart: Restart, names: list[
         assert restart.loads[name] == []
 
 
-@pytest.fixture
-def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
-    """A Skat of its own for each test, so that restarting it leaves the shared server and its sign-ins alone."""
-    with skat_on_new_database(tmp_path_factory) as server:
-        yield server
+e2e_server = pytest.fixture(name="e2e_server")(server_of_its_own)
 
 
 @pytest.fixture

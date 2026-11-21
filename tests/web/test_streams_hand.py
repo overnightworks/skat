@@ -7,20 +7,17 @@ import pytest
 from skat.engine.deal import next_dealer
 from skat.web.auction import TABLE_AUCTION_BID_SUFFIX, TABLE_AUCTION_PASS_SUFFIX
 from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
-from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
+from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in_text, seated_three, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
 from tests.web.support.skat import FETCH, Skat, unnamed_lines
-from tests.web.support.streams import SHORT_HEARTBEAT_SECONDS
+from tests.web.support.streams import SHORT_HEARTBEAT_SECONDS, EventsRoute
 
 BID_VALUE = 18
 
 
-class TestHandOnTheStream:
-    def events(self, table_id):
-        return f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}"
-
+class TestHandOnTheStream(EventsRoute):
     def first_message(self, skat, headers, table_id):
         with skat.client.stream("GET", self.events(table_id), headers=headers) as answer:
             first = next(unnamed_lines(answer.iter_lines()))

@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -14,8 +13,19 @@ from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import KNOWN_DEAL, SKAT_CARDS, cards_in_text, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import HERZ_GAME, Table, card, card_body, cards, game_of, reason_of, takers
-from tests.web.support.skat import UNKNOWN_ID, unnamed_lines
+from tests.web.support.playing import (
+    HERZ_GAME,
+    Table,
+    ViewedAtATable,
+    card,
+    card_body,
+    cards,
+    declared_herz_hand_game,
+    game_of,
+    reason_of,
+    takers,
+)
+from tests.web.support.skat import UNKNOWN_ID, message_at_version, message_body
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -51,17 +61,6 @@ NULL_GAME = game_of(
     "S7 SJ D7 / S9 D8 S8 / ST D9 C7 / SQ DT C8 / SK DJ C9",
     "SA DQ CT / H7 HJ CJ / HQ CQ H8 / HK CK H9 / HA CA HT",
 )
-
-
-@pytest.fixture
-def table(skat):
-    return Table(skat)
-
-
-@pytest.fixture
-def herz_hand(table):
-    table.declared_hand_game()
-    return table
 
 
 class TestAFirstCard:
@@ -272,18 +271,6 @@ CHAIRS_IN_SEAT_ORDER = (MIDDLEHAND, REARHAND, FOREHAND)
 ALL_POINTS = 120
 
 
-def message_body(raw):
-    return json.loads(raw.removeprefix("data: "))
-
-
-def message_at_version(lines, version):
-    """The stream's message at a version; someone joining wakes the stream with the old one first."""
-    for line in unnamed_lines(lines):
-        if line.startswith("data: ") and message_body(line)["version"] == version:
-            return line
-    return pytest.fail(f"the stream ended before version {version}")
-
-
 def in_deck_order(held):
     return tuple(each for each in DECK if each in held)
 
@@ -319,12 +306,9 @@ def last_cards(trick):
 
 
 @dataclass(frozen=True)
-class Viewer:
+class Viewer(ViewedAtATable):
     name: str
     position: Position | None
-
-    def headers_at(self, table):
-        return table.watcher if self.position is None else table.at[self.position]
 
 
 DECLARER = Viewer("declarer", MIDDLEHAND)
@@ -332,10 +316,6 @@ FOREHAND_OPPONENT = Viewer("forehand", FOREHAND)
 REARHAND_OPPONENT = Viewer("rearhand", REARHAND)
 WATCHER = Viewer("watcher", None)
 EVERY_VIEWER = (DECLARER, FOREHAND_OPPONENT, REARHAND_OPPONENT, WATCHER)
-
-
-def herz_hand_game(table):
-    table.declared_hand_game()
 
 
 def swapped_herz_hand_game(table):
@@ -410,9 +390,9 @@ SECOND_TRICK = (played_body(MIDDLEHAND, "H7"), played_body(REARHAND, "DJ"), play
 EIGHTH_TRICK = (played_body(MIDDLEHAND, "H8"), played_body(REARHAND, "HQ"), played_body(FOREHAND, "CQ"))
 NINTH_TRICK = (played_body(REARHAND, "HK"), played_body(FOREHAND, "CK"), played_body(MIDDLEHAND, "H9"))
 MOMENTS = {
-    "declared": Moment(herz_hand_game, (), FOREHAND, legal=KNOWN_DEAL.forehand),
+    "declared": Moment(declared_herz_hand_game, (), FOREHAND, legal=KNOWN_DEAL.forehand),
     "one-card": Moment(
-        herz_hand_game, HERZ_GAME[:1], MIDDLEHAND, current=FIRST_TRICK[:1], legal=cards("S9 ST SQ SK SA")
+        declared_herz_hand_game, HERZ_GAME[:1], MIDDLEHAND, current=FIRST_TRICK[:1], legal=cards("S9 ST SQ SK SA")
     ),
     "a-jack-led-in-pik": Moment(
         swapped_herz_hand_game,
@@ -423,21 +403,21 @@ MOMENTS = {
         deal=SWAPPED_DEAL,
     ),
     "first-trick": Moment(
-        herz_hand_game,
+        declared_herz_hand_game,
         HERZ_GAME[:3],
         MIDDLEHAND,
         last=(FIRST_TRICK, MIDDLEHAND),
         legal=cards("ST SJ SQ SK SA H7 H8 H9 HT"),
     ),
     "second-trick": Moment(
-        herz_hand_game,
+        declared_herz_hand_game,
         HERZ_GAME[:6],
         FOREHAND,
         last=(SECOND_TRICK, FOREHAND),
         legal=cards("C7 C8 C9 CT CQ CK CA S8"),
     ),
     "seventh-card": Moment(
-        herz_hand_game,
+        declared_herz_hand_game,
         HERZ_GAME[:7],
         MIDDLEHAND,
         current=(played_body(FOREHAND, "S8"),),
@@ -445,7 +425,7 @@ MOMENTS = {
         legal=cards("ST SQ SK SA"),
     ),
     "rearhand-leads": Moment(
-        herz_hand_game,
+        declared_herz_hand_game,
         HERZ_GAME[:26],
         MIDDLEHAND,
         current=(played_body(REARHAND, "HK"), played_body(FOREHAND, "CK")),
@@ -453,7 +433,7 @@ MOMENTS = {
         legal=cards("H9 HT"),
     ),
     "last-card-due": Moment(
-        herz_hand_game,
+        declared_herz_hand_game,
         HERZ_GAME[:29],
         MIDDLEHAND,
         current=(played_body(REARHAND, "HA"), played_body(FOREHAND, "CA")),
@@ -547,7 +527,7 @@ class TestEveryViewersPlaying:
         assert [body["chairs"] for body in reloads] == [streamed["chairs"], streamed["chairs"]]
 
     def test_after_thirty_cards_the_result_counts_the_skat_for_the_declarer(self, table):
-        herz_hand_game(table)
+        declared_herz_hand_game(table)
         table.played_out(HERZ_GAME)
 
         result = message_body(read(table, table.watcher))["result"]
@@ -564,7 +544,7 @@ class TestEveryViewersPlaying:
     @pytest.mark.parametrize(
         ("declare", "script", "ouvert"),
         [
-            pytest.param(herz_hand_game, HERZ_GAME, False, id="hand-game"),
+            pytest.param(declared_herz_hand_game, HERZ_GAME, False, id="hand-game"),
             pytest.param(grand_ouvert, GRAND_GAME[:6], True, id="grand-ouvert"),
             pytest.param(null_hand_game, NULL_GAME[:3], False, id="null-hand"),
             pytest.param(skat_put_back, HERZ_GAME, False, id="the-skat-put-back"),
@@ -688,7 +668,7 @@ GRAND_OUVERT_RESULT = HERZ_RESULT | {
     ],
 }
 ENDED_GAMES = [
-    pytest.param(herz_hand_game, HERZ_GAME, HERZ_RESULT, id="played-out"),
+    pytest.param(declared_herz_hand_game, HERZ_GAME, HERZ_RESULT, id="played-out"),
     pytest.param(null_hand_game, NULL_GAME[:3], NULL_RESULT, id="null-at-the-declarers-trick"),
     pytest.param(grand_ouvert, GRAND_GAME[:6], GRAND_OUVERT_RESULT, id="schwarz-announced-at-an-opponents-trick"),
 ]
@@ -749,7 +729,7 @@ class TestRunningPoints:
         results = []
         for on in (False, True):
             each = Table(skat, options={"show_running_points": on})
-            herz_hand_game(each)
+            declared_herz_hand_game(each)
             each.played_out(HERZ_GAME)
             results.append(message_body(read(each, each.watcher)))
 
@@ -761,7 +741,7 @@ class TestRunningPoints:
 
 class TestEveryViewersResult:
     def test_before_the_thirtieth_card_there_is_no_result(self, table):
-        herz_hand_game(table)
+        declared_herz_hand_game(table)
         table.played_out(HERZ_GAME[:-1])
 
         assert message_body(read(table, table.watcher))["result"] is None

@@ -23,7 +23,6 @@ from skat.table.playing import (
     decide_give_up,
 )
 from skat.table.records import (
-    Actor,
     Chair,
     GiveUpAsked,
     HandProgress,
@@ -56,6 +55,7 @@ from tests.support.played_game import (
     declared_herz_hand,
     with_agents,
 )
+from tests.support.seated_tables import actor
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 TABLE_VERSION = 7
@@ -66,10 +66,6 @@ FOREHAND_SEAT = 3
 
 def table_id():
     return "0123456789abcdef0123456789abcdef"
-
-
-def actor(account_id):
-    return Actor(account_id=account_id, display_name="Anna")
 
 
 def table_in(progress):

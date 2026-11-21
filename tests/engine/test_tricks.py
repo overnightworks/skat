@@ -31,7 +31,7 @@ from skat.engine.tricks import (
     playing_after,
     start_play,
 )
-from tests.support.playing_scenes import scenario
+from tests.support.playing_scenes import first_accepted, scenario
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 HERZ, GRAND, NULL, KREUZ = GameKind.HERZ, GameKind.GRAND, GameKind.NULL, GameKind.KREUZ
@@ -100,14 +100,6 @@ def first_trick_taken_by_middlehand() -> Playing:
     state = ok(play_card(started(), FOREHAND, KARO_SEVEN))
     state = ok(play_card(state, MIDDLEHAND, KARO_ACE))
     return ok(play_card(state, REARHAND, KARO_EIGHT))
-
-
-def first_accepted(state: Playing) -> Playing:
-    """The player on turn plays the first card of its hand that is accepted."""
-    position = state.turn
-    return next(
-        outcome.state for card in state.hands[position] if (outcome := play_card(state, position, card)).refusal is None
-    )
 
 
 def play_out(state: Playing) -> Playing:

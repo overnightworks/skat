@@ -7,8 +7,8 @@ from skat.web.mcp import AUCTION_PASS_TOOL, RAMSCH_TAKE_SKAT_TOOL
 from skat.web.pushing import TABLE_PUSHING_PUSH_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.calling import running_skat
 from tests.web.support.changes import RecordedChanges
+from tests.web.support.skat import changing_skat
 from tests.web.support.waiting_table import SENT_SEAT, WaitingTable
 
 PUSHING = {
@@ -27,16 +27,7 @@ def changes():
     return RecordedChanges()
 
 
-@pytest.fixture
-def skat(hold, issuer, time, changes):
-    yield from running_skat(hold, issuer, time, resource_changes=changes.wired)
-
-
-@pytest.fixture
-def waiting(skat, issuer):
-    table = WaitingTable(skat, issuer)
-    table.send_the_second_agent_away()
-    return table
+skat = pytest.fixture(name="skat")(changing_skat)
 
 
 @pytest.fixture

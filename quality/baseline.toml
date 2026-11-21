@@ -93,26 +93,11 @@ wait_for_end = [["tests/e2e/test_table_home.py", "wait_for_end"]]
 [clones."tests/e2e/test_table_declaring.py"]
 test_choosing_null_hides_the_levels_and_declares_null_hand_without_an_announcement = [["tests/e2e/test_table_ouvert.py", "test_the_ouvert_rung_clears_on_a_second_tap_and_the_levels_return_after_null"]]
 
-[clones."tests/engine/test_bock.py"]
-trick_worth = [["tests/engine/test_score.py", "trick_worth"], ["tests/engine/test_value.py", "trick_worth"]]
-
-[clones."tests/engine/test_giving_up.py"]
-next_card = [["tests/engine/test_kontra.py", "next_card"], ["tests/engine/test_tricks.py", "first_accepted"]]
-
-[clones."tests/engine/test_kontra.py"]
-next_card = [["tests/engine/test_tricks.py", "first_accepted"]]
-
-[clones."tests/engine/test_score.py"]
-trick_worth = [["tests/engine/test_value.py", "trick_worth"]]
-
 [clones."tests/store/test_auction.py"]
 "Hand.send" = [["tests/store/test_declaring.py", "Hand.send"]]
 
 [clones."tests/store/test_declaring.py"]
 _rewrite = [["tests/store/test_playing.py", "_rewrite"]]
-
-[clones."tests/store/test_game_list.py"]
-"Game.next_card" = [["tests/support/stored_game.py", "Game.legal_card"]]
 
 [clones."tests/store/test_migrate.py"]
 "TestFromADealtTableAtRevisionNine.migrated" = [["tests/store/test_migrate_closed_end.py", "TestFromALiveTableAndAnEndedTableOfEachReasonAtTheRevisionBefore.migrated"], ["tests/store/test_migrate_occupant_kind.py", "TestFromOccupiedAndFreeChairsAtRevisionSeventeen.migrated"], ["tests/store/test_migrate_rule_sets.py", "TestFromALiveTableAtRevisionFifteen.migrated"], ["tests/store/test_migrate_series_end.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionEighteen.migrated"], ["tests/store/test_migrate_series_number.py", "TestFromASeriesTableAndASeriesLessTableAtRevisionNineteen.migrated"]]
@@ -211,9 +196,6 @@ list_rows = [["tests/web/test_ready_new_series.py", "entries_of"]]
 [clones."tests/web/test_calling.py"]
 "TestACallThatChangesNothing.test_a_table_that_is_not_live_answers_404" = [["tests/web/test_calling_send_away.py", "TestASendAwayThatChangesNothing.test_a_table_that_is_not_live_answers_404"]]
 
-[clones."tests/web/test_declaring.py"]
-message_at_version = [["tests/web/test_playing.py", "message_at_version"]]
-
 [clones."tests/web/test_declaring_agent.py"]
 "TestRoutes.test_a_token_that_does_not_fit_is_refused_at_each_route_and_nothing_runs" = [["tests/web/test_mcp_who_may_call.py", "TestAuctionRoutesTakeTheAgentsBearer.test_a_token_that_does_not_fit_is_refused_at_the_route_and_nothing_runs"]]
 
@@ -236,9 +218,6 @@ play = [["tests/web/test_tables_bock.py", "played_with_words"]]
 [clones."tests/web/test_playing_early_end.py"]
 "TestAfterTheEnd.test_an_expiry_reaching_the_table_right_after_the_end_committed_frees_nothing" = [["tests/web/test_playing_give_up_consent.py", "TestAfterTheYes.test_an_expiry_reaching_the_table_right_after_the_yes_committed_frees_nothing"]]
 "TestRetries.test_a_refused_retry_returns_the_same_refusal" = [["tests/web/test_playing_give_up_consent.py", "TestRetries.test_a_refused_retry_returns_the_same_refusal"]]
-
-[clones."tests/web/test_playing_give_up_consent.py"]
-say = [["tests/web/test_tables_bock.py", "say"]]
 
 [clones."tests/web/test_presence_empty_table.py"]
 "TestWhenTheServerStops.test_stopping_cancels_every_pending_wait" = [["tests/web/test_presence_next_deal.py", "TestNextDealPause.test_the_server_stopping_during_the_pause_cancels_the_deal_and_a_later_request_starts_none"]]

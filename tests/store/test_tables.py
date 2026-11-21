@@ -37,6 +37,7 @@ from skat.web.tables import TABLES_PATH
 from tests.support.ended_tables import end_the_table
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.played_game import after_the_first_game
+from tests.support.postgres import service_on
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.skat import FakeTime, Skat, streams_of
 
@@ -47,16 +48,7 @@ VISITOR = Actor(account_id="account-visitor", display_name="Ben")
 THIRD_PLAYER = Actor(account_id="account-third", display_name="Cleo")
 
 
-@pytest.fixture
-def engine(database_url):
-    engine = create_store_engine(database_url)
-    yield engine
-    engine.dispose()
-
-
-@pytest.fixture
-def service(engine):
-    return TableService(PostgresTableTransactions(engine))
+service = pytest.fixture(name="service")(service_on)
 
 
 def count(engine, table_name):
@@ -222,6 +214,7 @@ CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 
 
 class TestSeating:
+    # a class-level fixture on this file's own opener; a conftest fixture cannot be assigned into a class
     @pytest.fixture
     def table_id(self, service):
         return service.create(OPENER, CreateTable(command_id="command-open")).id
@@ -351,6 +344,7 @@ class TestHand:
         result = service.sit(CLEO, SitDown("command-cleo", table_id, 3), frozenset())
         return table_id, result
 
+    # a method of this class on its own engine
     def stored(self, engine, table_id):
         with PostgresTableTransactions(engine).begin() as transaction:
             return transaction.table(TableId(table_id))
@@ -599,6 +593,7 @@ class TestDealNext:
         racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
         answers = []
 
+        # a closure over this test's own racing service and answers
         def check():
             answers.append(racing.deal_next(TableId(table_id), nullcontext(ALL_THREE)))
 

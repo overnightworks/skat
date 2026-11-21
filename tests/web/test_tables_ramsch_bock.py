@@ -33,14 +33,9 @@ from tests.web.support.playing import (
 )
 from tests.web.support.ramsch_stage import accepted, list_rows, play_stage, read, stage_table
 from tests.web.support.series import deal_next, headers_of, tap_new_series, tap_weiter
-from tests.web.support.skat import AgentTable, Skat
+from tests.web.support.skat import AgentTable, issuer_skat
 
-
-@pytest.fixture
-def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-    with skat.client:
-        yield skat
+skat = pytest.fixture(name="skat")(issuer_skat)
 
 
 POINTS = {"occasion": "passed-in", "scoring": "points", "jungfrau": "doubles-loser", "durchmarsch": "wins-120"}

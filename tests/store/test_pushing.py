@@ -22,7 +22,7 @@ from skat.table.playing import PlayCardCommand
 from skat.table.pushing import PushingCommand, PushingKind
 from skat.table.records import RamschOccasion, RamschSetting, TableOptions
 from tests.support.seated_tables import restarted
-from tests.support.stored_game import count_rows, nobody_connected, person, seated_table_id
+from tests.support.stored_game import StoredHand, count_rows, nobody_connected, person, seated_table_id
 
 pytestmark = pytest.mark.postgres
 
@@ -37,14 +37,11 @@ GRAND_HAND_OPTIONS = replace(OPTIONS, ramsch=replace(OPTIONS.ramsch, grand_hand=
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 
 
-class StageTable:
+class StageTable(StoredHand):
     """A table whose Ramsch has pushing and where all three passed, so its stage runs."""
 
     def __init__(self, service, transactions, stored, options=OPTIONS):
-        self.service = service
-        self.transactions = transactions
-        self.stored = stored
-        self.table_id = seated_table_id(service, options)
+        super().__init__(service, transactions, stored, seated_table_id(service, options))
         by_seat = {1: person("Anna"), 2: person("Ben"), 3: person("Cleo")}
         self.actors = {position: by_seat[seat] for seat, position in positions_from(self.record.dealer).items()}
         for position in (MIDDLEHAND, REARHAND, FOREHAND):
@@ -54,10 +51,6 @@ class StageTable:
             service.take_auction_step(self.actors[position], command, nobody_connected())
         self._commands = 0
 
-    @property
-    def record(self):
-        return self.stored(self.transactions, self.table_id)
-
     def step(self, position, kind, cards=(), *, command_id=None, service=None):
         self._commands += 1
         command = PushingCommand(
@@ -65,6 +58,7 @@ class StageTable:
         )
         return (service or self.service).take_pushing_step(self.actors[position], command, nobody_connected())
 
+    # reads the table this file's stage table holds, not a migrated one
     def two_cards_to_put_back(self, position):
         hand = pushing_of(self.record).deal.hands[position]
         return tuple(card for card in hand if card.rank is not Rank.JACK)[:2]
@@ -73,6 +67,7 @@ class StageTable:
         assert self.step(position, PushingKind.TAKE).refusal is None
         assert self.step(position, PushingKind.PUT_BACK, self.two_cards_to_put_back(position)).refusal is None
 
+    # the Ramsch card loop of this file's stage table; the other file's table plays its own deal
     def play(self, number):
         for _ in range(number):
             state = game_of(self.record)

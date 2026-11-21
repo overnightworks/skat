@@ -5,14 +5,12 @@ view's URI wakes the agent to read it, and the table's version never moves for a
 import asyncio
 import threading
 from dataclasses import replace
-from datetime import timedelta
 from functools import partial
 from types import SimpleNamespace
 
 import pytest
 from agents.member import LEASE_SECONDS, STANDING_URI
 from agents.tools import Principal
-from starlette.concurrency import run_in_threadpool
 from structlog.testing import capture_logs
 from webauth.ports import AgentFacts
 
@@ -39,10 +37,9 @@ from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, Agent, person_posts, view_uri_of
-from tests.web.support.calling import running_skat
+from tests.web.support.calling import inviting
 from tests.web.support.changes import RecordedChanges
-from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import FakeTime, Skat, stored
+from tests.web.support.skat import FakeTime, Skat, account_of, advance, changing_skat, stored
 
 MIDDLEHAND = Position.MIDDLEHAND
 OTHER_AGENT_SUBJECT = "other-agent-subject"
@@ -59,6 +56,7 @@ class Moments:
     def __init__(self):
         self.now = 500.0
 
+    # a clock reading of this test's own fake
     def __call__(self):
         return self.now
 
@@ -154,29 +152,7 @@ def changes():
     return RecordedChanges()
 
 
-@pytest.fixture
-def skat(hold, issuer, time, changes):
-    yield from running_skat(hold, issuer, time, resource_changes=changes.wired)
-
-
-@pytest.fixture
-def sdk(skat, issuer):
-    """The seated agent as a runner connects: through the SDK's client."""
-    return SdkAgent(skat, issuer)
-
-
-@pytest.fixture
-def pulses(changes):
-    """Every change the app told, as (account, uri), in the order told."""
-    return changes.told
-
-
-def account_of(skat, agent):
-    return skat.stores.accounts.get(agent.subject).id
-
-
-def wait(skat, time, seconds):
-    skat.client.portal.call(time.advance, seconds)
+skat = pytest.fixture(name="skat")(changing_skat)
 
 
 def nudge_of(table_id, headers, seat, version, skat):
@@ -208,9 +184,9 @@ class TestASeatTheTableWaitsForIsAskedAgain:
 
         revisions = []
         for _ in range(ASKS_AGAIN):
-            wait(skat, time, ASK_AGAIN_AFTER)
+            advance(skat, time, ASK_AGAIN_AFTER)
             revisions.append(agent.view(table_id))
-        wait(skat, time, 10 * ASK_AGAIN_AFTER)
+        advance(skat, time, 10 * ASK_AGAIN_AFTER)
         after_the_last = agent.view(table_id)
 
         assert first["revision"] == revision_of(version, 0)
@@ -226,13 +202,13 @@ class TestASeatTheTableWaitsForIsAskedAgain:
     ):
         table = forehand_auction
         table.middlehand_bids()
-        wait(skat, time, ASK_AGAIN_AFTER + ASK_AGAIN_AFTER / 2)
+        advance(skat, time, ASK_AGAIN_AFTER + ASK_AGAIN_AFTER / 2)
 
         late = agent.view(table.table_id)
         pulses.clear()
-        wait(skat, time, ASK_AGAIN_AFTER / 2 - 1)
+        advance(skat, time, ASK_AGAIN_AFTER / 2 - 1)
         before_the_second_ask = list(pulses)
-        wait(skat, time, 1)
+        advance(skat, time, 1)
 
         assert late["revision"] == revision_of(table.record.version, 1)
         assert (before_the_second_ask, pulses) == ([], [(account_of(skat, agent), view_uri_of(table.table_id))])
@@ -244,7 +220,7 @@ class TestASeatTheTableWaitsForIsAskedAgain:
         first = agent.view(table_id)
         pulses.clear()
 
-        wait(skat, time, 10 * ASK_AGAIN_AFTER)
+        advance(skat, time, 10 * ASK_AGAIN_AFTER)
 
         assert (first["awaits_you"], agent.view(table_id)["revision"], pulses) == (
             False,
@@ -257,12 +233,12 @@ class TestASeatTheTableWaitsForIsAskedAgain:
     ):
         table = middlehand_auction
         agent.view(table.table_id)
-        wait(skat, time, ASK_AGAIN_AFTER - 1)
+        advance(skat, time, ASK_AGAIN_AFTER - 1)
         assert not agent.take_step(AUCTION_BID_TOOL, table, command_id="agent-bid", value=18).is_error
         moved = agent.view(table.table_id)
         pulses.clear()
 
-        wait(skat, time, 1)
+        advance(skat, time, 1)
 
         assert (moved["revision"], pulses) == (revision_of(table.record.version, 0), [])
 
@@ -274,7 +250,7 @@ class TestASeatTheTableWaitsForIsAskedAgain:
         assert not agent.take_step(AUCTION_BID_TOOL, table, command_id="agent-bid", value=18).is_error
         pulses.clear()
 
-        wait(skat, time, 10 * ASK_AGAIN_AFTER)
+        advance(skat, time, 10 * ASK_AGAIN_AFTER)
 
         assert pulses == []
 
@@ -283,14 +259,14 @@ class TestASeatTheTableWaitsForIsAskedAgain:
     ):
         table = a_result_stands(forehand_auction)
         agent.view(table.table_id)
-        wait(skat, time, ASK_AGAIN_AFTER - 10)
+        advance(skat, time, ASK_AGAIN_AFTER - 10)
         person_posts(table, TABLE_READY_SUFFIX, MIDDLEHAND, ordinal=1, series=1)
         moved = agent.view(table.table_id)
         pulses.clear()
 
-        wait(skat, time, 10)
+        advance(skat, time, 10)
         before_the_new_deadline = agent.view(table.table_id)
-        wait(skat, time, ASK_AGAIN_AFTER - 10)
+        advance(skat, time, ASK_AGAIN_AFTER - 10)
         asked = agent.view(table.table_id)
 
         version = table.record.version
@@ -308,6 +284,7 @@ class TestTwoAgentsAtOneTable:
     def awaited(self, skat, issuer):
         return Agent(skat, issuer, "awaited-agent", agent_name="Mozart")
 
+    # this file's own OTHER_AGENT_SUBJECT
     @pytest.fixture
     def other(self, skat, issuer):
         return Agent(skat, issuer, OTHER_AGENT_SUBJECT, agent_name="Bach")
@@ -326,7 +303,7 @@ class TestTwoAgentsAtOneTable:
         views = {each: each.view(table_id) for each in (awaited, other)}
         pulses.clear()
 
-        wait(skat, time, ASK_AGAIN_AFTER)
+        advance(skat, time, ASK_AGAIN_AFTER)
 
         assert (views[awaited]["awaits_you"], views[other]["awaits_you"]) == (True, False)
         assert pulses == [(account_of(skat, awaited), view_uri_of(table_id))]
@@ -337,11 +314,11 @@ class TestTwoAgentsAtOneTable:
         self, skat, time, awaited, other, table_id, pulses
     ):
         version = other.view(table_id)["state"]["version"]
-        wait(skat, time, ASK_AGAIN_AFTER + 10)
+        advance(skat, time, ASK_AGAIN_AFTER + 10)
         pulses.clear()
 
         late = awaited.view(table_id)
-        wait(skat, time, ASK_AGAIN_AFTER)
+        advance(skat, time, ASK_AGAIN_AFTER)
 
         assert late["revision"] == revision_of(version, 1)
         assert pulses == [(account_of(skat, awaited), view_uri_of(table_id))] * (ASKS_AGAIN - 1)
@@ -355,7 +332,7 @@ class TestAnAskLeavesTheTableAlone:
         agent.view(table.table_id)
         before = stored(skat)
 
-        wait(skat, time, ASK_AGAIN_AFTER)
+        advance(skat, time, ASK_AGAIN_AFTER)
         asked = agent.view(table.table_id)
         after_the_ask = stored(skat)
         bid = agent.call(
@@ -392,7 +369,7 @@ class TestWhereAPulseIsScheduled:
         pulses.clear()
 
         skat.app.state.stop_streams()
-        wait(skat, time, 10 * ASK_AGAIN_AFTER)
+        advance(skat, time, 10 * ASK_AGAIN_AFTER)
 
         assert (time.pending, pulses) == (0, [])
 
@@ -403,7 +380,7 @@ class TestARestartAndALapsedLease:
     ):
         table_id = middlehand_auction.table_id
         agent.view(table_id)
-        wait(skat, time, ASK_AGAIN_AFTER)
+        advance(skat, time, ASK_AGAIN_AFTER)
         version = agent.view(table_id)["state"]["version"]
         restarted_time = FakeTime()
 
@@ -433,7 +410,7 @@ class TestARestartAndALapsedLease:
         table = middlehand_auction
         first = agent.view(table.table_id)
         seat = next(chair["seat"] for chair in first["state"]["chairs"] if chair["is_mine"])
-        wait(skat, time, ASK_AGAIN_AFTER)
+        advance(skat, time, ASK_AGAIN_AFTER)
         version = agent.view(table.table_id)["state"]["version"]
         tap = partial(nudge_of, table.table_id, table.at[Position.REARHAND], seat, version)
         assert tap(skat).status_code == 200
@@ -466,7 +443,7 @@ class TestARestartAndALapsedLease:
         table_id = middlehand_auction.table_id
         version = agent.view(table_id)["state"]["version"]
 
-        wait(skat, time, LEASE_SECONDS + (ASKS_AGAIN + 3) * ASK_AGAIN_AFTER)
+        advance(skat, time, LEASE_SECONDS + (ASKS_AGAIN + 3) * ASK_AGAIN_AFTER)
 
         assert agent.view(table_id)["revision"] == revision_of(version, ASKS_AGAIN)
 
@@ -485,7 +462,7 @@ class TestWhenTheTableEndsThePulseTellsNobody:
             skat.store.tables[table_id] = EndedTable(
                 TableId(table_id), skat.store.tables[table_id].version + 1, Ending.empty(3600)
             )
-            wait(skat, time, ASK_AGAIN_AFTER)
+            advance(skat, time, ASK_AGAIN_AFTER)
             a_standing_change(skat, time)
 
             assert events.next_uri() == STANDING_URI
@@ -623,7 +600,7 @@ class TestAScriptedClientIsAskedAgain:
         with sdk.connected() as session, session.listening() as events:
             table.middlehand_bids()
             view = events.woken_view(table.table_id)
-            wait(skat, time, ASK_AGAIN_AFTER)
+            advance(skat, time, ASK_AGAIN_AFTER)
             asked = events.woken_view(table.table_id)
             answer = session.call(
                 AUCTION_HOLD_TOOL,
@@ -638,17 +615,11 @@ class TestAScriptedClientIsAskedAgain:
         assert (answer.is_error, moved["awaits_you"]) == (False, False)
 
 
-async def _inviting(skat, table_id, facts):
-    return await run_in_threadpool(
-        skat.tables.invite_agent, TableId(table_id), facts, timedelta(seconds=INVITATION_SECONDS)
-    )
-
-
 def a_standing_change(skat, time):
     """A change of the agent's standing that nobody's removal explains: an invitation to a table of a member."""
     person = skat.member()
     table_id = skat.create(person[0]).json()["id"]
-    skat.client.portal.call(_inviting, skat, table_id, call_facts(SUBJECT, OWNER))
+    skat.client.portal.call(inviting, skat, table_id, call_facts(SUBJECT, OWNER))
     skat.client.cookies.clear()
 
 
@@ -661,7 +632,7 @@ class TestAPulseThatFails:
         changes.failure = ConnectionResetError()
 
         with capture_logs() as logs:
-            wait(skat, time, ASK_AGAIN_AFTER)
+            advance(skat, time, ASK_AGAIN_AFTER)
 
         assert [log["error_type"] for log in logs if log["event"] == "member_signal.failed"] == ["ConnectionResetError"]
         assert agent.view(table_id)["revision"] == revision_of(version, 1)

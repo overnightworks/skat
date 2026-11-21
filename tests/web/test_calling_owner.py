@@ -9,6 +9,7 @@ from tests.web.support.agent import Agent
 from tests.web.support.calling import (
     CallingTable,
     call,
+    chair_two,
     listening,
     offer_of,
     only_row,
@@ -19,10 +20,6 @@ from tests.web.support.calling import (
 from tests.web.support.skat import streams_of
 
 NOVA = "agent-nova"
-
-
-def chair_two(skat, table_id):
-    return skat.store.tables[table_id].chairs[1].occupant
 
 
 @pytest.fixture

@@ -79,6 +79,7 @@ class RamschTable:
     def _command_id() -> str:
         return f"ramsch-result-{next(command_numbers):04d}"
 
+    # each scene reads through its own `sessions` and `api_path`
     def view(self, seat: int) -> dict[str, Any]:
         return json.loads(self.sessions[seat].get(self.api_path))
 

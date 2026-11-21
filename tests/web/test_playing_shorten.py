@@ -24,7 +24,7 @@ from tests.web.support.giving_up import (
     own_cards_of,
     playing_as,
 )
-from tests.web.support.playing import HERZ_GAME, Table, ending_of
+from tests.web.support.playing import EIGHT_CARDS, HERZ_GAME, Table, ending_of
 from tests.web.support.series import tap_weiter
 from tests.web.support.shortening import (
     FOREHAND,
@@ -48,22 +48,10 @@ from tests.web.support.shortening import (
     shortenings_read,
     shortens,
 )
-from tests.web.support.skat import AgentTable, Skat, streams_of
+from tests.web.support.skat import AgentTable, HeldSkat, IssuerSkat, restarted, streams_of
 
 OPPONENTS = [pytest.param(FOREHAND, id="forehand"), pytest.param(REARHAND, id="rearhand")]
 # The declarer holds eight cards once he has played to the second trick.
-EIGHT_CARDS = HERZ_GAME[:4]
-
-
-@pytest.fixture
-def table(skat):
-    return Table(skat)
-
-
-@pytest.fixture
-def herz_hand(table):
-    table.declared_hand_game()
-    return table
 
 
 # The opponent who says no, and whom of the other opponents said yes before.
@@ -474,16 +462,7 @@ class TestWhenAChairChangesHands:
         assert shortenings_read(herz_hand) == [None] * 4
 
 
-def restarted(skat, hold, **options):
-    """The same stores under a freshly built app, as after a restart."""
-    return Skat(lambda: hold, store=skat.store, stores=skat.stores, **options)
-
-
-class TestARequestAcrossARestart:
-    @pytest.fixture
-    def skat(self, hold):
-        return Skat(lambda: hold)
-
+class TestARequestAcrossARestart(HeldSkat):
     @pytest.mark.parametrize(
         ("earlier_yes", "agreed", "then_yes"),
         [
@@ -519,14 +498,8 @@ class TestARequestAcrossARestart:
         assert open_cards_read(herz_hand) == [declarers_cards()] * 4
 
 
-class TestThroughTheMcpTools:
+class TestThroughTheMcpTools(IssuerSkat):
     """An agent declarer shortens; agent opponents answer."""
-
-    @pytest.fixture
-    def skat(self, hold, issuer):
-        skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-        with skat.client:
-            yield skat
 
     @pytest.fixture
     def declarer_asked(self, skat, agent):

@@ -46,6 +46,7 @@ WATCH_FOR_RECONNECTING = f"""() => {{
 }}"""
 
 
+# its own settings: this file's constants differ from the other file's, whose fixture reads the same
 @pytest.fixture
 def behind_edge(tmp_path_factory: pytest.TempPathFactory) -> Iterator[BehindEdge]:
     """A Skat that beats its stream every second behind an edge that cuts a silence of three seconds."""
@@ -55,6 +56,7 @@ def behind_edge(tmp_path_factory: pytest.TempPathFactory) -> Iterator[BehindEdge
         yield behind
 
 
+# its own settings: this file's constants differ from the other file's, whose fixture reads the same
 @pytest.fixture
 def e2e_server(behind_edge: BehindEdge) -> RunningServer:
     return behind_edge.server

@@ -3,6 +3,10 @@ from urllib.parse import urlsplit
 
 import pytest
 from redis import Redis
+from redis.asyncio import Redis as AsyncRedis
+from tandem.testing import settle_epoch
+
+from skat.store.redis_clients import WAKE_KEY_PREFIX
 
 URL_ENVIRONMENT_VARIABLE = "SKAT_TEST_REDIS_URL"
 UNDISTRIBUTED_WORKER = "master"
@@ -43,3 +47,12 @@ def end_subscriptions(url: str) -> None:
         for client in redis.client_list(_type="pubsub"):
             if int(client["db"]) == database:
                 redis.client_kill_filter(_id=client["id"])
+
+
+async def settle_wake_epoch(url: str) -> None:
+    """Ends the restart grace of the wake channel on the Redis at `url`."""
+    client = AsyncRedis.from_url(url)  # pyright: ignore[reportUnknownMemberType]
+    try:
+        await settle_epoch(client, key_prefix=WAKE_KEY_PREFIX)
+    finally:
+        await client.aclose()

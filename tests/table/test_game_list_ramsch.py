@@ -25,6 +25,7 @@ ANNA, BEN, CLEO = ANNA_BEN_CLEO
 DECLARED_THEN_RAMSCH = (an_entry(), a_ramsch_entry())
 
 
+# reads this file's own REACH
 def standing_rows(game_list):
     return [(each.account_id, each.place, each.total, each.won, each.lost) for each in standings_of(game_list, REACH)]
 

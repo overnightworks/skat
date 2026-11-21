@@ -14,16 +14,12 @@ from tests.support.payload_cards import DEALER_SEAT
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import Agent
 from tests.web.support.presence import end_the_first_game
-from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, Skat, stored, streams_of
+from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, issuer_skat, stored, streams_of
 
 OWNER = "the-agents-owner"
 
 
-@pytest.fixture
-def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-    with skat.client:
-        yield skat
+skat = pytest.fixture(name="skat")(issuer_skat)
 
 
 def read_as(skat, headers, table_id):

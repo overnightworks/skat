@@ -4,10 +4,13 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 from sqlalchemy.engine import make_url
 
 from skat.store.migrate import create_store_engine, migrate
+from skat.store.tables import PostgresTableTransactions
+from skat.table.records import TableId
+from skat.table.service import TableService
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -62,3 +65,17 @@ def migrated_template() -> Iterator[str]:
         # A template cannot be copied while a connection to it is open.
         engine.dispose()
         yield make_url(url).database or ""
+
+
+def stored_table(engine, table_id):
+    with PostgresTableTransactions(engine).begin() as transaction:
+        return transaction.table(TableId(table_id))
+
+
+def row_count(engine, table):
+    with engine.connect() as connection:
+        return connection.execute(select(func.count()).select_from(table)).scalar_one()
+
+
+def service_on(engine):
+    return TableService(PostgresTableTransactions(engine))

@@ -4,13 +4,10 @@ import pytest
 
 from skat.table.reacting import REACTIONS_PER_WINDOW, Reaction
 from skat.web.mcp import THROW_REACTION_TOOL
-from tests.web.support.calling import running_skat
 from tests.web.support.playing import REARHAND
+from tests.web.support.skat import running_skat
 
-
-@pytest.fixture
-def skat(hold, issuer, time):
-    yield from running_skat(hold, issuer, time)
+skat = pytest.fixture(name="skat")(running_skat)
 
 
 class TestAnAgentThrowsAReaction:

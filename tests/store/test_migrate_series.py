@@ -18,7 +18,7 @@ from skat.table.series_end import END_ANSWER_SECONDS, SeriesEndCommand, answer_l
 from skat.table.service import TableService
 from tests.support.migrations import list_row, migrated_from, only_row, run_in_transaction
 from tests.support.played_game import an_end_proposal
-from tests.support.postgres import created_database
+from tests.support.postgres import created_database, stored_table
 
 pytestmark = pytest.mark.postgres
 
@@ -162,11 +162,6 @@ def numbers_of(engine, table_id):
         return [row.number for row in rows]
 
 
-def record_of(engine, table_id):
-    with PostgresTableTransactions(engine).begin() as transaction:
-        return transaction.table(TableId(table_id))
-
-
 class TestFromTablesAtTheRevisionBefore:
     def test_a_table_in_its_first_series_moves_its_settings_counters_and_bock_rounds_to_series_one(self, migrated):
         assert numbers_of(migrated, "first") == [1]
@@ -207,7 +202,7 @@ class TestFromTablesAtTheRevisionBefore:
 
     def test_a_table_without_a_series_keeps_its_pending_bock_round(self, migrated):
         assert series_row(migrated, BOCKED_WITHOUT_SERIES, 1)[:7] == (None, None, False, None, None, [2], 1)
-        assert record_of(migrated, BOCKED_WITHOUT_SERIES).bock == BockRounds((2,), 1)
+        assert stored_table(migrated, BOCKED_WITHOUT_SERIES).bock == BockRounds((2,), 1)
 
     def test_an_ended_table_keeps_the_series_of_its_games_and_a_gameless_one_its_pointed_series(self, migrated):
         assert numbers_of(migrated, "gone-gameless") == [1]
@@ -237,7 +232,7 @@ class TestFromTablesAtTheRevisionBefore:
         )
 
     def test_the_ended_table_with_games_reads_the_standings_its_options_gave_before(self, migrated, service):
-        ended = record_of(migrated, GONE_WITH_GAMES)
+        ended = stored_table(migrated, GONE_WITH_GAMES)
 
         assert isinstance(ended, EndedTable)
         assert ended.last_series.number == 1
@@ -266,7 +261,7 @@ class TestFromTablesAtTheRevisionBefore:
             run_in_transaction(migrated, text("UPDATE tables SET series_number = 0 WHERE id = 'first'"))
 
     def test_a_series_in_flight_deals_its_next_game_on_its_row(self, migrated):
-        before = record_of(migrated, "second")
+        before = stored_table(migrated, "second")
         assert before.series == Series(LENGTH, 3, number=2)
 
         with PostgresTableTransactions(migrated).begin() as transaction:
@@ -278,7 +273,7 @@ class TestFromTablesAtTheRevisionBefore:
     def test_a_standing_proposal_stays_on_its_row_with_a_fresh_minute_and_a_third_yes_ends_the_series(
         self, migrated, service
     ):
-        standing = record_of(migrated, PROPOSED).series.end_proposal
+        standing = stored_table(migrated, PROPOSED).series.end_proposal
         assert (standing.proposer, standing.agreed) == (1, frozenset({1, 2}))
         assert timedelta(0) < answer_left(standing.asked_at, datetime.now(UTC)) <= timedelta(seconds=END_ANSWER_SECONDS)
 
@@ -288,23 +283,23 @@ class TestFromTablesAtTheRevisionBefore:
         assert series_row(migrated, PROPOSED, 1)[2:5] == (True, None, None)
 
     def test_a_pending_bock_round_doubles_the_next_game_and_the_end_of_the_series_lapses_it(self, migrated, service):
-        before = record_of(migrated, BOCKED)
+        before = stored_table(migrated, BOCKED)
         assert (before.bock, bock_factor_of(before)) == (BockRounds((3,), 1), 2)
 
         service.agree_to_end_series(PEOPLE[3], SeriesEndCommand("yes-3", BOCKED), ALL_THREE)
 
-        assert record_of(migrated, BOCKED).bock == BockRounds.start()
+        assert stored_table(migrated, BOCKED).bock == BockRounds.start()
         assert series_row(migrated, BOCKED, 1)[5:7] == ([], 0)
 
     def test_an_early_ended_series_stays_ended_while_the_next_series_takes_its_own_row_and_proposal(
         self, migrated, service
     ):
-        assert record_of(migrated, EARLY).series == Series(LENGTH, 7, number=2, ended_early=True)
+        assert stored_table(migrated, EARLY).series == Series(LENGTH, 7, number=2, ended_early=True)
         for seat, person in PEOPLE.items():
             service.start_new_series(person, NewSeriesCommand(f"new-{seat}", EARLY, 2, 0), ALL_THREE)
 
         assert service.deal_next(TableId(EARLY), nullcontext(ALL_THREE)) is True
-        dealt = record_of(migrated, EARLY)
+        dealt = stored_table(migrated, EARLY)
         with PostgresTableTransactions(migrated).begin() as transaction:
             transaction.save_table(
                 replace(dealt, series=replace(dealt.series, end_proposal=an_end_proposal(1))), played_at=None

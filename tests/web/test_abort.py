@@ -7,23 +7,10 @@ from skat.web.abort import TABLE_ABORT_AGREE_SUFFIX, TABLE_ABORT_REFUSE_SUFFIX
 from skat.web.mcp import AGREE_TO_ABORT_HAND_TOOL, REFUSE_TO_ABORT_HAND_TOOL
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.skat import Skat
+from tests.web.support.skat import issuer_skat
 from tests.web.support.waiting_table import WaitingTable
 
-
-@pytest.fixture
-def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-    with skat.client:
-        yield skat
-
-
-@pytest.fixture
-def waiting(skat, issuer):
-    """The agent in seat 1 and the person in seat 3 sit at a hand that waits for seat 2."""
-    table = WaitingTable(skat, issuer)
-    table.send_the_second_agent_away()
-    return table
+skat = pytest.fixture(name="skat")(issuer_skat)
 
 
 def vote(table, suffix, command_id, headers=None):

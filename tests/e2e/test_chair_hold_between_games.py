@@ -23,6 +23,7 @@ CHAIR_HOLD_SECONDS = 5
 FREED_WITHIN_MILLISECONDS = (CHAIR_HOLD_SECONDS + 10) * 1000
 
 
+# its own settings: this file's constants differ from the other file's, whose fixture reads the same
 @pytest.fixture(scope="session")
 def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServer]:
     """This module's Skat, with a chair hold short enough for a browser to wait out."""

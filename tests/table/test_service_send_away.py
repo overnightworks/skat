@@ -2,8 +2,6 @@
 nothing twice and the hand waits for a sitter.
 """
 
-import copy
-import itertools
 import random
 from contextlib import nullcontext
 from dataclasses import replace
@@ -13,10 +11,10 @@ import pytest
 
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.member_place import Acceptance, MemberRefusal, MembershipState, TableStanding
-from skat.table.records import Actor, CreateTable, OccupantKind, Refusal, SendAway, SitDown, StandUp, TableId
+from skat.table.records import Actor, CreateTable, OccupantKind, Refusal, SendAway, StandUp, TableId
 from skat.table.service import CommandIdReusedError, TableService
 from tests.support.calls import call_facts
-from tests.support.fake_tables import FakeTableStore
+from tests.support.fake_tables import FakeTableStore, ServiceScene
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
@@ -28,14 +26,13 @@ NOBODY = frozenset[str]()
 MOZARTS_SEAT = 3
 
 
-class Scene:
+class Scene(ServiceScene):
     """Anna opened a table; Ben sat in chair 2 and Mozart, an agent, in chair 3, which dealt the first hand; without
     `agent_seated` Mozart stays away."""
 
     def __init__(self, *, agent_seated=True, agent_owner=None):
         self.store = FakeTableStore()
         self.now = START
-        self.commands = itertools.count(1)
         self.service = TableService(
             self.store,
             random_source=random.Random(1),  # noqa: S311 - seeded for a known deal
@@ -48,13 +45,6 @@ class Scene:
         if agent_seated:
             self.sit(replace(MOZART, owner_account=agent_owner), MOZARTS_SEAT)
         self.told.clear()
-
-    @property
-    def table(self):
-        return self.store.tables[self.table_id]
-
-    def sit(self, person, seat):
-        return self.service.sit(person, SitDown(f"command-{next(self.commands)}", self.table_id, seat), NOBODY)
 
     def send_away(self, agent=MOZART, *, by=ANNA, is_member=True, command_id=None):
         command = SendAway(command_id or f"command-{next(self.commands)}", self.table_id, agent.account_id)
@@ -69,11 +59,9 @@ class Scene:
     def book(self, agent=MOZART):
         return self.store.book.get((self.table_id, agent.account_id))
 
+    # reads this file's own MOZART
     def standing(self, agent=MOZART):
         return self.service.standings_of(agent.account_id)
-
-    def snapshot(self):
-        return copy.deepcopy((self.store.tables, self.store.book))
 
 
 class TestTheChairOpensAtOnce:

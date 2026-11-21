@@ -7,8 +7,11 @@ from tests.support.fake_issuer import FakeIssuer
 from tests.support.idle_presence import idle_agent_lease, idle_end_answers, idle_presence, idle_wakes, note_nothing
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.web.support.agent import Agent
+from tests.web.support.playing import EIGHT_CARDS, Table
 from tests.web.support.presence import Deals, Holds, Lapses, Wakes, chair_hold, on_a_worker
+from tests.web.support.sdk_agent import SdkAgent
 from tests.web.support.skat import AgentTable, FakeTime, Skat
+from tests.web.support.waiting_table import WaitingTable
 
 FOREHAND, MIDDLEHAND = Position.FOREHAND, Position.MIDDLEHAND
 
@@ -145,3 +148,39 @@ def server(hold, time):
     skat = Skat(lambda: hold, chair_clock=time.clock, chair_scheduler=time)
     with skat.client:
         yield skat
+
+
+@pytest.fixture
+def table(skat):
+    return Table(skat)
+
+
+@pytest.fixture
+def herz_hand(table):
+    table.declared_hand_game()
+    return table
+
+
+@pytest.fixture
+def sdk(skat, issuer):
+    return SdkAgent(skat, issuer)
+
+
+@pytest.fixture
+def pulses(changes):
+    """Every change the app told, as (account, uri), in the order told."""
+    return changes.told
+
+
+@pytest.fixture
+def eight_cards(herz_hand):
+    herz_hand.played_out(EIGHT_CARDS)
+    return herz_hand
+
+
+@pytest.fixture
+def waiting(skat, issuer):
+    """The agent in seat 1 and the person in seat 3 sit at a hand that waits for seat 2."""
+    table = WaitingTable(skat, issuer)
+    table.send_the_second_agent_away()
+    return table

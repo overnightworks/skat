@@ -4,7 +4,7 @@ from contextlib import nullcontext
 import pytest
 from logline import REQUEST_EVENT, Outcome
 
-from skat.table.records import CreateTable, EndReason, TableId
+from skat.table.records import EndReason, TableId
 from skat.web.lobby import LOBBY_EVENTS_PATH
 from skat.web.presence import EmptyTable, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
@@ -24,10 +24,11 @@ from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.log_lines import lines_of, logged
 from tests.web.support.skat import Skat, streams_of, unnamed_lines
 from tests.web.support.streams import (
-    OPENER,
     SHORT_HEARTBEAT_SECONDS,
     VISITOR,
+    EventsRoute,
     next_view,
+    opened_table_id,
     run_on_a_loop_of_its_own,
     stream_of,
 )
@@ -42,9 +43,7 @@ def service():
     return in_memory_tables()
 
 
-@pytest.fixture
-def table_id(service):
-    return service.create(OPENER, CreateTable(command_id="command-1")).id
+table_id = pytest.fixture(name="table_id")(opened_table_id)
 
 
 class TestAStreamOnAnEndingTable:
@@ -255,10 +254,7 @@ class TestTheEndLogOfAStream:
         assert "the end" not in str(line)
 
 
-class TestTheEndLogAtTheRoutes:
-    def events(self, table_id):
-        return f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}"
-
+class TestTheEndLogAtTheRoutes(EventsRoute):
     def test_an_ended_tables_stream_logs_one_ok_line_with_its_table_id_on_the_trace_of_its_request(
         self, server, time, hold, capsys
     ):

@@ -352,6 +352,7 @@ def game_for(seat, *, won, score, accounts=(ANNA, BEN, CLEO), names=None):
     )
 
 
+# reads this file's own REACH
 def standing_rows(game_list):
     return [(each.account_id, each.place, each.total, each.won, each.lost) for each in standings_of(game_list, REACH)]
 

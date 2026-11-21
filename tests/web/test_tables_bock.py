@@ -7,12 +7,11 @@ from skat.engine.deal import Position
 from skat.table.records import Series
 from skat.web.declaration_tokens import AnnouncementToken, GameToken
 from skat.web.game_list import TABLE_LIST_SUFFIX
-from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.playing import TABLE_GIVE_UP_AGREE_SUFFIX, TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import an_entry
-from tests.web.support.playing import HERZ_GAME, Table, bock_of, cards, with_pending
+from tests.web.support.playing import HERZ_GAME, Table, bock_of, cards, gains_of, say, with_pending
 from tests.web.support.series import deal_next, headers_of, pass_the_hand_in, tap_new_series, tap_weiter
 
 FOREHAND, MIDDLEHAND = Position.FOREHAND, Position.MIDDLEHAND
@@ -48,11 +47,6 @@ def open_table(server):
     return open_with
 
 
-def say(table, position, word):
-    answer = table.act(TABLE_KONTRA_SUFFIX, table.at[position], body={"word": word})
-    assert answer.status_code == 200, answer.text
-
-
 def played_with_words(table, *steps):
     """The Herz Hand game's cards, in order, and words between them: a number plays that many cards."""
     game = iter(HERZ_GAME)
@@ -62,10 +56,6 @@ def played_with_words(table, *steps):
                 table.accepted(next(game))
         else:
             say(table, *step)
-
-
-def gains_of(result):
-    return [each["gain"] for each in result["gains"]]
 
 
 def next_hand(table, *, after_a_pass_in=False):

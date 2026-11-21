@@ -51,3 +51,11 @@ def ended_at(transactions, table_id, ending=None):
 def restarted(database_url):
     engine = create_store_engine(database_url)
     return engine, TableService(PostgresTableTransactions(engine))
+
+
+def actor(account_id):
+    return Actor(account_id=account_id, display_name="Anna")
+
+
+def actor_of(position):
+    return Actor(account_id=f"account-{position.name.lower()}", display_name=position.name)

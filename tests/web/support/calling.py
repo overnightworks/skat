@@ -3,23 +3,29 @@
 import json
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
+from starlette.concurrency import run_in_threadpool
 
+from skat.table.records import TableId
 from skat.web.calling import (
     AGENT_ADDERS_GROUP,
     TABLE_AGENT_CALL_SUFFIX,
     TABLE_AGENT_SEND_AWAY_SUFFIX,
     TABLE_AGENTS_SUFFIX,
 )
+from skat.web.mcp import MCP_GROUP
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import new_account
 from tests.web.support.agent import Agent
 from tests.web.support.changes import RecordedChanges
 from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import FETCH, Skat, streams_of
+from tests.web.support.skat import FETCH, running_skat, streams_of
+
+INVITATION_SECONDS = 600
 
 
 @dataclass(frozen=True)
@@ -37,20 +43,6 @@ def person(skat, issuer, *, groups=(AGENT_ADDERS_GROUP,), refresh_token=True) ->
     headers, account = skat.member(account, refresh_token=token)
     issuer.grant_groups(account.id, groups)
     return Person(headers, account.id)
-
-
-def running_skat(hold, issuer, time, **wiring):
-    """A Skat with its client open, for a fixture to `yield from`; `wiring` is passed on to `Skat`."""
-    skat = Skat(
-        lambda: hold,
-        issuer_transports=issuer.transports,
-        chair_clock=time.clock,
-        chair_scheduler=time,
-        now=time.moment,
-        **wiring,
-    )
-    with skat.client:
-        yield skat
 
 
 def refresh_grants(issuer):
@@ -138,3 +130,17 @@ class CallingTable:
         """Felix has an open stream on his table."""
         with streams_of(skat, table_id, [(felix.headers, None)]):
             yield
+
+
+async def inviting(skat, table_id, facts):
+    return await run_in_threadpool(
+        skat.tables.invite_agent, TableId(table_id), facts, timedelta(seconds=INVITATION_SECONDS)
+    )
+
+
+def a_person(skat, issuer):
+    return Agent(skat, issuer, skat.member()[1].id, agent_owner=None, agent_name=None, groups=[MCP_GROUP])
+
+
+def chair_two(skat, table_id):
+    return skat.store.tables[table_id].chairs[1].occupant

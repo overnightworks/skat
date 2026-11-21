@@ -33,8 +33,8 @@ from tests.support.payload_cards import (
 )
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, Agent, person_passes, person_steps
-from tests.web.support.playing import card_body
-from tests.web.support.skat import FETCH, UNKNOWN_ID, Skat, stored, streams_of
+from tests.web.support.playing import card_body, declared_body
+from tests.web.support.skat import FETCH, UNKNOWN_ID, issuer_skat, stored, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 PUT_BACK_CARDS = (MIDDLEHAND_CARDS[0], SKAT_CARDS[0])
@@ -42,15 +42,7 @@ STEP_SUFFIXES = (TABLE_DECLARING_TAKE_SUFFIX, TABLE_DECLARING_PUT_BACK_SUFFIX, T
 RETIRED_UNION_SUFFIX = "/declaration"
 
 
-@pytest.fixture
-def skat(hold, issuer):
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-    with skat.client:
-        yield skat
-
-
-def declare_fields(game=GameToken.HERZ, *, hand=False, ouvert=False, announcement=AnnouncementToken.NONE):
-    return {"game": game, "hand": hand, "ouvert": ouvert, "announcement": announcement}
+skat = pytest.fixture(name="skat")(issuer_skat)
 
 
 def put_back_fields(*cards):
@@ -231,7 +223,7 @@ class TestPutBackCards:
 
 class TestDeclareGame:
     def test_declaring_after_the_pick_up_starts_the_play_with_the_forehand_to_lead(self, agent, picked):
-        answer = agent.take_step(DECLARE_GAME_TOOL, picked, command_id="agent-declare", **declare_fields())
+        answer = agent.take_step(DECLARE_GAME_TOOL, picked, command_id="agent-declare", **declared_body())
 
         assert not answer.is_error, answer.text
         view = agent.read(picked.table_id).json()
@@ -239,7 +231,7 @@ class TestDeclareGame:
         assert view["hand"]["playing"]["turn_seat"] == seat_of(FOREHAND)
 
     def test_a_hand_game_declared_at_the_choosing_stage_never_shows_the_skat(self, agent, declarer):
-        answer = agent.take_step(DECLARE_GAME_TOOL, declarer, **declare_fields(hand=True))
+        answer = agent.take_step(DECLARE_GAME_TOOL, declarer, **declared_body(hand=True))
 
         assert not answer.is_error, answer.text
         view = agent.read(declarer.table_id).json()
@@ -253,43 +245,43 @@ class TestDeclareGame:
         [
             pytest.param(
                 "declarer",
-                declare_fields(hand=True, announcement=AnnouncementToken.SCHNEIDER),
+                declared_body(hand=True, announcement=AnnouncementToken.SCHNEIDER),
                 Declaration(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.SCHNEIDER),
                 id="suit hand schneider",
             ),
             pytest.param(
                 "declarer",
-                declare_fields(hand=True, announcement=AnnouncementToken.SCHWARZ),
+                declared_body(hand=True, announcement=AnnouncementToken.SCHWARZ),
                 Declaration(GameKind.HERZ, hand=True, ouvert=False, announcement=Announcement.SCHWARZ),
                 id="suit hand schwarz",
             ),
             pytest.param(
                 "declarer",
-                declare_fields(GameToken.GRAND, hand=True),
+                declared_body(GameToken.GRAND, hand=True),
                 Declaration(GameKind.GRAND, hand=True, ouvert=False, announcement=Announcement.NONE),
                 id="grand hand",
             ),
             pytest.param(
                 "declarer",
-                declare_fields(GameToken.GRAND, hand=True, ouvert=True),
+                declared_body(GameToken.GRAND, hand=True, ouvert=True),
                 Declaration(GameKind.GRAND, hand=True, ouvert=True, announcement=Announcement.SCHWARZ),
                 id="grand ouvert counts as announced schwarz",
             ),
             pytest.param(
                 "declarer",
-                declare_fields(GameToken.NULL, hand=True),
+                declared_body(GameToken.NULL, hand=True),
                 Declaration(GameKind.NULL, hand=True, ouvert=False, announcement=Announcement.NONE),
                 id="null hand",
             ),
             pytest.param(
                 "declarer",
-                declare_fields(GameToken.NULL, hand=True, ouvert=True),
+                declared_body(GameToken.NULL, hand=True, ouvert=True),
                 Declaration(GameKind.NULL, hand=True, ouvert=True, announcement=Announcement.NONE),
                 id="null ouvert hand",
             ),
             pytest.param(
                 "picked",
-                declare_fields(GameToken.NULL, ouvert=True),
+                declared_body(GameToken.NULL, ouvert=True),
                 Declaration(GameKind.NULL, hand=False, ouvert=True, announcement=Announcement.NONE),
                 id="null ouvert after the pick up",
             ),
@@ -316,7 +308,7 @@ class TestDeclareGame:
         )
         assert not answer.is_error, answer.text
 
-        answer = agent.take_step(DECLARE_GAME_TOOL, table, command_id="agent-declare", **declare_fields(GameToken.NULL))
+        answer = agent.take_step(DECLARE_GAME_TOOL, table, command_id="agent-declare", **declared_body(GameToken.NULL))
 
         assert not answer.is_error, answer.text
         assert declaring_of(table.record).declaration == Declaration(
@@ -338,7 +330,7 @@ class TestRefusals:
             pytest.param(
                 "declarer",
                 DECLARE_GAME_TOOL,
-                declare_fields(),
+                declared_body(),
                 DeclarationRefusal.OUT_OF_ORDER,
                 id="declare without hand at choosing",
             ),
@@ -346,7 +338,7 @@ class TestRefusals:
             pytest.param(
                 "after_take",
                 DECLARE_GAME_TOOL,
-                declare_fields(),
+                declared_body(),
                 DeclarationRefusal.OUT_OF_ORDER,
                 id="declare holding twelve",
             ),
@@ -367,28 +359,28 @@ class TestRefusals:
             pytest.param(
                 "picked",
                 DECLARE_GAME_TOOL,
-                declare_fields(hand=True),
+                declared_body(hand=True),
                 DeclarationRefusal.LEVEL_NOT_ALLOWED_AFTER_PICK_UP,
                 id="hand after the pick up",
             ),
             pytest.param(
                 "picked",
                 DECLARE_GAME_TOOL,
-                declare_fields(announcement=AnnouncementToken.SCHNEIDER),
+                declared_body(announcement=AnnouncementToken.SCHNEIDER),
                 DeclarationRefusal.LEVEL_NOT_ALLOWED_AFTER_PICK_UP,
                 id="announcement after the pick up",
             ),
             pytest.param(
                 "picked",
                 DECLARE_GAME_TOOL,
-                declare_fields(ouvert=True),
+                declared_body(ouvert=True),
                 DeclarationRefusal.LEVEL_NOT_ALLOWED_AFTER_PICK_UP,
                 id="ouvert suit after the pick up",
             ),
             pytest.param(
                 "declarer",
                 DECLARE_GAME_TOOL,
-                declare_fields(GameToken.NULL, hand=True, announcement=AnnouncementToken.SCHNEIDER),
+                declared_body(GameToken.NULL, hand=True, announcement=AnnouncementToken.SCHNEIDER),
                 DeclarationRefusal.ANNOUNCEMENT_IN_NULL,
                 id="null hand with an announcement",
             ),
@@ -412,11 +404,11 @@ class TestRefusals:
         [
             pytest.param(TAKE_SKAT_TOOL, {}, id="take"),
             pytest.param(PUT_BACK_CARDS_TOOL, put_back_fields(*MIDDLEHAND_CARDS[:2]), id="put back"),
-            pytest.param(DECLARE_GAME_TOOL, declare_fields(hand=True), id="declare"),
+            pytest.param(DECLARE_GAME_TOOL, declared_body(hand=True), id="declare"),
         ],
     )
     def test_every_step_is_already_declared_once_the_game_is_declared(self, agent, declarer, tool, fields):
-        agent.take_step(DECLARE_GAME_TOOL, declarer, command_id="agent-declare", **declare_fields(hand=True))
+        agent.take_step(DECLARE_GAME_TOOL, declarer, command_id="agent-declare", **declared_body(hand=True))
 
         answer = agent.offered_every_tool().take_step(tool, declarer, command_id="agent-again", **fields)
 
@@ -487,9 +479,9 @@ class TestRefusals:
                 {**put_back_fields(*SKAT_CARDS), "action": "put_back"},
                 id="put back names an action",
             ),
-            pytest.param(DECLARE_GAME_TOOL, {**declare_fields(), "seat": 1}, id="declare names a seat"),
-            pytest.param(DECLARE_GAME_TOOL, {**declare_fields(), "game": "ramsch"}, id="unknown game"),
-            pytest.param(DECLARE_GAME_TOOL, {**declare_fields(), "hand": "yes"}, id="hand as a string"),
+            pytest.param(DECLARE_GAME_TOOL, {**declared_body(), "seat": 1}, id="declare names a seat"),
+            pytest.param(DECLARE_GAME_TOOL, {**declared_body(), "game": "ramsch"}, id="unknown game"),
+            pytest.param(DECLARE_GAME_TOOL, {**declared_body(), "hand": "yes"}, id="hand as a string"),
         ],
     )
     def test_an_argument_that_breaks_the_tools_shape_stores_nothing_and_spends_no_id(
@@ -509,7 +501,7 @@ class TestRetries:
         [
             pytest.param("declarer", TAKE_SKAT_TOOL, {}, id="take"),
             pytest.param("after_take", PUT_BACK_CARDS_TOOL, put_back_fields(*PUT_BACK_CARDS), id="put back"),
-            pytest.param("picked", DECLARE_GAME_TOOL, declare_fields(), id="declare"),
+            pytest.param("picked", DECLARE_GAME_TOOL, declared_body(), id="declare"),
         ],
     )
     def test_the_same_call_again_answers_the_same_and_stores_nothing_twice(
@@ -529,8 +521,8 @@ class TestRetries:
     @pytest.mark.parametrize(
         ("tool", "fields"),
         [
-            pytest.param(DECLARE_GAME_TOOL, declare_fields(GameToken.PIK), id="another game"),
-            pytest.param(DECLARE_GAME_TOOL, declare_fields(hand=True), id="another hand flag"),
+            pytest.param(DECLARE_GAME_TOOL, declared_body(GameToken.PIK), id="another game"),
+            pytest.param(DECLARE_GAME_TOOL, declared_body(hand=True), id="another hand flag"),
             pytest.param(TAKE_SKAT_TOOL, {}, id="take on the id of a declare"),
             pytest.param(PUT_BACK_CARDS_TOOL, put_back_fields(*PUT_BACK_CARDS), id="put back on the id of a declare"),
         ],
@@ -539,7 +531,7 @@ class TestRetries:
         self, skat, agent, picked, tool, fields
     ):
         version = picked.record.version
-        agent.take_step(DECLARE_GAME_TOOL, picked, command_id="agent-reused", version=version, **declare_fields())
+        agent.take_step(DECLARE_GAME_TOOL, picked, command_id="agent-reused", version=version, **declared_body())
         after_first = stored(skat)
 
         answer = agent.offered_every_tool().take_step(
@@ -557,7 +549,7 @@ class TestOwnAccountAndReceipts:
         [
             pytest.param("declarer", TAKE_SKAT_TOOL, {}, id="take"),
             pytest.param("after_take", PUT_BACK_CARDS_TOOL, put_back_fields(*PUT_BACK_CARDS), id="put back"),
-            pytest.param("picked", DECLARE_GAME_TOOL, declare_fields(), id="declare"),
+            pytest.param("picked", DECLARE_GAME_TOOL, declared_body(), id="declare"),
         ],
     )
     def test_each_step_is_recorded_under_the_agents_own_account_as_a_declaring_step(
@@ -577,7 +569,7 @@ class TestOwnAccountAndReceipts:
 ROUTE_STEPS = [
     pytest.param("declarer", TABLE_DECLARING_TAKE_SUFFIX, {}, id="take"),
     pytest.param("after_take", TABLE_DECLARING_PUT_BACK_SUFFIX, put_back_fields(*PUT_BACK_CARDS), id="put back"),
-    pytest.param("picked", TABLE_DECLARING_DECLARE_SUFFIX, declare_fields(), id="declare"),
+    pytest.param("picked", TABLE_DECLARING_DECLARE_SUFFIX, declared_body(), id="declare"),
 ]
 
 
