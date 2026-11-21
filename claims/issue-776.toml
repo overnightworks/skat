@@ -1,0 +1,8 @@
+claim_id = "1640797edece4deaacda6615a2ea4ba2"
+agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
+role = "builder"
+base = "c6cb4a7eef1465af0de4775ea58ecadcbdd2d667"
+branch = "claude/issue-776-auction-counter-takt"
+scope = ["frontend/src", "tests"]
+opened_commit = "8efb4ada7b87193f7081a7517064b8e6bfb368e0"
+whole_reason = "One surface, the auction's counter and its pacing, on Takt."
