@@ -8,6 +8,7 @@ import {
     postedSeats,
     readPersonKeys,
     seatsMessage,
+    shownAsInView,
     type PostedSeat,
     type TileReading,
 } from "./callSeats.ts";
@@ -116,6 +117,24 @@ describe("postedSeats", () => {
             [1, "person-1"],
             [2, "person-2"],
         ]);
+    });
+});
+
+describe("shownAsInView", () => {
+    it("drops a tile that still shows another occupant than the newest view seats and keeps the others", () => {
+        const tiles = [reading(1), reading(2), reading(3)];
+        const newest = new Map([
+            [1, "person-1"],
+            [2, "person-elsewhere"],
+        ]);
+
+        expect(shownAsInView(tiles, newest).map(({ seat }) => seat)).toEqual([1]);
+    });
+
+    it("keeps a tile again once the page shows the occupant the newest view seats", () => {
+        const newest = new Map([[2, "person-2"]]);
+
+        expect(shownAsInView([reading(2)], newest).map(({ seat }) => seat)).toEqual([2]);
     });
 });
 

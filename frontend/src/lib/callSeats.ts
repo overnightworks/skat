@@ -9,6 +9,7 @@ import {
     type SeatsMessage,
 } from "#lib/callFrame.ts";
 import { CHAIRS_PER_TABLE, TABLES_PATH, TABLE_PERSON_KEYS_SUFFIX } from "#lib/wire.ts";
+import type { Table } from "../routes/(start)/tables.ts";
 
 // The pure decisions of the seats a framed table tells its call: which tile boxes go out, which chairs are see-through
 // and when the table holds back. `CallSeats.svelte` reads the page, runs the frames and writes the clip paths by them.
@@ -162,6 +163,20 @@ export function holesPath(
         return hole.shape === "round" ? ellipsePath(local) : cornerPath(local, hole.radius);
     });
     return `path(evenodd, "${[outer, ...cuts].join(" ")}")`;
+}
+
+/** The occupancy of each chair of a table's chairs, by seat. */
+export function occupancyBySeat(chairs: readonly Table["chairs"][number][]): ReadonlyMap<number, string> {
+    return new Map(chairs.map((chair) => [chair.seat, occupancyOf(chair)]));
+}
+
+/**
+ * The tiles that show who sits at their chair in the newest view. The person keys are those of the newest view, while
+ * the page may still show an older table (an auction is told word by word, a closing trick waits); a tile that shows
+ * someone else than the newest view seats is not told to the call, so no key lands on a chair that shows another person.
+ */
+export function shownAsInView(tiles: readonly TileReading[], occupancyNow: ReadonlyMap<number, string>): TileReading[] {
+    return tiles.filter(({ seat, occupancy }) => occupancyNow.get(seat) === occupancy);
 }
 
 /** What a chair of the table view holds, as far as a person key can go stale: who sits, of which kind, and whether it is mine. */

@@ -7,11 +7,13 @@
         acceptedPlacements,
         holdOf,
         holesPath,
+        occupancyBySeat,
         occupancyOf,
         openSeats,
         postedSeats,
         readPersonKeys,
         seatsMessage,
+        shownAsInView,
         type PostedSeat,
         type SeatKeys,
         type TileReading,
@@ -19,17 +21,22 @@
 
     // The framed table's side of the call: it greets the call, tells it where each chair's tile lies, takes its answer
     // `placed` and makes the chairs the call placed see-through. It draws nothing itself; the rules are in callSeats.ts.
+    // Who sits and which version the keys must match follow the newest table the stream brought, at once; the table the
+    // page shows may lag behind it while an auction is told or a closing waits, and only the tiles are read from that.
     // While the page is greeted and visible, every animation frame reads the tiles, so a move without a resize is
     // caught; a posted payload and a written clip path are each posted or written only when they differ from the last.
     const {
         tableId,
         table,
+        newest,
         missing,
         ongreeted,
     }: {
         tableId: string;
         /** The table the page shows, or null while it shows none. */
         table: Table | null;
+        /** The newest table the page has received, shown or not, or null while it has none. */
+        newest: Table | null;
         /** Whether the table is gone; one that ended is told by `table.ended`. */
         missing: boolean;
         /** Runs once, at the call's first valid hello. */
@@ -37,8 +44,8 @@
     } = $props();
 
     // The chairs of a live table; an ended table has none to tell, and the call hears that, as it does of a gone one.
-    const view = $derived(table !== null && table.ended === null ? table : null);
-    const closed = $derived(missing || (table !== null && view === null));
+    const view = $derived(newest !== null && newest.ended === null ? newest : null);
+    const closed = $derived(missing || (newest !== null && view === null));
     const CHAIRS = ".room .chair[data-seat]";
     const host = browserCallHost();
     const clipsWritten = new WeakMap<Element, string>();
@@ -96,7 +103,7 @@
     }
 
     function paintHoles(current: Table | null, keysAreCurrent: boolean): void {
-        const occupancyNow = new Map((current?.chairs ?? []).map((chair) => [chair.seat, occupancyOf(chair)]));
+        const occupancyNow = occupancyBySeat(current?.chairs ?? []);
         const open = openSeats({ posted, placed, occupancyNow, current: keysAreCurrent });
         const openSeatNumbers = new Set(open.map(({ seat }) => seat));
         for (const chair of document.querySelectorAll<HTMLElement>(CHAIRS)) {
@@ -117,7 +124,10 @@
     function flush(): void {
         const hold = holdOf({ closed, failed: keysFailed, keys, viewVersion: view?.version ?? null });
         if (hold === "closed" || hold === "failed") post([]);
-        else if (hold === "current" && view !== null && keys !== null) post(postedSeats(readTiles(view.chairs, keys)));
+        else if (hold === "current" && view !== null && keys !== null) {
+            const tiles = readTiles(table?.chairs ?? [], keys);
+            post(postedSeats(shownAsInView(tiles, occupancyBySeat(view.chairs))));
+        }
         paintHoles(view, hold === "current");
     }
 

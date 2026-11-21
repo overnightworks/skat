@@ -142,6 +142,8 @@
     // The route has an [id] segment, so the parameter is always present.
     const id = $derived(page.params.id as string);
     let outcome = $state<Outcome | null>(null);
+    // The newest table the stream brought, shown or not: the call follows who sits there, not the paced table.
+    let newestTable = $state<Table | null>(null);
     let note = $state("");
     let rulesOpen = $state(false);
     let taken: string | null = $state(null);
@@ -231,6 +233,7 @@
     // SvelteKit keeps this component when the address changes from one table to another.
     $effect(() => {
         outcome = null;
+        newestTable = null;
         connected = true;
         streamsFull = false;
         attention = 0;
@@ -251,11 +254,15 @@
         void readTable(id).then((answer) => {
             if (!current) return;
             outcome = answer;
+            newestTable = answer.kind === "table" ? answer.table : null;
             if (answer.kind === "table" && answer.table.ended === null) {
                 tables.begin(answer.table);
                 stopWatching = watchTable(
                     id,
-                    tables.show,
+                    (table) => {
+                        newestTable = table;
+                        tables.show(table);
+                    },
                     (count) => {
                         attention = count;
                     },
@@ -408,6 +415,7 @@
         <CallSeats
             tableId={id}
             table={outcome?.kind === "table" ? outcome.table : null}
+            newest={newestTable}
             missing={outcome?.kind === "missing"}
             ongreeted={() => {
                 greeted = true;
