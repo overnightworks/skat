@@ -279,6 +279,14 @@ class TestTheResult:
 
         assert attrgetter("ordinal", "won", "score")(result) == (2, False, -72)
 
+    def test_carries_the_names_stored_with_the_game(self):
+        table = pending_result(played(KREUZ, MIT_TWO, (30, 30, 18)))
+        entry = replace(table.game_list[0], seat_names=("Anna", None, "Cleo"))
+
+        result = result_view_of(replace(table, game_list=(entry,)))
+
+        assert result.seat_names == ("Anna", None, "Cleo")
+
     def test_names_the_game_its_levels_and_both_sides_points(self):
         result = result_view_of(pending_result(played(KARO, MIT_ONE, (30, 30, 10), bid=20)))
 

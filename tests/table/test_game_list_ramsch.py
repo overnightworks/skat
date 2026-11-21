@@ -60,6 +60,7 @@ class TestTheRamschResult:
 
         assert view == RamschResultView(
             ordinal=2,
+            seat_names=("Anna", "Ben", "Cleo"),
             seats=(RamschSeatResult(1, 47, -47), RamschSeatResult(2, 40, 0), RamschSeatResult(3, 33, 0)),
             durchmarsch_seat=None,
             jungfrau=False,
