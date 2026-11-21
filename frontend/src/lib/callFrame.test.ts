@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
     browserCallHost,
+    callStartAddress,
     greetCall,
     isFramedInCallMode,
     isHello,
@@ -91,6 +92,21 @@ function answering(status: number, body: unknown): () => Promise<Pick<Response, 
 function offline(): Promise<never> {
     return Promise.reject(new TypeError("offline"));
 }
+
+describe("callStartAddress", () => {
+    it("names the call app's new-call path with the app and the table as context", () => {
+        expect(callStartAddress(CALL_ORIGIN, TABLE_ID)).toBe(`${CALL_ORIGIN}/c/new?app=skat&context=${TABLE_ID}`);
+    });
+
+    it("encodes a table id that is not plain text instead of joining it raw", () => {
+        const address = new URL(callStartAddress(CALL_ORIGIN, "a&b=c"));
+
+        expect([address.searchParams.get("context"), [...address.searchParams.keys()]]).toEqual([
+            "a&b=c",
+            ["app", "context"],
+        ]);
+    });
+});
 
 describe("readCallOrigin", () => {
     it("asks the route and gives the origin of a 200", async () => {

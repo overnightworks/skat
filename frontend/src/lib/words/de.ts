@@ -62,6 +62,7 @@ export type Words = {
     readonly "table.loadFailedHint": string;
     readonly "table.watchers": string;
     readonly "table.lobby": string;
+    readonly "table.call": string;
     readonly "table.lobbyWaiting": (count: number) => string;
     readonly "table.reconnecting": string;
     readonly "table.tooManyStreams": string;
@@ -670,6 +671,7 @@ export const words: Words = {
     "table.loadFailedHint": "Lade die Seite neu, um es noch einmal zu versuchen.",
     "table.watchers": "Zuschauer",
     "table.lobby": "Lobby",
+    "table.call": "Anruf",
     "table.lobbyWaiting": (count: number) => ({
         zero: "Lobby, " + numberFormat.format(count) + " Tische warten auf dich",
         one: "Lobby, " + numberFormat.format(count) + " Tisch wartet auf dich",

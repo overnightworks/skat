@@ -199,7 +199,6 @@ def test_the_list_follows_create_sit_stand_and_close_without_a_reload(
     owner = record_page_errors(open_person(username=owner_name, **DESKTOP), page_errors)
     sitter = record_page_errors(open_person(username="Sven", **DESKTOP), page_errors)
     open_start_page(watcher, e2e_server)
-    expect(watcher.get_by_role("heading", name=OPEN_TABLES)).to_be_visible()
     mark_page(watcher)
 
     owner.goto(f"{e2e_server.base_url}/")

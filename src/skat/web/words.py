@@ -64,6 +64,7 @@ type Key = Literal[
     'table.loadFailedHint',
     'table.watchers',
     'table.lobby',
+    'table.call',
     'table.lobbyWaiting',
     'table.reconnecting',
     'table.tooManyStreams',
@@ -662,6 +663,7 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'table.loadFailedHint': 'Lade die Seite neu, um es noch einmal zu versuchen.',
         'table.watchers': 'Zuschauer',
         'table.lobby': 'Lobby',
+        'table.call': 'Anruf',
         'table.lobbyWaiting': {
             'one': 'Lobby, {count} Tisch wartet auf dich',
             'other': 'Lobby, {count} Tische warten auf dich',
@@ -1262,6 +1264,7 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'table.loadFailedHint': 'Reload the page to try again.',
         'table.watchers': 'Spectators',
         'table.lobby': 'Lobby',
+        'table.call': 'Call',
         'table.lobbyWaiting': {
             'one': 'Lobby, {count} table is waiting for you',
             'other': 'Lobby, {count} tables are waiting for you',

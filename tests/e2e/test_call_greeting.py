@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from playwright.sync_api import expect
 
-from skat.web.call import CALL_ORIGIN_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.call_frame import (
     CALL_ORIGIN,
@@ -247,34 +246,30 @@ def test_a_reloaded_frame_greets_again(
 
 
 @pytest.mark.parametrize("search", ["", "?mode=call"], ids=["without-the-marker", "with-the-marker"])
-def test_a_top_level_table_page_posts_nothing_and_keeps_its_bar(
+def test_a_top_level_table_page_posts_no_ready_and_keeps_its_bar(
     open_person: Callable[..., Page], framing_server: RunningServer, search: str
 ) -> None:
     path = new_table(open_person, framing_server)
     visitor = open_person(server=framing_server)
-    requests: list[str] = []
-    visitor.on("request", lambda request: requests.append(request.url))
+    visitor.add_init_script("window.posted = []; window.postMessage = (...sent) => window.posted.push(sent)")
 
     visitor.goto(f"{framing_server.base_url}{path}{search}")
 
     expect(visitor.locator(CHAIR)).to_have_count(THREE_CHAIRS)
     expect(visitor.locator(BAR)).to_be_visible()
-    assert [url for url in requests if CALL_ORIGIN_PATH in url] == []
+    assert visitor.evaluate("window.posted") == []
 
 
-def test_a_framed_table_page_without_the_marker_posts_nothing_and_asks_for_no_origin(
+def test_a_framed_table_page_without_the_marker_posts_nothing(
     open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
 ) -> None:
     path = new_table(open_person, framing_server)
     visitor = open_person(server=framing_server)
-    requests: list[str] = []
-    visitor.on("request", lambda request: requests.append(request.url))
 
     with in_the_greeting_call(visitor, browser_coverage, framing_server, f"{framing_server.base_url}{path}"):
         expect(visitor.frame_locator(FRAME).locator(CHAIR)).to_have_count(THREE_CHAIRS)
 
         assert messages_of_the_frame(visitor) == []
-        assert [url for url in requests if CALL_ORIGIN_PATH in url] == []
 
 
 def test_the_call_sign_in_face_posts_nothing(

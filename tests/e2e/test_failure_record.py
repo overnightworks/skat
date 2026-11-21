@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 from playwright.sync_api import Page, expect
 
+from skat.web.call import CALL_ORIGIN_PATH
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.e2e.support.sessions import end_sessions_of
 from tests.e2e.support.tables import open_new_table, plate_of, sit_in, table_id_of
@@ -91,7 +92,8 @@ def test_the_record_holds_no_cookie_header_or_name_of_the_table(
     ]
     assert cookie_values
     assert not [value for value in cookie_values if value in record]
-    assert not [name for name in FORBIDDEN_HEADER_NAMES if name in record.lower()]
+    record_without_paths = record.lower().replace(CALL_ORIGIN_PATH, "")
+    assert not [name for name in FORBIDDEN_HEADER_NAMES if name in record_without_paths]
     assert member_of(viewer).account.username not in record
 
 
