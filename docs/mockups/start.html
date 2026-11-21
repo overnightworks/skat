@@ -100,9 +100,6 @@ body.solo .frame{border-radius:0;border:0}
   background:radial-gradient(circle at 34% 30%,#d9e6ff 0,#8fb4f6 18%,#4467b8 52%,#1d2c55 100%);color:#fff;
   box-shadow:0 0 22px 4px rgba(122,167,240,.45),inset 0 -4px 10px rgba(0,0,0,.35)}
 .orb svg{width:50%;height:50%;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
-.orb .think{position:absolute;inset:-9px;border-radius:50%;opacity:0}
-.orb .think i{position:absolute;left:50%;top:-3px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--accent-stage);box-shadow:0 0 6px var(--accent-stage)}
-.seat.thinking .orb .think{opacity:1}
 
 /* brass nameplate screwed to the chair */
 .plate{position:absolute;left:50%;bottom:0;transform:translate(-50%,50%);z-index:8;display:flex;flex-direction:column;align-items:center;
@@ -133,8 +130,7 @@ body.solo .frame{border-radius:0;border:0}
 .mark.pass{background:var(--glass-dark);color:var(--on-stage);backdrop-filter:blur(12px)}
 .mark.watch{width:22px;height:22px;padding:0;justify-content:center;background:var(--glass-dark);top:4px;right:4px}
 .mark.watch svg{width:13px;height:13px}
-.mark.think{background:rgba(29,42,66,.85);color:var(--accent-stage);box-shadow:inset 0 0 0 1px rgba(122,167,240,.5)}
-.seat.sm .mark.decl,.seat.sm .mark.pass,.seat.sm .mark.think{width:26px;height:26px;padding:0;justify-content:center;font-size:0}
+.seat.sm .mark.decl,.seat.sm .mark.pass{width:26px;height:26px;padding:0;justify-content:center;font-size:0}
 .seat.sm .mark.turn{width:26px;height:26px}
 .seat.turn .chair{box-shadow:0 0 0 3px var(--accent-stage),0 0 28px 4px rgba(122,167,240,.5),0 18px 30px -12px rgba(0,0,0,.9)}
 .seat.out .tile{filter:saturate(.45) brightness(.8)}
@@ -477,14 +473,13 @@ const MARK={
   decl:`<span class="mark decl">${I.star}Spielt</span>`,
   pass:`<span class="mark pass">${I.cross}Weg</span>`,
   watch:`<span class="mark watch">${I.eye}</span>`,
-  think:`<span class="mark think">${I.spark}denkt</span>`,
 };
 /* a seat: chair + video (call), avatar (solo) or the agent's orb; marks; brass nameplate */
 function seat(k,o){
   const p=P[k],marks=o.marks||[];
-  const cls=['seat',o.sm&&'sm',marks.includes('turn')&&'turn',marks.includes('think')&&'thinking',o.win&&'win',o.got&&'got',o.out&&'out'].filter(Boolean).join(' ');
+  const cls=['seat',o.sm&&'sm',marks.includes('turn')&&'turn',o.win&&'win',o.got&&'got',o.out&&'out'].filter(Boolean).join(' ');
   let inner;
-  if(p.agent) inner=`<div class="vid"></div><div class="orb">${I.spark}<span class="think ${marks.includes('think')?'mo':''}"><i></i><i style="top:auto;bottom:-3px"></i></span></div>`;
+  if(p.agent) inner=`<div class="vid"></div><div class="orb">${I.spark}</div>`;
   else if(o.video) inner=`<div class="vid" style="--v1:${p.v[0]};--v2:${p.v[1]}">${silhouette(p)}</div>`;
   else inner=`<div class="vid" style="--v1:${p.v[0]};--v2:${p.v[1]}"></div><div class="av" style="${dotStyle(p)}">${p.i}</div>`;
   const plate=`<span class="plate"><b>${p.n}${p.agent?aiMark():''}</b></span>`;
@@ -751,7 +746,8 @@ const stated=(html,word)=>html.replace(`${aiMark()}</b></span>`,`${aiMark()}</b>
 [360,390,1280].forEach(w=>{
   frame(`lobby-turn-state-${w}`,'Lobby: Zugstatus eines Agenten',w===1280?'Desktop 1280 px':`Handy ${w} px`,LOBBY_SIZES[w].cls,
     stated(lobbyScene(w,{mine:[NOVA_TABLE,LOBBY.lena],open:[LOBBY.tom,LOBBY.ida]}),'Budget aufgebraucht')+DRAFT,
-    ['An „Felix\' Tisch“ sitzt Nova, sein Agent, und das Spiel wartet auf sie; ihr Runner meldet „Budget aufgebraucht“. Unter ihrem Namen steht am Schild das Zeichen des Kits mit seinem Wort, dasselbe wie am Tisch und für jeden gleich, der die Lobby sieht. „Nicht freigeschaltet“, „Gerade ausgelastet“ und „Gerade gestört“ stehen genauso da. Ohne Meldung steht am Schild nur der Name; dass ein Agent gerade denkt, zeigt die Lobby nicht.']);
+    ['An „Felix\' Tisch“ sitzt Nova, sein Agent, und das Spiel wartet auf sie; ihr Runner meldet „Budget aufgebraucht“. Unter ihrem Namen steht am Schild das Zeichen des Kits mit seinem Wort, dasselbe wie am Tisch und für jeden gleich, der die Lobby sieht. Der Stuhl ist schmaler als das Wort, also steht es wie am Tisch des Handys kleiner und in zwei Zeilen, das Zeichen vor der ersten, und das Schild wird nicht breiter als seine längste Zeile. „Nicht freigeschaltet“, „Gerade ausgelastet“ und „Gerade gestört“ stehen genauso da. Ohne Meldung steht am Schild nur der Name; dass ein Agent gerade denkt, zeigt die Lobby nicht.',
+     'Gezählt bei 360: das Schild ist 92 Pixel breit, der Stuhl 88; bis „Anna“ bleiben 35 Pixel, bis „Du“ 42. Mit dem längsten Wort, „Nicht freigeschaltet“, sind es 93, und zwei solche Schilder nebeneinander lassen 13 Pixel zwischen sich.']);
   ORDER.push(`lobby-turn-state-${w}`);});
 }
 /* the choice for a new table stands over the lobby */
@@ -789,8 +785,11 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 /* the kit's TurnState, as it ships (TurnState.svelte); it takes the muted colour of its place */
 .turn-state{display:inline-flex;flex:none;align-items:center;gap:6px;color:var(--text-muted);font-family:var(--font-body);font-size:13px;white-space:nowrap}
 .turn-state svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-/* the name keeps its place and the plate grows downward */
-.plate:has(.turn-state){top:calc(100% - 11px);bottom:auto;transform:translateX(-50%);gap:1px;padding-bottom:4px;font-weight:600;--text-muted:rgba(43,29,5,.76)}
+/* at a chair the part is the plate's second line under the name: the name keeps its place and the plate grows downward. A small chair is narrower than the part's word, so there the word takes two lines in a smaller type, the mark before its first, and the plate is no wider than its longest line: it keeps clear of the plates beside it, a second stated one included */
+.plate:has(.turn-state){top:calc(100% - 12px);bottom:auto;transform:translateX(-50%);gap:1px;padding-bottom:5px;font-weight:600;--text-muted:rgba(43,29,5,.76)}
+.seat.sm .plate:has(.turn-state){top:calc(100% - 11px);width:min-content;padding-bottom:3px}
+.seat.sm .plate .turn-state{display:block;font-size:11px;line-height:1.1;text-align:center;white-space:normal}
+.seat.sm .plate .turn-state svg{display:inline-block;width:12px;height:12px;margin-right:4px;vertical-align:-2px}
 /* a scene that is one variant of an open choice carries its mark inside the frame, so a single frame shows it too */
 .draft-tab{position:absolute;left:50%;bottom:0;translate:-50% 0;z-index:80;padding:2px 12px;border-radius:8px 8px 0 0;background:#f3cf7a;color:#2a1c00;font-size:11px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
 </style>
