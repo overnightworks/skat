@@ -1,5 +1,5 @@
 [project]
-name = "skat"
+name = "overnightworks-skat"
 version = "0.1.0"
 description = "Skat for the overnightworks fleet"
 license = "MIT"

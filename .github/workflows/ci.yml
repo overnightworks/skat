@@ -425,7 +425,7 @@ jobs:
       - name: Check that the wheel carries the page build
         run: >
           docker run --rm --entrypoint python skat-image -c
-          "from importlib.metadata import files; assert any(str(f) == 'skat/web/build/index.html' for f in files('skat'))"
+          "from importlib.metadata import files; assert any(str(f) == 'skat/web/build/index.html' for f in files('overnightworks-skat'))"
 
   quality:
     name: quality
