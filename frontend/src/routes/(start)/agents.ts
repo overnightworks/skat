@@ -10,7 +10,7 @@ export type AgentRow =
     | { key: string; name: string; state: "inviting"; ends_in_seconds: number }
     | { key: string; name: string; state: "here"; ends_in_seconds: null }
     | { key: string; name: string; state: "ended"; outcome: AgentControlOutcome; ends_in_seconds: null };
-export type AgentsControl = { shown: boolean; rows: AgentRow[] };
+export type AgentsControl = { shown: boolean; full: boolean; rows: AgentRow[] };
 type AgentsAnswer = { kind: "control"; control: AgentsControl } | { kind: "missing" } | { kind: "failed" };
 type CallAnswer = AgentsAnswer | { kind: "refused"; reason: AgentControlRefusal };
 
