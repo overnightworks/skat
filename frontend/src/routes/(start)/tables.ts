@@ -213,14 +213,14 @@ export type Chair = {
     nudge: Nudge | null;
     turn_state?: TurnState | null;
 };
+type SeatNames = (string | null)[]; // The seats' names at a game's end; null for an entry stored before names were kept.
 export type RamschSeat = { seat: number; points: number; score: number };
 // The finished Ramsch as the server counted it: what each seat's counted eyes were and what it added, the sweeper of a
 // Durchmarsch, and the factors the losers' score carries.
 export type RamschResult = {
     kind: "ramsch";
     ordinal: number;
-    // The names the seats had at the game's end, by seat; null for an entry stored before names were kept.
-    seat_names: (string | null)[];
+    seat_names: SeatNames;
     seats: RamschSeat[];
     durchmarsch_seat: number | null;
     jungfrau: boolean;
@@ -235,8 +235,7 @@ export type SeatGain = { seat: number; gain: number; won: boolean };
 export type Result = {
     kind: "declared";
     ordinal: number;
-    // The names the seats had at the game's end, by seat; null for an entry stored before names were kept.
-    seat_names: (string | null)[];
+    seat_names: SeatNames;
     declarer_seat: number;
     game: Game;
     hand: boolean;
