@@ -43,10 +43,10 @@ from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import Agent, person_passes, person_posts, view_uri_of, window_uri_of
-from tests.web.support.calling import a_person, inviting, running_skat
+from tests.web.support.calling import a_person, inviting
 from tests.web.support.playing import HERZ_GAME, card_body
 from tests.web.support.presence import HOLD_SECONDS
-from tests.web.support.skat import UNKNOWN_ID, AgentTable, Skat, account_of
+from tests.web.support.skat import UNKNOWN_ID, AgentTable, Skat, account_of, running_skat
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 UNKNOWN = "Unknown resource"

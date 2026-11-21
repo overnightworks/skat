@@ -33,9 +33,8 @@ from tests.support.payload_cards import (
 )
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, Agent, person_passes, person_steps
-from tests.web.support.calling import issuer_skat
 from tests.web.support.playing import card_body, declared_body
-from tests.web.support.skat import FETCH, UNKNOWN_ID, stored, streams_of
+from tests.web.support.skat import FETCH, UNKNOWN_ID, issuer_skat, stored, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 PUT_BACK_CARDS = (MIDDLEHAND_CARDS[0], SKAT_CARDS[0])

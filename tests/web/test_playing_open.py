@@ -13,7 +13,6 @@ from skat.web.playing import (
     TABLE_THROW_DOWN_SUFFIX,
 )
 from tests.support.payload_cards import cards_in, wire_cards
-from tests.web.support.calling import HeldSkat, IssuerSkat
 from tests.web.support.giving_up import (
     SEAT,
     assert_the_request_ended_and_play_goes_on,
@@ -41,7 +40,7 @@ from tests.web.support.shortening import (
     shortens,
     undecided_herz_at_22,
 )
-from tests.web.support.skat import AgentTable, restarted
+from tests.web.support.skat import AgentTable, HeldSkat, IssuerSkat, restarted
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 OPPONENTS = [pytest.param(FOREHAND, id="forehand"), pytest.param(REARHAND, id="rearhand")]

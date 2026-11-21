@@ -18,14 +18,13 @@ from tests.support.log_lines import logged
 from tests.support.payload_cards import DEALER_SEAT
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, Agent, person_passes
-from tests.web.support.calling import running_skat
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
     end_the_first_game,
     failed_timers,
     occupied_seats,
 )
-from tests.web.support.skat import FETCH, UNKNOWN_ID, FakeTime, Skat, advance, streams_of
+from tests.web.support.skat import FETCH, UNKNOWN_ID, FakeTime, Skat, advance, running_skat, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 SEAT_OF = seats_from(DEALER_SEAT)

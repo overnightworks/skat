@@ -9,8 +9,7 @@ from agents.mcp_server.route_call import ARGUMENTS_REFUSED_TEXT
 from agents.member import SET_TURN_STATE_TOOL
 
 from skat.table.turn_state import THINKING_CAP_SECONDS
-from tests.web.support.calling import issuer_skat
-from tests.web.support.skat import streams_of
+from tests.web.support.skat import issuer_skat, streams_of
 
 AGENTS_SEAT = 2
 NOT_HELD = {"refused": "not_held"}

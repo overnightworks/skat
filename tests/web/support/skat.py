@@ -314,3 +314,45 @@ class WaitsOnTheClock:
 
     def wait(self, seconds):
         advance(self.skat, self.time, seconds)
+
+
+def running_skat(hold, issuer, time, **wiring):
+    """A Skat with its client open, for a fixture to `yield from`; `wiring` is passed on to `Skat`."""
+    skat = Skat(
+        lambda: hold,
+        issuer_transports=issuer.transports,
+        chair_clock=time.clock,
+        chair_scheduler=time,
+        now=time.moment,
+        **wiring,
+    )
+    with skat.client:
+        yield skat
+
+
+def issuer_skat(hold, issuer):
+    """A Skat whose issuer transports are the fake issuer's, with its client open, for a fixture named `skat`."""
+    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
+    with skat.client:
+        yield skat
+
+
+def changing_skat(hold, issuer, time, changes):
+    """`running_skat` whose resource changes are the recorded ones, for a fixture named `skat`."""
+    yield from running_skat(hold, issuer, time, resource_changes=changes.wired)
+
+
+class IssuerSkat:
+    """The base of a test class whose `skat` is `issuer_skat`: a fixture named `skat` cannot be assigned in a class."""
+
+    @pytest.fixture
+    def skat(self, hold, issuer):
+        yield from issuer_skat(hold, issuer)
+
+
+class HeldSkat:
+    """The base of a test class whose `skat` is one plain app on the hold's settings."""
+
+    @pytest.fixture
+    def skat(self, hold):
+        return Skat(lambda: hold)

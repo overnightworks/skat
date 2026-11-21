@@ -6,8 +6,7 @@ from skat.table.records import Refusal
 from skat.table.series_end import END_ANSWER_SECONDS
 from skat.web.mcp import AGREE_TO_END_SERIES_TOOL, GIVE_UP_GAME_TOOL, REFUSE_TO_END_SERIES_TOOL
 from skat.web.tables import TABLES_PATH
-from tests.web.support.calling import issuer_skat
-from tests.web.support.skat import AgentTable, Skat
+from tests.web.support.skat import AgentTable, Skat, issuer_skat
 
 skat = pytest.fixture(name="skat")(issuer_skat)
 

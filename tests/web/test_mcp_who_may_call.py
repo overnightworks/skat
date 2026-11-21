@@ -9,9 +9,8 @@ from skat.web.mcp import AGENT_GROUP, MCP_GROUP, PLAY_CARD_TOOL
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, agent_account_id
-from tests.web.support.calling import issuer_skat
 from tests.web.support.playing import card, card_body
-from tests.web.support.skat import FETCH, mcp_message, stored
+from tests.web.support.skat import FETCH, issuer_skat, mcp_message, stored
 
 MIDDLEHAND = Position.MIDDLEHAND
 OWNER = "the-agents-owner"

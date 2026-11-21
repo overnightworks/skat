@@ -7,7 +7,7 @@ from skat.web.abort import TABLE_ABORT_AGREE_SUFFIX, TABLE_ABORT_REFUSE_SUFFIX
 from skat.web.mcp import AGREE_TO_ABORT_HAND_TOOL, REFUSE_TO_ABORT_HAND_TOOL
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.calling import issuer_skat
+from tests.web.support.skat import issuer_skat
 from tests.web.support.waiting_table import WaitingTable
 
 skat = pytest.fixture(name="skat")(issuer_skat)

@@ -23,11 +23,11 @@ from tests.support.calls import call_facts
 from tests.support.log_lines import lines_of, logged
 from tests.support.played_game import after_the_first_game
 from tests.web.support.agent import UPDATED, Agent
-from tests.web.support.calling import INVITATION_SECONDS, a_person, running_skat
+from tests.web.support.calling import INVITATION_SECONDS, a_person
 from tests.web.support.playing import HERZ_GAME
 from tests.web.support.presence import HOLD_SECONDS
 from tests.web.support.series import deal_the_next_game
-from tests.web.support.skat import FakeTime, stored, streams_of
+from tests.web.support.skat import FakeTime, running_skat, stored, streams_of
 from tests.web.support.two_agents import FOREHAND_SEAT, REARHAND_SEAT, TwoAgentsTable
 
 OTHER_AGENT_SUBJECT = "other-agent-subject"

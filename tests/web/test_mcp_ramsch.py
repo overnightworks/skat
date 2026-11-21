@@ -4,8 +4,8 @@ import pytest
 
 from skat.web.mcp import AUCTION_PASS_TOOL, CONTINUE_AFTER_RESULT_TOOL, OPEN_TABLE_TOOL
 from tests.support.payload_cards import with_known_deal
-from tests.web.support.calling import issuer_skat
 from tests.web.support.playing import FOREHAND, MIDDLEHAND, PLAIN_DEAL, PLAIN_HAND, REARHAND, Table
+from tests.web.support.skat import issuer_skat
 
 RAMSCH = {
     "ramsch": {"occasion": "passed-in", "scoring": "points", "jungfrau": "doubles-loser", "durchmarsch": "wins-120"}

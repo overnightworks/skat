@@ -61,10 +61,9 @@ from skat.web.tables import (
 from tests.support.payload_cards import CARDS_BY_SEAT, DEALER_SEAT, SKAT_CARDS, cards_in, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import agent_account_id, person_passes, person_steps
-from tests.web.support.calling import issuer_skat
 from tests.web.support.playing import Table, card, card_body, cards, ending_of
 from tests.web.support.series import play_a_series
-from tests.web.support.skat import UNKNOWN_ID, AgentTable, stored, streams_of
+from tests.web.support.skat import UNKNOWN_ID, AgentTable, issuer_skat, stored, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 AUCTION_TOOLS = {AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, AUCTION_PASS_TOOL, AUCTION_PLAY_TOOL}

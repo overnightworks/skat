@@ -23,7 +23,7 @@ from tests.support.signed_in import new_account
 from tests.web.support.agent import Agent
 from tests.web.support.changes import RecordedChanges
 from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import FETCH, Skat, streams_of
+from tests.web.support.skat import FETCH, running_skat, streams_of
 
 INVITATION_SECONDS = 600
 
@@ -43,20 +43,6 @@ def person(skat, issuer, *, groups=(AGENT_ADDERS_GROUP,), refresh_token=True) ->
     headers, account = skat.member(account, refresh_token=token)
     issuer.grant_groups(account.id, groups)
     return Person(headers, account.id)
-
-
-def running_skat(hold, issuer, time, **wiring):
-    """A Skat with its client open, for a fixture to `yield from`; `wiring` is passed on to `Skat`."""
-    skat = Skat(
-        lambda: hold,
-        issuer_transports=issuer.transports,
-        chair_clock=time.clock,
-        chair_scheduler=time,
-        now=time.moment,
-        **wiring,
-    )
-    with skat.client:
-        yield skat
 
 
 def refresh_grants(issuer):
@@ -146,26 +132,6 @@ class CallingTable:
             yield
 
 
-def issuer_skat(hold, issuer):
-    """A Skat whose issuer transports are the fake issuer's, with its client open, for a fixture named `skat`."""
-    skat = Skat(lambda: hold, issuer_transports=issuer.transports)
-    with skat.client:
-        yield skat
-
-
-def changing_skat(hold, issuer, time, changes):
-    """`running_skat` whose resource changes are the recorded ones, for a fixture named `skat`."""
-    yield from running_skat(hold, issuer, time, resource_changes=changes.wired)
-
-
-class IssuerSkat:
-    """The base of a test class whose `skat` is `issuer_skat`: a fixture named `skat` cannot be assigned in a class."""
-
-    @pytest.fixture
-    def skat(self, hold, issuer):
-        yield from issuer_skat(hold, issuer)
-
-
 async def inviting(skat, table_id, facts):
     return await run_in_threadpool(
         skat.tables.invite_agent, TableId(table_id), facts, timedelta(seconds=INVITATION_SECONDS)
@@ -178,11 +144,3 @@ def a_person(skat, issuer):
 
 def chair_two(skat, table_id):
     return skat.store.tables[table_id].chairs[1].occupant
-
-
-class HeldSkat:
-    """The base of a test class whose `skat` is one plain app on the hold's settings."""
-
-    @pytest.fixture
-    def skat(self, hold):
-        return Skat(lambda: hold)

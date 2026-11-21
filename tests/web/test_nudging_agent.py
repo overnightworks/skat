@@ -14,9 +14,8 @@ from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import Agent, view_uri_of
-from tests.web.support.calling import changing_skat
 from tests.web.support.changes import RecordedChanges
-from tests.web.support.skat import account_of, advance
+from tests.web.support.skat import account_of, advance, changing_skat
 
 REARHAND = Position.REARHAND
 AWAITED_AGENT_SUBJECT = "awaited-agent"

@@ -37,9 +37,9 @@ from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, Agent, person_posts, view_uri_of
-from tests.web.support.calling import changing_skat, inviting
+from tests.web.support.calling import inviting
 from tests.web.support.changes import RecordedChanges
-from tests.web.support.skat import FakeTime, Skat, account_of, advance, stored
+from tests.web.support.skat import FakeTime, Skat, account_of, advance, changing_skat, stored
 
 MIDDLEHAND = Position.MIDDLEHAND
 OTHER_AGENT_SUBJECT = "other-agent-subject"

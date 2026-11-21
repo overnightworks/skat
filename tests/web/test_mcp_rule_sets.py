@@ -4,8 +4,7 @@ from skat.web.mcp import READ_RULE_SETS_TOOL, SAVE_RULE_SET_TOOL
 from skat.web.rule_sets import RULE_SETS_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT
-from tests.web.support.calling import issuer_skat
-from tests.web.support.skat import FETCH
+from tests.web.support.skat import FETCH, issuer_skat
 
 skat = pytest.fixture(name="skat")(issuer_skat)
 

@@ -12,9 +12,8 @@ from skat.web.mcp import (
 )
 from tests.support.payload_cards import DEALER_SEAT
 from tests.web.support.agent import SUBJECT, Agent
-from tests.web.support.calling import issuer_skat
 from tests.web.support.series import change_next_settings, play_the_dealt_series, tap_new_series
-from tests.web.support.skat import AgentTable, stored, streams_of
+from tests.web.support.skat import AgentTable, issuer_skat, stored, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 

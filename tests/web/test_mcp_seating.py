@@ -13,9 +13,8 @@ from skat.web.tables import TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import Agent
-from tests.web.support.calling import issuer_skat
 from tests.web.support.presence import end_the_first_game
-from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, stored, streams_of
+from tests.web.support.skat import FETCH, UNKNOWN_ID, AgentTable, issuer_skat, stored, streams_of
 
 OWNER = "the-agents-owner"
 

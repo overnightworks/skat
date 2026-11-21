@@ -10,8 +10,8 @@ from skat.table.service import TableService
 from skat.web.streams import SourceMessage, StreamEvent
 from skat.web.wakes import AccountTopic, TableTopic
 from tests.support.fake_tables import FakeTableStore
-from tests.web.support.calling import issuer_skat
 from tests.web.support.lobby_scene import DAYS, Scene
+from tests.web.support.skat import issuer_skat
 from tests.web.support.streams import EventsRoute, run_on_a_loop_of_its_own
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")

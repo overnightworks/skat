@@ -16,7 +16,6 @@ from skat.web.playing import (
 )
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, cards_in, cards_in_text
-from tests.web.support.calling import IssuerSkat
 from tests.web.support.giving_up import (
     NULL_DEAL,
     NULL_TWO_TRICKS,
@@ -43,7 +42,7 @@ from tests.web.support.shortening import (
     null_hand_before_a_trick,
     undecided_herz_at_22,
 )
-from tests.web.support.skat import AgentTable, streams_of
+from tests.web.support.skat import AgentTable, IssuerSkat, streams_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 OPPONENTS = [pytest.param(FOREHAND, id="forehand"), pytest.param(REARHAND, id="rearhand")]

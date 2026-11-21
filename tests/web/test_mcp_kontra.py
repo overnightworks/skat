@@ -7,9 +7,8 @@ from skat.engine.kontra import KontraRefusal, Word
 from skat.table.records import NoWordSaid, Refusal
 from skat.web.kontra import TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX
 from skat.web.mcp import SAY_KONTRA_TOOL, SAY_NO_WORD_TOOL
-from tests.web.support.calling import issuer_skat
 from tests.web.support.playing import HERZ_GAME, Table, contested_auction
-from tests.web.support.skat import AgentTable, stored
+from tests.web.support.skat import AgentTable, issuer_skat, stored
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 

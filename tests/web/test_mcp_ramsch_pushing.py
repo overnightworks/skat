@@ -11,8 +11,8 @@ from skat.web.mcp import (
 )
 from skat.web.pushing import TABLE_PUSHING_PUSH_SUFFIX
 from tests.support.payload_cards import with_known_deal
-from tests.web.support.calling import issuer_skat
 from tests.web.support.playing import FOREHAND, MIDDLEHAND, PLAIN_DEAL, PLAIN_HAND, REARHAND, Table, card_body, cards
+from tests.web.support.skat import issuer_skat
 
 PUSHING = {
     "ramsch": {

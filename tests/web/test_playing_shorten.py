@@ -15,7 +15,6 @@ from skat.web.playing import (
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in, cards_in_text, wire_cards
 from tests.web.support.agent import Agent
-from tests.web.support.calling import HeldSkat, IssuerSkat
 from tests.web.support.giving_up import (
     HEAVY_DEAL,
     HEAVY_THREE_TRICKS,
@@ -49,7 +48,7 @@ from tests.web.support.shortening import (
     shortenings_read,
     shortens,
 )
-from tests.web.support.skat import AgentTable, restarted, streams_of
+from tests.web.support.skat import AgentTable, HeldSkat, IssuerSkat, restarted, streams_of
 
 OPPONENTS = [pytest.param(FOREHAND, id="forehand"), pytest.param(REARHAND, id="rearhand")]
 # The declarer holds eight cards once he has played to the second trick.

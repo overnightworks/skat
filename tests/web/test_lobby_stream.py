@@ -15,9 +15,8 @@ from skat.web.streams import IDLE_HEARTBEAT
 from skat.web.wakes import AccountTopic
 from tests.support.fake_tables import FakeTableStore
 from tests.web.support.agent import SUBJECT
-from tests.web.support.calling import issuer_skat
 from tests.web.support.lobby_scene import ANNA, BEN, CLEO, Scene, ids_of, next_mine
-from tests.web.support.skat import FETCH, Skat
+from tests.web.support.skat import FETCH, Skat, issuer_skat
 from tests.web.support.streams import (
     SHORT_HEARTBEAT_SECONDS,
     Admission,
