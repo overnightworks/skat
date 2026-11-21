@@ -106,9 +106,14 @@ export function ownCardSlotOpen(
     return own !== undefined && own.seat === turnSeat && !laid.some(({ slot }) => slot === "near");
 }
 
-// The declarer reads „Du“ against the opponents, an opponent counts their own side as „Wir“, and a watcher sees the declarer by name.
-export function sideNames(chairs: readonly Chair[], declarerSeat: number): SideNames {
-    const declarer = (chairs.find((chair) => chair.seat === declarerSeat) as Chair).occupant_name ?? "";
+// The declarer reads „Du“ against the opponents, an opponent counts their own side as „Wir“, and a watcher sees the declarer
+// by name: the `declarerName` a result stored, else the chair's.
+export function sideNames(
+    chairs: readonly Chair[],
+    declarerSeat: number,
+    declarerName: string | null = null,
+): SideNames {
+    const declarer = declarerName ?? (chairs.find((chair) => chair.seat === declarerSeat) as Chair).occupant_name ?? "";
     const mine = chairs.find((chair) => chair.is_mine);
     if (mine === undefined) return { declarer, opponents: words["play.sideThem"] };
     if (mine.seat === declarerSeat) return { declarer: words["result.sideYou"], opponents: words["result.sideThem"] };

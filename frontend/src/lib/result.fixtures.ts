@@ -24,6 +24,7 @@ export function chairs(mine: number, changes: Record<number, Partial<Chair>> = {
 export const WON_GAME: Result = {
     kind: "declared",
     ordinal: 3,
+    seat_names: [null, null, null],
     declarer_seat: DECLARER_SEAT,
     game: "kreuz",
     hand: false,
@@ -113,6 +114,7 @@ export function ramschResult(
     return {
         kind: "ramsch",
         ordinal: 4,
+        seat_names: [null, null, null],
         seats: eyes.map((points, index) => ({ seat: index + 1, points, score: scores[index] as number })),
         durchmarsch_seat: null,
         jungfrau: false,
