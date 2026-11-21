@@ -1,11 +1,14 @@
 from http import HTTPStatus
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
+from agents.mcp_wire import MCP_ENDPOINT_PATH
 from fastapi import APIRouter, Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from logline import set_route
+from starlette.concurrency import run_in_threadpool
 
 from skat.web.constants import (
     APP_ASSET_PATH,
@@ -21,6 +24,7 @@ if TYPE_CHECKING:
     import os
     from collections.abc import Awaitable, Callable
 
+    from starlette.exceptions import HTTPException
     from starlette.types import Receive, Scope, Send
     from webauth.config import WebAuthConfig
     from webauth.ports import SessionRecordStore
@@ -28,10 +32,32 @@ if TYPE_CHECKING:
     from skat.web.page_build import BuiltPage, PageBuild
 
 READ_METHODS = ["GET", "HEAD"]
+# The first path segments that answer machines: an unknown address below them keeps its plain 404.
+_MACHINE_SEGMENTS = frozenset({"api", MCP_ENDPOINT_PATH.strip("/"), HEALTH_PATH.strip("/"), APP_ASSET_PATH.strip("/")})
 
 
 def built_page_response(page: BuiltPage, status_code: int = 200) -> Response:
     return Response(page.content, status_code=status_code, media_type="text/html", headers={"ETag": page.etag})
+
+
+def unknown_address_handler(
+    page_build: PageBuild, sessions: SessionRecordStore, web_auth: WebAuthConfig
+) -> Callable[[Request, Exception], Awaitable[Response]]:
+    """The app's answer to an HTTP error: a 404 for a page request gets the built shell, so the page's own error
+    route shows; every other error keeps FastAPI's answer."""
+
+    async def answer(request: Request, error: Exception) -> Response:
+        refusal = cast("HTTPException", error)
+        asks_for_page = request.method in READ_METHODS and "text/html" in request.headers.get("accept", "")
+        first_segment = request.url.path.lstrip("/").partition("/")[0]
+        if refusal.status_code != HTTPStatus.NOT_FOUND or not asks_for_page or first_segment in _MACHINE_SEGMENTS:
+            return await http_exception_handler(request, refusal)
+        language = await run_in_threadpool(language_of_request, request, sessions=sessions, config=web_auth)
+        response = built_page_response(page_build.shell_in(language), HTTPStatus.NOT_FOUND)
+        response.headers["Vary"] = LANGUAGE_VARY
+        return response
+
+    return answer
 
 
 class _PageBuildFiles(StaticFiles):

@@ -14,6 +14,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException
 from webauth.config import installed_web_auth_config
 from webauth.policies import (
     CacheControlRule,
@@ -60,7 +61,7 @@ from skat.web.presence import (
 from skat.web.pushing import create_pushing_router
 from skat.web.reacting import create_reacting_router
 from skat.web.ready import create_ready_router
-from skat.web.routes import create_router
+from skat.web.routes import create_router, unknown_address_handler
 from skat.web.rule_sets import create_rule_sets_router
 from skat.web.run_line import RunLine
 from skat.web.seating import create_seating_router
@@ -324,6 +325,7 @@ def _include_edge_routers(
     database_ready: Callable[[], Awaitable[bool]],
 ) -> None:
     app.include_router(create_router(page_build, sessions, web_auth, database_ready))
+    app.add_exception_handler(HTTPException, unknown_address_handler(page_build, sessions, web_auth))
     app.include_router(create_account_router(settings.oidc_issuer))
     app.include_router(create_call_router(settings.call_origin))
 
