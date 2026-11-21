@@ -15,7 +15,7 @@ from skat.web.playing import (
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in, cards_in_text, wire_cards
 from tests.web.support.agent import Agent
-from tests.web.support.calling import IssuerSkat
+from tests.web.support.calling import HeldSkat, IssuerSkat
 from tests.web.support.giving_up import (
     HEAVY_DEAL,
     HEAVY_THREE_TRICKS,
@@ -49,7 +49,7 @@ from tests.web.support.shortening import (
     shortenings_read,
     shortens,
 )
-from tests.web.support.skat import AgentTable, Skat, streams_of
+from tests.web.support.skat import AgentTable, restarted, streams_of
 
 OPPONENTS = [pytest.param(FOREHAND, id="forehand"), pytest.param(REARHAND, id="rearhand")]
 # The declarer holds eight cards once he has played to the second trick.
@@ -463,16 +463,7 @@ class TestWhenAChairChangesHands:
         assert shortenings_read(herz_hand) == [None] * 4
 
 
-def restarted(skat, hold, **options):
-    """The same stores under a freshly built app, as after a restart."""
-    return Skat(lambda: hold, store=skat.store, stores=skat.stores, **options)
-
-
-class TestARequestAcrossARestart:
-    @pytest.fixture
-    def skat(self, hold):
-        return Skat(lambda: hold)
-
+class TestARequestAcrossARestart(HeldSkat):
     @pytest.mark.parametrize(
         ("earlier_yes", "agreed", "then_yes"),
         [

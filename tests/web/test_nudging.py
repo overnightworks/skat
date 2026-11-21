@@ -13,13 +13,13 @@ from skat.web.tables import TABLES_PATH
 from tests.support.open_chairs import sent_away
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import FOREHAND, MIDDLEHAND, REARHAND, Table
-from tests.web.support.skat import UNKNOWN_ID, stored, streams_of
+from tests.web.support.skat import UNKNOWN_ID, WaitsOnTheClock, stored, streams_of
 
 # Seats 1, 2 and 3 hold middlehand, rearhand and forehand; the middlehand is on turn.
 ON_TURN, SECOND, THIRD = 1, 2, 3
 
 
-class Seated:
+class Seated(WaitsOnTheClock):
     """The known hand at a table of three people and a watcher; `streams` holds one open stream of each when the
     test opened them, and no chair is away while they are open.
     """
@@ -53,9 +53,6 @@ class Seated:
         answer = self.nudge(who, seat, **body)
         assert answer.status_code == 200, answer.text
         return answer.json()
-
-    def wait(self, seconds):
-        self.skat.client.portal.call(self.time.advance, seconds)
 
 
 @pytest.fixture

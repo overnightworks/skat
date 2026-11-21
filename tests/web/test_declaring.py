@@ -29,7 +29,7 @@ from tests.support.payload_cards import (
     wire_cards,
 )
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import StoredTable, declared_body, reason_of
+from tests.web.support.playing import StoredTable, ViewedAtATable, declared_body, reason_of
 from tests.web.support.skat import FETCH, UNKNOWN_ID, message_at_version, message_body
 
 if TYPE_CHECKING:
@@ -498,13 +498,10 @@ class TestRetry:
 
 
 @dataclass(frozen=True)
-class Viewer:
+class Viewer(ViewedAtATable):
     name: str
     position: Position | None
     dealt: tuple[object, ...]
-
-    def headers_at(self, table):
-        return table.watcher if self.position is None else table.at[self.position]
 
 
 DECLARER = Viewer("declarer", MIDDLEHAND, MIDDLEHAND_CARDS)

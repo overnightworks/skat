@@ -3,10 +3,9 @@ import pytest
 from skat.table.records import Refusal, TableStyle
 from skat.web.style import TABLE_STYLE_SUFFIX
 from skat.web.tables import TABLES_PATH
-from tests.support.payload_cards import seated_three
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.presence import view_of_version
-from tests.web.support.skat import streams_of
+from tests.web.support.skat import seated_table, streams_of
 
 STYLE_COMMAND_ID = "style-0001"
 
@@ -21,12 +20,7 @@ def choose(server, headers, table_id, style, *, command_id=STYLE_COMMAND_ID, **e
     return answer
 
 
-@pytest.fixture
-def table(server):
-    """Anna, Ben and Cleo in seats 1 to 3, the fourth member Dora watching; returns the id and all four."""
-    table_id, people = seated_three(server)
-    server.client.cookies.clear()
-    return table_id, people
+table = pytest.fixture(name="table")(seated_table)
 
 
 class TestChoosingTheTablesStyle:

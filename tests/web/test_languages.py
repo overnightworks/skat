@@ -1,35 +1,18 @@
 import re
-from typing import TYPE_CHECKING
 
 import pytest
 from fastapi.testclient import TestClient
 from webauth.config import installed_web_auth_config
 
-from skat.host.app import create_app
 from skat.web import languages
 from skat.web.constants import AUTH_CALLBACK_PATH, CALL_SIGN_IN_PATH, HOME_PATH, LOGIN_PATH, NO_ACCESS_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import LANGUAGES, SOURCE_LANGUAGE
-from tests.support.fake_rule_sets import in_memory_rule_sets
-from tests.support.fake_tables import in_memory_tables
-from tests.support.in_memory_stores import in_memory_stores, single_pod
-from tests.support.page_build import fixture_page_build, served_page
+from tests.support.in_memory_stores import in_memory_stores
+from tests.support.page_build import served_page
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
-
-if TYPE_CHECKING:
-    from fastapi import FastAPI
-
-
-def skat_app(sign_in_settings, stores) -> FastAPI:
-    return create_app(
-        sign_in_settings().settings,
-        page_build=fixture_page_build(),
-        tables=in_memory_tables(),
-        rule_sets=in_memory_rule_sets(),
-        stores=stores,
-        **single_pod(),
-    )
+from tests.web.support.skat import skat_app
 
 
 def member_client(sign_in_settings, *, account_language: str | None, accept_language: str | None) -> TestClient:

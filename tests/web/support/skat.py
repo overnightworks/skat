@@ -19,11 +19,11 @@ from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
-from tests.support.fake_rule_sets import FakeRuleSetStore
-from tests.support.fake_tables import FakeTableStore
+from tests.support.fake_rule_sets import FakeRuleSetStore, in_memory_rule_sets
+from tests.support.fake_tables import FakeTableStore, in_memory_tables
 from tests.support.in_memory_stores import in_memory_stores, single_pod
 from tests.support.page_build import fixture_page_build
-from tests.support.payload_cards import DEALER_SEAT, with_known_deal
+from tests.support.payload_cards import DEALER_SEAT, seated_three, with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, new_account, seed_member
 from tests.web.support.playing import Table
@@ -283,3 +283,33 @@ def account_of(skat, agent):
 
 def read(skat, headers, table_id):
     return skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)
+
+
+def skat_app(sign_in_settings, stores):
+    return create_app(
+        sign_in_settings().settings,
+        page_build=fixture_page_build(),
+        tables=in_memory_tables(),
+        rule_sets=in_memory_rule_sets(),
+        stores=stores,
+        **single_pod(),
+    )
+
+
+def restarted(skat, hold, **options):
+    """The same stores under a freshly built app, as after a restart."""
+    return Skat(lambda: hold, store=skat.store, stores=skat.stores, **options)
+
+
+def seated_table(server):
+    """Anna, Ben and Cleo in seats 1 to 3, the fourth member Dora watching; returns the id and all four."""
+    table_id, people = seated_three(server)
+    server.client.cookies.clear()
+    return table_id, people
+
+
+class WaitsOnTheClock:
+    """The base of a scene with a `skat` and a fake `time`: it waits by advancing the clock."""
+
+    def wait(self, seconds):
+        advance(self.skat, self.time, seconds)

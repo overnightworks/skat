@@ -13,6 +13,7 @@ from tests.web.support.agent import Agent
 from tests.web.support.calling import (
     CallingTable,
     call,
+    chair_two,
     invitations_of,
     listening,
     offer_of,
@@ -37,10 +38,6 @@ def hand_with_nova_in_chair_two(skat, nova, table_id):
     skat.client.cookies.clear()
     nova.sit_down(table_id, 2)
     assert skat.store.tables[table_id].hand is not None
-
-
-def chair_two(skat, table_id):
-    return skat.store.tables[table_id].chairs[1].occupant
 
 
 @pytest.mark.usefixtures("watching")

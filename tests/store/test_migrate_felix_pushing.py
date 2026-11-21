@@ -138,6 +138,7 @@ def test_another_name_of_the_account_and_another_accounts_felix_stay_untouched(
     assert row_count(before_the_pushing_value) == 3
 
 
+# a second engine on the test's unmigrated database, beside the `unmigrated_engine` the conftest hands out
 @pytest.fixture
 def a_second_engine(unmigrated_database_url):
     engine = create_store_engine(unmigrated_database_url)

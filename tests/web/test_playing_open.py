@@ -13,7 +13,7 @@ from skat.web.playing import (
     TABLE_THROW_DOWN_SUFFIX,
 )
 from tests.support.payload_cards import cards_in, wire_cards
-from tests.web.support.calling import IssuerSkat
+from tests.web.support.calling import HeldSkat, IssuerSkat
 from tests.web.support.giving_up import (
     SEAT,
     assert_the_request_ended_and_play_goes_on,
@@ -41,7 +41,7 @@ from tests.web.support.shortening import (
     shortens,
     undecided_herz_at_22,
 )
-from tests.web.support.skat import AgentTable, Skat
+from tests.web.support.skat import AgentTable, restarted
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 OPPONENTS = [pytest.param(FOREHAND, id="forehand"), pytest.param(REARHAND, id="rearhand")]
@@ -280,16 +280,7 @@ class TestTheDeclarerPlaysOn:
         assert herz_hand.record.progress.give_up is None
 
 
-def restarted(skat, hold, **options):
-    """The same stores under a freshly built app, as after a restart."""
-    return Skat(lambda: hold, store=skat.store, stores=skat.stores, **options)
-
-
-class TestAcrossARestart:
-    @pytest.fixture
-    def skat(self, hold):
-        return Skat(lambda: hold)
-
+class TestAcrossARestart(HeldSkat):
     def test_a_waiting_open_play_is_read_after_a_restart_and_the_declarers_yes_ends_the_game(
         self, skat, hold, herz_hand
     ):

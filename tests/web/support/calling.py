@@ -174,3 +174,15 @@ async def inviting(skat, table_id, facts):
 
 def a_person(skat, issuer):
     return Agent(skat, issuer, skat.member()[1].id, agent_owner=None, agent_name=None, groups=[MCP_GROUP])
+
+
+def chair_two(skat, table_id):
+    return skat.store.tables[table_id].chairs[1].occupant
+
+
+class HeldSkat:
+    """The base of a test class whose `skat` is one plain app on the hold's settings."""
+
+    @pytest.fixture
+    def skat(self, hold):
+        return Skat(lambda: hold)

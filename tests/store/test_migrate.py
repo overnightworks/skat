@@ -391,6 +391,7 @@ class TestFromAPlayedCardAtRevisionSix:
         upgrade_to(unmigrated_engine, "0007")
         return unmigrated_engine
 
+    # each class migrates its own revision, so its check cannot share one fixture
     @pytest.fixture
     def migrated(self, at_revision):
         migrate(at_revision)

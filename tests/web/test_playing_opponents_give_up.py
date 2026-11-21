@@ -25,7 +25,16 @@ from tests.web.support.giving_up import (
     own_cards_of,
     playing_as,
 )
-from tests.web.support.playing import EIGHT_CARDS, Table, card, cards, ending_of, gains, game_of, three_pass
+from tests.web.support.playing import (
+    EIGHT_CARDS,
+    Table,
+    card,
+    cards,
+    ending_of,
+    gains,
+    game_of,
+    three_pass,
+)
 from tests.web.support.series import tap_weiter
 from tests.web.support.shortening import (
     herz_at_22_with_42_points_against,
@@ -141,10 +150,6 @@ def chair_totals_of(table):
 
 def shown(result, expected):
     return {key: result[key] for key in expected}
-
-
-def undecided_herz_hand(table):
-    table.declared_hand_game()
 
 
 def null_before_a_trick(table):

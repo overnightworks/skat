@@ -48,13 +48,6 @@ THIRD_PLAYER = Actor(account_id="account-third", display_name="Cleo")
 
 
 @pytest.fixture
-def engine(database_url):
-    engine = create_store_engine(database_url)
-    yield engine
-    engine.dispose()
-
-
-@pytest.fixture
 def service(engine):
     return TableService(PostgresTableTransactions(engine))
 
@@ -222,6 +215,7 @@ CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 
 
 class TestSeating:
+    # a class-level fixture on this file's own opener; a conftest fixture cannot be assigned into a class
     @pytest.fixture
     def table_id(self, service):
         return service.create(OPENER, CreateTable(command_id="command-open")).id
@@ -599,6 +593,7 @@ class TestDealNext:
         racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
         answers = []
 
+        # a closure over this test's own racing service and answers
         def check():
             answers.append(racing.deal_next(TableId(table_id), nullcontext(ALL_THREE)))
 

@@ -113,6 +113,7 @@ def test_two_checks_at_once_deal_one_hand_and_count_one_deal(service, transactio
     racing = TableService(BothReadBeforeEitherWrites(transactions, 2))
     answers = []
 
+    # a closure over this test's own racing service and answers
     def check():
         answers.append(racing.deal_next(TableId(table_id), nullcontext(ALL_THREE)))
 

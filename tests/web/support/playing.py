@@ -359,3 +359,16 @@ def say(table, position, word):
 
 def declared_body(game=GameToken.HERZ, *, hand=False, ouvert=False, announcement=AnnouncementToken.NONE):
     return {"game": game, "hand": hand, "ouvert": ouvert, "announcement": announcement}
+
+
+def declared_herz_hand_game(table):
+    table.declared_hand_game()
+
+
+class ViewedAtATable:
+    """The base of a viewer of a table: a position, or none for the watcher."""
+
+    position: Position | None
+
+    def headers_at(self, table):
+        return table.watcher if self.position is None else table.at[self.position]

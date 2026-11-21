@@ -8,12 +8,11 @@ import pytest
 from skat.table.records import Actor
 from skat.table.service import TableService
 from skat.web.streams import SourceMessage, StreamEvent
-from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from skat.web.wakes import AccountTopic, TableTopic
 from tests.support.fake_tables import FakeTableStore
 from tests.web.support.calling import issuer_skat
 from tests.web.support.lobby_scene import DAYS, Scene
-from tests.web.support.streams import run_on_a_loop_of_its_own
+from tests.web.support.streams import EventsRoute, run_on_a_loop_of_its_own
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
@@ -171,10 +170,7 @@ class TestTheWakes:
         assert run_on_a_loop_of_its_own(scenario()) == 0
 
 
-class TestTheRoute:
-    def events(self, table_id):
-        return f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}"
-
+class TestTheRoute(EventsRoute):
     def test_the_table_stream_sends_the_view_unnamed_and_then_the_count_as_attention(self, skat):
         headers, _ = skat.member()
         table_id = skat.create(headers).json()["id"]
