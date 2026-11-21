@@ -3,7 +3,7 @@ import threading
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
-from skat.host.app import END_ANSWER_RECOVERY_SECONDS, UNPLAYED_SWEEP_SECONDS, create_app
+from skat.host.app import END_ANSWER_RECOVERY_SECONDS, UNPLAYED_SWEEP_SECONDS, Clocks, create_app
 from skat.table.records import Actor, CreateTable, SitDown, TableId
 from skat.table.service import TableService
 from tests.support.fake_rule_sets import in_memory_rule_sets
@@ -113,7 +113,7 @@ class UnplayedTables:
 
     def app_on_a_clock(self, wall_clock):
         """The app with webauth reading `wall_clock`, as the sessions' expiry is judged by it."""
-        return self.app(wall_clock=wall_clock)
+        return self.app(clocks=Clocks(wall=wall_clock))
 
     async def stop_while_held(self, reached, free, *, free_during_the_stop):
         """Serve until the hourly run, started past the days, reaches the hold `reached`, then stop the server.

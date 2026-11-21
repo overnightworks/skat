@@ -10,7 +10,7 @@ from starlette.requests import Request
 from webauth.config import WebAuthConfig, installed_web_auth_config
 from webauth.dependencies import session_id_from_request
 
-from skat.host.app import create_app, end_with_sigterm
+from skat.host.app import Clocks, create_app, end_with_sigterm
 from skat.table.records import Actor, CreateTable, EndReason, SitDown
 from skat.table.service import TableService
 from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
@@ -122,7 +122,7 @@ class TestCreateApp:
             tables=tables,
             rule_sets=in_memory_rule_sets(),
             stores=in_memory_stores(),
-            chair_clock=time.clock,
+            clocks=Clocks(chair=time.clock),
             chair_scheduler=time,
             **single_pod(),
         )
@@ -145,7 +145,7 @@ class TestCreateApp:
             tables=tables,
             rule_sets=in_memory_rule_sets(),
             stores=in_memory_stores(),
-            chair_clock=time.clock,
+            clocks=Clocks(chair=time.clock),
             chair_scheduler=time,
             **single_pod(),
         )

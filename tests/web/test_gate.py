@@ -10,7 +10,7 @@ from webauth.config import installed_web_auth_config
 from webauth.middleware.security_headers import STRICT_TRANSPORT_SECURITY
 from webauth.ports import AccountEventKind
 
-from skat.host.app import create_app
+from skat.host.app import Clocks, create_app
 from skat.web.constants import (
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -448,7 +448,7 @@ class TestRevalidation:
 class TestSessionLifetime:
     def test_a_session_ends_after_twelve_hours(self, sign_in_settings):
         now = [1_800_000_000.0]
-        application = Application(sign_in_settings(), wall_clock=lambda: now[0])
+        application = Application(sign_in_settings(), clocks=Clocks(wall=lambda: now[0]))
         member = application.seed()
 
         now[0] += SESSION_LIFETIME.total_seconds() - 1

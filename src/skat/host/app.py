@@ -119,6 +119,19 @@ class ServerRounds:
 STANDARD_ROUNDS: Final = ServerRounds()
 
 
+@dataclass(frozen=True, kw_only=True)
+class Clocks:
+    """The two clocks the server reads: the wall clock that judges when a session expires, and the clock of the chair
+    holds and of the waits at the table, which a test that lets a minute pass moves itself.
+    """
+
+    wall: WallClock = time.time
+    chair: Callable[[], float] = time.monotonic
+
+
+STANDARD_CLOCKS: Final = Clocks()
+
+
 log = structlog.get_logger()
 
 
@@ -300,6 +313,19 @@ def _presence(
         stream_leases,
         _end_answers(tables),
     )
+
+
+def _include_edge_routers(
+    app: FastAPI,
+    settings: ServerSettings,
+    page_build: PageBuild,
+    sessions: SessionRecordStore,
+    web_auth: WebAuthConfig,
+    database_ready: Callable[[], Awaitable[bool]],
+) -> None:
+    app.include_router(create_router(page_build, sessions, web_auth, database_ready))
+    app.include_router(create_account_router(settings.oidc_issuer))
+    app.include_router(create_call_router(settings.call_origin))
 
 
 def _include_table_routers(
@@ -553,15 +579,14 @@ def create_app(
     stores: SignInPorts,
     pods: PodLinks,
     issuer_transports: IssuerTransports = ISSUER_OVER_HTTPS,
-    wall_clock: WallClock = time.time,
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
-    chair_clock: Callable[[], float] = time.monotonic,
+    clocks: Clocks = STANDARD_CLOCKS,
     chair_scheduler: Scheduler | None = None,
     rounds: ServerRounds = STANDARD_ROUNDS,
     resource_changes: Callable[[PlaceStore], ResourceChanges] = _agent_changes,
     database_ready: Callable[[], Awaitable[bool]] = _always_ready,
 ) -> FastAPI:
-    sign_in_configs = build_sign_in_configs(settings, pods.rate_limits, wall_clock)
+    sign_in_configs = build_sign_in_configs(settings, pods.rate_limits, clocks.wall)
 
     auth = _build_web_auth(sign_in_configs, issuer_transports, stores, page_build, settings.call_origin)
     relying_party = auth.relying_party
@@ -576,7 +601,7 @@ def create_app(
     shared_wakes = SharedWakes(pods.wake_channel, end_process=pods.end_process)
     wakes = WakeList(shared_wakes.publish)
     slots = StreamSlots(settings.streams_per_account)
-    presence = _presence(settings, tables, chair_clock, scheduler, wakes, pods.stream_leases)
+    presence = _presence(settings, tables, clocks.chair, scheduler, wakes, pods.stream_leases)
 
     app = _new_app(
         _serving(
@@ -590,11 +615,9 @@ def create_app(
             wakes,
         )
     )
-    app.include_router(create_router(page_build, stores.sessions, sign_in_configs.web_auth, database_ready))
-    app.include_router(create_account_router(settings.oidc_issuer))
-    app.include_router(create_call_router(settings.call_origin))
+    _include_edge_routers(app, settings, page_build, stores.sessions, sign_in_configs.web_auth, database_ready)
     _include_table_routers(app, tables, page_build, presence, wakes, stores.sessions, sign_in_configs.web_auth)
-    membership = _caller_membership(relying_party, sign_in_configs, stores, chair_clock)
+    membership = _caller_membership(relying_party, sign_in_configs, stores, clocks.chair)
     app.include_router(create_calling_router(tables, presence, roster, membership))
     app.include_router(create_rule_sets_router(rule_sets))
     _include_table_sub_routers(app, settings, tables, presence)

@@ -13,7 +13,7 @@ from mcp_types import CLIENT_CAPABILITIES_META_KEY, PROTOCOL_VERSION_META_KEY
 from webauth.config import installed_web_auth_config
 
 from skat.engine.deal import positions_from
-from skat.host.app import END_ANSWER_RECOVERY_SECONDS, UNPLAYED_SWEEP_SECONDS, create_app
+from skat.host.app import END_ANSWER_RECOVERY_SECONDS, UNPLAYED_SWEEP_SECONDS, Clocks, create_app
 from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
@@ -104,6 +104,10 @@ class WiredTableService(TableService):
         return clone
 
 
+# The clocks a test sets by the name it has always used, which `Skat` hands the app as one `Clocks`.
+CLOCK_OPTIONS = (("chair", "chair_clock"), ("wall", "wall_clock"))
+
+
 class Skat:
     def __init__(
         self, sign_in_settings, store=None, stores=None, now=None, view_signal_through=None, pod=None, **app_options
@@ -116,6 +120,7 @@ class Skat:
             self.store.clock = lambda: FAKE_EPOCH + timedelta(seconds=chair_clock())
         self.rule_set_store = FakeRuleSetStore()
         self._wired = []
+        clocks = Clocks(**{field: app_options.pop(option) for field, option in CLOCK_OPTIONS if option in app_options})
         self.app = create_app(
             sign_in_settings().settings,
             page_build=fixture_page_build(),
@@ -127,6 +132,7 @@ class Skat:
             ),
             rule_sets=RuleSetService(self.rule_set_store),
             stores=self.stores,
+            clocks=clocks,
             **app_options,
             **single_pod(**(pod or {})),
         )
