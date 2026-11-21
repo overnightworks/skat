@@ -19,6 +19,7 @@ from skat.web.declaring import (
 from skat.web.tables import TABLE_SIT_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
+from tests.e2e.support.phasing import lap
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch_together
 from tests.support.payload_cards import wire_cards
@@ -99,27 +100,36 @@ class DeclaringTable:
         running_points: bool = False,
     ) -> None:
         self.server = server
+        lap("before-opener")
         opener = self._person(open_person, opener_name, page_errors, form_factor, console)
+        lap("opener-context")
         path = self._open_table(opener, server, member_of, running_points=running_points)
+        lap("table-opened")
         self.table_id = table_id_of(path)
         self.api_path = f"{TABLES_PATH}/{self.table_id}"
         people = {1: opener}
         joined = [self._person(open_person, username, page_errors, form_factor, console) for username in joiners]
         self.watcher = self._person(open_person, "dora", page_errors, form_factor, console)
+        lap("three-contexts")
         watch_together([*joined, self.watcher], server, path)
+        lap("three-pages-loaded")
         for seat, person in zip((2, 3), joined, strict=True):
             # The sit that fills the third chair deals, so the chairs read below hold the hands once it is answered.
             with person.expect_response(lambda response: urlsplit(response.url).path.endswith(TABLE_SIT_SUFFIX)):
                 sit_in(person, seat)
             people[seat] = person
+        lap("sat")
         self.sessions = {seat: RawSession(server, member_of(person)) for seat, person in people.items()}
         self.people = people
         seat_at = self._seat_at()
         self._name_the_declarer(seat_at)
         if hold_the_others_clock:
             self._hold_the_clock_of(*self.others, self.watcher)
+        lap("sessions-and-chairs")
         self._win_the_auction(seat_at)
+        lap("auction")
         expect(self.declarer.get_by_role("button", name=TAKE_SKAT)).to_be_visible()
+        lap("take-skat-visible")
 
     def _seat_at(self) -> dict[str, int]:
         return {chair["hand"]["position"]: chair["seat"] for chair in self.chairs()}

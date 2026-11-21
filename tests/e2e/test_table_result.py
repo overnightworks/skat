@@ -20,6 +20,7 @@ from tests.e2e.support.declaring import (
     passes,
 )
 from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, THEY, WE, PlayingTable, deal_playing_table
+from tests.e2e.support.phasing import begin, lap, report
 from tests.e2e.support.motion import FELT_SLOT, names_under_something
 from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.result_card import (
@@ -123,6 +124,7 @@ def deal_a_finished_hand(
         joiners: tuple[str, str] = DEFAULT_JOINERS,
         opener_name: str = DEFAULT_OPENER,
     ) -> PlayingTable:
+        begin()
         table = deal_playing_table(
             open_person,
             e2e_server,
@@ -135,8 +137,11 @@ def deal_a_finished_hand(
             joiners=joiners,
             opener_name=opener_name,
         )
+        lap("dealt")
         give_the_table_its_style(table.pages[table.seat_at["forehand"]], table.everyone, table_style)
+        lap("style")
         table.play_out(CARDS_IN_A_GAME)
+        lap("play-out")
         return table
 
     return deal
@@ -290,26 +295,35 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     table = deal_a_finished_hand(form_factor, declaring=declaring)
     first, second = (seat for seat in table.names if seat != table.declarer_seat)
     expect_the_card(table)
+    lap('card')
     expect_the_seat_tiles_inside_the_card(table.everyone)
+    lap('tiles')
     expect_the_page_around_the_card(table.everyone)
+    lap('around')
     expect_the_furniture_clear(table.everyone, table_style)
+    lap('furniture')
     if table_style is TableStyle.STRANDBAR:
         expect_everyone_painted_as_the_scene(
             table.everyone, "strand-result", ".result .reck:not(.win)", ".reck:not(.win)", SEAT_TILE_PAINT
         )
+    lap('painted')
     for person in table.everyone:
         expect(person.locator(".row.style")).to_have_count(0)
     expect_the_marks(table, set())
     expect_the_buttons(table, set())
+    lap('marks-buttons-0')
 
     table.pages[first].locator(".actions").get_by_role("button", name=WEITER).click()
     expect_the_marks(table, {first})
     expect_the_buttons(table, {first})
     expect_the_bars_inside_the_pages(table)
+    lap('tap1')
     reload_everyone(table)
+    lap('reload')
     expect_the_card(table)
     expect_the_marks(table, {first})
     expect_the_buttons(table, {first})
+    lap('after-reload')
 
     table.pages[second].locator(".actions").get_by_role("button", name=WEITER).click()
     table.pages[table.declarer_seat].locator(".actions").get_by_role("button", name=WEITER).click()
@@ -317,6 +331,8 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
         expect(person.locator(CARD)).to_have_count(0)
     for person in table.pages.values():
         expect(person.locator(OWN_HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
+    lap('taps23')
+    report(str(form_factor.get('viewport')) + str(declaring.__name__) + str(table_style))
     assert page_errors == []
 
 
