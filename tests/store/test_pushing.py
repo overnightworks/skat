@@ -58,6 +58,7 @@ class StageTable(StoredHand):
         )
         return (service or self.service).take_pushing_step(self.actors[position], command, nobody_connected())
 
+    # reads the table this file's stage table holds, not a migrated one
     def two_cards_to_put_back(self, position):
         hand = pushing_of(self.record).deal.hands[position]
         return tuple(card for card in hand if card.rank is not Rank.JACK)[:2]

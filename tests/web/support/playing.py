@@ -151,6 +151,7 @@ class StoredTable(PlaysOfRecord):
     def record(self):
         return self.skat.store.tables[self.table_id]
 
+    # a counter of the web table's commands; the scene base counts its own
     @cached_property
     def _commands(self):
         return itertools.count(1)

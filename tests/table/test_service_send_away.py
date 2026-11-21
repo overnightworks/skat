@@ -59,6 +59,7 @@ class Scene(ServiceScene):
     def book(self, agent=MOZART):
         return self.store.book.get((self.table_id, agent.account_id))
 
+    # reads this file's own MOZART
     def standing(self, agent=MOZART):
         return self.service.standings_of(agent.account_id)
 

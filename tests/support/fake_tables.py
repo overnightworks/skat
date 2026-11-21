@@ -314,6 +314,7 @@ class ServiceScene:
     table_id: str
     now: datetime
 
+    # a counter of the scenes' commands; the web base counts its own table's
     @cached_property
     def commands(self):
         return itertools.count(1)

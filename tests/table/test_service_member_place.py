@@ -79,6 +79,7 @@ class Scene(ServiceScene):
         arguments = {"table_id": self.table_id, "invitation_id": offer.id, "epoch": offer.epoch, **changes}
         return self.service.accept_invitation(agent, owner, Acceptance(**arguments), connected)
 
+    # reads this file's own MOZART
     def standing(self, agent=MOZART):
         return self.service.standings_of(agent.account_id)
 
