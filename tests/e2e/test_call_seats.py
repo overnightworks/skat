@@ -338,19 +338,7 @@ def bid_behind_the_page(call: Call, server: RunningServer) -> None:
     step(table.middlehand, table, AuctionAction.BID, VALID_BIDS[0])
 
 
-def count_key_reads(call: Call) -> list[str]:
-    """The urls of the person-keys reads the page makes from now on; each is let through."""
-    reads: list[str] = []
-
-    def let_through(route: Route) -> None:
-        reads.append(route.request.url)
-        route.continue_()
-
-    call.visitor.route("**/person-keys", let_through)
-    return reads
-
-
-def test_a_bid_step_keeps_every_hole_open_and_reads_no_keys_and_a_stand_closes_its_chairs_hole_at_once(
+def test_a_bid_step_keeps_every_hole_open_and_a_stand_closes_its_chairs_hole_at_once(
     open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
 ) -> None:
     with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True) as call:
@@ -361,7 +349,6 @@ def test_a_bid_step_keeps_every_hole_open_and_reads_no_keys_and_a_stand_closes_i
         place_all(call)
         until(call, lambda: all(shows_the_stand_in(call, box) for box in boxes))
         call.table.locator("body").evaluate(WATCHING_THE_HOLES)
-        reads = count_key_reads(call)
 
         bid_behind_the_page(call, framing_server)
 
@@ -377,7 +364,6 @@ def test_a_bid_step_keeps_every_hole_open_and_reads_no_keys_and_a_stand_closes_i
         boxes = posted_boxes(call)
         until(call, lambda: all(shows_the_stand_in(call, box) for box in boxes))
         assert call.table.locator("body").evaluate("() => closedHoles") == []
-        assert reads == []
 
         # The stand's read is held back, so the chair's hole shuts by what the table shows alone.
         held: list[Route] = []
