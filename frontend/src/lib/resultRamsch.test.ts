@@ -155,6 +155,16 @@ describe("a Ramsch result's card", () => {
         ]);
     });
 
+    it("reads for someone who sat down in the loser's chair as for a watcher", () => {
+        const stored = ramschResult([14, 86, 20], [0, -86, 0], { seat_names: ["Anna", "Ben", "Felix"] });
+        const view = drawnRamsch(ramschTable(2, stored, { 2: { occupant_name: "Dora" } }));
+
+        expect(view.word).toBe("Ben verliert");
+        expect(view.lost).toBe(false);
+        expect(view.counts.map((count) => count.text)).toEqual(["Anna 14", "Ben 86", "Felix 20"]);
+        expect(view.rows.map(({ name }) => name)).toEqual(["Anna", "Ben", "Felix"]);
+    });
+
     it("keeps the stored name when someone else sits down in the chair", () => {
         const stored = ramschResult([14, 86, 20], [0, -86, 0], { seat_names: ["Anna", "Ben", "Felix"] });
         const view = drawnRamsch(ramschTable(NOBODY, stored, { 2: { occupant_name: "Dora" } }));
