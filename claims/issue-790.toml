@@ -1,8 +1,0 @@
-claim_id = "aa2bef9e55dd4b46980e657b7242de67"
-agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
-role = "builder"
-base = "6088d3ec0f18274dd04f5c5532fdf053aea5c6a0"
-branch = "claude/issue-790-dist-overnightworks-skat"
-scope = [".github/workflows", "Dockerfile", "pyproject.toml", "scripts", "src/skat", "uv.lock"]
-opened_commit = "3a2ca5cbe65b5feea56dd8b2a9a14a7d2744c808"
-whole_reason = "one name across build files and its readers"
