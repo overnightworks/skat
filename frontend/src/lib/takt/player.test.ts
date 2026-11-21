@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
-import { fade, move, placeOf } from "#lib/takt/player.ts";
+import { fade, letRest, move, placeOf } from "#lib/takt/player.ts";
 import type { Pose } from "#lib/takt/timeline.ts";
 
 const POSE: Pose = { x: 5, y: 270.04, turn: -6, wide: 1.2, tall: 1.1, opacity: 0.5 };
@@ -14,9 +14,9 @@ const numbersOf = (transform: Keyframe[string]): number[] =>
 
 // A part that keeps what it was asked to play instead of playing it.
 function recordingPart() {
-    const played: { frames: Keyframe[]; milliseconds: number }[] = [];
-    const animate = (frames: Keyframe[], milliseconds: number): Animation => {
-        played.push({ frames, milliseconds });
+    const played: { frames: Keyframe[]; milliseconds: number; after: FillMode; pseudoElement?: string | null }[] = [];
+    const animate = (frames: Keyframe[], { duration, fill, pseudoElement }: KeyframeAnimationOptions): Animation => {
+        played.push({ frames, milliseconds: duration as number, after: fill as FillMode, pseudoElement });
         return {} as Animation;
     };
     return { played, part: { animate } };
@@ -61,6 +61,51 @@ describe("a moved part", () => {
 
         expect(played[0]?.frames[0]?.opacity).toBe(0);
         expect(played[0]?.frames.at(-1)?.opacity).toBeCloseTo(0.5);
+    });
+});
+
+describe("a played part", () => {
+    it("rests where the stylesheet puts it once its track has ended", () => {
+        const { played, part } = recordingPart();
+
+        move(part, () => POSE, 0.5);
+        fade(part, () => 1, 0.5);
+
+        expect(played.map(({ after }) => after)).toEqual(["none", "none"]);
+        expect(played.map(({ pseudoElement }) => pseudoElement)).toEqual([undefined, undefined]);
+    });
+
+    it("stays as its track ends when it is held", () => {
+        const { played, part } = recordingPart();
+
+        move(part, () => POSE, 0.5, { stays: true });
+        fade(part, () => 1, 0.5, { stays: true });
+
+        expect(played.map(({ after }) => after)).toEqual(["forwards", "forwards"]);
+    });
+
+    it("is the pseudo-element that is meant", () => {
+        const { played, part } = recordingPart();
+
+        fade(part, () => 1, 0.5, { pseudoElement: "::after" });
+
+        expect(played[0]?.pseudoElement).toBe("::after");
+    });
+
+    it("rests again with everything in it once it is let rest", () => {
+        const ended: string[] = [];
+        const held = ["face", "shade"].map((piece) => ({ cancel: () => ended.push(piece) }) as unknown as Animation);
+        const asked: (GetAnimationsOptions | undefined)[] = [];
+
+        letRest({
+            getAnimations: (options) => {
+                asked.push(options);
+                return held;
+            },
+        });
+
+        expect(ended).toEqual(["face", "shade"]);
+        expect(asked).toEqual([{ subtree: true }]);
     });
 });
 

@@ -4,6 +4,7 @@ import { MOTION_SETS, type MotionSet } from "./motionSets.ts";
 import { currentSettings, loadSettings, motionInForce, soundSettings } from "./settings.svelte.ts";
 import { createSound, type Ambience, type AudioPort, type SoundSettings, type Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundMoment, type SoundSet } from "./soundSets.ts";
+import { gatherInstants } from "./takt/gather.ts";
 import { landInstants } from "./takt/land.ts";
 import { everyRecording, recordingOf, voiceKeysOf, type VoiceKey } from "./voice.ts";
 import { createWebAudioPort } from "./webAudio.ts";
@@ -117,6 +118,13 @@ function landsAfter(cue: Cue, motion: MotionSet | undefined): number {
     return cue.kind === "card-played" ? landInstants(motion.land).impact : LANDS_AFTER[cue.kind](motion);
 }
 
+// A trick sounds its sweep as it leaves the middle, counted from its first move.
+function glidesAfter(motion: MotionSet | undefined): number {
+    if (motion === undefined) return 0;
+    const { gathers, glides } = gatherInstants(motion.trick);
+    return glides - gathers;
+}
+
 // The gains count up from the moment the result has risen, and tick as long as the set's count runs.
 function countVoices(cues: readonly Cue[], set: SoundSet, motion: MotionSet | undefined): Voice[] {
     if (motion === undefined) return [];
@@ -195,11 +203,11 @@ export function createTableSound({
             );
         },
         forGlide() {
-            const gathers = motion()?.trickGatherSeconds ?? 0;
+            const glides = glidesAfter(motion());
             sound.play(
                 soundSet()
                     .voices["trick-swept"](1)
-                    .map((voice) => ({ ...voice, at: voice.at + gathers })),
+                    .map((voice) => ({ ...voice, at: voice.at + glides })),
             );
         },
         forTurn(cues) {

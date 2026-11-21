@@ -14,11 +14,11 @@ export type Presenter = (previous: Table | undefined, table: Table, cues: readon
 /** The trick that decided the game of the result `ordinal` before its tenth, and whether its declarer won. */
 export type DecidingTrick = { ordinal: number; trick: SheetTrick; declarerWon: boolean | null };
 
-/**
- * The rim of the card that took a hand's deciding trick: gold when the declarer won, red when he lost. A Ramsch has no
- * declarer, and the card keeps the brass of the pile's last trick.
- */
-export function outcomeRim(declarerWon: boolean | null): "won" | "lost" | null {
+/** The seal on the card that took a hand's deciding trick: how the declarer's game ended. */
+export type Seal = "won" | "lost";
+
+/** The seal of a hand's deciding trick; a Ramsch has no declarer, and its last trick carries none. */
+export function outcomeSeal(declarerWon: boolean | null): Seal | null {
     if (declarerWon === null) return null;
     return declarerWon ? "won" : "lost";
 }

@@ -1,3 +1,4 @@
+import type { GatherSet } from "./takt/gather.ts";
 import type { LandSet } from "./takt/land.ts";
 import type { Key } from "./words.ts";
 
@@ -11,14 +12,8 @@ export interface MotionSet {
     readonly bidSpringsSeconds: number;
     /** From the cue to the moment the Kontra stamp hits the felt. */
     readonly stampLandsSeconds: number;
-    /** How long a finished trick lies still on the felt before it is swept; the set's CSS keeps no time of it. */
-    readonly trickRestSeconds: number;
-    /** How long the card that took the last trick of a hand stands lifted in its rim before the trick is swept and the result rises; the set's CSS keeps no time of it. */
-    readonly trickLiftSeconds: number;
-    /** From the sweep's start to the moment the trick has come together in the middle; the set's CSS keeps the same time. */
-    readonly trickGatherSeconds: number;
-    /** From the gathered trick to the moment it lies on its taker's pile; the set's CSS keeps the same time. */
-    readonly trickGlideSeconds: number;
+    /** How a finished trick rests, lifts the card that took it and is gathered onto its taker's pile; Takt plays it, and the set's CSS keeps none of it. */
+    readonly trick: GatherSet;
     /** How long a chair that is taken fills and its gold ring glows; the set's CSS keeps the same time. */
     readonly chairSitsSeconds: number;
     /** How long a chair that stands up or opens fades; the set's CSS keeps the same time. */
@@ -57,10 +52,15 @@ export const MOTION_SETS = {
         },
         bidSpringsSeconds: 0.04,
         stampLandsSeconds: 0.18,
-        trickRestSeconds: 0.5,
-        trickLiftSeconds: 0.5,
-        trickGatherSeconds: 0,
-        trickGlideSeconds: 0.28,
+        trick: {
+            restSeconds: 0.5,
+            liftAfterSeconds: 0.2,
+            rise: 0.1,
+            springs: false,
+            gatherSeconds: 0,
+            glideSeconds: 0.28,
+            lastHoldSeconds: 0.3,
+        },
         chairSitsSeconds: 0.9,
         chairEmptiesSeconds: 0.3,
         resultLandsSeconds: 0.52,
@@ -87,10 +87,15 @@ export const MOTION_SETS = {
         },
         bidSpringsSeconds: 0.04,
         stampLandsSeconds: 0.3,
-        trickRestSeconds: 0.8,
-        trickLiftSeconds: 0.9,
-        trickGatherSeconds: 0.25,
-        trickGlideSeconds: 0.75,
+        trick: {
+            restSeconds: 0.8,
+            liftAfterSeconds: 0.35,
+            rise: 0.22,
+            springs: true,
+            gatherSeconds: 0.25,
+            glideSeconds: 0.75,
+            lastHoldSeconds: 0.23,
+        },
         chairSitsSeconds: 1.4,
         chairEmptiesSeconds: 0.4,
         resultLandsSeconds: 0.83,

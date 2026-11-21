@@ -1,12 +1,13 @@
 <script lang="ts">
     import type { Attachment } from "svelte/attachments";
 
-    import { outcomeRim, type DecidingTrick } from "#lib/closingHand.ts";
+    import { outcomeSeal, type DecidingTrick } from "#lib/closingHand.ts";
     import { MOTION_SETS } from "#lib/motionSets.ts";
     import type { ResultView } from "#lib/result.ts";
     import { motionInForce } from "#lib/settings.svelte.ts";
     import CardFace from "#lib/ui/CardFace.svelte";
     import Confetti from "#lib/ui/Confetti.svelte";
+    import OutcomeSeal from "#lib/ui/OutcomeSeal.svelte";
     import PointsBar from "#lib/ui/PointsBar.svelte";
     import { words } from "#lib/words.ts";
 
@@ -84,14 +85,15 @@
     {#if deciding !== null}
         <ul class="deciding" aria-label={words["result.decidingTrick"]}>
             {#each deciding.trick.cards as { card, by } (by.seat)}
-                <li
-                    class={[
-                        "deciding-card",
-                        by.seat === deciding.trick.taker?.seat && ["took", outcomeRim(deciding.declarerWon)],
-                    ]}
-                    data-seat={by.seat}
-                >
-                    <span class="face" role="img" aria-label={cardName(card)}><CardFace {card} /></span>
+                {@const took = by.seat === deciding.trick.taker?.seat}
+                {@const seal = took ? outcomeSeal(deciding.declarerWon) : null}
+                <li class={["deciding-card", took && "took"]} data-seat={by.seat}>
+                    <span class="face" role="img" aria-label={cardName(card)}>
+                        <CardFace {card} />
+                        {#if seal !== null}
+                            <OutcomeSeal {seal} />
+                        {/if}
+                    </span>
                     <span class="tag"><span class="dot" aria-hidden="true">{by.initial}</span></span>
                 </li>
             {/each}

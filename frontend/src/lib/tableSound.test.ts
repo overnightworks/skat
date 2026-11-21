@@ -195,7 +195,7 @@ describe("the sound of a swept trick", () => {
         soundAt(playful, { motion: "verspielt" }).forGlide();
 
         expect(earliest(quiet)).toBe(0);
-        expect(earliest(playful)).toBe(MOTION_SETS.verspielt.trickGatherSeconds);
+        expect(earliest(playful)).toBeCloseTo(MOTION_SETS.verspielt.trick.gatherSeconds);
     });
 
     it("is silent while muted", () => {

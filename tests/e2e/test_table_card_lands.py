@@ -217,6 +217,26 @@ def test_the_viewers_own_card_flies_face_up_from_the_hand_that_let_it_go(
     assert page_errors == []
 
 
+def test_a_card_the_viewers_seat_played_on_another_device_flies_face_up_out_of_the_own_hand(
+    deal_a_playing_table: Callable[..., PlayingTable], page_errors: list[str]
+) -> None:
+    table = deal_a_playing_table(PHONE)
+    own = table.pages[table.turn_seat()]
+    own.emulate_media(reduced_motion=MOTION)
+    own.reload()
+    expect(own.locator(".chair")).to_have_count(3)
+    watch_the_motion(own)
+
+    table.play_out(1)
+
+    expect(own.locator(FELT_FACE)).to_have_count(1)
+    # This page let no card go, so the card leaves the hand that held it, which shows its faces.
+    assert arrival_of(motion_played(own)) == FLIES_FACE_UP
+    flight = next(piece["frames"] for piece in motion_played(own) if piece["piece"] == "face")
+    assert flight[0]["transform"] != flight[-1]["transform"]
+    assert page_errors == []
+
+
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_every_card_of_a_trick_rests_with_its_own_lie_the_same_for_every_seat_and_watcher_and_after_a_reload(
     deal_a_playing_table: Callable[..., PlayingTable],
