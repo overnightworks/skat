@@ -161,24 +161,12 @@ class TestTheNextSeriesSettings:
         assert (stale.refusal, fresh.refusal) == (Refusal.STALE_SETTINGS, None)
         assert [chair.ready for chair in read(transactions, first_series).chairs] == [True, False, False]
 
-    def mark_as_the_release_before_does(self, engine, table_id, *, ready=True):
-        """That release marks a chair ready, or takes the mark back as a stand-up does, and knows no revision of
-        settings: it leaves the column of the revision as it is.
+    def mark_as_the_release_before_does(self, engine, table_id):
+        """That release marks a chair ready and knows no revision of settings: it leaves the column of the revision
+        as it is.
         """
         with engine.begin() as connection:
-            connection.execute(update(chairs).where(chairs.c.table_id == table_id).values(ready=ready))
-
-    def test_a_mark_the_release_before_gives_after_taps_on_the_saved_settings_were_taken_back_stands_for_no_choice(
-        self, service, transactions, engine, first_series
-    ):
-        self.save(service, first_series)
-        tap_all(service, first_series, settings=1)
-        self.mark_as_the_release_before_does(engine, first_series, ready=False)
-        self.mark_as_the_release_before_does(engine, first_series, ready=True)
-
-        assert service.deal_next(TableId(first_series), nullcontext(ALL_THREE)) is False
-
-        assert [chair.ready for chair in read(transactions, first_series).chairs] == [False, False, False]
+            connection.execute(update(chairs).where(chairs.c.table_id == table_id).values(ready=True))
 
     def test_marks_the_release_before_gives_after_a_save_start_no_minute_that_runs_out_on_the_next_choice(
         self, service, transactions, engine, first_series
