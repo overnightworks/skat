@@ -35,7 +35,7 @@ from tests.support.ended_tables import end_as_an_opener_closed_it
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-    from playwright.sync_api import FrameLocator, Page
+    from playwright.sync_api import APIResponse, FrameLocator, Page, Route
 
     from tests.e2e.support.browser_coverage import BrowserCoverage
     from tests.e2e.support.server import RunningServer
@@ -446,3 +446,47 @@ def test_a_page_that_is_hidden_posts_nothing_and_a_page_that_shows_again_posts_i
 
         wait_for_seat_messages(call, posted_before + 1)
         until(call, lambda: posted_boxes(call) == live_boxes(call))
+
+
+def test_a_view_that_arrives_while_the_keys_are_read_is_answered_with_a_read_of_the_newest(
+    open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
+) -> None:
+    with the_call(open_person, browser_coverage, framing_server, DESKTOP, other_seats=(2,)) as call:
+        held: list[tuple[Route, APIResponse]] = []
+        # The answer is read now and handed to the page later, so it is the keys of the view before the stand-up.
+        call.visitor.route("**/person-keys", lambda route: held.append((route, route.fetch())))
+        greet(call)
+        until(call, lambda: len(held) == 1)
+
+        menu_button(call.others[0], STAND_UP).click()
+        until(call, lambda: len(live_boxes(call)) == 1)
+        call.visitor.unroute("**/person-keys")
+        route, stale_answer = held[0]
+        route.fulfill(response=stale_answer)
+
+        wait_for_seat_messages(call, 1)
+        assert all(len(message["seats"]) == 1 for message in seat_messages(call))
+
+
+@pytest.mark.parametrize("greets", [True, False])
+def test_a_page_that_leaves_the_table_answers_no_further_hello_with_seats(
+    open_person: Callable[..., Page],
+    browser_coverage: BrowserCoverage,
+    framing_server: RunningServer,
+    greets: bool,
+) -> None:
+    with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=greets, other_seats=()) as call:
+        end_as_an_opener_closed_it(
+            PostgresTableTransactions(framing_server.engine), table_id_of(call.path), datetime.now(UTC), None
+        )
+        # The open stream drops and the page asks again, which answers the table a silent minute ended: the page leaves.
+        call.visitor.context.set_offline(True)
+        call.visitor.context.set_offline(False)
+        call.table.locator(CHAIR).first.wait_for(state="detached")
+        call.visitor.evaluate(TWO_FRAMES)
+        posted_before = len(seat_messages(call))
+
+        greet(call)
+        call.visitor.evaluate(TWO_FRAMES)
+
+        assert len(seat_messages(call)) == posted_before
