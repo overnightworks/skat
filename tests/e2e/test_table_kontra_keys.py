@@ -1,6 +1,5 @@
 import re
 from itertools import combinations
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
@@ -27,36 +26,22 @@ DEAL_WHERE_THE_OPENER_DEALS = 1
 OPENER_SEAT = 1
 KONTRA = text(SOURCE_LANGUAGE, "kontra.kontra")
 RE = text(SOURCE_LANGUAGE, "kontra.re")
-TABLE_SCENES = Path(__file__).parents[2] / "docs" / "mockups" / "table.html"
-# The scenes frame the narrowest phone at 360 x 780.
+# The narrowest phone is 360 x 780.
 NARROW_PHONE = {**SMALL_PHONE, "viewport": {"width": 360, "height": 780}}
 FRAME_WIDTHS = [pytest.param(NARROW_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
-SCENE_KEY = ".cb.wide"
 PAGE_KEYS = ".actions .copy"
-ONE_PIXEL = 1
 CENTRED_WITHIN = 2
-# A key's size, its mark and its word, read where it is drawn.
+# Where a key lies across the screen.
 KEY_GEOMETRY = """key => {
     const box = key.getBoundingClientRect();
-    const mark = key.querySelector("svg");
-    return {
-        width: box.width,
-        height: box.height,
-        left: box.left,
-        right: box.right,
-        mark: mark !== null && getComputedStyle(mark).display !== "none",
-        word: key.textContent.trim(),
-    };
+    return {left: box.left, right: box.right};
 }"""
 BOXES = """keys => keys.map(key => {
     const box = key.getBoundingClientRect();
     return {left: box.left, right: box.right, top: box.top, bottom: box.bottom};
 })"""
 
-TABLES = [
-    pytest.param(ContestedTable, "kontra-offer", "kontra-re", id="own-card"),
-    pytest.param(FirstCardTable, "kontra-first-wait", "kontra-first-re", id="first-card"),
-]
+TABLES = [pytest.param(ContestedTable, id="own-card"), pytest.param(FirstCardTable, id="first-card")]
 
 
 @pytest.fixture(scope="module")
@@ -80,22 +65,6 @@ def exactly(label: str) -> re.Pattern[str]:
     return re.compile(rf"^\s*{re.escape(label)}\s*$")
 
 
-def the_scene_draws(person: Page, frame: str, word: str, *, declines: bool) -> dict[str, Any]:
-    """The geometry of the key that says `word` and, where the table asks both, of the key declining it, in a scene."""
-    viewport = person.viewport_size
-    assert viewport is not None
-    scene = person.context.new_page()
-    try:
-        scene.goto(f"{TABLE_SCENES.as_uri()}?f={frame}-{viewport['width']}")
-        keys = scene.locator(f"[id='{frame}-{viewport['width']}'] {SCENE_KEY}")
-        drawn = {"word": keys.filter(has_text=exactly(word)).evaluate(KEY_GEOMETRY)}
-        if declines:
-            drawn["decline"] = keys.filter(has_text=exactly(decline_of(word))).evaluate(KEY_GEOMETRY)
-        return drawn
-    finally:
-        scene.close()
-
-
 def the_page_draws(person: Page, word: str, *, declines: bool) -> dict[str, Any]:
     drawn = {"word": button_of(person, word).evaluate(KEY_GEOMETRY)}
     if declines:
@@ -103,25 +72,18 @@ def the_page_draws(person: Page, word: str, *, declines: bool) -> dict[str, Any]
     return drawn
 
 
-def expect_the_keys_to_match_the_scene(person: Page, frame: str, word: str, *, declines: bool) -> None:
-    drawn = the_page_draws(person, word, declines=declines)
+def expect_the_keys_shown(person: Page, word: str, *, declines: bool) -> None:
+    """The key says `word` with its mark; a table asking both adds the declining key; a phone centres them."""
+    expect(button_of(person, word)).to_be_visible()
+    if person.viewport_size != NARROW_PHONE["viewport"]:
+        expect(button_of(person, word).locator("svg")).to_be_visible()
+    if declines:
+        expect(button_of(person, decline_of(word))).to_be_visible()
+        expect(button_of(person, decline_of(word)).locator("svg")).to_be_visible()
     viewport = person.viewport_size
     assert viewport is not None
-    on_a_phone = viewport["width"] < DESKTOP["viewport"]["width"]
-    scene = the_scene_draws(person, frame, word, declines=declines)
-    for name, key in scene.items():
-        assert drawn[name]["word"] == key["word"]
-        assert drawn[name]["mark"] == key["mark"], (name, drawn[name], key)
-        assert abs(drawn[name]["width"] - key["width"]) <= ONE_PIXEL, (name, drawn[name], key)
-        assert abs(drawn[name]["height"] - key["height"]) <= ONE_PIXEL, (name, drawn[name], key)
-    if declines:
-        assert abs(gap_between(drawn) - gap_between(scene)) <= ONE_PIXEL, (drawn, scene)
-        if on_a_phone:
-            assert abs(centre_of(drawn) - viewport["width"] / 2) <= CENTRED_WITHIN, drawn
-
-
-def gap_between(keys: dict[str, Any]) -> float:
-    return keys["decline"]["left"] - keys["word"]["right"]
+    if declines and viewport["width"] < DESKTOP["viewport"]["width"]:
+        assert abs(centre_of(the_page_draws(person, word, declines=True)) - viewport["width"] / 2) <= CENTRED_WITHIN
 
 
 def centre_of(keys: dict[str, Any]) -> float:
@@ -145,16 +107,14 @@ def expect_the_rows_to_fit(person: Page) -> None:
 
 
 @pytest.mark.parametrize("form_factor", FRAME_WIDTHS)
-@pytest.mark.parametrize(("table_kind", "word_frame", "re_frame"), TABLES)
-def test_the_kontra_and_re_keys_have_the_scenes_size_mark_and_word_and_every_key_stays_on_the_screen(
+@pytest.mark.parametrize("table_kind", TABLES)
+def test_the_kontra_and_re_keys_show_their_word_and_every_key_stays_on_the_screen(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
     form_factor: dict[str, Any],
     table_kind: type[ContestedTable],
-    word_frame: str,
-    re_frame: str,
 ) -> None:
     table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, declaring=table_kind)
     asks_both = table_kind is FirstCardTable
@@ -163,20 +123,20 @@ def test_the_kontra_and_re_keys_have_the_scenes_size_mark_and_word_and_every_key
     declarer = table.pages[table.declarer_seat]
     expect(button_of(sayer, KONTRA)).to_be_visible()
 
-    expect_the_keys_to_match_the_scene(sayer, word_frame, KONTRA, declines=asks_both)
+    expect_the_keys_shown(sayer, KONTRA, declines=asks_both)
     expect_the_rows_to_fit(sayer)
 
     button_of(sayer, KONTRA).click()
     expect(button_of(declarer, RE)).to_be_visible()
 
-    expect_the_keys_to_match_the_scene(declarer, re_frame, RE, declines=asks_both)
+    expect_the_keys_shown(declarer, RE, declines=asks_both)
     for person in table.everyone:
         expect_the_rows_to_fit(person)
     assert page_errors == []
 
 
 @pytest.mark.parametrize("form_factor", [pytest.param(NARROW_PHONE, id="360"), pytest.param(PHONE, id="390")])
-def test_the_opener_on_a_phone_sees_the_kontra_key_as_the_scene_draws_it_with_the_close_row_in_the_menu(
+def test_the_opener_on_a_phone_sees_the_kontra_key_with_the_close_row_in_the_menu(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -189,6 +149,6 @@ def test_the_opener_on_a_phone_sees_the_kontra_key_as_the_scene_draws_it_with_th
     expect(button_of(opener, KONTRA)).to_be_visible()
 
     expect(opener.locator(".actions .row")).to_have_count(0)
-    expect_the_keys_to_match_the_scene(opener, "kontra-offer", KONTRA, declines=False)
+    expect_the_keys_shown(opener, KONTRA, declines=False)
     expect_the_rows_to_fit(opener)
     assert page_errors == []

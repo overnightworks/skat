@@ -72,8 +72,8 @@ def expect_no_scroll_sideways(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 
-def expect_the_question_drawn_as_its_scene(question: Locator) -> None:
-    """The scene draws a centred circled icon above a centred title that fits one line."""
+def expect_the_question_centred_on_one_line(question: Locator) -> None:
+    """A centred circled icon stands above a centred title that fits one line."""
     drawn = question.evaluate(
         """dialog => {
             const box = dialog.getBoundingClientRect();
@@ -125,7 +125,7 @@ def test_a_person_stands_up_mid_game_and_a_watcher_asks_then_sits_and_the_others
     free_chair.get_by_role("button", name=SIT_DOWN).click()
     question = watcher.get_by_role("dialog", name=SIT_QUESTION)
     expect(question).to_contain_text(line_of(leaver_name))
-    expect_the_question_drawn_as_its_scene(question)
+    expect_the_question_centred_on_one_line(question)
     expect_no_scroll_sideways(watcher)
 
     button_of(watcher, CANCEL).click()

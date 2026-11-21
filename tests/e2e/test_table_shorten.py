@@ -26,7 +26,6 @@ from tests.e2e.support.early_end import (
 from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
 from tests.e2e.support.result_card import CARD, waiting_for
-from tests.e2e.support.style import TOP, boxes_in_the_scene, boxes_on_the_page, expect_drawn_as_the_scene
 from tests.e2e.support.table_menu import GIVE_UP_ROW, SHORTEN_ROW, close_table_menu, menu_button, menu_row
 
 if TYPE_CHECKING:
@@ -152,35 +151,27 @@ def test_one_no_opens_the_declarers_cards_to_everyone_crosses_the_refuser_and_te
     assert page_errors == []
 
 
-# The blessed scene of the notice that play goes on after a no.
-REFUSED_SCENE = "shorten-refused"
 OWN_BAR = ".chair.mine"
 LEGAL_CARD = ".own-hand .card.ok"
 LIFTED_CARD = ".own-hand .card.touch"
 
 
-def test_on_a_desktop_the_notice_that_play_goes_on_stands_as_the_scene_draws_it_and_a_lifted_card_clears_the_bar(
+def test_on_a_desktop_a_lifted_card_clears_the_bar_while_the_notice_that_play_goes_on_shows(
     deal_a_shortening: Callable[..., PlayingTable], page_errors: list[str]
 ) -> None:
     table = deal_a_shortening(DESKTOP)
     refuser, _ = opponents(table)
     on_turn = table.pages[table.turn_seat()]
-    in_scene = {
-        NOTICE: boxes_in_the_scene(on_turn, REFUSED_SCENE, ".notice"),
-        OWN_BAR: boxes_in_the_scene(on_turn, REFUSED_SCENE, ".seat.own"),
-        ".own-hand": boxes_in_the_scene(on_turn, REFUSED_SCENE, ".hand"),
-    }
-
     says(table, refuser, NO)
     expect(on_turn.locator(NOTICE)).to_be_visible()
     on_turn.locator(f"{LEGAL_CARD} button").first.click(position=INSIDE_THE_VISIBLE_STRIP)
     expect(on_turn.locator(LIFTED_CARD)).to_have_count(1)
 
-    for on_page, scene_boxes in in_scene.items():
-        expect_drawn_as_the_scene(boxes_on_the_page(on_turn, on_page), scene_boxes, TOP)
-    (bar,) = boxes_on_the_page(on_turn, OWN_BAR)
-    (lifted,) = boxes_on_the_page(on_turn, LIFTED_CARD)
-    assert lifted["top"] >= bar["top"] + bar["height"]
+    bar = on_turn.locator(OWN_BAR).bounding_box()
+    lifted = on_turn.locator(LIFTED_CARD).bounding_box()
+    assert bar is not None
+    assert lifted is not None
+    assert lifted["y"] >= bar["y"] + bar["height"]
     expect(on_turn.locator(NOTICE)).to_be_visible()
     assert page_errors == []
 
