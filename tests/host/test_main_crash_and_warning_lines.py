@@ -2,7 +2,11 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
+import skat
+
+SOURCE_ROOT = Path(skat.__file__).parents[1]
 CRASH_ENTRY = ["-m", "skat.host.main", "migrate"]
 WARNING_ENTRY = [
     "-c",
@@ -14,8 +18,8 @@ WARNING_ENTRY = [
 
 def run_host(entry: list[str]) -> tuple[int, list[dict]]:
     finished = subprocess.run(  # noqa: S603 - the interpreter running the tests, with fixed arguments
-        [sys.executable, "-I", *entry],
-        env={"PATH": os.environ["PATH"]},
+        [sys.executable, *entry],
+        env={"PATH": os.environ["PATH"], "PYTHONPATH": str(SOURCE_ROOT)},
         capture_output=True,
         text=True,
         check=False,
