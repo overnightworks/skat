@@ -87,52 +87,12 @@ def in_the_scene(person: Page, scene: str, script: str, argument: object) -> Any
     viewport = person.viewport_size
     assert viewport is not None
     frame = f"{scene}-{viewport['width']}"
-    import time
-
-    from tests.e2e.support.phasing import add
-
-    def read(open_page: Any, label: str) -> Any:
-        t0 = time.monotonic()
-        page_of_scenes = open_page()
-        t1 = time.monotonic()
-        try:
-            page_of_scenes.goto(f"{TABLE_SCENES.as_uri()}?f={frame}")
-            t2 = time.monotonic()
-            value = page_of_scenes.locator(f"[id='{frame}']").evaluate(script, argument)
-            t3 = time.monotonic()
-            return value
-        finally:
-            page_of_scenes.close()
-            add(f"{label}-newpage", t1 - t0)
-            add(f"{label}-goto", t2 - t1)
-            add(f"{label}-eval", t3 - t2)
-            add(f"{label}-close", time.monotonic() - t3)
-
-    mobile = viewport["width"] < 1000
-    browser = person.context.browser
-    assert browser is not None
-    options = {"viewport": viewport, "is_mobile": mobile, "has_touch": mobile, "reduced_motion": "reduce", "locale": "de"}
-    bare = browser.new_context(**options)
-    value_bare = read(bare.new_page, "bare")
-    bare.close()
-    traced = browser.new_context(**options)
-    traced.tracing.start(screenshots=True, snapshots=True, sources=True)
-    value_traced = read(traced.new_page, "traced")
-    traced.close()
-    covered = browser.new_context(**options)
-
-    def covered_page() -> Any:
-        page = covered.new_page()
-        session = covered.new_cdp_session(page)
-        session.send("Profiler.enable")
-        session.send("Profiler.startPreciseCoverage", {"callCount": True, "detailed": True})
-        return page
-
-    value_covered = read(covered_page, "covered")
-    covered.close()
-    value = read(person.context.new_page, "scene")
-    add("scene-same", float(value == value_bare == value_traced == value_covered))
-    return value
+    page_of_scenes = person.context.new_page()
+    try:
+        page_of_scenes.goto(f"{TABLE_SCENES.as_uri()}?f={frame}")
+        return page_of_scenes.locator(f"[id='{frame}']").evaluate(script, argument)
+    finally:
+        page_of_scenes.close()
 
 
 def expect_painted_as_the_scene(person: Page, scene: str, live: str, drawn: str, properties: list[str]) -> None:
