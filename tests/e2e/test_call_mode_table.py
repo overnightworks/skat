@@ -6,6 +6,7 @@ from playwright.sync_api import expect
 
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import CARDS_IN_A_GAME
+from skat.web.call import CALL_ORIGIN_PATH
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import SOURCE_LANGUAGE, text
@@ -175,6 +176,13 @@ def test_the_anruf_key_opens_the_call_apps_start_link_for_the_table_in_a_new_tab
     expect(key).to_have_attribute("rel", "noopener")
 
 
+def watch_once_the_call_origin_is_read(visitor: Page, address: str) -> None:
+    with visitor.expect_response(lambda response: response.url.endswith(CALL_ORIGIN_PATH)) as read:
+        visitor.goto(address)
+    read.value.finished()
+    visitor.evaluate("() => new Promise((done) => requestAnimationFrame(() => done(null)))")
+
+
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_watcher_has_no_anruf_key(
     open_person: Callable[..., Page], framing_server: RunningServer, form_factor: dict[str, Any]
@@ -182,7 +190,7 @@ def test_a_watcher_has_no_anruf_key(
     path = new_table(open_person, framing_server)
     visitor = open_person(server=framing_server, **form_factor)
 
-    visitor.goto(f"{framing_server.base_url}{path}")
+    watch_once_the_call_origin_is_read(visitor, f"{framing_server.base_url}{path}")
 
     expect(visitor.locator(CHAIR)).to_have_count(THREE_CHAIRS)
     expect(visitor.get_by_role("link", name=CALL)).to_have_count(0)
@@ -195,7 +203,7 @@ def test_the_anruf_key_is_absent_when_no_call_origin_is_set(
     path = new_table(open_person, e2e_server)
     visitor = open_person(server=e2e_server, **form_factor)
 
-    visitor.goto(f"{e2e_server.base_url}{path}")
+    watch_once_the_call_origin_is_read(visitor, f"{e2e_server.base_url}{path}")
 
     expect(visitor.locator(CHAIR)).to_have_count(THREE_CHAIRS)
     expect(visitor.get_by_role("link", name=CALL)).to_have_count(0)
