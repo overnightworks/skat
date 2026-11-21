@@ -1,0 +1,8 @@
+claim_id = "5fb71b58d4764dd6bf311b08ff77d12f"
+agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
+role = "builder"
+base = "583be44ba9de8e3528f8d280d71666be75d0895c"
+branch = "claude/issue-796-result-test-cheap-pages"
+scope = ["tests/e2e/support", "tests/e2e/test_table_result.py"]
+opened_commit = "f5a90e778c8928f10abfc40359d7b7fa784ff229"
+whole_reason = "One test family and the e2e support it sets up through."
