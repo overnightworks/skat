@@ -200,8 +200,6 @@
     </span>
 {/snippet}
 
-<!-- The live region stays in the page whatever the bar shows, so a reader hears the word that enters it. -->
-<p class="sr-only" role="status">{@render word(back === null ? "" : TAKEN_BACK[back])}</p>
 {#if bar !== null}
     {@const pick = livePick(bar, picked)}
     {@const step = stepWith(bar, pick)}
@@ -342,6 +340,8 @@
                 <span class="said" aria-hidden="true">{@render icon(CHECK, 2.8)}{@render word(TAKEN_BACK[back])}</span>
             {/if}
         </div>
+        <!-- The live region stands in the bar before a word enters it, so a reader hears the word. -->
+        <p class="sr-only" role="status">{@render word(back === null ? "" : TAKEN_BACK[back])}</p>
     </div>
 {:else if passed !== null}
     <div class="bid">
