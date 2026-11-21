@@ -142,6 +142,27 @@ describe("a Ramsch result's card", () => {
         ]);
     });
 
+    it("names the loser by the name stored with the game once the chair stands empty, marked gone", () => {
+        const stored = ramschResult([14, 86, 20], [0, -86, 0], { seat_names: ["Anna", "Ben", "Felix"] });
+        const view = drawnRamsch(ramschTable(NOBODY, stored, { 2: { occupant_name: null } }));
+
+        expect(view.word).toBe("Ben verliert");
+        expect(view.counts.map((count) => count.text)).toEqual(["Anna 14", "Ben 86", "Felix 20"]);
+        expect(view.rows.map(({ name, gone }) => [name, gone])).toEqual([
+            ["Anna", false],
+            ["Ben", true],
+            ["Felix", false],
+        ]);
+    });
+
+    it("keeps the stored name when someone else sits down in the chair", () => {
+        const stored = ramschResult([14, 86, 20], [0, -86, 0], { seat_names: ["Anna", "Ben", "Felix"] });
+        const view = drawnRamsch(ramschTable(NOBODY, stored, { 2: { occupant_name: "Dora" } }));
+
+        expect(view.word).toBe("Ben verliert");
+        expect(view.rows.map(({ name, gone }) => [name, gone])).toContainEqual(["Ben", true]);
+    });
+
     it.each([
         {
             scene: "a lost game",

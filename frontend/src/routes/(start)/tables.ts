@@ -219,6 +219,8 @@ export type RamschSeat = { seat: number; points: number; score: number };
 export type RamschResult = {
     kind: "ramsch";
     ordinal: number;
+    // The names the seats had at the game's end, by seat; null for an entry stored before names were kept.
+    seat_names: (string | null)[];
     seats: RamschSeat[];
     durchmarsch_seat: number | null;
     jungfrau: boolean;
@@ -233,6 +235,8 @@ export type SeatGain = { seat: number; gain: number; won: boolean };
 export type Result = {
     kind: "declared";
     ordinal: number;
+    // The names the seats had at the game's end, by seat; null for an entry stored before names were kept.
+    seat_names: (string | null)[];
     declarer_seat: number;
     game: Game;
     hand: boolean;

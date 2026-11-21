@@ -5998,6 +5998,13 @@ body {
     white-space: nowrap;
 }
 
+.room .result .reck .nm em {
+    margin-left: 6px;
+    color: var(--on-stage-soft);
+    font-size: 11px;
+    font-style: normal;
+}
+
 .room .result .reck .dl {
     --ink: #1f7a4d;
     color: var(--ink);

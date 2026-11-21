@@ -6,6 +6,7 @@ import { listFormat, words } from "#lib/words.ts";
 import type { SeriesEntry } from "../routes/(start)/seriesList.ts";
 import {
     gameLabel,
+    type Chair,
     type Game,
     type NextSettings,
     type SeriesEndAnswer,
@@ -139,8 +140,20 @@ export type StandingsView = {
 
 const FIRST_PLACE = 1;
 
-// One account's place as the server ranked it. `seated` names the accounts that still hold a chair, by seat; with none
-// given nobody is judged to have left, as at a table that has ended. The `viewer` account reads „Du“ on its own row.
+// The people who hold a chair, by name, with the seat each holds.
+export function seatedNames(chairs: readonly Chair[]): ReadonlyMap<string, number> {
+    return new Map(
+        chairs.flatMap((chair) => (chair.occupant_name === null ? [] : [[chair.occupant_name, chair.seat] as const])),
+    );
+}
+
+// Whether a name has left: no chair holds it any more. With no `seated` given nobody is judged to have left, as at a
+// table that has ended.
+export function hasLeft(name: string, seated: ReadonlyMap<string, number> | null): boolean {
+    return seated !== null && !seated.has(name);
+}
+
+// One account's place as the server ranked it. `seated` names the accounts that still hold a chair, by seat. The `viewer` account reads „Du“ on its own row.
 export function standingRow(
     standing: Standing,
     seated: ReadonlyMap<string, number> | null,
@@ -155,7 +168,7 @@ export function standingRow(
         agent: standing.kind === "agent",
         total: withMinus(standing.total),
         winner: standing.place === FIRST_PLACE,
-        gone: seated !== null && !seated.has(name),
+        gone: hasLeft(name, seated),
     };
 }
 
@@ -163,11 +176,7 @@ export function standingRow(
 export function standingsView(table: Table): StandingsView | null {
     const series = table.series;
     if (series?.standings == null) return null;
-    const seated = new Map(
-        table.chairs.flatMap((chair) =>
-            chair.occupant_name === null ? [] : [[chair.occupant_name, chair.seat] as const],
-        ),
-    );
+    const seated = seatedNames(table.chairs);
     const viewer = table.chairs.find((chair) => chair.is_mine)?.occupant_name ?? null;
     const rows = series.standings.map((standing) => standingRow(standing, seated, viewer));
     const winnerSeats = new Set(
