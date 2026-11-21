@@ -193,6 +193,14 @@ describe("the stamp under the result", () => {
         expect(view.stamp).toEqual({ word: words["result.givenUp"], face: null });
     });
 
+    it("names the seat that gave up by the stored name once it stands empty", () => {
+        const view = resultView(
+            table(2, givenUpBy({ seat_names: ["Anna", "Ben", "Cleo"] }), { 1: { occupant_name: null } }),
+        );
+
+        expect(view.stamp).toEqual({ word: words["result.givenUp"], face: "A" });
+    });
+
     it("carries Überreizt without a face when an overbid game was played out", () => {
         expect(resultView(table(2, overbid)).stamp).toEqual({ word: words["result.overbid"], face: null });
     });
@@ -527,6 +535,29 @@ describe("the reckoning row", () => {
 
     it("lists a watcher's rows in seat order", () => {
         expect(resultView(table(NOBODY, {})).rows.map(({ seat }) => seat)).toEqual([1, 2, 3]);
+    });
+
+    it("names the declarer who stood up by the stored name, marked gone, for a watcher and an opponent", () => {
+        const stored = { seat_names: ["Anna", "Ben", "Cleo"] };
+        const left = { 1: { occupant_name: "Anna" }, 2: { occupant_name: null }, 3: { occupant_name: "Cleo" } };
+
+        expect(resultView(table(NOBODY, stored, left)).word).toBe(words["result.declarerWins"]({ name: "Ben" }));
+        const view = resultView(table(1, stored, left));
+        expect(view.gameLine).toBe(words["result.opponentGameLine"]({ declarer: "Ben", game: words["game.kreuz"] }));
+        expect(view.sides.declarer).toBe("Ben");
+        expect(view.rows.find(({ seat }) => seat === 2)).toMatchObject({ name: "Ben", gone: true, initial: "B" });
+        expect(view.rows.find(({ seat }) => seat === 3)).toMatchObject({ name: "Cleo", gone: false });
+    });
+
+    it("reads for someone who sat down in the declarer's chair as for a watcher", () => {
+        const stored = { seat_names: ["Anna", "Ben", "Cleo"] };
+        const sitter = { 1: { occupant_name: "Anna" }, 2: { occupant_name: "Dora" }, 3: { occupant_name: "Cleo" } };
+        const view = resultView(table(2, stored, sitter));
+
+        expect(view.word).toBe(words["result.declarerWins"]({ name: "Ben" }));
+        expect(view.sides.declarer).toBe("Ben");
+        expect(view.rows.find(({ seat }) => seat === 2)).toMatchObject({ name: "Ben", gone: true });
+        expect(view.rows.some(({ name }) => name === words["result.sideYou"])).toBe(false);
     });
 
     it("keeps the row of a chair that has been left, without a name", () => {

@@ -261,9 +261,12 @@ class KontraResult:
 
 @dataclass(frozen=True)
 class ResultView:
-    """The last game's result while it stands, the same for every viewer; it names no account and no card."""
+    """The last game's result while it stands, the same for every viewer; it names no account and no card. `seat_names`
+    are the names the seats had at the game's end (None for an entry stored before they were kept).
+    """
 
     ordinal: int
+    seat_names: tuple[str | None, str | None, str | None]
     declarer_seat: int
     declaration: Declaration
     schneider: bool
@@ -304,10 +307,12 @@ class RamschResultView:
     """The last Ramsch's result while it stands, the same for every viewer; it names no account and no card. `pushes`
     is how often the skat was pushed on unseen and `push_factor` what that made of the scores, beside the Bock factor;
     a Durchmarsch the table scores flat took no push, so its `push_factor` is 1. `divided_by_ten` says the loser's
-    eyes were divided by ten before the factors, as the table scores them.
+    eyes were divided by ten before the factors, as the table scores them. `seat_names` are the names the seats had at
+    the game's end (None for an entry stored before they were kept).
     """
 
     ordinal: int
+    seat_names: tuple[str | None, str | None, str | None]
     seats: tuple[RamschSeatResult, ...]
     durchmarsch_seat: int | None
     jungfrau: bool
@@ -401,6 +406,7 @@ def result_view_of(table: TableRecord) -> ResultView | RamschResultView | None:
         rules = None if ramsch is None else ramsch_rules_of(ramsch.reckoning, swept=entry.durchmarsch_seat is not None)
         return RamschResultView(
             ordinal=ordinal,
+            seat_names=entry.seat_names,
             seats=tuple(
                 RamschSeatResult(seat, entry.seat_points[seat - 1], entry.seat_scores[seat - 1]) for seat in SEATS
             ),
@@ -416,6 +422,7 @@ def result_view_of(table: TableRecord) -> ResultView | RamschResultView | None:
     reckoning = _reckoning_of(entry, reach)
     return ResultView(
         ordinal=ordinal,
+        seat_names=entry.seat_names,
         declarer_seat=entry.declarer_seat,
         declaration=entry.declaration,
         schneider=entry.schneider,

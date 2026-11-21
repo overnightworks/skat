@@ -6,9 +6,19 @@ from playwright.sync_api import Locator, Page, expect
 
 from skat.web.seating import TABLE_STAND_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.people import PHONE, WIDTHS
+from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.ramsch import RamschTable
-from tests.e2e.support.result_card import CARD, LOST, MINUS, WON, expect_the_page_around_the_card, listed, signed
+from tests.e2e.support.result_card import (
+    CARD,
+    LOST,
+    MINUS,
+    SERIES_GONE,
+    WON,
+    expect_a_new_sitter_reads_the_leaver_as_gone,
+    expect_the_page_around_the_card,
+    listed,
+    signed,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -19,7 +29,6 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
-SEAT_FREE = text(SOURCE_LANGUAGE, "result.seatFree")
 
 
 def with_minus(number: int) -> str:
@@ -91,13 +100,15 @@ def test_everyone_reads_the_ramsch_result_card_and_weiter_works(
     assert page_errors == []
 
 
-def test_a_seat_that_stood_up_after_the_hand_reads_as_free_on_the_card(
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_seat_that_stood_up_after_the_hand_keeps_its_name_marked_gone_on_the_card(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
+    form_factor: dict[str, Any],
 ) -> None:
-    table = RamschTable(open_person, e2e_server, member_of, page_errors, PHONE)
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
     table.pass_all()
     table.play_out()
     leaver_seat = 2
@@ -107,5 +118,8 @@ def test_a_seat_that_stood_up_after_the_hand_reads_as_free_on_the_card(
     )
 
     for person in table.everyone:
-        expect(person.locator(CARD).locator(f".reck[data-seat='{leaver_seat}'] .nm")).to_have_text(SEAT_FREE)
+        coaster_name = person.locator(CARD).locator(f".reck[data-seat='{leaver_seat}'] .nm")
+        expect(coaster_name).to_contain_text(table.names[leaver_seat])
+        expect(coaster_name.locator("em")).to_have_text(SERIES_GONE)
+    expect_a_new_sitter_reads_the_leaver_as_gone(table.watcher, leaver_seat, table.names[leaver_seat])
     assert page_errors == []
