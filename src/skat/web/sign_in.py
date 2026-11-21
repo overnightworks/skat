@@ -1,5 +1,6 @@
 import logging
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from enum import StrEnum
 from http import HTTPStatus
@@ -7,22 +8,19 @@ from typing import TYPE_CHECKING, Annotated, Protocol
 from urllib.parse import parse_qs, quote, urlsplit
 
 import structlog
-from fastapi import APIRouter, FastAPI, Query, Request, Response
+from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from logline import StepTimer
-from webauth.admission import AdmissionRefusal
 from webauth.config import SessionLifetime, WebAuthConfig
 from webauth.https_client import fetch_key_set_over_https
-from webauth.oidc import OidcClientConfig, OidcRefusal, OidcRelyingParty, TokenRequestPost
+from webauth.oidc import OidcClientConfig, TokenRequestPost
 from webauth.oidc_transport import post_token_request_over_https
+from webauth.policies import CsrfPolicy
 from webauth.ports import SessionRecordStore
 from webauth.proxies import TrustedProxies
-from webauth.sign_in_routes import (
-    LogoutPageText,
-    RefusalPage,
-    SignInRefusal,
-    install_sign_in_routes,
-)
+from webauth.sign_in_routes import LogoutPageText, RefusalPage, SignInRefusal
+from webauth.web_auth import IssuerCalls, WebAuth, WebAuthSettings, WebAuthStores
+from webauth.web_auth import SignInPages as WebAuthSignInPages
 
 from skat.web.constants import (
     AUTH_CALLBACK_PATH,
@@ -48,14 +46,15 @@ from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import text
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from datetime import datetime
 
     from pydantic import SecretStr
     from starlette.requests import HTTPConnection
     from webauth.jwt_verification import KeySetFetch
+    from webauth.middleware import SessionGate
     from webauth.oidc import TokenEndpointAnswer, TokenRequest
-    from webauth.ports import AccountEvent, RateLimitBackend, SignInTransaction
+    from webauth.policies import RateLimitPolicy, SecurityHeadersPolicy
+    from webauth.ports import AccountEvent, RateLimitBackend, SessionTransaction, SignInTransaction, WallClock
 
     from skat.web.page_build import PageBuild, SignInPages
     from skat.web.settings import ServerSettings
@@ -122,7 +121,9 @@ ISSUER_OVER_HTTPS = IssuerTransports(
 )
 
 
-def build_sign_in_configs(settings: ServerSettings, rate_limits: RateLimitBackend) -> SignInConfigs:
+def build_sign_in_configs(
+    settings: ServerSettings, rate_limits: RateLimitBackend, wall_clock: WallClock = time.time
+) -> SignInConfigs:
     client_secret = read_secret_file(settings.oidc_client_secret_file, "oidc_client_secret_file")
     session_secret = read_secret_file(settings.session_secret_file, "session_secret_file")
     try:
@@ -131,7 +132,7 @@ def build_sign_in_configs(settings: ServerSettings, rate_limits: RateLimitBacken
         raise SignInConfigurationError(f"oidc_issuer and public_origin are refused: {refusal}") from None
     trusted_proxies = _parse_trusted_proxies(settings.trusted_proxies)
     try:
-        web_auth = _build_web_auth(settings, session_secret, rate_limits)
+        web_auth = _build_web_auth_config(settings, session_secret, rate_limits, wall_clock)
     except ValueError as refusal:
         raise SignInConfigurationError(f"session_secret_file is refused: {refusal}") from None
     return SignInConfigs(oidc_client=oidc_client, web_auth=web_auth, trusted_proxies=trusted_proxies)
@@ -161,8 +162,8 @@ def _build_oidc_client(settings: ServerSettings, client_secret: SecretStr) -> Oi
     )
 
 
-def _build_web_auth(
-    settings: ServerSettings, session_secret: SecretStr, rate_limits: RateLimitBackend
+def _build_web_auth_config(
+    settings: ServerSettings, session_secret: SecretStr, rate_limits: RateLimitBackend, wall_clock: WallClock
 ) -> WebAuthConfig:
     return WebAuthConfig(
         session_secret=session_secret,
@@ -173,6 +174,7 @@ def _build_web_auth(
         ),
         cookie_samesite="lax",
         cookie_secure=True,
+        wall_clock=wall_clock,
     )
 
 
@@ -208,43 +210,59 @@ def timed_issuer_calls(transports: IssuerTransports) -> IssuerTransports:
     )
 
 
-def build_relying_party(sign_in_configs: SignInConfigs, issuer_transports: IssuerTransports) -> OidcRelyingParty:
-    timed = timed_issuer_calls(issuer_transports)
-    return OidcRelyingParty(
-        sign_in_configs.oidc_client,
-        post_token_request=timed.post_token_request,
-        fetch_key_set=timed.fetch_key_set,
-        wall_clock=sign_in_configs.web_auth.wall_clock,
-        monotonic_clock=time.monotonic,
-    )
-
-
-def install_sign_in(
-    app: FastAPI,
-    relying_party: OidcRelyingParty,
-    transaction: SignInTransaction,
+def build_web_auth(
+    configs: SignInConfigs,
+    issuer_transports: IssuerTransports,
+    stores: SignInPorts,
     page_build: PageBuild,
-    sessions: SessionRecordStore,
-    web_auth: WebAuthConfig,
-) -> None:
-    """The library serves the start, callback, logout and back-channel routes; the pages stay Skat's."""
-
-    def sign_in_pages_of(request: HTTPConnection) -> SignInPages:
-        return page_build.sign_in_pages[language_of_request(request, sessions=sessions, config=web_auth)]
-
-    install_sign_in_routes(
-        app,
-        paths=SIGN_IN_PATHS,
-        relying_party=lambda _request: relying_party,
-        admission=admission_for(relying_party.issuer),
-        transaction=transaction,
-        refused=lambda request, refusal: _refusal_response(refusal, sign_in_pages_of(request)),
-        keeps_id_token=True,
-        max_sessions=None,
-        logout_page_text=lambda request: logout_page_text(request, sessions=sessions, config=web_auth),
-        ui_language=lambda request: language_of_request(request, sessions=sessions, config=web_auth),
+    *,
+    security_headers: SecurityHeadersPolicy,
+    rate_limit: RateLimitPolicy | None = None,
+    gate: SessionGate | None = None,
+) -> WebAuth:
+    """The auth of the app, built before its routes: webauth serves the start, callback, logout and back-channel
+    routes and the gates, and the pages stay Skat's.
+    """
+    timed = timed_issuer_calls(issuer_transports)
+    return WebAuth.build(
+        WebAuthSettings(
+            config=configs.web_auth,
+            client=configs.oidc_client,
+            sign_in_paths=SIGN_IN_PATHS,
+            keeps_id_token=True,
+            max_sessions=None,
+            security_headers=security_headers,
+            csrf_origin=CsrfPolicy(),
+            rate_limit=rate_limit,
+        ),
+        stores=WebAuthStores(sign_in=stores.transaction, sessions=sessions_entry(stores)),
+        groups=admission_for(configs.oidc_client.issuer),
+        pages=_web_auth_pages(page_build, stores.sessions, configs.web_auth),
+        front=configs.trusted_proxies,
+        gate=gate,
+        issuer_calls=IssuerCalls(post_token_request=timed.post_token_request, fetch_key_set=timed.fetch_key_set),
     )
-    app.include_router(_create_pages_router(page_build, sign_in_pages_of))
+
+
+def sessions_entry(stores: SignInPorts) -> SessionTransaction:
+    # Each call takes the stores' shared guard, so a sign-in entry in progress holds this call back.
+    return lambda: nullcontext(stores.sessions)
+
+
+def _web_auth_pages(page_build: PageBuild, sessions: SessionRecordStore, config: WebAuthConfig) -> WebAuthSignInPages:
+    return WebAuthSignInPages(
+        refused=lambda request, refusal: _refusal_response(
+            refusal, _sign_in_pages_of(request, page_build, sessions, config)
+        ),
+        logout_page_text=lambda request: logout_page_text(request, sessions=sessions, config=config),
+        ui_language=lambda request: language_of_request(request, sessions=sessions, config=config),
+    )
+
+
+def _sign_in_pages_of(
+    request: HTTPConnection, page_build: PageBuild, sessions: SessionRecordStore, config: WebAuthConfig
+) -> SignInPages:
+    return page_build.sign_in_pages[language_of_request(request, sessions=sessions, config=config)]
 
 
 def logout_page_text(request: HTTPConnection, *, sessions: SessionRecordStore, config: WebAuthConfig) -> LogoutPageText:
@@ -259,7 +277,12 @@ def _page_response(page: BuiltPage, status_code: int = HTTPStatus.OK) -> Respons
     return response
 
 
-def _create_pages_router(page_build: PageBuild, sign_in_pages_of: Callable[[HTTPConnection], SignInPages]) -> APIRouter:
+def create_pages_router(page_build: PageBuild, sessions: SessionRecordStore, config: WebAuthConfig) -> APIRouter:
+    """The signed-out, call sign-in and no-access pages, in the language of the request."""
+
+    def sign_in_pages_of(request: HTTPConnection) -> SignInPages:
+        return _sign_in_pages_of(request, page_build, sessions, config)
+
     router = APIRouter()
     for language, pages in page_build.sign_in_pages.items():
         if pages.signed_out.content.count(SIGN_IN_ADDRESS) != 1:
@@ -311,18 +334,6 @@ def _is_call_mode_table(next_path: str) -> bool:
 
 
 def _refusal_response(refusal: SignInRefusal, sign_in_pages: SignInPages) -> Response:
-    _log_refusal(refusal.cause)
     if refusal.page is RefusalPage.NO_ACCESS:
         return Response(status_code=HTTPStatus.SEE_OTHER, headers={"location": NO_ACCESS_PATH})
     return _page_response(sign_in_pages.login_failed, HTTPStatus.FORBIDDEN)
-
-
-def _log_refusal(refusal: OidcRefusal | AdmissionRefusal) -> None:
-    if isinstance(refusal, AdmissionRefusal):
-        logger.info("sign_in.refused", reason=refusal.value)
-        return
-    codes = {
-        "idp_error": refusal.idp_error,
-        "token_rejection": None if refusal.token_rejection is None else refusal.token_rejection.value,
-    }
-    logger.info("sign_in.refused", reason=refusal.reason.value, **{name: code for name, code in codes.items() if code})
