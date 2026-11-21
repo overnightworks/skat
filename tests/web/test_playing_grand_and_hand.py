@@ -1,5 +1,3 @@
-import pytest
-
 from skat.engine.deal import Deal
 from skat.engine.tricks import PlayRefusal
 from skat.table.hand_state import playing_of
@@ -11,7 +9,6 @@ from tests.web.support.playing import (
     FOREHAND,
     MIDDLEHAND,
     REARHAND,
-    Table,
     card,
     cards,
     gains,
@@ -20,11 +17,6 @@ from tests.web.support.playing import (
 )
 
 GRAND = "grand"
-
-
-@pytest.fixture
-def table(skat):
-    return Table(skat)
 
 
 class TestGrandAndHandGamesReachTheirResult:

@@ -35,7 +35,7 @@ from tests.web.support.presence import (
     pass_hand_in,
     run,
 )
-from tests.web.support.skat import FakeTime, read_the_first_round
+from tests.web.support.skat import FakeTime, advance, read_the_first_round
 
 
 @pytest.fixture
@@ -219,10 +219,6 @@ def two_seated_at_a_new_table(server):
     table_id = server.create(people[0][0]).json()["id"]
     server.sit(people[1][0], table_id, 2, command_id="command-sit-2")
     return table_id, people
-
-
-def advance(server, time, seconds):
-    server.client.portal.call(time.advance, seconds)
 
 
 class TestHoldAtADealtTable:

@@ -16,7 +16,7 @@ from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import Agent, view_uri_of
 from tests.web.support.calling import changing_skat
 from tests.web.support.changes import RecordedChanges
-from tests.web.support.sdk_agent import SdkAgent
+from tests.web.support.skat import account_of, advance
 
 REARHAND = Position.REARHAND
 AWAITED_AGENT_SUBJECT = "awaited-agent"
@@ -29,24 +29,6 @@ def changes():
 
 
 skat = pytest.fixture(name="skat")(changing_skat)
-
-
-@pytest.fixture
-def sdk(skat, issuer):
-    return SdkAgent(skat, issuer)
-
-
-@pytest.fixture
-def pulses(changes):
-    return changes.told
-
-
-def wait(skat, time, seconds):
-    skat.client.portal.call(time.advance, seconds)
-
-
-def account_of(skat, agent):
-    return skat.stores.accounts.get(agent.subject).id
 
 
 def own_chair(view):
@@ -68,7 +50,7 @@ class TestAnAgentOnTurnIsNudged:
     ):
         table = middlehand_auction
         agent.view(table.table_id)
-        wait(skat, time, ASK_AGAIN_AFTER)
+        advance(skat, time, ASK_AGAIN_AFTER)
         asked = agent.view(table.table_id)
         pulses.clear()
 
@@ -93,7 +75,7 @@ class TestAnAgentOnTurnIsNudged:
     ):
         table = middlehand_auction
         read = agent.read(table.table_id).json()
-        wait(skat, time, ASK_AGAIN_AFTER)
+        advance(skat, time, ASK_AGAIN_AFTER)
         pulses.clear()
 
         answer = nudge(
@@ -111,7 +93,7 @@ class TestAnAgentOnTurnIsNudged:
         revisions = [first["revision"]]
 
         for made in range(NUDGES_PER_VERSION):
-            wait(skat, time, ASK_AGAIN_AFTER)
+            advance(skat, time, ASK_AGAIN_AFTER)
             revisions.append(agent.view(table.table_id)["revision"])
             answer = nudge(skat, table.table_id, table.at[REARHAND], seat, version=version, nudges=made)
             assert answer.status_code == 200, answer.text
@@ -124,7 +106,7 @@ class TestAnAgentOnTurnIsNudged:
     ):
         table = middlehand_auction
         first = agent.view(table.table_id)
-        wait(skat, time, ASK_AGAIN_AFTER)
+        advance(skat, time, ASK_AGAIN_AFTER)
         asked = (table.table_id, table.at[REARHAND], own_chair(first)["seat"])
         nudge(skat, *asked, version=first["state"]["version"])
         pulses.clear()
@@ -138,7 +120,7 @@ class TestASignalThatFails:
     def test_is_logged_by_its_type_and_the_nudge_stands(self, skat, time, agent, middlehand_auction, changes):
         table = middlehand_auction
         first = agent.view(table.table_id)
-        wait(skat, time, ASK_AGAIN_AFTER)
+        advance(skat, time, ASK_AGAIN_AFTER)
         changes.failure = ConnectionResetError()
 
         with capture_logs() as logs:
@@ -180,7 +162,7 @@ class TestTwoAgentsAtOneTable:
         self, skat, time, awaited, other, person, table_id
     ):
         views = {each: each.view(table_id) for each in (awaited, other)}
-        wait(skat, time, ASK_AGAIN_AFTER)
+        advance(skat, time, ASK_AGAIN_AFTER)
         before = other.view(table_id)
         version = views[other]["state"]["version"]
 
@@ -199,7 +181,7 @@ class TestTwoAgentsAtOneTable:
         arguments = {"table_id": table_id, "version": version, "seat": 1, "nudges": 0}
 
         too_early = other.call(NUDGE_SEAT_TOOL, **arguments)
-        wait(skat, time, ASK_AGAIN_AFTER)
+        advance(skat, time, ASK_AGAIN_AFTER)
         asked = awaited.view(table_id)
         nudged = other.call(NUDGE_SEAT_TOOL, **arguments)
 
@@ -217,7 +199,7 @@ class TestAScriptedClientIsNudged:
         with sdk.connected() as session, session.listening() as events:
             table.middlehand_bids()
             view = events.woken_view(table.table_id)
-            wait(skat, time, ASK_AGAIN_AFTER)
+            advance(skat, time, ASK_AGAIN_AFTER)
             asked = events.woken_view(table.table_id)
             version = asked["state"]["version"]
             answer = nudge(skat, table.table_id, table.at[REARHAND], own_chair(asked)["seat"], version=version)

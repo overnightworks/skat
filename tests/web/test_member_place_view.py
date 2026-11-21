@@ -4,7 +4,6 @@ is woken by a person's move, reads its view, acts with the tool the view calls f
 
 import json
 from dataclasses import replace
-from datetime import timedelta
 
 import pytest
 from agents.member import LEASE_SECONDS, STANDING_URI
@@ -44,16 +43,14 @@ from tests.support.payload_cards import with_known_deal
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import Agent, person_passes, person_posts, view_uri_of, window_uri_of
-from tests.web.support.calling import running_skat
+from tests.web.support.calling import a_person, inviting, running_skat
 from tests.web.support.playing import HERZ_GAME, card_body
 from tests.web.support.presence import HOLD_SECONDS
-from tests.web.support.sdk_agent import SdkAgent
-from tests.web.support.skat import UNKNOWN_ID, AgentTable, Skat
+from tests.web.support.skat import UNKNOWN_ID, AgentTable, Skat, account_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 UNKNOWN = "Unknown resource"
 OWNER = "the-agents-owner"
-INVITATION_SECONDS = 600
 OTHER_AGENT_SUBJECT = "other-agent-subject"
 ISSUER = "https://issuer.test.invalid"
 
@@ -98,23 +95,8 @@ def skat(hold, issuer, time, view_signal_through):
     yield from running_skat(hold, issuer, time, view_signal_through=view_signal_through)
 
 
-@pytest.fixture
-def sdk(skat, issuer):
-    """The seated agent as a runner connects: through the SDK's client."""
-    return SdkAgent(skat, issuer)
-
-
-def a_person(skat, issuer):
-    """A person's own token at /mcp: it carries no agent facts."""
-    return Agent(skat, issuer, skat.member()[1].id, agent_owner=None, agent_name=None, groups=[MCP_GROUP])
-
-
 def another_agent(skat, issuer, subject=OTHER_AGENT_SUBJECT):
     return Agent(skat, issuer, subject, agent_name="Bach")
-
-
-def agent_account(skat, agent):
-    return skat.stores.accounts.get(agent.subject).id
 
 
 def unknown(answer):
@@ -264,7 +246,7 @@ class TestOnlyTheSeatedAgentReadsItsView:
 
     def test_an_agent_that_is_only_invited_reads_an_unknown_resource(self, skat, issuer, time, middlehand_auction, uri):
         other = another_agent(skat, issuer)
-        skat.client.portal.call(_inviting, skat, middlehand_auction.table_id, call_facts(other.subject, OWNER))
+        skat.client.portal.call(inviting, skat, middlehand_auction.table_id, call_facts(other.subject, OWNER))
 
         assert (unknown(other.read_resource(uri)), other.listed_resources()) == (True, [STANDING_URI])
 
@@ -306,19 +288,13 @@ class TestOnlyTheSeatedAgentReadsItsView:
         assert len(answers) == 1
 
 
-async def _inviting(skat, table_id, facts):
-    return await run_in_threadpool(
-        skat.tables.invite_agent, TableId(table_id), facts, timedelta(seconds=INVITATION_SECONDS)
-    )
-
-
 def a_standing_change(skat, agent, time):
     """A change of the agent's standing that a person causes and no removal explains: an invitation to a table of a
     member, which the agent does not sit at.
     """
     person = skat.member()
     table_id = skat.create(person[0]).json()["id"]
-    skat.client.portal.call(_inviting, skat, table_id, call_facts(agent.subject, OWNER))
+    skat.client.portal.call(inviting, skat, table_id, call_facts(agent.subject, OWNER))
     skat.client.cookies.clear()
 
 
@@ -368,7 +344,7 @@ class TestTheViewEndsWithTheChair:
         with sdk.connected() as session, session.listening() as events:
             removal(skat, time, session, table_id)
             assert [events.next_uri() for _ in range(standing_changes)] == [STANDING_URI] * standing_changes
-            tap.tell_late(skat, table_id, agent_account(skat, agent))
+            tap.tell_late(skat, table_id, account_of(skat, agent))
             a_standing_change(skat, agent, time)
 
             assert events.next_uri() == STANDING_URI
@@ -387,7 +363,7 @@ class TestTheViewFollowsTheLease:
             tap.told.clear()
             skat.client.portal.call(time.advance, LEASE_SECONDS + 1)
             table.middlehand_bids()
-            assert tap.told == [(table.table_id, frozenset({agent_account(skat, agent)}))]
+            assert tap.told == [(table.table_id, frozenset({account_of(skat, agent)}))]
             a_standing_change(skat, agent, time)
 
             assert lapsed.next_uri() == STANDING_URI
@@ -470,7 +446,7 @@ class TestAPersonsMoveSignalsEachSeatedAgent:
         )
 
         assert sorted(pulses) == sorted(
-            (agent_account(skat, each), uri)
+            (account_of(skat, each), uri)
             for each in (first, second)
             for uri in (window_uri_of(table_id), view_uri_of(table_id))
         )

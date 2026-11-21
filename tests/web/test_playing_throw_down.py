@@ -8,7 +8,7 @@ from skat.engine.tricks import ALL_POINTS
 from skat.web.declaration_tokens import GameToken
 from skat.web.playing import TABLE_THROW_DOWN_SUFFIX
 from tests.support.payload_cards import FOREHAND_CARDS, KNOWN_DEAL, cards_in_text
-from tests.web.support.playing import Table, card, ending_of, game_of, points_of_cards
+from tests.web.support.playing import Table, card, ending_of, game_of, points_of_cards, shown
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 # The skat of the known deal is the Karo King and the Karo Ace.
@@ -22,17 +22,6 @@ FIRST_SEVEN_TRICKS = game_of(
 ALL_LEVELS = ["spiel", "hand", "schneider", "schwarz"]
 
 
-@pytest.fixture
-def table(skat):
-    return Table(skat)
-
-
-@pytest.fixture
-def herz_hand(table):
-    table.declared_hand_game()
-    return table
-
-
 def throw_down(table, position, *, body=None):
     return table.act(TABLE_THROW_DOWN_SUFFIX, table.at[position], body=body)
 
@@ -41,10 +30,6 @@ def result_of(table, position):
     answer = throw_down(table, position)
     assert answer.status_code == 200, answer.text
     return answer.json()["result"]
-
-
-def shown(result, *keys):
-    return {key: result[key] for key in keys}
 
 
 class TestTheEnding:

@@ -165,11 +165,6 @@ EVERY_GAME = [
 EARLY_ENDS = [EVERY_GAME[1], EVERY_GAME[3]]
 
 
-@pytest.fixture
-def table(skat):
-    return Table(skat)
-
-
 class TestNullOuvertReachesItsResult:
     @pytest.mark.parametrize("game", EVERY_GAME)
     def test_the_game_ends_at_the_declarers_first_trick_or_its_tenth_and_scores_its_fixed_value(self, table, game):

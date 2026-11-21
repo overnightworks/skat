@@ -1,5 +1,3 @@
-import itertools
-import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -31,8 +29,8 @@ from tests.support.payload_cards import (
     wire_cards,
 )
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import reason_of
-from tests.web.support.skat import FETCH, UNKNOWN_ID, unnamed_lines
+from tests.web.support.playing import StoredTable, declared_body, reason_of
+from tests.web.support.skat import FETCH, UNKNOWN_ID, message_at_version, message_body
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -51,10 +49,6 @@ def card_body(card):
 
 def cards_body(*cards):
     return {"cards": [card_body(card) for card in cards]}
-
-
-def declared_body(game=GameToken.HERZ, *, hand=False, ouvert=False, announcement=AnnouncementToken.NONE):
-    return {"game": game, "hand": hand, "ouvert": ouvert, "announcement": announcement}
 
 
 def two_of_the_twelve():
@@ -77,7 +71,7 @@ def post_declaring(skat, headers, table_id, *, command_id, version, suffix, **fi
     )
 
 
-class Table:
+class Table(StoredTable):
     """A dealt table with its people told apart by position, and the watcher left over."""
 
     def __init__(self, skat):
@@ -86,12 +80,7 @@ class Table:
         by_seat = {seat: people[seat - 1][0] for seat in (1, 2, 3)}
         self.at = {position: by_seat[seat] for seat, position in positions_from(DEALER_SEAT).items()}
         self.watcher = people[3][0]
-        self._commands = itertools.count(1)
         self.same_command = "command-same"
-
-    @property
-    def record(self):
-        return self.skat.store.tables[self.table_id]
 
     @property
     def steps(self):
@@ -100,9 +89,6 @@ class Table:
     @property
     def declaration(self):
         return declaring_of(self.record).declaration
-
-    def fresh_id(self):
-        return f"step-{next(self._commands):04d}"
 
     def auction_step(self, position, suffix, value=None):
         fields = {} if value is None else {"value": value}
@@ -509,18 +495,6 @@ class TestRetry:
 
         assert again.status_code == 200
         assert won.record == after_steps
-
-
-def message_body(raw):
-    return json.loads(raw.removeprefix("data: "))
-
-
-def message_at_version(lines, version):
-    """The stream's message at a version; someone joining wakes the stream with the old one first."""
-    for line in unnamed_lines(lines):
-        if line.startswith("data: ") and message_body(line)["version"] == version:
-            return line
-    return pytest.fail(f"the stream ended before version {version}")
 
 
 @dataclass(frozen=True)

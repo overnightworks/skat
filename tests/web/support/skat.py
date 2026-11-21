@@ -6,6 +6,7 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from agents.mcp_wire import PROTOCOL_VERSION, PROTOCOL_VERSION_HEADER
 from fastapi.testclient import TestClient
 from mcp.shared.inbound import MCP_METHOD_HEADER, MCP_NAME_HEADER, NAME_BEARING_METHODS
@@ -258,3 +259,27 @@ class AgentTable(Table):
         with_known_deal(skat, self.table_id)
         self.at = {held: by_seat[seat] for seat, held in positions_from(DEALER_SEAT).items()}
         self.watcher = people[2][0]
+
+
+def advance(skat, time, seconds):
+    skat.client.portal.call(time.advance, seconds)
+
+
+def message_body(raw):
+    return json.loads(raw.removeprefix("data: "))
+
+
+def message_at_version(lines, version):
+    """The stream's message at a version; someone joining wakes the stream with the old one first."""
+    for line in unnamed_lines(lines):
+        if line.startswith("data: ") and message_body(line)["version"] == version:
+            return line
+    return pytest.fail(f"the stream ended before version {version}")
+
+
+def account_of(skat, agent):
+    return skat.stores.accounts.get(agent.subject).id
+
+
+def read(skat, headers, table_id):
+    return skat.client.get(f"{TABLES_PATH}/{table_id}", headers=headers)

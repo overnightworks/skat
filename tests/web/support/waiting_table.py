@@ -11,11 +11,12 @@ from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import Agent
+from tests.web.support.playing import StoredTable
 
 SENT_SEAT = 2
 
 
-class WaitingTable:
+class WaitingTable(StoredTable):
     """A dealt table with the known hand: an agent in seat 1, on turn, a second agent in seat 2 and a person in
     seat 3. The second agent is sent away by the person.
     """
@@ -37,10 +38,6 @@ class WaitingTable:
         self.skat.store.tables[self.table_id] = replace(
             self.record, progress=HandProgress(auction=passes, pushing=(Push(Position.FOREHAND),))
         )
-
-    @property
-    def record(self):
-        return self.skat.store.tables[self.table_id]
 
     def send_the_second_agent_away(self):
         sender = Actor(self.person.id, self.person.username)

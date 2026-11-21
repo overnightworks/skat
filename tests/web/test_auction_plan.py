@@ -12,12 +12,13 @@ from skat.web.auction import TABLE_AUCTION_PLAN_SUFFIX
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, seated_three
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.web.support.playing import StoredTable
 from tests.web.support.skat import FETCH, unnamed_lines
 
 LIMIT = {"kind": "limit", "value": 30, "mode": "fixed"}
 
 
-class Plans:
+class Plans(StoredTable):
     """A dealt table of three seated people, told apart by position."""
 
     def __init__(self, skat):
@@ -27,10 +28,6 @@ class Plans:
         self.forehand = by_position[Position.FOREHAND]
         self.middlehand = by_position[Position.MIDDLEHAND]
         self.onlooker = people[3][0]
-
-    @property
-    def record(self):
-        return self.skat.store.tables[self.table_id]
 
     def send(self, headers, plan, command_id="plan-0001", **extra):
         return self.skat.client.post(

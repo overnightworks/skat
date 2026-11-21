@@ -25,7 +25,7 @@ from tests.web.support.giving_up import (
     own_cards_of,
     playing_as,
 )
-from tests.web.support.playing import Table, card, cards, ending_of, gains, game_of, three_pass
+from tests.web.support.playing import EIGHT_CARDS, Table, card, cards, ending_of, gains, game_of, three_pass
 from tests.web.support.series import tap_weiter
 from tests.web.support.shortening import (
     herz_at_22_with_42_points_against,
@@ -43,7 +43,6 @@ HERZ_GAME = game_of(
     "SA DQ C9 / SJ HJ CT / H8 HQ CQ / HK CK H9 / HA CA HT",
 )
 # The declarer holds eight cards once he has played to the second trick, led with H7; rearhand is on turn.
-EIGHT_CARDS = HERZ_GAME[:4]
 # After seven tricks the declarer has taken 0 + 10 + 3 + 14 + 14 + 14 = 55 card points, and the skat (D K, D A) adds
 # 4 + 11: 70 points win the game without Schneider.
 SEVEN_TRICKS = HERZ_GAME[:21]
@@ -59,23 +58,6 @@ HERZ_HAND_RESULT = {
     "declarer_points": 120,
     "opponents_points": 0,
 }
-
-
-@pytest.fixture
-def table(skat):
-    return Table(skat)
-
-
-@pytest.fixture
-def herz_hand(table):
-    table.declared_hand_game()
-    return table
-
-
-@pytest.fixture
-def eight_cards(herz_hand):
-    herz_hand.played_out(EIGHT_CARDS)
-    return herz_hand
 
 
 PARTNER_AGREES = {"give_up": {"partner_agrees": True}}

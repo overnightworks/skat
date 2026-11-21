@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -15,7 +14,7 @@ from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.payload_cards import KNOWN_DEAL, SKAT_CARDS, cards_in_text, wire_cards
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import HERZ_GAME, Table, card, card_body, cards, game_of, reason_of, takers
-from tests.web.support.skat import UNKNOWN_ID, unnamed_lines
+from tests.web.support.skat import UNKNOWN_ID, message_at_version, message_body
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -51,17 +50,6 @@ NULL_GAME = game_of(
     "S7 SJ D7 / S9 D8 S8 / ST D9 C7 / SQ DT C8 / SK DJ C9",
     "SA DQ CT / H7 HJ CJ / HQ CQ H8 / HK CK H9 / HA CA HT",
 )
-
-
-@pytest.fixture
-def table(skat):
-    return Table(skat)
-
-
-@pytest.fixture
-def herz_hand(table):
-    table.declared_hand_game()
-    return table
 
 
 class TestAFirstCard:
@@ -270,18 +258,6 @@ class TestRetries:
 SEATS = {MIDDLEHAND: 1, REARHAND: 2, FOREHAND: 3}
 CHAIRS_IN_SEAT_ORDER = (MIDDLEHAND, REARHAND, FOREHAND)
 ALL_POINTS = 120
-
-
-def message_body(raw):
-    return json.loads(raw.removeprefix("data: "))
-
-
-def message_at_version(lines, version):
-    """The stream's message at a version; someone joining wakes the stream with the old one first."""
-    for line in unnamed_lines(lines):
-        if line.startswith("data: ") and message_body(line)["version"] == version:
-            return line
-    return pytest.fail(f"the stream ended before version {version}")
 
 
 def in_deck_order(held):

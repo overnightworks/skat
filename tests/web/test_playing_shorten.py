@@ -25,7 +25,7 @@ from tests.web.support.giving_up import (
     own_cards_of,
     playing_as,
 )
-from tests.web.support.playing import HERZ_GAME, Table, ending_of
+from tests.web.support.playing import EIGHT_CARDS, HERZ_GAME, Table, ending_of
 from tests.web.support.series import tap_weiter
 from tests.web.support.shortening import (
     FOREHAND,
@@ -53,18 +53,6 @@ from tests.web.support.skat import AgentTable, Skat, streams_of
 
 OPPONENTS = [pytest.param(FOREHAND, id="forehand"), pytest.param(REARHAND, id="rearhand")]
 # The declarer holds eight cards once he has played to the second trick.
-EIGHT_CARDS = HERZ_GAME[:4]
-
-
-@pytest.fixture
-def table(skat):
-    return Table(skat)
-
-
-@pytest.fixture
-def herz_hand(table):
-    table.declared_hand_game()
-    return table
 
 
 # The opponent who says no, and whom of the other opponents said yes before.

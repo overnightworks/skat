@@ -20,7 +20,7 @@ from tests.web.support.presence import (
     occupied_seats,
     view_of_version,
 )
-from tests.web.support.skat import FakeTime, Skat, streams_of
+from tests.web.support.skat import FakeTime, Skat, advance, streams_of
 
 FIRST_RESULT = 1
 
@@ -44,10 +44,6 @@ def marks(view):
 
 def stored_marks(server, table_id):
     return [chair.ready for chair in server.store.tables[table_id].chairs]
-
-
-def advance(server, time, seconds):
-    server.client.portal.call(time.advance, seconds)
 
 
 @pytest.fixture

@@ -6,7 +6,6 @@ from skat.engine.deal import Deal, Position, next_dealer
 from skat.engine.tricks import PlayRefusal
 from skat.table.records import Refusal
 from skat.web.declaration_tokens import AnnouncementToken, GameToken
-from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.playing import (
     TABLE_GIVE_UP_AGREE_SUFFIX,
     TABLE_GIVE_UP_DECLINE_SUFFIX,
@@ -17,7 +16,7 @@ from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, cards_in_text
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import DECLARER_SEAT, Table, card, cards, ending_of, game_of, reason_of
+from tests.web.support.playing import DECLARER_SEAT, EIGHT_CARDS, Table, card, cards, ending_of, game_of, reason_of, say
 from tests.web.support.presence import OvertakenStore, occupied_seats
 from tests.web.support.skat import Skat, streams_of
 
@@ -30,7 +29,6 @@ HERZ_GAME = game_of(
     "SA DQ C9 / SJ HJ CT / H8 HQ CQ / HK CK H9 / HA CA HT",
 )
 # The declarer holds eight cards once he has played to the second trick.
-EIGHT_CARDS = HERZ_GAME[:4]
 # After seven tricks the declarer has taken 0 + 10 + 3 + 14 + 14 + 14 = 55 card points, and the skat (D K, D A) adds
 # 4 + 11: 70 points win the game without Schneider.
 SEVEN_TRICKS = HERZ_GAME[:21]
@@ -55,23 +53,6 @@ NULL_DEAL = Deal(
     skat=cards("DA DK"),
 )
 NULL_TWO_TRICKS = game_of("CT C7 CJ / CK CQ C8")
-
-
-@pytest.fixture
-def table(skat):
-    return Table(skat)
-
-
-@pytest.fixture
-def herz_hand(table):
-    table.declared_hand_game()
-    return table
-
-
-@pytest.fixture
-def eight_cards(herz_hand):
-    herz_hand.played_out(EIGHT_CARDS)
-    return herz_hand
 
 
 @pytest.fixture
@@ -107,11 +88,6 @@ def everyone_reads(table):
 def lost_at_30(answer):
     result = answer.json()["result"]
     assert {key: result[key] for key in HERZ_HAND_LOST_AT_30} == HERZ_HAND_LOST_AT_30
-
-
-def say(table, position, word):
-    answer = table.act(TABLE_KONTRA_SUFFIX, table.at[position], body={"word": word})
-    assert answer.status_code == 200, answer.text
 
 
 def kontra_of(table):

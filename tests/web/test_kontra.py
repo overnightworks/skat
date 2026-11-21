@@ -10,7 +10,7 @@ from skat.web.playing import TABLE_GIVE_UP_SUFFIX, TABLE_THROW_DOWN_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import with_known_deal
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import HERZ_GAME, Table, cards, contested_auction
+from tests.web.support.playing import HERZ_GAME, Table, cards, contested_auction, gains_of, shown
 from tests.web.support.presence import view_of_version
 from tests.web.support.series import tap_weiter
 from tests.web.support.skat import streams_of
@@ -77,14 +77,6 @@ def play(table, *steps):
                 table.accepted(next(game))
         else:
             said(table, *step)
-
-
-def shown(result, *keys):
-    return {key: result[key] for key in keys}
-
-
-def gains_of(result):
-    return [each["gain"] for each in result["gains"]]
 
 
 SCORE_KEYS = ("settled_value", "game_value", "score", "list_bonus", "won", "overbid")

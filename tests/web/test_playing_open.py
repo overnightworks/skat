@@ -33,7 +33,7 @@ from tests.web.support.open_play import (
     plays_open,
     waiting_for,
 )
-from tests.web.support.playing import HERZ_GAME, Table, ending_of, gains
+from tests.web.support.playing import HERZ_GAME, ending_of, gains
 from tests.web.support.shortening import (
     everyone,
     herz_hand_with_63_points_against,
@@ -45,17 +45,6 @@ from tests.web.support.skat import AgentTable, Skat
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 OPPONENTS = [pytest.param(FOREHAND, id="forehand"), pytest.param(REARHAND, id="rearhand")]
-
-
-@pytest.fixture
-def table(skat):
-    return Table(skat)
-
-
-@pytest.fixture
-def herz_hand(table):
-    table.declared_hand_game()
-    return table
 
 
 class TestTheDeclarerCouldTakeNoFurtherTrick:

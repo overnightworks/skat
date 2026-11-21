@@ -1,5 +1,3 @@
-import itertools
-
 import pytest
 
 from skat.engine.bidding import VALID_BIDS, Bid, BidRefusal, Declared, Hold, Pass
@@ -16,7 +14,7 @@ from skat.web.auction import (
 from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, cards_in_text, seated_three
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
-from tests.web.support.playing import reason_of
+from tests.web.support.playing import StoredTable, reason_of
 from tests.web.support.skat import FETCH, UNKNOWN_ID
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
@@ -51,7 +49,7 @@ def suit_games_worth(karo, herz, pik, kreuz):
     ]
 
 
-class Table:
+class Table(StoredTable):
     """A dealt table whose four people are told apart by position, with the watcher left over."""
 
     def __init__(self, skat):
@@ -61,18 +59,13 @@ class Table:
         self.seats = by_seat
         self.at = {position: by_seat[seat] for seat, position in positions_from(DEALER_SEAT).items()}
         self.watcher = people[3][0]
-        self._commands = itertools.count(1)
-
-    @property
-    def record(self):
-        return self.skat.store.tables[self.table_id]
 
     def send(self, headers, step, value=None, *, command_id=None, version=None, **extra):
         return post_step(
             self.skat,
             headers,
             self.table_id,
-            command_id=command_id or f"step-{next(self._commands):04d}",
+            command_id=command_id or self.fresh_id(),
             version=self.record.version if version is None else version,
             step=step,
             **({} if value is None else {VALUE_FIELD: value}),

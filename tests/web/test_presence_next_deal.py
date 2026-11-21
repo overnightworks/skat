@@ -32,7 +32,7 @@ from tests.web.support.presence import (
     run,
     view_of_version,
 )
-from tests.web.support.skat import Skat, streams_of
+from tests.web.support.skat import Skat, advance, streams_of
 from tests.web.support.streams import (
     OPENER,
     SHORT_HEARTBEAT_SECONDS,
@@ -44,10 +44,6 @@ from tests.web.support.streams import (
 )
 
 CLEO = Actor(account_id="cleo", display_name="Cleo")
-
-
-def advance(server, time, seconds):
-    server.client.portal.call(time.advance, seconds)
 
 
 class TestNextDealPause:

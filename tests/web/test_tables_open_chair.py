@@ -31,13 +31,6 @@ skat = pytest.fixture(name="skat")(changing_skat)
 
 
 @pytest.fixture
-def waiting(skat, issuer):
-    table = WaitingTable(skat, issuer)
-    table.send_the_second_agent_away()
-    return table
-
-
-@pytest.fixture
 def waiting_in_the_pushing_stage(skat, issuer):
     table = WaitingTable(skat, issuer, PUSHING)
     table.after_the_forehand_pushed_the_skat()

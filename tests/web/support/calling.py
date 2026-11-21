@@ -3,16 +3,20 @@
 import json
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
+from starlette.concurrency import run_in_threadpool
 
+from skat.table.records import TableId
 from skat.web.calling import (
     AGENT_ADDERS_GROUP,
     TABLE_AGENT_CALL_SUFFIX,
     TABLE_AGENT_SEND_AWAY_SUFFIX,
     TABLE_AGENTS_SUFFIX,
 )
+from skat.web.mcp import MCP_GROUP
 from skat.web.tables import TABLES_PATH
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import new_account
@@ -20,6 +24,8 @@ from tests.web.support.agent import Agent
 from tests.web.support.changes import RecordedChanges
 from tests.web.support.sdk_agent import SdkAgent
 from tests.web.support.skat import FETCH, Skat, streams_of
+
+INVITATION_SECONDS = 600
 
 
 @dataclass(frozen=True)
@@ -158,3 +164,13 @@ class IssuerSkat:
     @pytest.fixture
     def skat(self, hold, issuer):
         yield from issuer_skat(hold, issuer)
+
+
+async def inviting(skat, table_id, facts):
+    return await run_in_threadpool(
+        skat.tables.invite_agent, TableId(table_id), facts, timedelta(seconds=INVITATION_SECONDS)
+    )
+
+
+def a_person(skat, issuer):
+    return Agent(skat, issuer, skat.member()[1].id, agent_owner=None, agent_name=None, groups=[MCP_GROUP])

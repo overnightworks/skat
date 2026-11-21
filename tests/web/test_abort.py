@@ -13,14 +13,6 @@ from tests.web.support.waiting_table import WaitingTable
 skat = pytest.fixture(name="skat")(issuer_skat)
 
 
-@pytest.fixture
-def waiting(skat, issuer):
-    """The agent in seat 1 and the person in seat 3 sit at a hand that waits for seat 2."""
-    table = WaitingTable(skat, issuer)
-    table.send_the_second_agent_away()
-    return table
-
-
 def vote(table, suffix, command_id, headers=None):
     table.skat.client.cookies.clear()
     return table.skat.client.post(

@@ -17,7 +17,6 @@ from skat.web.mcp import (
     AUCTION_HOLD_TOOL,
     AUCTION_PASS_TOOL,
     AUCTION_PLAY_TOOL,
-    MCP_GROUP,
     NUDGE_SEAT_TOOL,
     OPEN_TABLE_TOOL,
     PLAY_CARD_TOOL,
@@ -36,7 +35,7 @@ from skat.web.member_place import ACCEPT_INVITATION_DECLARATION, SET_TURN_STATE_
 from tests.support.calls import call_facts
 from tests.support.played_game import a_whole_game
 from tests.web.support.agent import Agent, agent_account_id, person_passes, person_steps, view_uri_of, window_uri_of
-from tests.web.support.calling import running_skat
+from tests.web.support.calling import a_person, running_skat
 from tests.web.support.playing import FOREHAND, MIDDLEHAND, REARHAND
 from tests.web.support.sdk_agent import TOOLS_CHANGED, SdkAgent
 from tests.web.support.series import headers_of, tap_weiter
@@ -54,15 +53,6 @@ NOT_OFFERED = "the tool is not offered now"
 
 
 skat = pytest.fixture(name="skat")(running_skat)
-
-
-@pytest.fixture
-def sdk(skat, issuer):
-    return SdkAgent(skat, issuer)
-
-
-def a_person(skat, issuer):
-    return Agent(skat, issuer, skat.member()[1].id, agent_owner=None, agent_name=None, groups=[MCP_GROUP])
 
 
 class TestTheListFollowsTheMoment:
