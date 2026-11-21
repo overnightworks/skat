@@ -1,0 +1,8 @@
+claim_id = "e980e8902de44a78afaa9bd2e105c957"
+agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
+role = "builder"
+base = "a1fddb0c2a9cc8a40aa45ee2ee21aaf6cc076c93"
+branch = "claude/issue-775-bid-plan-rulings"
+scope = ["frontend/src", "src/skat/table", "tests"]
+opened_commit = "2e14661ef8e96813e765592b2e9134c991e0e115"
+whole_reason = "Three small rulings on one plan runner and its bar, applied together."
