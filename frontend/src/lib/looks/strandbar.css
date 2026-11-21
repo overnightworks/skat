@@ -259,8 +259,12 @@
     }
 }
 
-/* A seat's own turn ring would beat the look's framed own-seat shadow on a phone: the look keeps its ring. */
+/* A seat's own turn ring would beat the look's own-seat shadow on a phone: the two rules keep the look's ring, plain and in a call. */
 @media (max-width: 899px) {
+    .room[data-style="strandbar"] .chair.mine.turn .tile {
+        box-shadow: var(--tile-mine-shadow);
+    }
+
     .room.framed[data-style="strandbar"] .chair.mine.turn .tile {
         box-shadow: var(--tile-mine-framed-shadow);
     }
