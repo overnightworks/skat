@@ -73,10 +73,13 @@ def the_page_draws(person: Page, word: str, *, declines: bool) -> dict[str, Any]
 
 
 def expect_the_keys_shown(person: Page, word: str, *, declines: bool) -> None:
-    """The key says `word`, beside the key declining it where the table asks both, centred on a phone."""
+    """The key says `word` with its mark; a table asking both adds the declining key; a phone centres them."""
     expect(button_of(person, word)).to_be_visible()
+    if person.viewport_size != NARROW_PHONE["viewport"]:
+        expect(button_of(person, word).locator("svg")).to_be_visible()
     if declines:
         expect(button_of(person, decline_of(word))).to_be_visible()
+        expect(button_of(person, decline_of(word)).locator("svg")).to_be_visible()
     viewport = person.viewport_size
     assert viewport is not None
     if declines and viewport["width"] < DESKTOP["viewport"]["width"]:
