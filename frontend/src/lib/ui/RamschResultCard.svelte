@@ -73,7 +73,7 @@
             <div class="reck" class:win={row.won} data-seat={row.seat}>
                 <span class="dot" aria-hidden="true">{row.initial}</span>
                 <span class="nm"
-                    >{row.name ?? words["result.seatFree"]}{#if row.gone}<em>{words["table.seriesGone"]}</em>{/if}</span
+                    >{row.name}{#if row.gone}<em>{words["table.seriesGone"]}</em>{/if}</span
                 >
                 <span class="dl" class:minus={row.gain <= 0}>{row.gainText}</span>
             </div>

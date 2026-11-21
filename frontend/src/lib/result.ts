@@ -21,7 +21,7 @@ import {
 
 export type ReckoningRow = {
     seat: number;
-    name: string | null;
+    name: string;
     // The player is no longer seated: the name stands from the game's record.
     gone: boolean;
     initial: string;
@@ -308,7 +308,7 @@ function reckoningRows(
         return {
             seat,
             initial: (player ?? "").slice(0, 1),
-            name: is_mine ? words["result.sideYou"] : player,
+            name: is_mine ? words["result.sideYou"] : shownName(chairs, names, seat),
             gone: !is_mine && player !== null && hasLeft(player, seated),
             gain,
             gainText: gain > 0 ? signed(gain) : withMinus(gain),

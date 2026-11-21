@@ -37,14 +37,14 @@ describe("the Ramsch result card's factor chips", () => {
         expect(drawn.map((chip) => chip.querySelectorAll(":scope > svg").length)).toEqual([1, 1]);
     });
 
-    it("marks a gone player's row and names an empty chair as free", () => {
+    it("marks a gone player's row", () => {
         const row = { initial: "x", gain: 0, gainText: "0", won: false };
         const view = {
             ...cardView([]),
             rows: [
                 { ...row, seat: 0, name: "Ben", gone: true },
                 { ...row, seat: 1, name: "Ana", gone: false },
-                { ...row, seat: 2, name: null, gone: false },
+                { ...row, seat: 2, name: "Cleo", gone: false },
             ],
         };
         mounted = mount(RamschResultCard, { target: document.body, props: { view } });
@@ -53,7 +53,7 @@ describe("the Ramsch result card's factor chips", () => {
         expect(names.map((name) => name.textContent.trim())).toEqual([
             `Ben${words["table.seriesGone"]}`,
             "Ana",
-            words["result.seatFree"],
+            "Cleo",
         ]);
     });
 });

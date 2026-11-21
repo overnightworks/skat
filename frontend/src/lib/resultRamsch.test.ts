@@ -209,11 +209,7 @@ describe("a Ramsch result's card", () => {
     it("lists the coasters with the viewer first and what each seat adds", () => {
         const view = drawnRamsch(ramschTable(3, LOST_WITH_PUSHES));
 
-        expect(view.rows.map((row) => `${row.name ?? ""} ${row.gainText}`)).toEqual([
-            "Du \u2212344",
-            "Anna 0",
-            "Ben 0",
-        ]);
+        expect(view.rows.map((row) => `${row.name} ${row.gainText}`)).toEqual(["Du \u2212344", "Anna 0", "Ben 0"]);
         expect(drawnRamsch(ramschTable(1, DURCHMARSCH)).rows[0]).toMatchObject({ gainText: "+120", won: true });
     });
 });

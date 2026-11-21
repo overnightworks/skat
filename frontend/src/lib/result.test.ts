@@ -560,10 +560,10 @@ describe("the reckoning row", () => {
         expect(view.rows.some(({ name }) => name === words["result.sideYou"])).toBe(false);
     });
 
-    it("keeps the row of a chair that has been left, without a name", () => {
+    it("keeps the row of a chair that has been left, named as free", () => {
         const rows = resultView(table(2, {}, { 1: { occupant_name: null } })).rows;
 
-        expect(rows.find(({ seat }) => seat === 1)?.name).toBeNull();
+        expect(rows.find(({ seat }) => seat === 1)?.name).toBe(words["result.seatFree"]);
     });
 });
 
