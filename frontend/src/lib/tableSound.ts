@@ -4,6 +4,7 @@ import { MOTION_SETS, type MotionSet } from "./motionSets.ts";
 import { currentSettings, loadSettings, motionInForce, soundSettings } from "./settings.svelte.ts";
 import { createSound, type Ambience, type AudioPort, type SoundSettings, type Voice } from "./sound.ts";
 import { SOUND_SETS, type SoundMoment, type SoundSet } from "./soundSets.ts";
+import { landInstants } from "./takt/land.ts";
 import { everyRecording, recordingOf, voiceKeysOf, type VoiceKey } from "./voice.ts";
 import { createWebAudioPort } from "./webAudio.ts";
 import { isTableObject, type Reaction } from "../routes/(start)/reaction.ts";
@@ -91,10 +92,9 @@ function momentOf(cue: Cue, table: Table): Moment | undefined {
     }
 }
 
-// From the cue to the moment the table shows it: a card touches the felt, a bubble has sprung, the stamp hits. A chair's
-// own sound starts when it begins to move, so the set keeps that time.
-const LANDS_AFTER: Record<Cue["kind"], (motion: MotionSet) => number> = {
-    "card-played": (motion) => motion.cardLandsSeconds,
+// From the cue to the moment the table shows it: a bubble has sprung, the stamp hits. A chair's own sound starts when it
+// begins to move, so the set keeps that time. A card is not among them: its landing names the instant it touches the felt.
+const LANDS_AFTER: Record<Exclude<Cue["kind"], "card-played">, (motion: MotionSet) => number> = {
     "bid-said": (motion) => motion.bidSpringsSeconds,
     "word-said": (motion) => motion.stampLandsSeconds,
     "game-announced": () => 0,
@@ -111,6 +111,11 @@ const LANDS_AFTER: Record<Cue["kind"], (motion: MotionSet) => number> = {
     "chair-opened": () => 0,
     nudged: (motion) => motion.bellRingsSeconds,
 };
+
+function landsAfter(cue: Cue, motion: MotionSet | undefined): number {
+    if (motion === undefined) return 0;
+    return cue.kind === "card-played" ? landInstants(motion.land).impact : LANDS_AFTER[cue.kind](motion);
+}
 
 // The gains count up from the moment the result has risen, and tick as long as the set's count runs.
 function countVoices(cues: readonly Cue[], set: SoundSet, motion: MotionSet | undefined): Voice[] {
@@ -154,10 +159,7 @@ export function createTableSound({
         forCues(cues, table) {
             const set = soundSet();
             const moving = motion();
-            const landings = cues.map((cue) => ({
-                cue,
-                lands: moving === undefined ? 0 : LANDS_AFTER[cue.kind](moving),
-            }));
+            const landings = cues.map((cue) => ({ cue, lands: landsAfter(cue, moving) }));
             const voices = landings
                 .flatMap(({ cue, lands }) => {
                     const moment = momentOf(cue, table);
@@ -202,7 +204,7 @@ export function createTableSound({
         },
         forTurn(cues) {
             const moving = motion();
-            const lands = moving === undefined ? 0 : Math.max(0, ...cues.map((cue) => LANDS_AFTER[cue.kind](moving)));
+            const lands = Math.max(0, ...cues.map((cue) => landsAfter(cue, moving)));
             sound.play(
                 soundSet()
                     .voices["turn-came"](1)

@@ -22,6 +22,7 @@ import {
     WAKING_SAMPLE_STARTS,
 } from "./tableSound.fixtures.ts";
 import { everyRecording, grumbleOf } from "./voice.ts";
+import { landInstants } from "./takt/land.ts";
 import { stubBrowser } from "../testing/stubBrowser.ts";
 
 describe("the sound of a card", () => {
@@ -674,7 +675,7 @@ describe("the sound of the viewer's turn", () => {
         soundAt(after, { motion: "verspielt" }).forTurn([cardPlayedBy(OTHER_SEAT)]);
         soundAt(alone, { motion: "verspielt" }).forTurn([]);
 
-        expect(earliest(after)).toBe(MOTION_SETS.verspielt.cardLandsSeconds);
+        expect(earliest(after)).toBe(landInstants(MOTION_SETS.verspielt.land).impact);
         expect(earliest(alone)).toBe(0);
     });
 

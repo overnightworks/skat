@@ -118,6 +118,11 @@ export function stageMoves(): boolean {
     return timingOf(motionSetInForce(), document.hidden) !== null;
 }
 
+/** The motion set a moment of the table plays in now; none while the stage does not move, where everything shows at once. */
+export function motionOnStage(): MotionSet | undefined {
+    return stageMoves() ? motionSetInForce() : undefined;
+}
+
 /**
  * The update `cues` brought to the table that followed `previous`. `closing` is given for the cues of the trick that
  * closes the hand: the stage shows its result once that trick has rested and swept, or at once when it does not move.
