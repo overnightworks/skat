@@ -1,8 +1,0 @@
-claim_id = "cf384460634a45538287f3572c311801"
-agent = "Claude 08329d5b-8776-4078-b270-c37efe5b15d8"
-role = "builder"
-base = "4b61383ea6ecb8fa2775a5533e08d37cad1164ad"
-branch = "claude/issue-805-webauth-0-43"
-scope = ["docs/ARCHITECTURE.md", "pyproject.toml", "src/skat/host", "src/skat/web", "tests", "uv.lock"]
-opened_commit = "e0560a365eaa890e3300c4552bfba907f185fe7f"
-whole_reason = "One breaking pin moves the host's auth composition, its callers and their tests together; a half-moved host does not import."
