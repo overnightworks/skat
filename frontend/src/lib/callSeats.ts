@@ -8,6 +8,7 @@ import {
     type SeatEntry,
     type SeatsMessage,
 } from "#lib/callFrame.ts";
+import type { Outcome, Table } from "../routes/(start)/tables.ts";
 import { CHAIRS_PER_TABLE, TABLES_PATH, TABLE_PERSON_KEYS_SUFFIX } from "#lib/wire.ts";
 
 // The pure decisions of the seats a framed table tells its call: which tile boxes go out, which chairs are see-through
@@ -162,6 +163,11 @@ export function holesPath(
         return hole.shape === "round" ? ellipsePath(local) : cornerPath(local, hole.radius);
     });
     return `path(evenodd, "${[outer, ...cuts].join(" ")}")`;
+}
+
+/** The table an answer shows, or null while the page has none, or an answer that is no table. */
+export function shownTable(outcome: Outcome | null): Table | null {
+    return outcome?.kind === "table" ? outcome.table : null;
 }
 
 /** The occupancy of each chair of a table's chairs, by seat. */

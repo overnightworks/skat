@@ -10,10 +10,12 @@ import {
     readPersonKeys,
     seatsMessage,
     shownAsInView,
+    shownTable,
     type PostedSeat,
     type TileReading,
 } from "./callSeats.ts";
 import type { SeatEntry } from "./callFrame.ts";
+import { tableAwaitingAWord } from "./tableSound.fixtures.ts";
 import { TABLES_PATH, TABLE_PERSON_KEYS_SUFFIX } from "./wire.ts";
 
 const TABLE_ID = "0123456789abcdef0123456789abcdef";
@@ -183,6 +185,18 @@ describe("holesPath", () => {
 
     it("is the outer rectangle alone for no hole", () => {
         expect(holesPath(owner, [])).toBe(`path(evenodd, "${outer}")`);
+    });
+});
+
+describe("shownTable", () => {
+    it("gives the table of an answer that is one and none for no answer or any other", () => {
+        const table = tableAwaitingAWord(0);
+
+        expect(shownTable({ kind: "table", table })).toBe(table);
+        expect(shownTable(null)).toBeNull();
+        expect(shownTable({ kind: "missing" })).toBeNull();
+        expect(shownTable({ kind: "taken", holder: "Anna" })).toBeNull();
+        expect(shownTable({ kind: "failed" })).toBeNull();
     });
 });
 

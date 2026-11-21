@@ -412,13 +412,7 @@
 >
     <div class="room-paint" aria-hidden="true" data-call-backdrop></div>
     {#if callMode}
-        <CallSeats
-            tableId={id}
-            table={outcome?.kind === "table" ? outcome.table : null}
-            newest={newestTable}
-            missing={outcome?.kind === "missing"}
-            ongreeted={() => (greeted = true)}
-        />
+        <CallSeats tableId={id} {outcome} newest={newestTable} ongreeted={() => (greeted = true)} />
     {/if}
     <StyleScene style={outcome?.kind === "table" ? outcome.table.style : null} />
     <CardSprite />

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount, untrack } from "svelte";
-    import type { Table } from "../../routes/(start)/tables.ts";
+    import type { Outcome, Table } from "../../routes/(start)/tables.ts";
     import { retryDelayMilliseconds } from "#lib/backoff.ts";
     import { browserCallHost, greetCall, type CallChannel } from "#lib/callFrame.ts";
     import {
@@ -14,6 +14,7 @@
         readPersonKeys,
         seatsMessage,
         shownAsInView,
+        shownTable,
         type PostedSeat,
         type SeatKeys,
         type TileReading,
@@ -27,22 +28,21 @@
     // caught; a posted payload and a written clip path are each posted or written only when they differ from the last.
     const {
         tableId,
-        table,
+        outcome,
         newest,
-        missing,
         ongreeted,
     }: {
         tableId: string;
-        /** The table the page shows, or null while it shows none. */
-        table: Table | null;
+        /** What the page shows: the table it has, or that none is there. */
+        outcome: Outcome | null;
         /** The newest table the page has received, shown or not, or null while it has none. */
         newest: Table | null;
-        /** Whether the table is gone; one that ended is told by `table.ended`. */
-        missing: boolean;
         /** Runs once, at the call's first valid hello. */
         ongreeted: () => void;
     } = $props();
 
+    const table = $derived(shownTable(outcome));
+    const missing = $derived(outcome?.kind === "missing");
     // The chairs of a live table; an ended table has none to tell, and the call hears that, as it does of a gone one.
     const view = $derived(newest !== null && newest.ended === null ? newest : null);
     const closed = $derived(missing || (newest !== null && view === null));
@@ -124,8 +124,8 @@
     function flush(): void {
         const hold = holdOf({ closed, failed: keysFailed, keys, viewVersion: view?.version ?? null });
         if (hold === "closed" || hold === "failed") post([]);
-        else if (hold === "current" && view !== null && keys !== null) {
-            const tiles = readTiles(table?.chairs ?? [], keys);
+        else if (hold === "current" && view !== null && table !== null && keys !== null) {
+            const tiles = readTiles(table.chairs, keys);
             post(postedSeats(shownAsInView(tiles, occupancyBySeat(view.chairs))));
         }
         paintHoles(view, hold === "current");
