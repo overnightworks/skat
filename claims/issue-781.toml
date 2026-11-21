@@ -1,8 +1,0 @@
-claim_id = "87272a24676645ef817d8e2e4b383e42"
-agent = "Claude 187a2e2f-5c1c-4c9c-8882-bb3ca6ef8c48"
-role = "builder"
-base = "a1fddb0c2a9cc8a40aa45ee2ee21aaf6cc076c93"
-branch = "claude/issue-781-tests-share-rest"
-scope = ["quality/baseline.toml", "tests"]
-opened_commit = "53ced50b5c747406f02019a7deb4c517a2a1feb7"
-whole_reason = "Helper copies sit across the test tree; the slices go by test directory."
