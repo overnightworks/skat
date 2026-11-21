@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.14"
 
 [manifest]
@@ -720,8 +720,8 @@ catalogs = [
 
 [[package]]
 name = "overnightworks-logline"
-version = "0.5.0"
-source = { git = "https://github.com/overnightworks/logline?rev=v0.5.0#8c96e5890458b42f9ddb97dc26ce4a6880011db4" }
+version = "1.7.0"
+source = { git = "https://github.com/overnightworks/logline?rev=v1.7.0#4cbc68c011a696650f9d49cff8388041322d08b7" }
 dependencies = [
     { name = "opentelemetry-api" },
     { name = "structlog" },
@@ -768,7 +768,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.16" },
     { name = "fastapi", specifier = ">=0.123.7" },
     { name = "overnightworks-agents", extras = ["mcp-server"], git = "https://github.com/overnightworks/agents?rev=v0.62.0" },
-    { name = "overnightworks-logline", git = "https://github.com/overnightworks/logline?rev=v0.5.0" },
+    { name = "overnightworks-logline", git = "https://github.com/overnightworks/logline?rev=v1.7.0" },
     { name = "overnightworks-tandem", git = "https://github.com/overnightworks/tandem?rev=v0.13.1" },
     { name = "overnightworks-webauth", extras = ["redis"], git = "https://github.com/overnightworks/webauth?rev=v0.42.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
