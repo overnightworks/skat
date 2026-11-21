@@ -21,7 +21,7 @@
 
     --plate-radius: 8px;
     --plate-ink: #2b1d05;
-    --plate-small-ink: inherit;
+    --plate-small-ink: currentcolor;
     --plate-note-ink: rgba(43, 29, 5, 0.72);
     --plate-background: linear-gradient(180deg, #f1d898, #c9a464);
     --plate-shadow: none;
