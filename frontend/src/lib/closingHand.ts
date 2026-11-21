@@ -10,11 +10,23 @@ const SHEET_WAIT_MILLISECONDS = 1500;
 /** The last trick of a hand whose result waits for it: whether its declarer won, none in a Ramsch, and what shows the result. */
 export type Closing = { declarerWon: boolean | null; whenResultShown: () => void };
 
-/** Shows a table with the cues that brought it, and says how many seconds the voice takes to say their words. */
-export type Presenter = (previous: Table | undefined, table: Table, cues: readonly Cue[], closing?: Closing) => number;
+/**
+ * Shows a table with the cues that brought it. `saidWithinSeconds` is given for a word of a run: how long the voice has
+ * for it before the next word, without end for the run's last.
+ */
+export type Presenter = (
+    previous: Table | undefined,
+    table: Table,
+    cues: readonly Cue[],
+    closing?: Closing,
+    saidWithinSeconds?: number,
+) => void;
 
-/** Paces a run: `tell` shows the word of a number and says how long the voice speaks it; the last word ends the run. */
-export type RunTeller = (run: BidRun, tell: (word: number) => number) => void;
+/** How a run is shown: `tell` shows the word of a number, and `moveOn` shows what waited behind the run. */
+export type RunTelling = { tell: (word: number, saidWithinSeconds: number) => void; moveOn: () => void };
+
+/** Paces a run: tells its words one after another, the last too, and moves on once that one has stood. */
+export type RunTeller = (run: BidRun, telling: RunTelling) => void;
 
 /** The trick that decided the game of the result `ordinal` before its tenth, and whether its declarer won. */
 export type DecidingTrick = { ordinal: number; trick: SheetTrick; declarerWon: boolean | null };
@@ -54,7 +66,8 @@ type Held = { queued: [Table, Table][] };
  * whose sheet is slow or draws no trick taken; a game decided before its tenth trick then shows that trick once the
  * sheet has come. So does a result the page shows from its first table, after a load or a dropped connection, as no
  * closing played before it. An update that brings several words of an auction tells them one after another while the
- * stage moves, each on the table as it stood then, and the tables that arrive meanwhile wait behind its last word.
+ * stage moves, each on the table as it stood then, and the tables that arrive meanwhile wait until its last word has
+ * stood.
  */
 export function tableShowing(
     present: Presenter,
@@ -109,7 +122,8 @@ export function tableShowing(
     }
 
     // The words of a run are told one by one, each on the table as it stood after it; the last word brings the table
-    // the update brought, with every other cue of the update.
+    // the update brought, with every other cue of the update. What arrived meanwhile follows when the run moves on,
+    // so the last word is shown on its own.
     function showAtItsPace(previous: Table, table: Table): void {
         const cues = cuesBetween(previous, table);
         const said = cues.filter((cue) => cue.kind === "bid-said");
@@ -122,21 +136,22 @@ export function tableShowing(
         holding = hold;
         const last = said.length - 1;
         let told = previous;
-        tellRun(run, (word) => {
-            if (holding !== hold) return 0;
-            const before = told;
-            if (word < last) {
-                told = run.tables[word] as Table;
-                return present(before, told, [said[word] as Cue]);
-            }
-            holding = null;
-            const spoken = present(
-                before,
-                table,
-                cues.filter((cue) => cue.kind !== "bid-said" || cue === said[last]),
-            );
-            showQueued(hold.queued);
-            return spoken;
+        tellRun(run, {
+            tell: (word, saidWithinSeconds) => {
+                if (holding !== hold) return;
+                const before = told;
+                told = word < last ? (run.tables[word] as Table) : table;
+                const brought =
+                    word < last
+                        ? [said[word] as Cue]
+                        : cues.filter((cue) => cue.kind !== "bid-said" || cue === said[last]);
+                present(before, told, brought, undefined, saidWithinSeconds);
+            },
+            moveOn: () => {
+                if (holding !== hold) return;
+                holding = null;
+                showQueued(hold.queued);
+            },
         });
     }
 

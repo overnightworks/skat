@@ -28,12 +28,12 @@ const NO_MARKS: ChairMarks = { bubble: null, passed: false, turn: false, waits: 
 
 /** Whether the chair of `seat` has said „Weg“ in the auction. */
 export function hasPassed(auction: Auction, seat: number): boolean {
-    return auction.words.some((word) => word.seat === seat && word.action === "pass");
+    return auction.steps.some((word) => word.seat === seat && word.action === "pass");
 }
 
 // A „Weg“ stands in a bubble only while it is the table's latest word; after that its chair carries the pass mark alone.
 function bubbleOf(auction: Auction, seat: number): Bubble | null {
-    const word = auction.words.find((spoken) => spoken.seat === seat);
+    const word = auction.steps.findLast((spoken) => spoken.seat === seat);
     if (word?.action === "pass") return auction.steps.at(-1)?.seat === seat ? { kind: "pass", value: null } : null;
     if (word?.action !== "bid" && word?.action !== "hold") return null;
     // The server names a value with every bid and every hold.

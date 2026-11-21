@@ -3,7 +3,8 @@ import type { BidRun } from "#lib/bidRun.ts";
 import type { Cue } from "#lib/cues.ts";
 import { MOTION_SETS } from "#lib/motionSets.ts";
 import { timingOf, type Timing } from "#lib/stage.ts";
-import { toldAfterSeconds } from "#lib/takt/bids.ts";
+import { BID_EIGHTEEN, FakePort, OWN_SEAT, soundAt, tableSeenFrom } from "#lib/tableSound.fixtures.ts";
+import { runPace } from "#lib/takt/bids.ts";
 import { stubBrowser } from "../testing/stubBrowser.ts";
 import type { LastTrick, Playing, Table } from "../routes/(start)/tables.ts";
 
@@ -490,122 +491,217 @@ describe("a run of words on the page's stage", () => {
         ],
         tables: [],
     };
-    const BIDS = MOTION_SETS.verspielt.bids;
-    const UNHEARD = 0;
-    // A recording far longer than any pause a set draws.
-    const LONG_WORD_SECONDS = 3;
-    // The pause before the word of a number once the word before it was spoken for so long; a timer drops the part of
-    // a millisecond.
-    const pauseBefore = (word: number, spokenSeconds = UNHEARD): number =>
-        Math.floor(toldAfterSeconds(BIDS, RUN.seed, RUN.words[word] as BidRun["words"][number], spokenSeconds) * 1000);
+    const LAST = RUN.words.length - 1;
+    const VERSPIELT = { ...MOVING, motionSet: "verspielt" };
+    const PACE = runPace(MOTION_SETS.verspielt.bids, RUN.seed, RUN.words);
+    // When a word is told and when the run is over, counted from its first word; a timer drops the part of a
+    // millisecond.
+    const toldAt = (word: number): number => Math.floor((PACE.told[word] as number) * 1000);
+    const OVER_AT = Math.floor(PACE.over * 1000);
+    // No key waits on motion longer than this.
+    const A_KEY_WAITS_AT_MOST_MILLISECONDS = 1600;
+    const LONG_RUN: BidRun = {
+        ...RUN,
+        words: Array.from({ length: 21 }, (_, step) => ({ step, action: step % 2 === 0 ? "bid" : "hold" })),
+    };
+    const MOVED_ON = "moved on";
 
-    // The stand-in page notes each word it is told and speaks it for as long as the test says.
-    function telling(spokenSeconds = UNHEARD) {
-        const told: number[] = [];
+    // The stand-in page notes each word it is told, how long that word's voice has, and when the table moves on.
+    function listening() {
+        const events: (number | typeof MOVED_ON)[] = [];
+        const voiceHas: number[] = [];
         return {
-            told,
-            tell: (word: number): number => {
-                told.push(word);
-                return spokenSeconds;
+            events,
+            voiceHas,
+            telling: {
+                tell: (word: number, saidWithinSeconds: number): void => {
+                    events.push(word);
+                    voiceHas.push(saidWithinSeconds);
+                },
+                moveOn: (): void => {
+                    events.push(MOVED_ON);
+                },
             },
         };
     }
 
-    it("tells the first word at once and each next one after the pause its set draws for it", async () => {
-        const { stage } = await stageOnAPage({ ...MOVING, motionSet: "verspielt" });
-        const { told, tell } = telling();
+    it("tells the first word at once and each next one at the instant its pace gives it", async () => {
+        const { stage } = await stageOnAPage(VERSPIELT);
+        const { events, telling } = listening();
 
-        stage.tellOnStage(RUN, tell);
-        expect(told).toEqual([0]);
+        stage.tellOnStage(RUN, telling);
+        expect(events).toEqual([0]);
 
-        vi.advanceTimersByTime(pauseBefore(1) - 1);
-        expect(told).toEqual([0]);
+        vi.advanceTimersByTime(toldAt(1) - 1);
+        expect(events).toEqual([0]);
 
         vi.advanceTimersByTime(1);
-        expect(told).toEqual([0, 1]);
+        expect(events).toEqual([0, 1]);
 
-        vi.advanceTimersByTime(pauseBefore(2));
-        expect(told).toEqual([0, 1, 2]);
+        vi.advanceTimersByTime(toldAt(LAST) - toldAt(1));
+        expect(events).toEqual([0, 1, LAST]);
     });
 
-    it("waits with the next word until the voice has said the one before it", async () => {
-        const { stage } = await stageOnAPage({ ...MOVING, motionSet: "verspielt" });
-        const { told, tell } = telling(LONG_WORD_SECONDS);
+    it("moves on only once the last word has stood, never in the tick that tells it", async () => {
+        const { stage } = await stageOnAPage(VERSPIELT);
+        const { events, telling } = listening();
+        stage.tellOnStage(RUN, telling);
 
-        stage.tellOnStage(RUN, tell);
-        vi.advanceTimersByTime(LONG_WORD_SECONDS * 1000);
-        expect(told).toEqual([0]);
+        vi.advanceTimersByTime(OVER_AT - 1);
+        expect(events).toEqual([0, 1, LAST]);
 
-        vi.advanceTimersByTime(pauseBefore(1, LONG_WORD_SECONDS) - LONG_WORD_SECONDS * 1000);
-        expect(told).toEqual([0, 1]);
+        vi.advanceTimersByTime(1);
+        expect(events).toEqual([0, 1, LAST, MOVED_ON]);
     });
 
-    it("speaks from its first word until its last, and tells nothing after it", async () => {
-        const { stage } = await stageOnAPage(MOVING);
-        const { told, tell } = telling();
-        expect(stage.tableSpeaks()).toBe(false);
+    it("gives the voice of each word the time until the next word, and the voice of the last word no end", async () => {
+        const { stage } = await stageOnAPage(VERSPIELT);
+        const { voiceHas, telling } = listening();
+        const [first, second, last] = PACE.told as [number, number, number];
 
-        stage.tellOnStage(RUN, tell);
-        expect(stage.tableSpeaks()).toBe(true);
-
+        stage.tellOnStage(RUN, telling);
         vi.runAllTimers();
 
-        expect(told).toEqual([0, 1, 2]);
+        expect(voiceHas).toEqual([second - first, last - second, Infinity]);
+    });
+
+    it.each(Object.keys(MOTION_SETS))(
+        "has told a run of 21 words and moved on within the time a key may wait, in the set %s",
+        async (motionSet) => {
+            const { stage } = await stageOnAPage({ ...MOVING, motionSet });
+            const { events, telling } = listening();
+
+            stage.tellOnStage(LONG_RUN, telling);
+            vi.advanceTimersByTime(A_KEY_WAITS_AT_MOST_MILLISECONDS);
+
+            expect(events).toEqual([...LONG_RUN.words.map(({ step }) => step), MOVED_ON]);
+            expect(stage.tableSpeaks()).toBe(false);
+        },
+    );
+
+    it("tells a muted seat and a hearing seat the words at the same instants, though only one of them speaks", async () => {
+        const toldOn = async (muted: boolean) => {
+            const { stage } = await stageOnAPage(VERSPIELT);
+            const port = new FakePort();
+            const sound = soundAt(port, { voice: true, muted, motion: "verspielt", now: () => Date.now() / 1000 });
+            const startedAt = Date.now();
+            const instants: number[] = [];
+            const note = (): void => {
+                instants.push(Date.now() - startedAt);
+            };
+            stage.tellOnStage(LONG_RUN, {
+                tell: (_word, saidWithinSeconds) => {
+                    note();
+                    sound.forCues([BID_EIGHTEEN], tableSeenFrom(OWN_SEAT), saidWithinSeconds);
+                },
+                moveOn: note,
+            });
+            vi.runAllTimers();
+            return { instants, spoke: port.spoken.length };
+        };
+
+        const hearing = await toldOn(false);
+        const muted = await toldOn(true);
+
+        expect(hearing.spoke).toBeGreaterThan(0);
+        expect(muted.spoke).toBe(0);
+        expect(hearing.instants).toHaveLength(LONG_RUN.words.length + 1);
+        expect(hearing.instants).toEqual(muted.instants);
+    });
+
+    it("speaks from its first word until its last, whose keys are live while it still stands", async () => {
+        const { stage } = await stageOnAPage(VERSPIELT);
+        const { events, telling } = listening();
+        expect(stage.tableSpeaks()).toBe(false);
+
+        stage.tellOnStage(RUN, telling);
+        vi.advanceTimersByTime(toldAt(LAST) - 1);
+        expect(stage.tableSpeaks()).toBe(true);
+
+        vi.advanceTimersByTime(1);
+
+        expect(events).toEqual([0, 1, LAST]);
         expect(stage.tableSpeaks()).toBe(false);
     });
 
-    it("is over before its last word is told, which may bring the next run", async () => {
-        const { stage } = await stageOnAPage(MOVING);
-        const second = telling();
-        const speakingAtTheLastWord: boolean[] = [];
+    it("is over before the table moves on, which may bring the next run", async () => {
+        const { stage } = await stageOnAPage(VERSPIELT);
+        const second = listening();
+        const speakingAsItMovesOn: boolean[] = [];
 
-        stage.tellOnStage(RUN, (word) => {
-            if (word < RUN.words.length - 1) return UNHEARD;
-            speakingAtTheLastWord.push(stage.tableSpeaks());
-            stage.tellOnStage(RUN, second.tell);
-            return UNHEARD;
+        stage.tellOnStage(RUN, {
+            tell: () => undefined,
+            moveOn: () => {
+                speakingAsItMovesOn.push(stage.tableSpeaks());
+                stage.tellOnStage(RUN, second.telling);
+            },
         });
         vi.runAllTimers();
 
-        expect(speakingAtTheLastWord).toEqual([false]);
-        expect(second.told).toEqual([0, 1, 2]);
+        expect(speakingAsItMovesOn).toEqual([false]);
+        expect(second.events).toEqual([0, 1, LAST, MOVED_ON]);
     });
 
-    it("tells its last word at once when the window is hidden, and no word after it", async () => {
-        const { stage } = await stageOnAPage(MOVING);
-        const { told, tell } = telling();
-        stage.tellOnStage(RUN, tell);
+    it("tells its last word at once and moves on when the window is hidden, and nothing after it", async () => {
+        const { stage } = await stageOnAPage(VERSPIELT);
+        const { events, voiceHas, telling } = listening();
+        stage.tellOnStage(RUN, telling);
 
         stage.jumpStage();
 
-        expect(told).toEqual([0, 2]);
+        expect(events).toEqual([0, LAST, MOVED_ON]);
+        expect(voiceHas.at(-1)).toBe(Infinity);
         expect(stage.tableSpeaks()).toBe(false);
 
         vi.runAllTimers();
-        expect(told).toEqual([0, 2]);
+        expect(events).toEqual([0, LAST, MOVED_ON]);
     });
 
-    it("tells its last word in place of the next once the stage has stopped moving", async () => {
-        const { stage } = await stageOnAPage(MOVING);
-        const { told, tell } = telling();
-        stage.tellOnStage(RUN, tell);
+    it("moves on at once when the window is hidden while the last word stands", async () => {
+        const { stage } = await stageOnAPage(VERSPIELT);
+        const { events, telling } = listening();
+        stage.tellOnStage(RUN, telling);
+        vi.advanceTimersByTime(toldAt(LAST));
+
+        stage.jumpStage();
+
+        expect(events).toEqual([0, 1, LAST, MOVED_ON]);
+
+        vi.runAllTimers();
+        expect(events).toEqual([0, 1, LAST, MOVED_ON]);
+    });
+
+    it("tells its last word in place of the next and moves on once the stage has stopped moving", async () => {
+        const { stage } = await stageOnAPage(VERSPIELT);
+        const { events, telling } = listening();
+        stage.tellOnStage(RUN, telling);
 
         (document as { hidden: boolean }).hidden = true;
-        vi.advanceTimersByTime(pauseBefore(1));
+        vi.advanceTimersByTime(toldAt(1));
 
-        expect(told).toEqual([0, 1, 2]);
+        expect(events).toEqual([0, LAST, MOVED_ON]);
         expect(stage.tableSpeaks()).toBe(false);
     });
 
-    it("tells no word more once the table is shown as it stands", async () => {
-        const { stage } = await stageOnAPage(MOVING);
-        const { told, tell } = telling();
-        stage.tellOnStage(RUN, tell);
+    it("tells its last word and moves on at once on a stage that does not move", async () => {
+        const { stage } = await stageOnAPage({});
+        const { events, telling } = listening();
+
+        stage.tellOnStage(RUN, telling);
+
+        expect(events).toEqual([LAST, MOVED_ON]);
+        expect(stage.tableSpeaks()).toBe(false);
+    });
+
+    it("tells no word more and moves on to nothing once the table is shown as it stands", async () => {
+        const { stage } = await stageOnAPage(VERSPIELT);
+        const { events, telling } = listening();
+        stage.tellOnStage(RUN, telling);
 
         stage.resetStage();
         vi.runAllTimers();
 
-        expect(told).toEqual([0]);
+        expect(events).toEqual([0]);
         expect(stage.tableSpeaks()).toBe(false);
     });
 

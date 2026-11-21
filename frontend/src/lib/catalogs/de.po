@@ -299,6 +299,10 @@ msgctxt "table.bidding"
 msgid "Reizen"
 msgstr ""
 
+msgctxt "table.duel"
+msgid "Reizt: {bidder}. Hört: {listener}."
+msgstr ""
+
 msgctxt "table.pass"
 msgid "Weg"
 msgstr ""

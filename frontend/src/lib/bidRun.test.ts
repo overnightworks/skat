@@ -69,15 +69,8 @@ describe("the run of the words one update brought", () => {
         ]);
     });
 
-    it("shows on each table each chair's latest word and the bid that stands then", () => {
-        const [first, second, third] = auctionsOf(runBetween(before, after));
-
-        expect(first?.words).toEqual([BID_EIGHTEEN]);
-        expect(first?.standing).toBe(18);
-        expect(second?.words).toEqual([BID_EIGHTEEN, HOLD_EIGHTEEN]);
-        expect(second?.standing).toBe(18);
-        expect(third?.words).toEqual([BID_TWENTY, HOLD_EIGHTEEN]);
-        expect(third?.standing).toBe(20);
+    it("shows on each table the bid that stands then", () => {
+        expect(auctionsOf(runBetween(before, after)).map((auction) => auction.standing)).toEqual([18, 18, 20]);
     });
 
     it("keeps the turn and the duel as they were before the run, and everything else of that table", () => {

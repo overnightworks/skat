@@ -4,12 +4,12 @@ import { phase, type Pose, type Timeline, type Track } from "./timeline.ts";
 
 /** How a motion set tells an auction: the pace of the words one update brings, and how the counter follows them. */
 export interface BidSet {
-    /** The least and the most seconds a „Ja“ or a „Weg“ waits after the word before it. */
+    /** The least and the most seconds a „Ja“ or a „Weg“ waits after the word before it, in a run that has the time. */
     readonly answerAfterSeconds: readonly [number, number];
-    /** The least and the most seconds a bid waits after the word before it. */
+    /** The least and the most seconds a bid waits after the word before it, in a run that has the time. */
     readonly bidAfterSeconds: readonly [number, number];
-    /** How long the table stays quiet once a word has been spoken, before the next is told. */
-    readonly breathSeconds: number;
+    /** The longest the table takes to tell a run and move on, however many words it has; no key waits longer on it. */
+    readonly runSeconds: number;
     /** How long a drum of the counter takes to roll to its digit. */
     readonly rollSeconds: number;
     /** How much a drum swings past its digit as it arrives, in drum heights; none rolls straight in. */
@@ -27,14 +27,36 @@ export interface ToldWord {
 }
 
 /**
- * How long after the word before it a word of a run is told: the pause its set draws for it from the game's seed, or
- * the `spokenSeconds` the voice takes for the word before it and a breath, whichever is longer. A seat that hears no
- * voice keeps the drawn pause, which is the same on every seat.
+ * How long after the word before it a word of a run is told while the run has the time: the pause its set draws for it
+ * from the game's seed, which every seat draws alike.
  */
-export function toldAfterSeconds(set: BidSet, seed: string, word: ToldWord, spokenSeconds: number): number {
+export function toldAfterSeconds(set: BidSet, seed: string, word: ToldWord): number {
     const [least, most] = word.action === "bid" ? set.bidAfterSeconds : set.answerAfterSeconds;
-    const pause = fork(seed, `bid/${String(word.step)}/pause`).between(least, most);
-    return Math.max(pause, spokenSeconds + set.breathSeconds);
+    return fork(seed, `bid/${String(word.step)}/pause`).between(least, most);
+}
+
+const sum = (seconds: readonly number[]): number => seconds.reduce((all, each) => all + each, 0);
+
+/** The pace of a run, in seconds from its first word. */
+export interface RunPace {
+    /** When each word is told. */
+    readonly told: readonly number[];
+    /** When the last word has stood and the table moves on. */
+    readonly over: number;
+}
+
+/**
+ * The pace the table tells a run at: each word after the pause drawn for it, and the last word stands for its own pause
+ * once more before the table moves on. A run whose pauses outlast the set's `runSeconds` keeps their shares of that
+ * time, so a long run riffles through and a short one keeps the pauses as drawn. The pace reads the seed and the words
+ * alone, never a voice or a device, so it is the same on every seat.
+ */
+export function runPace(set: BidSet, seed: string, words: readonly ToldWord[]): RunPace {
+    const pauses = words.slice(1).map((word) => toldAfterSeconds(set, seed, word));
+    const drawn = sum(pauses) + toldAfterSeconds(set, seed, words.at(-1) as ToldWord);
+    const over = Math.min(drawn, set.runSeconds);
+    const share = over / drawn;
+    return { told: words.map((_, word) => sum(pauses.slice(0, word)) * share), over };
 }
 
 /** One drum of the counter as the page measured it: its height, and its place counted from the ones. */

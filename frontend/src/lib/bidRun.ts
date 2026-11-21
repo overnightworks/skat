@@ -14,16 +14,11 @@ export interface BidRun {
     readonly tables: readonly Table[];
 }
 
-// The auction of the table before a run once `steps` were said: each chair's latest word and the bid that stands. The
-// turn and the duel stay as they were, since only the table the update brought tells whom the auction awaits then.
+// The auction of the table before a run once `steps` were said: the words and the bid that stands. The turn and the
+// duel stay as they were, since only the table the update brought tells whom the auction awaits then.
 function auctionAfter(auction: Auction, steps: AuctionWord[]): Auction {
     const bid = steps.findLast((word) => word.action === "bid");
-    return {
-        ...auction,
-        steps,
-        words: [...new Map(steps.map((word) => [word.seat, word])).values()],
-        standing: bid?.value ?? auction.standing,
-    };
+    return { ...auction, steps, standing: bid?.value ?? auction.standing };
 }
 
 /**

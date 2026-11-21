@@ -57,7 +57,7 @@ export const MOTION_SETS = {
         bids: {
             answerAfterSeconds: [0.35, 0.45],
             bidAfterSeconds: [0.5, 0.6],
-            breathSeconds: 0.1,
+            runSeconds: 1.4,
             rollSeconds: 0.2,
             swing: 0,
             staggerSeconds: 0,
@@ -101,7 +101,7 @@ export const MOTION_SETS = {
         bids: {
             answerAfterSeconds: [0.4, 0.6],
             bidAfterSeconds: [0.6, 0.85],
-            breathSeconds: 0.15,
+            runSeconds: 1.6,
             rollSeconds: 0.42,
             swing: 0.14,
             staggerSeconds: 0.07,

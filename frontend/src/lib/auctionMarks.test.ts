@@ -28,7 +28,7 @@ const middlehandBid18 = auction({
     facing_seat: MIDDLEHAND,
     awaiting: "answer",
     standing: 18,
-    words: [{ seat: MIDDLEHAND, action: "bid", value: 18 }],
+    steps: [{ seat: MIDDLEHAND, action: "bid", value: 18 }],
 });
 
 const MIDDLEHAND_PASSED: AuctionWord = { seat: MIDDLEHAND, action: "pass", value: null };
@@ -44,13 +44,13 @@ describe("the marks on a chair during the auction", () => {
         },
         {
             name: "a hold is the quiet bubble with the value it held",
-            state: auction({ standing: 18, words: [{ seat: FOREHAND, action: "hold", value: 18 }] }),
+            state: auction({ standing: 18, steps: [{ seat: FOREHAND, action: "hold", value: 18 }] }),
             seat: FOREHAND,
             marks: { bubble: { kind: "hold", value: 18 } },
         },
         {
             name: "a pass that is the table's latest word greys the chair and stands in a bubble",
-            state: auction({ turn_seat: REARHAND, words: [MIDDLEHAND_PASSED], steps: [MIDDLEHAND_PASSED] }),
+            state: auction({ turn_seat: REARHAND, steps: [MIDDLEHAND_PASSED] }),
             seat: MIDDLEHAND,
             marks: { passed: true, bubble: { kind: "pass", value: null } },
         },
@@ -58,7 +58,6 @@ describe("the marks on a chair during the auction", () => {
             name: "a pass another chair has spoken after greys the chair and carries no bubble",
             state: auction({
                 turn_seat: FOREHAND,
-                words: [MIDDLEHAND_PASSED, REARHAND_BID_18],
                 steps: [MIDDLEHAND_PASSED, REARHAND_BID_18],
             }),
             seat: MIDDLEHAND,
@@ -91,7 +90,8 @@ describe("the marks on a chair during the auction", () => {
     it("shows only the last word of a chair", () => {
         const state = auction({
             standing: 23,
-            words: [
+            steps: [
+                { seat: MIDDLEHAND, action: "bid", value: 20 },
                 { seat: FOREHAND, action: "hold", value: 20 },
                 { seat: MIDDLEHAND, action: "bid", value: 23 },
             ],
@@ -111,7 +111,7 @@ describe("the marks on a chair during the auction", () => {
             state: auction({
                 turn_seat: REARHAND,
                 facing_seat: FOREHAND,
-                words: [{ seat: MIDDLEHAND, action: "pass", value: null }],
+                steps: [{ seat: MIDDLEHAND, action: "pass", value: null }],
             }),
             viewer: REARHAND,
         },
@@ -136,7 +136,7 @@ describe("the marks on a chair during the auction", () => {
             turn_seat: FOREHAND,
             facing_seat: null,
             awaiting: "play",
-            words: [
+            steps: [
                 { seat: MIDDLEHAND, action: "pass", value: null },
                 { seat: REARHAND, action: "pass", value: null },
             ],
@@ -155,7 +155,7 @@ describe("the marks on a chair during the auction", () => {
             facing_seat: null,
             awaiting: null,
             standing: 18,
-            words: [
+            steps: [
                 { seat: MIDDLEHAND, action: "bid", value: 18 },
                 { seat: FOREHAND, action: "pass", value: null },
                 { seat: REARHAND, action: "pass", value: null },
@@ -173,7 +173,7 @@ describe("the marks on a chair during the auction", () => {
     });
 
     it("draws no bubble for the forehand's word to play at 18", () => {
-        const state = auction({ words: [{ seat: FOREHAND, action: "play", value: 18 }] });
+        const state = auction({ steps: [{ seat: FOREHAND, action: "play", value: 18 }] });
 
         expect(chairMarks(state, FOREHAND, WATCHER, false)).toEqual(NO_MARKS);
     });
@@ -523,9 +523,10 @@ describe("the marks while a chair of the running hand is open", () => {
     );
 
     it("keep the bubbles and the passes the auction already drew", () => {
-        const state = auction({ turn_seat: REARHAND, words: [{ seat: MIDDLEHAND, action: "pass", value: null }] });
+        const state = auction({ turn_seat: REARHAND, steps: [MIDDLEHAND_PASSED] });
+        const passed = { ...NO_MARKS, passed: true, bubble: { kind: "pass", value: null } };
 
-        expect(chairMarks(state, MIDDLEHAND, FOREHAND, true)).toEqual({ ...NO_MARKS, passed: true });
+        expect(chairMarks(state, MIDDLEHAND, FOREHAND, true)).toEqual(passed);
         expect(chairMarks(middlehandBid18, MIDDLEHAND, WATCHER, true).bubble).toEqual({ kind: "bid", value: 18 });
     });
 

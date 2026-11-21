@@ -3,6 +3,7 @@
     import type { Action } from "svelte/action";
     import type { Attachment } from "svelte/attachments";
     import { duelOf } from "#lib/auctionMarks.ts";
+    import { pairTurned, rollsTo, type BidSaid } from "#lib/cues.ts";
     import { motionOnStage } from "#lib/stage.svelte.ts";
     import { duelTimeline, rollTimeline } from "#lib/takt/bids.ts";
     import { fade, letRest, move } from "#lib/takt/player.ts";
@@ -11,9 +12,11 @@
     import type { Auction, Chair } from "../../routes/(start)/tables.ts";
 
     // The brass counter of a running auction: the bid that stands on its drums, which are empty before the first bid,
-    // and under it who bids against whom. A drum rolls to a digit this page saw come and a pair this page saw come
-    // fades in; a table shown as it stands moves nothing.
-    const { auction, chairs }: { auction: Auction; chairs: readonly Chair[] } = $props();
+    // and under it who bids against whom. The drums roll to a bid this page saw said, and a pair fades in after a
+    // „Weg“ this page saw said; a table shown as it stands, as after a dropped connection, moves nothing. `said` holds
+    // the bids of the latest update that brought any.
+    const { auction, chairs, said }: { auction: Auction; chairs: readonly Chair[]; said: readonly BidSaid[] } =
+        $props();
 
     const LEAST_DRUMS = 2;
     const digits = $derived(
@@ -22,17 +25,18 @@
             .split(""),
     );
     const duel = $derived(duelOf(auction, chairs));
+    const bidSeen = $derived(rollsTo(said, auction.standing));
 
     // The stylesheet draws the digit a drum showed before right above the one it shows, so the roll carries it out.
-    const rolls: Action<HTMLElement, { digit: string; place: number }> = (reel, shown) => {
+    const rolls: Action<HTMLElement, { digit: string; place: number; seen: boolean }> = (reel, shown) => {
         let was = shown.digit;
         return {
-            update({ digit, place }) {
+            update({ digit, place, seen }) {
                 if (digit === was) return;
                 reel.dataset.was = was;
                 was = digit;
                 const bids = untrack(motionOnStage)?.bids;
-                if (bids === undefined) return;
+                if (!seen || bids === undefined) return;
                 const { tracks, seconds } = rollTimeline(bids, { height: reel.getBoundingClientRect().height, place });
                 letRest(reel);
                 move(reel, tracks.reel, seconds);
@@ -40,12 +44,14 @@
         };
     };
 
+    const nameOf = (chair: Chair): string => (chair.is_mine ? words["table.sideYou"] : String(chair.occupant_name));
+
     let pairShown: string | undefined;
     const appearsAs =
         (pair: string): Attachment<HTMLElement> =>
         (line) => {
             const bids = untrack(motionOnStage)?.bids;
-            if (pairShown !== undefined && bids !== undefined) {
+            if (pairShown !== undefined && bids !== undefined && untrack(() => pairTurned(said))) {
                 const { tracks, seconds } = duelTimeline(bids);
                 fade(line, tracks.line, seconds);
             }
@@ -66,7 +72,7 @@
 {/snippet}
 
 {#snippet name(chair: Chair)}
-    <b>{@render word(chair.is_mine ? words["table.sideYou"] : String(chair.occupant_name))}</b>
+    <b aria-hidden="true">{@render word(nameOf(chair))}</b>
 {/snippet}
 
 <div class="bid-counter">
@@ -76,7 +82,8 @@
         <span class="drums" aria-hidden="true">
             {#each digits as digit, index (digits.length - index)}
                 <span class="drum"
-                    ><i class="reel" use:rolls={{ digit, place: digits.length - 1 - index }}>{digit}</i></span
+                    ><i class="reel" use:rolls={{ digit, place: digits.length - 1 - index, seen: bidSeen }}>{digit}</i
+                    ></span
                 >
             {/each}
         </span>
@@ -85,6 +92,11 @@
         {@const pair = `${String(duel.bidder.seat)}-${String(duel.listener.seat)}`}
         {#key pair}
             <div class="duel" {@attach appearsAs(pair)}>
+                <span class="sr-only">
+                    {@render word(
+                        words["table.duel"]({ bidder: nameOf(duel.bidder), listener: nameOf(duel.listener) }),
+                    )}
+                </span>
                 {@render dot(duel.bidder)}
                 {@render name(duel.bidder)}
                 <span class="to" aria-hidden="true">

@@ -1,19 +1,20 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { BidRun } from "#lib/bidRun.ts";
-import { tableShowing } from "#lib/closingHand.ts";
+import { tableShowing, type RunTelling } from "#lib/closingHand.ts";
 import type { Cue } from "#lib/cues.ts";
 import { declaringAt, EVERY_HAND_DEALT, FOREHAND, MIDDLEHAND, table } from "#lib/cues.fixtures.ts";
 import type { AuctionWord, Hand, Table } from "../routes/(start)/tables.ts";
 
-type Presented = { previous: Table | undefined; table: Table; cues: readonly Cue[] };
+type Presented = { previous: Table | undefined; table: Table; cues: readonly Cue[]; saidWithinSeconds?: number };
 
 const BID_EIGHTEEN: AuctionWord = { seat: MIDDLEHAND, action: "bid", value: 18 };
 const HOLD_EIGHTEEN: AuctionWord = { seat: FOREHAND, action: "hold", value: 18 };
 const BID_TWENTY: AuctionWord = { seat: MIDDLEHAND, action: "bid", value: 20 };
 const PASS: AuctionWord = { seat: FOREHAND, action: "pass", value: null };
 const RUN = [BID_EIGHTEEN, HOLD_EIGHTEEN, BID_TWENTY];
-// How long the stand-in voice speaks each word it is given.
-const SPOKEN_SECONDS = 0.5;
+// How long the stand-in stage gives the voice for a word another one follows, and for the last word.
+const UNTIL_THE_NEXT_WORD = 0.5;
+const THE_LAST_WORD = Infinity;
 
 const auctionTable = (version: number, said: AuctionWord[]): Table =>
     table(version, EVERY_HAND_DEALT, { declaring: null, spoken: said });
@@ -28,22 +29,26 @@ const afterwards = auctionTable(6, [...RUN, PASS]);
 
 let stageIsMoving = true;
 
-// The stand-in stage keeps the run it was given and tells a word when the test asks for it.
+// The stand-in stage keeps the run it was given, tells a word when the test asks for it and moves on when it says so.
 function showing() {
     const presented: Presented[] = [];
-    const runs: { run: BidRun; tell: (word: number) => number }[] = [];
+    const runs: { run: BidRun; telling: RunTelling }[] = [];
     const shown = tableShowing(
-        (previous, table, cues) => {
-            presented.push({ previous, table, cues });
-            return SPOKEN_SECONDS;
+        (previous, table, cues, _closing, saidWithinSeconds) => {
+            presented.push({ previous, table, cues, saidWithinSeconds });
         },
         () => Promise.resolve(null),
         () => stageIsMoving,
         () => undefined,
-        (run, tell) => runs.push({ run, tell }),
+        (run, telling) => runs.push({ run, telling }),
     );
-    const tell = (word: number, run = 0): number => (runs[run] as (typeof runs)[number]).tell(word);
-    return { shown, presented, runs, tell };
+    const tell = (word: number, saidWithinSeconds = UNTIL_THE_NEXT_WORD): void => {
+        runs[0]?.telling.tell(word, saidWithinSeconds);
+    };
+    const moveOn = (): void => {
+        runs[0]?.telling.moveOn();
+    };
+    return { shown, presented, runs, tell, moveOn };
 }
 
 const wordsOf = (presentation: Presented | undefined): string[] =>
@@ -81,12 +86,23 @@ describe("an update that brings several words of an auction", () => {
         expect(presented.map(({ previous }) => previous)).toEqual([dealt, presented[0]?.table]);
     });
 
-    it("says to the stage how long the voice speaks the word it told", () => {
-        const { shown, tell } = showing();
+    it("gives the voice of each word the time the stage has for it, and the voice of any other update none", () => {
+        const { shown, presented, tell, moveOn } = showing();
         shown.begin(dealt);
         shown.show(afterTheRun);
+        shown.show(afterwards);
 
-        expect([tell(0), tell(1), tell(2)]).toEqual([SPOKEN_SECONDS, SPOKEN_SECONDS, SPOKEN_SECONDS]);
+        tell(0);
+        tell(1);
+        tell(2, THE_LAST_WORD);
+        moveOn();
+
+        expect(presented.map(({ saidWithinSeconds }) => saidWithinSeconds)).toEqual([
+            UNTIL_THE_NEXT_WORD,
+            UNTIL_THE_NEXT_WORD,
+            THE_LAST_WORD,
+            undefined,
+        ]);
     });
 
     it("brings the table of the update with its last word, and every other cue of the update with it", () => {
@@ -116,33 +132,52 @@ describe("an update that brings several words of an auction", () => {
         expect(wordsOf(presented[1])).toEqual(["2 bid 20"]);
     });
 
-    it("holds the tables that arrive meanwhile behind its last word", () => {
-        const { shown, presented, tell } = showing();
+    it("shows its last word on its own, and the tables that arrived meanwhile only once the stage moves on", () => {
+        const { shown, presented, tell, moveOn } = showing();
         shown.begin(dealt);
         shown.show(afterTheRun);
         tell(0);
 
         shown.show(afterwards);
-
-        expect(presented).toHaveLength(1);
-
         tell(2);
+
+        expect(presented.map(({ table: each }) => each).slice(1)).toEqual([afterTheRun]);
+
+        moveOn();
 
         expect(presented.map(({ table: each }) => each).slice(1)).toEqual([afterTheRun, afterwards]);
         expect(presented[2]?.previous).toBe(afterTheRun);
         expect(wordsOf(presented[2])).toEqual(["1 pass null"]);
     });
 
-    it("tells a run that waited behind another one once that one's last word is told", () => {
-        const { shown, runs, tell } = showing();
+    it("holds a table that arrives while its last word stands, and shows the next one at once after moving on", () => {
+        const { shown, presented, tell, moveOn } = showing();
+        const later = auctionTable(7, [...RUN, PASS]);
+        shown.begin(dealt);
+        shown.show(afterTheRun);
+        tell(2);
+
+        shown.show(afterwards);
+
+        expect(presented.map(({ table: each }) => each)).toEqual([afterTheRun]);
+
+        moveOn();
+        shown.show(later);
+
+        expect(presented.map(({ table: each }) => each)).toEqual([afterTheRun, afterwards, later]);
+    });
+
+    it("tells a run that waited behind another one once that one moves on", () => {
+        const { shown, runs, tell, moveOn } = showing();
         const secondRun = auctionTable(6, [...RUN, HOLD_EIGHTEEN, PASS]);
         shown.begin(dealt);
         shown.show(afterTheRun);
         shown.show(secondRun);
+        tell(2);
 
         expect(runs).toHaveLength(1);
 
-        tell(2);
+        moveOn();
 
         expect(runs.map(({ run }) => run.words.map((word) => word.step))).toEqual([
             [0, 1, 2],
@@ -186,16 +221,18 @@ describe("an update that brings several words of an auction", () => {
                 shown.show(afterwards);
             },
         },
-    ])("tells no word of a run once $name", ({ drop }) => {
-        const { shown, presented, tell } = showing();
+    ])("tells no word of a run and moves on to nothing once $name", ({ drop }) => {
+        const { shown, presented, tell, moveOn } = showing();
         shown.begin(dealt);
         shown.show(afterTheRun);
         tell(0);
+        shown.show(auctionTable(6, [...RUN, HOLD_EIGHTEEN]));
 
         drop(shown);
         const shownSince = presented.length;
+        tell(1);
+        moveOn();
 
-        expect(tell(1)).toBe(0);
         expect(presented).toHaveLength(shownSince);
     });
 });

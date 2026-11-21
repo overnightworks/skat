@@ -12,25 +12,78 @@ import {
     tableSeenFrom,
 } from "./tableSound.fixtures.ts";
 
-describe("how long the voice speaks the words of one update", () => {
-    it("is until the last of them has been said, counted from the update", () => {
+// A run tells each of its words in an update of its own, and says how long the voice has for it. On a table that
+// stands still a word is due at once, so one recording fits exactly.
+const UNTIL_THE_NEXT_WORD = { fits: RECORDING_SECONDS, tooShort: RECORDING_SECONDS / 2 };
+const THE_LAST_WORD = Infinity;
+
+describe("the voice of a run of words", () => {
+    const saying = (options: { now?: () => number } = {}) => {
         const port = new FakePort();
+        const sound = soundAt(port, { voice: true, ...options });
+        const said = (): string[] => port.spoken.map(({ url }) => url);
+        return { port, sound, said };
+    };
 
-        const spoken = soundAt(port, { voice: true, motion: "verspielt" }).forCues(
-            [BID_EIGHTEEN, PASS],
-            tableSeenFrom(OWN_SEAT),
-        );
+    it("says a word that ends before the next word is told", () => {
+        const { sound, said } = saying();
 
-        const lastStarts = port.spoken.at(-1)?.afterSeconds as number;
-        expect(spoken).toBeGreaterThanOrEqual(2 * RECORDING_SECONDS);
-        expect(spoken).toBeLessThanOrEqual(lastStarts + RECORDING_SECONDS);
+        sound.forCues([BID_EIGHTEEN], tableSeenFrom(OWN_SEAT), UNTIL_THE_NEXT_WORD.fits);
+
+        expect(said()).toEqual([RECORDING_OF("voice.value18")]);
     });
 
-    it.each([
-        { name: "the voice is off", options: { voice: false }, cues: [BID_EIGHTEEN] },
-        { name: "the update brought no word to say", options: { voice: true }, cues: [] },
-    ])("is no time while $name", ({ options, cues }) => {
-        expect(soundAt(new FakePort(), options).forCues(cues, tableSeenFrom(OWN_SEAT))).toBe(0);
+    it("leaves a word unsaid that would not end before the next word is told, and still taps for it", () => {
+        const { port, sound, said } = saying();
+
+        sound.forCues([BID_EIGHTEEN], tableSeenFrom(OWN_SEAT), UNTIL_THE_NEXT_WORD.tooShort);
+
+        expect(said()).toEqual([]);
+        expect(port.played.length).toBeGreaterThan(0);
+    });
+
+    it("always says the last word, with every other word its update brought", () => {
+        const { sound, said } = saying();
+
+        sound.forCues([PASS, KONTRA_SAID], tableSeenFrom(OWN_SEAT), THE_LAST_WORD);
+
+        expect(said()).toEqual([RECORDING_OF("voice.pass"), RECORDING_OF("voice.kontra")]);
+    });
+
+    it("says a word only once the voice has said what it was given before, so it never talks over itself", () => {
+        let now = 0;
+        const { port, sound } = saying({ now: () => now });
+        sound.forCues([BID_EIGHTEEN], tableSeenFrom(OWN_SEAT));
+        const firstEnds = (port.spoken[0]?.afterSeconds as number) + RECORDING_SECONDS;
+        now = RECORDING_SECONDS / 2;
+
+        sound.forCues([PASS], tableSeenFrom(OWN_SEAT), THE_LAST_WORD);
+
+        expect(port.spoken).toHaveLength(2);
+        expect(now + (port.spoken[1]?.afterSeconds as number)).toBeCloseTo(firstEnds);
+    });
+
+    it("leaves a word unsaid when the voice is not free in time to end it before the next word", () => {
+        let now = 0;
+        const { sound, said } = saying({ now: () => now });
+        sound.forCues([BID_EIGHTEEN], tableSeenFrom(OWN_SEAT), UNTIL_THE_NEXT_WORD.fits);
+        now = RECORDING_SECONDS / 2;
+
+        sound.forCues([PASS], tableSeenFrom(OWN_SEAT), UNTIL_THE_NEXT_WORD.fits);
+
+        expect(said()).toEqual([RECORDING_OF("voice.value18")]);
+    });
+
+    it("says a word at once when the voice has long said the ones before it", () => {
+        let now = 0;
+        const { port, sound } = saying({ now: () => now });
+        sound.forCues([BID_EIGHTEEN], tableSeenFrom(OWN_SEAT), UNTIL_THE_NEXT_WORD.fits);
+        const atOnce = port.spoken[0]?.afterSeconds;
+        now = 10 * RECORDING_SECONDS;
+
+        sound.forCues([BID_EIGHTEEN], tableSeenFrom(OWN_SEAT), UNTIL_THE_NEXT_WORD.fits);
+
+        expect(port.spoken[1]?.afterSeconds).toBe(atOnce);
     });
 });
 

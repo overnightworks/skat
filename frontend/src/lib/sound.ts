@@ -33,6 +33,8 @@ export interface AudioPort {
     playVoice(voice: Voice, afterSeconds: number): void;
     /** Fetches and decodes recordings so they play at once; it never rejects, and one that failed is fetched again by the next call. */
     loadRecordings(urls: readonly string[]): Promise<void>;
+    /** How many seconds a recording that is loaded lasts; one that is not loaded lasts none. */
+    recordingSeconds(url: string): number;
     /** Plays a recording that is loaded and says how many seconds it lasts; one that is not loaded is skipped and lasts none. */
     playRecording(url: string, afterSeconds: number): number;
     /** Fades the ambience that runs under the table to `level`, from 0 (silent) to 1; the port makes it at the first level above 0. */
@@ -64,8 +66,11 @@ const HEARD_IN_VIEW: Hearing = { whenHidden: false };
 
 export interface Sound {
     play(voices: readonly Voice[], hearing?: Hearing): void;
-    /** Plays a recording `afterSeconds` from now under the same mute and volume, and says when it ends, counted from now too. */
-    speak(url: string, afterSeconds: number): number;
+    /**
+     * Plays a recording `afterSeconds` from now under the same mute and volume, and says when it ends, counted from now
+     * too. One that would end later than `withinSeconds` stays unsaid.
+     */
+    speak(url: string, afterSeconds: number, withinSeconds?: number): number;
     prepare(urls: readonly string[]): Promise<void>;
     resume(): Promise<void>;
     /** The ambience the table wants, or none; it runs under the same mute and volume as every sound, and only while the window is shown. */
@@ -103,8 +108,9 @@ export function createSound(port: AudioPort, settings: () => SoundSettings): Sou
             if (!audible(hearing)) return;
             for (const voice of voices) port.playVoice(voice, LEAD_SECONDS);
         },
-        speak(url, afterSeconds) {
-            return audible(HEARD_IN_VIEW)
+        speak(url, afterSeconds, withinSeconds = Infinity) {
+            const fits = afterSeconds + port.recordingSeconds(url) <= withinSeconds;
+            return fits && audible(HEARD_IN_VIEW)
                 ? afterSeconds + port.playRecording(url, LEAD_SECONDS + afterSeconds)
                 : afterSeconds;
         },

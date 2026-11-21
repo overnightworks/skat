@@ -1,13 +1,20 @@
 <script lang="ts">
     import { awayOnTurn, type PassedInScene } from "#lib/auctionMarks.ts";
+    import type { BidSaid } from "#lib/cues.ts";
     import AuctionCounter from "#lib/ui/AuctionCounter.svelte";
     import WaitingLine from "#lib/ui/WaitingLine.svelte";
     import { words } from "#lib/words.ts";
     import type { Table } from "../../routes/(start)/tables.ts";
 
     // What stands over a table whose hand has no declarer yet: the counter of the auction while it runs, or the plaque
-    // that waits for players, for a sitter or for an away chair, or tells the pass-in's verdict.
-    const { table, passedIn, waits }: { table: Table; passedIn: PassedInScene | null; waits: boolean } = $props();
+    // that waits for players, for a sitter or for an away chair, or tells the pass-in's verdict. `said` holds the bids
+    // of the latest update that brought any.
+    const {
+        table,
+        passedIn,
+        waits,
+        said,
+    }: { table: Table; passedIn: PassedInScene | null; waits: boolean; said: readonly BidSaid[] } = $props();
     const awayName = $derived(table.hand && awayOnTurn(table.hand.auction, table.chairs));
     const running = $derived(
         passedIn === null && table.aborted === null && !waits && !awayName ? table.hand?.auction : undefined,
@@ -15,7 +22,7 @@
 </script>
 
 {#if running !== undefined}
-    <AuctionCounter auction={running} chairs={table.chairs} />
+    <AuctionCounter auction={running} chairs={table.chairs} {said} />
 {:else}
     <div class="plaque" class:hand-over={passedIn !== null} class:deciding={waits || table.aborted !== null}>
         {#if passedIn !== null}

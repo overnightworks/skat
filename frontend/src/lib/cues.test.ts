@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { cuesBetween, isChairCue, springsUp, stampBetween, type Cue } from "#lib/cues.ts";
+import {
+    cuesBetween,
+    isChairCue,
+    pairTurned,
+    rollsTo,
+    springsUp,
+    stampBetween,
+    type BidSaid,
+    type Cue,
+} from "#lib/cues.ts";
 import { chairs as seatedChairs, LOST_GAME, ramschResult, table as tableWithResult } from "#lib/result.fixtures.ts";
 import {
     auction,
@@ -437,6 +446,30 @@ describe("the bubble that springs up", () => {
         { name: "a chair without a bubble", said, seat: 1, bubble: null, springs: false },
     ] as const)("is $springs for $name", ({ said: bids, seat, bubble, springs }) => {
         expect(springsUp(bids, seat, bubble)).toBe(springs);
+    });
+});
+
+describe("what the counter of an auction moves for", () => {
+    const BID_20: BidSaid = { seat: 1, word: { action: "bid", value: 20 } };
+    const HOLD_20: BidSaid = { seat: 2, word: { action: "hold", value: 20 } };
+    const PASS: BidSaid = { seat: 2, word: { action: "pass", value: null } };
+
+    it.each([
+        { name: "the bid that stands, which this page saw said", said: [BID_20, HOLD_20], standing: 20, rolls: true },
+        { name: "a bid that stands without this page having seen it said", said: [BID_20], standing: 22, rolls: false },
+        { name: "a „Ja“ to the bid that stands", said: [HOLD_20], standing: 20, rolls: false },
+        { name: "an auction nobody has bid in, after a „Weg“", said: [PASS], standing: null, rolls: false },
+        { name: "a table shown as it stands, which saw no word said", said: [], standing: 20, rolls: false },
+    ])("rolls its drums ($rolls) for $name", ({ said, standing, rolls }) => {
+        expect(rollsTo(said, standing)).toBe(rolls);
+    });
+
+    it.each([
+        { name: "a „Weg“ this page saw said", said: [BID_20, PASS], turned: true },
+        { name: "bids and a „Ja“ alone", said: [BID_20, HOLD_20], turned: false },
+        { name: "a table shown as it stands, which saw no word said", said: [], turned: false },
+    ])("lets a new pair fade in ($turned) after $name", ({ said, turned }) => {
+        expect(pairTurned(said)).toBe(turned);
     });
 });
 

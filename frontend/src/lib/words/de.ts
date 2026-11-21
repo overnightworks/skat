@@ -71,6 +71,7 @@ export type Words = {
     readonly "table.seatTaken": string;
     readonly "table.commandFailed": string;
     readonly "table.bidding": string;
+    readonly "table.duel": (gaps: { readonly bidder: string; readonly listener: string }) => string;
     readonly "table.pass": string;
     readonly "table.waitingFor": (gaps: { readonly names: string }) => string;
     readonly "table.wantsToGiveUp": (gaps: { readonly name: string }) => string;
@@ -685,6 +686,7 @@ export const words: Words = {
     "table.seatTaken": "Platz vergeben",
     "table.commandFailed": "Das hat nicht geklappt",
     "table.bidding": "Reizen",
+    "table.duel": (gaps: { readonly bidder: string; readonly listener: string }) => "Reizt: " + gaps.bidder + ". Hört: " + gaps.listener + ".",
     "table.pass": "Weg",
     "table.waitingFor": (gaps: { readonly names: string }) => "Warte auf " + gaps.names,
     "table.wantsToGiveUp": (gaps: { readonly name: string }) => gaps.name + " will aufgeben",

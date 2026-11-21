@@ -129,6 +129,7 @@ export function createWebAudioPort(environment: AudioEnvironment): AudioPort {
             for (const url of wanted) loading.add(url);
             await Promise.all(wanted.map((url) => load(context, url)));
         },
+        recordingSeconds: (url) => decoded.get(url)?.duration ?? 0,
         playRecording(url, afterSeconds) {
             const buffer = decoded.get(url);
             if (buffer === undefined) return 0;
