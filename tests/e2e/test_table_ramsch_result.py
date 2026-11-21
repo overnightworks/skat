@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
-SEAT_FREE = text(SOURCE_LANGUAGE, "result.seatFree")
+SERIES_GONE = text(SOURCE_LANGUAGE, "table.seriesGone")
 
 
 def with_minus(number: int) -> str:
@@ -91,7 +91,7 @@ def test_everyone_reads_the_ramsch_result_card_and_weiter_works(
     assert page_errors == []
 
 
-def test_a_seat_that_stood_up_after_the_hand_reads_as_free_on_the_card(
+def test_a_seat_that_stood_up_after_the_hand_keeps_its_name_marked_gone_on_the_card(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -107,5 +107,7 @@ def test_a_seat_that_stood_up_after_the_hand_reads_as_free_on_the_card(
     )
 
     for person in table.everyone:
-        expect(person.locator(CARD).locator(f".reck[data-seat='{leaver_seat}'] .nm")).to_have_text(SEAT_FREE)
+        coaster_name = person.locator(CARD).locator(f".reck[data-seat='{leaver_seat}'] .nm")
+        expect(coaster_name).to_contain_text(table.names[leaver_seat])
+        expect(coaster_name.locator("em")).to_have_text(SERIES_GONE)
     assert page_errors == []
