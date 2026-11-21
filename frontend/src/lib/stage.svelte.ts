@@ -1,4 +1,4 @@
-import type { Closing } from "./closingHand.ts";
+import { outcomeSeal, type Closing, type Seal } from "./closingHand.ts";
 import { isChairCue, type ChairCue, type Cue } from "./cues.ts";
 import { MOTION_SETS, type MotionSet } from "./motionSets.ts";
 import { currentSettings, motionInForce } from "./settings.svelte.ts";
@@ -57,11 +57,12 @@ export function currentStage(): StageState {
 }
 
 /**
- * Whether the declarer won the hand whose last trick has rested and lifts the card that took it, null in a Ramsch;
- * undefined while that trick still lands and rests, and while no last trick moves.
+ * The card that took the trick on the move, once the trick has lain and the card lifts: its seat, and the seal it
+ * carries when the trick closes a declared hand. Nothing while the trick lands and lies, and while none moves.
  */
-export function closingTrickWon(): boolean | null | undefined {
-    return (stage.phase === "lifting" || stage.phase === "gliding") && stage.resultPending ? closingWon : undefined;
+export function takingCard(): { seat: number; seal: Seal | null } | null {
+    if (stage.phase !== "lifting" && stage.phase !== "gliding") return null;
+    return { seat: (stage.trick as LastTrick).taker_seat, seal: stage.resultPending ? outcomeSeal(closingWon) : null };
 }
 
 /** The seat a finished trick glides to, while it glides. */

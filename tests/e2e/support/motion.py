@@ -12,17 +12,51 @@ RECORDING_MOTION = """(() => {
     if (window.motionPlayed !== undefined) return;
     window.motionPlayed = [];
     const animate = Element.prototype.animate;
-    Element.prototype.animate = function recordingAnimate(frames, milliseconds) {
+    Element.prototype.animate = function recordingAnimate(frames, timing) {
         const laid = this.closest('.laid');
         window.motionPlayed.push({
             piece: this.classList[0],
             seat: laid === null ? null : Number(laid.dataset.seat),
             frames,
-            milliseconds,
+            milliseconds: timing.duration,
         });
-        return animate.call(this, frames, milliseconds);
+        return animate.call(this, frames, timing);
     };
 })()"""
+# Holds everything the page plays on its trick at one instant of its track, so the page shows that instant until the
+# trick is taken away.
+HOLDING_THE_TRICK = """(milliseconds) => {
+    for (const played of document.querySelector('.trick').getAnimations({ subtree: true })) {
+        played.pause();
+        played.currentTime = milliseconds;
+    }
+}"""
+# Each card of the trick as the page draws it now, by the name of its face: how far the middle of its face lies off the
+# middle of the trick, in card widths across and down the page, the degrees it is turned on the page, whether its back
+# is up, and how many pixels its middle lies off the middle of the element `onto` names.
+THE_TRICK_AS_DRAWN = """(onto) => {
+    const middleOf = (element) => {
+        const box = element.getBoundingClientRect();
+        return [box.left + box.width / 2, box.top + box.height / 2];
+    };
+    const degrees = (element) => {
+        const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+        return Math.atan2(matrix.b, matrix.a) * 180 / Math.PI;
+    };
+    const [trickX, trickY] = middleOf(document.querySelector('.trick'));
+    const [ontoX, ontoY] = middleOf(document.querySelector(onto));
+    return Object.fromEntries([...document.querySelectorAll('.trick .laid')].map((slot) => {
+        const face = slot.querySelector('.face');
+        const [x, y] = middleOf(face);
+        return [face.getAttribute('aria-label'), {
+            x: (x - trickX) / slot.offsetWidth,
+            y: (y - trickY) / slot.offsetWidth,
+            turn: degrees(slot.querySelector('.lying')) + degrees(face),
+            backUp: getComputedStyle(slot.querySelector('.rear')).opacity === '1',
+            pixelsOff: Math.hypot(x - ontoX, y - ontoY),
+        }];
+    }));
+}"""
 # How each laid card rests, by the name of its face: how far its middle lies off the middle of its slot, in card widths
 # across and down the page, and the degrees it is turned on top of its slot's turn.
 LIES = """() => Object.fromEntries([...document.querySelectorAll('.trick .laid')].map((slot) => {
@@ -80,6 +114,23 @@ def motion_played(page: Page) -> list[dict[str, Any]]:
 
 def wait_for_the_motion_to_end(page: Page) -> None:
     page.wait_for_function("() => document.querySelector('.trick').getAnimations({ subtree: true }).length === 0")
+
+
+def hold_the_trick_at(page: Page, milliseconds: float) -> None:
+    """Holds what `page` plays on its trick at this instant of its track."""
+    page.evaluate(HOLDING_THE_TRICK, milliseconds)
+
+
+def trick_as_drawn(page: Page, onto: str) -> dict[str, dict[str, Any]]:
+    """How `page` draws each card of its trick now, by the card's name, and how far off the element `onto` names."""
+    return page.evaluate(THE_TRICK_AS_DRAWN, onto)
+
+
+def rim_goes_after(played: list[dict[str, Any]]) -> float:
+    """The milliseconds into these animations of one moment after which the taking card's brass rim goes."""
+    rim = next(piece for piece in played if piece["piece"] == "rim")
+    last = max(index for index, frame in enumerate(rim["frames"]) if frame["opacity"] == 1)
+    return last / (len(rim["frames"]) - 1) * rim["milliseconds"]
 
 
 def arrival_of(played: list[dict[str, Any]]) -> str:

@@ -97,7 +97,6 @@
         receiveOnStage,
         resetStage,
         stageMoves,
-        sweepingTo,
         trickIsMoving,
     } from "#lib/stage.svelte.ts";
     import { beatOf, receiveReactions, resetReactions } from "#lib/tableReactions.svelte.ts";
@@ -599,7 +598,6 @@
                         class:away={chair.is_away}
                         class:out={marks.passed}
                         class:win={winners.has(chair.seat)}
-                        class:got={chair.seat === sweepingTo()}
                         class:turn={onTurn}
                         class:nudgeable={chair.nudge !== null}
                         class:shaken={grumblingAt(chair.seat) !== null}

@@ -195,7 +195,7 @@ export function createTableSound({
             );
         },
         forGlide() {
-            const gathers = motion()?.trickGatherSeconds ?? 0;
+            const gathers = motion()?.trick.gatherSeconds ?? 0;
             sound.play(
                 soundSet()
                     .voices["trick-swept"](1)

@@ -1,22 +1,25 @@
 <script lang="ts">
+    import { untrack } from "svelte";
     import type { Action } from "svelte/action";
-    import { outcomeRim } from "#lib/closingHand.ts";
+    import type { Seal } from "#lib/closingHand.ts";
     import { ownCardSlotOpen, type LaidCard } from "#lib/playView.ts";
     import { motionOnStage } from "#lib/stage.svelte.ts";
+    import { gatherTimeline, liftTimeline, takerTimeline } from "#lib/takt/gather.ts";
     import { carryOf, landTimeline, lieOf } from "#lib/takt/land.ts";
     import { letGoPlaceOf } from "#lib/takt/letGo.ts";
-    import { fade, move, placeOf } from "#lib/takt/player.ts";
+    import { fade, letRest, move, placeOf } from "#lib/takt/player.ts";
     import type { Place } from "#lib/takt/timeline.ts";
     import CardBack from "#lib/ui/CardBack.svelte";
     import CardFace from "#lib/ui/CardFace.svelte";
+    import OutcomeSeal from "#lib/ui/OutcomeSeal.svelte";
     import { words } from "#lib/words.ts";
     import { cardName, includesCard, type Card, type Chair } from "../../routes/(start)/tables.ts";
 
     // The cards this page saw played in the running hand; only those land, a card drawn from a reload lies at once.
-    // `seed` is the seed of the running game, from which every card draws its lie and its toss.
+    // `seed` is the seed of the running game, from which every card draws its lie, its toss and its place in a heap.
     // `turnSeat` is the seat whose card the table waits for, undefined while the hand waits for a sitter or a trick
     // is on the move. `sweptTo` is the seat whose pile the trick glides to while it glides. `took` is the seat whose card
-    // took the last trick of the hand and whether the declarer won it, null in a Ramsch, once that trick has rested.
+    // took the finished trick, once that trick has lain, and the seal that card carries when it decided a declared hand.
     const {
         chairs,
         laid,
@@ -32,17 +35,18 @@
         seed: string;
         turnSeat: number | null | undefined;
         sweptTo: number | null;
-        took?: { seat: number; declarerWon: boolean | null } | null;
+        took?: { seat: number; seal: Seal | null } | null;
     } = $props();
 
     const placesOf = (selector: string): Place[] => [...document.querySelectorAll(selector)].map(placeOf);
     const partOf = (card: HTMLElement, part: string): HTMLElement => card.querySelector(`.${part}`) as HTMLElement;
 
-    // A card leaves from where the own hand let it go, else from its player's open cards, else from the player's fan,
-    // which hides its faces.
+    // A card leaves from where the own hand let it go, else from its player's open cards, else from the middle of the
+    // own hand when the viewer's seat played it elsewhere, else from the player's fan, which hides its faces.
     function leavingOf(card: Card, seat: number): { from: Place | undefined; faceDown: boolean } {
         const chair = `.chair[data-seat="${String(seat)}"]`;
-        const shown = letGoPlaceOf(card) ?? placesOf(`${chair} .open .card`)[0];
+        const held = chairs.some((each) => each.is_mine && each.seat === seat) ? placesOf(".own-hand .card") : [];
+        const shown = letGoPlaceOf(card) ?? placesOf(`${chair} .open .card`)[0] ?? held[Math.floor(held.length / 2)];
         return { from: shown ?? placesOf(`${chair} .fan`)[0], faceDown: shown === undefined };
     }
 
@@ -98,62 +102,90 @@
         };
     });
 
-    type Point = { x: number; y: number };
-    const centreOf = (box: DOMRect): Point => ({ x: box.left + box.width / 2, y: box.top + box.height / 2 });
-    const px = (pixels: number): string => `${pixels.toFixed(0)}px`;
-    // Each card turns a little more than the one before it while the trick gathers.
-    const GATHER_TURN_DEGREES = 5;
-    // The trail is a curve of this many points, bowed away from the line between the middle and the pile.
-    const TRAIL_POINTS = 10;
-    const TRAIL_BOW = 30;
-    let trail = $state("");
+    const HELD = { stays: true };
 
-    // The trick glides to the pile of its taker: each card measures its own way from where it lies to the middle of the
-    // trick and on to the pile, since the grid puts the pile wherever the chair stands.
+    // The card that took the trick lifts once the trick has lain and stands lifted, in its brass rim, until the trick
+    // is gathered or the result rises; a seal is pressed onto it.
+    function lift(seat: number): (() => void) | undefined {
+        const set = motionOnStage()?.trick;
+        const card = trick?.querySelector<HTMLElement>(`.laid[data-seat="${String(seat)}"]`);
+        if (set === undefined || !card) return undefined;
+        const { tracks, seconds } = liftTimeline(set, placeOf(partOf(card, "lying")));
+        move(partOf(card, "face"), tracks.card, seconds, HELD);
+        move(partOf(card, "shade"), tracks.shade, seconds, HELD);
+        fade(partOf(card, "rim"), tracks.rim, seconds);
+        const seal = card.querySelector(".seal");
+        if (seal !== null) move(seal, tracks.seal, seconds);
+        return () => {
+            letRest(card);
+        };
+    }
+
+    // The trick is gathered onto its taker's pile: Takt moves each card between where it lies, the middle of the trick
+    // and the pile's top card, all as the page measures them, since the grid puts the pile wherever the chair stands.
+    // The pile's top card appears as the trick becomes it, at once when the trick is taken away early, and the taker's
+    // chair answers.
+    function gather(seat: number): (() => void) | undefined {
+        const set = motionOnStage()?.trick;
+        const stage = trick?.closest(".stage");
+        const top = stage?.querySelector(`.pile[data-seat="${String(seat)}"] .landing`);
+        if (trick === undefined || set === undefined || !stage || !top) return undefined;
+        const cards = [...trick.querySelectorAll<HTMLElement>(".laid")];
+        const box = trick.getBoundingClientRect();
+        const { tracks, seconds } = gatherTimeline(set, seed, {
+            cards: cards.map((card, index) => ({
+                card: (laid[index] as LaidCard).card,
+                lies: placeOf(partOf(card, "lying")),
+                takes: Number(card.dataset.seat) === seat,
+            })),
+            middle: { x: box.left + box.width / 2, y: box.top + box.height / 2 },
+            pile: placeOf(top),
+        });
+        for (const [index, card] of cards.entries()) {
+            const each = tracks.cards[index] as (typeof tracks.cards)[number];
+            move(partOf(card, "face"), each.card, seconds, HELD);
+            move(partOf(card, "shade"), each.shade, seconds, HELD);
+            fade(partOf(card, "rear"), each.rear, seconds, HELD);
+            fade(partOf(card, "tag"), each.name, seconds, HELD);
+            for (const mark of card.querySelectorAll(".rim, .seal")) fade(mark, each.rim, seconds, HELD);
+        }
+        fade(top, tracks.pile, seconds);
+        const tile = stage.querySelector(`.chair[data-seat="${String(seat)}"] .tile`);
+        if (tile !== null) {
+            const taker = takerTimeline(set);
+            move(tile, taker.tracks.hop, taker.seconds);
+            fade(tile, taker.tracks.flash, taker.seconds, { pseudoElement: "::after" });
+        }
+        return () => {
+            letRest(top);
+        };
+    }
+
+    // A seat alone starts the lift and the gathering, so a table that arrives meanwhile starts neither again.
+    const liftedSeat = $derived(took?.seat ?? null);
     $effect(() => {
-        const list = trick;
-        const pile =
-            sweptTo === null ? null : list?.closest(".stage")?.querySelector(`.pile[data-seat="${String(sweptTo)}"]`);
-        if (list === undefined || !pile) {
-            trail = "";
-            return;
-        }
-        const origin = list.getBoundingClientRect();
-        const middle = centreOf(origin);
-        const target = centreOf(pile.getBoundingClientRect());
-        const pileCard = pile.querySelector<HTMLElement>(".card");
-        for (const [index, card] of [...list.querySelectorAll<HTMLElement>(".laid")].entries()) {
-            const here = centreOf(card.getBoundingClientRect());
-            card.style.setProperty("--gx", px(middle.x - here.x));
-            card.style.setProperty("--gy", px(middle.y - here.y));
-            card.style.setProperty("--gr", `${String((index - 1) * GATHER_TURN_DEGREES)}deg`);
-            card.style.setProperty("--wx", px(target.x - here.x));
-            card.style.setProperty("--wy", px(target.y - here.y));
-            card.style.setProperty("--ps", String((pileCard?.offsetWidth ?? card.offsetWidth) / card.offsetWidth));
-        }
-        const from = { x: middle.x - origin.left, y: middle.y - origin.top };
-        const to = { x: target.x - origin.left, y: target.y - origin.top };
-        const bend = { x: (from.x + to.x) / 2 - TRAIL_BOW, y: Math.min(from.y, to.y) + TRAIL_BOW };
-        const along = (t: number, start: number, control: number, end: number): string =>
-            ((1 - t) ** 2 * start + 2 * (1 - t) * t * control + t ** 2 * end).toFixed(0);
-        trail = Array.from({ length: TRAIL_POINTS }, (_, step) => {
-            const t = 0.1 + step * 0.09;
-            return `${along(t, from.x, bend.x, to.x)} ${along(t, from.y, bend.y, to.y)}`;
-        }).join("L");
+        const seat = liftedSeat;
+        if (seat !== null) return untrack(() => lift(seat));
+    });
+    $effect(() => {
+        const seat = sweptTo;
+        if (seat !== null) return untrack(() => gather(seat));
     });
 </script>
 
-<ul class="trick" class:stepped class:sweeping={sweptTo !== null} aria-label={words["play.trick"]} bind:this={trick}>
+<ul class="trick" class:stepped aria-label={words["play.trick"]} bind:this={trick}>
     {#each laid as { card, seat, slot, name, initial } (`${card.suit}-${card.rank}`)}
-        <li
-            class={["laid", slot, took?.seat === seat && ["took", outcomeRim(took.declarerWon)]]}
-            data-seat={seat}
-            use:rests={{ card, seat }}
-        >
+        <li class={["laid", slot, took?.seat === seat && "took"]} data-seat={seat} use:rests={{ card, seat }}>
             <span class="lying">
                 <span class="shade"></span>
                 <span class="face" role="img" aria-label={cardName(card)}>
                     <CardFace {card} /><span class="rear"><CardBack /></span>
+                    {#if took?.seat === seat}
+                        <span class="rim"></span>
+                        {#if took.seal !== null}
+                            <OutcomeSeal seal={took.seal} />
+                        {/if}
+                    {/if}
                 </span>
             </span>
             <span class="hang">
@@ -164,11 +196,6 @@
             </span>
         </li>
     {/each}
-    {#if trail !== ""}
-        <li class="trail" aria-hidden="true">
-            <svg width="1" height="1"><path d={`M${trail}`} /></svg>
-        </li>
-    {/if}
     {#if ownCardSlotOpen(chairs, laid, turnSeat)}
         <li class="lead-slot" aria-hidden="true">
             <svg

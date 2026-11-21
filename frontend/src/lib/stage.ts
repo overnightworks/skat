@@ -1,5 +1,7 @@
 import { isChairCue, type Cue } from "./cues.ts";
 import type { MotionSet } from "./motionSets.ts";
+import { gatherInstants } from "./takt/gather.ts";
+import { landInstants } from "./takt/land.ts";
 import type { LastTrick, Playing } from "../routes/(start)/tables.ts";
 
 export const LAST_TRICK_MODES = ["sweep", "stay"] as const;
@@ -9,8 +11,8 @@ export type LastTrickMode = (typeof LAST_TRICK_MODES)[number];
 export const DEFAULT_LAST_TRICK_MODE: LastTrickMode = "sweep";
 
 /**
- * A finished trick lies still, then glides to its taker's pile; the last trick of a hand lifts the card that took it
- * between the two. A table with no trick on the move is settled.
+ * A finished trick lies still, lifts the card that took it, then glides to its taker's pile. A table with no trick on
+ * the move is settled.
  */
 export type Phase = "settled" | "resting" | "lifting" | "gliding";
 
@@ -23,9 +25,9 @@ export interface StageState {
     readonly trick: LastTrick | null;
     /** The playing the table showed before the update that finished the trick, whose last trick the brass rim still marks. */
     readonly before: Playing | null;
-    /** How long the card that took the trick stands lifted once the rest is over; none for a trick that does not close the hand. */
+    /** How long the card that took the trick stands lifted once the trick has lain; none for a trick that drops to the next lead. */
     readonly liftMilliseconds: number;
-    /** How long the glide lasts once the rest and the lift are over; none means the trick drops to the next lead with no arc. */
+    /** How long the glide lasts once the lift is over; none means the trick drops with no arc. */
     readonly glideMilliseconds: number;
     /** Whether the viewer's turn came with the update that finished this trick; it is shown once the trick has settled. */
     readonly turnPending: boolean;
@@ -46,8 +48,13 @@ export const SETTLED: StageState = {
 
 /** What a moving table takes; null is a budget of zero, where every state shows at once. */
 export interface Timing {
-    readonly restMilliseconds: number;
-    readonly liftMilliseconds: number;
+    /** From the cue of a trick's last card until the card that took the trick lifts: that card lands, and the trick lies. */
+    readonly liesMilliseconds: number;
+    /** How long the taking card stands lifted before the trick is gathered. */
+    readonly liftedMilliseconds: number;
+    /** How much longer the taking card of a hand's last trick stands lifted, while the result waits. */
+    readonly lastHoldMilliseconds: number;
+    /** From the trick's first move to the instant it lies on its taker's pile. */
     readonly glideMilliseconds: number;
     readonly chairSitsMilliseconds: number;
     readonly chairEmptiesMilliseconds: number;
@@ -55,17 +62,21 @@ export interface Timing {
 
 const MILLISECONDS = 1000;
 
-/** The budget of the table now: zero while the window is hidden or no motion set is in force. */
+/**
+ * The budget of the table now: zero while the window is hidden or no motion set is in force. A trick's times are read
+ * from the set's landing and gathering, so the trick rests from when its last card lies.
+ */
 export function timingOf(motion: MotionSet | undefined, hidden: boolean): Timing | null {
-    return motion === undefined || hidden
-        ? null
-        : {
-              restMilliseconds: motion.trickRestSeconds * MILLISECONDS,
-              liftMilliseconds: motion.trickLiftSeconds * MILLISECONDS,
-              glideMilliseconds: (motion.trickGatherSeconds + motion.trickGlideSeconds) * MILLISECONDS,
-              chairSitsMilliseconds: motion.chairSitsSeconds * MILLISECONDS,
-              chairEmptiesMilliseconds: motion.chairEmptiesSeconds * MILLISECONDS,
-          };
+    if (motion === undefined || hidden) return null;
+    const { lifts, gathers, piled } = gatherInstants(motion.trick);
+    return {
+        liesMilliseconds: (landInstants(motion.land).lies + lifts) * MILLISECONDS,
+        liftedMilliseconds: (gathers - lifts) * MILLISECONDS,
+        lastHoldMilliseconds: motion.trick.lastHoldSeconds * MILLISECONDS,
+        glideMilliseconds: (piled - gathers) * MILLISECONDS,
+        chairSitsMilliseconds: motion.chairSitsSeconds * MILLISECONDS,
+        chairEmptiesMilliseconds: motion.chairEmptiesSeconds * MILLISECONDS,
+    };
 }
 
 /** How long the chairs that changed hands in `cues` move: the longest of them, zero with no budget. */
@@ -131,7 +142,7 @@ function receiveTrick(stage: StageState, { cues, before, timing, mode, closing, 
     const resultBeats: readonly Beat[] = closing ? ["result-shown"] : [];
     if (mode === "stay") {
         // A trick that stays lies on the felt with or without the stage; only a lead in the same update, or the result
-        // that comes after it, needs the rest.
+        // that comes after it, needs the rest. It lifts no card but the one that closes the hand.
         return (leadFollows || closing) && timing !== null
             ? { stage: resting(trick, before, now, timing, 0, closing), beats: jumped.beats }
             : { stage: SETTLED, beats: [...jumped.beats, ...resultBeats] };
@@ -152,12 +163,14 @@ function resting(
     glideMilliseconds: number,
     resultPending: boolean,
 ): StageState {
+    const lifts = glideMilliseconds > 0 || resultPending;
+    const lifted = timing.liftedMilliseconds + (resultPending ? timing.lastHoldMilliseconds : 0);
     return {
         phase: "resting",
-        until: now + timing.restMilliseconds,
+        until: now + timing.liesMilliseconds + (lifts ? 0 : lifted),
         trick,
         before,
-        liftMilliseconds: resultPending ? timing.liftMilliseconds : 0,
+        liftMilliseconds: lifts ? lifted : 0,
         glideMilliseconds,
         turnPending: false,
         resultPending,
