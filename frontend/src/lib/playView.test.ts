@@ -17,6 +17,7 @@ import {
 import { DECLARER, FIRST_OPPONENT, SECOND_OPPONENT, tableWith } from "#lib/giveUp.fixtures.ts";
 import { SETTLED, type StageState } from "#lib/stage.ts";
 import { words } from "#lib/words.ts";
+import { auctionWith } from "#lib/table.fixtures.ts";
 import type { Auction, Card, Chair, LastTrick, Playing, Position, Table } from "../routes/(start)/tables.ts";
 
 const KARO_SEVEN: Card = { suit: "karo", rank: "seven" };
@@ -86,15 +87,7 @@ function table(mine: number, changes: Partial<Playing> | null): Table {
             pushing: null,
             pushes: 0,
             push_factor: 1,
-            auction: {
-                turn_seat: null,
-                facing_seat: null,
-                awaiting: null,
-                standing: null,
-                values: [],
-                words: [],
-                declared: null,
-            },
+            auction: auctionWith(),
             declaring: {
                 declarer_seat: DECLARER_SEAT,
                 stage: "declared",

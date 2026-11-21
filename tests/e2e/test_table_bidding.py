@@ -1,31 +1,53 @@
 import json
 import re
-import uuid
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from playwright.sync_api import Page, Route, expect
 
+from skat.engine.bidding import VALID_BIDS
 from skat.table.auction import AuctionAction
-from skat.table.records import TableStyle
-from skat.web.auction import (
-    TABLE_AUCTION_BID_SUFFIX,
-    TABLE_AUCTION_HOLD_SUFFIX,
-    TABLE_AUCTION_PASS_SUFFIX,
-    TABLE_AUCTION_PLAY_SUFFIX,
-)
-from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
+from skat.table.records import PlanMode, TableStyle
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH, PlanKind
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.browser import record_page_errors
-from tests.e2e.support.people import DESKTOP, PHONE
-from tests.e2e.support.style import (
-    STYLES,
-    expect_painted_as_the_scene,
-    expect_the_furniture_clear,
-    give_the_table_its_style,
+from tests.e2e.support.audio import (
+    CONFIRMATIONS,
+    RECORDING_COUNT,
+    keys_said,
+    tap,
+    wait_for_recordings_decoded,
+    wait_for_recordings_started,
 )
-from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
+from tests.e2e.support.bidding import (
+    BAR,
+    CHIPS,
+    LIMIT_VALUE,
+    MORE,
+    PASS,
+    PASS_KEY,
+    SKAT_CARD,
+    STEP_KEY,
+    STEP_SUFFIXES,
+    BiddingTable,
+    answer_of,
+    assert_no_controls,
+    assert_page_fits,
+    chip,
+    dealt_table,
+    first_bid_above,
+    limit_at,
+    own_plan,
+    own_values,
+    own_word,
+    pass_key,
+    plan_ahead,
+    step,
+)
+from tests.e2e.support.browser import record_page_errors
+from tests.e2e.support.people import DESKTOP, WIDTHS
+from tests.e2e.support.style import STYLES, expect_painted_as_the_scene, expect_the_furniture_clear
+from tests.e2e.support.tables import open_new_table, watch
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -35,28 +57,29 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "has_touch": True}
-WIDTHS = [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")]
 BIDDING = text(SOURCE_LANGUAGE, "table.bidding")
 HOLD = text(SOURCE_LANGUAGE, "bid.hold")
+ASK = text(SOURCE_LANGUAGE, "bid.ask")
+FIXED = text(SOURCE_LANGUAGE, "bid.fixed")
+ASKED = text(SOURCE_LANGUAGE, "bid.asked")
+PASS_AHEAD = text(SOURCE_LANGUAGE, "bid.passAhead")
+TAKEN_BACK = text(SOURCE_LANGUAGE, "bid.takenBack")
+CLEAR_LIMIT = text(SOURCE_LANGUAGE, "bid.clearLimit")
+LIMIT_CLEARED = text(SOURCE_LANGUAGE, "bid.limitCleared")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 WAITING_FOR_PLAYERS = text(SOURCE_LANGUAGE, "table.waitingForPlayers")
-PASS = text(SOURCE_LANGUAGE, "bid.pass")
 WAITS_FOR_YOU = text(SOURCE_LANGUAGE, "table.waitsForYou")
 PASSED_IN = text(SOURCE_LANGUAGE, "table.passedIn")
-YOU = text(SOURCE_LANGUAGE, "table.sideYou")
-LOWEST_BID = 18
-# A read on a connection the server closed for idling meets a reset; Playwright retries only that error.
-RESET_RETRIES = 3
-SKAT_CARD = ".skat-card"
-LADDER = ".ladder"
-HELD = ".ladder .held"
-LIT = ".ladder .now"
-HIGHER = ".ladder .higher button"
-MAIN = ".bid-buttons .button-stage"
-PASS_BUTTON = ".bid-buttons .button-glass"
-BID_CHIP_PAINT = ["backgroundColor", "color"]
-STRIP = ".ladder .higher"
+LOWEST_BID, SECOND_BID, THIRD_BID, *_, TOP_BID = VALID_BIDS
+PAINT = ["backgroundColor", "color"]
+# What the table says for a bidder up to the third value against a responder who holds up to the second: three bids,
+# two holds and the responder's pass.
+WORDS_OF_THE_RUN = 6
+ASKS = ".bid-line .asks"
+PLAN_LINE = ".bid-line"
+PLAN_NOTE = f"{PLAN_LINE} .said"
+PASSED_LINE = f"{PLAN_LINE}.dim"
+PLACE_AND_OPACITY = "(line) => [Math.round(line.getBoundingClientRect().top), Number(getComputedStyle(line).opacity)]"
 TURN_CHAIR = ".chair.mine.turn"
 FAR_TURN_CHAIR = ".chair.turn:not(.mine)"
 PLAQUE = ".plaque"
@@ -67,29 +90,6 @@ GIVES_LINE = ".plaque .gives"
 DEALER_MARK = ".mark.dealer"
 DECK = ".deck"
 OUT = re.compile(r"\bout\b")
-TOP_BID = "264"
-FIRST_HIGHER_BID = "20"
-HIGHER_BID_TAPPED = "30"
-BID_TO_ANSWER = 20
-NOT_OBSCURED_BY_THE_STRIP = """(button) => {
-    const strip = button.closest('.higher').getBoundingClientRect();
-    const box = button.getBoundingClientRect();
-    return box.left >= strip.left - 1 && box.right <= strip.right + 1;
-}"""
-
-
-@dataclass(frozen=True)
-class Table:
-    server: RunningServer
-    id: str
-    forehand: Page
-    middlehand: Page
-    rearhand: Page
-    watcher: Page
-
-    @property
-    def everyone(self) -> tuple[Page, ...]:
-        return (self.forehand, self.middlehand, self.rearhand, self.watcher)
 
 
 @dataclass(frozen=True)
@@ -119,97 +119,21 @@ class Scene:
         return chairs
 
 
-def answer_of(person: Page, table: Table) -> dict[str, Any]:
-    return person.request.get(f"{table.server.base_url}{TABLES_PATH}/{table.id}", max_retries=RESET_RETRIES).json()
-
-
-def position_of(person: Page, server: RunningServer, table_id: str) -> str:
-    answer = person.request.get(f"{server.base_url}{TABLES_PATH}/{table_id}", max_retries=RESET_RETRIES).json()
-    return next(chair["hand"]["position"] for chair in answer["chairs"] if chair["is_mine"])
-
-
-def dealt_table(
-    open_person: Callable[..., Page],
-    server: RunningServer,
-    page_errors: list[str],
-    form_factor: dict[str, Any],
-    *,
-    console: bool = True,
-    style: TableStyle = TableStyle.KLASSIK,
-) -> Table:
-    def person(username: str) -> Page:
-        return record_page_errors(open_person(username=username, **form_factor), page_errors, console=console)
-
-    anna = person("anna")
-    path = open_new_table(anna, server)
-    ben, cleo, dora = person("ben"), person("cleo"), person("dora")
-    for looker in (ben, cleo, dora):
-        watch(looker, server, path)
-    sit_in(ben, 2)
-    expect(ben.locator(".chair[data-seat='2'] .plate")).to_contain_text(YOU)
-    sit_in(cleo, 3)
-    for looker in (anna, ben, cleo, dora):
-        expect(looker.locator(SKAT_CARD)).to_have_count(2)
-    table_id = table_id_of(path)
-    by_position = {position_of(player, server, table_id): player for player in (anna, ben, cleo)}
-    give_the_table_its_style(anna, (anna, ben, cleo, dora), style)
-    return Table(server, table_id, by_position["forehand"], by_position["middlehand"], by_position["rearhand"], dora)
-
-
-STEP_SUFFIXES = {
-    AuctionAction.BID: TABLE_AUCTION_BID_SUFFIX,
-    AuctionAction.HOLD: TABLE_AUCTION_HOLD_SUFFIX,
-    AuctionAction.PASS: TABLE_AUCTION_PASS_SUFFIX,
-    AuctionAction.PLAY: TABLE_AUCTION_PLAY_SUFFIX,
-}
-
-
-def step(person: Page, table: Table, action: AuctionAction, value: int | None = None) -> None:
-    """A step taken behind the page, as the player's other device would."""
-    payload: dict[str, Any] = {
-        "command_id": uuid.uuid4().hex,
-        "version": answer_of(person, table)["version"],
-    }
-    if value is not None:
-        payload["value"] = value
-    response = person.request.post(
-        f"{table.server.base_url}{TABLES_PATH}/{table.id}{STEP_SUFFIXES[action]}",
-        data=payload,
-        headers={"Origin": table.server.base_url},
-    )
-    assert response.ok, response.text()
-
-
-def own_word(person: Page, table: Table) -> tuple[str, int | None]:
-    """`person`'s last word in the auction, from their own answer."""
-    answer = answer_of(person, table)
-    seat = next(chair["seat"] for chair in answer["chairs"] if chair["is_mine"])
-    word = next(word for word in answer["hand"]["auction"]["words"] if word["seat"] == seat)
-    return word["action"], word["value"]
-
-
-def assert_no_controls(person: Page) -> None:
-    expect(person.locator(LADDER)).to_have_count(0)
-    expect(person.get_by_role("button", name=PASS, exact=True)).to_have_count(0)
-
-
-def assert_page_fits(person: Page) -> None:
-    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-
-
-def assert_the_opening_ladder(person: Page) -> None:
-    expect(person.locator(HELD)).to_have_count(0)
-    expect(person.locator(LIT)).to_have_text(str(LOWEST_BID))
-    expect(person.locator(MAIN)).to_have_text(str(LOWEST_BID))
-    expect(person.get_by_role("button", name=PASS, exact=True)).to_be_visible()
-    expect(person.locator(HIGHER).first).to_have_text(FIRST_HIGHER_BID)
-    expect(person.locator(HIGHER).last).to_have_text(TOP_BID)
+def assert_the_chips(person: Page, table: BiddingTable) -> None:
+    expect(pass_key(person)).to_be_visible()
+    expect(person.locator(CHIPS)).to_have_text([str(value) for value in own_values(person, table)])
+    expect(person.locator(MORE)).to_be_visible()
     assert_page_fits(person)
+
+
+def assert_the_opening_bar(person: Page, table: BiddingTable) -> None:
+    expect(person.locator(STEP_KEY)).to_have_text(str(LOWEST_BID))
+    assert_the_chips(person, table)
 
 
 @pytest.mark.parametrize("table_style", STYLES)
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_middlehand_opens_and_only_the_one_whose_turn_it_is_gets_controls(
+def test_the_middlehand_opens_and_only_the_one_whose_turn_it_is_gets_the_key_that_says_the_next_word(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     page_errors: list[str],
@@ -219,23 +143,32 @@ def test_the_middlehand_opens_and_only_the_one_whose_turn_it_is_gets_controls(
     table = dealt_table(open_person, e2e_server, page_errors, form_factor, style=table_style)
     middlehand = table.middlehand
 
-    assert_the_opening_ladder(middlehand)
-    expect_the_furniture_clear((table.forehand, middlehand, table.rearhand, table.watcher), table_style)
+    assert_the_opening_bar(middlehand, table)
+    expect_the_furniture_clear(table.everyone, table_style)
     if table_style is TableStyle.STRANDBAR:
-        expect_painted_as_the_scene(middlehand, "strand-auction", PASS_BUTTON, ".btns .button-glass", BID_CHIP_PAINT)
+        expect_painted_as_the_scene(middlehand, "strand-auction", PASS_KEY, ".btns .button-glass", PAINT)
+        expect_painted_as_the_scene(middlehand, "strand-auction", CHIPS, ".bid-chip", PAINT)
     expect(middlehand.locator(TURN_CHAIR)).to_have_count(1)
-    for other in (table.forehand, table.rearhand, table.watcher):
+    for other in (table.forehand, table.rearhand):
         expect(other.locator(PLAQUE)).to_have_text(BIDDING)
-        assert_no_controls(other)
+        assert_the_chips(other, table)
+        expect(other.locator(STEP_KEY)).to_have_count(0)
         expect(other.locator(TURN_CHAIR)).to_have_count(0)
+    expect(table.watcher.locator(PLAQUE)).to_have_text(BIDDING)
+    assert_no_controls(table.watcher)
+
+    chip(table.rearhand, own_values(table.rearhand, table)[-1]).click()
+
+    expect(table.rearhand.get_by_role("button", name=CLEAR_LIMIT)).to_be_visible()
+    expect_the_furniture_clear([table.rearhand], table_style)
 
     middlehand.reload()
-    assert_the_opening_ladder(middlehand)
+    assert_the_opening_bar(middlehand, table)
 
-    middlehand.locator(MAIN).click()
+    middlehand.locator(STEP_KEY).click()
 
-    expect(table.forehand.get_by_role("button", name=HOLD)).to_be_visible()
-    assert_no_controls(middlehand)
+    expect(table.forehand.locator(STEP_KEY)).to_have_text(HOLD)
+    expect(middlehand.locator(STEP_KEY)).to_have_count(0)
     assert own_word(middlehand, table) == (AuctionAction.BID.value, LOWEST_BID)
 
 
@@ -244,85 +177,20 @@ def test_the_forehand_answers_a_bid_and_the_bidder_climbs_on(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = dealt_table(open_person, e2e_server, page_errors, form_factor)
-    step(table.middlehand, table, AuctionAction.BID, BID_TO_ANSWER)
+    step(table.middlehand, table, AuctionAction.BID, SECOND_BID)
     forehand = table.forehand
 
-    expect(forehand.locator(LIT)).to_have_text(str(BID_TO_ANSWER))
-    expect(forehand.locator(HELD)).to_have_count(0)
-    assert forehand.locator(".ladder > span").all_inner_texts()[1:] == ["22", "23", "24"]
-    expect(forehand.locator(HIGHER)).to_have_count(0)
-    expect(forehand.locator(MAIN)).to_have_text(HOLD)
-    expect(forehand.get_by_role("button", name=PASS, exact=True)).to_be_visible()
-    assert_page_fits(forehand)
+    expect(forehand.locator(STEP_KEY)).to_have_text(HOLD)
+    assert_the_chips(forehand, table)
 
     forehand.reload()
-    expect(forehand.locator(MAIN)).to_have_text(HOLD)
+    expect(forehand.locator(STEP_KEY)).to_have_text(HOLD)
 
-    forehand.locator(MAIN).click()
+    forehand.locator(STEP_KEY).click()
 
-    expect(table.middlehand.locator(LIT)).to_have_text("22")
-    expect(table.middlehand.locator(HELD)).to_have_text(str(BID_TO_ANSWER))
-    assert_no_controls(forehand)
-    assert own_word(forehand, table) == (AuctionAction.HOLD.value, BID_TO_ANSWER)
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_tap_on_a_higher_value_bids_that_value_at_once(
-    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
-) -> None:
-    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
-
-    table.middlehand.locator(STRIP).get_by_role("button", name=HIGHER_BID_TAPPED, exact=True).click()
-
-    expect(table.forehand.locator(LIT)).to_have_text(HIGHER_BID_TAPPED)
-    assert own_word(table.middlehand, table) == (AuctionAction.BID.value, int(HIGHER_BID_TAPPED))
-
-
-def test_a_mouse_scrolls_the_strip_to_the_top_value_and_clicks_it(
-    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str]
-) -> None:
-    table = dealt_table(open_person, e2e_server, page_errors, DESKTOP)
-    middlehand = table.middlehand
-    strip = middlehand.locator(STRIP)
-    assert strip.evaluate("(strip) => getComputedStyle(strip).scrollbarWidth") == "thin"
-    assert strip.evaluate("(strip) => strip.scrollLeft") == 0
-
-    box = strip.bounding_box()
-    middlehand.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-    middlehand.mouse.wheel(10_000, 0)
-    middlehand.wait_for_function(
-        "() => { const strip = document.querySelector('.higher');"
-        " return strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 1; }"
-    )
-    top = middlehand.locator(HIGHER).last
-    expect(top).to_have_text(TOP_BID)
-    place = top.bounding_box()
-    middlehand.mouse.click(place["x"] + place["width"] / 2, place["y"] + place["height"] / 2)
-
-    expect(table.forehand.locator(LIT)).to_have_text(TOP_BID)
-    assert own_word(middlehand, table) == (AuctionAction.BID.value, int(TOP_BID))
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_keyboard_walks_the_strip_and_enter_bids_the_focused_value(
-    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
-) -> None:
-    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
-    middlehand = table.middlehand
-    values = middlehand.locator(HIGHER)
-    expect(values.first).to_be_visible()
-    last_index = values.count() - 1
-
-    values.first.focus()
-    for index in range(last_index + 1):
-        expect(values.nth(index)).to_be_focused()
-        assert values.nth(index).evaluate(NOT_OBSCURED_BY_THE_STRIP) is True
-        if index < last_index:
-            middlehand.keyboard.press("Tab")
-    middlehand.keyboard.press("Enter")
-
-    expect(table.forehand.locator(LIT)).to_have_text(TOP_BID)
-    assert own_word(middlehand, table) == (AuctionAction.BID.value, int(TOP_BID))
+    expect(table.middlehand.locator(STEP_KEY)).to_have_text(str(THIRD_BID))
+    expect(forehand.locator(STEP_KEY)).to_have_count(0)
+    assert own_word(forehand, table) == (AuctionAction.HOLD.value, SECOND_BID)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -344,8 +212,9 @@ def test_a_tap_on_weg_counts_at_once_at_any_own_turn(
         step(table.middlehand, table, AuctionAction.PASS)
         step(table.rearhand, table, AuctionAction.PASS)
         tapper = table.forehand
+    expect(tapper.locator(STEP_KEY)).to_be_visible()
 
-    tapper.get_by_role("button", name=PASS, exact=True).click()
+    pass_key(tapper).click()
 
     assert_no_controls(tapper)
     if awaiting == "play":
@@ -364,30 +233,26 @@ def test_the_forehand_plays_at_18_after_two_passes(
     step(table.rearhand, table, AuctionAction.PASS)
     forehand = table.forehand
 
-    expect(forehand.locator(LIT)).to_have_text(str(LOWEST_BID))
-    expect(forehand.locator(HELD)).to_have_count(0)
-    assert forehand.locator(".ladder > span").all_inner_texts()[1:] == []
-    expect(forehand.locator(MAIN)).to_have_text(str(LOWEST_BID))
-    assert_page_fits(forehand)
+    assert_the_opening_bar(forehand, table)
 
-    forehand.locator(MAIN).click()
+    forehand.locator(STEP_KEY).click()
 
     assert_no_controls(forehand)
     assert own_word(forehand, table) == (AuctionAction.PLAY.value, LOWEST_BID)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_at_the_top_of_the_ladder_only_weg_shows(
+def test_at_the_top_of_the_ladder_no_key_says_a_higher_word(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = dealt_table(open_person, e2e_server, page_errors, form_factor)
-    step(table.middlehand, table, AuctionAction.BID, int(TOP_BID))
+    step(table.middlehand, table, AuctionAction.BID, TOP_BID)
     step(table.forehand, table, AuctionAction.HOLD)
     middlehand = table.middlehand
 
-    expect(middlehand.get_by_role("button", name=PASS, exact=True)).to_be_visible()
-    expect(middlehand.locator(LADDER)).to_have_count(0)
-    expect(middlehand.locator(MAIN)).to_have_count(0)
+    expect(pass_key(middlehand)).to_be_visible()
+    expect(middlehand.locator(STEP_KEY)).to_have_count(0)
+    expect(middlehand.locator(f"{CHIPS}:enabled")).to_have_count(0)
     assert_page_fits(middlehand)
 
 
@@ -407,12 +272,26 @@ def test_a_double_tap_takes_exactly_one_step(
         ),
     )
 
-    middlehand.locator(MAIN).dblclick()
+    middlehand.locator(STEP_KEY).dblclick()
 
-    expect(table.forehand.locator(LIT)).to_have_text(str(LOWEST_BID))
-    assert_no_controls(middlehand)
+    expect(table.forehand.locator(STEP_KEY)).to_have_text(HOLD)
+    expect(middlehand.locator(STEP_KEY)).to_have_count(0)
     assert len(steps_sent) == 1
     assert own_word(middlehand, table) == (AuctionAction.BID.value, LOWEST_BID)
+
+
+def with_a_view_that_stays_as_it_is(person: Page, table: BiddingTable) -> str:
+    """`person`'s page stops hearing the table: its stream replays the view of now; the pattern ends the replay."""
+    stale_view = json.dumps(answer_of(person, table))
+
+    def replay_the_view(route: Route) -> None:
+        route.fulfill(status=200, content_type="text/event-stream", body=f"data: {stale_view}\n\n")
+
+    events = f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}"
+    person.route(events, replay_the_view)
+    person.reload()
+    expect(pass_key(person)).to_be_visible()
+    return events
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -421,26 +300,191 @@ def test_a_step_from_a_stale_page_shows_the_refusal_and_the_stream_corrects_it(
 ) -> None:
     table = dealt_table(open_person, e2e_server, page_errors, form_factor, console=False)
     middlehand = table.middlehand
-    stale_view = json.dumps(answer_of(middlehand, table))
-
-    def replay_the_view_before_the_step(route: Route) -> None:
-        route.fulfill(status=200, content_type="text/event-stream", body=f"data: {stale_view}\n\n")
-
-    events = f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}"
-    middlehand.route(events, replay_the_view_before_the_step)
-    middlehand.reload()
-    expect(middlehand.locator(MAIN)).to_be_visible()
+    events = with_a_view_that_stays_as_it_is(middlehand, table)
     step(middlehand, table, AuctionAction.BID, LOWEST_BID)
 
     # The replayed stream keeps ending, so the stage is dimmed for pointers; the click still has to count.
-    middlehand.locator(MAIN).dispatch_event("click")
+    middlehand.locator(STEP_KEY).dispatch_event("click")
 
     expect(middlehand.get_by_role("status").filter(has_text=COMMAND_FAILED)).to_be_visible()
-    expect(middlehand.locator(MAIN)).to_be_enabled()
+    expect(middlehand.locator(STEP_KEY)).to_be_enabled()
 
     middlehand.unroute(events)
 
-    assert_no_controls(middlehand)
+    expect(middlehand.locator(STEP_KEY)).to_have_count(0)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_limit_the_auction_has_passed_shows_the_refusal_and_the_stream_corrects_it(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor, console=False)
+    rearhand = table.rearhand
+    lowest = own_values(rearhand, table)[0]
+    events = with_a_view_that_stays_as_it_is(rearhand, table)
+    step(table.middlehand, table, AuctionAction.BID, first_bid_above(lowest))
+
+    chip(rearhand, lowest).dispatch_event("click")
+
+    expect(rearhand.get_by_role("status").filter(has_text=COMMAND_FAILED)).to_be_visible()
+    assert own_plan(rearhand, table) is None
+
+    rearhand.unroute(events)
+
+    expect(chip(rearhand, lowest)).to_be_disabled()
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_limit_holds_for_its_owner_and_above_it_the_table_asks_him(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    forehand, middlehand = table.forehand, table.middlehand
+    limit = own_values(forehand, table)[-1]
+
+    chip(forehand, limit).click()
+
+    expect(chip(forehand, limit)).to_have_attribute("aria-pressed", "true")
+    expect(forehand.locator(LIMIT_VALUE)).to_have_text(str(limit))
+    expect(forehand.get_by_role("button", name=ASK, exact=True)).to_have_attribute("aria-pressed", "true")
+    assert own_plan(forehand, table) == limit_at(limit, PlanMode.ASK)
+    assert_page_fits(forehand)
+
+    middlehand.locator(STEP_KEY).click()
+
+    expect(middlehand.locator(STEP_KEY)).to_have_text(str(SECOND_BID))
+    assert_scene(table, Scene(HOLDER, replace(BIDDER, turn=True), SILENT, waits=("middlehand", "forehand")))
+    assert own_word(forehand, table) == (AuctionAction.HOLD.value, LOWEST_BID)
+
+    above = first_bid_above(limit)
+    step(middlehand, table, AuctionAction.BID, above)
+
+    expect(forehand.locator(ASKS)).to_contain_text(ASKED)
+    expect(forehand.locator(f"{ASKS} b")).to_have_text(str(limit))
+    expect(forehand.locator(STEP_KEY)).to_have_text(HOLD)
+    assert own_word(forehand, table) == (AuctionAction.HOLD.value, LOWEST_BID)
+    assert_page_fits(forehand)
+
+    forehand.locator(STEP_KEY).click()
+
+    expect(middlehand.locator(STEP_KEY)).to_be_visible()
+    assert own_word(forehand, table) == (AuctionAction.HOLD.value, above)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_limit_moved_to_another_chip_stays_fixed_and_above_it_the_table_passes_and_leaves_it_dimmed(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    forehand = table.forehand
+    lowest, *_, highest = own_values(forehand, table)
+    chip(forehand, highest).click()
+
+    fixed = forehand.get_by_role("button", name=FIXED, exact=True)
+
+    fixed.click()
+
+    expect(fixed).to_have_attribute("aria-pressed", "true")
+    assert own_plan(forehand, table) == limit_at(highest, PlanMode.FIXED)
+
+    chip(forehand, lowest).click()
+
+    expect(forehand.locator(LIMIT_VALUE)).to_have_text(str(lowest))
+    expect(fixed).to_have_attribute("aria-pressed", "true")
+    expect(chip(forehand, highest)).to_have_attribute("aria-pressed", "false")
+    assert own_plan(forehand, table) == limit_at(lowest, PlanMode.FIXED)
+    top_while_it_stood, opacity_while_it_stood = forehand.locator(PLAN_LINE).evaluate(PLACE_AND_OPACITY)
+
+    above = first_bid_above(lowest)
+    step(table.middlehand, table, AuctionAction.BID, above)
+
+    assert_scene(table, Scene(PASSED, Marks(bubble=str(above)), ON_TURN, waits=("rearhand", "middlehand")))
+    assert own_word(forehand, table) == (AuctionAction.PASS.value, None)
+    expect(forehand.locator(LIMIT_VALUE)).to_have_text(str(lowest))
+    expect(fixed).to_have_attribute("aria-pressed", "true")
+    top, opacity = forehand.locator(PASSED_LINE).evaluate(PLACE_AND_OPACITY)
+    assert top == top_while_it_stood
+    assert opacity < opacity_while_it_stood
+    expect(forehand.locator(f"{BAR} button:enabled")).to_have_count(0)
+    expect(forehand.locator(f"{PASS_KEY}, {CHIPS}, {MORE}")).to_have_count(0)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_a_second_tap_on_the_lit_chip_or_a_tap_on_the_cross_takes_the_limit_back_and_says_so_for_a_moment(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    forehand = table.forehand
+    limit = own_values(forehand, table)[0]
+    lit, note = chip(forehand, limit), forehand.locator(PLAN_NOTE)
+
+    for take_back in (lit, forehand.get_by_role("button", name=CLEAR_LIMIT)):
+        lit.click()
+        expect(lit).to_have_attribute("aria-pressed", "true")
+        expect(note).to_have_count(0)
+
+        take_back.click()
+
+        expect(note).to_have_text(LIMIT_CLEARED)
+        expect(lit).to_have_attribute("aria-pressed", "false")
+        expect(forehand.locator(LIMIT_VALUE)).to_have_count(0)
+        assert own_plan(forehand, table) is None
+    expect(note).to_have_count(0)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_weg_said_ahead_can_be_taken_back_and_passes_for_its_owner_at_his_turn(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    rearhand = table.rearhand
+    weg, note = pass_key(rearhand), rearhand.locator(PLAN_NOTE)
+
+    weg.click()
+
+    expect(weg).to_have_attribute("aria-pressed", "true")
+    expect(note).to_have_text(PASS_AHEAD)
+    assert own_plan(rearhand, table) == {"kind": PlanKind.PASS.value, "value": None, "mode": None}
+    assert_page_fits(rearhand)
+
+    weg.click()
+
+    expect(weg).to_have_attribute("aria-pressed", "false")
+    expect(note).to_have_text(TAKEN_BACK)
+    assert own_plan(rearhand, table) is None
+
+    weg.click()
+    expect(note).to_have_text(PASS_AHEAD)
+    step(table.middlehand, table, AuctionAction.PASS)
+
+    assert_scene(table, Scene(ON_TURN, PASSED, PASSED, waits=None))
+    assert_no_controls(rearhand)
+    assert own_word(rearhand, table) == (AuctionAction.PASS.value, None)
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+def test_every_step_the_table_takes_for_two_plans_is_heard_and_shown_as_its_chairs_own(
+    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
+) -> None:
+    table = dealt_table(open_person, e2e_server, page_errors, form_factor)
+    watcher = table.watcher
+    tap(watcher)
+    wait_for_recordings_decoded(watcher, RECORDING_COUNT)
+    plan_ahead(table.forehand, table, limit_at(SECOND_BID, PlanMode.FIXED))
+
+    plan_ahead(table.middlehand, table, limit_at(THIRD_BID, PlanMode.ASK))
+
+    wait_for_recordings_started(watcher, WORDS_OF_THE_RUN)
+    opening, first_hold, raised, second_hold, topped, passed = keys_said(watcher)
+    assert [opening, raised, topped, passed] == [
+        f"voice.value{LOWEST_BID}",
+        f"voice.value{SECOND_BID}",
+        f"voice.value{THIRD_BID}",
+        "voice.pass",
+    ]
+    assert {first_hold, second_hold} <= CONFIRMATIONS
+    assert_scene(table, Scene(PASSED, Marks(bubble=str(THIRD_BID)), ON_TURN, waits=("rearhand", "middlehand")))
+    assert page_errors == []
 
 
 def test_no_controls_and_no_auction_word_before_a_hand(
@@ -504,12 +548,12 @@ def test_a_bid_springs_up_in_the_picked_set_and_a_bubble_that_was_already_there_
     assert page_errors == []
 
 
-def seats_by_position(table: Table) -> dict[str, int]:
+def seats_by_position(table: BiddingTable) -> dict[str, int]:
     answer = answer_of(table.watcher, table)
     return {chair["hand"]["position"]: chair["seat"] for chair in answer["chairs"]}
 
 
-def viewers(table: Table) -> dict[str, Page]:
+def viewers(table: BiddingTable) -> dict[str, Page]:
     return {
         "forehand": table.forehand,
         "middlehand": table.middlehand,
@@ -537,7 +581,7 @@ def assert_chair(person: Page, seat: int, marks: Marks) -> None:
         expect(chair.locator(".mark.waits")).to_have_attribute("title", WAITS_FOR_YOU)
 
 
-def assert_scene(table: Table, scene: Scene) -> None:
+def assert_scene(table: BiddingTable, scene: Scene) -> None:
     seats = seats_by_position(table)
     for viewer, person in viewers(table).items():
         chairs = scene.seen_by(viewer)
@@ -626,7 +670,7 @@ def test_the_plaque_waits_for_the_player_on_turn_while_they_are_away(
 
 def passed_in_table(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
-) -> Table:
+) -> BiddingTable:
     table = dealt_table(open_person, e2e_server, page_errors, form_factor)
     step(table.middlehand, table, AuctionAction.PASS)
     step(table.rearhand, table, AuctionAction.PASS)
@@ -634,7 +678,7 @@ def passed_in_table(
     return table
 
 
-def next_dealer(table: Table) -> tuple[int, str]:
+def next_dealer(table: BiddingTable) -> tuple[int, str]:
     answer = answer_of(table.watcher, table)
     seat = answer["passed_in"]["next_dealer_seat"]
     return seat, next(chair["occupant_name"] for chair in answer["chairs"] if chair["seat"] == seat)

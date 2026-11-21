@@ -8,6 +8,7 @@ import {
     type ChairMarks,
     type DecidingPlaque,
 } from "#lib/auctionMarks.ts";
+import { auctionWith } from "#lib/table.fixtures.ts";
 import { words } from "#lib/words.ts";
 import type { Auction, Chair, Declaring, PassedIn, Stage, Table } from "../routes/(start)/tables.ts";
 
@@ -18,16 +19,7 @@ const WATCHER = undefined;
 const NO_MARKS: ChairMarks = { bubble: null, passed: false, turn: false, waits: false, declarer: null };
 
 function auction(changes: Partial<Auction>): Auction {
-    return {
-        turn_seat: MIDDLEHAND,
-        facing_seat: FOREHAND,
-        awaiting: "bid",
-        standing: null,
-        values: [],
-        words: [],
-        declared: null,
-        ...changes,
-    };
+    return auctionWith({ turn_seat: MIDDLEHAND, facing_seat: FOREHAND, awaiting: "bid", ...changes });
 }
 
 const middlehandBid18 = auction({

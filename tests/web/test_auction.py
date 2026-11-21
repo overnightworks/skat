@@ -44,6 +44,16 @@ def reason_of(answer):
     return answer.json()["reason"]
 
 
+def suit_games_worth(karo, herz, pik, kreuz):
+    """The four suit games with what a hand reaches in each, as an answer lists them."""
+    return [
+        {"game": "karo", "value": karo},
+        {"game": "herz", "value": herz},
+        {"game": "pik", "value": pik},
+        {"game": "kreuz", "value": kreuz},
+    ]
+
+
 class Table:
     """A dealt table whose four people are told apart by position, with the watcher left over."""
 
@@ -427,6 +437,7 @@ class TestAuctionOnTheWire:
             ]
         }
 
+        own = {name: auction.pop("hand_values") for name, auction in auctions.items()}
         assert auctions["middlehand"] == {
             "turn_seat": seat_of_middlehand,
             "facing_seat": seat_of_forehand,
@@ -434,11 +445,32 @@ class TestAuctionOnTheWire:
             "standing": None,
             "values": list(VALID_BIDS),
             "words": [],
+            "steps": [],
             "declared": None,
             "plan": None,
         }
         for name in ("forehand", "rearhand", "watcher"):
             assert auctions[name] == {**auctions["middlehand"], "values": []}
+        # The known deal gives the forehand the jack of clubs alone and the middlehand the jack of spades alone: with
+        # one or without one, game two. The rearhand holds the two red jacks: without two, game three.
+        assert own == {
+            "forehand": suit_games_worth(18, 20, 22, 24),
+            "middlehand": suit_games_worth(18, 20, 22, 24),
+            "rearhand": suit_games_worth(27, 30, 33, 36),
+            "watcher": [],
+        }
+
+    def test_every_viewer_reads_each_step_in_the_order_it_was_said(self, table):
+        table.play_out([(MIDDLEHAND, BID, 18), (FOREHAND, HOLD), (MIDDLEHAND, BID, 20), (FOREHAND, PASS)])
+        seats = {position: seat for seat, position in positions_from(DEALER_SEAT).items()}
+
+        for headers in (table.at[FOREHAND], table.at[REARHAND], table.watcher):
+            assert self.auction_read_by(table, headers)["steps"] == [
+                {"seat": seats[MIDDLEHAND], "action": "bid", "value": 18},
+                {"seat": seats[FOREHAND], "action": "hold", "value": 18},
+                {"seat": seats[MIDDLEHAND], "action": "bid", "value": 20},
+                {"seat": seats[FOREHAND], "action": "pass", "value": None},
+            ]
 
     def test_a_played_auction_answers_each_chairs_word_and_who_declared(self, table):
         table.play_out([(MIDDLEHAND, PASS), (REARHAND, PASS), (FOREHAND, PLAY)])

@@ -15,7 +15,8 @@ from skat.engine.bidding import (
     Play,
     auction_step,
 )
-from skat.engine.deal import seats_from
+from skat.engine.deal import positions_from, seats_from
+from skat.engine.value import HandValue, suit_values
 from skat.table.bock import bock_after
 from skat.table.hand_state import auction_of, declared_in_the_stage_of
 from skat.table.records import Decision, Refusal
@@ -24,7 +25,7 @@ from skat.table.rules import acting_position, seat_of
 if TYPE_CHECKING:
     from skat.engine.bidding import AuctionStep
     from skat.engine.deal import Position
-    from skat.table.records import Actor, AuctionPlan, TableRecord
+    from skat.table.records import Actor, AuctionPlan, Chair, TableRecord
 
 AUCTION_STEP_COMMAND: Final = "auction-step"
 
@@ -112,7 +113,7 @@ def apply_step(table: TableRecord, step: AuctionStep) -> Decision:
 
 @dataclass(frozen=True)
 class AuctionWord:
-    """A chair's latest word; a hold carries the standing bid it answered, a pass no value."""
+    """A word a chair said; a hold carries the standing bid it answered, a pass no value."""
 
     seat: int
     action: AuctionAction
@@ -129,8 +130,10 @@ class AuctionDeclared:
 class AuctionView:
     """The auction as one viewer may see it; `values` lists what the viewer may bid, only on their turn to bid.
 
-    `facing_seat` is the chair the player on turn bids against or answers, absent when nobody is faced. `plan` is the
-    viewer's own plan for the auction and no other viewer's: nobody else is told it.
+    `facing_seat` is the chair the player on turn bids against or answers, absent when nobody is faced. `words` holds
+    each chair's latest word and `steps` every word in the order it was said, so a viewer is told each step a plan took
+    as its chair's own. `plan` is the viewer's own plan for the auction and `hand_values` what the viewer's own cards
+    reach in each suit game while the auction runs: nobody else is told either.
     """
 
     turn_seat: int | None
@@ -139,8 +142,10 @@ class AuctionView:
     standing: int | None
     values: tuple[int, ...]
     words: tuple[AuctionWord, ...]
+    steps: tuple[AuctionWord, ...]
     declared: AuctionDeclared | None
     plan: AuctionPlan | None
+    hand_values: tuple[HandValue, ...]
 
 
 def _word_value(step: AuctionStep, standing: int | None) -> int | None:
@@ -159,15 +164,27 @@ def _faced(auction: Auction) -> Position | None:
     return auction.responder if auction.awaiting is Awaiting.BID else auction.bidder
 
 
-def _words(steps: tuple[AuctionStep, ...], seats: dict[Position, int]) -> tuple[AuctionWord, ...]:
-    """Each chair's latest word in seat order, folded over the stored steps because the engine keeps no history."""
-    latest: dict[int, AuctionWord] = {}
+def _words_said(steps: tuple[AuctionStep, ...], seats: dict[Position, int]) -> tuple[AuctionWord, ...]:
+    """Every stored step as its chair's word in the order taken, folded because the engine keeps no history."""
+    said: list[AuctionWord] = []
     auction = Auction.start()
     for step in steps:
-        seat = seats[step.position]
-        latest[seat] = AuctionWord(seat, action_of(step), _word_value(step, auction.standing))
+        said.append(AuctionWord(seats[step.position], action_of(step), _word_value(step, auction.standing)))
         auction = auction_step(auction, step).auction
+    return tuple(said)
+
+
+def _latest_words(said: tuple[AuctionWord, ...]) -> tuple[AuctionWord, ...]:
+    """Each chair's latest word in seat order."""
+    latest = {word.seat: word for word in said}
     return tuple(latest[seat] for seat in sorted(latest))
+
+
+def _hand_values(table: TableRecord, viewer: Chair | None, dealer: int, *, running: bool) -> tuple[HandValue, ...]:
+    """What the viewer's ten cards reach in each suit game: told to a seated viewer alone, while the auction runs."""
+    if not running or viewer is None or table.hand is None:
+        return ()
+    return suit_values(table.hand.hands[positions_from(dealer)[viewer.seat]])
 
 
 def auction_view_of(table: TableRecord, viewer_account_id: str, dealer: int, *, waiting: bool) -> AuctionView:
@@ -188,13 +205,16 @@ def auction_view_of(table: TableRecord, viewer_account_id: str, dealer: int, *, 
     standing = auction.standing
     faced = _faced(auction)
     declared = auction.result if isinstance(auction.result, Declared) else declared_in_the_stage_of(table)
+    said = _words_said(table.progress.auction, seats)
     return AuctionView(
         turn_seat=seats[auction.actor] if running else None,
         facing_seat=None if faced is None else seats[faced],
         awaiting=auction.awaiting if running else None,
         standing=standing,
         values=tuple(value for value in VALID_BIDS if standing is None or value > standing) if my_turn_to_bid else (),
-        words=_words(table.progress.auction, seats),
+        words=_latest_words(said),
+        steps=said,
         declared=None if declared is None else AuctionDeclared(seats[declared.declarer], declared.value),
         plan=None if viewer is None else table.progress.plan_of(viewer.seat),
+        hand_values=_hand_values(table, viewer, dealer, running=running),
     )

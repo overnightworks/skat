@@ -27,6 +27,7 @@ import {
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
     TABLE_AUCTION_PASS_SUFFIX,
+    TABLE_AUCTION_PLAN_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
@@ -40,6 +41,7 @@ import {
     readGameSheet,
     readTable,
     chooseStyle,
+    setAuctionPlan,
     sitDown,
     standUp,
     stopPlaying,
@@ -193,6 +195,7 @@ describe("watchTable after a stream error", () => {
         watchTable(TABLE_ID, onTable, vi.fn(), onConnection, vi.fn());
         const ended = {
             id: TABLE_ID,
+            hand: null,
             series: null,
             ended: {
                 reason: "empty",
@@ -313,10 +316,11 @@ describe("watchTable after a stream error", () => {
         const onTable = vi.fn();
         const onConnection = vi.fn();
         watchTable(TABLE_ID, onTable, vi.fn(), onConnection, vi.fn());
-        FakeEventSource.last.message(JSON.stringify({ id: TABLE_ID, series: null, ended: null }));
+        const shown = { id: TABLE_ID, hand: null, series: null, ended: null };
+        FakeEventSource.last.message(JSON.stringify(shown));
 
         expect(FakeEventSource.last.url).toContain(TABLES_PATH);
-        expect(onTable).toHaveBeenCalledWith({ id: TABLE_ID, series: null, ended: null });
+        expect(onTable).toHaveBeenCalledWith(shown);
         expect(FakeEventSource.last.close).not.toHaveBeenCalled();
         expect(onConnection).toHaveBeenCalledWith(true);
     });
@@ -514,6 +518,20 @@ describe("asking for a table", () => {
             });
         },
     );
+
+    it.each([
+        { name: "a limit", plan: { kind: "limit", value: 36, mode: "fixed" } },
+        { name: "a pass said ahead", plan: { kind: "pass" } },
+        { name: "no plan, which takes it back", plan: null },
+    ] as const)("sends $name as the auction plan, without a version", async ({ plan }) => {
+        answerWith(Response.json(table));
+
+        expect(await setAuctionPlan(TABLE_ID, "command-3", plan)).toEqual({ kind: "table", table });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${TABLE_AUCTION_PLAN_SUFFIX}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-3", plan });
+    });
 
     it("sends the version shown, a command id and only the card when playing a card", async () => {
         answerWith(Response.json(table));

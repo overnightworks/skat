@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ramschMarks, ramschPlaque, ramschTrick, type RamschMarks } from "#lib/ramschView.ts";
 import { words } from "#lib/words.ts";
+import { auctionWith } from "#lib/table.fixtures.ts";
 import type { Hand, Playing, Pushing, Table } from "../routes/(start)/tables.ts";
 
 const ANNA = 1;
@@ -75,15 +76,7 @@ function ramsch(mine: number, changes: Partial<Hand>): Table {
             waiting_seat: null,
             abort: null,
             abortable: false,
-            auction: {
-                turn_seat: null,
-                facing_seat: null,
-                awaiting: null,
-                standing: null,
-                values: [],
-                words: [],
-                declared: null,
-            },
+            auction: auctionWith(),
             declaring: null,
             playing: null,
             ramsch: true,

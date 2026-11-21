@@ -1,3 +1,4 @@
+import { auctionWith } from "#lib/table.fixtures.ts";
 import type { Chair, GiveUp, OpenHand, Shortening, Table, Word } from "../routes/(start)/tables.ts";
 
 export const DECLARER = 2;
@@ -62,15 +63,7 @@ export function tableWith(
             pushing: null,
             pushes: 0,
             push_factor: 1,
-            auction: {
-                turn_seat: null,
-                facing_seat: null,
-                awaiting: null,
-                standing: null,
-                values: [],
-                words: [],
-                declared: null,
-            },
+            auction: auctionWith(),
             declaring:
                 changes.ramsch === true
                     ? null

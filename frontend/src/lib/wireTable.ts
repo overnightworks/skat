@@ -1,4 +1,4 @@
-import type { Series, Table } from "../routes/(start)/tables.ts";
+import type { Auction, Hand, Series, Table } from "../routes/(start)/tables.ts";
 
 // A series as the release before this one answers it: its proposal names the seat that accepted and has no instant, and
 // it names no refusals. Both releases serve streams while one rolls out, so a table is read in either shape.
@@ -14,7 +14,11 @@ type WireSeries = Omit<Series, "end_proposal" | "end_refused_seats" | "new_serie
     new_series_answer_by?: string | null;
     next_settings?: Series["next_settings"];
 };
-export type WireTable = Omit<Table, "series"> & { series: WireSeries | null };
+// An auction as the release before answers it: it tells no steps, no plan and no hand values.
+type OwnAuctionFields = "steps" | "plan" | "hand_values";
+type WireAuction = Omit<Auction, OwnAuctionFields> & Partial<Pick<Auction, OwnAuctionFields>>;
+type WireHand = Omit<Hand, "auction"> & { auction: WireAuction };
+export type WireTable = Omit<Table, "series" | "hand"> & { series: WireSeries | null; hand: WireHand | null };
 
 function agreedSeatsOf(proposal: WireProposal): number[] {
     if (proposal.agreed_seats !== undefined) return proposal.agreed_seats;
@@ -22,12 +26,28 @@ function agreedSeatsOf(proposal: WireProposal): number[] {
     return accepter === undefined || accepter === null ? [proposal.proposer_seat] : [proposal.proposer_seat, accepter];
 }
 
+function handOfWire(hand: WireHand | null): Hand | null {
+    if (hand === null) return null;
+    const { auction } = hand;
+    return {
+        ...hand,
+        auction: {
+            ...auction,
+            steps: auction.steps ?? [],
+            plan: auction.plan ?? null,
+            hand_values: auction.hand_values ?? [],
+        },
+    };
+}
+
 export function tableOfWire(wire: WireTable): Table {
     const series = wire.series;
-    if (series === null) return { ...wire, series: null };
+    const hand = handOfWire(wire.hand);
+    if (series === null) return { ...wire, hand, series: null };
     const proposal = series.end_proposal;
     return {
         ...wire,
+        hand,
         series: {
             ...series,
             end_proposal:

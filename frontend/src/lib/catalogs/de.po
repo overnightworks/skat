@@ -1051,6 +1051,50 @@ msgctxt "bid.pass"
 msgid "Weg"
 msgstr ""
 
+msgctxt "bid.upTo"
+msgid "bis"
+msgstr ""
+
+msgctxt "bid.ask"
+msgid "Fragen"
+msgstr ""
+
+msgctxt "bid.fixed"
+msgid "Fest"
+msgstr ""
+
+msgctxt "bid.aboveLimit"
+msgid "Über dem Limit"
+msgstr ""
+
+msgctxt "bid.clearLimit"
+msgid "Limit löschen"
+msgstr ""
+
+msgctxt "bid.limitCleared"
+msgid "Limit gelöscht"
+msgstr ""
+
+msgctxt "bid.asked"
+msgid "nachschieben oder weg?"
+msgstr ""
+
+msgctxt "bid.passAhead"
+msgid "Weg, sobald du dran bist"
+msgstr ""
+
+msgctxt "bid.takenBack"
+msgid "Zurückgenommen"
+msgstr ""
+
+msgctxt "bid.allValues"
+msgid "Alle Werte"
+msgstr ""
+
+msgctxt "bid.pressAndHold"
+msgid "halten"
+msgstr ""
+
 msgctxt "voice.pass"
 msgid "Weg"
 msgstr ""

@@ -63,6 +63,8 @@ export const ANNOUNCEMENT_TOKENS = ["none", "schneider", "schwarz"] as const;
 export const STAGE_TOKENS = ["choosing", "discarding", "picked", "declared"] as const;
 export const AWAITING_TOKENS = ["bid", "answer", "play"] as const;
 export const AUCTION_ACTION_TOKENS = ["bid", "hold", "pass", "play"] as const;
+export const PLAN_KIND_TOKENS = ["limit", "pass"] as const;
+export const PLAN_MODE_TOKENS = ["fixed", "ask"] as const;
 export const LEVEL_TOKENS = [
     "spiel",
     "hand",

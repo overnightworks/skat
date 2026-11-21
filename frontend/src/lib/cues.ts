@@ -4,7 +4,6 @@ import { handWaits } from "./openChair.ts";
 import { declaredResult, resultIsGood } from "./result.ts";
 import {
     type AuctionAction,
-    type AuctionWord,
     type Card,
     type Chair,
     type ChairHand,
@@ -18,12 +17,10 @@ import { seatsInTurnFrom } from "./turnOrder.ts";
 import { nudgedChairs } from "../routes/(start)/nudge.ts";
 
 const SEATS_AT_A_TABLE = 3;
-// The place of a seat in the auction, by its distance after the dealer.
-const PLACES = ["rearhand", "forehand", "middlehand"] as const;
-type Place = (typeof PLACES)[number];
 
 // What a chair said in the auction that the table shows: a bid or a hold with its value, or a pass.
 export type BidWord = { action: Exclude<AuctionAction, "play">; value: number | null };
+export type BidSaid = { seat: number; word: BidWord };
 
 // Who a chair changed hands with: the one who sat down or the one who left, and whether she is the viewer.
 type Sitter = { seat: number; name: string; agent: boolean; mine: boolean };
@@ -49,7 +46,7 @@ export type Cue =
     | { kind: "shortening-refused"; seat: number }
     // The declarer played on against an opponent's wrong open play; that opponent's cards lie open.
     | { kind: "open-play-on"; seat: number }
-    | { kind: "bid-said"; seat: number; word: BidWord }
+    | ({ kind: "bid-said" } & BidSaid)
     | { kind: "word-said"; said: SaidWord }
     // The game the declarer declared, with what the table's announcement shows of it.
     | ({ kind: "game-announced" } & NonNullable<Declaring["declaration"]>)
@@ -134,9 +131,11 @@ export function stampBetween(previous: Table | undefined, next: Table): Stamp | 
     return said === null ? null : stampOf(next, said);
 }
 
-// Whether the bubble a chair shows is the bid this page saw said, which is the one that springs up.
-export function springsUp(said: { seat: number; word: BidWord } | null, seat: number, bubble: Bubble | null): boolean {
-    return said?.seat === seat && said.word.action === bubble?.kind && said.word.value === bubble.value;
+// Whether the bubble a chair shows is a bid this page saw said in the latest update that brought any, which springs up.
+export function springsUp(said: readonly BidSaid[], seat: number, bubble: Bubble | null): boolean {
+    return said.some(
+        (each) => each.seat === seat && each.word.action === bubble?.kind && each.word.value === bubble.value,
+    );
 }
 
 // A chair that was open and holds someone now was taken. A chair that was held and is open now stood up, and opened for
@@ -213,33 +212,16 @@ function wordSaidBetween(previous: Table | undefined, next: Table): SaidWord | n
     return after.length > before.length ? (after.at(-1) as SaidWord) : null;
 }
 
-// The auction keeps each chair's latest word in seat order, so a chair whose word is new or changed said it in this
-// update. The words come in the order of the auction's two pairs: the middlehand bids and the forehand answers, then the
-// rearhand bids and the winner of the first pair answers; the table does not keep when each was said. A play shows
-// nothing at the table, so it is no cue.
-function bidsSaidBetween(previous: Table, next: Table): { seat: number; word: BidWord }[] {
-    const before = previous.hand?.auction.words ?? [];
-    const spoken = next.hand?.auction.words ?? [];
-    const dealer = next.hand?.dealer_seat ?? 0;
-    const place = (seat: number): Place => PLACES[(seat - dealer + SEATS_AT_A_TABLE) % SEATS_AT_A_TABLE] as Place;
-    const pairTwoBegan = spoken.some((word) => place(word.seat) === "rearhand");
-    const middlehandPassed = spoken.some((word) => place(word.seat) === "middlehand" && word.action === "pass");
-    const firstPairWinner = middlehandPassed ? "forehand" : "middlehand";
-    const order = (word: AuctionWord): number => {
-        if (place(word.seat) === "rearhand") return word.action === "bid" ? 2 : 3;
-        if (word.action === "bid") return 0;
-        return pairTwoBegan && place(word.seat) === firstPairWinner ? 4 : 1;
-    };
-    return spoken
-        .filter(
-            (word) =>
-                word.action !== "play" &&
-                !sameJson(
-                    before.find((each) => each.seat === word.seat),
-                    word,
-                ),
-        )
-        .sort((first, second) => order(first) - order(second))
+// The auction tells every word in the order it was said, so the words past the ones this page has seen were said in
+// this update: the one step a player took, or each step the table took for the plans. A play shows nothing at the
+// table, so it is no cue.
+function bidsSaidBetween(previous: Table, next: Table): BidSaid[] {
+    const before = previous.hand?.auction.steps ?? [];
+    const said = next.hand?.auction.steps ?? [];
+    const seen = sameJson(said.slice(0, before.length), before) ? before.length : 0;
+    return said
+        .slice(seen)
+        .filter((word) => word.action !== "play")
         .map((word) => ({ seat: word.seat, word: { action: word.action as BidWord["action"], value: word.value } }));
 }
 

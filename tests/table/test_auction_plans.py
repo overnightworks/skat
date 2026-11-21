@@ -458,3 +458,19 @@ class TestOnlyTheOwnerSeesThePlan:
         words = seated.service.view(DORA, seated.table_id, NOBODY_CONNECTED).hand.auction.words
 
         assert AuctionWord(seated.seat_of(seated.forehand), HOLD, 18) in words
+
+    def test_every_viewer_reads_each_step_two_plans_took_in_one_decision_as_its_chairs_own_in_order(
+        self, seated: Seated
+    ) -> None:
+        plan_as(seated, MIDDLEHAND, BidLimit(20, FIXED))
+        plan_as(seated, FOREHAND, BidLimit(20, FIXED), command_id="plan-2")
+        middlehand, forehand = seated.seat_of(seated.middlehand), seated.seat_of(seated.forehand)
+
+        for viewer in (seated.forehand, seated.middlehand, seated.rearhand, DORA, AGENT):
+            assert seated.service.view(viewer, seated.table_id, NOBODY_CONNECTED).hand.auction.steps == (
+                AuctionWord(middlehand, BID, 18),
+                AuctionWord(forehand, HOLD, 18),
+                AuctionWord(middlehand, BID, 20),
+                AuctionWord(forehand, HOLD, 20),
+                AuctionWord(middlehand, PASS, None),
+            )

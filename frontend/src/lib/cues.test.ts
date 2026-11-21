@@ -415,17 +415,28 @@ describe("the word of Kontra said between two versions of a table", () => {
 });
 
 describe("the bubble that springs up", () => {
-    const said = { seat: 1, word: { action: "bid", value: 20 } } as const;
+    const said = [
+        { seat: 1, word: { action: "bid", value: 18 } },
+        { seat: 2, word: { action: "hold", value: 18 } },
+        { seat: 1, word: { action: "bid", value: 20 } },
+    ] as const;
 
     it.each([
         { name: "the bid just said by its chair", said, seat: 1, bubble: { kind: "bid", value: 20 }, springs: true },
-        { name: "no bid said", said: null, seat: 1, bubble: { kind: "bid", value: 20 }, springs: false },
-        { name: "another chair's bid", said, seat: 2, bubble: { kind: "bid", value: 20 }, springs: false },
-        { name: "an earlier bid of the chair", said, seat: 1, bubble: { kind: "bid", value: 18 }, springs: false },
+        {
+            name: "the hold another chair said with it",
+            said,
+            seat: 2,
+            bubble: { kind: "hold", value: 18 },
+            springs: true,
+        },
+        { name: "no bid said", said: [], seat: 1, bubble: { kind: "bid", value: 20 }, springs: false },
+        { name: "a chair that said nothing", said, seat: 3, bubble: { kind: "bid", value: 20 }, springs: false },
+        { name: "a bid the chair did not say", said, seat: 1, bubble: { kind: "bid", value: 22 }, springs: false },
         { name: "a hold at the value", said, seat: 1, bubble: { kind: "hold", value: 20 }, springs: false },
         { name: "a chair without a bubble", said, seat: 1, bubble: null, springs: false },
-    ] as const)("is $springs for $name", ({ said: bid, seat, bubble, springs }) => {
-        expect(springsUp(bid, seat, bubble)).toBe(springs);
+    ] as const)("is $springs for $name", ({ said: bids, seat, bubble, springs }) => {
+        expect(springsUp(bids, seat, bubble)).toBe(springs);
     });
 });
 

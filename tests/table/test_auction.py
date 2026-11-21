@@ -19,6 +19,7 @@ from skat.engine.bidding import (
     Play,
 )
 from skat.engine.deal import Position, next_dealer
+from skat.engine.value import suit_values
 from skat.table.auction import (
     AuctionAction,
     AuctionCommand,
@@ -374,6 +375,31 @@ class TestAuctionView:
 
         assert (view.turn_seat, view.awaiting, view.declared) == (None, None, None)
         assert len(view.words) == 3
+
+    def test_only_a_seated_viewer_reads_what_their_own_ten_cards_reach_and_only_while_the_auction_runs(
+        self, seated: Seated
+    ) -> None:
+        hands = seated.table().hand.hands
+        reached = {
+            seated.forehand: suit_values(hands[Position.FOREHAND]),
+            seated.middlehand: suit_values(hands[Position.MIDDLEHAND]),
+            seated.rearhand: suit_values(hands[Position.REARHAND]),
+            DORA: (),
+        }
+
+        assert {viewer: self.auction_for(seated, viewer).hand_values for viewer in reached} == reached
+        assert all(len(values) > 0 for viewer, values in reached.items() if viewer is not DORA)
+
+        self.play_out(
+            seated,
+            [
+                ("middlehand", AuctionAction.PASS, None),
+                ("rearhand", AuctionAction.PASS, None),
+                ("forehand", AuctionAction.PLAY, None),
+            ],
+        )
+
+        assert {self.auction_for(seated, viewer).hand_values for viewer in reached} == {()}
 
     def test_seated_and_watching_viewers_see_the_same_words_turn_facing_seat_and_standing(self, seated: Seated) -> None:
         self.play_out(seated, [("middlehand", AuctionAction.BID, 22), ("forehand", AuctionAction.HOLD, None)])
