@@ -1895,8 +1895,11 @@ body {
 }
 
 .room .duel .dot.agent {
-    color: #fff;
     background: radial-gradient(circle at 34% 30%, #d9e6ff, #4467b8 60%, #1d2c55);
+}
+
+.room .duel .dot.agent svg {
+    color: #fff;
 }
 
 .room .duel .dot svg {

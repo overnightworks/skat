@@ -17,7 +17,7 @@ export interface BidRun {
 // The auction of the table before a run once `steps` were said: each chair's latest word and the bid that stands. The
 // turn and the duel stay as they were, since only the table the update brought tells whom the auction awaits then.
 function auctionAfter(auction: Auction, steps: AuctionWord[]): Auction {
-    const bid = steps.filter((word) => word.action === "bid").at(-1);
+    const bid = steps.findLast((word) => word.action === "bid");
     return {
         ...auction,
         steps,
