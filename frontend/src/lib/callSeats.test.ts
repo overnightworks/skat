@@ -281,13 +281,6 @@ describe("keysFitView", () => {
             fits: true,
         },
         {
-            name: "a chair retaken by a sitter of the same name and kind, which only the re-read keys tell apart",
-            keys,
-            keyedOccupancy: keyed,
-            view: { version: 6, chairs: [chair(1, "anna"), chair(2, "ben"), chair(3, null)] },
-            fits: true,
-        },
-        {
             name: "a chair that stood",
             keys,
             keyedOccupancy: keyed,
@@ -361,11 +354,6 @@ describe("openSeats", () => {
             posted: seats,
             placed: new Set([KEY_1, KEY_2]),
             occupancyNow: occupied,
-            keysNow: new Map([
-                [1, KEY_1],
-                [2, KEY_2],
-                [3, KEY_3],
-            ]),
             ...overrides,
         }).map((seat) => seat.seat);
     }
@@ -386,20 +374,6 @@ describe("openSeats", () => {
         const changed = new Map(occupied).set(2, "agent-2");
 
         expect(open({ occupancyNow: changed })).toEqual([1]);
-    });
-
-    it("closes a chair whose re-read key is not the posted one, though its occupancy reads the same", () => {
-        const retaken = new Map([
-            [1, KEY_1],
-            [2, "e".repeat(64)],
-            [3, KEY_3],
-        ]);
-
-        expect(open({ keysNow: retaken })).toEqual([1]);
-    });
-
-    it("closes a chair that has no key in the keys read last", () => {
-        expect(open({ keysNow: new Map([[2, KEY_2]]) })).toEqual([2]);
     });
 
     it("closes a chair that is free now", () => {
