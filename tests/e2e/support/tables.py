@@ -32,6 +32,10 @@ TABLE_URL = re.compile(rf"{re.escape(TABLE_PAGE_PREFIX)}{TABLE_ID_PATTERN}$")
 
 def click_new_table(person: Page, *, running_points: bool = False) -> str:
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
+    return open_table_from_sheet(person, running_points=running_points)
+
+
+def open_table_from_sheet(person: Page, *, running_points: bool) -> str:
     if running_points:
         person.get_by_role("switch", name=RUNNING_POINTS_SWITCH).click()
     person.get_by_role("button", name=OPEN_TABLE).click()
@@ -40,8 +44,8 @@ def click_new_table(person: Page, *, running_points: bool = False) -> str:
 
 
 def open_new_table(person: Page, server: RunningServer, *, running_points: bool = False) -> str:
-    person.goto(f"{server.base_url}/")
-    return click_new_table(person, running_points=running_points)
+    open_new_table_sheet(person, server)
+    return open_table_from_sheet(person, running_points=running_points)
 
 
 def open_start_page(person: Page, server: RunningServer) -> Page:

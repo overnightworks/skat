@@ -15,7 +15,7 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
 from tests.e2e.support.table_menu import menu_button
-from tests.e2e.support.tables import SIT_DOWN, open_new_table, plate_of, sit_in
+from tests.e2e.support.tables import SIT_DOWN, chair_of, open_new_table, plate_of, sit_in
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -58,10 +58,6 @@ def held_page(
     page.clock.install()
     page.clock.pause_at(datetime.now(UTC) + CLOCK_HOLD_LEAD)
     return page
-
-
-def chair_of(page: Page, seat: int):
-    return page.locator(f".chair[data-seat='{seat}']")
 
 
 def animation_of(page: Page, seat: int) -> str:
