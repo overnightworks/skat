@@ -407,15 +407,20 @@ class TestThePlanEnds:
 
         assert next_deal.progress.plans == frozenset()
 
-    @pytest.mark.parametrize("another_sits", [False, True], ids=["when-he-stands", "when-another-sits-down"])
-    def test_at_a_change_of_the_occupant(self, seated: Seated, another_sits: bool) -> None:
+    @pytest.mark.parametrize(
+        ("someone_sits", "the_same_account"),
+        [(False, False), (True, False), (True, True)],
+        ids=["when-he-stands", "when-another-sits-down", "when-he-sits-again"],
+    )
+    def test_at_a_change_of_the_occupant(self, seated: Seated, someone_sits: bool, the_same_account: bool) -> None:
         plan_as(seated, FOREHAND, PassAhead())
         seat = seated.seat_of(seated.forehand)
         plan_as(seated, REARHAND, BidLimit(30, ASK), command_id="plan-rear")
 
         seated.service.stand(seated.forehand, StandUp("stand", seated.table_id), NOBODY_CONNECTED)
-        if another_sits:
-            seated.service.sit(DORA, SitDown("sit", seated.table_id, seat), NOBODY_CONNECTED)
+        if someone_sits:
+            returning = seated.forehand if the_same_account else DORA
+            seated.service.sit(returning, SitDown("sit", seated.table_id, seat), NOBODY_CONNECTED)
 
         remaining = seated.table().progress.plans
         assert remaining == frozenset({SeatPlan(seated.seat_of(seated.rearhand), BidLimit(30, ASK))})
