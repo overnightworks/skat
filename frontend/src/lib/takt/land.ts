@@ -1,5 +1,6 @@
 import type { Card } from "../../routes/(start)/tables.ts";
-import { fork } from "./seed.ts";
+import { drawnFrom, type Aloft } from "./aloft.ts";
+import { cardFork } from "./seed.ts";
 import { mix, phase, type Place, type Pose, type Timeline, type Track } from "./timeline.ts";
 
 /** How a motion set throws a card. */
@@ -60,24 +61,18 @@ const LIE_TURN_DEGREES = 10;
 // The felt's grip alone never ends a slide, so it ends where a hundredth of it would be left.
 const SLIDE_LEFT_AT_REST = 0.01;
 const SQUASH_FADES_PER_SECOND = 22;
-// Per card width of height the shade grows this much wider and this much paler.
-const SHADE_WIDENS = 0.3;
-const SHADE_PALES = 0.6;
-// A card turns over within this part of its flight, and edge-on it keeps this share of its width.
+// A card turns over within this part of its flight.
 const FLIP_STARTS = 0.1;
 const FLIP_LASTS = 0.5;
-const EDGE_ON = 0.04;
 // A card out of a hidden hand that does not turn over fades in over this share of its flight.
 const FADES_IN = 0.4;
 // A name never flies: it appears below its card, this long after the card touched the felt.
 const NAME_WAITS_SECONDS = 0.04;
 const NAME_APPEARS_SECONDS = 0.14;
 
-const drawOf = (seed: string, card: Card, draw: string) => fork(seed, `card/${card.suit}-${card.rank}/${draw}`);
-
 /** The lie of a card in a game: the same for every seat and watcher, in whichever slot each of them sees the card. */
 export function lieOf(seed: string, card: Card): Lie {
-    const lie = drawOf(seed, card, "lie");
+    const lie = cardFork(seed, card, "lie");
     return {
         x: lie.between(-LIE_REACH, LIE_REACH),
         y: lie.between(-LIE_REACH, 0),
@@ -87,18 +82,29 @@ export function lieOf(seed: string, card: Card): Lie {
 
 /** The degrees a card's toss turns it past its lie in a set, to either side. */
 export function carryOf(seed: string, card: Card, land: LandSet): number {
-    const toss = drawOf(seed, card, "toss");
+    const toss = cardFork(seed, card, "toss");
     return mix(land.spin[0], land.spin[1], toss.between(0, 1)) * toss.sign();
 }
 
-/** The instants of a landing that need no measure: the card touches the felt when its flight ends, and sounds then. */
-export function landInstants(land: LandSet): Readonly<Record<"impact", number>> {
-    return { impact: land.flightSeconds };
+/** What a throw needs of a set: a trick thrown onto its pile flies and slides as a card thrown onto the felt does. */
+export type Throw = Pick<LandSet, "flightSeconds" | "lift" | "swell" | "grip" | "ease" | "squash">;
+
+/** How fast the felt has to stop a slide for it to end within `seconds`, per second. */
+export const gripStoppingWithin = (seconds: number): number => -Math.log(SLIDE_LEFT_AT_REST) / seconds;
+
+/**
+ * The instants of a landing that need no measure: the card touches the felt when its flight ends, and sounds then, and
+ * it lies when its slide has ended.
+ */
+export function landInstants(land: Throw): Readonly<Record<"impact" | "lies", number>> {
+    return { impact: land.flightSeconds, lies: land.flightSeconds - Math.log(SLIDE_LEFT_AT_REST) / land.grip };
 }
 
-// A thrown card flies an arc while it turns, lands short of its place and slides the rest against the felt, its turn
-// dying with the slide. `ahead` is the share of the way still to go, `up` the height in card widths.
-function thrownAt(land: LandSet, start: { turn: number; size: number }, carry: number, seconds: number) {
+/**
+ * A thrown card flies an arc while it turns, lands short of its place and slides the rest against the felt, its turn
+ * dying with the slide. `ahead` is the share of the way still to go, `up` the height in card widths.
+ */
+export function thrownAt(land: Throw, start: { turn: number; size: number }, carry: number, seconds: number) {
     const flown = phase(seconds, 0, land.flightSeconds);
     const after = seconds - land.flightSeconds;
     // The slide starts as fast as the flight ends, so the flight covers this share of the way.
@@ -132,31 +138,28 @@ export function landTimeline(land: LandSet, { from, to, faceDown, carry }: Fligh
     // A card that fades in starts as it will lie; any other starts as it stood in its hand, turning the shorter way.
     const start = { turn: fadesIn ? 0 : ((from.turn - to.turn + 540) % 360) - 180, size: from.width / to.width };
     const away = { x: from.x - to.x, y: from.y - to.y };
-    const frame = (to.turn * Math.PI) / 180;
     const facing = (seconds: number): number =>
         flips
             ? -Math.cos(Math.PI * phase(seconds, land.flightSeconds * FLIP_STARTS, land.flightSeconds * FLIP_LASTS))
             : 1;
     const shown = (seconds: number): number => (fadesIn ? phase(seconds, 0, land.flightSeconds * FADES_IN) : 1);
-    // A piece at a height above its point on the felt: the screen's pixels become those of the frame the card rests in.
-    const piece = (seconds: number, height: number, widens: number, pales: number): Pose => {
+    const aloft = (seconds: number): Aloft => {
         const { ahead, up, turn, size } = thrownAt(land, start, carry, seconds);
-        const [x, y] = [away.x * ahead, away.y * ahead - height * up * to.width];
-        const spread = size * (1 + widens * up);
         return {
-            x: x * Math.cos(frame) + y * Math.sin(frame),
-            y: y * Math.cos(frame) - x * Math.sin(frame),
-            turn,
-            wide: spread * Math.max(EDGE_ON, Math.abs(facing(seconds))),
-            tall: spread,
-            opacity: shown(seconds) / (1 + pales * up),
+            x: to.x + away.x * ahead,
+            y: to.y + away.y * ahead,
+            up,
+            turn: to.turn + turn,
+            size,
+            facing: facing(seconds),
+            shown: shown(seconds),
         };
     };
     return {
-        seconds: land.flightSeconds - Math.log(SLIDE_LEFT_AT_REST) / land.grip,
+        seconds: landInstants(land).lies,
         tracks: {
-            card: (seconds) => piece(seconds, 1, 0, 0),
-            shade: (seconds) => piece(seconds, 0, SHADE_WIDENS, SHADE_PALES),
+            card: (seconds) => drawnFrom(to, aloft(seconds)).card,
+            shade: (seconds) => drawnFrom(to, aloft(seconds)).shade,
             rear: (seconds) => (flips && facing(seconds) <= 0 ? 1 : 0),
             name: (seconds) => phase(seconds, land.flightSeconds + NAME_WAITS_SECONDS, NAME_APPEARS_SECONDS),
         },

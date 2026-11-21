@@ -1,5 +1,5 @@
 import { seriesNumberOf } from "../../routes/(start)/seriesCommands.ts";
-import type { Table } from "../../routes/(start)/tables.ts";
+import type { Card, Table } from "../../routes/(start)/tables.ts";
 
 /** One labelled stream of draws: a draw depends on the seed, the label and the draws before it in this fork alone. */
 export interface Fork {
@@ -40,4 +40,9 @@ export function fork(seed: string, label: string): Fork {
         between: (low, high) => low + (high - low) * next(),
         sign: () => (next() < 0.5 ? -1 : 1),
     };
+}
+
+/** The fork of a game's seed for one draw of one card, which every view that shows the card draws alike. */
+export function cardFork(seed: string, card: Card, draw: string): Fork {
+    return fork(seed, `card/${card.suit}-${card.rank}/${draw}`);
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { seriesAt, tableBetweenGames } from "#lib/series.fixtures.ts";
-import { fork, seedOf } from "#lib/takt/seed.ts";
+import { cardFork, fork, seedOf } from "#lib/takt/seed.ts";
+import type { Card } from "../../routes/(start)/tables.ts";
 
 const SEED = seedOf(tableBetweenGames(1, seriesAt()));
 const drawn = (seed: string, label: string, draws: number): number[] => {
@@ -68,5 +69,22 @@ describe("a fork", () => {
         expect(new Set(signs)).toEqual(new Set([-1, 1]));
         expect(up).toBeGreaterThan(400);
         expect(up).toBeLessThan(600);
+    });
+});
+
+describe("the fork of a card", () => {
+    const ACE: Card = { suit: "kreuz", rank: "ace" };
+    const drawnFor = (seed: string, card: Card, draw: string): number => cardFork(seed, card, draw).between(0, 1);
+
+    it("draws the same for the same card and draw, from whichever view asks", () => {
+        expect(drawnFor(SEED, { ...ACE }, "heap")).toBe(drawnFor(SEED, ACE, "heap"));
+    });
+
+    it.each([
+        { name: "another card", seed: SEED, card: { ...ACE, rank: "ten" } satisfies Card, draw: "heap" },
+        { name: "another draw of the card", seed: SEED, card: ACE, draw: "lie" },
+        { name: "another game", seed: `${SEED}0`, card: ACE, draw: "heap" },
+    ])("draws another number for $name", ({ seed, card, draw }) => {
+        expect(drawnFor(seed, card, draw)).not.toBe(drawnFor(SEED, ACE, "heap"));
     });
 });

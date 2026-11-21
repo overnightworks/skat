@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Cue } from "#lib/cues.ts";
 import { MOTION_SETS } from "#lib/motionSets.ts";
+import { timingOf, type Timing } from "#lib/stage.ts";
 import { stubBrowser } from "../testing/stubBrowser.ts";
 import type { LastTrick, Playing, Table } from "../routes/(start)/tables.ts";
 
@@ -27,9 +28,13 @@ const SWEEP_VOICES = 1;
 const PLAYING = { turn_seat: TAKER_SEAT } as Playing;
 const TABLE_IN_PLAY = { hand: { playing: PLAYING } } as unknown as Table;
 const TABLE_BETWEEN_HANDS = { hand: null } as unknown as Table;
-const REST_MILLISECONDS = MOTION_SETS.verspielt.trickRestSeconds * 1000;
-const LIFT_MILLISECONDS = MOTION_SETS.verspielt.trickLiftSeconds * 1000;
-const GLIDE_MILLISECONDS = (MOTION_SETS.verspielt.trickGatherSeconds + MOTION_SETS.verspielt.trickGlideSeconds) * 1000;
+const TIMING = timingOf(MOTION_SETS.verspielt, false) as Timing;
+// From a trick's last card until the card that took it lifts, until the trick is gathered, how much longer the last
+// trick of a hand stands lifted, and the trick's way to its pile; a timer ends on a whole millisecond.
+const LIES_MILLISECONDS = Math.ceil(TIMING.liesMilliseconds);
+const REST_MILLISECONDS = Math.ceil(TIMING.liesMilliseconds + TIMING.liftedMilliseconds);
+const LAST_HOLD_MILLISECONDS = Math.ceil(TIMING.lastHoldMilliseconds);
+const GLIDE_MILLISECONDS = Math.ceil(TIMING.glideMilliseconds);
 
 // The stage is module state, so each test reads a module of its own, on a page whose player stored `stored`.
 // `sweeps` counts the voices the page's sound started for sweeps since the first tap woke it; a page not yet tapped sounds nothing.
@@ -183,38 +188,48 @@ const OTHER_SEAT = 1;
 const SIT_MILLISECONDS = MOTION_SETS.verspielt.chairSitsSeconds * 1000;
 const EMPTY_MILLISECONDS = MOTION_SETS.verspielt.chairEmptiesSeconds * 1000;
 
-describe("the result of the hand the last trick closes on the page's stage", () => {
-    it.each([true, false, null])(
-        "tells the declarer's outcome %s once the last trick has landed and rested, and nothing once it has settled",
-        async (declarerWon) => {
-            const { stage } = await stageOnAPage(MOVING);
-
-            stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN], { declarerWon, whenResultShown: vi.fn() });
-            expect(stage.closingTrickWon()).toBeUndefined();
-
-            vi.advanceTimersByTime(REST_MILLISECONDS);
-            expect(stage.closingTrickWon()).toBe(declarerWon);
-
-            vi.advanceTimersByTime(LIFT_MILLISECONDS + GLIDE_MILLISECONDS);
-
-            expect(stage.closingTrickWon()).toBeUndefined();
-        },
-    );
-
-    it("tells no outcome for a trick that does not close the hand", async () => {
+describe("the card that took a trick on the page's stage", () => {
+    it("is named once the trick has lain, while it lifts and while the trick glides, and carries no seal", async () => {
         const { stage } = await stageOnAPage(MOVING);
 
         stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN]);
+        expect(stage.takingCard()).toBeNull();
 
-        expect(stage.closingTrickWon()).toBeUndefined();
+        vi.advanceTimersByTime(LIES_MILLISECONDS);
+        expect(stage.takingCard()).toEqual({ seat: TAKER_SEAT, seal: null });
+        expect(stage.sweepingTo()).toBeNull();
+
+        vi.advanceTimersByTime(REST_MILLISECONDS - LIES_MILLISECONDS);
+        expect(stage.takingCard()).toEqual({ seat: TAKER_SEAT, seal: null });
+        expect(stage.sweepingTo()).toBe(TAKER_SEAT);
+
+        vi.advanceTimersByTime(GLIDE_MILLISECONDS);
+        expect(stage.takingCard()).toBeNull();
     });
 
+    it.each([
+        { name: "the seal of a game won", declarerWon: true, seal: "won" },
+        { name: "the seal of a game lost", declarerWon: false, seal: "lost" },
+        { name: "no seal in a Ramsch", declarerWon: null, seal: null },
+    ])("carries $name when its trick closes the hand", async ({ declarerWon, seal }) => {
+        const { stage } = await stageOnAPage(MOVING);
+
+        stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN], { declarerWon, whenResultShown: vi.fn() });
+        expect(stage.takingCard()).toBeNull();
+
+        vi.advanceTimersByTime(LIES_MILLISECONDS);
+
+        expect(stage.takingCard()).toEqual({ seat: TAKER_SEAT, seal });
+    });
+});
+
+describe("the result of the hand the last trick closes on the page's stage", () => {
     it("is shown once the last trick has rested, lifted its taking card and swept, and not before", async () => {
         const { stage } = await stageOnAPage(MOVING);
         const showResult = vi.fn();
 
         stage.receiveOnStage(TABLE_IN_PLAY, [CARD_PLAYED, TAKEN], { declarerWon: true, whenResultShown: showResult });
-        vi.advanceTimersByTime(REST_MILLISECONDS + LIFT_MILLISECONDS);
+        vi.advanceTimersByTime(REST_MILLISECONDS + LAST_HOLD_MILLISECONDS - 1);
         expect(showResult).not.toHaveBeenCalled();
 
         vi.advanceTimersByTime(GLIDE_MILLISECONDS);
