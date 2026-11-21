@@ -22,6 +22,8 @@ from skat.table.records import (
     CreateTable,
     EndedTable,
     Ending,
+    EndProposal,
+    EntryTraces,
     GiveUpOptions,
     HandProgress,
     OccupantKind,
@@ -31,7 +33,7 @@ from skat.table.records import (
     TableId,
     TableOptions,
 )
-from skat.table.series_end import SeriesEndCommand
+from skat.table.series_end import END_ANSWER_SECONDS, SeriesEndCommand
 from skat.table.service import TableService
 from skat.table.transactions import TableVersion
 from tests.support.calls import call_facts
@@ -54,6 +56,7 @@ BACH = Actor(account_id="account-bach", display_name="Bach", kind=OccupantKind.A
 WATCHER = Actor(account_id="account-watcher", display_name="Watcher")
 CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 UNKNOWN_TABLE = "0" * 32
+EARLIER_TRACE = "trace-of-the-earlier-commit"
 
 
 class Scene(ServiceScene):
@@ -226,6 +229,69 @@ class TestTheTracesAMemberReads:
 
         assert self.traced_acts(scene)[1:] == [(ActKind.BID, "trace-of-the-bid"), (ActKind.HOLD, None)]
         assert scene.view_of(holder.account_id).traceparent is None
+
+
+def _traced_as_committed_earlier(scene):
+    """The table as stored, its version and each act of it entered in the trace `EARLIER_TRACE`."""
+    viewer = actor_of(Position.FOREHAND).account_id
+    acts = scene.acts_of(viewer).acts
+    scene.put(replace(scene.table, traces=EntryTraces(EARLIER_TRACE, tuple((act.seq, EARLIER_TRACE) for act in acts))))
+    return viewer
+
+
+def _a_lapsed_end_answer(scene):
+    lapsed = EndProposal(1, frozenset({1}), START - timedelta(seconds=END_ANSWER_SECONDS + 1))
+    scene.put(between_games(series=replace(Series(12, 1), end_proposal=lapsed)))
+    viewer = _traced_as_committed_earlier(scene)
+    return viewer, lambda: scene.service.lapse_end_answers(TableId(scene.table_id))
+
+
+def _the_next_deal(scene):
+    scene.put(between_games(1, 2, 3))
+    viewer = _traced_as_committed_earlier(scene)
+    everyone = frozenset(chair.occupant.account_id for chair in scene.table.chairs)
+    return viewer, lambda: scene.service.deal_next(TableId(scene.table_id), nullcontext(everyone))
+
+
+def _a_freed_chair_after_sits_in_the_earlier_trace(scene):
+    scene.trace = EARLIER_TRACE
+    scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
+    scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
+    scene.store.hold_due(scene.table_id, MOZART.account_id)
+    return ANNA.account_id, lambda: scene.service.free_held_chair(
+        TableId(scene.table_id), MOZART.account_id, nullcontext(True)
+    )
+
+
+class TestTheTracesAServerStepEntersIn:
+    """What the server commits on its own account carries the trace the step ran in, as a request's commit does."""
+
+    @pytest.fixture
+    def scene(self):
+        scene = Scene()
+        scene.trace = None
+        scene.service = scene.service.with_trace(lambda: scene.trace)
+        return scene
+
+    @pytest.mark.parametrize("step_trace", ["trace-of-the-step", None])
+    @pytest.mark.parametrize(
+        "arrange", [_a_lapsed_end_answer, _the_next_deal, _a_freed_chair_after_sits_in_the_earlier_trace]
+    )
+    def test_the_view_and_the_new_acts_carry_the_steps_trace_and_the_earlier_acts_keep_theirs(
+        self, scene, arrange, step_trace
+    ):
+        viewer, step = arrange(scene)
+        before = scene.acts_of(viewer)
+        held = {act.seq for act in before.acts}
+        scene.trace = step_trace
+
+        step()
+
+        after = scene.acts_of(viewer)
+        assert scene.view_of(viewer).traceparent == step_trace
+        assert {act.seq: after.traces.get(act.seq) for act in after.acts} == {
+            act.seq: before.traces.get(act.seq) if act.seq in held else step_trace for act in after.acts
+        }
 
 
 class TestTheAgentInAChair:
@@ -552,7 +618,6 @@ def _a_freed_chair(scene):
     scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
     scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
     scene.service.stand(ANNA, StandUp("command-anna-stand", scene.table_id), NOBODY)
-    scene.service.sit(BACH, SitDown("command-bach", scene.table_id, 3), NOBODY)
     scene.store.hold_due(scene.table_id, MOZART.account_id)
     return lambda: scene.service.free_held_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True))
 
