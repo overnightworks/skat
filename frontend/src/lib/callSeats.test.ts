@@ -3,6 +3,7 @@ import {
     acceptedPlacements,
     holdOf,
     holesPath,
+    occupancyBySeat,
     occupancyOf,
     openSeats,
     postedSeats,
@@ -182,6 +183,23 @@ describe("holesPath", () => {
 
     it("is the outer rectangle alone for no hole", () => {
         expect(holesPath(owner, [])).toBe(`path(evenodd, "${outer}")`);
+    });
+});
+
+describe("occupancyBySeat", () => {
+    it("gives each seat what its chair holds, so a free chair differs from a seated one", () => {
+        const anna = { occupant_name: "Anna", occupant_kind: "person", is_mine: false } as const;
+        const free = { occupant_name: null, occupant_kind: null, is_mine: false } as const;
+
+        const bySeat = occupancyBySeat([
+            { seat: 0, ...anna },
+            { seat: 2, ...free },
+        ]);
+
+        expect([...bySeat.keys()]).toEqual([0, 2]);
+        expect(bySeat.get(0)).toBe(occupancyOf(anna));
+        expect(bySeat.get(2)).toBe(occupancyOf(free));
+        expect(bySeat.get(0)).not.toBe(bySeat.get(2));
     });
 });
 

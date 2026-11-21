@@ -9,7 +9,6 @@ import {
     type SeatsMessage,
 } from "#lib/callFrame.ts";
 import { CHAIRS_PER_TABLE, TABLES_PATH, TABLE_PERSON_KEYS_SUFFIX } from "#lib/wire.ts";
-import type { Table } from "../routes/(start)/tables.ts";
 
 // The pure decisions of the seats a framed table tells its call: which tile boxes go out, which chairs are see-through
 // and when the table holds back. `CallSeats.svelte` reads the page, runs the frames and writes the clip paths by them.
@@ -166,7 +165,9 @@ export function holesPath(
 }
 
 /** The occupancy of each chair of a table's chairs, by seat. */
-export function occupancyBySeat(chairs: readonly Table["chairs"][number][]): ReadonlyMap<number, string> {
+export function occupancyBySeat(
+    chairs: readonly (Occupant & { readonly seat: number })[],
+): ReadonlyMap<number, string> {
     return new Map(chairs.map((chair) => [chair.seat, occupancyOf(chair)]));
 }
 
@@ -179,12 +180,14 @@ export function shownAsInView(tiles: readonly TileReading[], occupancyNow: Reado
     return tiles.filter(({ seat, occupancy }) => occupancyNow.get(seat) === occupancy);
 }
 
-/** What a chair of the table view holds, as far as a person key can go stale: who sits, of which kind, and whether it is mine. */
-export function occupancyOf(chair: {
+interface Occupant {
     readonly occupant_name: string | null;
     readonly occupant_kind: string | null;
     readonly is_mine: boolean;
-}): string {
+}
+
+/** What a chair of the table view holds, as far as a person key can go stale: who sits, of which kind, and whether it is mine. */
+export function occupancyOf(chair: Occupant): string {
     return JSON.stringify([chair.occupant_name, chair.occupant_kind, chair.is_mine]);
 }
 
