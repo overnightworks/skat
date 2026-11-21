@@ -42,7 +42,7 @@ OTHER_ORIGIN = f"https://{OTHER_HOST}:{OTHER_PORT}"
 VALID_HELLO = {"v": 1, "type": "hello", "attachment": 1, "attempt": None}
 LOG_IN = kit_text("signIn.logIn")
 MEGABYTE = 1_000_000
-RECORDED_MESSAGES = "window.messages.length"
+RECORDED_READIES = 'window.messages.filter((message) => message?.type === "ready").length'
 
 
 @pytest.fixture(scope="module")
@@ -67,8 +67,8 @@ def messages_of_the_frame(visitor: Page) -> list[Any]:
     return visitor.evaluate("window.messages")
 
 
-def wait_for_ready(visitor: Page, messages: int = 1) -> None:
-    visitor.wait_for_function(f"{RECORDED_MESSAGES} >= {messages}")
+def wait_for_ready(visitor: Page, readies: int = 1) -> None:
+    visitor.wait_for_function(f"{RECORDED_READIES} >= {readies}")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -218,7 +218,7 @@ def test_a_reloaded_frame_greets_again(
         expect(table.locator(BAR)).to_have_count(0)
 
         skat.evaluate("location.reload()")
-        wait_for_ready(visitor, messages=2)
+        wait_for_ready(visitor, readies=2)
 
         expect(table.locator(BAR)).to_have_count(0)
         assert len([message for message in messages_of_the_frame(visitor) if message["type"] == "ready"]) == 2
