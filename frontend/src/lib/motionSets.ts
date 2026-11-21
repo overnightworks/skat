@@ -1,11 +1,12 @@
+import type { LandSet } from "./takt/land.ts";
 import type { Key } from "./words.ts";
 
 export interface MotionSet {
     readonly id: string;
     /** The catalog key of the set's name. */
     readonly name: Key;
-    /** From the cue to the moment a card touches the felt; the set's CSS keeps the same time. */
-    readonly cardLandsSeconds: number;
+    /** How a played card is thrown onto the felt; Takt plays it, and the set's CSS keeps none of it. */
+    readonly land: LandSet;
     /** From the cue to the moment a bid's bubble has sprung up. */
     readonly bidSpringsSeconds: number;
     /** From the cue to the moment the Kontra stamp hits the felt. */
@@ -44,7 +45,16 @@ export const MOTION_SETS = {
     dezent: {
         id: "dezent",
         name: "sound.motionDezent",
-        cardLandsSeconds: 0.18,
+        land: {
+            flightSeconds: 0.18,
+            lift: 0.1,
+            swell: 0.04,
+            spin: [2, 5],
+            grip: 14,
+            ease: 0.85,
+            squash: 0.015,
+            flips: false,
+        },
         bidSpringsSeconds: 0.04,
         stampLandsSeconds: 0.18,
         trickRestSeconds: 0.5,
@@ -65,7 +75,16 @@ export const MOTION_SETS = {
     verspielt: {
         id: "verspielt",
         name: "sound.motionVerspielt",
-        cardLandsSeconds: 0.28,
+        land: {
+            flightSeconds: 0.28,
+            lift: 0.43,
+            swell: 0.16,
+            spin: [9, 22],
+            grip: 12,
+            ease: 0.6,
+            squash: 0.04,
+            flips: true,
+        },
         bidSpringsSeconds: 0.04,
         stampLandsSeconds: 0.3,
         trickRestSeconds: 0.8,

@@ -246,6 +246,14 @@ describe("the result of the hand the last trick closes on the page's stage", () 
         expect((await stageOnAPage({})).stage.stageMoves()).toBe(false);
         expect((await stageOnAPage(MOVING, { hidden: true })).stage.stageMoves()).toBe(false);
     });
+
+    it("plays a moment in the player's set, and in none while it does not move", async () => {
+        const dezent = { ...MOVING, motionSet: MOTION_SETS.dezent.id };
+
+        expect((await stageOnAPage(dezent)).stage.motionOnStage()).toEqual(MOTION_SETS.dezent);
+        expect((await stageOnAPage({ motionSet: MOTION_SETS.dezent.id })).stage.motionOnStage()).toBeUndefined();
+        expect((await stageOnAPage(dezent, { hidden: true })).stage.motionOnStage()).toBeUndefined();
+    });
 });
 
 describe("a chair that changes hands on the page's stage", () => {

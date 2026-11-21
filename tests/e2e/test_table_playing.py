@@ -8,6 +8,7 @@ from skat.table.records import TableStyle
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
+from tests.e2e.support.motion import FELT_SLOT
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.style import (
     PLACE,
@@ -383,7 +384,7 @@ def test_on_a_desktop_the_felt_the_far_chairs_the_trick_the_bar_and_the_hand_sta
         expect(person.locator(FELT_CARD)).to_have_count(CARDS_IN_A_TRICK)
         expect_the_felt_and_the_far_chairs_as_the_scene(person, scene)
         expect_drawn_as_the_scene(
-            boxes_on_the_page(person, FELT_CARD), boxes_in_the_scene(person, scene, ".play"), PLACE
+            boxes_on_the_page(person, FELT_SLOT), boxes_in_the_scene(person, scene, ".play"), PLACE
         )
         expect_drawn_as_the_scene(
             boxes_on_the_page(person, ".chair.mine"), boxes_in_the_scene(person, scene, ".seat.own"), TOP

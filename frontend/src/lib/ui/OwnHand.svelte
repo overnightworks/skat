@@ -2,6 +2,8 @@
     import { inDisplayOrder } from "#lib/handOrder.ts";
     import { cardLook, dragVerdict, type PlayingHand } from "#lib/playView.ts";
     import { mayPick } from "#lib/pushView.ts";
+    import { cardLetGo } from "#lib/takt/letGo.ts";
+    import { placeOf } from "#lib/takt/player.ts";
     import CardFace from "#lib/ui/CardFace.svelte";
     import { words } from "#lib/words.ts";
     import { cardName, includesCard, type Card, type Game, type Picking } from "../../routes/(start)/tables.ts";
@@ -31,7 +33,8 @@
     });
     const raised = $derived(drag?.card ?? dropped);
 
-    const slotOf = (event: Press): HTMLElement => event.currentTarget.parentElement as HTMLElement;
+    const slotOf = (event: { currentTarget: HTMLButtonElement }): HTMLElement =>
+        event.currentTarget.parentElement as HTMLElement;
     const travelOf = (event: Press, held: { startX: number; startY: number }) => ({
         dx: event.clientX - held.startX,
         dy: event.clientY - held.startY,
@@ -80,13 +83,18 @@
             return;
         }
         dropped = held.card;
+        cardLetGo(held.card, placeOf(slot));
         if (await hand.play(held.card)) return;
         dropped = null;
         putBack(slot);
     }
 
-    function tapUnlessDragged(hand: PlayingHand, card: Card): void {
-        if (!clickEndsDrag) hand.tap(card);
+    // A card flies from where the hand let it go, so every tap and every drop keeps the place its card stood at.
+    function tapUnlessDragged(slot: HTMLElement, hand: PlayingHand, card: Card): void {
+        if (!clickEndsDrag) {
+            cardLetGo(card, placeOf(slot));
+            hand.tap(card);
+        }
         clickEndsDrag = false;
     }
 </script>
@@ -131,8 +139,8 @@
                         void release(event, playing);
                     }}
                     onpointercancel={cancel}
-                    onclick={() => {
-                        tapUnlessDragged(playing, card);
+                    onclick={(event) => {
+                        tapUnlessDragged(slotOf(event), playing, card);
                     }}
                 >
                     <CardFace {card} />
