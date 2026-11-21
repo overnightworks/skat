@@ -6,7 +6,9 @@
         limitAt,
         livePick,
         passAheadTap,
+        passedLimit,
         stepWith,
+        takenBack,
         type BidBar,
         type BidLimit,
         type ScaleValue,
@@ -19,6 +21,7 @@
         type AuctionAction,
         type Game,
         type PlanChoice,
+        type PlanKind,
         type PlanMode,
         type Table,
     } from "../../routes/(start)/tables.ts";
@@ -33,24 +36,40 @@
     const DOTS = "M5.5 12h.01M12 12h.01M18.5 12h.01";
     // A value above his cards is picked by a hold of this length, so a slip of the finger sets nothing high.
     const HOLD_MILLISECONDS = 600;
+    const TAKEN_BACK_MILLISECONDS = 2000;
+    const TAKEN_BACK: Record<PlanKind, string> = { limit: words["bid.limitCleared"], pass: words["bid.takenBack"] };
 
     let open = $state(false);
     let picked = $state<number | null>(null);
     let held = $state<number | null>(null);
     let holdTimer: ReturnType<typeof setTimeout> | undefined;
+    let back = $state<PlanKind | null>(null);
 
     // A step is under way from the tap until the stream brings a new version; only a refusal ends it sooner.
     let sentAtVersion = $state<number | null>(null);
 
     const bar = $derived(bidBar(table));
+    const passed = $derived(passedLimit(table));
     const disabled = $derived(sentAtVersion === table.version);
 
-    // The open scale and a pick belong to his part in one auction and do not outlive it.
+    // The open scale, a pick and the word of a plan taken back belong to his part in one auction and do not outlive it.
     $effect(() => {
         if (bar !== null) return;
         open = false;
         picked = null;
+        back = null;
         release();
+    });
+
+    // A plan taken back says so in its line for a moment.
+    $effect(() => {
+        if (back === null) return;
+        const timer = setTimeout(() => {
+            back = null;
+        }, TAKEN_BACK_MILLISECONDS);
+        return () => {
+            clearTimeout(timer);
+        };
     });
 
     async function say(action: AuctionAction, value?: number): Promise<void> {
@@ -68,11 +87,17 @@
     // until the stream brings that version, as after a step of his own.
     async function plan(choice: PlanChoice): Promise<void> {
         const from = table.version;
+        const taken = takenBack(table, choice);
         picked = null;
         note = "";
+        back = null;
         const answer = await setAuctionPlan(id, crypto.randomUUID(), choice);
-        if (answer.kind !== "table") note = words["table.commandFailed"];
-        else if (answer.table.version > from) sentAtVersion = from;
+        if (answer.kind !== "table") {
+            note = words["table.commandFailed"];
+            return;
+        }
+        back = taken;
+        if (answer.table.version > from) sentAtVersion = from;
     }
 
     function tapPass(shown: BidBar): void {
@@ -85,6 +110,7 @@
     }
 
     function press({ value, overHand }: ScaleValue): void {
+        release();
         if (!overHand) return;
         held = value;
         holdTimer = setTimeout(() => {
@@ -150,17 +176,26 @@
 
 {#snippet lock()}<LockIcon />{/snippet}
 
+<!-- Without a bar the table has said „Weg“ for him, and the keys only show what he chose. -->
 {#snippet modeKey(limit: BidLimit, mode: PlanMode, label: string, mark: Snippet)}
     <button
         type="button"
         class:on={limit.mode === mode}
         aria-pressed={limit.mode === mode}
+        disabled={bar === null}
         onclick={() => {
             void plan({ kind: "limit", value: limit.value, mode });
         }}
     >
         {@render mark()}{@render word(label)}
     </button>
+{/snippet}
+
+{#snippet modes(limit: BidLimit)}
+    <span class="mode" role="group" aria-label={words["bid.aboveLimit"]}>
+        {@render modeKey(limit, "ask", words["bid.ask"], question)}
+        {@render modeKey(limit, "fixed", words["bid.fixed"], lock)}
+    </span>
 {/snippet}
 
 {#if bar !== null}
@@ -286,10 +321,7 @@
                 <p class="asks">{@render upTo(bar.asked)}{@render word(words["bid.asked"])}</p>
             {:else if bar.limit !== null}
                 {@render upTo(bar.limit)}
-                <span class="mode" role="group" aria-label={words["bid.aboveLimit"]}>
-                    {@render modeKey(bar.limit, "ask", words["bid.ask"], question)}
-                    {@render modeKey(bar.limit, "fixed", words["bid.fixed"], lock)}
-                </span>
+                {@render modes(bar.limit)}
                 <button
                     type="button"
                     class="clear"
@@ -302,7 +334,16 @@
                 </button>
             {:else if bar.passAhead}
                 <span class="said">{@render icon(CROSS, 2.8)}{@render word(words["bid.passAhead"])}</span>
+            {:else if back !== null}
+                <span class="said" role="status">{@render icon(CHECK, 2.8)}{@render word(TAKEN_BACK[back])}</span>
             {/if}
+        </div>
+    </div>
+{:else if passed !== null}
+    <div class="bid">
+        <div class="bid-line dim">
+            {@render upTo(passed)}
+            {@render modes(passed)}
         </div>
     </div>
 {/if}

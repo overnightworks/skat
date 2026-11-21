@@ -50,6 +50,13 @@ CLEAR_OF_THE_FADES = """(value) => {
         && box.right <= frame.right - parseFloat(clear.scrollPaddingRight) + 1;
 }"""
 AT_ITS_END = "(view) => view.scrollLeft + view.clientWidth >= view.scrollWidth - 1"
+# The test browser draws no scrollbars, so the bar itself cannot be measured: the view keeps its scrollbar switched on,
+# and the scale stands taller than the height it names, which is the room the bar takes.
+HAS_A_BAR_AND_ITS_ROOM = """(view) => {
+    const scale = view.closest('.scale');
+    return getComputedStyle(view).scrollbarWidth !== 'none'
+        && scale.offsetHeight > parseFloat(getComputedStyle(scale).getPropertyValue('--height'));
+}"""
 TOP_OF_THE_HAND = "() => document.querySelector('.own-hand').getBoundingClientRect().top"
 
 
@@ -195,7 +202,7 @@ def test_a_mouse_wheels_the_scale_to_the_top_value_and_has_a_bar_to_drag(
     middlehand = table.middlehand
     middlehand.locator(MORE).click()
     view = middlehand.locator(VIEW)
-    assert view.evaluate("(view) => getComputedStyle(view).scrollbarWidth") == "thin"
+    assert view.evaluate(HAS_A_BAR_AND_ITS_ROOM) is True
     assert view.evaluate(AT_ITS_END) is False
 
     view.hover()

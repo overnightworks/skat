@@ -3311,13 +3311,14 @@ body {
 .room .bid {
     --unlit: linear-gradient(180deg, rgba(4, 14, 10, 0.62), rgba(10, 22, 16, 0.5));
     --chip: 46px;
+    --rows: 8px;
     grid-column: 1 / 3;
     grid-row: 4;
     z-index: 2;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: var(--rows);
     margin: 8px 0 12px;
     width: 100%;
     min-width: 0;
@@ -3502,6 +3503,16 @@ body {
 .room .bid .mode .on {
     color: var(--ink);
     background: var(--cream);
+}
+
+.room .bid .mode button:disabled {
+    cursor: default;
+}
+
+/* His fixed limit after the table said „Weg“ for him: it stays where it stood under the chips, with nothing to tap. */
+.room .bid-line.dim {
+    margin-top: calc(var(--chip) + var(--rows));
+    opacity: 0.62;
 }
 
 .room .bid :is(.mode, .said) svg {

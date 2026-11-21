@@ -94,8 +94,9 @@ export type Awaiting = (typeof AWAITING_TOKENS)[number];
 export type AuctionAction = (typeof AUCTION_ACTION_TOKENS)[number];
 export type AuctionWord = { seat: number; action: AuctionAction; value: number | null };
 export type PlanMode = (typeof PLAN_MODE_TOKENS)[number];
+export type PlanKind = (typeof PLAN_KIND_TOKENS)[number];
 // The viewer's own plan as the table tells it: a limit carries its value and mode, a pass said ahead neither.
-export type AuctionPlan = { kind: (typeof PLAN_KIND_TOKENS)[number]; value: number | null; mode: PlanMode | null };
+export type AuctionPlan = { kind: PlanKind; value: number | null; mode: PlanMode | null };
 // A plan as a player sets it; null takes the plan back.
 export type PlanChoice = { kind: "limit"; value: number; mode: PlanMode } | { kind: "pass" } | null;
 // `words` holds each chair's latest word, `steps` every word in the order it was said. `plan` and `hand_values`, what

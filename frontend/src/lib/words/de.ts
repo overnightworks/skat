@@ -258,8 +258,10 @@ export type Words = {
     readonly "bid.fixed": string;
     readonly "bid.aboveLimit": string;
     readonly "bid.clearLimit": string;
+    readonly "bid.limitCleared": string;
     readonly "bid.asked": string;
     readonly "bid.passAhead": string;
+    readonly "bid.takenBack": string;
     readonly "bid.allValues": string;
     readonly "bid.pressAndHold": string;
     readonly "voice.pass": string;
@@ -912,8 +914,10 @@ export const words: Words = {
     "bid.fixed": "Fest",
     "bid.aboveLimit": "Über dem Limit",
     "bid.clearLimit": "Limit löschen",
+    "bid.limitCleared": "Limit gelöscht",
     "bid.asked": "nachschieben oder weg?",
     "bid.passAhead": "Weg, sobald du dran bist",
+    "bid.takenBack": "Zurückgenommen",
     "bid.allValues": "Alle Werte",
     "bid.pressAndHold": "halten",
     "voice.pass": "Weg",

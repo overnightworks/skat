@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { bidBar, chipTap, limitAt, livePick, passAheadTap, stepWith, type BidBar, type BidStep } from "#lib/bidBar.ts";
+import {
+    bidBar,
+    chipTap,
+    limitAt,
+    livePick,
+    passAheadTap,
+    passedLimit,
+    stepWith,
+    takenBack,
+    type BidBar,
+    type BidStep,
+} from "#lib/bidBar.ts";
 import { EVERY_HAND_DEALT, FOREHAND, MIDDLEHAND, REARHAND, table as dealtTable } from "#lib/cues.fixtures.ts";
 import { auctionWith } from "#lib/table.fixtures.ts";
 import { VALID_BIDS } from "#lib/wire.ts";
@@ -16,6 +27,7 @@ const REACHED: Auction["hand_values"] = [
 const ASK_36: AuctionPlan = { kind: "limit", value: 36, mode: "ask" };
 const FIXED_36: AuctionPlan = { kind: "limit", value: 36, mode: "fixed" };
 const PASS_AHEAD: AuctionPlan = { kind: "pass", value: null, mode: null };
+const MY_PASS: Auction["words"] = [{ seat: ME, action: "pass", value: null }];
 
 // A table in its auction as the viewer in the middlehand's chair is told it; `viewer` seats somebody else or nobody.
 function tableWith(auction: Partial<Auction>, hand: Partial<Hand> = {}, viewer: number | null = ME): Table {
@@ -45,7 +57,7 @@ describe("who gets the bid bar", () => {
         { name: "an auction that is over", table: tableWith({ awaiting: null }) },
         { name: "a viewer without a chair", table: tableWith({}, {}, null) },
         { name: "a hand that waits for a sitter", table: tableWith({}, { waiting_seat: REARHAND }) },
-        { name: "a player who passed", table: tableWith({ words: [{ seat: ME, action: "pass", value: null }] }) },
+        { name: "a player who passed", table: tableWith({ words: MY_PASS }) },
     ])("is not $name", ({ table }) => {
         expect(bidBar(table)).toBeNull();
     });
@@ -152,6 +164,35 @@ describe("his plan on the bar", () => {
         { name: "takes „Weg“ back", plan: PASS_AHEAD, sent: null },
     ])("a tap on „Weg“ off his turn $name", ({ plan, sent }) => {
         expect(passAheadTap(barOf({ plan }))).toEqual(sent);
+    });
+});
+
+describe("a plan a tap takes back", () => {
+    it.each([
+        { name: "is his limit after the cross or the lit chip", plan: ASK_36, choice: null, back: "limit" },
+        { name: "is his „Weg“ ahead after its second tap", plan: PASS_AHEAD, choice: null, back: "pass" },
+        { name: "is none where a tap sets a plan", plan: ASK_36, choice: { kind: "pass" }, back: null },
+        { name: "is none without a plan", plan: null, choice: null, back: null },
+    ] as const)("$name", ({ plan, choice, back }) => {
+        expect(takenBack(tableWith({ plan }), choice)).toBe(back);
+    });
+});
+
+describe("his fixed limit after the table said „Weg“ for him", () => {
+    it("stays in his sight with its game, in place of the bar", () => {
+        const passed = tableWith({ plan: FIXED_36, words: MY_PASS, standing: 40 });
+
+        expect([passedLimit(passed), bidBar(passed)]).toEqual([{ value: 36, game: "kreuz", mode: "fixed" }, null]);
+    });
+
+    it.each([
+        { name: "before his pass", table: tableWith({ plan: FIXED_36 }) },
+        { name: "after his own pass above an ask limit", table: tableWith({ plan: ASK_36, words: MY_PASS }) },
+        { name: "after his „Weg“ said ahead", table: tableWith({ plan: PASS_AHEAD, words: MY_PASS }) },
+        { name: "after a pass without a plan", table: tableWith({ words: MY_PASS }) },
+        { name: "once the auction is over", table: tableWith({ plan: FIXED_36, words: MY_PASS, awaiting: null }) },
+    ])("is not shown $name", ({ table }) => {
+        expect(passedLimit(table)).toBeNull();
     });
 });
 

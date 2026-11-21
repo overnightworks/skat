@@ -1,6 +1,15 @@
 import { handWaits } from "#lib/openChair.ts";
 import { VALID_BIDS } from "#lib/wire.ts";
-import type { AuctionAction, Awaiting, Game, PlanChoice, PlanMode, Table } from "../routes/(start)/tables.ts";
+import type {
+    Auction,
+    AuctionAction,
+    Awaiting,
+    Game,
+    PlanChoice,
+    PlanKind,
+    PlanMode,
+    Table,
+} from "../routes/(start)/tables.ts";
 
 const LOWEST_BID = VALID_BIDS[0];
 
@@ -42,34 +51,50 @@ function stepOf(awaiting: Awaiting, [next]: number[]): BidStep | null {
     }
 }
 
-// The bar of a seated player who has not passed, on his turn and off it, or null: without a running auction, while
-// the hand waits for a sitter, and for a viewer without a chair.
-export function bidBar(table: Table): BidBar | null {
+type Part = { auction: Auction; awaiting: Awaiting; seat: number; passed: boolean };
+
+// A seated viewer's part in a running auction, or null: without a running auction, while the hand waits for a sitter,
+// and for a viewer without a chair.
+function partIn(table: Table): Part | null {
     const auction = table.hand?.auction;
-    const viewerSeat = table.chairs.find((chair) => chair.is_mine)?.seat;
-    if (auction === undefined || auction.awaiting === null || viewerSeat === undefined) return null;
+    const seat = table.chairs.find((chair) => chair.is_mine)?.seat;
+    if (auction === undefined || auction.awaiting === null || seat === undefined) return null;
     if (handWaits(table.hand)) return null;
-    if (auction.words.some((word) => word.seat === viewerSeat && word.action === "pass")) return null;
+    const passed = auction.words.some((word) => word.seat === seat && word.action === "pass");
+    return { auction, awaiting: auction.awaiting, seat, passed };
+}
+
+function gameAt({ hand_values: reached }: Auction, value: number): Game | null {
+    return reached.find((each) => each.value === value)?.game ?? null;
+}
+
+function limitOf(auction: Auction): BidLimit | null {
+    const { plan } = auction;
+    if (plan?.kind !== "limit" || plan.value === null || plan.mode === null) return null;
+    return { value: plan.value, game: gameAt(auction, plan.value), mode: plan.mode };
+}
+
+// The bar of a seated player who has not passed, on his turn and off it.
+export function bidBar(table: Table): BidBar | null {
+    const part = partIn(table);
+    if (part === null || part.passed) return null;
+    const { auction, awaiting, seat } = part;
     const { plan, standing, hand_values: reached } = auction;
-    const gameAt = (value: number): Game | null => reached.find((each) => each.value === value)?.game ?? null;
     const gone = (value: number): boolean => standing !== null && value < standing;
-    const limit =
-        plan?.kind === "limit" && plan.value !== null && plan.mode !== null
-            ? { value: plan.value, game: gameAt(plan.value), mode: plan.mode }
-            : null;
+    const limit = limitOf(auction);
     const handTop = Math.max(...reached.map((each) => each.value));
     const firstOverHand = VALID_BIDS.find((value) => value > handTop);
-    const onTurn = auction.turn_seat === viewerSeat;
+    const onTurn = auction.turn_seat === seat;
     return {
         onTurn,
-        step: onTurn ? stepOf(auction.awaiting, auction.values) : null,
+        step: onTurn ? stepOf(awaiting, auction.values) : null,
         chips: reached.map(({ game, value }) => ({ game, value, lit: limit?.value === value, gone: gone(value) })),
         limit,
         passAhead: plan?.kind === "pass",
-        asked: onTurn && auction.awaiting !== "play" ? limit : null,
+        asked: onTurn && awaiting !== "play" ? limit : null,
         scale: VALID_BIDS.map((value) => ({
             value,
-            game: gameAt(value),
+            game: gameAt(auction, value),
             gone: gone(value),
             standing: value === standing,
             overHand: value > handTop,
@@ -77,6 +102,14 @@ export function bidBar(table: Table): BidBar | null {
             mine: limit?.value === value,
         })),
     };
+}
+
+// His fixed limit once the table said „Weg“ for him above it, which stays in his sight while the auction runs.
+export function passedLimit(table: Table): BidLimit | null {
+    const part = partIn(table);
+    if (part === null || !part.passed) return null;
+    const limit = limitOf(part.auction);
+    return limit?.mode === "fixed" ? limit : null;
 }
 
 // A limit at `value` keeps the mode he chose before; his first limit asks.
@@ -92,6 +125,11 @@ export function chipTap(bar: BidBar, value: number): PlanChoice {
 // „Weg“ off his turn says it ahead, and a second tap takes it back.
 export function passAheadTap(bar: BidBar): PlanChoice {
     return bar.passAhead ? null : { kind: "pass" };
+}
+
+// The plan a tap takes back, which its line says for a moment; a tap that sets a plan takes none back.
+export function takenBack(table: Table, choice: PlanChoice): PlanKind | null {
+    return choice === null ? (table.hand?.auction.plan?.kind ?? null) : null;
 }
 
 // The value he picked on the scale, until the auction has passed it.

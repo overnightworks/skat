@@ -1071,6 +1071,10 @@ msgctxt "bid.clearLimit"
 msgid "Limit löschen"
 msgstr "Clear limit"
 
+msgctxt "bid.limitCleared"
+msgid "Limit gelöscht"
+msgstr "Limit cleared"
+
 msgctxt "bid.asked"
 msgid "nachschieben oder weg?"
 msgstr "go higher or pass?"
@@ -1078,6 +1082,10 @@ msgstr "go higher or pass?"
 msgctxt "bid.passAhead"
 msgid "Weg, sobald du dran bist"
 msgstr "Pass as soon as it is your turn"
+
+msgctxt "bid.takenBack"
+msgid "Zurückgenommen"
+msgstr "Taken back"
 
 msgctxt "bid.allValues"
 msgid "Alle Werte"

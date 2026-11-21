@@ -4,7 +4,6 @@ import pytest
 
 from skat.engine.bidding import VALID_BIDS, Bid, BidRefusal, Declared, Hold, Pass
 from skat.engine.deal import Position, next_dealer, positions_from
-from skat.engine.value import suit_values
 from skat.table.auction import AuctionAction
 from skat.table.hand_state import auction_of
 from skat.table.records import Refusal
@@ -14,9 +13,8 @@ from skat.web.auction import (
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
 )
-from skat.web.declaration_tokens import GAME_TOKENS
 from skat.web.tables import TABLES_PATH
-from tests.support.payload_cards import DEALER_SEAT, KNOWN_DEAL, cards_in_text, seated_three
+from tests.support.payload_cards import DEALER_SEAT, cards_in_text, seated_three
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.skat import FETCH, UNKNOWN_ID
 
@@ -46,9 +44,14 @@ def reason_of(answer):
     return answer.json()["reason"]
 
 
-def wire_values(cards):
-    """What the engine says the cards reach in each suit game, as the answer carries it."""
-    return [{"game": GAME_TOKENS[each.kind].value, "value": each.value} for each in suit_values(cards)]
+def suit_games_worth(karo, herz, pik, kreuz):
+    """The four suit games with what a hand reaches in each, as an answer lists them."""
+    return [
+        {"game": "karo", "value": karo},
+        {"game": "herz", "value": herz},
+        {"game": "pik", "value": pik},
+        {"game": "kreuz", "value": kreuz},
+    ]
 
 
 class Table:
@@ -448,13 +451,14 @@ class TestAuctionOnTheWire:
         }
         for name in ("forehand", "rearhand", "watcher"):
             assert auctions[name] == {**auctions["middlehand"], "values": []}
+        # The known deal gives the forehand the jack of clubs alone and the middlehand the jack of spades alone: with
+        # one or without one, game two. The rearhand holds the two red jacks: without two, game three.
         assert own == {
-            "forehand": wire_values(KNOWN_DEAL.forehand),
-            "middlehand": wire_values(KNOWN_DEAL.middlehand),
-            "rearhand": wire_values(KNOWN_DEAL.rearhand),
+            "forehand": suit_games_worth(18, 20, 22, 24),
+            "middlehand": suit_games_worth(18, 20, 22, 24),
+            "rearhand": suit_games_worth(27, 30, 33, 36),
             "watcher": [],
         }
-        assert own["rearhand"] != own["forehand"]
 
     def test_every_viewer_reads_each_step_in_the_order_it_was_said(self, table):
         table.play_out([(MIDDLEHAND, BID, 18), (FOREHAND, HOLD), (MIDDLEHAND, BID, 20), (FOREHAND, PASS)])

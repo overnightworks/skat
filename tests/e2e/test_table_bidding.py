@@ -20,6 +20,7 @@ from tests.e2e.support.audio import (
     wait_for_recordings_started,
 )
 from tests.e2e.support.bidding import (
+    BAR,
     CHIPS,
     LIMIT_VALUE,
     MORE,
@@ -62,7 +63,9 @@ ASK = text(SOURCE_LANGUAGE, "bid.ask")
 FIXED = text(SOURCE_LANGUAGE, "bid.fixed")
 ASKED = text(SOURCE_LANGUAGE, "bid.asked")
 PASS_AHEAD = text(SOURCE_LANGUAGE, "bid.passAhead")
+TAKEN_BACK = text(SOURCE_LANGUAGE, "bid.takenBack")
 CLEAR_LIMIT = text(SOURCE_LANGUAGE, "bid.clearLimit")
+LIMIT_CLEARED = text(SOURCE_LANGUAGE, "bid.limitCleared")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 WAITING_FOR_PLAYERS = text(SOURCE_LANGUAGE, "table.waitingForPlayers")
 WAITS_FOR_YOU = text(SOURCE_LANGUAGE, "table.waitsForYou")
@@ -73,7 +76,10 @@ PAINT = ["backgroundColor", "color"]
 # two holds and the responder's pass.
 WORDS_OF_THE_RUN = 6
 ASKS = ".bid-line .asks"
-PASS_AHEAD_NOTE = ".bid-line .said"
+PLAN_LINE = ".bid-line"
+PLAN_NOTE = f"{PLAN_LINE} .said"
+PASSED_LINE = f"{PLAN_LINE}.dim"
+PLACE_AND_OPACITY = "(line) => [Math.round(line.getBoundingClientRect().top), Number(getComputedStyle(line).opacity)]"
 TURN_CHAIR = ".chair.mine.turn"
 FAR_TURN_CHAIR = ".chair.turn:not(.mine)"
 PLAQUE = ".plaque"
@@ -366,7 +372,7 @@ def test_a_limit_holds_for_its_owner_and_above_it_the_table_asks_him(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_limit_moved_to_another_chip_stays_fixed_and_passes_for_its_owner_above_it(
+def test_a_limit_moved_to_another_chip_stays_fixed_and_above_it_the_table_passes_and_leaves_it_dimmed(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = dealt_table(open_person, e2e_server, page_errors, form_factor)
@@ -387,33 +393,43 @@ def test_a_limit_moved_to_another_chip_stays_fixed_and_passes_for_its_owner_abov
     expect(fixed).to_have_attribute("aria-pressed", "true")
     expect(chip(forehand, highest)).to_have_attribute("aria-pressed", "false")
     assert own_plan(forehand, table) == limit_at(lowest, PlanMode.FIXED)
+    top_while_it_stood, opacity_while_it_stood = forehand.locator(PLAN_LINE).evaluate(PLACE_AND_OPACITY)
 
     above = first_bid_above(lowest)
     step(table.middlehand, table, AuctionAction.BID, above)
 
     assert_scene(table, Scene(PASSED, Marks(bubble=str(above)), ON_TURN, waits=("rearhand", "middlehand")))
-    assert_no_controls(forehand)
     assert own_word(forehand, table) == (AuctionAction.PASS.value, None)
+    expect(forehand.locator(LIMIT_VALUE)).to_have_text(str(lowest))
+    expect(fixed).to_have_attribute("aria-pressed", "true")
+    top, opacity = forehand.locator(PASSED_LINE).evaluate(PLACE_AND_OPACITY)
+    assert top == top_while_it_stood
+    assert opacity < opacity_while_it_stood
+    expect(forehand.locator(f"{BAR} button:enabled")).to_have_count(0)
+    expect(forehand.locator(f"{PASS_KEY}, {CHIPS}, {MORE}")).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_second_tap_on_the_lit_chip_or_a_tap_on_the_cross_takes_the_limit_back(
+def test_a_second_tap_on_the_lit_chip_or_a_tap_on_the_cross_takes_the_limit_back_and_says_so_for_a_moment(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = dealt_table(open_person, e2e_server, page_errors, form_factor)
     forehand = table.forehand
     limit = own_values(forehand, table)[0]
-    lit = chip(forehand, limit)
+    lit, note = chip(forehand, limit), forehand.locator(PLAN_NOTE)
 
     for take_back in (lit, forehand.get_by_role("button", name=CLEAR_LIMIT)):
         lit.click()
         expect(lit).to_have_attribute("aria-pressed", "true")
+        expect(note).to_have_count(0)
 
         take_back.click()
 
+        expect(note).to_have_text(LIMIT_CLEARED)
         expect(lit).to_have_attribute("aria-pressed", "false")
         expect(forehand.locator(LIMIT_VALUE)).to_have_count(0)
         assert own_plan(forehand, table) is None
+    expect(note).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -422,7 +438,7 @@ def test_weg_said_ahead_can_be_taken_back_and_passes_for_its_owner_at_his_turn(
 ) -> None:
     table = dealt_table(open_person, e2e_server, page_errors, form_factor)
     rearhand = table.rearhand
-    weg, note = pass_key(rearhand), rearhand.locator(PASS_AHEAD_NOTE)
+    weg, note = pass_key(rearhand), rearhand.locator(PLAN_NOTE)
 
     weg.click()
 
@@ -434,7 +450,7 @@ def test_weg_said_ahead_can_be_taken_back_and_passes_for_its_owner_at_his_turn(
     weg.click()
 
     expect(weg).to_have_attribute("aria-pressed", "false")
-    expect(note).to_have_count(0)
+    expect(note).to_have_text(TAKEN_BACK)
     assert own_plan(rearhand, table) is None
 
     weg.click()
