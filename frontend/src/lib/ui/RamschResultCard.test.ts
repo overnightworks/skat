@@ -3,6 +3,7 @@ import { mount, unmount } from "svelte";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RamschView } from "#lib/result.ts";
 import RamschResultCard from "#lib/ui/RamschResultCard.svelte";
+import { words } from "#lib/words.ts";
 
 function cardView(chips: string[]): RamschView {
     return {
@@ -34,5 +35,25 @@ describe("the Ramsch result card's factor chips", () => {
         const drawn = [...document.querySelectorAll(".ladder > [role='listitem']")];
         expect(drawn.map((chip) => chip.textContent.trim())).toEqual(chips);
         expect(drawn.map((chip) => chip.querySelectorAll(":scope > svg").length)).toEqual([1, 1]);
+    });
+
+    it("marks a gone player's row and names an empty chair as free", () => {
+        const row = { initial: "x", gain: 0, gainText: "0", won: false };
+        const view = {
+            ...cardView([]),
+            rows: [
+                { ...row, seat: 0, name: "Ben", gone: true },
+                { ...row, seat: 1, name: "Ana", gone: false },
+                { ...row, seat: 2, name: null, gone: false },
+            ],
+        };
+        mounted = mount(RamschResultCard, { target: document.body, props: { view } });
+
+        const names = [...document.querySelectorAll(".reck .nm")];
+        expect(names.map((name) => name.textContent.trim())).toEqual([
+            `Ben${words["table.seriesGone"]}`,
+            "Ana",
+            words["result.seatFree"],
+        ]);
     });
 });
