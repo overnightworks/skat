@@ -173,7 +173,7 @@ class Notes:
         return self.ended
 
 
-# one asyncio.run, which the store tests' `run` also is; the web tests import no store support
+# one asyncio.run, which the store tests' `run` also is; a one-line wrapper that no neutral support module is worth
 def run(scenario):
     return asyncio.run(scenario)
 
