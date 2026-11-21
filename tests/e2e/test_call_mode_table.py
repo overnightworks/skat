@@ -62,14 +62,6 @@ def framing_server(e2e_server: RunningServer, tmp_path_factory: pytest.TempPathF
     yield from serve_on_the_frame_site(e2e_server, tmp_path_factory.mktemp("call-mode"), call_origin=CALL_ORIGIN)
 
 
-@pytest.fixture
-def framing_issuer_reusing_refresh_tokens(framing_server: RunningServer) -> Iterator[None]:
-    # The realm lets a refresh token be used again, so overlapping reads of one session both succeed.
-    framing_server.issuer.reuses_refresh_tokens = True
-    yield
-    framing_server.issuer.reuses_refresh_tokens = False
-
-
 def page_filling_the_screen(address: str) -> str:
     """A call page whose frame is as large as the device's screen, as the call's own page gives its frame."""
     return (

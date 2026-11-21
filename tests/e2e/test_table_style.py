@@ -10,6 +10,7 @@ from tests.e2e.support.audio import tap
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.kontra import ContestedTable
+from tests.e2e.support.passed_in_series import refuse
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.style import ROOM, STYLE_KEY, TABLE_SCENES, choose_style, expect_painted_as_the_scene
 from tests.e2e.support.table_menu import close_table_menu, menu_button, open_table_menu
@@ -17,7 +18,7 @@ from tests.e2e.support.table_menu import close_table_menu, menu_button, open_tab
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from playwright.sync_api import BrowserContext, Route
+    from playwright.sync_api import BrowserContext
 
     from tests.e2e.support.hands import PlayingTable
     from tests.e2e.support.server import RunningServer
@@ -144,9 +145,6 @@ def test_a_refused_style_shows_the_failure_and_leaves_the_tables_style_marked(
     # The browser logs the refused choice as a console error; that refusal is the point of this test.
     table = deal_playing_table(open_person, e2e_server, member_of, page_errors, PHONE, console=False)
     chooser = table.pages[table.seat_at["forehand"]]
-
-    def refuse(route: Route) -> None:
-        route.fulfill(status=REFUSED, content_type="application/json", body="{}")
 
     chooser.route(f"**{table.declaring.api_path}{TABLE_STYLE_SUFFIX}", refuse)
     menu_button(chooser, STYLE_KEY).click()

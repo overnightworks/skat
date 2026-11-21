@@ -9,7 +9,7 @@ from sqlalchemy import select
 from skat.store.schema import tables
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.browser import record_page_errors
+from tests.e2e.support.browser import TAP_TARGET_PIXELS, record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.server import skat_on_new_database
@@ -37,8 +37,6 @@ RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
 NOT_FOUND_HEADING = text(SOURCE_LANGUAGE, "closed.notFound")
-# A tap target is at least this many CSS pixels on each side.
-TAP_TARGET_PIXELS = 44
 TRANSPARENT_COLOR = "rgba(0, 0, 0, 0)"
 
 

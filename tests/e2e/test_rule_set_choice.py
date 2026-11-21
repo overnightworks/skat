@@ -11,7 +11,7 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.raw_http import RawSession
-from tests.e2e.support.tables import OPEN_TABLE, TABLE_URL, save_rule_set, table_id_of
+from tests.e2e.support.tables import OPEN_TABLE, TABLE_URL, open_new_table_sheet, save_rule_set, table_id_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -48,11 +48,6 @@ HOUSE_OPTIONS = {
 }
 EVENING_SET = "Abend"
 EVENING_OPTIONS = {"show_running_points": True}
-
-
-def sheet_of(person: Page, server: RunningServer) -> None:
-    person.goto(f"{server.base_url}/")
-    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
 
 
 def set_pill(person: Page, name: str) -> Locator:
@@ -161,8 +156,8 @@ def test_a_person_sees_the_official_rules_picked_and_their_own_sets_and_nobody_e
     person = person_with_sets(form_factor)
     other = person_with_sets(form_factor, sets=False)
 
-    sheet_of(person, e2e_server)
-    sheet_of(other, e2e_server)
+    open_new_table_sheet(person, e2e_server)
+    open_new_table_sheet(other, e2e_server)
 
     expect(person.get_by_role("radiogroup", name=RULES).get_by_role("radio")).to_have_count(3)
     expect(set_pill(person, OFFICIAL)).to_be_checked()
@@ -178,7 +173,7 @@ def test_a_set_saved_while_the_page_is_open_is_offered_when_the_sheet_opens_agai
     member_of: Callable[[Page], SeededMember],
 ) -> None:
     person = person_with_sets(DESKTOP, sets=False)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     expect(person.get_by_role("radiogroup", name=RULES).get_by_role("radio")).to_have_count(1)
     person.get_by_role("button", name=CANCEL).click()
 
@@ -201,7 +196,7 @@ def test_picking_a_set_unfolds_its_rules_and_opens_a_table_with_its_options_in_o
         "request",
         lambda request: requests.append(json.loads(request.post_data or "{}")) if request.method == "POST" else None,
     )
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
 
     set_pill(person, HOUSE_SET).check()
 
@@ -221,7 +216,7 @@ def test_a_rule_switched_on_over_the_official_rules_starts_with_the_house_values
     person_with_sets: Callable[..., Page], e2e_server: RunningServer
 ) -> None:
     person = person_with_sets(DESKTOP, sets=False)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
 
     switch(person, KONTRA).click()
 
@@ -236,7 +231,7 @@ def test_bock_switched_on_shows_the_house_triggers_and_a_trigger_turned_on_opens
     person_with_sets: Callable[..., Page], e2e_server: RunningServer
 ) -> None:
     person = person_with_sets(DESKTOP, sets=False)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
 
     switch(person, BOCK).click()
 
@@ -266,7 +261,7 @@ def test_each_special_rule_of_giving_up_starts_off_and_a_switch_turned_on_opens_
     opened: dict[str, bool],
 ) -> None:
     person = person_with_sets(DESKTOP, sets=False)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     for rule in (GIVE_UP_PARTNER, GIVE_UP_ANY_TIME):
         expect(switch(person, rule)).to_have_attribute("aria-checked", "false")
 
@@ -281,7 +276,7 @@ def test_ramsch_unfolds_into_schieberamsch_that_goes_with_it(
     person_with_sets: Callable[..., Page], e2e_server: RunningServer
 ) -> None:
     person = person_with_sets(DESKTOP, sets=False)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     expect(switch(person, PUSHING)).to_have_count(0)
 
     switch(person, RAMSCH).click()
@@ -314,7 +309,7 @@ def test_a_rule_switched_off_after_a_lost_answer_opens_a_table_without_it_under_
             route.abort()
 
     person.route(f"**{TABLES_PATH}", lose_the_first_answer)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     set_pill(person, HOUSE_SET).check()
     person.get_by_role("button", name=OPEN_TABLE).click()
     expect(person.get_by_role("alert")).to_be_visible()
@@ -334,7 +329,7 @@ def test_a_sheet_reopened_after_cancelling_has_the_official_rules_picked_again(
     person_with_sets: Callable[..., Page], e2e_server: RunningServer
 ) -> None:
     person = person_with_sets(DESKTOP)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     set_pill(person, HOUSE_SET).check()
     person.get_by_role("button", name=CANCEL).click()
 
@@ -350,7 +345,7 @@ def test_escape_closes_the_sheet_unless_the_table_is_being_opened(
     person = person_with_sets(DESKTOP)
     held: list[Any] = []
     person.route(f"**{TABLES_PATH}", lambda route: held.append(route))
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     sheet = person.get_by_role("dialog", name=word("start.newTable"))
 
     person.keyboard.press("Escape")
@@ -376,7 +371,7 @@ def test_the_official_rules_stay_offered_with_a_notice_when_the_own_sets_cannot_
     person = person_with_sets(DESKTOP, console=False)
     person.route(f"**{RULE_SETS_PATH}", lambda route: route.abort())
 
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
 
     sheet = person.get_by_role("dialog", name=word("start.newTable"))
     expect(sheet.get_by_role("status")).to_have_text(word("start.setsUnreadable"))
@@ -390,7 +385,7 @@ def test_only_the_rules_scroll_while_the_title_the_sets_and_the_buttons_stay_in_
     person_with_sets: Callable[..., Page], e2e_server: RunningServer, form_factor: dict[str, Any]
 ) -> None:
     person = person_with_sets(form_factor)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
 
     set_pill(person, HOUSE_SET).check()
 
@@ -411,7 +406,7 @@ def test_every_set_pill_holds_its_whole_name_and_check_inside_the_sheet_when_pic
     person_with_sets: Callable[..., Page], e2e_server: RunningServer, form_factor: dict[str, Any]
 ) -> None:
     person = person_with_sets(form_factor)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
 
     for name in (HOUSE_SET, EVENING_SET, OFFICIAL):
         set_pill(person, name).check()
@@ -425,7 +420,7 @@ def test_the_save_row_is_offered_with_a_suggested_name_once_the_sheet_differs_fr
     person_with_sets: Callable[..., Page], e2e_server: RunningServer, form_factor: dict[str, Any]
 ) -> None:
     person = person_with_sets(form_factor)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     expect(save_row(person)).to_have_count(0)
 
     switch(person, KONTRA).click()
@@ -449,7 +444,7 @@ def test_switching_rules_off_over_a_set_suggests_the_set_adjusted_and_a_pick_tak
     person_with_sets: Callable[..., Page], e2e_server: RunningServer
 ) -> None:
     person = person_with_sets(DESKTOP)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     set_pill(person, HOUSE_SET).check()
 
     switch(person, KONTRA).click()
@@ -466,7 +461,7 @@ def test_a_tap_saves_the_sheet_under_the_edited_name_as_the_picked_set_in_its_pl
 ) -> None:
     person = person_with_sets(DESKTOP)
     other = person_with_sets(DESKTOP, sets=False)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     switch(person, KONTRA).click()
     # A name that sorts before both saved sets, so the saved set is placed ahead of them.
     save_name(person).fill("Aachen")
@@ -485,7 +480,7 @@ def test_a_tap_saves_the_sheet_under_the_edited_name_as_the_picked_set_in_its_pl
     person.get_by_role("button", name=CANCEL).click()
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
     expect(set_pill(person, "Aachen")).to_be_visible()
-    sheet_of(other, e2e_server)
+    open_new_table_sheet(other, e2e_server)
     expect(other.get_by_role("radiogroup", name=RULES).get_by_role("radio")).to_have_count(1)
 
 
@@ -495,7 +490,7 @@ def test_a_name_taken_by_other_rules_shows_one_line_and_saves_nothing(
     member_of: Callable[[Page], SeededMember],
 ) -> None:
     person = person_with_sets(DESKTOP, console=False)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     switch(person, KONTRA).click()
     save_name(person).fill(EVENING_SET)
 
@@ -521,7 +516,7 @@ def test_a_save_the_server_refuses_shows_one_line_and_keeps_the_sheet_as_it_was(
             route.continue_()
 
     person.route(f"**{RULE_SETS_PATH}", refuse_the_save)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     switch(person, KONTRA).click()
     save_name(person).fill("Sonntag")
 
@@ -545,7 +540,7 @@ def test_a_save_answered_after_the_sheet_was_closed_and_opened_again_changes_not
             route.continue_()
 
     person.route(f"**{RULE_SETS_PATH}", hold_the_save)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     switch(person, KONTRA).click()
     save_name(person).fill("Sonntag")
     save_row(person).get_by_role("button", name=SAVE).click()
@@ -577,7 +572,7 @@ def test_a_save_answered_after_the_list_already_holds_the_set_offers_the_set_onc
         reads[0].continue_()
 
     person.route(f"**{RULE_SETS_PATH}", hold_both_answers)
-    sheet_of(person, e2e_server)
+    open_new_table_sheet(person, e2e_server)
     switch(person, KONTRA).click()
     save_name(person).fill("Sonntag")
     save_row(person).get_by_role("button", name=SAVE).click()

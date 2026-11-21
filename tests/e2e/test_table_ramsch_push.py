@@ -1,13 +1,15 @@
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Locator, Page, expect
+from playwright.sync_api import Page, expect
 
 from skat.engine.bidding import LOWEST_BID
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.pushing import TABLE_PUSHING_TAKE_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP
+from tests.e2e.support.declaring import button_of
+from tests.e2e.support.hands import tap
+from tests.e2e.support.passed_in_series import refuse
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch_stage import PLAQUE, RamschStageTable, deal
 from tests.e2e.support.result_card import CARD
@@ -17,8 +19,6 @@ from tests.e2e.support.turn_key import POPS_RINGS_AND_SHINES, let_it_move, motio
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
-
-    from playwright.sync_api import Route
 
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -56,20 +56,16 @@ def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServ
         yield server
 
 
-def key(person: Page, name: str) -> Locator:
-    return person.get_by_role("button", name=name, exact=True)
-
-
 def expect_no_key(person: Page) -> None:
     for name in KEYS:
-        expect(key(person, name)).to_have_count(0)
+        expect(button_of(person, name)).to_have_count(0)
 
 
 def expect_the_keys_in_the_frame(person: Page, names: tuple[str, ...]) -> None:
     viewport = person.viewport_size
     assert viewport is not None
     for name in names:
-        box = key(person, name).bounding_box()
+        box = button_of(person, name).bounding_box()
         assert box is not None
         assert box["x"] >= 0
         assert box["x"] + box["width"] <= viewport["width"]
@@ -78,10 +74,6 @@ def expect_the_keys_in_the_frame(person: Page, names: tuple[str, ...]) -> None:
 def jacks_in_the_hand_of(table: RamschStageTable, position: str) -> int:
     seat = table.seat_of(position)
     return sum(card["rank"] == "jack" for card in table.view(seat)["hand"]["own_cards"])
-
-
-def tap(card: Locator) -> None:
-    card.click(position=INSIDE_THE_VISIBLE_STRIP)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -97,22 +89,22 @@ def test_each_seat_on_turn_takes_or_pushes_on_the_page_and_puts_two_cards_back_w
         table.pages[table.seat_of(position)] for position in ("forehand", "middlehand", "rearhand")
     )
 
-    expect(key(forehand, TAKE_SKAT)).to_be_enabled()
-    expect(key(forehand, PUSH)).to_be_enabled()
+    expect(button_of(forehand, TAKE_SKAT)).to_be_enabled()
+    expect(button_of(forehand, PUSH)).to_be_enabled()
     expect_the_keys_in_the_frame(forehand, (TAKE_SKAT, PUSH))
     for person in (middlehand, rearhand, table.watcher):
         expect_no_key(person)
 
     version = table.view(table.seat_of("forehand"))["version"]
-    key(forehand, PUSH).dblclick()
+    button_of(forehand, PUSH).dblclick()
 
-    expect(key(middlehand, TAKE_SKAT)).to_be_enabled()
-    expect(key(middlehand, PUSH)).to_be_enabled()
+    expect(button_of(middlehand, TAKE_SKAT)).to_be_enabled()
+    expect(button_of(middlehand, PUSH)).to_be_enabled()
     expect_no_key(forehand)
     assert table.view(table.seat_of("forehand"))["version"] == version + 1
     table.expect_the_turn_at("middlehand")
 
-    key(middlehand, TAKE_SKAT).click()
+    button_of(middlehand, TAKE_SKAT).click()
 
     strip = middlehand.locator(STRIP_CARD)
     expect(strip).to_have_count(CARDS_AFTER_A_TAKE)
@@ -120,21 +112,21 @@ def test_each_seat_on_turn_takes_or_pushes_on_the_page_and_puts_two_cards_back_w
     assert jacks > 0
     expect(middlehand.locator(DIMMED_CARD)).to_have_count(jacks)
     expect(middlehand.locator(f"{STRIP_CARD}:disabled")).to_have_count(jacks)
-    expect(key(middlehand, PUT_BACK)).to_be_disabled()
+    expect(button_of(middlehand, PUT_BACK)).to_be_disabled()
     allowed = [card for card in strip.all() if card.is_enabled()]
     assert len(allowed) == CARDS_AFTER_A_TAKE - jacks
     tap(allowed[0])
-    expect(key(middlehand, PUT_BACK)).to_be_disabled()
+    expect(button_of(middlehand, PUT_BACK)).to_be_disabled()
     tap(allowed[1])
     expect(allowed[1]).to_have_attribute(PRESSED, "true")
-    expect(key(middlehand, PUT_BACK)).to_be_enabled()
-    key(middlehand, PUT_BACK).click()
+    expect(button_of(middlehand, PUT_BACK)).to_be_enabled()
+    button_of(middlehand, PUT_BACK).click()
 
-    expect(key(rearhand, TAKE_SKAT)).to_be_enabled()
+    expect(button_of(rearhand, TAKE_SKAT)).to_be_enabled()
     expect(middlehand.locator(STRIP_CARD)).to_have_count(0)
     table.expect_the_turn_at("rearhand")
 
-    key(rearhand, PUSH).click()
+    button_of(rearhand, PUSH).click()
 
     for person in table.everyone:
         expect_no_key(person)
@@ -152,15 +144,15 @@ def test_the_take_key_of_the_seat_on_turn_pops_and_the_glass_push_key_beside_it_
     table = deal(open_person, e2e_server, member_of, page_errors, PHONE)
     forehand = let_it_move(table.pages[table.seat_of("forehand")])
 
-    expect(key(forehand, TAKE_SKAT)).to_be_enabled()
+    expect(button_of(forehand, TAKE_SKAT)).to_be_enabled()
 
-    assert motion_of(key(forehand, TAKE_SKAT)) == POPS_RINGS_AND_SHINES
-    assert motion_of(key(forehand, PUSH)) == frozenset()
+    assert motion_of(button_of(forehand, TAKE_SKAT)) == POPS_RINGS_AND_SHINES
+    assert motion_of(button_of(forehand, PUSH)) == frozenset()
     assert page_errors == []
 
 
 def box_of(person: Page, name: str) -> dict[str, float]:
-    box = key(person, name).bounding_box()
+    box = button_of(person, name).bounding_box()
     assert box is not None
     return box
 
@@ -187,7 +179,7 @@ def test_the_seat_on_turn_declares_a_grand_hand_with_a_second_tap_and_the_hand_p
     forehand = table.pages[table.seat_of("forehand")]
     width = form_factor["viewport"]["width"]
 
-    expect(key(forehand, GRAND_HAND)).to_be_enabled()
+    expect(button_of(forehand, GRAND_HAND)).to_be_enabled()
     expect_the_keys_in_the_frame(forehand, (TAKE_SKAT, PUSH, GRAND_HAND))
     take, push, grand = (box_of(forehand, name) for name in (TAKE_SKAT, PUSH, GRAND_HAND))
     if width < NARROW_BELOW:
@@ -201,15 +193,15 @@ def test_the_seat_on_turn_declares_a_grand_hand_with_a_second_tap_and_the_hand_p
     for person in table.everyone:
         expect(person.locator(GIVE_UP_ROW)).to_have_count(0)
 
-    key(forehand, GRAND_HAND).click()
-    expect(key(forehand, GRAND_HAND_ASKED)).to_be_visible()
+    button_of(forehand, GRAND_HAND).click()
+    expect(button_of(forehand, GRAND_HAND_ASKED)).to_be_visible()
     forehand.locator(PLAQUE).click()
-    expect(key(forehand, GRAND_HAND)).to_be_visible()
-    expect(key(forehand, GRAND_HAND_ASKED)).to_have_count(0)
+    expect(button_of(forehand, GRAND_HAND)).to_be_visible()
+    expect(button_of(forehand, GRAND_HAND_ASKED)).to_have_count(0)
     assert table.view(table.seat_of("forehand"))["hand"]["pushing"] is not None
 
-    key(forehand, GRAND_HAND).click()
-    key(forehand, GRAND_HAND_ASKED).click()
+    button_of(forehand, GRAND_HAND).click()
+    button_of(forehand, GRAND_HAND_ASKED).click()
 
     for person in table.everyone:
         expect(person.locator(PLAQUE)).to_have_count(0)
@@ -242,8 +234,8 @@ def test_a_table_that_does_not_allow_it_shows_no_grand_hand_key_to_the_seat_on_t
     table = deal(open_person, e2e_server, member_of, page_errors, form_factor)
     forehand = table.pages[table.seat_of("forehand")]
 
-    expect(key(forehand, TAKE_SKAT)).to_be_enabled()
-    expect(key(forehand, GRAND_HAND)).to_have_count(0)
+    expect(button_of(forehand, TAKE_SKAT)).to_be_enabled()
+    expect(button_of(forehand, GRAND_HAND)).to_have_count(0)
 
 
 def test_a_refused_step_shows_the_failure_and_leaves_the_keys_to_tap_again(
@@ -256,12 +248,9 @@ def test_a_refused_step_shows_the_failure_and_leaves_the_keys_to_tap_again(
     table = deal(open_person, e2e_server, member_of, page_errors, PHONE, console=False)
     forehand = table.pages[table.seat_of("forehand")]
 
-    def refuse(route: Route) -> None:
-        route.fulfill(status=REFUSED, content_type="application/json", body="{}")
-
     forehand.route(f"**{table.api_path}{TABLE_PUSHING_TAKE_SUFFIX}", refuse)
-    key(forehand, TAKE_SKAT).click()
+    button_of(forehand, TAKE_SKAT).click()
 
     expect(forehand.locator(".note")).to_have_text(COMMAND_FAILED)
-    expect(key(forehand, TAKE_SKAT)).to_be_enabled()
-    expect(key(forehand, PUSH)).to_be_enabled()
+    expect(button_of(forehand, TAKE_SKAT)).to_be_enabled()
+    expect(button_of(forehand, PUSH)).to_be_enabled()

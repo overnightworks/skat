@@ -20,14 +20,15 @@ from tests.e2e.support.call_frame import (
     OTHER_HOST,
     OTHER_PORT,
     THREE_CHAIRS,
+    call_label,
     new_table,
     page_holding,
     serve_on_the_frame_site,
     served_from,
+    sits_note,
     table_url,
 )
 from tests.e2e.support.hands import deal_playing_table
-from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.listening_agent import ListeningAgent
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.table_menu import AGENTS, MENU_KEY, menu_button, open_agents_panel
@@ -186,14 +187,6 @@ def framed_at(
         yield visitor.frame_locator(FRAME)
 
 
-def call_label(name: str) -> str:
-    return kit_text("agent.callLabel", name=name)
-
-
-def sits_note(name: str) -> str:
-    return text(SOURCE_LANGUAGE, "table.agentSits", name=name)
-
-
 def box_of(locator: Any) -> dict[str, float]:
     box = locator.bounding_box()
     assert box is not None, f"{locator} has no box"
@@ -202,14 +195,6 @@ def box_of(locator: Any) -> dict[str, float]:
 
 def bottom_of(box: dict[str, float]) -> float:
     return box["y"] + box["height"]
-
-
-@pytest.fixture
-def framing_issuer_reusing_refresh_tokens(framing_server: RunningServer) -> Iterator[None]:
-    # The realm lets a refresh token be used again, so overlapping reads of one session both succeed.
-    framing_server.issuer.reuses_refresh_tokens = True
-    yield
-    framing_server.issuer.reuses_refresh_tokens = False
 
 
 @pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")

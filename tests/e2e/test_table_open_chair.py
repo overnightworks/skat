@@ -11,6 +11,7 @@ from playwright.sync_api import Locator, Page, expect
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.seating import TABLE_STAND_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.bidding import assert_page_fits
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.declaring import DeclaringTable, button_of
 from tests.e2e.support.hands import TURN_CHAIR, deal_playing_table
@@ -68,10 +69,6 @@ def expect_the_wait(person: Page, title: str) -> None:
     expect(person.locator(TURN_CHAIR)).to_have_count(0)
 
 
-def expect_no_scroll_sideways(person: Page) -> None:
-    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-
-
 def expect_the_question_centred_on_one_line(question: Locator) -> None:
     """A centred circled icon stands above a centred title that fits one line."""
     drawn = question.evaluate(
@@ -119,14 +116,14 @@ def test_a_person_stands_up_mid_game_and_a_watcher_asks_then_sits_and_the_others
         expect_the_wait(person, KREUZ)
         expect(person.locator(LEGAL_CARD)).to_have_count(0)
         expect(person.get_by_text(left_notice(leaver_name))).to_have_count(0)
-        expect_no_scroll_sideways(person)
+        assert_page_fits(person)
     free_chair = watcher.locator(f".chair[data-seat='{leaver_seat}']")
     expect(free_chair.locator(".fan-spot")).to_have_count(1)
     free_chair.get_by_role("button", name=SIT_DOWN).click()
     question = watcher.get_by_role("dialog", name=SIT_QUESTION)
     expect(question).to_contain_text(line_of(leaver_name))
     expect_the_question_centred_on_one_line(question)
-    expect_no_scroll_sideways(watcher)
+    assert_page_fits(watcher)
 
     button_of(watcher, CANCEL).click()
 

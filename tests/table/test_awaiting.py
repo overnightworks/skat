@@ -163,55 +163,6 @@ class TestTheWaitingCase:
 
 
 class TestAKontraWord:
-    @pytest.mark.parametrize(
-        ("table", "waiting"),
-        [
-            pytest.param(kontra_hand(), {FOREHAND, REARHAND}, id="both-opponents-for-kontra-and-forehand-for-the-lead"),
-            pytest.param(
-                kontra_hand(no_words=[(Position.REARHAND, Word.KONTRA)]),
-                {FOREHAND},
-                id="not-the-opponent-who-answered",
-            ),
-            pytest.param(
-                kontra_hand(no_words=[(Position.FOREHAND, Word.KONTRA), (Position.REARHAND, Word.KONTRA)]),
-                {FOREHAND},
-                id="only-the-turn-once-both-answered",
-            ),
-            pytest.param(
-                kontra_hand(words=[WordSaid(Position.FOREHAND, Word.KONTRA, 0)]),
-                {MIDDLEHAND, FOREHAND},
-                id="the-declarer-for-re-and-no-other-opponent-for-kontra",
-            ),
-            pytest.param(
-                kontra_hand(
-                    words=[WordSaid(Position.FOREHAND, Word.KONTRA, 0)],
-                    no_words=[(Position.FOREHAND, Word.KONTRA), (Position.MIDDLEHAND, Word.RE)],
-                ),
-                {FOREHAND},
-                id="the-answer-of-an-earlier-word-and-the-declarers-answer-end-the-wait",
-            ),
-            pytest.param(
-                kontra_hand(plays=1),
-                {MIDDLEHAND, REARHAND},
-                id="an-opponent-who-played-his-card-is-no-longer-awaited-for-the-word",
-            ),
-            pytest.param(
-                kontra_hand(options=BIDDERS_ONLY_OPTIONS),
-                {FOREHAND},
-                id="an-opponent-who-did-not-bid-at-a-bidders-only-table-is-not-awaited",
-            ),
-            pytest.param(
-                kontra_hand(
-                    words=[WordSaid(Position.FOREHAND, Word.KONTRA, 0), WordSaid(Position.MIDDLEHAND, Word.RE, 0)]
-                ),
-                {FOREHAND},
-                id="no-word-is-left-within-the-reach",
-            ),
-        ],
-    )
-    def test_a_seat_with_a_word_open_that_it_has_not_answered_is_awaited(self, table, waiting):
-        assert waiting_for(table) == waiting
-
     def test_the_seat_is_not_awaited_for_a_word_while_a_chair_of_the_hand_is_open(self):
         assert waiting_for(sent_away(kontra_hand(), REARHAND_SEAT)) == set()
 
@@ -279,33 +230,6 @@ class TestAnOpponentsGiveUp:
         assert waiting_for(playing_on) == {FOREHAND}
 
 
-class TestAResultAndTheEndOfTheSeries:
-    @pytest.mark.parametrize(
-        ("table", "waiting"),
-        [
-            pytest.param(
-                between_games(SEAT_OF[REARHAND]), {MIDDLEHAND, FOREHAND}, id="a-result-awaits-who-has-not-continued"
-            ),
-            pytest.param(between_games(1, 2, 3), set(), id="a-result-awaits-nobody-once-all-continued"),
-            pytest.param(
-                between_games(SEAT_OF[MIDDLEHAND], series=Series(12, 12)),
-                {REARHAND, FOREHAND},
-                id="a-series-over-awaits-who-has-not-marked-new-series",
-            ),
-            pytest.param(
-                between_games(series=Series(12, 1, ended_early=True)),
-                set(EVERYONE),
-                id="a-series-ended-early-awaits-the-unmarked-like-one-that-ran-out",
-            ),
-            pytest.param(
-                between_games(1, 2, 3, series=Series(12, 12)), set(), id="a-series-over-awaits-nobody-once-all-marked"
-            ),
-        ],
-    )
-    def test_the_seats_that_have_not_answered_the_result_are_awaited(self, table, waiting):
-        assert waiting_for(table) == waiting
-
-
 class TestAnEarlyEndProposal:
     @pytest.mark.parametrize(
         ("proposal", "waiting"),
@@ -326,24 +250,79 @@ def with_a_free_third_chair(table):
     return replace(table, hand=None, chairs=(table.chairs[0], table.chairs[1], Chair(3, None)))
 
 
-class TestNothingIsAwaited:
-    @pytest.mark.parametrize(
-        ("table", "waiting"),
-        [
-            pytest.param(
-                with_a_free_first_chair(between_games()), {REARHAND, FOREHAND}, id="a-free-chair-is-not-awaited"
+@pytest.mark.parametrize(
+    ("table", "waiting"),
+    [
+        pytest.param(kontra_hand(), {FOREHAND, REARHAND}, id="both-opponents-for-kontra-and-forehand-for-the-lead"),
+        pytest.param(
+            kontra_hand(no_words=[(Position.REARHAND, Word.KONTRA)]),
+            {FOREHAND},
+            id="not-the-opponent-who-answered",
+        ),
+        pytest.param(
+            kontra_hand(no_words=[(Position.FOREHAND, Word.KONTRA), (Position.REARHAND, Word.KONTRA)]),
+            {FOREHAND},
+            id="only-the-turn-once-both-answered",
+        ),
+        pytest.param(
+            kontra_hand(words=[WordSaid(Position.FOREHAND, Word.KONTRA, 0)]),
+            {MIDDLEHAND, FOREHAND},
+            id="the-declarer-for-re-and-no-other-opponent-for-kontra",
+        ),
+        pytest.param(
+            kontra_hand(
+                words=[WordSaid(Position.FOREHAND, Word.KONTRA, 0)],
+                no_words=[(Position.FOREHAND, Word.KONTRA), (Position.MIDDLEHAND, Word.RE)],
             ),
-            pytest.param(
-                replace(table_in(HandProgress(ALL_PASS)), hand=None), set(), id="a-passed-in-hand-while-it-pauses"
-            ),
-            pytest.param(
-                with_a_free_third_chair(table_in(HandProgress())), set(), id="fewer-than-three-chairs-and-no-result"
-            ),
-        ],
-    )
-    def test_the_seats_that_nothing_waits_for_are_not_awaited(self, table, waiting):
-        assert waiting_for(table) == waiting
+            {FOREHAND},
+            id="the-answer-of-an-earlier-word-and-the-declarers-answer-end-the-wait",
+        ),
+        pytest.param(
+            kontra_hand(plays=1),
+            {MIDDLEHAND, REARHAND},
+            id="an-opponent-who-played-his-card-is-no-longer-awaited-for-the-word",
+        ),
+        pytest.param(
+            kontra_hand(options=BIDDERS_ONLY_OPTIONS),
+            {FOREHAND},
+            id="an-opponent-who-did-not-bid-at-a-bidders-only-table-is-not-awaited",
+        ),
+        pytest.param(
+            kontra_hand(words=[WordSaid(Position.FOREHAND, Word.KONTRA, 0), WordSaid(Position.MIDDLEHAND, Word.RE, 0)]),
+            {FOREHAND},
+            id="no-word-is-left-within-the-reach",
+        ),
+        pytest.param(
+            between_games(SEAT_OF[REARHAND]), {MIDDLEHAND, FOREHAND}, id="a-result-awaits-who-has-not-continued"
+        ),
+        pytest.param(between_games(1, 2, 3), set(), id="a-result-awaits-nobody-once-all-continued"),
+        pytest.param(
+            between_games(SEAT_OF[MIDDLEHAND], series=Series(12, 12)),
+            {REARHAND, FOREHAND},
+            id="a-series-over-awaits-who-has-not-marked-new-series",
+        ),
+        pytest.param(
+            between_games(series=Series(12, 1, ended_early=True)),
+            set(EVERYONE),
+            id="a-series-ended-early-awaits-the-unmarked-like-one-that-ran-out",
+        ),
+        pytest.param(
+            between_games(1, 2, 3, series=Series(12, 12)), set(), id="a-series-over-awaits-nobody-once-all-marked"
+        ),
+        pytest.param(with_a_free_first_chair(between_games()), {REARHAND, FOREHAND}, id="a-free-chair-is-not-awaited"),
+        pytest.param(
+            replace(table_in(HandProgress(ALL_PASS)), hand=None), set(), id="a-passed-in-hand-while-it-pauses"
+        ),
+        pytest.param(
+            with_a_free_third_chair(table_in(HandProgress())), set(), id="fewer-than-three-chairs-and-no-result"
+        ),
+    ],
+)
+def test_the_seats_that_a_kontra_word_a_result_or_nothing_waits_for_are_the_awaited_seats(table, waiting):
+    assert waiting_for(table) == waiting
 
+
+class TestNothingIsAwaited:
     def test_an_account_without_a_chair_is_not_awaited(self):
         view = view_of(between_games(), "account-watcher", frozenset({"account-watcher"}))
 

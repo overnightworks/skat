@@ -7,7 +7,7 @@ from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
-from tests.e2e.support.tables import open_new_table
+from tests.e2e.support.tables import open_new_table, sit_in, watch
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -33,15 +33,6 @@ ANIMATIONS_OF_THE_HAND = """() => [...document.querySelectorAll('.own-hand .card
     (card) => card.getAnimations().map((animation) => animation.playState)
 )"""
 HAND_HAS_SETTLED = f"() => ({ANIMATIONS_OF_THE_HAND})().every((state) => state === 'finished')"
-
-
-def watch(person: Page, server: RunningServer, path: str) -> None:
-    person.goto(f"{server.base_url}{path}")
-    expect(person.locator(".chair")).to_have_count(3)
-
-
-def sit_in(person: Page, seat: int) -> None:
-    person.locator(f".chair[data-seat='{seat}']").get_by_role("button", name=SIT_DOWN).click()
 
 
 def note_of(person: Page) -> Locator:

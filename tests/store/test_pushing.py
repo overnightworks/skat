@@ -16,13 +16,12 @@ from skat.engine.ramsch import (
 from skat.engine.schieberamsch import GrandHandRule, PushingRule, PushRefusal
 from skat.engine.tricks import play_card
 from skat.store.migrate import create_store_engine
-from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.hand_state import game_of, pushing_of
 from skat.table.playing import PlayCardCommand
 from skat.table.pushing import PushingCommand, PushingKind
 from skat.table.records import RamschOccasion, RamschSetting, TableOptions
-from skat.table.service import TableService
+from tests.support.seated_tables import restarted
 from tests.support.stored_game import count_rows, nobody_connected, person, seated_table_id
 
 pytestmark = pytest.mark.postgres
@@ -93,11 +92,6 @@ class StageTable:
             (service or self.service).view(self.actors[position], self.table_id, frozenset()).hand
             for position in (FOREHAND, MIDDLEHAND, REARHAND)
         ]
-
-
-def restarted(database_url):
-    engine = create_store_engine(database_url)
-    return engine, TableService(PostgresTableTransactions(engine))
 
 
 def a_take(table):

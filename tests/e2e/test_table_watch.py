@@ -18,7 +18,7 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.raw_http import self_signed_tolerant_context
 from tests.e2e.support.server import skat_in_directory
-from tests.e2e.support.tables import RECONNECT_MILLISECONDS, open_new_table, table_id_of, watchers_of
+from tests.e2e.support.tables import RECONNECT_MILLISECONDS, open_new_table, table_id_of, watch, watchers_of
 from tests.support.signed_in import cookie_header, new_account, seed_member
 
 if TYPE_CHECKING:
@@ -43,11 +43,6 @@ def table_version(server: RunningServer, path: str) -> int:
     with server.engine.connect() as connection:
         query = text("SELECT version FROM tables WHERE id = :id")
         return int(connection.execute(query, {"id": table_id_of(path)}).scalar_one())
-
-
-def watch(person: Page, server: RunningServer, path: str) -> None:
-    person.goto(f"{server.base_url}{path}")
-    expect(person.locator(".chair")).to_have_count(3)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

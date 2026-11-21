@@ -26,9 +26,11 @@ from skat.table.declaring import DeclaringCommand
 from skat.table.game_list import GameEnding, ListEntry, RamschEntry, standings_of
 from skat.table.hand_state import playing_of
 from skat.table.playing import PlayCardCommand
-from skat.table.records import Actor, CreateTable, OccupantKind, SitDown
+from skat.table.records import CreateTable, OccupantKind, SitDown
 from skat.table.service import TableService
 from tests.support.played_game import a_game_cards
+from tests.support.seated_tables import save
+from tests.support.stored_game import person
 
 pytestmark = pytest.mark.postgres
 
@@ -36,10 +38,6 @@ HAND_TABLES = ("hand_cards", "auction_actions", "declaring_steps", "played_cards
 NOBODY_CONNECTED = frozenset[str]()
 LAST_CARD = "card-30"
 FINISHED_AT = datetime(2026, 11, 11, 20, 15, tzinfo=UTC)
-
-
-def person(name):
-    return Actor(account_id=f"account-{name.lower()}", display_name=name)
 
 
 SEATED = (person("Anna"), person("Ben"), person("Cleo"))
@@ -422,12 +420,8 @@ class TestTheList:
         before = ended.record
         rewritten = replace(before, version=before.version + 1, game_list=(replace(before.game_list[0], bid=20),))
 
-        def save():
-            with transactions.begin() as transaction:
-                transaction.save_table(rewritten, played_at=None)
-
         with pytest.raises(StepLogRewrittenError):
-            save()
+            save(transactions, rewritten)
         assert ended.record == before
 
     def test_a_person_who_left_is_ranked_by_the_name_the_list_stored_for_them(self, ended, transactions):

@@ -6,7 +6,15 @@ from playwright.sync_api import Locator, Page, Route, expect
 from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, TURN_CHAIR, PlayingTable, WireCard, deal_playing_table
+from tests.e2e.support.declaring import reload_and_wait
+from tests.e2e.support.hands import (
+    INSIDE_THE_VISIBLE_STRIP,
+    TURN_CHAIR,
+    PlayingTable,
+    WireCard,
+    deal_playing_table,
+    tap,
+)
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.style import (
     STYLES,
@@ -86,10 +94,6 @@ def faces_of(cards: Locator) -> set[WireCard]:
         "(faces) => faces.map((face) => [face.dataset.suit, face.dataset.rank])"
     )
     return {(suit, rank) for suit, rank in drawn}
-
-
-def tap(card: Locator) -> None:
-    card.click(position=INSIDE_THE_VISIBLE_STRIP)
 
 
 FIRST_FINGER = 0
@@ -187,11 +191,6 @@ def card_posts(person: Page) -> list[str]:
         lambda request: posts.append(request.url) if request.url.endswith(TABLE_CARD_SUFFIX) else None,
     )
     return posts
-
-
-def reload_and_wait(person: Page) -> None:
-    person.reload()
-    expect(person.locator(".chair")).to_have_count(3)
 
 
 def expect_on_the_felt(table: PlayingTable, laid: list[tuple[int, WireCard]]) -> None:

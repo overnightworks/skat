@@ -5,7 +5,6 @@ import pytest
 from skat.engine.bock import BockRounds
 from skat.table.records import Series
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
-from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.mcp import (
     AUCTION_PASS_TOOL,
     CONTINUE_AFTER_RESULT_TOOL,
@@ -13,7 +12,6 @@ from skat.web.mcp import (
     RAMSCH_PUSH_SKAT_TOOL,
 )
 from skat.web.pushing import TABLE_PUSHING_PUSH_SUFFIX
-from skat.web.tables import TABLES_PATH
 from tests.support.payload_cards import cards_in_text, with_known_deal
 from tests.web.support.playing import (
     DECLARER_SEAT,
@@ -33,7 +31,7 @@ from tests.web.support.playing import (
     with_pending,
     with_totals,
 )
-from tests.web.support.ramsch_stage import accepted, play_stage, stage_table
+from tests.web.support.ramsch_stage import accepted, list_rows, play_stage, read, stage_table
 from tests.web.support.series import deal_next, headers_of, tap_new_series, tap_weiter
 from tests.web.support.skat import AgentTable, Skat
 
@@ -79,18 +77,6 @@ def played_ramsch(table, hand=PLAIN_HAND):
     three_pass(table)
     table.played_out(hand)
     return table
-
-
-def read(table, position=None):
-    headers = table.watcher if position is None else table.at[position]
-    return table.read_as(headers).json()
-
-
-def list_rows(table):
-    table.skat.client.cookies.clear()
-    answer = table.skat.client.get(f"{TABLES_PATH}/{table.table_id}{TABLE_LIST_SUFFIX}", headers=table.watcher)
-    assert answer.status_code == 200, answer.text
-    return answer.json()["entries"]
 
 
 def next_hand(table, agent=None):

@@ -3,7 +3,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from skat.engine.cards import Card
 from skat.engine.games import GameKind
@@ -215,3 +215,7 @@ def deal_playing_table(
         running_points=running_points,
     )
     return PlayingTable(table, game)
+
+
+def tap(card: Locator) -> None:
+    card.click(position=INSIDE_THE_VISIBLE_STRIP)

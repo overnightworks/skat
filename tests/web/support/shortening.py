@@ -108,7 +108,7 @@ def herz_hand_won_by_tricks_and_skat(table):
     table.played_out(SEVEN_TRICKS)
 
 
-def null_before_a_trick(table):
+def null_hand_before_a_trick(table):
     table.with_deal(NULL_DEAL)
     table.declared_hand_game(GameToken.NULL)
     table.played_out(NULL_TWO_TRICKS)
@@ -142,7 +142,7 @@ SETTLED_GAMES = pytest.mark.parametrize(
             id="already-won-with-a-demand-counts-the-level",
         ),
         pytest.param(
-            null_before_a_trick,
+            null_hand_before_a_trick,
             NONE,
             {"won": True, "game_value": 35, "declarer_points": 101},
             id="null-without-a-demand",

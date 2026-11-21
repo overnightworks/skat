@@ -9,16 +9,14 @@ from sqlalchemy import delete, update
 from skat.store.schema import hand_cards, tables
 from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.bidding import STEP_KEY
+from tests.e2e.support.bidding import STEP_KEY, assert_page_fits
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.table_menu import close_table_menu, menu_button
-from tests.e2e.support.tables import open_new_table, table_id_of
+from tests.e2e.support.tables import chair_of, open_new_table, sit_in, table_id_of, watch
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from playwright.sync_api import Locator
 
     from tests.e2e.support.server import RunningServer
 
@@ -71,19 +69,6 @@ class Players:
     ben: Page
     cleo: Page
     watcher: Page
-
-
-def watch(person: Page, server: RunningServer, path: str) -> None:
-    person.goto(f"{server.base_url}{path}")
-    expect(person.locator(".chair")).to_have_count(3)
-
-
-def sit_in(person: Page, seat: int) -> None:
-    person.locator(f".chair[data-seat='{seat}']").get_by_role("button", name=SIT_DOWN).click()
-
-
-def chair_of(person: Page, seat: int) -> Locator:
-    return person.locator(f".chair[data-seat='{seat}']")
 
 
 def expect_the_stand_up_row(person: Page) -> None:
@@ -187,10 +172,6 @@ def assert_drawn_again(person: Page, drawn: dict[str, Any]) -> None:
     assert drawn_table(person) == drawn
 
 
-def assert_no_horizontal_scroll(person: Page) -> None:
-    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-
-
 def assert_the_middle_is_clear_of_the_chairs(person: Page) -> None:
     assert person.evaluate(THE_MIDDLE_OVERLAPS_A_CHAIR) is False
 
@@ -220,7 +201,7 @@ def test_every_viewer_sees_the_hand_as_the_server_answers_and_again_after_a_relo
         answer, drawn = page_and_answer_agree(person, e2e_server, players.table_id)
         assert {chair["backs"] for chair in drawn["chairs"] if not _is_mine(answer, chair["seat"])} == {10}
         assert drawn["skat"] == 2
-        assert_no_horizontal_scroll(person)
+        assert_page_fits(person)
         assert_the_middle_is_clear_of_the_chairs(person)
 
         person.reload()
@@ -277,7 +258,7 @@ def test_the_auctions_bubbles_and_marks_stay_clear_of_the_counter_and_its_duel_f
     for person in everyone:
         expect(person.locator(".bubble")).to_have_count(2)
         expect(person.locator(".mark.turn")).to_have_count(1)
-        assert_no_horizontal_scroll(person)
+        assert_page_fits(person)
         assert_the_middle_is_clear_of_the_chairs(person)
 
 
@@ -318,7 +299,7 @@ def test_a_player_whose_stream_ends_shows_away_and_keeps_chair_and_cards(
     expect(cleo_chair.locator(".fan.dim")).to_be_visible()
     answer = answer_of(players.anna, e2e_server, players.table_id)
     assert drawn_table(players.anna) == picture_of_answer(answer)
-    assert_no_horizontal_scroll(players.anna)
+    assert_page_fits(players.anna)
 
 
 def test_the_deal_animates_and_holds_still_for_reduced_motion(

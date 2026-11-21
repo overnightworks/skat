@@ -14,6 +14,7 @@ from skat.table.hand_state import auction_of
 from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDown, StandUp
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
+from tests.support.seated_tables import save
 
 pytestmark = pytest.mark.postgres
 
@@ -288,12 +289,8 @@ def test_steps_that_rewrite_a_stored_step_raise_and_change_nothing(hand, transac
         progress=HandProgress(auction=(Bid(Position.MIDDLEHAND, 20), Hold(Position.FOREHAND))),
     )
 
-    def save():
-        with transactions.begin() as transaction:
-            transaction.save_table(rewritten, played_at=None)
-
     with pytest.raises(StepLogRewrittenError):
-        save()
+        save(transactions, rewritten)
 
     assert stored(transactions, hand.table_id) == before
 
@@ -303,12 +300,8 @@ def test_steps_shorter_than_the_stored_ones_raise_and_change_nothing(hand, trans
     before = stored(transactions, hand.table_id)
     shortened = replace(before, version=before.version + 1, progress=HandProgress())
 
-    def save():
-        with transactions.begin() as transaction:
-            transaction.save_table(shortened, played_at=None)
-
     with pytest.raises(StepLogRewrittenError):
-        save()
+        save(transactions, shortened)
 
     assert stored(transactions, hand.table_id) == before
 

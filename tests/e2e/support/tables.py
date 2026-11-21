@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
-from playwright.sync_api import expect
+from playwright.sync_api import Locator, expect
 
 from skat.table.records import SERIES_LENGTH_DEFAULT, TABLE_ID_PATTERN
 from skat.web.calling import TABLE_AGENTS_SUFFIX
@@ -116,3 +116,12 @@ def assert_never_reloaded(*people: Page) -> None:
     for person in people:
         assert person.evaluate("window.keptAcrossUpdates") is True
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+def chair_of(person: Page, seat: int) -> Locator:
+    return person.locator(f".chair[data-seat='{seat}']")
+
+
+def open_new_table_sheet(person: Page, server: RunningServer) -> None:
+    person.goto(f"{server.base_url}/")
+    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()

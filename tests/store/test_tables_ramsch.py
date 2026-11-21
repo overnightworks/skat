@@ -14,13 +14,12 @@ from skat.engine.ramsch import (
     RamschScoring,
     play_ramsch_card,
 )
-from skat.store.migrate import create_store_engine
 from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.hand_state import game_of
 from skat.table.playing import PlayCardCommand
 from skat.table.records import RamschOccasion, RamschSetting, TableId, TableOptions
-from skat.table.service import TableService
+from tests.support.seated_tables import restarted
 from tests.support.stored_game import count_rows, nobody_connected, person, seated_table_id
 
 pytestmark = pytest.mark.postgres
@@ -72,11 +71,6 @@ class RamschTable:
                 f"card-{len(self.record.progress.plays)}", self.table_id, self.record.version, card
             )
             assert self.service.play_card(self.actors[state.turn], command, nobody_connected()).refusal is None
-
-
-def restarted(database_url):
-    engine = create_store_engine(database_url)
-    return engine, TableService(PostgresTableTransactions(engine))
 
 
 @pytest.mark.parametrize("occasion", list(RamschOccasion))

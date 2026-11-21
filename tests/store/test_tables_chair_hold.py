@@ -98,8 +98,11 @@ def table_id(service):
 
 
 class TestALeave:
-    def test_a_leave_stores_a_deadline_one_hold_from_now(self, service, engine, table_id):
-        service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS, newest_wins=True)
+    @pytest.mark.parametrize("newest_wins", [True, False], ids=["a leave", "a lapse where no hold exists"])
+    def test_a_leave_and_a_lapse_where_no_hold_exists_store_a_deadline_one_hold_from_now(
+        self, service, engine, table_id, newest_wins
+    ):
+        service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS, newest_wins=newest_wins)
 
         assert HOLD_SECONDS - STEP_SECONDS < seconds_left(engine, table_id, LEAVER.account_id) <= HOLD_SECONDS
 
@@ -110,11 +113,6 @@ class TestALeave:
 
         assert seconds_left(engine, table_id, LEAVER.account_id) > HOLD_SECONDS - STEP_SECONDS
         assert holds(engine) == {(table_id.value, LEAVER.account_id)}
-
-    def test_a_lapse_stores_a_deadline_one_hold_from_now_where_no_hold_exists(self, service, engine, table_id):
-        service.note_leave(table_id, LEAVER.account_id, HOLD_SECONDS, newest_wins=False)
-
-        assert HOLD_SECONDS - STEP_SECONDS < seconds_left(engine, table_id, LEAVER.account_id) <= HOLD_SECONDS
 
     def test_a_lapse_keeps_the_deadline_of_an_existing_hold(self, service, engine, table_id):
         hold_due_in(engine, table_id, LEAVER.account_id, 10)
