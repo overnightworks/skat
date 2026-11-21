@@ -5,6 +5,7 @@ version tells the agents seated after it.
 import itertools
 import random
 from contextlib import nullcontext
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -24,6 +25,7 @@ from skat.table.records import (
     GiveUpOptions,
     HandProgress,
     OccupantKind,
+    Series,
     SitDown,
     StandUp,
     TableId,
@@ -176,6 +178,54 @@ class TestTheActsOfAMember:
         scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
 
         assert scene.acts_of(MOZART.account_id) is None
+
+
+class TestTheTracesAMemberReads:
+    """Each act and the table's version carry the trace of the request that committed them, as stored."""
+
+    @pytest.fixture
+    def scene(self):
+        scene = Scene().put(replace(table_in(HandProgress()), series=Series(36, 1)))
+        scene.trace = None
+        scene.service = scene.service.with_trace(lambda: scene.trace)
+        return scene
+
+    def bid_in_the_trace_of(self, scene, trace):
+        scene.trace = trace
+        bidder = actor_of(Position.MIDDLEHAND)
+        return auction_bid(scene.service, bidder, scene.table_id, scene.table.version)
+
+    def traced_acts(self, scene):
+        acts = scene.acts_of(actor_of(Position.FOREHAND).account_id)
+        return [(act.kind, acts.traces.get(act.seq)) for act in acts.acts]
+
+    def test_an_act_and_the_version_carry_the_trace_of_the_request_that_committed_them(self, scene):
+        self.bid_in_the_trace_of(scene, "trace-of-the-bid")
+
+        assert self.traced_acts(scene) == [(ActKind.DEAL, None), (ActKind.BID, "trace-of-the-bid")]
+        assert scene.view_of(actor_of(Position.FOREHAND).account_id).traceparent == "trace-of-the-bid"
+
+    def test_a_later_request_leaves_the_trace_of_an_earlier_act_and_takes_the_version(self, scene):
+        self.bid_in_the_trace_of(scene, "trace-of-the-bid")
+        holder = actor_of(Position.FOREHAND)
+        scene.trace = "trace-of-the-hold"
+        scene.service.take_auction_step(
+            holder, AuctionCommand("hold", scene.table_id, scene.table.version, AuctionAction.HOLD, None), NOBODY
+        )
+
+        assert self.traced_acts(scene)[1:] == [(ActKind.BID, "trace-of-the-bid"), (ActKind.HOLD, "trace-of-the-hold")]
+        assert scene.view_of(holder.account_id).traceparent == "trace-of-the-hold"
+
+    def test_a_commit_outside_a_trace_stores_none_and_leaves_an_earlier_trace_to_its_act(self, scene):
+        self.bid_in_the_trace_of(scene, "trace-of-the-bid")
+        scene.trace = None
+        holder = actor_of(Position.FOREHAND)
+        scene.service.take_auction_step(
+            holder, AuctionCommand("hold", scene.table_id, scene.table.version, AuctionAction.HOLD, None), NOBODY
+        )
+
+        assert self.traced_acts(scene)[1:] == [(ActKind.BID, "trace-of-the-bid"), (ActKind.HOLD, None)]
+        assert scene.view_of(holder.account_id).traceparent is None
 
 
 class TestTheAgentInAChair:
