@@ -610,7 +610,7 @@ def create_app(
     )
     app.include_router(create_router(page_build, stores.sessions, sign_in_configs.web_auth, database_ready))
     app.include_router(create_account_router(settings.oidc_issuer))
-    app.include_router(create_call_router(settings.call_origin))
+    app.include_router(create_call_router(settings.call_origin, settings.oidc_issuer, tables))
     _include_table_routers(app, tables, page_build, presence, wakes, stores.sessions, sign_in_configs.web_auth)
     membership = _caller_membership(relying_party, sign_in_configs, stores.sessions, chair_clock)
     app.include_router(create_calling_router(tables, presence, roster, membership))

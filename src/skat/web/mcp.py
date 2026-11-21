@@ -103,7 +103,7 @@ class Exclusion(StrEnum):
     READINESS_PROBE = "the edge's readiness probe, no action of an agent"
     ACCOUNT_NAME = "the page's name for its person; an agent's name is in its token"
     LIVE_STREAM = "a stream the page keeps open; an agent's live view is a resource, not a tool"
-    CALL_ORIGIN = "the framed page's call origin; an agent sits in no frame"
+    CALL_FRAME = "what the framed page tells its call; an agent sits in no frame"
     FINAL_DELETION = "a final deletion is not yet a tool"
     PERSON_ACT = "calling an agent is a person's act, no agent's tool"
     TABLE_LOOK = "a table's look is for the people who sit at it; an agent plays without seeing it"
