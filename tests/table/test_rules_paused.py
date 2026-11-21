@@ -17,12 +17,9 @@ from skat.table.rules import (
     is_deal_or_step_of_play,
 )
 from skat.table.series_end import AGREE_TO_END_SERIES_COMMAND, REFUSE_TO_END_SERIES_COMMAND
-from tests.support.played_game import declared_herz_hand, table_in
+from tests.support.open_chairs import before_the_first_card
 
-
-@pytest.fixture
-def running():
-    return table_in(declared_herz_hand())
+running = pytest.fixture(name="running")(before_the_first_card)
 
 
 @pytest.fixture

@@ -9,13 +9,10 @@ from typing import TYPE_CHECKING
 
 import httpx2
 import pytest
-from redis.asyncio import Redis
-from tandem.testing import settle_epoch
 from webauth.config import installed_web_auth_config
 
 from skat.host.app import PodLinks, create_app
 from skat.store.redis_clients import (
-    WAKE_KEY_PREFIX,
     shared_agent_records,
     shared_place_store,
     shared_rate_limits,
@@ -30,6 +27,7 @@ from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
 from tests.support.in_memory_stores import in_memory_stores
 from tests.support.page_build import fixture_page_build
+from tests.support.redis import settle_wake_epoch
 from tests.support.running_server import STARTED_WITHIN_SECONDS, started_server
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, new_account, seed_member
@@ -54,14 +52,7 @@ def pod_links(redis_url):
 
 
 def settled_leases(redis_url):
-    async def settle():
-        client = Redis.from_url(redis_url)  # pyright: ignore[reportUnknownMemberType]
-        try:
-            await settle_epoch(client, key_prefix=WAKE_KEY_PREFIX)
-        finally:
-            await client.aclose()
-
-    asyncio.run(settle())
+    asyncio.run(settle_wake_epoch(redis_url))
 
 
 @pytest.fixture

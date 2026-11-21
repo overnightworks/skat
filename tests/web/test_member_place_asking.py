@@ -56,6 +56,7 @@ class Moments:
     def __init__(self):
         self.now = 500.0
 
+    # a clock reading of this test's own fake
     def __call__(self):
         return self.now
 
@@ -283,6 +284,7 @@ class TestTwoAgentsAtOneTable:
     def awaited(self, skat, issuer):
         return Agent(skat, issuer, "awaited-agent", agent_name="Mozart")
 
+    # this file's own OTHER_AGENT_SUBJECT
     @pytest.fixture
     def other(self, skat, issuer):
         return Agent(skat, issuer, OTHER_AGENT_SUBJECT, agent_name="Bach")

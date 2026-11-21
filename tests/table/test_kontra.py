@@ -51,6 +51,7 @@ from tests.support.played_game import (
     declared_herz_hand,
     table_in,
 )
+from tests.support.seated_tables import actor_of
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KONTRA, RE, SUPRA, HIRSCH = Word.KONTRA, Word.RE, Word.SUPRA, Word.HIRSCH
@@ -60,10 +61,6 @@ VERSION = 7
 
 def options_of(sayer=KontraSayer.ANY_OPPONENT, reach=KontraReach.KONTRA_RE, deadline=OWN_CARD):
     return TableOptions(kontra=KontraOptions(sayer, reach, deadline))
-
-
-def actor(position):
-    return Actor(account_id=f"account-{position.name.lower()}", display_name=position.name)
 
 
 def kontra_table(options=None, progress=None):
@@ -76,7 +73,7 @@ def with_words(table, *words, plays=0):
 
 
 def say_as(table, position, word, version=VERSION):
-    return decide_kontra(table, actor(position), KontraCommand("command-1", table.id.value, version, word))
+    return decide_kontra(table, actor_of(position), KontraCommand("command-1", table.id.value, version, word))
 
 
 class TestSaying:
@@ -204,14 +201,14 @@ class TestSaying:
 
 
 def answer_as(table, position, version=VERSION):
-    return decide_kontra(table, actor(position), KontraCommand("command-1", table.id.value, version, None))
+    return decide_kontra(table, actor_of(position), KontraCommand("command-1", table.id.value, version, None))
 
 
 def waking_view(table, position):
     """The word the seat's own view names, whether it has answered it and whether the table waits for it; the seats
     that speak are off turn while nobody has played a card, forehand leading.
     """
-    view = view_of(table, actor(position).account_id, frozenset())
+    view = view_of(table, actor_of(position).account_id, frozenset())
     kontra = view.hand.playing.kontra
     return kontra.my_word, kontra.my_word_answered, awaits_you(view)
 
@@ -333,7 +330,7 @@ def lead(table):
     """The first card of the hand, played by forehand."""
     first = a_whole_game(table)[0]
     command = PlayCardCommand("command-1", table.id.value, table.version, first.card)
-    return decide_card(table, actor(first.position), command)
+    return decide_card(table, actor_of(first.position), command)
 
 
 def after_answers(table, *positions):
@@ -449,7 +446,7 @@ class TestTheFirstCardDeadline:
         next_card = a_whole_game(table)[1]
         command = PlayCardCommand("command-1", played.id.value, played.version, next_card.card)
 
-        assert decide_card(played, actor(next_card.position), command).refusal is None
+        assert decide_card(played, actor_of(next_card.position), command).refusal is None
 
 
 class TestTheFirstCardWaitingInTheViewer:
@@ -618,7 +615,7 @@ class TestTheEntryOfADoubledGame:
         table, last = before_the_last_card(table_in(declared_herz_hand(), options_of()))
         table = replace(table, progress=replace(table.progress, words=words))
         command = PlayCardCommand("command-1", table.id.value, table.version, last.card)
-        return decide_card(table, actor(last.position), command).table.game_list[-1]
+        return decide_card(table, actor_of(last.position), command).table.game_list[-1]
 
     def test_the_last_card_writes_the_last_word_and_the_doubled_list_score(self):
         plain = self.last_card_entry()
@@ -643,7 +640,9 @@ class TestTheEntryOfADoubledGame:
     def test_a_give_up_and_a_throw_down_write_the_doubled_entry_too(self, decide, command):
         def entry(*words):
             table = replace(kontra_table(), progress=replace(declared_herz_hand(), words=words))
-            return decide(table, actor(MIDDLEHAND), command("command-1", table.id.value, VERSION)).table.game_list[-1]
+            return decide(table, actor_of(MIDDLEHAND), command("command-1", table.id.value, VERSION)).table.game_list[
+                -1
+            ]
 
         assert entry(WordSaid(FOREHAND, KONTRA, 0), WordSaid(MIDDLEHAND, RE, 0)).score == entry().score * 4
         assert entry(WordSaid(FOREHAND, KONTRA, 0)).kontra_word is KONTRA

@@ -247,6 +247,7 @@ class StagedTable:
         command = PushingCommand(f"step-{self._commands}", self.table_id, self.record.version, kind, tuple(cards))
         return self.service.take_pushing_step(self.actors[position], command, nobody_connected())
 
+    # reads the migrated table through this file's own engine, not a stored hand
     def two_cards_to_put_back(self, position):
         hand = pushing_of(self.record).deal.hands[position]
         return tuple(card for card in hand if card.rank is not Rank.JACK)[:2]

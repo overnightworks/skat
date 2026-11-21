@@ -1,5 +1,3 @@
-from itertools import combinations_with_replacement
-
 import pytest
 
 from skat.engine.bidding import Declared, PassedIn
@@ -24,6 +22,7 @@ from skat.engine.kontra import Doubling, KontraReach, Word, doubled_reckoning
 from skat.engine.ramsch import RamschPlayedOut
 from skat.engine.score import Reckoning, Settlement, settle
 from skat.engine.tricks import CompletedTrick, PlayedOut
+from tests.support.playing_scenes import trick_worth
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 HERZ, KREUZ, GRAND = GameKind.HERZ, GameKind.KREUZ, GameKind.GRAND
@@ -42,8 +41,6 @@ PASSED_IN, SCHNEIDER, SCHWARZ, TOTAL_IN_00 = (
 )
 APPEND, MULTIPLY, IGNORE = BockOverlap.APPEND, BockOverlap.MULTIPLY, BockOverlap.IGNORE
 CLUBS_JACK = Card(Suit.KREUZ, Rank.JACK)
-CARD_POINTS = (0, 2, 3, 4, 10, 11)
-RANKS_BY_POINTS = {0: Rank.SEVEN, 2: Rank.JACK, 3: Rank.QUEEN, 4: Rank.KING, 10: Rank.TEN, 11: Rank.ACE}
 LOST = (30, 20)  # 50 points
 WIN = (30, 30, 20)  # 80 points, the opponents 40
 WIN_SCHNEIDER = (30, 30, 30, 5)  # 95 points
@@ -55,14 +52,6 @@ NO_TOTALS: tuple[TotalChange, ...] = ()
 NO_WORDS = Doubling.start()
 A_RAMSCH = RamschPlayedOut(tricks=(), skat=())
 EVERY_OTHER_TRIGGER = (SIXTY_SIXTY, WON_GRAND_HAND, LOST_AFTER_KONTRA, RE_SAID, SCHNEIDER, SCHWARZ)
-
-
-def trick_worth(points: int) -> tuple[Card, Card, Card]:
-    for combination in combinations_with_replacement(CARD_POINTS, 3):
-        if sum(combination) == points:
-            first, second, third = (Card(Suit.KARO, RANKS_BY_POINTS[each]) for each in combination)
-            return first, second, third
-    raise AssertionError(points)
 
 
 def game(

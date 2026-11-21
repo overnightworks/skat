@@ -15,7 +15,7 @@ from skat.table.records import Actor, SitDown
 from skat.table.service import TableService
 from skat.web.constants import AUTH_START_PATH, LOGOUT_PATH
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
-from tests.support.pods import SAME_ORIGIN, Pods, new_command_id, running_pods
+from tests.support.pods import SAME_ORIGIN, new_command_id
 from tests.support.redis import end_subscriptions, fresh_database_url
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 
@@ -31,12 +31,6 @@ SIGN_IN_BUDGET_REQUESTS = RateLimitPolicy().sign_in.max_requests
 BEFORE_THE_HEARTBEAT_SECONDS = 5
 CLEAN_EXIT = 0
 SIGTERM_EXIT = -signal.SIGTERM
-
-
-@pytest.fixture(scope="module")
-def pods(postgres_template, tmp_path_factory) -> Iterator[Pods]:
-    with running_pods(postgres_template, tmp_path_factory.mktemp("pods")) as running:
-        yield running
 
 
 @pytest.fixture(autouse=True)

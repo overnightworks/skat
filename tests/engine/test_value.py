@@ -1,4 +1,3 @@
-from itertools import combinations_with_replacement
 from operator import attrgetter
 
 import pytest
@@ -10,6 +9,7 @@ from skat.engine.declaration import Announcement, Declaration, Declaring, declar
 from skat.engine.games import NULL_VALUES, GameKind, NullLevels, Trump
 from skat.engine.tricks import CompletedTrick, PlayedOut
 from skat.engine.value import HandValue, Level, Matadors, levels_of, matadors, suit_values, value_of
+from tests.support.playing_scenes import trick_worth
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 KARO, HERZ, KREUZ, GRAND, NULL = GameKind.KARO, GameKind.HERZ, GameKind.KREUZ, GameKind.GRAND, GameKind.NULL
@@ -20,20 +20,10 @@ JACKS = (CLUBS_JACK, SPADES_JACK, HEARTS_JACK, DIAMONDS_JACK)
 ALL_TRUMPS = {
     kind: tuple(card for card in DECK if kind.playing_suit(card) is Trump.TRUMP) for kind in (KARO, HERZ, KREUZ, GRAND)
 }
-CARD_POINTS = (0, 2, 3, 4, 10, 11)
-RANKS_BY_POINTS = {0: Rank.SEVEN, 2: Rank.JACK, 3: Rank.QUEEN, 4: Rank.KING, 10: Rank.TEN, 11: Rank.ACE}
 
 
 def diamonds(*ranks: Rank) -> tuple[Card, ...]:
     return tuple(Card(Suit.KARO, rank) for rank in ranks)
-
-
-def trick_worth(points: int) -> tuple[Card, Card, Card]:
-    for combination in combinations_with_replacement(CARD_POINTS, 3):
-        if sum(combination) == points:
-            first, second, third = (Card(Suit.KARO, RANKS_BY_POINTS[each]) for each in combination)
-            return first, second, third
-    raise AssertionError(points)
 
 
 def dealt_to_middlehand(kind: GameKind, trumps: tuple[Card, ...]) -> Deal:

@@ -93,6 +93,7 @@ class Table(StoredTable):
         return answer
 
 
+# this file's own Table, not the conftest's
 @pytest.fixture
 def table(skat):
     return Table(skat)

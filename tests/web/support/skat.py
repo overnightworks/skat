@@ -50,6 +50,7 @@ class FakeTime:
         self._scheduled = []
         self.callers = []
 
+    # a clock reading of this fake
     def clock(self):
         return self.now
 

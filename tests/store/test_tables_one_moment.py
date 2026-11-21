@@ -41,6 +41,7 @@ class TestOneMomentRead:
     def table_id(self, service):
         return service.create(OPENER, CreateTable(command_id="command-open")).id
 
+    # a method of this class on its own engine
     def read(self, engine, table_id):
         with PostgresTableTransactions(engine).begin() as transaction:
             return transaction.table(TableId(table_id))

@@ -20,7 +20,7 @@ from skat.table.playing import (
 )
 from skat.table.records import Actor, CreateTable, HandProgress, SitDown, TableId
 from skat.table.service import TableService
-from tests.support.fake_tables import FakeTableStore
+from tests.support.fake_tables import FakeTableStore, ServiceScene
 from tests.support.played_game import HERZ_HAND, before_the_last_card, declared_herz_hand
 
 if TYPE_CHECKING:
@@ -35,7 +35,7 @@ DEALT_AT = datetime(2026, 11, 1, 12, tzinfo=UTC)
 LATER = DEALT_AT + timedelta(days=3)
 
 
-class Scene:
+class Scene(ServiceScene):
     """A seeded service on a clock the test moves, with one table of three seated people and the hand dealt."""
 
     def __init__(self) -> None:
@@ -53,10 +53,6 @@ class Scene:
             self.service.sit(person, SitDown(f"command-{seat}", self.table_id, seat), ALL_THREE)
 
     @property
-    def table(self):
-        return self.store.tables[self.table_id]
-
-    @property
     def played_at(self):
         return self.store.last_played_at[self.table_id]
 
@@ -71,10 +67,6 @@ class Scene:
         """The declared table one card before the end, where a give-up needs consent; returns the card still to play."""
         self.store.tables[self.table_id], last = before_the_last_card(self.table)
         return last
-
-    def at(self, moment: datetime) -> Scene:
-        self.now = moment
-        return self
 
 
 @pytest.fixture

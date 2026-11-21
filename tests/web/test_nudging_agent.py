@@ -142,6 +142,7 @@ class TestTwoAgentsAtOneTable:
     def awaited(self, skat, issuer):
         return Agent(skat, issuer, AWAITED_AGENT_SUBJECT, agent_name="Mozart")
 
+    # this file's own OTHER_AGENT_SUBJECT
     @pytest.fixture
     def other(self, skat, issuer):
         return Agent(skat, issuer, OTHER_AGENT_SUBJECT, agent_name="Bach")

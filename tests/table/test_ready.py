@@ -35,6 +35,7 @@ from skat.table.rules import next_settings_of
 from skat.table.series_end import END_ANSWER_SECONDS
 from skat.table.service import CommandIdReusedError, TableService
 from tests.support.fake_tables import FakeTableStore
+from tests.support.open_chairs import ready_seats
 from tests.support.pending_table import ANNA, BEN, CLEO, DORA, TABLE_VERSION, pending
 from tests.support.played_game import END_ASKED_AT as ASKED
 from tests.support.played_game import an_entry
@@ -42,10 +43,6 @@ from tests.support.played_game import an_entry
 
 def weiter(ordinal: int = 2, command_id: str = "command-weiter", series: int = 1) -> ReadyCommand:
     return ReadyCommand(command_id=command_id, table_id="0" * 32, ordinal=ordinal, series=series)
-
-
-def ready_seats(table: TableRecord) -> list[int]:
-    return [chair.seat for chair in table.chairs if chair.ready]
 
 
 class TestDecideReady:

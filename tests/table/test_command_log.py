@@ -13,7 +13,7 @@ from skat.table.rules import CREATE_TABLE_COMMAND, SIT_DOWN_COMMAND
 from skat.table.series_end import STOP_PLAYING_COMMAND
 from skat.table.service import TableService
 from tests.support.ended_tables import be_at_the_series_end
-from tests.support.fake_tables import FakeTableStore
+from tests.support.fake_tables import FakeTableStore, numbered_service
 from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.log_lines import lines_of, logged
 
@@ -27,12 +27,10 @@ def store():
     return FakeTableStore()
 
 
-@pytest.fixture
-def service(store):
-    numbers = itertools.count(1)
-    return TableService(store, new_table_id=lambda: TableId(f"{next(numbers):032x}"))
+service = pytest.fixture(name="service")(numbered_service)
 
 
+# this file's own opener
 @pytest.fixture
 def table_id(service):
     return service.create(OPENER, CreateTable(command_id="command-open")).id

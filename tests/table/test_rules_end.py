@@ -4,16 +4,14 @@ from datetime import UTC, datetime, timedelta, timezone
 import pytest
 
 from skat.table.rules import ends_unplayed, unplayed_end
-from tests.support.played_game import declared_herz_hand, table_in
+from tests.support.open_chairs import before_the_first_card
 
 DAYS = 90
 LAST_PLAYED_AT = datetime(2026, 8, 1, 18, 30, tzinfo=UTC)
 LINE = LAST_PLAYED_AT + timedelta(days=DAYS)
 
 
-@pytest.fixture
-def dealt():
-    return table_in(declared_herz_hand())
+dealt = pytest.fixture(name="dealt")(before_the_first_card)
 
 
 class TestAnUnplayedTableEnds:

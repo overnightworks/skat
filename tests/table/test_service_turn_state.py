@@ -2,7 +2,6 @@
 statement, dropped with the seat and silent about the table's version.
 """
 
-import itertools
 import random
 from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
@@ -10,11 +9,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.records import Actor, CreateTable, OccupantKind, SendAway, SitDown, StandUp, TableId, TurnStatement
+from skat.table.records import Actor, CreateTable, OccupantKind, SendAway, TableId, TurnStatement
 from skat.table.service import TableService
 from skat.table.turn_state import THINKING_CAP_SECONDS, TurnStateView
 from skat.table.views import turn_seat_of
-from tests.support.fake_tables import FakeTableStore
+from tests.support.fake_tables import FakeTableStore, ServiceScene
 
 ANNA = Actor(account_id="account-anna", display_name="Anna")
 BEN = Actor(account_id="account-ben", display_name="Ben")
@@ -26,14 +25,13 @@ BENS_SEAT = 2
 MOZARTS_SEAT = 3
 
 
-class Scene:
+class Scene(ServiceScene):
     """Anna sits in chair 1 and Ben in chair 2 of an open table; with `dealt`, Mozart, an agent, sits in chair 3 and the
     first hand is dealt."""
 
     def __init__(self, *, dealt=False):
         self.store = FakeTableStore()
         self.now = START
-        self.commands = itertools.count(1)
         self.service = TableService(
             self.store,
             random_source=random.Random(1),  # noqa: S311 - seeded for a known deal
@@ -44,18 +42,8 @@ class Scene:
         if dealt:
             self.sit(MOZART, MOZARTS_SEAT)
 
-    @property
-    def table(self):
-        return self.store.tables[self.table_id]
-
     def statement_at(self, seat):
         return self.table.chairs[seat - 1].turn_state
-
-    def sit(self, person, seat):
-        return self.service.sit(person, SitDown(f"command-{next(self.commands)}", self.table_id, seat), NOBODY)
-
-    def stand(self, person):
-        return self.service.stand(person, StandUp(f"command-{next(self.commands)}", self.table_id), NOBODY)
 
     def send_away(self, agent):
         command = SendAway(f"command-{next(self.commands)}", self.table_id, agent.account_id)

@@ -1,11 +1,24 @@
 import copy
+import itertools
 import math
 from contextlib import contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from functools import cached_property
 from typing import TYPE_CHECKING
 
-from skat.table.records import Chair, EndedTable, Ending, Receipt, Replay, TableId, TableRecord, Visibility
+from skat.table.records import (
+    Chair,
+    EndedTable,
+    Ending,
+    Receipt,
+    Replay,
+    SitDown,
+    StandUp,
+    TableId,
+    TableRecord,
+    Visibility,
+)
 from skat.table.rules import CREATE_TABLE_COMMAND, played_series_of
 from skat.table.series_end import series_asked_at
 from skat.table.service import TableService
@@ -283,3 +296,41 @@ class FakeTableStore:
 
 def in_memory_tables() -> TableService:
     return TableService(FakeTableStore())
+
+
+def numbered_service(store):
+    """A service on `store` whose tables are numbered from 1, for a fixture named `service`."""
+    numbers = itertools.count(1)
+    return TableService(store, new_table_id=lambda: TableId(f"{next(numbers):032x}"))
+
+
+class ServiceScene:
+    """The base of a scene of a table service on a `FakeTableStore`: the scene has a `store`, a `service`, a `table_id`
+    and a clock `now` it moves.
+    """
+
+    store: FakeTableStore
+    service: TableService
+    table_id: str
+    now: datetime
+
+    @cached_property
+    def commands(self):
+        return itertools.count(1)
+
+    @property
+    def table(self):
+        return self.store.tables[self.table_id]
+
+    def sit(self, person, seat):
+        return self.service.sit(person, SitDown(f"command-{next(self.commands)}", self.table_id, seat), frozenset())
+
+    def stand(self, person):
+        return self.service.stand(person, StandUp(f"command-{next(self.commands)}", self.table_id), frozenset())
+
+    def at(self, moment: datetime):
+        self.now = moment
+        return self
+
+    def snapshot(self):
+        return copy.deepcopy((self.store.tables, self.store.book))

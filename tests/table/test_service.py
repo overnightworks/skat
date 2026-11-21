@@ -24,7 +24,7 @@ from skat.table.records import (
     Visibility,
 )
 from skat.table.service import CommandIdReusedError, TableService
-from tests.support.fake_tables import FakeTableStore
+from tests.support.fake_tables import FakeTableStore, numbered_service
 from tests.support.faulty_tables import FaultyTableTransactions
 from tests.support.played_game import after_the_first_game, before_the_last_card, declared_herz_hand
 
@@ -37,10 +37,7 @@ def store():
     return FakeTableStore()
 
 
-@pytest.fixture
-def service(store):
-    numbers = itertools.count(1)
-    return TableService(store, new_table_id=lambda: TableId(f"{next(numbers):032x}"))
+service = pytest.fixture(name="service")(numbered_service)
 
 
 class TestCreate:
@@ -206,6 +203,7 @@ class TestTableId:
         )
 
 
+# this file's own opener
 @pytest.fixture
 def table_id(service):
     return service.create(OPENER, CreateTable(command_id="command-open")).id

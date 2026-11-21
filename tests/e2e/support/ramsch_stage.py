@@ -122,6 +122,7 @@ class RamschStageTable:
     def _command() -> str:
         return f"ramsch-stage-{uuid4().hex}"
 
+    # each scene reads through its own `sessions` and `api_path`
     def view(self, seat: int) -> dict[str, Any]:
         return json.loads(self.sessions[seat].get(self.api_path))
 

@@ -33,7 +33,7 @@ from skat.table.series_end import SeriesEndCommand
 from skat.table.service import TableService
 from skat.table.transactions import TableVersion
 from tests.support.calls import call_facts
-from tests.support.fake_tables import FakeTableStore
+from tests.support.fake_tables import FakeTableStore, ServiceScene
 from tests.support.played_game import (
     an_end_proposal,
     asked_by_the_declarer,
@@ -42,6 +42,7 @@ from tests.support.played_game import (
     table_in,
     with_agents,
 )
+from tests.support.seated_tables import actor_of
 
 START = datetime(2026, 11, 1, 12, tzinfo=UTC)
 NOBODY = frozenset[str]()
@@ -53,12 +54,11 @@ CLEO = Actor(account_id="account-cleo", display_name="Cleo")
 UNKNOWN_TABLE = "0" * 32
 
 
-class Scene:
+class Scene(ServiceScene):
     """A service on a store; every signal it tells is kept with each agent's view as the store showed it then."""
 
     def __init__(self, seed=1):
         self.store = FakeTableStore()
-        self.commands = itertools.count(1)
         numbers = itertools.count(1)
         self.service = TableService(
             self.store,
@@ -96,10 +96,6 @@ class Scene:
         self.store.tables[self.table_id] = record
         self.store.last_played_at[self.table_id] = START
         return self
-
-    @property
-    def table(self):
-        return self.store.tables[self.table_id]
 
     def waiting_agent(self):
         return next(agent for agent in (MOZART, BACH) if self.view_of(agent.account_id).awaits_you)
@@ -213,10 +209,6 @@ class TestTheAgentInAChair:
         assert scene.service.agent_in_chair(scene.table_id, 2) is None
 
 
-def an_actor(position):
-    return Actor(account_id=f"account-{position.name.lower()}", display_name=position.name)
-
-
 def auction_bid(service, actor, table_id, version):
     command = AuctionCommand("act", table_id, version, AuctionAction.BID, 18)
     return service.take_auction_step(actor, command, NOBODY)
@@ -266,7 +258,7 @@ class TestTheAcceptedActsNoFlowDrivesRaiseTheRevision:
     )
     def test_the_revision_rises_and_the_seat_awaits_no_more_or_the_next_step(self, record, position, act, awaits_after):
         scene = Scene().put(record)
-        seat = an_actor(position)
+        seat = actor_of(position)
         before = scene.view_of(seat.account_id)
 
         result = act(scene.service, seat, scene.table_id, scene.table.version)
@@ -278,15 +270,15 @@ class TestTheAcceptedActsNoFlowDrivesRaiseTheRevision:
 
     def test_after_an_opponents_give_up_his_partner_is_awaited_and_no_other_seat_where_the_partner_must_agree(self):
         scene = Scene().put(table_in(declared_herz_hand(), TableOptions(give_up=GiveUpOptions(partner_agrees=True))))
-        give_up(scene.service, an_actor(Position.FOREHAND), scene.table_id, scene.table.version)
+        give_up(scene.service, actor_of(Position.FOREHAND), scene.table_id, scene.table.version)
 
-        awaiting = {position for position in Position if scene.view_of(an_actor(position).account_id).awaits_you}
+        awaiting = {position for position in Position if scene.view_of(actor_of(position).account_id).awaits_you}
 
         assert awaiting == {Position.REARHAND}
 
     def test_the_same_act_again_raises_nothing(self):
         scene = Scene().put(between_games(2, 3))
-        seat = an_actor(Position.MIDDLEHAND)
+        seat = actor_of(Position.MIDDLEHAND)
         continue_after_result(scene.service, seat, scene.table_id, 0)
         revision = scene.view_of(seat.account_id).view.version
 
@@ -296,7 +288,7 @@ class TestTheAcceptedActsNoFlowDrivesRaiseTheRevision:
 
     def test_a_refused_act_raises_nothing(self):
         scene = Scene().put(table_in(HandProgress()))
-        seat = an_actor(Position.MIDDLEHAND)
+        seat = actor_of(Position.MIDDLEHAND)
         revision = scene.view_of(seat.account_id).view.version
 
         refused = auction_bid(scene.service, seat, scene.table_id, revision + 1)
@@ -319,7 +311,7 @@ class TestTheSignalOfACommit:
 
     def test_a_refused_move_a_replay_and_an_unchanged_mark_tell_nobody_after_an_accepted_one_told_the_agents(self):
         scene = Scene().put(with_agents(between_games(2, 3), 2, 3))
-        seat = an_actor(Position.MIDDLEHAND)
+        seat = actor_of(Position.MIDDLEHAND)
 
         accepted = continue_after_result(scene.service, seat, scene.table_id, 0)
 

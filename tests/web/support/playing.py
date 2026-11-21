@@ -19,6 +19,7 @@ from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLES_PATH
 from tests.support.payload_cards import DEALER_SEAT, seated_three
 from tests.support.played_game import a_ramsch_entry
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.support.stored_game import PlaysOfRecord
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 # Middlehand declares in every played-out game; seats 1, 2, 3 are middlehand, rearhand, forehand.
@@ -140,7 +141,7 @@ def gains(declarer, each_opponent):
     ]
 
 
-class StoredTable:
+class StoredTable(PlaysOfRecord):
     """A table the tests drive through a `Skat`: its stored record and the ids of the commands sent to it."""
 
     skat: Any
@@ -174,10 +175,6 @@ class Table(StoredTable):
     def reseated_for_the_next_hand(self):
         """The people by position once the deal has moved to the next dealer."""
         self.at = self._at(self.record.dealer)
-
-    @property
-    def plays(self):
-        return self.record.progress.plays
 
     def read_as(self, headers):
         self.skat.client.cookies.clear()

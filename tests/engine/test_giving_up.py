@@ -17,6 +17,7 @@ from tests.support.playing_scenes import (
     KARO_SEVEN,
     MIDDLEHAND,
     REARHAND,
+    first_accepted,
     scenario,
     started,
 )
@@ -34,14 +35,6 @@ def ok(state: Playing, position: Position, card: Card) -> Playing:
     return outcome.state
 
 
-def next_card(state: Playing) -> Playing:
-    """The player on turn plays the first card of its hand that is accepted."""
-    position = state.turn
-    return next(
-        outcome.state for card in state.hands[position] if (outcome := play_card(state, position, card)).refusal is None
-    )
-
-
 def after_first_trick(*, declarer_takes: bool) -> Playing:
     """Karo mit 1; the first trick goes to the declarer's ace (21 points) or to middlehand's ace."""
     own_ace = (KARO_ACE,) if declarer_takes else ()
@@ -49,7 +42,7 @@ def after_first_trick(*, declarer_takes: bool) -> Playing:
     lead = KARO_ACE if declarer_takes else KARO_SEVEN
     state = ok(state, FOREHAND, lead)
     state = ok(state, MIDDLEHAND, KARO_TEN if declarer_takes else KARO_ACE)
-    return next_card(state)
+    return first_accepted(state)
 
 
 def given_up(state: Playing, *, consented: bool = False) -> PlayedOut:
@@ -81,7 +74,7 @@ def test_the_declarer_can_give_up_after_the_first_trick_while_holding_nine_cards
 def test_the_declarer_can_give_up_in_the_second_trick_before_his_own_card() -> None:
     state = after_first_trick(declarer_takes=False)
     while state.turn is not FOREHAND:
-        state = next_card(state)
+        state = first_accepted(state)
     assert (len(state.hands[FOREHAND]), len(state.current)) == (9, 2)
     assert settle(given_up(state), 20) == Settlement(won=False, value=27, score=-54)
 
@@ -90,7 +83,7 @@ def declarer_holding_eight_cards() -> Playing:
     """Karo mit 1 at bid 20 after the declarer played his card to the second trick."""
     state = after_first_trick(declarer_takes=False)
     while len(state.hands[FOREHAND]) == 9:
-        state = next_card(state)
+        state = first_accepted(state)
     assert len(state.hands[FOREHAND]) == 8
     return state
 
@@ -100,7 +93,7 @@ def test_after_the_declarer_played_his_card_to_the_second_trick_giving_up_needs_
     outcome = give_up(state)
     assert outcome.refusal is PlayRefusal.NEEDS_CONSENT
     assert outcome.state == state
-    assert next_card(state).result is None
+    assert first_accepted(state).result is None
 
 
 def test_with_an_opponents_consent_the_declarer_holding_eight_cards_gives_up_lost_at_27() -> None:
@@ -160,7 +153,7 @@ def test_a_game_already_given_up_or_played_out_refuses_giving_up_and_any_card_as
     over = give_up(started()).state
     played_out = started()
     while played_out.result is None:
-        played_out = next_card(played_out)
+        played_out = first_accepted(played_out)
     for state in (over, played_out):
         assert give_up(state).refusal is PlayRefusal.OVER
         assert give_up(state).state == state
@@ -174,7 +167,7 @@ def test_a_given_up_result_keeps_the_tricks_taken_so_far_and_a_played_out_one_is
     assert len(state.tricks) == 1
     played_out = started()
     while played_out.result is None:
-        played_out = next_card(played_out)
+        played_out = first_accepted(played_out)
     assert played_out.result.ending is Ending.PLAYED_OUT
 
 
@@ -369,7 +362,7 @@ def test_a_game_that_is_over_refuses_throwing_down_giving_up_and_any_card(how: s
             state = shorten(state, all_agreed=True).state
         case _:
             while state.result is None:
-                state = next_card(state)
+                state = first_accepted(state)
     assert state.result is not None
     assert throw_down(state, MIDDLEHAND).refusal is PlayRefusal.OVER
     assert throw_down(state, MIDDLEHAND).state == state
@@ -748,7 +741,7 @@ def test_a_shortening_without_every_yes_needs_consent_and_the_game_goes_on(
     outcome = shorten(state, claim=claim)
     assert outcome.refusal is PlayRefusal.NEEDS_CONSENT
     assert outcome.state == state
-    assert next_card(state).result is None
+    assert first_accepted(state).result is None
 
 
 def test_a_game_played_on_after_a_refused_shortening_is_scored_as_if_nobody_asked() -> None:
@@ -758,7 +751,7 @@ def test_a_game_played_on_after_a_refused_shortening_is_scored_as_if_nobody_aske
     asked = outcome.state
     unasked = started()
     while asked.result is None:
-        asked, unasked = next_card(asked), next_card(unasked)
+        asked, unasked = first_accepted(asked), first_accepted(unasked)
     assert asked.result is not None
     assert unasked.result is not None
     assert asked.result.ending is Ending.PLAYED_OUT
