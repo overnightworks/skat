@@ -38,7 +38,7 @@ from tests.e2e.support.result_card import (
 from tests.e2e.support.style import (
     STYLES,
     TABLE_SCENES,
-    expect_painted_as_the_scene,
+    expect_everyone_painted_as_the_scene,
     expect_the_furniture_clear,
     give_the_table_its_style,
 )
@@ -294,10 +294,9 @@ def test_everyone_reads_the_result_and_the_three_taps_deal_the_next_hand(
     expect_the_page_around_the_card(table.everyone)
     expect_the_furniture_clear(table.everyone, table_style)
     if table_style is TableStyle.STRANDBAR:
-        for person in table.everyone:
-            expect_painted_as_the_scene(
-                person, "strand-result", ".result .reck:not(.win)", ".reck:not(.win)", SEAT_TILE_PAINT
-            )
+        expect_everyone_painted_as_the_scene(
+            table.everyone, "strand-result", ".result .reck:not(.win)", ".reck:not(.win)", SEAT_TILE_PAINT
+        )
     for person in table.everyone:
         expect(person.locator(".row.style")).to_have_count(0)
     expect_the_marks(table, set())
