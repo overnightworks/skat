@@ -2568,8 +2568,8 @@ body {
         grid-row: 2 / 6;
     }
 
-    /* The bid bar reaches the felt's rim, so the lamp and the cocktail stand below it, beside the own chair. */
-    .room .stage:has(> .bid) .felt .decor:is(.lamp, .cocktail) {
+    /* The bid bar reaches the felt's rim on both sides, so the furniture stands below it, beside the own chair. */
+    .room .stage:has(> .bid) .felt .decor {
         bottom: 2%;
     }
 }

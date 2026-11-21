@@ -20,8 +20,9 @@ DECORATIONS = {TableStyle.STRANDBAR: 2, TableStyle.KLASSIK: 1}
 
 # The cocktail and the shell lie under everything the people at the table read and touch: no sampled point of a card,
 # tag, key, chair, plaque or the result is painted by one of them (their pointer events are switched on so the page
-# can say what it paints there), and the page gains no sideways scroll from the rim round the felt. A chair's stool is
-# drawn behind its chair and the cards, as the scenes draw it, and covers nothing.
+# can say what it paints there), no key of the bid bar paints the middle of one of them, and the page gains no sideways
+# scroll from the rim round the felt. A chair's stool is drawn behind its chair and the cards, as the scenes draw it,
+# and covers nothing.
 FURNITURE_CLEAR = """() => {
     const all = (selector) => [...document.querySelectorAll(selector)];
     const decor = all('.decor');
@@ -39,6 +40,12 @@ FURNITURE_CLEAR = """() => {
             .filter((found) => found)
             .map((found) => `${found.classList[1]} covers ${element.className}`);
     });
+    for (const element of decor) {
+        const box = element.getBoundingClientRect();
+        const above = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        if (above?.closest('.bid-keys > *, .bid-chips > *, .bid-line > *, .scale'))
+            covered.push(`the bid bar hides the ${element.classList[1]}`);
+    }
     for (const element of decor) element.style.pointerEvents = '';
     if (document.documentElement.scrollWidth > window.innerWidth) covered.push('the page scrolls sideways');
     return [...new Set(covered)];
