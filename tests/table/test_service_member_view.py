@@ -625,6 +625,7 @@ def _a_freed_chair(scene):
     scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
     scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
     scene.service.stand(ANNA, StandUp("command-anna-stand", scene.table_id), NOBODY)
+    scene.service.sit(BACH, SitDown("command-bach", scene.table_id, 3), NOBODY)
     scene.store.hold_due(scene.table_id, MOZART.account_id)
     return lambda: scene.service.free_held_chair(TableId(scene.table_id), MOZART.account_id, nullcontext(True))
 
