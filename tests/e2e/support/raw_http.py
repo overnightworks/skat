@@ -1,4 +1,7 @@
 import http.client
+import time
+
+from tests.e2e.support.phasing import add
 import json
 import ssl
 import time
@@ -49,9 +52,14 @@ class RawSession:
     def _answer(self, method: str, path: str, body: str | None) -> str:
         connection = self._connect()
         headers = self._headers() if body is None else {**self._headers(), "content-type": "application/json"}
+        t0 = time.monotonic()
         connection.request(method, path, body=body, headers=headers)
+        t1 = time.monotonic()
         text = connection.getresponse().read().decode()
         connection.close()
+        add(f"api-{method}-send", t1 - t0)
+        add(f"api-{method}-answer", time.monotonic() - t1)
+        add(f"api-{method}-n", 1)
         self.bodies.append(text)
         return text
 

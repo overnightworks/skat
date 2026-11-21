@@ -87,12 +87,25 @@ def in_the_scene(person: Page, scene: str, script: str, argument: object) -> Any
     viewport = person.viewport_size
     assert viewport is not None
     frame = f"{scene}-{viewport['width']}"
+    import time
+
+    from tests.e2e.support.phasing import add
+
+    t0 = time.monotonic()
     page_of_scenes = person.context.new_page()
+    t1 = time.monotonic()
     try:
         page_of_scenes.goto(f"{TABLE_SCENES.as_uri()}?f={frame}")
-        return page_of_scenes.locator(f"[id='{frame}']").evaluate(script, argument)
+        t2 = time.monotonic()
+        value = page_of_scenes.locator(f"[id='{frame}']").evaluate(script, argument)
+        t3 = time.monotonic()
+        return value
     finally:
         page_of_scenes.close()
+        add("scene-newpage", t1 - t0)
+        add("scene-goto", t2 - t1)
+        add("scene-eval", t3 - t2)
+        add("scene-close", time.monotonic() - t3)
 
 
 def expect_painted_as_the_scene(person: Page, scene: str, live: str, drawn: str, properties: list[str]) -> None:

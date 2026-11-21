@@ -277,9 +277,17 @@ def expect_the_buttons(table: PlayingTable, ready: set[int]) -> None:
 
 
 def reload_everyone(table: PlayingTable) -> None:
+    import time
+
+    from tests.e2e.support.phasing import add
+
     for person in table.everyone:
+        t0 = time.monotonic()
         person.reload()
+        t1 = time.monotonic()
         expect(person.locator(".chair")).to_have_count(3)
+        add("reload-call", t1 - t0)
+        add("reload-chairs", time.monotonic() - t1)
 
 
 @pytest.mark.parametrize("table_style", STYLES)
