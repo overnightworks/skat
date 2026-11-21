@@ -82,17 +82,29 @@ PAINT = """(element, properties) => {
 }"""
 
 
+PREFERS_REDUCED_MOTION = "matchMedia('(prefers-reduced-motion: reduce)').matches"
+
+
 def in_the_scene(person: Page, scene: str, script: str, argument: object) -> Any:
     """What `script` returns for the frame of the blessed `scene` at the width of `person`'s page, and `argument`."""
     viewport = person.viewport_size
     assert viewport is not None
     frame = f"{scene}-{viewport['width']}"
-    page_of_scenes = person.context.new_page()
+    browser = person.context.browser
+    assert browser is not None
+    # The scenes open in a context of their own with the person's width and motion setting: the person's context is
+    # traced, and a trace takes a snapshot of the whole mockup, every scene in it, at each step, which costs
+    # several times what the read costs.
+    scenes = browser.new_context(
+        viewport=viewport,
+        reduced_motion="reduce" if person.evaluate(PREFERS_REDUCED_MOTION) else "no-preference",
+    )
     try:
+        page_of_scenes = scenes.new_page()
         page_of_scenes.goto(f"{TABLE_SCENES.as_uri()}?f={frame}")
         return page_of_scenes.locator(f"[id='{frame}']").evaluate(script, argument)
     finally:
-        page_of_scenes.close()
+        scenes.close()
 
 
 def expect_painted_as_the_scene(person: Page, scene: str, live: str, drawn: str, properties: list[str]) -> None:
