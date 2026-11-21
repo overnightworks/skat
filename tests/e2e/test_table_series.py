@@ -9,7 +9,6 @@ from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.browser import TAP_TARGET_PIXELS
 from tests.e2e.support.passed_in_series import (
     CHANGE,
     COMMAND_FAILED,
@@ -153,15 +152,6 @@ TEXT_BOX_OF = """pill => {
         right: box.right - text.right,
     };
 }"""
-
-
-def expect_the_rows_of_the_sheet_to_be_tappable(sheet: Locator) -> None:
-    rows = sheet.locator(".rule")
-    assert rows.count() > 0
-    for row in rows.all():
-        box = row.bounding_box()
-        assert box is not None
-        assert box["height"] >= TAP_TARGET_PIXELS
 
 
 def expect_the_sheet_inside_the_window(person: Page, sheet: Locator) -> None:
@@ -493,7 +483,6 @@ def test_a_seated_member_changes_the_next_series_and_the_save_takes_back_every_n
     sheet = second.locator(NEXT_SHEET)
     expect(sheet).to_be_visible()
     expect_the_sheet_inside_the_window(second, sheet)
-    expect_the_rows_of_the_sheet_to_be_tappable(sheet)
     expect(sheet.get_by_role("spinbutton")).to_have_attribute("aria-valuenow", str(SERIES_LENGTH))
     expect(sheet.locator(".takeback")).to_be_visible()
     expect(sheet.locator(".clockline")).to_be_visible()

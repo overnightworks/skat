@@ -33,7 +33,6 @@ TAKE_SKAT = text(SOURCE_LANGUAGE, "push.takeSkat")
 PUSH = text(SOURCE_LANGUAGE, "table.push")
 PUT_BACK = text(SOURCE_LANGUAGE, "declare.putBack")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "declare.commandFailed")
-REFUSED = 409
 GRAND_HAND = text(SOURCE_LANGUAGE, "push.grandHand")
 GRAND_HAND_ASKED = text(SOURCE_LANGUAGE, "push.grandHandAsk")
 GRAND_HAND_GAME = text(SOURCE_LANGUAGE, "game.handName", game=text(SOURCE_LANGUAGE, "game.grand"))

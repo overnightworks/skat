@@ -33,7 +33,6 @@ STYLE_TILES = ".style-tile"
 SCENE_STYLE_ROW = ".snd-row.look"
 PAGE_STYLE_ROW = ".style-row"
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
-REFUSED = 409
 # The thirtieth card ends the hand.
 CARDS_IN_A_HAND = 30
 KEY_COLOUR = "key => getComputedStyle(key).backgroundColor"

@@ -29,7 +29,6 @@ ABORT_SURE = text(SOURCE_LANGUAGE, "table.abortSure")
 WAIT = text(SOURCE_LANGUAGE, "table.abortWait")
 ABORTED = text(SOURCE_LANGUAGE, "table.aborted")
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
-REFUSED = 409
 NO_ANSWER_YET = text(SOURCE_LANGUAGE, "table.noAnswerYet")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 KEY = ".row.abort"
