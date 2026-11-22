@@ -608,6 +608,7 @@ class TestTheStandingFollowsTheChair:
         assert freed is False
         assert (scene.table.chairs, scene.book().invitation.ended) == (chairs, CallOutcome.OWNER_ABSENT)
         assert scene.standing() == ()
+        assert scene.signals == [(frozenset({MOZART.account_id}), ())]
 
     def test_the_end_of_the_table_ends_the_membership_and_removes_its_book_rows(self, scene):
         scene.invite(BACH)
