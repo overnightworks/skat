@@ -1,5 +1,5 @@
 claim_id = "0f7a43993c464461af2b5fb430610774"
-agent = "Claude 08329d5b-8776-4078-b270-c37efe5b15d8"
+agent = "Claude a37a7494-f263-4372-b296-e883a1ec2851"
 role = "builder"
 base = "6d71e9fdb297e12ca2c28201055fbd99126834d4"
 branch = "claude/issue-819-s13b-0-the-picture-of-the-two-house-vari"
