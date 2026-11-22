@@ -3422,7 +3422,7 @@ const THINK_SETS={
       +cut(w,'<b>läuft</b>solange Nova denkt',thinkingSeat('nova',onTurn(w),set),'tk-runs'),
     [note,'Das letzte Bild spielt die Bewegung ab; allein geöffnet spielt es mit „&play“.']));});
 }
-/* ===== house variant 1, candidate scenes: „Schenken ablehnen heißt Schneider“. The opponents' give-up is an offer the declarer accepts or refuses; a refusal demands the next level, which the plaque carries while play goes on and the result card and the list line name. Drawn with the recommended answer A to card 1 of #815 ===== */
+/* ===== house variant 1, candidate scenes: „Schenken ablehnen heißt Schneider“. The opponents' give-up is an offer the declarer accepts or refuses; a refusal demands the next level, which the plaque carries while play goes on and the result card and the list line name. A second refusal demands Schwarz ===== */
 I.refuse=sv('<path d="M5 21V3.5"/><path d="M5 4.5c4-2 7 2 11.5 0v8.5c-4.5 2-7.5-2-11.5 0z"/><path d="M3 3l18 18"/>');
 /* the list of every game with newer rows a candidate draws on top, newest first */
 const listTopped=(d,count,newest,rows=GAMES_PLAYED)=>gameList(d,rows,count).replace('<div class="rows" tabindex="0">',`<div class="rows" tabindex="0">${newest}`);
@@ -3436,7 +3436,7 @@ const offered=(d,o={})=>giveUpTable(d,{dim:true})+askPlaque(d,`${faceDot('anna')
   +giveUpSeats(d,{you:['decl'],ben:o.partner?['agreed']:[]})+ownHand(d,FELIX_HOLDS)+giveUpBar(d,GIVE_UP);
 const partnerWaits=(d)=>giveUpTable(d,{dim:true})+askPlaque(d,`${faceDot('anna')}Anna will aufgeben`,`<div class="game pushes">Warte auf Ben${waitDots()}</div>`,FANS_CLEAR)
   +giveUpSeats(d,{you:['decl'],ben:['unanswered']})+ownHand(d,FELIX_HOLDS)+giveUpBar(d,GIVE_UP);
-/* Felix declared Kreuz mit 1, refused, and played on: the game counts as if Schneider were announced (line 1 A), without Hand */
+/* Felix declared Kreuz mit 1, refused, and played on: the game counts as if Schneider were announced, without Hand */
 const KREUZ_REFUSED={suit:'c',base:12,mit:true,count:1,steps:['Spiel','Schneider','Schneider Pflicht'],demanded:'Schneider'};
 const REFUSED_WON={...OWN_WIN,adds:[0,0,98],eyes:[92,28],stamp:'Abgelehnt',stampBy:'felix',calc:{...KREUZ_REFUSED,won:true}};
 const REFUSED_MISSED={...OWN_LOSS,adds:[40,40,-146],eyes:[81,39],stamp:'Abgelehnt',stampBy:'felix',calc:{...KREUZ_REFUSED,missed:'Schneider Pflicht',won:false}};
@@ -3444,7 +3444,7 @@ const REFUSED_MISSED={...OWN_LOSS,adds:[40,40,-146],eyes:[81,39],stamp:'Abgelehn
 const REFUSED_ROW=[21,'felix','c','Kreuz','mit 1',48,true];
 const refusedRow=(row,level)=>gameRow(row).replace('</small></span>',`</small><small class="must">${I.refuse}${level} Pflicht</small></span>`);
 const refusedList=(d)=>listTopped(d,22,refusedRow(REFUSED_ROW,'Schneider'));
-const LINE_1='Gezeichnet mit der empfohlenen Antwort A auf Karte 1 von #815.';
+const LINE_1='Ein zweites Ablehnen fordert Schwarz.';
 const REFUSE_SCENES=[
   ['refuse-ask','Schenken: du nimmst an oder lehnst ab',[390,1280],(d)=>offered(d),
     ['Felix spielt Kreuz; Anna gibt für beide Gegner auf. An einem Tisch mit „Schenken ablehnen heißt Schneider“ endet das Spiel nicht sofort: die Tafel fragt Felix mit „Annehmen“ und „Ablehnen“, und die Taste zum Ablehnen nennt die Stufe, die sie fordert. Annehmen beendet das Spiel wie heute; keine Karte ist spielbar, solange die Frage steht. Wäre Schneider nicht mehr zu erreichen oder das Spiel schon verloren, gäbe es keine Frage.',
@@ -3458,11 +3458,9 @@ const REFUSE_SCENES=[
   ['refuse-must','Schneider Pflicht: du spielst weiter',[390,1280],(d)=>kontraTable(d,{cast:'declarer',line:mustLine('Schneider')})+kontraStrip(d,''),
     ['Felix lehnte ab und spielt weiter: dieselbe Zeile „Schneider Pflicht“ steht für ihn, für die Gegner und für jeden Zuschauer gleich auf der Tafel, ohne Farbe, die warnt. Sie bleibt, bis das Spiel endet, wie auch immer es endet.'],true],
   ['refuse-schwarz','Zweimal abgelehnt: Schwarz Pflicht',[390,1280],(d)=>kontraTable(d,{line:mustLine('Schwarz'),stamp:['Abgelehnt','anna']})+kontraStrip(d,''),
-    ['Die Gegner gaben noch einmal auf, und Anna lehnte wieder ab: die Zeile heißt jetzt „Schwarz Pflicht“, und das Spiel zählt wie Schwarz angesagt. Danach bleibt nichts abzulehnen; ein weiteres Aufgeben beendet das Spiel wie heute.',
-     `${LINE_1} Bei B oder C gibt es nur ein Ablehnen: dieses Bild entfällt, und ein zweites Aufgeben beendet das Spiel mit Schneider gewonnen.`],true],
+    ['Die Gegner gaben noch einmal auf, und Anna lehnte wieder ab: die Zeile heißt jetzt „Schwarz Pflicht“, und das Spiel zählt wie Schwarz angesagt. Danach bleibt nichts abzulehnen; ein weiteres Aufgeben beendet das Spiel wie heute.'],true],
   ['refuse-end','Abgelehnt und Schneider geschafft',[390,1280],(d)=>endScene(d,REFUSED_WON,tapButton,1,declarerWinsConfetti(d)),
-    ['Die Karte erklärt die Rechnung selbst: der Stempel „Abgelehnt“ mit Felix’ Gesicht, dann mit 1, Spiel, Schneider und „Schneider Pflicht“ als eigene Stufe: 4 × Kreuz 12 = 48, die Zeile „Spiel · Schneider Pflicht +48“ und die Liste +50 = +98.',
-     `${LINE_1} Bei C zählt das Ablehnen keine Stufe: die Marke „Schneider Pflicht“ fehlt, 3 × 12 = 36.`],true],
+    ['Die Karte erklärt die Rechnung selbst: der Stempel „Abgelehnt“ mit Felix’ Gesicht, dann mit 1, Spiel, Schneider und „Schneider Pflicht“ als eigene Stufe: 4 × Kreuz 12 = 48, die Zeile „Spiel · Schneider Pflicht +48“ und die Liste +50 = +98.',LINE_1],true],
   ['refuse-missed','Abgelehnt und Schneider verfehlt',[390,1280],(d)=>endScene(d,REFUSED_MISSED,tapButton),
     ['Mit 81 Augen hätte Felix ohne Ablehnen gewonnen; gefordert war Schneider, die Gegner haben mehr als 30: verloren zum geforderten Wert wie ein verfehltes „Schneider angesagt“, doppelt gezählt, −96, Liste −50 = −146; Anna und Ben je +40.',LINE_1],true],
   ['refuse-list','Liste: ein abgelehntes Spiel',[390,1280],(d)=>seriesPlay(d,'')+refusedList(d),
@@ -3488,10 +3486,10 @@ const penaltyRow=(k)=>{const p=P[k];
   return `<div class="grow penalty"><span class="nr">${I.baguette}</span><span class="dot" style="${dotStyle(p)}">${p.i}</span>`
     +`<span class="txt"><b>${p.n}</b><small>Baguette</small></span><span class="val"></span><span class="gain minus">${withMinus(-BAGUETTE_PENALTY)}</span></div>`;};
 const ANNA_HERZ=[21,'anna','h','Herz','mit 2',30,true];
-/* the Baguette at game 21 needs nine counted games without Ben as declarer: Ben last declares game 11, and 13 is passed in and does not count */
-const BEN_LAST_DECLARES_11={11:'ben',14:'anna',17:'anna',20:'felix'};
-const ROWS_BEFORE_BAGUETTE=GAMES_PLAYED.map(([n,k,...rest])=>[n,BEN_LAST_DECLARES_11[n]??k,...rest]);
-const BREAD_NOTE='Ob ein Ramsch oder ein eingepasstes Spiel den Zähler bewegt, entscheidet Karte 2 von #815; gezeichnet ist die empfohlene Antwort A: nur Spiele mit Alleinspieler zählen. Das Bild sieht bei B und C gleich aus.';
+/* the Baguette at game 21 needs nine counted games without Ben as declarer: Ben last declares game 12, so games 13 to 21 are his nine, the passed-in 13 counted; Felix last declares game 15, so his six games since make the two Brötchen on his coaster */
+const BEN_LAST_DECLARES_12={12:'ben',14:'anna',17:'anna',18:'anna',20:'anna'};
+const ROWS_BEFORE_BAGUETTE=GAMES_PLAYED.map(([n,k,...rest])=>[n,BEN_LAST_DECLARES_12[n]??k,...rest]);
+const BREAD_NOTE='Ein Ramsch und ein eingepasstes Spiel zählen für jede sitzende Person als Spiel ohne Alleinspiel; ein abgebrochenes Spiel zählt nicht und setzt nichts zurück.';
 const BREAD_SCENES=[
   ['bread-chairs','Brötchen an jedem Stuhl',[390,1280],(d)=>kontraTable(d,{coasterMarks:PLAY_BREAD})+kontraStrip(d,''),
     ['Am Bierdeckel jedes Stuhls steht klein, wie viele Brötchen die Person dort hat: drei Plätze, gefüllt so viele, wie sie in Folge verdient hat. Nova hat zwei, Felix eins, Anna, die gerade spielt, keins. Alle am Tisch und jeder Zuschauer sehen dieselben Brötchen; der Zähler gehört der Person und läuft über die Serie.',
@@ -3500,7 +3498,7 @@ const BREAD_SCENES=[
     ['Anna gewann ihr Herz; für Ben war es das neunte Spiel in Folge ohne Alleinspiel. Sein drittes Brötchen wird zum Baguette: der Stempel „Baguette!“ mit seinem Gesicht landet neben seinem Stuhl, an seinem Deckel steht das Baguette vor drei leeren Plätzen, und der Deckel zieht die 50 gleich ab: 62 − 50 = 12. Die Ergebniskarte bleibt die des Spiels; die Strafe ist keine Zeile des Spiels, Bock und Kontra verdoppeln sie nie.',
      'Ein Standbild; eine kleine Bewegung beim Verdienen ist eine Idee, keine Regel, und bleibt hier eine Notiz.',BREAD_NOTE],true],
   ['bread-list','Liste: die Strafe als eigene Zeile',[390,1280],(d)=>seriesPlay(d,'')+listTopped(d,22,penaltyRow('ben')+gameRow(ANNA_HERZ),ROWS_BEFORE_BAGUETTE),
-    ['Über Annas Herz (Spiel 21) steht die Strafe als eigene Zeile: das Baguette an der Stelle der Nummer, Bens Gesicht, „Baguette“ und −50, ohne Wert, denn sie ist kein Spiel. Sie zählt in Bens Stand und in der Rangliste; gespeichert wird sie nicht, die Liste leitet sie aus den Spielen und der Höhe der Strafe ab. Ben war zuletzt in Spiel 11 Alleinspieler; Spiel 21 ist das neunte Spiel mit Alleinspieler seitdem.'],true],
+    ['Über Annas Herz (Spiel 21) steht die Strafe als eigene Zeile: das Baguette an der Stelle der Nummer, Bens Gesicht, „Baguette“ und −50, ohne Wert, denn sie ist kein Spiel. Sie zählt in Bens Stand und in der Rangliste; gespeichert wird sie nicht, die Liste leitet sie aus den Spielen und der Höhe der Strafe ab. Ben war zuletzt in Spiel 12 Alleinspieler; Spiel 21 ist das neunte Spiel seitdem, das eingepasste Spiel 13 mitgezählt.',BREAD_NOTE],true],
 ];
 agentScenes(BREAD_SCENES);
 }
