@@ -450,8 +450,9 @@ class _PostgresTableTransaction:
         """
         log_read = stamped_hand(self._connection, table.id.value) is not None
         moment = save_shared(self._connection, table, played_at)
-        save_step_tables(self._connection, table, moment, rewrite=log_read)
+        # The log goes first: a rewritten step raises at its prefix check before the step tables' traces replay it.
         save_hand_log(self._connection, table, rewrite=not log_read or moment.dealt or moment.forgot)
+        save_step_tables(self._connection, table, moment, rewrite=log_read)
 
     def add_table(self, table: TableRecord, opener_name: str) -> None:
         self._connection.execute(

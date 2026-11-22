@@ -27,6 +27,8 @@ STORE_TABLES = {
     "game_cards",
     "kontra_words",
     "kontra_no_words",
+    "hand_steps",
+    "hands",
     "rule_sets",
     "member_book",
     "chair_holds",
