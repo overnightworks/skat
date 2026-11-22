@@ -47,6 +47,7 @@ __all__ = [
     "control_shown",
     "decide_accept",
     "decide_invite",
+    "ended_by_owner_leaving",
     "forgotten_if_expired",
     "keep_turn_state",
     "offer_of",
@@ -252,6 +253,10 @@ class MemberBook(Protocol):  # pragma: no cover - a port's method bodies are sig
         """Every row of the agent, each locked for the transaction, in table id order."""
         ...
 
+    def locked_book_entries_at(self, table_id: TableId) -> tuple[BookEntry, ...]:
+        """Every row the book holds at the table, each locked for the transaction, in agent account order."""
+        ...
+
     def save_book_entry(self, entry: BookEntry) -> None:
         """Write the row, adding it when the book holds none for the pair."""
         ...
@@ -266,6 +271,19 @@ def open_invitation(entry: BookEntry | None, now: datetime) -> OpenInvitation | 
     if entry is None or entry.invitation is None or entry.invitation.expires_at <= now:
         return None
     return entry.invitation
+
+
+def ended_by_owner_leaving(entries: Iterable[BookEntry], owner_account: str, now: datetime) -> tuple[BookEntry, ...]:
+    """The entries whose open invitation is bound to the owner, each with that invitation ended as of now with the
+    outcome owner away, to keep for its caller to be told how it ended; the others are left out.
+    """
+    ended: list[BookEntry] = []
+    for entry in entries:
+        invitation = open_invitation(entry, now)
+        if invitation is not None and invitation.owner_account == owner_account:
+            gone = replace(invitation, expires_at=now, ended=CallOutcome.OWNER_ABSENT)
+            ended.append(replace(entry, invitation=gone))
+    return tuple(ended)
 
 
 def forgotten_if_expired(entry: BookEntry, now: datetime) -> BookEntry:

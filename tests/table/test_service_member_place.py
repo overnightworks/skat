@@ -594,6 +594,22 @@ class TestTheStandingFollowsTheChair:
         assert freed is False
         assert (scene.snapshot(), scene.standing(), scene.signals) == (before, (active_standing(scene),), [])
 
+    def test_the_holds_freeing_of_an_owner_at_a_dealt_table_ends_its_invitation_and_keeps_its_chair(self, scene):
+        scene.sit(VISITOR, 2)
+        scene.invite()
+        scene.sit(BACH, 3)
+        scene.store.tables[scene.table_id] = after_the_first_game(scene.table)
+        chairs = scene.table.chairs
+        scene.signals.clear()
+
+        scene.store.hold_due(scene.table_id, OWNER)
+        freed = scene.service.free_held_chair(TableId(scene.table_id), OWNER, nullcontext(True))
+
+        assert freed is False
+        assert (scene.table.chairs, scene.book().invitation.ended) == (chairs, CallOutcome.OWNER_ABSENT)
+        assert scene.standing() == ()
+        assert scene.signals == [(frozenset({MOZART.account_id}), ())]
+
     def test_the_end_of_the_table_ends_the_membership_and_removes_its_book_rows(self, scene):
         scene.invite(BACH)
         scene.sit(MOZART, 2)

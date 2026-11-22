@@ -2,13 +2,10 @@
 
 [clones."src/skat/store/declaring.py"]
 append_declaring_steps = [["src/skat/store/pushing.py", "append_pushing_steps"]]
-read_declaring_steps = [["src/skat/store/member_book.py", "locked_entries_of"], ["src/skat/store/pushing.py", "read_pushing_steps"]]
+read_declaring_steps = [["src/skat/store/pushing.py", "read_pushing_steps"]]
 
 [clones."src/skat/store/kontra.py"]
 append_words = [["src/skat/store/playing.py", "append_plays"]]
-
-[clones."src/skat/store/member_book.py"]
-locked_entries_of = [["src/skat/store/pushing.py", "read_pushing_steps"]]
 
 [clones."src/skat/store/migrations/versions/0003_hands.py"]
 _one_of = [["src/skat/store/migrations/versions/0004_auction.py", "_one_of"], ["src/skat/store/migrations/versions/0005_declaring.py", "_one_of"], ["src/skat/store/migrations/versions/0006_played_cards.py", "_one_of"], ["src/skat/store/migrations/versions/0007_game_list.py", "_one_of"], ["src/skat/store/migrations/versions/0027_pushing.py", "_one_of"]]
