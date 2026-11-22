@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 OPEN_TABLE = text(SOURCE_LANGUAGE, "start.openTable")
 RUNNING_POINTS_SWITCH = text(SOURCE_LANGUAGE, "start.rulePoints")
 SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
+NEW_SERIES = text(SOURCE_LANGUAGE, "table.newSeries")
 # The browser asks again a few seconds after a failed stream.
 RECONNECT_MILLISECONDS = 15_000
 TABLE_URL = re.compile(rf"{re.escape(TABLE_PAGE_PREFIX)}{TABLE_ID_PATTERN}$")
