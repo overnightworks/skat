@@ -41,7 +41,7 @@ from tests.support.page_build import (
     fixture_page_build,
     served_page,
 )
-from tests.support.sign_in_settings import TEST_ISSUER, TEST_PUBLIC_ORIGIN, SignInSettings
+from tests.support.sign_in_settings import LOGIN_GROUP, TEST_ISSUER, TEST_PUBLIC_ORIGIN, SignInSettings
 from tests.support.signed_in import SeededMember, cookie_header, seed_member
 
 if TYPE_CHECKING:
@@ -430,7 +430,7 @@ class TestRevalidation:
     def test_the_admitted_callback_that_sets_the_session_cookie_is_never_stored(self, application):
         start = application.get(AUTH_START_PATH, **BROWSER_ACCEPT)
         query = application.issuer.authorize(
-            start.headers["location"], subject="anna", groups=["/apps/skat"], username="anna"
+            start.headers["location"], subject="anna", groups=[LOGIN_GROUP], username="anna"
         )
 
         callback = application.get(f"{AUTH_CALLBACK_PATH}?{query}", **BROWSER_ACCEPT)
