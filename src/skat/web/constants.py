@@ -48,8 +48,6 @@ IMMUTABLE_ASSET_PATH_RULES = PathRules(
     )
 )
 
-OIDC_CLIENT_ID = "skat"
-LOGIN_GROUP = "/apps/skat"
 OIDC_SCOPES = ("openid", "profile", "groups")
 OIDC_LEEWAY_SECONDS = 30
 SESSION_LIFETIME_SECONDS = 12 * 60 * 60
