@@ -144,6 +144,9 @@ class _FaultyTransaction:
     def locked_book_entries_of(self, agent_account: str) -> tuple[BookEntry, ...]:
         return self._inner.locked_book_entries_of(agent_account)
 
+    def locked_book_entries_at(self, table_id: TableId) -> tuple[BookEntry, ...]:
+        return self._inner.locked_book_entries_at(table_id)
+
     def save_book_entry(self, entry: BookEntry) -> None:
         self._inner.save_book_entry(entry)
 
