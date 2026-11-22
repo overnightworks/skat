@@ -67,6 +67,9 @@ LATER_COLUMNS = (
     "turn_state_thinking",
     "turn_state_at",
     "ready_settings",
+    "traceparent",
+    "traceparent_version",
+    "act_traceparents",
 )
 RUNNING_HAND_TABLES = ("tables", "chairs", "hand_cards", "auction_actions")
 
