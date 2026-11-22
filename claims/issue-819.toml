@@ -1,7 +1,0 @@
-claim_id = "0f7a43993c464461af2b5fb430610774"
-agent = "Claude a37a7494-f263-4372-b296-e883a1ec2851"
-role = "builder"
-base = "6d71e9fdb297e12ca2c28201055fbd99126834d4"
-branch = "claude/issue-819-s13b-0-the-picture-of-the-two-house-vari"
-scope = ["docs/mockups/start.html", "docs/mockups/table.html"]
-opened_commit = "4dd69b88f1a818f8e9ba9026fc8b7223072999d1"
