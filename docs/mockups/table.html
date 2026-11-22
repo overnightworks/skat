@@ -1341,6 +1341,8 @@ const IDEAS=[
   ['✋','Grand Hand statt Ramsch','An einem Tisch, der es erlaubt, sagt wer beim Schieberamsch dran ist „Grand Hand“ an, statt zu nehmen oder zu schieben: ein Tipp macht die Taste scharf, der zweite sagt an, dann spielt er einen Grand Hand zum niedrigsten Reizwert, ohne Ansage. (#327)','push-grand, push-grand-arm, push-grand-done, push-grand-off'],
   ['⚡','Kontra und Re','Wer reizte, sagt vor seiner ersten Karte „Kontra“ (der Alleinspieler danach „Re“, dann „Supra“ und „Hirsch“) mit einer Taste in der Leiste, die an einem Tisch „bis zur eigenen Karte“ auf niemanden wartet; das Wort landet als Stempel mit dem Gesicht des Rufers, die Tafel trägt es mit seinem Faktor, und die Ergebniskarte zeigt, wie es den Wert verdoppelt. Gilt an einem Tisch „vor der ersten Karte“, hält der Tisch die erste Karte: wer noch ein Wort schuldet, hat neben seiner Taste „Kein Kontra“ (nach einem Kontra „Kein Re“), alle anderen und Zuschauer sehen am leuchtenden Stuhl und in einer Zeile, auf wen die erste Karte wartet, und die Karten dessen, der ausspielt, sind gedimmt.','kontra-offer, kontra-none, kontra-said, kontra-re, kontra-supra, kontra-hirsch, kontra-agent, kontra-watch, kontra-end, kontra-lost-end, kontra-first-wait, kontra-first-watch, kontra-first-re'],
   ['🎥','Videos an den Stühlen','Im Anruf sitzt jeder Spieler mit seinem Video an seinem Stuhl, auch du an deinem Platz; ein Agent im Anruf sitzt dort mit seiner Figur, ohne Kachel im Anruf zeigt sein Stuhl die Kugel. Nur wer zuschaut, liegt oben in der kleinen Leiste.','call-stage-videos, call-stage-own-agent, call-stage-agent-no-tile, call-stage-waiting'],
+  ['⚑','Schenken ablehnen (Entwurf zur Wahl)','Gibt die Gegenseite auf, fragt die Tafel den Alleinspieler mit „Annehmen“ und „Ablehnen“, die Taste nennt die geforderte Stufe; nach dem Ablehnen trägt die Tafel ruhig „Schneider Pflicht“, und Ergebniskarte und Liste nennen die Stufe als eigene Marke.','refuse-ask, refuse-partner, refuse-said, refuse-must, refuse-schwarz, refuse-end, refuse-missed, refuse-list'],
+  ['🥖','Brötchen und Baguette (Entwurf zur Wahl)','Am Bierdeckel jedes Stuhls stehen drei Plätze für Brötchen; das dritte macht ein Baguette, das als Stempel mit dem Gesicht landet, gleich vom Deckel abgeht und in der Liste eine eigene Zeile bekommt.','bread-chairs, bread-baguette, bread-list'],
 ];
 const ideaList=`<div class="ideas">${IDEAS.map(([ic,t,line,where,demo])=>`<div class="idea">${demo?'<span class="nullbox"><span class="null0"></span></span>':`<span class="ic">${ic}</span>`}<span><b>${t}.</b> ${line}<span class="where">${where}</span></span></div>`).join('')}</div>`;
 document.querySelector('.page-head').insertAdjacentHTML('beforeend',ideaList);
@@ -3422,6 +3424,8 @@ const THINK_SETS={
 }
 /* ===== house variant 1, candidate scenes: „Schenken ablehnen heißt Schneider“. The opponents' give-up is an offer the declarer accepts or refuses; a refusal demands the next level, which the plaque carries while play goes on and the result card and the list line name. Drawn with the recommended answer A to card 1 of #815 ===== */
 I.refuse=sv('<path d="M5 21V3.5"/><path d="M5 4.5c4-2 7 2 11.5 0v8.5c-4.5 2-7.5-2-11.5 0z"/><path d="M3 3l18 18"/>');
+/* the list of every game with newer rows a candidate draws on top, newest first */
+const listTopped=(d,count,newest)=>gameList(d,GAMES_PLAYED,count).replace('<div class="rows" tabindex="0">',`<div class="rows" tabindex="0">${newest}`);
 {
 /* the refusal names the level it demands inside its key, so the choice reads without the note */
 const refuseAnswers=(level)=>answers(undefined,{icon:I.refuse,text:`Ablehnen<span class="demand">${level}</span>`});
@@ -3439,7 +3443,7 @@ const REFUSED_MISSED={...OWN_LOSS,adds:[40,40,-146],eyes:[81,39],stamp:'Abgelehn
 /* the list's row of a refused game: the demanded level is the row's own second line, under the game */
 const REFUSED_ROW=[21,'felix','c','Kreuz','mit 1',48,true];
 const refusedRow=(row,level)=>gameRow(row).replace('</small></span>',`</small><small class="must">${I.refuse}${level} Pflicht</small></span>`);
-const refusedList=(d)=>gameList(d,GAMES_PLAYED,22).replace('<div class="rows" tabindex="0">',`<div class="rows" tabindex="0">${refusedRow(REFUSED_ROW,'Schneider')}`);
+const refusedList=(d)=>listTopped(d,22,refusedRow(REFUSED_ROW,'Schneider'));
 const LINE_1='Gezeichnet mit der empfohlenen Antwort A auf Karte 1 von #815.';
 const REFUSE_SCENES=[
   ['refuse-ask','Schenken: du nimmst an oder lehnst ab',[390,1280],(d)=>offered(d),
@@ -3465,6 +3469,37 @@ const REFUSE_SCENES=[
     ['Die Zeile von Spiel 21 nennt das Ablehnen mit der Stufe, die es forderte: unter „Kreuz mit 1“ steht als eigene Zeile „Schneider Pflicht“ mit dem Zeichen des Ablehnens, Wert 48. Gespeichert ist die geforderte Stufe neben der Ansage; die Zeile sagt nichts über eine Ansage, die es nicht gab.'],true],
 ];
 agentScenes(REFUSE_SCENES);
+}
+/* ===== house variant 2, candidate scenes: „Brötchen und Baguette“. Three games in a row without declaring make a Brötchen, three Brötchen a Baguette, whose penalty is its own line in the list. Each chair's coaster carries its person's Brötchen for everyone to see ===== */
+I.roll=sv('<path d="M3 15c0-4.4 4-8 9-8s9 3.6 9 8c0 1.7-1.3 3-3 3H6c-1.7 0-3-1.3-3-3z"/><path d="M8 11.5c2.5-1.6 5.5-1.6 8 0"/>');
+I.baguette=sv('<g transform="rotate(-35 12 12)"><rect x="1" y="9" width="22" height="6" rx="3"/><path d="M6.5 10.5l2 3M10.5 10.5l2 3M14.5 10.5l2 3"/></g>');
+{
+/* three slots, one per Brötchen toward the next Baguette, filled as they are earned; a Baguette earned in this series stands before them */
+const bread=(rolls,baguettes=0)=>`<span class="bread" title="${rolls} Brötchen${baguettes?`, ${baguettes} Baguette`:''}">${I.baguette.repeat(baguettes).replaceAll('<svg','<svg class="loaf"')}${[0,1,2].map(i=>i<rolls?I.roll.replace('<svg','<svg class="on"'):I.roll).join('')}</span>`;
+/* Anna declares; Nova has two Brötchen, Felix one */
+const PLAY_BREAD=[bread(0),bread(2),bread(1)];
+/* Anna won Herz; it was Ben's ninth game in a row without declaring: his third Brötchen makes a Baguette, booked at once */
+const BAGUETTE_PENALTY=50;
+const BAGUETTE_END={...RIVAL,booked:[0,BAGUETTE_PENALTY,0],coasterMarks:[bread(0),bread(0,1),bread(2)]};
+/* the stamp lands on Ben's chair, above the result card */
+const baguetteStamp=(d)=>{const [x,y]=endLayout(d).coasters[1];return stamp('Baguette!','ben',{x:d?x+60:x-14,y:d?y-80:y-32,sf:d?40:24,ss:d?260:160,k:.42});};
+/* the penalty's row has no number of its own: the loaf stands where a game's number stands, right above the game that earned it */
+const penaltyRow=(k)=>{const p=P[k];
+  return `<div class="grow penalty"><span class="nr">${I.baguette}</span><span class="dot" style="${dotStyle(p)}">${p.i}</span>`
+    +`<span class="txt"><b>${p.n}</b><small>Baguette</small></span><span class="val"></span><span class="gain minus">${withMinus(-BAGUETTE_PENALTY)}</span></div>`;};
+const ANNA_HERZ=[21,'anna','h','Herz','mit 2',30,true];
+const BREAD_NOTE='Ob ein Ramsch oder ein eingepasstes Spiel den Zähler bewegt, entscheidet Karte 2 von #815; gezeichnet ist die empfohlene Antwort A: nur Spiele mit Alleinspieler zählen. Das Bild sieht bei B und C gleich aus.';
+const BREAD_SCENES=[
+  ['bread-chairs','Brötchen an jedem Stuhl',[390,1280],(d)=>kontraTable(d,{coasterMarks:PLAY_BREAD})+kontraStrip(d,''),
+    ['Am Bierdeckel jedes Stuhls steht klein, wie viele Brötchen die Person dort hat: drei Plätze, gefüllt so viele, wie sie in Folge verdient hat. Nova hat zwei, Felix eins, Anna, die gerade spielt, keins. Alle am Tisch und jeder Zuschauer sehen dieselben Brötchen; der Zähler gehört der Person und läuft über die Serie.',
+     'Wie weit es zum nächsten Brötchen ist (0 bis 2 Spiele), zeigt das Zeichen nicht; die Frage „wie nah ist das Baguette“ beantworten die drei Plätze.',BREAD_NOTE],true],
+  ['bread-baguette','Ein Baguette',[390,1280],(d)=>endScene(d,BAGUETTE_END,tapButton)+baguetteStamp(d),
+    ['Anna gewann ihr Herz; für Ben war es das neunte Spiel in Folge ohne Alleinspiel. Sein drittes Brötchen wird zum Baguette: der Stempel „Baguette!“ mit seinem Gesicht landet neben seinem Stuhl, an seinem Deckel steht das Baguette vor drei leeren Plätzen, und der Deckel zieht die 50 gleich ab: 62 − 50 = 12. Die Ergebniskarte bleibt die des Spiels; die Strafe ist keine Zeile des Spiels, Bock und Kontra verdoppeln sie nie.',
+     'Ein Standbild; eine kleine Bewegung beim Verdienen ist eine Idee, keine Regel, und bleibt hier eine Notiz.',BREAD_NOTE],true],
+  ['bread-list','Liste: die Strafe als eigene Zeile',[390,1280],(d)=>seriesPlay(d,'')+listTopped(d,22,penaltyRow('ben')+gameRow(ANNA_HERZ)),
+    ['Über Annas Herz (Spiel 21) steht die Strafe als eigene Zeile: das Baguette an der Stelle der Nummer, Bens Gesicht, „Baguette“ und −50, ohne Wert, denn sie ist kein Spiel. Sie zählt in Bens Stand und in der Rangliste; gespeichert wird sie nicht, die Liste leitet sie aus den Spielen und der Höhe der Strafe ab.'],true],
+];
+agentScenes(BREAD_SCENES);
 }
 const byId=Object.fromEntries(FRAMES);
 document.head.insertAdjacentHTML('beforeend',`<style>${KEYFRAMES.join('\n')}</style>`);
@@ -4079,6 +4114,18 @@ body.tk-play .tk-runs .thought .mo{animation-play-state:running!important;animat
 .p390 .answers:has(.demand) .button{padding:0 12px;gap:6px}
 .game.pushes.must{display:flex;align-items:center;gap:5px}
 .game.pushes.must svg{width:14px;height:14px;flex:none}
+/* ---------- house variant 2: a chair's Brötchen under its coaster, upright whatever the coaster's turn; the penalty's line in the list ---------- */
+.coaster .bread{position:absolute;left:50%;top:calc(100% + 2px);transform:translateX(-50%) rotate(calc(var(--cr,-8deg) * -1));display:flex;align-items:center;gap:2px;padding:3px 7px;border-radius:999px;background:rgba(12,16,20,.82);box-shadow:inset 0 0 0 1px rgba(243,207,122,.25);color:rgba(243,232,210,.42);font-size:0;white-space:nowrap}
+.coaster .bread svg{width:18px;height:18px;stroke-width:1.8}
+.coaster .bread svg.on{color:#f3cf7a;fill:#c98d3a}
+.coaster .bread svg.loaf{width:22px;height:22px;margin-right:3px;color:#f3cf7a;fill:#c98d3a}
+.d1280 .coaster .bread svg{width:20px;height:20px}
+.d1280 .coaster .bread svg.loaf{width:24px;height:24px}
+.seat.bar .coaster:has(.bread){position:relative}
+.grow.penalty{box-shadow:inset 0 0 0 1px rgba(243,207,122,.35)}
+.grow.penalty .nr{color:#f3cf7a}
+.grow.penalty .nr svg{display:block;width:20px;height:20px;margin:auto;fill:#c98d3a}
+.grow.penalty small{color:#f3cf7a}
 </style>
 </body>
 </html>
