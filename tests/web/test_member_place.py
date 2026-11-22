@@ -264,10 +264,11 @@ class TestAnAcceptThatIsStale:
 
         with at_the_table(skat, table_id, owner):
             answer = agent.accept(table_id, offer, **changes)
+            standing_states = [standing["state"] for standing in standing_of(agent)]
 
         assert (answer.is_error, answer.json()) == (True, STALE)
         assert stored(skat) == before
-        assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
+        assert standing_states == ["invited"]
 
     @pytest.mark.parametrize(
         ("changes", "failing_field"),
@@ -287,12 +288,13 @@ class TestAnAcceptThatIsStale:
 
         with at_the_table(skat, table_id, owner):
             answer = agent.accept(table_id, offer, **changes)
+            standing_states = [standing["state"] for standing in standing_of(agent)]
 
         refused_fields = answer.text.removeprefix(f"{ARGUMENTS_REFUSED_TEXT}: ")
         assert (answer.is_error, refused_fields != answer.text) == (True, True)
         assert f"{failing_field} (" in refused_fields
         assert stored(skat) == before
-        assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
+        assert standing_states == ["invited"]
 
     def test_when_it_comes_a_second_time_after_seating(self, invite, skat, agent, owner, table_id):
         offer = invite(agent, table_id, owner)
