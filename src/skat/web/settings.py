@@ -170,7 +170,7 @@ class ServerSettings(DatabaseSettings):
         cls,
         settings_cls: type[BaseSettings],
         init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,  # noqa: ARG003 the hook's fixed signature
+        env_settings: PydanticBaseSettingsSource,  # noqa: ARG003, V107 the hook's fixed signature
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
