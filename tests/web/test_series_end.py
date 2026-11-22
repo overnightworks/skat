@@ -634,8 +634,12 @@ class TestTheMinuteOfNewSeries:
     def test_a_sit_with_no_mark_standing_starts_no_minute(self, skat, time, ended):
         skat.stand(headers_of(ended)[2], ended.table_id, command_id="stand-third")
 
+        skat.client.portal.call(time.advance, END_ANSWER_SECONDS * 2)
+        timers_before = time.pending
+
         assert skat.sit(ended.watcher, ended.table_id, 3, command_id="sit-watcher").status_code == 200
 
+        assert time.pending == timers_before
         skat.client.portal.call(time.advance, END_ANSWER_SECONDS * 2)
         assert isinstance(skat.store.tables[ended.table_id], TableRecord)
 

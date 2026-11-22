@@ -44,7 +44,7 @@ from tests.e2e.support.style import (
     expect_the_furniture_clear,
     give_the_table_its_style,
 )
-from tests.e2e.support.table_menu import AGENTS_PANEL, close_table_menu, menu_button, open_agents_panel
+from tests.e2e.support.table_menu import AGENTS_PANEL, EDGE_MARGIN, close_table_menu, menu_button, open_agents_panel
 from tests.e2e.support.tables import SIT_DOWN
 
 if TYPE_CHECKING:
@@ -72,8 +72,6 @@ FULL_LENGTH_NAMES = ("Maximiliane-Bartholomaea1", "Maximiliane-Bartholomaea2")
 ORDINARY_NAMES = ("Felix", "Nova")
 PICKED_INDEX = 7
 
-# The agents' list keeps this far from either edge of the screen, in pixels.
-EDGE_MARGIN = 16
 FRAMES_AFTER_THE_CARD = 90
 # Every frame from now on, the open list's distance to each edge of the screen the person's device has (not of the
 # layout width a widened page reports); after the card stands, `framesAfterTheCard` counts the frames.

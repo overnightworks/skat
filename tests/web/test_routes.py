@@ -1,9 +1,13 @@
+from typing import ClassVar
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from starlette.exceptions import HTTPException
 
 from skat.web.constants import APP_ASSET_PATH, HEALTH_PATH, HOME_PATH
-from skat.web.routes import create_router
+from skat.web.languages import LANGUAGE_VARY
+from skat.web.routes import create_router, unknown_address_handler
 from skat.web.sign_in import build_sign_in_configs
 from tests.support.in_memory_stores import in_memory_stores, in_process_rate_limits
 from tests.support.page_build import fixture_page_build
@@ -25,11 +29,18 @@ def database() -> Database:
 
 
 @pytest.fixture
-def client(sign_in_settings, database):
+def application(sign_in_settings, database):
     application = FastAPI()
     sessions = in_memory_stores().sessions
     web_auth = build_sign_in_configs(sign_in_settings().settings, in_process_rate_limits()).web_auth
-    application.include_router(create_router(fixture_page_build(), sessions, web_auth, database))
+    page_build = fixture_page_build()
+    application.include_router(create_router(page_build, sessions, web_auth, database))
+    application.add_exception_handler(HTTPException, unknown_address_handler(page_build, sessions, web_auth))
+    return application
+
+
+@pytest.fixture
+def client(application):
     return TestClient(application)
 
 
@@ -82,3 +93,58 @@ class TestHeadRequests:
     @pytest.mark.parametrize("path", [HOME_PATH, HEALTH_PATH])
     def test_head_answers_ok(self, client, path):
         assert client.head(path).status_code == 200
+
+
+class TestUnknownAddress:
+    HTML: ClassVar[dict[str, str]] = {"Accept": "text/html,application/xhtml+xml"}
+
+    def test_a_page_request_gets_the_shell_with_404(self, client):
+        response = client.get("/no-such-page", headers=self.HTML)
+
+        assert response.status_code == 404
+        assert response.headers["content-type"].startswith("text/html")
+        assert response.headers["vary"] == LANGUAGE_VARY
+        assert response.content == client.get(HOME_PATH).content
+
+    def test_a_head_request_gets_the_404_with_the_shell_headers(self, client):
+        response = client.head("/no-such-page", headers=self.HTML)
+
+        assert response.status_code == 404
+        assert response.headers["content-type"].startswith("text/html")
+        assert response.headers["vary"] == LANGUAGE_VARY
+        assert int(response.headers["content-length"]) == len(client.get(HOME_PATH).content)
+
+    def test_a_page_request_keeps_the_405_of_a_known_post_only_address(self, application, client):
+        @application.post("/post-only")
+        async def post_only() -> None: ...
+
+        response = client.get("/post-only", headers=self.HTML)
+
+        assert response.status_code == 405
+        assert response.json() == {"detail": "Method Not Allowed"}
+
+    def test_the_shell_comes_in_the_language_of_the_request(self, client):
+        german = client.get("/no-such-page", headers={**self.HTML, "Accept-Language": "de"})
+        english = client.get("/no-such-page", headers={**self.HTML, "Accept-Language": "en"})
+
+        assert b'lang="de"' in german.content
+        assert b'lang="en"' in english.content
+
+    @pytest.mark.parametrize("path", ["/api/no-such-thing", "/mcp/x", "/health/x", f"{APP_ASSET_PATH}/no-such-file"])
+    def test_a_machine_path_keeps_its_plain_404(self, client, path):
+        response = client.get(path, headers=self.HTML)
+
+        assert response.status_code == 404
+        assert not response.headers["content-type"].startswith("text/html")
+
+    def test_a_request_not_asking_for_a_page_keeps_the_json_404(self, client):
+        response = client.get("/no-such-page", headers={"Accept": "application/json"})
+
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Not Found"}
+
+    def test_a_post_to_an_unknown_address_keeps_the_json_404(self, client):
+        response = client.post("/no-such-page", headers=self.HTML)
+
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Not Found"}
