@@ -70,8 +70,7 @@
     --ladder-glass: rgba(28, 17, 22, 0.74);
     --ladder-held-glass: rgba(28, 17, 22, 0.8);
     --ladder-ink: var(--on-stage);
-    --ladder-mit-ink: var(--on-stage);
-    --ladder-held-mit-ink: #f3cf7a;
+    --ladder-unticked-ink: #f3cf7a;
 
     /* The score tiles under the result card are woven straw like the seat's mat. */
     --reck-ink: var(--ink);

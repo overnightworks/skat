@@ -5925,12 +5925,8 @@ body {
     stroke-linejoin: round;
 }
 
-.room .result .ladder > span.mit {
-    color: var(--ladder-mit-ink);
-}
-
 .room .result .ladder > span.held.mit {
-    color: var(--ladder-held-mit-ink);
+    color: var(--ladder-unticked-ink);
 }
 
 .room .result .eq {

@@ -42,8 +42,7 @@
     --ladder-glass: rgba(0, 0, 0, 0.28);
     --ladder-held-glass: rgba(0, 0, 0, 0.35);
     --ladder-ink: rgba(244, 246, 248, 0.45);
-    --ladder-mit-ink: #f3cf7a;
-    --ladder-held-mit-ink: #f3cf7a;
+    --ladder-unticked-ink: #f3cf7a;
 
     --reck-ink: #14181d;
     --reck-background: #f4ecd9;
