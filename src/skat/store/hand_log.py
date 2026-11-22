@@ -425,15 +425,16 @@ def stamped_hand(connection: Connection, table_id: str) -> Row[Any] | None:
 def save_hand_log(connection: Connection, table: TableRecord, *, rewrite: bool) -> None:
     """Store the table's hand in the log and stamp its `hands` row with the table's version. The log appends the steps
     not yet stored, and stored steps that are no prefix of the hand's raise; `rewrite` deletes the stored ones first,
-    for a new hand, a hand whose end forgets its steps, and a log another release left behind. An empty log, a hand
-    with no hand and no step, deletes the stored one as well.
+    for a new hand, a hand whose end forgets its steps, and a log another release left behind. A table with no hand
+    and no step leaves a stored deal that took no step alone, as it leaves the dealt cards.
     """
     table_id = table.id.value
     log = encoded(table)
-    if rewrite or not log:
+    if rewrite:
         connection.execute(delete(hand_steps).where(hand_steps.c.table_id == table_id))
-    stored = () if rewrite or not log else read_log(connection, table_id)
-    fresh = unstored_steps(table_id, stored, log)
+    stored = () if rewrite else read_log(connection, table_id)
+    deal_alone = not log and len(stored) == 1
+    fresh = () if deal_alone else unstored_steps(table_id, stored, log)
     if fresh:
         rows = [
             {"table_id": table_id, "ordinal": ordinal, **asdict(row), "kind": row.kind.value}

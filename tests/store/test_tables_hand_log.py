@@ -10,8 +10,9 @@ import pytest
 from sqlalchemy import delete, func, select
 
 from skat.store.hand_log import hand_steps, hands, save_hand_log, stamped_hand
+from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import save_shared, save_step_tables
-from skat.table.records import EndedTable, TableId
+from skat.table.records import EndedTable, HandProgress, TableId
 from tests.support.hand_log_scenes import scene_on, scenes, traced
 from tests.support.seated_tables import ended_at, save, undealt_table
 from tests.support.stored_game import seated_table_id
@@ -115,6 +116,23 @@ def test_a_save_after_another_release_ended_a_hand_and_dealt_the_next_reads_back
         held(stored(transactions, table.id.value)),
         held(read_by_release_0(engine, transactions, stored, table.id.value)),
     ) == (True, held(table), held(table))
+
+
+def test_a_save_that_empties_a_passed_in_hands_log_raises_and_both_stores_keep_the_hand(
+    service, transactions, stored, engine
+):
+    passed_in_scene = SCENES["passed in, between hands"]
+    passed_in = scene_on(passed_in_scene, base_of(service, transactions, stored, passed_in_scene))
+    save(transactions, passed_in)
+    emptied = replace(passed_in, version=passed_in.version + 1, progress=HandProgress())
+
+    with pytest.raises(StepLogRewrittenError):
+        save(transactions, emptied)
+
+    assert (
+        held(stored(transactions, passed_in.id.value)),
+        held(read_by_release_0(engine, transactions, stored, passed_in.id.value)),
+    ) == (held(passed_in), held(passed_in))
 
 
 def test_the_end_of_a_table_forgets_its_hand_log(service, transactions, stored, engine, dealt_scene):
