@@ -1491,7 +1491,7 @@ body {
 
 /* The face is the round keys' brighter glass, not the glass of the other keys. */
 .room .lobby .lobby-face {
-    background: var(--round-key-tint);
+    background: var(--lobby-face-background, var(--round-key-tint));
 }
 
 .room .lobby-face {
@@ -2122,6 +2122,15 @@ body {
     border-radius: var(--tile-radius);
     background: var(--tile-background);
     box-shadow: var(--tile-shadow);
+}
+
+/* The ring a look gives its own seat, which its states may keep in place of their own. */
+.room {
+    --tile-mine-ring: var(--tile-mine-shadow);
+}
+
+.room.framed {
+    --tile-mine-ring: var(--tile-mine-framed-shadow);
 }
 
 .room .chair.mine .tile {
@@ -5175,9 +5184,11 @@ body {
 }
 
 .room .chair.mine.turn .tile {
-    box-shadow:
+    box-shadow: var(
+        --tile-mine-turn-shadow,
         0 0 0 3px var(--accent-stage, #7aa7f0),
-        0 18px 30px -12px rgba(0, 0, 0, 0.9);
+        0 18px 30px -12px rgba(0, 0, 0, 0.9)
+    );
 }
 
 /* A phone's felt is tall enough for the controls to stand clear of the far fans. */
@@ -6225,6 +6236,13 @@ body {
 
 .room .chair.win .tile {
     box-shadow: inset 0 0 0 3px #f3cf7a;
+}
+
+/* A phone's own seat on a won hand, plain: the look's own ring where it keeps one. */
+@media (max-width: 899px) {
+    .room:not(.framed) .chair.mine.win:not(.turn) .tile {
+        box-shadow: var(--tile-mine-win-shadow, inset 0 0 0 3px #f3cf7a);
+    }
 }
 
 /* A won result in the playful set throws its suit confetti from the own chair: little cream tiles, each with a pip. */
@@ -9637,7 +9655,16 @@ body {
         transform: none;
         color: var(--on-stage);
         background: none;
+        box-shadow: none;
         font-size: 14px;
+    }
+
+    .room .chair.mine .plate small {
+        color: currentcolor;
+    }
+
+    .room .chair.mine .plate .away-note {
+        color: var(--plate-mine-note-ink, var(--plate-note-ink));
     }
 
     .room .chair.mine .mark {
