@@ -1,10 +1,10 @@
 import re
 from pathlib import Path
-from typing import Annotated, Final
+from typing import Annotated, Any, Final
 from urllib.parse import urlsplit
 
 from pydantic import AfterValidator, BeforeValidator, Field
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic_settings import BaseSettings, EnvSettingsSource, NoDecode, PydanticBaseSettingsSource, SettingsConfigDict
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 from webauth.admission import GroupPath
@@ -157,10 +157,29 @@ class DatabaseSettings(BaseSettings):
     operator_account_id: OptionalAccountId = None
 
 
+class _EnvironmentWithoutRealm(EnvSettingsSource):
+    """The environment as a source for every field but `realm`, which only the REALM_* variables fill."""
+
+    def __call__(self) -> dict[str, Any]:
+        return {name: value for name, value in super().__call__().items() if name != "realm"}
+
+
 class ServerSettings(DatabaseSettings):
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,  # noqa: ARG003 the hook's fixed signature
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (init_settings, _EnvironmentWithoutRealm(settings_cls), dotenv_settings, file_secret_settings)
+
     host: str = DEFAULT_HOST
     port: int = DEFAULT_PORT
     oidc_issuer: IssuerUrl
+    # Read from the REALM_* variables alone; the environment source never fills this field.
     realm: RealmSettings = Field(default_factory=_realm_from_environment)
     oidc_client_secret_file: AbsolutePath = Field(repr=False)
     public_origin: OriginUrl

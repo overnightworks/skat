@@ -74,6 +74,11 @@ class TestServerSettings:
             assert settings.database_url == sign_in.settings.database_url
             assert settings.database_password_file == sign_in.settings.database_password_file
 
+    def test_a_set_skat_realm_variable_is_no_source_of_the_realm(self, sign_in_settings):
+        environment = {**sign_in_settings().environment, "SKAT_REALM": '{"client_id": "other"}'}
+        with patch.dict(os.environ, environment, clear=True):
+            assert ServerSettings().realm == TEST_REALM
+
     @pytest.mark.parametrize("key", REALM_ENVIRONMENT)
     def test_missing_realm_value_stops_the_start_by_its_key(self, sign_in_settings, key):
         environment = {name: value for name, value in sign_in_settings().environment.items() if name != key}
