@@ -153,7 +153,7 @@ Unit tests cover the logic, with a fake issuer for sign-in. Store and end-to-end
 
 - The expand and admit-then-write checks read the schema, not the meaning of data: review alone judges compound CHECKs, columns without a CHECK, a rewriting `UPDATE`, receipt payloads, wake addresses, Redis key and JSON formats, and the formats of tandem, agents and webauth on a bump.
 - Each presence read lists every open stream's lease, as tandem has no roster per table; `lease_roster_read.ended` shows its growth.
-- Agent leases, the wait clock of asks and nudges, reactions and the held answers of who may call agents live in one process: a restart forgets them, and no pod sees another's agent leases.
+- Agent leases, the wait clock of asks and nudges, reactions and the held answers of who may call agents live in one process: a restart forgets them, and no pod sees another's agent leases. Two overlapping fresh group reads of one session rely on the issuer's refresh-token reuse: where the issuer refuses it, the second call answers `try-again` and writes nothing, and the first call's invitation stands.
 - A session's refresh and ID tokens are stored in plain text, because encrypting them needs a third secret on the same pod; a dump of `sessions` with the client secret mints access tokens until the session expires.
 - Every agent call and sign-in entry takes one database-wide advisory lock, so they queue.
 - The table record, its views and the `tables` row hold the table's state and the hand's in one type each, and the seat count is stated in the engine, the table core and the store separately.
