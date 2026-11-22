@@ -569,6 +569,7 @@ def _mount_agent_front(
         settings.public_origin,
         _agent_heard(presence, roster),
         member_front(tables, presence, changes, scheduler, presence.waits),
+        settings.realm,
     )
     app.state.mcp_front = mcp.front
     return mcp

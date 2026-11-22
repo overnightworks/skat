@@ -4,11 +4,12 @@ from typing import Annotated, Final
 from urllib.parse import urlsplit
 
 from pydantic import AfterValidator, BeforeValidator, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
+from webauth.admission import GroupPath
 
-from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT, OIDC_CLIENT_ID
+from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT
 
 DEFAULT_EMPTY_TABLE_SECONDS: Final = 1800
 DEFAULT_PAUSED_TABLE_DAYS: Final = 90
@@ -118,6 +119,30 @@ OptionalAccountId = Annotated[VisibleText | None, BeforeValidator(_unset_when_em
 AbsolutePath = Annotated[Path, AfterValidator(_require_absolute_path)]
 PasswordlessPostgresUrl = Annotated[str, AfterValidator(_require_postgres_url_without_password)]
 CredentiallessRedisUrl = Annotated[str, AfterValidator(_require_redis_url_without_credentials)]
+# NoDecode: pydantic-settings JSON-decodes the value of a dataclass-typed field before any validator runs.
+RealmGroup = Annotated[GroupPath, NoDecode, BeforeValidator(GroupPath)]
+
+
+class RealmSettings(BaseSettings):
+    """The realm's names for Skat, as the platform hands them; each field is read from its own environment key."""
+
+    model_config = SettingsConfigDict(hide_input_in_errors=True, populate_by_name=True)
+
+    client_id: str = Field(validation_alias="REALM_CLIENT_ID", min_length=1)
+    login_group: RealmGroup = Field(validation_alias="REALM_LOGIN_GROUP")
+    # The scope and audience a token for the MCP path carries.
+    mcp_scope: str = Field(validation_alias="REALM_MCP_SCOPE", min_length=1)
+    # The group whose members the MCP gate admits.
+    mcp_group: RealmGroup = Field(validation_alias="REALM_MCP_GROUP")
+    # The group of agents' own accounts, admitted from any client.
+    agent_group: RealmGroup = Field(validation_alias="REALM_AGENT_GROUP")
+    # The client agents sign in with.
+    mcp_client_id: str = Field(validation_alias="REALM_MCP_CLIENT_ID", min_length=1)
+
+
+def _realm_from_environment() -> RealmSettings:
+    # The required values come from the environment, which the type checker cannot see.
+    return RealmSettings()  # pyright: ignore[reportCallIssue]
 
 
 class DatabaseSettings(BaseSettings):
@@ -136,7 +161,7 @@ class ServerSettings(DatabaseSettings):
     host: str = DEFAULT_HOST
     port: int = DEFAULT_PORT
     oidc_issuer: IssuerUrl
-    oidc_client_id: str = OIDC_CLIENT_ID
+    realm: RealmSettings = Field(default_factory=_realm_from_environment)
     oidc_client_secret_file: AbsolutePath = Field(repr=False)
     public_origin: OriginUrl
     session_secret_file: AbsolutePath = Field(repr=False)

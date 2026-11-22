@@ -29,7 +29,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
-from webauth.admission import AdmissionConfig, NoAdmins, app_role
+from webauth.admission import AdmissionConfig, GroupPath, NoAdmins, app_role
 from webauth.dependencies import session_id_from_request
 from webauth.oidc_login import AccessTokenRefusal
 
@@ -228,7 +228,7 @@ class CallerMembership:
         self._groups = groups
         self._web_auth = web_auth
         self._admission = AdmissionConfig(
-            bound_issuer=admission_issuer, login_group=AGENT_ADDERS_GROUP, admin_group=NoAdmins.IN_THIS_APP
+            bound_issuer=admission_issuer, login_group=GroupPath(AGENT_ADDERS_GROUP), admin_group=NoAdmins.IN_THIS_APP
         )
         self._clock = clock
         self._held: dict[str, _Held] = {}

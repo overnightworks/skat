@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
-from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT, OIDC_CLIENT_ID
+from skat.web.constants import DEFAULT_HOST, DEFAULT_PORT
 from skat.web.settings import (
     DEFAULT_EMPTY_TABLE_SECONDS,
     DEFAULT_ENDED_TABLE_DAYS,
@@ -14,6 +14,7 @@ from skat.web.settings import (
     HIGHEST_TABLE_DAYS,
     ServerSettings,
 )
+from tests.support.sign_in_settings import REALM_ENVIRONMENT, TEST_REALM
 
 REQUIRED_SIGN_IN_SETTINGS = [
     "oidc_issuer",
@@ -27,11 +28,10 @@ REQUIRED_SIGN_IN_SETTINGS = [
 
 
 class TestServerSettings:
-    def test_unset_settings_take_the_default_listen_address_client_id_and_no_trusted_proxies(self, sign_in_settings):
+    def test_unset_settings_take_the_default_listen_address_and_no_trusted_proxies(self, sign_in_settings):
         settings = sign_in_settings().settings
         assert settings.host == DEFAULT_HOST
         assert settings.port == DEFAULT_PORT
-        assert settings.oidc_client_id == OIDC_CLIENT_ID
         assert settings.trusted_proxies == ""
         assert settings.call_origin is None
         assert settings.empty_table_seconds == DEFAULT_EMPTY_TABLE_SECONDS
@@ -45,7 +45,6 @@ class TestServerSettings:
             **sign_in.environment,
             "SKAT_HOST": "127.0.0.1",
             "SKAT_PORT": "9090",
-            "SKAT_OIDC_CLIENT_ID": "other-client",
             "SKAT_TRUSTED_PROXIES": "10.0.0.0/8,127.0.0.1",
             "SKAT_CALL_ORIGIN": "https://call.test.invalid",
             "SKAT_CHAIR_HOLD_SECONDS": "90.5",
@@ -59,7 +58,7 @@ class TestServerSettings:
             settings = ServerSettings()
             assert settings.host == "127.0.0.1"
             assert settings.port == 9090
-            assert settings.oidc_client_id == "other-client"
+            assert settings.realm == TEST_REALM
             assert settings.trusted_proxies == "10.0.0.0/8,127.0.0.1"
             assert settings.call_origin == "https://call.test.invalid"
             assert settings.chair_hold_seconds == 90.5
@@ -74,6 +73,22 @@ class TestServerSettings:
             assert settings.session_secret_file == sign_in.settings.session_secret_file
             assert settings.database_url == sign_in.settings.database_url
             assert settings.database_password_file == sign_in.settings.database_password_file
+
+    @pytest.mark.parametrize("key", REALM_ENVIRONMENT)
+    def test_missing_realm_value_stops_the_start_by_its_key(self, sign_in_settings, key):
+        environment = {name: value for name, value in sign_in_settings().environment.items() if name != key}
+        with patch.dict(os.environ, environment, clear=True), pytest.raises(ValidationError, match=key):
+            ServerSettings()
+
+    @pytest.mark.parametrize("key", ["REALM_LOGIN_GROUP", "REALM_MCP_GROUP", "REALM_AGENT_GROUP"])
+    @pytest.mark.parametrize(
+        "value", ["apps/no-leading-slash", "/apps//empty-segment", "/apps/ padded", "/apps\u2028x"]
+    )
+    def test_malformed_realm_group_stops_the_start_by_its_key_and_never_by_value(self, sign_in_settings, key, value):
+        environment = {**sign_in_settings().environment, key: value}
+        with patch.dict(os.environ, environment, clear=True), pytest.raises(ValidationError, match=key) as refusal:
+            ServerSettings()
+        assert value not in str(refusal.value)
 
     @pytest.mark.parametrize("setting", REQUIRED_SIGN_IN_SETTINGS)
     def test_missing_required_sign_in_setting_is_refused_by_name(self, sign_in_settings, setting):

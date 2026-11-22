@@ -22,8 +22,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from webauth.https_client import KeySetFetchError
 from webauth.oidc import TokenEndpointAnswer, TokenEndpointError, TokenRequest
 
-from skat.web.mcp import AGENT_GROUP, MCP_CLIENT_ID, MCP_GROUP, MCP_SCOPE
 from skat.web.sign_in import IssuerTransports
+from tests.support.sign_in_settings import AGENT_GROUP, MCP_CLIENT_ID, MCP_GROUP, MCP_SCOPE
 
 if TYPE_CHECKING:
     from tests.support.sign_in_settings import SignInSettings
@@ -65,7 +65,7 @@ class FakeIssuer:
         self._key = rsa.generate_private_key(public_exponent=65537, key_size=RSA_KEY_BITS)
         self._issuer = sign_in.settings.oidc_issuer
         self._resource_url = f"{sign_in.settings.public_origin}{MCP_ENDPOINT_PATH}"
-        self._client_id = sign_in.settings.oidc_client_id
+        self._client_id = sign_in.settings.realm.client_id
         self._client_secret = sign_in.client_secret
         self._codes: dict[str, _IssuedCode] = {}
         self.refresh_token = secrets.token_urlsafe(REFRESH_TOKEN_BYTES)

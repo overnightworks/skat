@@ -50,6 +50,7 @@ if TYPE_CHECKING:
 
     from pydantic import SecretStr
     from starlette.requests import HTTPConnection
+    from webauth.admission import GroupPath
     from webauth.jwt_verification import KeySetFetch
     from webauth.middleware import SessionGate
     from webauth.oidc import TokenEndpointAnswer, TokenRequest
@@ -100,6 +101,7 @@ class SignInConfigs:
     oidc_client: OidcClientConfig
     web_auth: WebAuthConfig
     trusted_proxies: TrustedProxies
+    login_group: GroupPath
 
 
 @dataclass(frozen=True)
@@ -135,7 +137,12 @@ def build_sign_in_configs(
         web_auth = _build_web_auth_config(settings, session_secret, rate_limits, wall_clock)
     except ValueError as refusal:
         raise SignInConfigurationError(f"session_secret_file is refused: {refusal}") from None
-    return SignInConfigs(oidc_client=oidc_client, web_auth=web_auth, trusted_proxies=trusted_proxies)
+    return SignInConfigs(
+        oidc_client=oidc_client,
+        web_auth=web_auth,
+        trusted_proxies=trusted_proxies,
+        login_group=settings.realm.login_group,
+    )
 
 
 def _parse_trusted_proxies(raw: str) -> TrustedProxies:
@@ -153,7 +160,7 @@ def _build_oidc_client(settings: ServerSettings, client_secret: SecretStr) -> Oi
         token_endpoint=f"{openid_connect}/token",
         jwks_url=f"{openid_connect}/certs",
         end_session_endpoint=f"{openid_connect}/logout",
-        client_id=settings.oidc_client_id,
+        client_id=settings.realm.client_id,
         client_secret=client_secret,
         redirect_uri=settings.public_origin + AUTH_CALLBACK_PATH,
         post_logout_redirect_uri=settings.public_origin + LOGIN_PATH,
@@ -236,7 +243,7 @@ def build_web_auth(
             rate_limit=rate_limit,
         ),
         stores=WebAuthStores(sign_in=stores.transaction, sessions=sessions_entry(stores)),
-        groups=admission_for(configs.oidc_client.issuer),
+        groups=admission_for(configs.oidc_client.issuer, configs.login_group),
         pages=_web_auth_pages(page_build, stores.sessions, configs.web_auth),
         front=configs.trusted_proxies,
         gate=gate,

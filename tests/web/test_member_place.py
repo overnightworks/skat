@@ -16,12 +16,13 @@ from starlette.concurrency import run_in_threadpool
 
 from skat.table.member_place import MemberRefusal
 from skat.table.records import TableId
-from skat.web.mcp import MCP_GROUP, READ_TABLE_TOOL
+from skat.web.mcp import READ_TABLE_TOOL
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.calls import call_facts
 from tests.support.log_lines import lines_of, logged
 from tests.support.played_game import after_the_first_game
+from tests.support.sign_in_settings import MCP_GROUP
 from tests.web.support.agent import UPDATED, Agent
 from tests.web.support.calling import INVITATION_SECONDS, a_person
 from tests.web.support.playing import HERZ_GAME

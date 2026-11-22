@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING
 
-from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_GROUP
+from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.support.sign_in_settings import TEST_ISSUER
+from tests.support.sign_in_settings import LOGIN_GROUP, TEST_ISSUER
 
 if TYPE_CHECKING:
     from playwright.sync_api import ConsoleMessage, Page, Route
