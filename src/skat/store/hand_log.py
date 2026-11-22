@@ -58,9 +58,9 @@ from skat.table.auction import AuctionAction, action_of, step_of
 from skat.table.records import EntryTraces, GiveUpAsked, HandProgress
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Iterable
 
-    from sqlalchemy import RowMapping
+    from sqlalchemy import Row
     from sqlalchemy.engine import Connection
 
     from skat.engine.bidding import AuctionStep
@@ -186,14 +186,15 @@ def _position(position: Position) -> str:
     return POSITION_TEXT[position]
 
 
-def _two_cards(cards: tuple[Card, ...]) -> dict[str, str]:
+def _with_two_cards(row: StepRow, cards: tuple[Card, ...]) -> StepRow:
     first, second = cards
-    return {
-        "suit": SUIT_TEXT[first.suit],
-        "rank": RANK_TEXT[first.rank],
-        "second_suit": SUIT_TEXT[second.suit],
-        "second_rank": RANK_TEXT[second.rank],
-    }
+    return replace(
+        row,
+        suit=SUIT_TEXT[first.suit],
+        rank=RANK_TEXT[first.rank],
+        second_suit=SUIT_TEXT[second.suit],
+        second_rank=RANK_TEXT[second.rank],
+    )
 
 
 def _row_of(step: _Step) -> StepRow:
@@ -204,12 +205,12 @@ def _row_of(step: _Step) -> StepRow:
         case TakeSkat():
             return StepRow(StepKind.TAKE_SKAT)
         case PutBack():
-            return StepRow(StepKind.PUT_BACK, **_two_cards(step.cards))
+            return _with_two_cards(StepRow(StepKind.PUT_BACK), step.cards)
         case Declare():
             game, announcement = GAME_TEXT[step.kind], ANNOUNCEMENT_TEXT[step.announcement]
             return StepRow(StepKind.DECLARE, game=game, hand=step.hand, ouvert=step.ouvert, announcement=announcement)
         case Put():
-            return StepRow(StepKind.STAGE_PUT, _position(step.position), **_two_cards(step.cards))
+            return _with_two_cards(StepRow(StepKind.STAGE_PUT, _position(step.position)), step.cards)
         case Take() | Push() | DeclareGrandHand():
             return StepRow(_STAGE_KINDS[type(step)], _position(step.position))
         case CardPlayed():
@@ -301,9 +302,9 @@ def _sort_into(phases: _Phases, row: StepRow) -> None:
         phases.words.append(WordSaid(_position_of(row), _word_of(row), len(phases.plays)))
 
 
-def decoded(rows: Iterable[StepRow], standing: Mapping[str, Any]) -> tuple[HandProgress, EntryTraces]:
-    """The hand's progress from its log and its `hands` row, and the traces of its steps and its end; the version's
-    trace is the table row's.
+def decoded(rows: Iterable[StepRow], standing: HandProgress, ending: str | None) -> tuple[HandProgress, EntryTraces]:
+    """The hand's progress from its log and its standing state, and the traces of its steps and of `ending`, the
+    trace of its end; the version's trace is the table row's.
     """
     phases = _Phases([], [], [], [], [])
     traced: list[tuple[int, str]] = []
@@ -312,14 +313,14 @@ def decoded(rows: Iterable[StepRow], standing: Mapping[str, Any]) -> tuple[HandP
         if row.traceparent is not None:
             traced.append((slot, row.traceparent))
     progress = replace(
-        standing_of(standing),
+        standing,
         auction=tuple(phases.auction),
         pushing=tuple(phases.pushing),
         declaring=tuple(phases.declaring),
         plays=tuple(phases.plays),
         words=tuple(phases.words),
     )
-    return progress, EntryTraces(None, tuple(traced), standing["end_traceparent"])
+    return progress, EntryTraces(None, tuple(traced), ending)
 
 
 def _text_of(position: Position | None) -> str | None:
@@ -346,51 +347,65 @@ def standing_values(progress: HandProgress) -> dict[str, object]:
     }
 
 
-def _give_up_of(values: Mapping[str, Any]) -> GiveUpAsked | None:
-    if values["give_up_asked_by"] is None:
+def _give_up_of(row: Row[Any]) -> GiveUpAsked | None:
+    if row.give_up_asked_by is None:
         return None
-    claim = values["give_up_claim"]
+    claim = row.give_up_claim
     return GiveUpAsked(
-        POSITION_OF_TEXT[values["give_up_asked_by"]],
-        _position_or_none(values["give_up_declined_by"]),
+        POSITION_OF_TEXT[row.give_up_asked_by],
+        _position_or_none(row.give_up_declined_by),
         None if claim is None else ANNOUNCEMENT_OF_TEXT[claim],
-        _position_or_none(values["give_up_agreed_by"]),
-        values["give_up_open"],
+        _position_or_none(row.give_up_agreed_by),
+        row.give_up_open,
     )
 
 
-def standing_of(values: Mapping[str, Any]) -> HandProgress:
-    """The hand's standing state from its columns, named as `hands` names them, on a hand with no step."""
+def standing_of(row: Row[Any], *, aborted: bool) -> HandProgress:
+    """The hand's standing state, on a hand with no step, from a row with the columns `hands` and the table row both
+    name alike; `aborted` is the one they name apart.
+    """
     return HandProgress(
-        give_up=_give_up_of(values),
-        shortening_refused_by=_position_or_none(values["shortening_refused_by"]),
-        played_open=frozenset(POSITION_OF_TEXT[each] for each in values["played_open"]),
-        abort_yes=frozenset(values["abort_yes_seats"]),
-        aborted=values["aborted"],
+        give_up=_give_up_of(row),
+        shortening_refused_by=_position_or_none(row.shortening_refused_by),
+        played_open=frozenset(POSITION_OF_TEXT[each] for each in row.played_open),
+        abort_yes=frozenset(row.abort_yes_seats),
+        aborted=aborted,
     )
 
 
 def read_log(connection: Connection, table_id: str) -> tuple[StepRow, ...]:
-    columns = [column for column in hand_steps.columns if column.name not in {"table_id", "ordinal"}]
     rows = connection.execute(
-        select(*columns).where(hand_steps.c.table_id == table_id).order_by(hand_steps.c.ordinal)
-    ).mappings()
-    return tuple(StepRow(**{**row, "kind": StepKind(row["kind"])}) for row in rows)
+        select(hand_steps).where(hand_steps.c.table_id == table_id).order_by(hand_steps.c.ordinal)
+    )
+    return tuple(
+        StepRow(
+            StepKind(row.kind),
+            row.position,
+            row.value,
+            row.suit,
+            row.rank,
+            row.second_suit,
+            row.second_rank,
+            row.game,
+            row.hand,
+            row.ouvert,
+            row.announcement,
+            row.word,
+            row.traceparent,
+        )
+        for row in rows
+    )
 
 
-def stamped_hand(connection: Connection, table_id: str) -> RowMapping | None:
+def stamped_hand(connection: Connection, table_id: str) -> Row[Any] | None:
     """The table's `hands` row while it was written for the table's version; None when another release moved the
     table since, or the table never dealt.
     """
-    return (
-        connection.execute(
-            select(hands)
-            .join(tables, tables.c.id == hands.c.table_id)
-            .where(hands.c.table_id == table_id, hands.c.stamp_version == tables.c.version)
-        )
-        .mappings()
-        .one_or_none()
-    )
+    return connection.execute(
+        select(hands)
+        .join(tables, tables.c.id == hands.c.table_id)
+        .where(hands.c.table_id == table_id, hands.c.stamp_version == tables.c.version)
+    ).one_or_none()
 
 
 def save_hand_log(connection: Connection, table: TableRecord, *, rewrite: bool) -> None:

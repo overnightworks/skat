@@ -1,4 +1,4 @@
-"""The trace a commit entered in is stored with the version and the acts it wrote, and the release before, which
+"""The trace a commit entered in is stored with the version and the steps it wrote, and the release before, which
 writes none, leaves what it writes untraced.
 """
 
@@ -22,12 +22,12 @@ def traced(transactions):
     return TableService(transactions, random_source=random.Random(8)).with_trace(lambda: TRACE)  # noqa: S311 - seeded
 
 
-def test_a_commit_stores_its_trace_with_the_version_and_the_act_it_wrote(traced, transactions):
+def test_a_commit_stores_its_trace_with_the_version_and_the_step_it_wrote(traced, transactions):
     table_id = seated_table(traced, "traced", series_length=36)
 
     traces = read(transactions, table_id.value).traces
 
-    assert (traces.version, [each for _, each in traces.acts]) == (TRACE, [TRACE])
+    assert (traces.version, [each for _, each in traces.steps]) == (TRACE, [TRACE])
 
 
 def test_an_opened_table_stores_the_trace_of_the_request_that_opened_it(traced, transactions):
@@ -36,10 +36,10 @@ def test_an_opened_table_stores_the_trace_of_the_request_that_opened_it(traced, 
     assert read(transactions, opened.id).traces == EntryTraces(TRACE)
 
 
-def test_a_version_the_release_before_moved_reads_with_no_trace_and_its_acts_keep_theirs(traced, transactions, engine):
+def test_a_version_the_release_before_moved_reads_with_no_trace_and_its_steps_keep_theirs(traced, transactions, engine):
     table_id = seated_table(traced, "moved", series_length=36)
     before = read(transactions, table_id.value).traces
     with engine.begin() as connection:
         connection.execute(text("UPDATE tables SET version = version + 1 WHERE id = :id"), {"id": table_id.value})
 
-    assert read(transactions, table_id.value).traces == EntryTraces(None, before.acts)
+    assert read(transactions, table_id.value).traces == EntryTraces(None, before.steps, before.ending)

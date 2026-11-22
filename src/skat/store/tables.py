@@ -226,7 +226,8 @@ def _table_record(
     if standing is None:
         logged, traces = _step_tables_progress(connection, table), EntryTraces(version_trace)
     else:
-        logged, step_traces = decoded(read_log(connection, table_id), standing)
+        hand_standing = standing_of(standing, aborted=standing.aborted)
+        logged, step_traces = decoded(read_log(connection, table_id), hand_standing, standing.end_traceparent)
         traces = replace(step_traces, version=version_trace)
     record = TableRecord(
         id=TableId(table_id),
@@ -265,7 +266,7 @@ def _step_tables_progress(connection: Connection, table: Row[Any]) -> HandProgre
     writes alone.
     """
     return replace(
-        standing_of({**table._mapping, "aborted": table.hand_aborted}),  # noqa: SLF001 - SQLAlchemy's public mapping
+        standing_of(table, aborted=table.hand_aborted),
         auction=read_steps(connection, table.id),
         declaring=read_declaring_steps(connection, table.id),
         plays=read_plays(connection, table.id),
