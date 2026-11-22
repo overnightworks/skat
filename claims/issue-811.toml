@@ -1,7 +1,0 @@
-claim_id = "0354712a49c14ae0a4af756125c8cbf0"
-agent = "Claude a37a7494-f263-4372-b296-e883a1ec2851"
-role = "builder"
-base = "bac94761e215e34d4c8ff762ed6bfe4a6cfa8d88"
-branch = "claude/issue-811-skat-pins-quality-v0-23-1"
-scope = [".github/workflows/ci.yml", ".github/workflows/code-scanning.yml", ".github/workflows/release.yml"]
-opened_commit = "3c88b929872d9153387fcdca9b25158ad44509bc"
