@@ -49,14 +49,29 @@ class TestTheControlListsTheAgentsASessionsPersonMayCall(CallingTable):
         assert (row["name"], row["state"], row["ends_in_seconds"]) == ("Nova", "available", None)
 
     def test_the_control_stays_with_no_row_when_no_agent_listens(self, skat, felix, table_id):
-        assert read_control(skat, felix, table_id).json() == {"shown": True, "rows": []}
+        assert read_control(skat, felix, table_id).json() == {"shown": True, "full": False, "rows": []}
+
+    def test_a_member_at_a_table_whose_chairs_are_taken_sees_the_control_full_with_no_row(
+        self, skat, issuer, felix, table_id
+    ):
+        with listening(skat, issuer, felix, "Nova", NOVA):
+            seat_of_nobody_but(skat, table_id, 2)
+            answer = read_control(skat, felix, table_id)
+
+        assert answer.json() == {"shown": True, "full": True, "rows": []}
+
+    def test_a_member_at_a_table_with_a_free_chair_sees_the_control_not_full(self, skat, issuer, felix, table_id):
+        with listening(skat, issuer, felix, "Nova", NOVA):
+            answer = read_control(skat, felix, table_id)
+
+        assert answer.json()["full"] is False
 
     def test_a_person_outside_the_group_sees_no_control(self, skat, issuer, felix, table_id):
         outsider = person(skat, issuer, groups=())
         with listening(skat, issuer, felix, "Nova", NOVA), streams_of(skat, table_id, [(outsider.headers, None)]):
             answer = read_control(skat, outsider, table_id)
 
-        assert answer.json() == {"shown": False, "rows": []}
+        assert answer.json() == {"shown": False, "full": False, "rows": []}
 
     def test_a_person_without_a_stream_on_the_table_sees_no_control_and_costs_no_grant(
         self, skat, issuer, felix, table_id
@@ -66,7 +81,7 @@ class TestTheControlListsTheAgentsASessionsPersonMayCall(CallingTable):
         with listening(skat, issuer, felix, "Nova", NOVA):
             answer = read_control(skat, absent, table_id)
 
-        assert (answer.json(), refresh_grants(issuer)) == ({"shown": False, "rows": []}, 0)
+        assert (answer.json(), refresh_grants(issuer)) == ({"shown": False, "full": False, "rows": []}, 0)
 
     def test_an_agent_whose_owner_is_away_is_not_listed(self, skat, issuer, felix, table_id):
         away = person(skat, issuer)
@@ -117,7 +132,7 @@ class TestTheControlListsTheAgentsASessionsPersonMayCall(CallingTable):
 
             answer = read_control(skat, outsider, table_id)
 
-        assert answer.json() == {"shown": False, "rows": []}
+        assert answer.json() == {"shown": False, "full": False, "rows": []}
 
     def test_the_rows_name_no_account_and_keep_their_key_from_state_to_state(self, skat, issuer, felix, table_id):
         with listening(skat, issuer, felix, "Nova", NOVA) as nova:
@@ -224,7 +239,7 @@ class TestACallInvitesTheAgent(CallingTable):
 
             others_control = read_control(skat, other, table_id).json()
 
-        assert others_control == {"shown": True, "rows": []}
+        assert others_control == {"shown": True, "full": False, "rows": []}
 
     def test_an_invitation_that_ran_out_shows_the_caller_the_row_ended_with_no_answer_and_no_refusal(
         self, skat, issuer, time, felix, table_id
@@ -382,7 +397,7 @@ class TestACallThatChangesNothing(CallingTable):
             control = read_control(skat, felix, table_id).json()
 
         assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.NOT_ALLOWED})
-        assert (control, invitations_of(nova)) == ({"shown": False, "rows": []}, [])
+        assert (control, invitations_of(nova)) == ({"shown": False, "full": False, "rows": []}, [])
 
     def test_a_person_added_to_the_group_after_the_display_sees_the_control_at_the_next_call(
         self, skat, issuer, felix, table_id

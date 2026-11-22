@@ -259,6 +259,15 @@ describe("the agents' list in the table menu", () => {
         expect(list()?.textContent).toContain(kitWords["agent.empty"]);
     });
 
+    it("says that the place is full, not that nobody is reachable, when the control is full", async () => {
+        server({ control: { shown: true, full: true, rows: [] } });
+
+        await show(1, true);
+
+        expect(list()?.textContent).toContain(kitWords["agent.placeFull"]);
+        expect(list()?.textContent).not.toContain(kitWords["agent.empty"]);
+    });
+
     it("calls the row's agent with a tap on Rufen and shows the row calling", async () => {
         const inviting = { ...row, state: "inviting", ends_in_seconds: 120 };
         const fetcher = server({
