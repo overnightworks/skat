@@ -37,8 +37,9 @@ def test_the_log_after_a_step_extends_the_log_before_or_empties_where_the_hand_f
 @pytest.mark.parametrize("scene", SCENES.values(), ids=SCENES.keys())
 def test_the_log_with_the_standing_state_decodes_to_the_hands_progress_and_traces(scene):
     table = scene_table(scene)
+    standing = replace(table.progress, auction=(), pushing=(), declaring=(), plays=(), words=())
 
-    decoding = decoded(encoded(table), table.progress, table.traces.ending)
+    decoding = decoded(encoded(table), standing, table.traces.ending)
 
     assert decoding == (table.progress, replace(table.traces, version=None))
 
