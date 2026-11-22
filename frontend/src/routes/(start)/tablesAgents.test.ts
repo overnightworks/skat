@@ -18,7 +18,7 @@ const nova = (state: "available" | "inviting" | "here" | "ended", ends = 120): A
         : state === "inviting"
           ? { key: "key-nova", name: "Nova", state, ends_in_seconds: ends }
           : { key: "key-nova", name: "Nova", state, ends_in_seconds: null };
-const controlOf = (...rows: AgentRow[]): AgentsControl => ({ shown: true, rows });
+const controlOf = (...rows: AgentRow[]): AgentsControl => ({ shown: true, full: false, rows });
 const cutOff = () =>
     new ReadableStream({
         start: (stream) => {
