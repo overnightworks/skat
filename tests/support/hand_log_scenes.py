@@ -173,6 +173,20 @@ def _stage_and_declaring_scenes() -> tuple[HandScene, ...]:
             options=GRAND_HAND,
         ),
         HandScene(
+            "the Ramsch stage after a push",
+            lambda table: _steps(
+                _put(_in(table, auction=ALL_PASS, pushing=(Take(FOREHAND),))), "pushing", Push(MIDDLEHAND)
+            ),
+            (NextStep("a push", lambda table: _steps(table, "pushing", Push(REARHAND))),),
+            options=PUSHING,
+        ),
+        HandScene(
+            "the Ramsch stage after a Grand Hand",
+            lambda table: _in(table, auction=ALL_PASS, pushing=(DeclareGrandHand(FOREHAND),)),
+            (),
+            options=GRAND_HAND,
+        ),
+        HandScene(
             "declaring after the take",
             lambda table: _in(table, auction=WON_AT_18, declaring=(TakeSkat(),)),
             (NextStep("a put-back", lambda table: _steps(table, "declaring", _skat_put_back(table))),),

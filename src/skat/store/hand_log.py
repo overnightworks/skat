@@ -217,7 +217,7 @@ def _row_of(step: _Step) -> StepRow:
             return StepRow(
                 StepKind.CARD, _position(step.position), suit=SUIT_TEXT[step.card.suit], rank=RANK_TEXT[step.card.rank]
             )
-        case WordSaid():
+        case _:  # a spoken word, the last of the steps
             return StepRow(StepKind.WORD, _position(step.position), word=step.word.value)
 
 

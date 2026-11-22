@@ -56,14 +56,36 @@ def _bid_without_a_value(row):
     return replace(row, value=None) if row.kind is StepKind.BID else row
 
 
+def _card_without_a_position(row):
+    return replace(row, position=None) if row.kind is StepKind.CARD else row
+
+
+def _declare_without_a_game(row):
+    return replace(row, game=None) if row.kind is StepKind.DECLARE else row
+
+
+def _word_without_a_word(row):
+    return replace(row, word=None) if row.kind is StepKind.WORD else row
+
+
 @pytest.mark.parametrize(
     ("broken", "message"),
     [
         (_without_rank, "card without its suit or rank"),
         (_pass_with_a_value, "pass step carries a value"),
         (_bid_without_a_value, "bid step names no value"),
+        (_card_without_a_position, "card step names no position"),
+        (_declare_without_a_game, "declare step names no whole game"),
+        (_word_without_a_word, "word step names no word"),
     ],
-    ids=["a card without its rank", "a pass with a value", "a bid without a value"],
+    ids=[
+        "a card without its rank",
+        "a pass with a value",
+        "a bid without a value",
+        "a card without a position",
+        "a declare without a game",
+        "a word without a word",
+    ],
 )
 def test_a_stored_step_whose_payload_misfits_its_kind_decodes_loud(broken, message):
     table = scene_table(SCENES["cards with words, a word after the last card"])
