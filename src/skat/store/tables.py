@@ -288,31 +288,37 @@ def _forget_played_hand(connection: Connection, table_id: str) -> None:
 
 @dataclass(frozen=True)
 class HandMoment:
-    """What a save did to the stored hand: `dealt` a new one, or `forgot` the steps of one that ended."""
+    """What a save does to the stored hand: `dealt` a new one, `forgot` the steps of one played out or aborted, or
+    `passed_in` one whose auction passed it in, whose steps stay until the next deal.
+    """
 
     dealt: bool
     forgot: bool
+    passed_in: bool
 
 
-def save_shared(connection: Connection, table: TableRecord, played_at: datetime | None) -> HandMoment:
-    """Store what every release writes alike: the table row's own columns, the series, the deal, the game list, the
-    chairs, the plans and the answers of no word. The row's visibility and the opener's name are written by `add_table`
-    and never here; no time leaves the last played time as it is.
-    """
+def _hand_moment(connection: Connection, table: TableRecord, series_number: int) -> HandMoment:
+    """What saving `table` does to the stored hand; a hand with progress that differs from the one dealt raises."""
     table_id = table.id.value
     dealt = _read_hand(connection, table_id)
     ended = dealt is not None and table.hand is None
     aborted = ended and table.progress.aborted
     passed_in = ended and isinstance(auction_of(table).result, PassedIn)
-    series_number = series_number_of(table)
     played_out = ended and len(table.game_list) > len(read_game_list(connection, table_id, series_number))
     if dealt is not None and table.hand != dealt and table.progress != HandProgress() and not (passed_in or aborted):
         message = f"the hand saved for table {table_id} differs from the one dealt"
         raise DealtHandRewrittenError(message)
+    return HandMoment(dealt=table.hand is not None and dealt is None, forgot=played_out or aborted, passed_in=passed_in)
+
+
+def _write_table_row(connection: Connection, table: TableRecord, played_at: datetime | None) -> None:
+    """The row's own columns: the visibility and the opener's name are written by `add_table` and never here; no time
+    leaves the last played time as it is.
+    """
     played = {} if played_at is None else {"last_played_at": played_at}
     connection.execute(
         update(tables)
-        .where(tables.c.id == table_id)
+        .where(tables.c.id == table.id.value)
         .values(
             version=table.version,
             traceparent=table.traces.version,
@@ -320,19 +326,29 @@ def save_shared(connection: Connection, table: TableRecord, played_at: datetime 
             dealer=table.dealer,
             style=table.style.value,
             **played,
-            series_number=series_number,
+            series_number=series_number_of(table),
         )
     )
+
+
+def save_shared(connection: Connection, table: TableRecord, played_at: datetime | None) -> HandMoment:
+    """Store what every release writes alike: the table row's own columns, the series, the deal, the game list, the
+    chairs, the plans and the answers of no word.
+    """
+    table_id = table.id.value
+    series_number = series_number_of(table)
+    moment = _hand_moment(connection, table, series_number)
+    _write_table_row(connection, table, played_at)
     save_series(connection, table)
-    if passed_in or played_out or aborted:
+    if moment.passed_in or moment.forgot:
         connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table_id))
     append_game_list(connection, table_id, series_number, table.game_list, played_at)
-    if table.hand is not None and dealt is None:
+    if moment.dealt and table.hand is not None:
         connection.execute(insert(hand_cards), _hand_rows(table_id, table.hand))
     write_no_words(connection, table_id, table.progress.no_words)
     _write_chairs(connection, table)
     write_plans(connection, table)
-    return HandMoment(dealt=table.hand is not None and dealt is None, forgot=played_out or aborted)
+    return moment
 
 
 def save_step_tables(connection: Connection, table: TableRecord, moment: HandMoment, *, rewrite: bool) -> None:

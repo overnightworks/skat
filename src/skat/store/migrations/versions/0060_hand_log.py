@@ -24,6 +24,11 @@ KINDS = (
 
 
 def upgrade() -> None:
+    _create_hand_steps()
+    _create_hands()
+
+
+def _create_hand_steps() -> None:
     op.execute(
         "CREATE TABLE hand_steps ("
         " table_id text NOT NULL REFERENCES tables (id) ON DELETE CASCADE,"
@@ -53,6 +58,9 @@ def upgrade() -> None:
         " CONSTRAINT hand_steps_word_is_a_word CHECK (word IN ('kontra', 're', 'supra', 'hirsch')))"
     )
     op.execute("CREATE UNIQUE INDEX hand_steps_each_card_once ON hand_steps (table_id, suit, rank) WHERE kind = 'card'")
+
+
+def _create_hands() -> None:
     op.execute(
         "CREATE TABLE hands ("
         " table_id text PRIMARY KEY REFERENCES tables (id) ON DELETE CASCADE,"

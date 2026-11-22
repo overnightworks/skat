@@ -111,26 +111,23 @@ def _with_cards_and_words(table: TableRecord) -> TableRecord:
     )
 
 
-def _next_deal_of(dealt: TableRecord) -> NextStep:
-    return NextStep(
-        "the next deal",
-        lambda table: replace(table, hand=dealt.hand, progress=HandProgress()),
-        LogAfter.STARTS_OVER,
-    )
+def _the_deal(table: TableRecord) -> TableRecord:
+    """The table dealt the in-memory table's deal by its dealer, with no step."""
+    dealt = a_dealt_table()
+    return replace(table, dealer=dealt.dealer, hand=dealt.hand, progress=HandProgress())
 
 
 _A_CARD = NextStep("a card", _next_card)
 _PLAYED_OUT = NextStep("the end of the game", _played_out, LogAfter.EMPTIES)
+_NEXT_DEAL = NextStep("the next deal", _the_deal, LogAfter.STARTS_OVER)
 
 
-def scenes(dealt: TableRecord) -> tuple[HandScene, ...]:
-    """The scenes of the matrix; `dealt` is the table whose deal the next deal deals again."""
-    deal_again = _next_deal_of(dealt)
+def _auction_scenes() -> tuple[HandScene, ...]:
     return (
         HandScene(
             "a table with no deal",
             lambda table: replace(table, dealer=None, hand=None),
-            (NextStep("the deal", lambda table: replace(table, dealer=dealt.dealer, hand=dealt.hand)),),
+            (NextStep("the deal", _the_deal),),
             dealt=False,
         ),
         HandScene(
@@ -152,8 +149,14 @@ def scenes(dealt: TableRecord) -> tuple[HandScene, ...]:
         HandScene(
             "passed in, between hands",
             lambda table: replace(table, hand=None, progress=HandProgress(auction=ALL_PASS)),
-            (deal_again,),
+            (_NEXT_DEAL,),
         ),
+    )
+
+
+def _stage_and_declaring_scenes() -> tuple[HandScene, ...]:
+    grand = Declare(GameKind.GRAND, hand=False, ouvert=False, announcement=Announcement.NONE)
+    return (
         HandScene(
             "the Ramsch stage after a take",
             lambda table: _in(table, auction=ALL_PASS, pushing=(Take(FOREHAND),)),
@@ -177,32 +180,24 @@ def scenes(dealt: TableRecord) -> tuple[HandScene, ...]:
         HandScene(
             "declaring after the put-back",
             lambda table: _in(table, auction=WON_AT_18, declaring=(TakeSkat(), _skat_put_back(table))),
-            (
-                NextStep(
-                    "a declaration",
-                    lambda table: _steps(
-                        table,
-                        "declaring",
-                        Declare(GameKind.GRAND, hand=False, ouvert=False, announcement=Announcement.NONE),
-                    ),
-                ),
-            ),
+            (NextStep("a declaration", lambda table: _steps(table, "declaring", grand)),),
         ),
         HandScene(
             "a Hand declaration",
             _declared,
             (_A_CARD, NextStep("a word", lambda table: _steps(table, "words", WordSaid(FOREHAND, Word.KONTRA, 0)))),
         ),
+    )
+
+
+def _playing_scenes() -> tuple[HandScene, ...]:
+    return (
         HandScene(
             "cards with words, a word after the last card",
             _with_cards_and_words,
             (_A_CARD, NextStep("a word", lambda table: _steps(table, "words", WordSaid(FOREHAND, Word.SUPRA, 2)))),
         ),
-        HandScene(
-            "before the last card",
-            lambda table: _cards(_declared(table), 29),
-            (_PLAYED_OUT,),
-        ),
+        HandScene("before the last card", lambda table: _cards(_declared(table), 29), (_PLAYED_OUT,)),
         HandScene(
             "a standing give-up",
             lambda table: _declared(table, give_up=GiveUpAsked(MIDDLEHAND)),
@@ -221,24 +216,26 @@ def scenes(dealt: TableRecord) -> tuple[HandScene, ...]:
                 _PLAYED_OUT,
             ),
         ),
-        HandScene(
-            "a refused shortening",
-            lambda table: _declared(table, shortening_refused_by=FOREHAND),
-            (_A_CARD,),
-        ),
-        HandScene(
-            "open play",
-            lambda table: _declared(table, played_open=frozenset({MIDDLEHAND})),
-            (_A_CARD,),
-        ),
+    )
+
+
+def _standing_scenes() -> tuple[HandScene, ...]:
+    return (
+        HandScene("a refused shortening", lambda table: _declared(table, shortening_refused_by=FOREHAND), (_A_CARD,)),
+        HandScene("open play", lambda table: _declared(table, played_open=frozenset({MIDDLEHAND})), (_A_CARD,)),
         HandScene(
             "abort votes",
             lambda table: _declared(table, abort_yes=frozenset({1})),
             (_A_CARD, NextStep("the abort", _aborted, LogAfter.EMPTIES)),
         ),
-        HandScene("aborted, between hands", _aborted, (deal_again,)),
-        HandScene("played out, between hands", _played_out, (deal_again,)),
+        HandScene("aborted, between hands", _aborted, (_NEXT_DEAL,)),
+        HandScene("played out, between hands", _played_out, (_NEXT_DEAL,)),
     )
+
+
+def scenes() -> tuple[HandScene, ...]:
+    """The scenes of the matrix but the ended table, which no hand log holds."""
+    return (*_auction_scenes(), *_stage_and_declaring_scenes(), *_playing_scenes(), *_standing_scenes())
 
 
 def traced(table: TableRecord) -> TableRecord:

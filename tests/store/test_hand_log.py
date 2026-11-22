@@ -9,7 +9,7 @@ import pytest
 from skat.store.hand_log import StepKind, decoded, encoded
 from tests.support.hand_log_scenes import LogAfter, a_dealt_table, scene_on, scenes, stepped
 
-SCENES = {scene.name: scene for scene in scenes(a_dealt_table())}
+SCENES = {scene.name: scene for scene in scenes()}
 STEPS = {f"{scene.name}, then {step.name}": (scene, step) for scene in SCENES.values() for step in scene.next_steps}
 
 

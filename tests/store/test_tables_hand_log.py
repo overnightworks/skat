@@ -12,13 +12,13 @@ from sqlalchemy import delete, func, select
 from skat.store.hand_log import hand_steps, hands, save_hand_log, stamped_hand
 from skat.store.tables import save_shared, save_step_tables
 from skat.table.records import EndedTable, TableId
-from tests.support.hand_log_scenes import a_dealt_table, scene_on, scenes, traced
+from tests.support.hand_log_scenes import scene_on, scenes, traced
 from tests.support.seated_tables import ended_at, save, undealt_table
 from tests.support.stored_game import seated_table_id
 
 pytestmark = pytest.mark.postgres
 
-SCENES = {scene.name: scene for scene in scenes(a_dealt_table())}
+SCENES = {scene.name: scene for scene in scenes()}
 DEALT_SCENES = {name: scene for name, scene in SCENES.items() if scene.dealt}
 
 
