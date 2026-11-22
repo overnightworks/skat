@@ -3425,7 +3425,7 @@ const THINK_SETS={
 /* ===== house variant 1, candidate scenes: „Schenken ablehnen heißt Schneider“. The opponents' give-up is an offer the declarer accepts or refuses; a refusal demands the next level, which the plaque carries while play goes on and the result card and the list line name. Drawn with the recommended answer A to card 1 of #815 ===== */
 I.refuse=sv('<path d="M5 21V3.5"/><path d="M5 4.5c4-2 7 2 11.5 0v8.5c-4.5 2-7.5-2-11.5 0z"/><path d="M3 3l18 18"/>');
 /* the list of every game with newer rows a candidate draws on top, newest first */
-const listTopped=(d,count,newest)=>gameList(d,GAMES_PLAYED,count).replace('<div class="rows" tabindex="0">',`<div class="rows" tabindex="0">${newest}`);
+const listTopped=(d,count,newest,rows=GAMES_PLAYED)=>gameList(d,rows,count).replace('<div class="rows" tabindex="0">',`<div class="rows" tabindex="0">${newest}`);
 {
 /* the refusal names the level it demands inside its key, so the choice reads without the note */
 const refuseAnswers=(level)=>answers(undefined,{icon:I.refuse,text:`Ablehnen<span class="demand">${level}</span>`});
@@ -3488,6 +3488,9 @@ const penaltyRow=(k)=>{const p=P[k];
   return `<div class="grow penalty"><span class="nr">${I.baguette}</span><span class="dot" style="${dotStyle(p)}">${p.i}</span>`
     +`<span class="txt"><b>${p.n}</b><small>Baguette</small></span><span class="val"></span><span class="gain minus">${withMinus(-BAGUETTE_PENALTY)}</span></div>`;};
 const ANNA_HERZ=[21,'anna','h','Herz','mit 2',30,true];
+/* the Baguette at game 21 needs nine counted games without Ben as declarer: Ben last declares game 11, and 13 is passed in and does not count */
+const BEN_LAST_DECLARES_11={11:'ben',14:'anna',17:'anna',20:'felix'};
+const ROWS_BEFORE_BAGUETTE=GAMES_PLAYED.map(([n,k,...rest])=>[n,BEN_LAST_DECLARES_11[n]??k,...rest]);
 const BREAD_NOTE='Ob ein Ramsch oder ein eingepasstes Spiel den Zähler bewegt, entscheidet Karte 2 von #815; gezeichnet ist die empfohlene Antwort A: nur Spiele mit Alleinspieler zählen. Das Bild sieht bei B und C gleich aus.';
 const BREAD_SCENES=[
   ['bread-chairs','Brötchen an jedem Stuhl',[390,1280],(d)=>kontraTable(d,{coasterMarks:PLAY_BREAD})+kontraStrip(d,''),
@@ -3496,8 +3499,8 @@ const BREAD_SCENES=[
   ['bread-baguette','Ein Baguette',[390,1280],(d)=>endScene(d,BAGUETTE_END,tapButton)+baguetteStamp(d),
     ['Anna gewann ihr Herz; für Ben war es das neunte Spiel in Folge ohne Alleinspiel. Sein drittes Brötchen wird zum Baguette: der Stempel „Baguette!“ mit seinem Gesicht landet neben seinem Stuhl, an seinem Deckel steht das Baguette vor drei leeren Plätzen, und der Deckel zieht die 50 gleich ab: 62 − 50 = 12. Die Ergebniskarte bleibt die des Spiels; die Strafe ist keine Zeile des Spiels, Bock und Kontra verdoppeln sie nie.',
      'Ein Standbild; eine kleine Bewegung beim Verdienen ist eine Idee, keine Regel, und bleibt hier eine Notiz.',BREAD_NOTE],true],
-  ['bread-list','Liste: die Strafe als eigene Zeile',[390,1280],(d)=>seriesPlay(d,'')+listTopped(d,22,penaltyRow('ben')+gameRow(ANNA_HERZ)),
-    ['Über Annas Herz (Spiel 21) steht die Strafe als eigene Zeile: das Baguette an der Stelle der Nummer, Bens Gesicht, „Baguette“ und −50, ohne Wert, denn sie ist kein Spiel. Sie zählt in Bens Stand und in der Rangliste; gespeichert wird sie nicht, die Liste leitet sie aus den Spielen und der Höhe der Strafe ab.'],true],
+  ['bread-list','Liste: die Strafe als eigene Zeile',[390,1280],(d)=>seriesPlay(d,'')+listTopped(d,22,penaltyRow('ben')+gameRow(ANNA_HERZ),ROWS_BEFORE_BAGUETTE),
+    ['Über Annas Herz (Spiel 21) steht die Strafe als eigene Zeile: das Baguette an der Stelle der Nummer, Bens Gesicht, „Baguette“ und −50, ohne Wert, denn sie ist kein Spiel. Sie zählt in Bens Stand und in der Rangliste; gespeichert wird sie nicht, die Liste leitet sie aus den Spielen und der Höhe der Strafe ab. Ben war zuletzt in Spiel 11 Alleinspieler; Spiel 21 ist das neunte Spiel mit Alleinspieler seitdem.'],true],
 ];
 agentScenes(BREAD_SCENES);
 }
