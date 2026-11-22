@@ -1,0 +1,8 @@
+claim_id = "669357a533014b42bafd0d76c1078b22"
+agent = "Claude 08329d5b-8776-4078-b270-c37efe5b15d8"
+role = "builder"
+base = "5845a3cbd460008c401b7ccfe1e30917358165e4"
+branch = "claude/issue-676-the-architecture-document-is-a-mental-mo"
+scope = ["README.md", "docs/ARCHITECTURE.md", "src/skat"]
+opened_commit = "3fcddb69bc706d2e569331c2d71d119acefc03b6"
+whole_reason = "One overview rewritten as a whole; the facts it drops move into the docstrings of the modules that own them, which a split would leave stated twice or nowhere."
