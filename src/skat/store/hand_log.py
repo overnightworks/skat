@@ -266,6 +266,20 @@ def _declare_of(row: StepRow) -> Declare:
     )
 
 
+def _auction_step_of(row: StepRow) -> AuctionStep:
+    """The auction step a stored row names; a value only a bid carries, so a row whose value misfits its kind raises
+    instead of decoding as another step.
+    """
+    action = _ACTION_OF_KIND[row.kind]
+    if action is AuctionAction.BID and row.value is None:
+        message = "a stored bid step names no value"
+        raise ValueError(message)
+    if action is not AuctionAction.BID and row.value is not None:
+        message = f"a stored {row.kind.value} step carries a value"
+        raise ValueError(message)
+    return step_of(action, row.value, _position_of(row))
+
+
 def _word_of(row: StepRow) -> Word:
     if row.word is None:
         message = "a stored word step names no word"
@@ -285,7 +299,7 @@ class _Phases:
 def _sort_into(phases: _Phases, row: StepRow) -> None:
     kind = row.kind
     if kind in _ACTION_OF_KIND:
-        phases.auction.append(step_of(_ACTION_OF_KIND[kind], row.value, _position_of(row)))
+        phases.auction.append(_auction_step_of(row))
     elif kind in _STAGE_STEPS:
         phases.pushing.append(_STAGE_STEPS[kind](_position_of(row)))
     elif kind is StepKind.STAGE_PUT:

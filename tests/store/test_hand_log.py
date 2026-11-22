@@ -43,9 +43,30 @@ def test_the_log_with_the_standing_state_decodes_to_the_hands_progress_and_trace
     assert decoding == (table.progress, replace(table.traces, version=None))
 
 
-def test_a_stored_card_without_its_rank_decodes_loud():
-    table = scene_table(SCENES["cards with words, a word after the last card"])
-    broken = tuple(replace(row, rank=None) if row.kind is StepKind.CARD else row for row in encoded(table))
+def _without_rank(row):
+    return replace(row, rank=None) if row.kind is StepKind.CARD else row
 
-    with pytest.raises(ValueError, match="card without its suit or rank"):
-        decoded(broken, table.progress, table.traces.ending)
+
+def _pass_with_a_value(row):
+    return replace(row, kind=StepKind.PASS, value=18) if row.kind is StepKind.BID else row
+
+
+def _bid_without_a_value(row):
+    return replace(row, value=None) if row.kind is StepKind.BID else row
+
+
+@pytest.mark.parametrize(
+    ("broken", "message"),
+    [
+        (_without_rank, "card without its suit or rank"),
+        (_pass_with_a_value, "pass step carries a value"),
+        (_bid_without_a_value, "bid step names no value"),
+    ],
+    ids=["a card without its rank", "a pass with a value", "a bid without a value"],
+)
+def test_a_stored_step_whose_payload_misfits_its_kind_decodes_loud(broken, message):
+    table = scene_table(SCENES["cards with words, a word after the last card"])
+    log = tuple(broken(row) for row in encoded(table))
+
+    with pytest.raises(ValueError, match=message):
+        decoded(log, table.progress, table.traces.ending)
