@@ -1,5 +1,5 @@
 claim_id = "9715787ada034e109e13fddd8d3d59c9"
-agent = "Claude 08329d5b-8776-4078-b270-c37efe5b15d8"
+agent = "Claude a37a7494-f263-4372-b296-e883a1ec2851"
 role = "builder"
 base = "4b61383ea6ecb8fa2775a5533e08d37cad1164ad"
 branch = "claude/issue-809-the-looks-are-token-sets"
