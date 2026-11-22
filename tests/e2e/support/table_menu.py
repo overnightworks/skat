@@ -18,6 +18,8 @@ SHORTEN_ROW = ".row.shorten"
 PLAY_OPEN_ROW = ".row.play-open"
 AGENTS = text(SOURCE_LANGUAGE, "table.agents")
 AGENTS_PANEL = ".anchored-panel:has(.agents-list)"
+# The open agents' list keeps this far from either edge of the viewport, in pixels.
+EDGE_MARGIN = 16
 ACCOUNT = text(SOURCE_LANGUAGE, "account.title")
 ACCOUNT_PANEL = ".anchored-panel:has(nav.legal)"
 

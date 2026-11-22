@@ -1,5 +1,7 @@
-"""The roster lists an agent exactly while the shared place store says it listens on its standing under the issuer and
-its record is readable; its key is derived from the session secret.
+"""The roster offers one entry per agent that listens under the issuer on its standing and has a record, carrying the
+record's name and owner and a key derived from the session secret, the same on every pod. A call writes or refreshes
+the agent's record and goes on when the write fails. A place store or record store that does not answer lists no agent
+until it answers again.
 """
 
 import asyncio
