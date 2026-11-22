@@ -196,7 +196,10 @@ class TestASendAwayThatChangesNothing(CallingTable):
             control = read_control(skat, felix, table_id).json()
 
         assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.NOT_ALLOWED})
-        assert (control, chair_two(skat, table_id).display_name) == ({"shown": False, "rows": []}, "Nova")
+        assert (control, chair_two(skat, table_id).display_name) == (
+            {"shown": False, "full": False, "rows": []},
+            "Nova",
+        )
 
     @pytest.mark.parametrize(
         "break_the_read",

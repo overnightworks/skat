@@ -15,6 +15,7 @@ from skat.table.records import (
     Decision,
     EndedTable,
     EndProposal,
+    EntryTraces,
     FormerHolder,
     GiveUpAsked,
     GiveUpOptions,
@@ -76,10 +77,15 @@ class CommandIdReusedError(Exception):
 
 
 def decide_create(
-    actor: Actor, table_id: TableId, series_length: int | None, options: TableOptions, visibility: Visibility
+    actor: Actor,
+    table_id: TableId,
+    series_length: int | None,
+    options: TableOptions,
+    visibility: Visibility,
+    traces: EntryTraces,
 ) -> TableRecord:
     """A new table with its opener in chair 1 and the other chairs free, a series of no deals if it has a length, the
-    options it is opened with and the visibility it is listed by.
+    options it is opened with, the visibility it is listed by and the traces it is created in.
     """
     opener = Chair(1, Occupant(actor.account_id, actor.display_name, actor.kind, actor.owner_account))
     return TableRecord(
@@ -95,6 +101,7 @@ def decide_create(
         bock=BockRounds.start(),
         visibility=visibility,
         style=TableStyle.KLASSIK,
+        traces=traces,
     )
 
 

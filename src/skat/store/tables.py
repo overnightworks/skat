@@ -50,6 +50,7 @@ from skat.table.records import (
     EndedTable,
     Ending,
     EndReason,
+    EntryTraces,
     FormerHolder,
     GiveUpAsked,
     HandProgress,
@@ -239,8 +240,16 @@ def _table_record(
         bock=bock_of(current),
         visibility=Visibility(table.visibility),
         style=TableStyle(table.style),
+        traces=_traces_of(table),
     )
     return with_standing_ask(record)
+
+
+def _traces_of(table: Row[Any]) -> EntryTraces:
+    """The version's trace only while it was written for the version the row has, else the release before moved it."""
+    moved_here = table.traceparent_version == table.version
+    acts: dict[str, str] = table.act_traceparents or {}
+    return EntryTraces(table.traceparent if moved_here else None, tuple((int(seq), each) for seq, each in acts.items()))
 
 
 def _position_of(text: str | None) -> Position | None:
@@ -346,6 +355,9 @@ class _PostgresTableTransaction:
             .where(tables.c.id == table.id.value)
             .values(
                 version=table.version,
+                traceparent=table.traces.version,
+                traceparent_version=None if table.traces.version is None else table.version,
+                act_traceparents={str(seq): each for seq, each in table.traces.acts} or None,
                 dealer=table.dealer,
                 style=table.style.value,
                 **played,
@@ -435,6 +447,8 @@ class _PostgresTableTransaction:
             insert(tables).values(
                 id=table.id.value,
                 version=table.version,
+                traceparent=table.traces.version,
+                traceparent_version=None if table.traces.version is None else table.version,
                 opener_name=opener_name,
                 series_number=series_number_of(table),
                 visibility=table.visibility.value,
