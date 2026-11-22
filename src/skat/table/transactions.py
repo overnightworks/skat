@@ -1,7 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Protocol
 
 from skat.table.member_place import MemberBook
+from skat.table.member_view import traces_after
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -19,6 +20,7 @@ __all__ = [
     "PausedFacts",
     "TableTransaction",
     "TableTransactions",
+    "save_traced",
 ]
 
 
@@ -187,6 +189,18 @@ class TableTransactions(Protocol):  # pragma: no cover - a port's method bodies 
     def begin(self) -> AbstractContextManager[TableTransaction]:
         """One transaction: it commits when the block ends and rolls back when the block raises."""
         ...
+
+
+def save_traced(
+    transaction: TableTransaction,
+    before: TableRecord,
+    after: TableRecord,
+    trace: str | None,
+    *,
+    played_at: datetime | None,
+) -> None:
+    """Save `after`, a change of `before` made in a request of `trace`, with the traces its version and acts are in."""
+    transaction.save_table(replace(after, traces=traces_after(before, after, trace)), played_at=played_at)
 
 
 @dataclass(frozen=True)

@@ -273,9 +273,14 @@ class TestTheEndOfARamsch:
         table = ramsch_table(skat, deal, options_of(**changed))
         table.played_out(hand)
 
+        seated = [chair["occupant_name"] for chair in read(table)["chairs"]]
         for position in (FOREHAND, MIDDLEHAND, REARHAND, None):
             answer = read(table, position)
-            assert (answer["result"], answer["hand"], answer["passed_in"]) == (result, None, None)
+            assert (answer["result"], answer["hand"], answer["passed_in"]) == (
+                {**result, "seat_names": seated},
+                None,
+                None,
+            )
         scores = {seat["seat"]: seat["score"] for seat in result["seats"]}
         totals = {chair["seat"]: chair["total"] for chair in read(table)["chairs"]}
         assert totals == scores

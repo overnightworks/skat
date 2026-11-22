@@ -3,6 +3,7 @@ import re
 from playwright.sync_api import Page, expect
 
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.tables import sit_in
 
 YOU = text(SOURCE_LANGUAGE, "result.sideYou")
 WON = text(SOURCE_LANGUAGE, "result.won")
@@ -12,6 +13,7 @@ MINUS = chr(0x2212)
 WAITING_FOR_PLAYERS = text(SOURCE_LANGUAGE, "table.waitingForPlayers")
 TIMES = chr(0x00D7)
 CARD = ".result"
+SERIES_GONE = text(SOURCE_LANGUAGE, "table.seriesGone")
 
 
 def loosely(*parts: str) -> re.Pattern[str]:
@@ -28,6 +30,16 @@ def listed(names: list[str]) -> str:
 
 def waiting_for(names: list[str]) -> str:
     return text(SOURCE_LANGUAGE, "table.waitingFor", names=listed(names))
+
+
+def expect_a_new_sitter_reads_the_leaver_as_gone(sitter: Page, seat: int, leaver_name: str) -> None:
+    """The person who took the leaver's chair after the hand reads the card as a watcher does, with no „Du“."""
+    sit_in(sitter, seat)
+    expect(sitter.locator(".chair.mine")).to_have_attribute("data-seat", str(seat))
+    coaster_name = sitter.locator(CARD).locator(f".reck[data-seat='{seat}'] .nm")
+    expect(coaster_name).to_contain_text(leaver_name)
+    expect(coaster_name.locator("em")).to_have_text(SERIES_GONE)
+    expect(sitter.locator(CARD).locator(".nm", has_text=YOU)).to_have_count(0)
 
 
 def signed(number: int) -> str:

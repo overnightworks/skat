@@ -4,6 +4,7 @@ import { possessive } from "#lib/openChair.ts";
 import { weiterBar } from "#lib/result.ts";
 import {
     gameRows,
+    hasLeft,
     resultOnStage,
     returnsToLobby,
     seriesCountText,
@@ -18,6 +19,7 @@ import {
     seriesEndOnStage,
     seriesEndView,
     seriesRefusalNotice,
+    seatedNames,
     seriesOver,
     standingsView,
     stopOffered,
@@ -296,6 +298,22 @@ describe("standingsView", () => {
         expect(view?.rows.map((row) => row.gone)).toEqual([false, false, false, true, true]);
         expect(view?.rows.map((row) => row.winner)).toEqual([true, false, false, false, false]);
         expect([...(view?.winnerSeats ?? [])]).toEqual([1]);
+    });
+
+    it("judges a name gone when no chair holds it, and nobody gone without a seating", () => {
+        const seated = seatedNames(
+            chairs(1).map((chair) => (chair.seat === 2 ? { ...chair, occupant_name: null } : chair)),
+        );
+
+        expect([...seated]).toEqual([
+            ["player 1", 1],
+            ["player 3", 3],
+        ]);
+        expect([hasLeft("player 1", seated), hasLeft("player 2", seated), hasLeft("player 2", null)]).toEqual([
+            false,
+            true,
+            false,
+        ]);
     });
 
     it("marks no chair for a winner who has left, and ignores a free chair", () => {

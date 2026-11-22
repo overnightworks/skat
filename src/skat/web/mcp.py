@@ -27,13 +27,11 @@ from webauth.middleware.bearer_gate import (
     BearerGate,
     MarkedRoute,
     ProtectedResource,
-    install_resource_metadata,
     resource_person,
 )
 from webauth.policies import AuthorizedParties
 
 from skat.table.moment import TableMoment
-from skat.web.gate import admission_for
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Collection, Mapping
@@ -42,9 +40,7 @@ if TYPE_CHECKING:
     from agents.tools import JsonObject
     from fastapi import FastAPI
     from starlette.types import ASGIApp, Receive, Scope, Send
-    from webauth.oidc import OidcRelyingParty
-    from webauth.policies import PublicRule
-    from webauth.ports import AgentFacts, SignInTransaction
+    from webauth.ports import AgentFacts
 
     from skat.web.member_place import MemberFront
 
@@ -324,22 +320,21 @@ def offered_tools_by(moments_of: MomentsOf, every_tool: frozenset[str]) -> Offer
 
 @dataclass(frozen=True)
 class McpAccess:
-    """What the host installs for /mcp: the front its lifespan runs, and the gate and public rule that admit it."""
+    """What the host installs for /mcp: the front its lifespan runs, and the gate that admits it."""
 
     front: McpPersonFront
     bearer_gate: BearerGate
-    public_rule: PublicRule
 
 
 def mount_mcp(
     app: FastAPI,
-    relying_party: OidcRelyingParty,
-    transaction: SignInTransaction,
+    issuer: str,
     public_origin: str,
     agent_heard: Callable[[str, AgentFacts], Awaitable[None]],
     member: MemberFront,
 ) -> McpAccess:
-    """Serve /mcp and the resource's metadata document; call it after the last route of the schema is registered.
+    """Serve /mcp and return the gate that admits it, for `WebAuth.install`, which serves the resource's metadata
+    document; call it after the last route of the schema is registered.
 
     The front serves only inside `running()`, which the host's lifespan enters. `agent_heard(account_id, facts)` is
     awaited before the front runs, for every admitted call of an agent, with the facts of its token. Beside the routes'
@@ -357,10 +352,8 @@ def mount_mcp(
         required_group=MCP_GROUP,
         agent_group=AGENT_GROUP,
         authorized_parties=AuthorizedParties(frozenset({MCP_CLIENT_ID})),
-        transaction=transaction,
         marked_routes=tools.marks,
     )
-    issuer = relying_party.issuer
 
     def resolve_person(scope: Scope) -> Principal:
         return Principal(iss=issuer, sub=resource_person(HTTPConnection(scope)).id)
@@ -375,6 +368,4 @@ def mount_mcp(
     )
     # No methods named, so every method reaches the front, which refuses all but POST itself.
     app.router.routes.append(Route(MCP_ENDPOINT_PATH, endpoint=_AgentHearingFront(front, agent_heard)))
-    install_resource_metadata(app, resource, issuer=issuer)
-    admission = admission_for(issuer)
-    return McpAccess(front, BearerGate(relying_party, admission, resource=resource), resource.public_rule)
+    return McpAccess(front, BearerGate(resource=resource))

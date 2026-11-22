@@ -13,7 +13,6 @@ from tests.web.support.playing import (
     cards,
     gains,
     game_of,
-    result_fields,
 )
 
 GRAND = "grand"
@@ -41,7 +40,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert table.result() == result_fields(
+        assert table.result() == table.result_fields(
             game=GRAND,
             matadors={"mit": True, "count": 3},
             base_value=24,
@@ -79,7 +78,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert table.result() == result_fields(
+        assert table.result() == table.result_fields(
             game=GRAND,
             hand=True,
             matadors={"mit": False, "count": 1},
@@ -119,7 +118,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert table.result() == result_fields(
+        assert table.result() == table.result_fields(
             game="karo",
             hand=True,
             matadors={"mit": True, "count": 1},
@@ -162,7 +161,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert table.result() == result_fields(
+        assert table.result() == table.result_fields(
             game="kreuz",
             hand=True,
             announcement="schneider",
@@ -204,7 +203,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert table.result() == result_fields(
+        assert table.result() == table.result_fields(
             game=GRAND,
             hand=True,
             ouvert=True,
@@ -247,7 +246,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert table.result() == result_fields(
+        assert table.result() == table.result_fields(
             game="herz",
             matadors={"mit": True, "count": 2},
             base_value=10,
@@ -283,7 +282,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert table.result() == result_fields(
+        assert table.result() == table.result_fields(
             game="herz",
             matadors={"mit": False, "count": 3},
             base_value=10,
@@ -320,7 +319,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert table.result() == result_fields(
+        assert table.result() == table.result_fields(
             game=GRAND,
             hand=True,
             announcement="schneider",
@@ -359,7 +358,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert table.result() == result_fields(
+        assert table.result() == table.result_fields(
             game="herz",
             schneider=True,
             schwarz=True,
@@ -397,7 +396,7 @@ class TestGrandAndHandGamesReachTheirResult:
             )
         )
 
-        assert table.result() == result_fields(
+        assert table.result() == table.result_fields(
             game="null",
             hand=True,
             matadors=None,
@@ -431,7 +430,7 @@ class TestGrandAndHandGamesReachTheirResult:
 
         table.played_out(game_of("D9 DQ DA / DT DJ DK"))
 
-        assert table.result() == result_fields(
+        assert table.result() == table.result_fields(
             game="null",
             hand=True,
             matadors=None,

@@ -30,6 +30,7 @@ from tests.web.support.playing import (
     three_pass,
     with_pending,
     with_totals,
+    without_seat_names,
 )
 from tests.web.support.ramsch_stage import accepted, list_rows, play_stage, read, stage_table
 from tests.web.support.series import deal_next, headers_of, tap_new_series, tap_weiter
@@ -438,7 +439,7 @@ class TestPushingAndAGrandHandInARamschRound:
         play_stage(same_after_the_third_pass, *plan)
         same_after_the_third_pass.played_out(PLAIN_HAND)
 
-        assert table.result() == same_after_the_third_pass.result()
+        assert without_seat_names(table.result()) == without_seat_names(same_after_the_third_pass.result())
         assert (table.result()["pushes"], table.record.bock) == (2, BockRounds((), 1))
 
     def test_a_grand_hand_instead_of_the_ramsch_wins_and_starts_its_bock_round_before_the_ramsch_games_left(self, skat):

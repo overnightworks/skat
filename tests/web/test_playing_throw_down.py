@@ -8,7 +8,7 @@ from skat.engine.tricks import ALL_POINTS
 from skat.web.declaration_tokens import GameToken
 from skat.web.playing import TABLE_THROW_DOWN_SUFFIX
 from tests.support.payload_cards import FOREHAND_CARDS, KNOWN_DEAL, cards_in_text
-from tests.web.support.playing import Table, card, ending_of, game_of, points_of_cards, shown
+from tests.web.support.playing import Table, card, ending_of, game_of, points_of_cards, shown, without_seat_names
 
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 # The skat of the known deal is the Karo King and the Karo Ace.
@@ -195,7 +195,7 @@ class TestAnOpponentThrowsDown:
             table.declared_hand_game()
             results.append(result_of(table, FOREHAND))
 
-        assert results[0] == results[1]
+        assert without_seat_names(results[0]) == without_seat_names(results[1])
 
 
 class TestWhatTheEndLeaves:

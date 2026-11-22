@@ -514,9 +514,8 @@ class TestWatchTableAdmission(EventsRoute):
         assert rest == [""]
 
     def test_a_session_that_reaches_its_expiry_while_the_stream_is_open_ends_the_stream(self, sign_in_settings):
-        skat = Skat(sign_in_settings, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
         now = [1_800_000_000.0]
-        skat.run_on_clock(now)
+        skat = Skat(sign_in_settings, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS, wall_clock=lambda: now[0])
         headers, _ = skat.member()
         table = skat.create(headers).json()
         skat.client.cookies.clear()
