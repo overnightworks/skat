@@ -85,7 +85,7 @@ class TestAnOwnerOutsideTheGroupSendsHisAgentAway(CallingTable):
 
         answer = send_away(skat, owner, table_id, key)
 
-        assert answer.json() == {"shown": False, "rows": []}
+        assert answer.json() == {"shown": False, "full": False, "rows": []}
 
     @pytest.mark.usefixtures("seated")
     def test_the_owner_retrying_the_same_command_id_is_answered_alike_and_changes_nothing_twice(
@@ -122,7 +122,7 @@ class TestAnOwnerOutsideTheGroupSendsHisAgentAway(CallingTable):
             control = read_control(skat, stranger, table_id).json()
             answer = send_away(skat, stranger, table_id, key)
 
-        assert control == {"shown": False, "rows": []}
+        assert control == {"shown": False, "full": False, "rows": []}
         assert (answer.status_code, answer.json()) == (409, {"reason": CallRefusal.NOT_ALLOWED})
         assert chair_two(skat, table_id).display_name == "Nova"
 
