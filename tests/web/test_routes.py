@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from starlette.exceptions import HTTPException
 
 from skat.web.constants import APP_ASSET_PATH, HEALTH_PATH, HOME_PATH
+from skat.web.languages import LANGUAGE_VARY
 from skat.web.routes import create_router, unknown_address_handler
 from skat.web.sign_in import build_sign_in_configs
 from tests.support.in_memory_stores import in_memory_stores, in_process_rate_limits
@@ -28,13 +29,18 @@ def database() -> Database:
 
 
 @pytest.fixture
-def client(sign_in_settings, database):
+def application(sign_in_settings, database):
     application = FastAPI()
     sessions = in_memory_stores().sessions
     web_auth = build_sign_in_configs(sign_in_settings().settings, in_process_rate_limits()).web_auth
     page_build = fixture_page_build()
     application.include_router(create_router(page_build, sessions, web_auth, database))
     application.add_exception_handler(HTTPException, unknown_address_handler(page_build, sessions, web_auth))
+    return application
+
+
+@pytest.fixture
+def client(application):
     return TestClient(application)
 
 
@@ -92,16 +98,30 @@ class TestHeadRequests:
 class TestUnknownAddress:
     HTML: ClassVar[dict[str, str]] = {"Accept": "text/html,application/xhtml+xml"}
 
-    @pytest.mark.parametrize("method", ["get", "head"])
-    def test_a_page_request_gets_the_shell_with_404(self, client, method):
-        response = getattr(client, method)("/no-such-page", headers=self.HTML)
-        shell = client.get(HOME_PATH).content
+    def test_a_page_request_gets_the_shell_with_404(self, client):
+        response = client.get("/no-such-page", headers=self.HTML)
 
         assert response.status_code == 404
         assert response.headers["content-type"].startswith("text/html")
-        assert response.headers["vary"] == "Accept-Language, Cookie"
-        if method == "get":
-            assert response.content == shell
+        assert response.headers["vary"] == LANGUAGE_VARY
+        assert response.content == client.get(HOME_PATH).content
+
+    def test_a_head_request_gets_the_404_with_the_shell_headers(self, client):
+        response = client.head("/no-such-page", headers=self.HTML)
+
+        assert response.status_code == 404
+        assert response.headers["content-type"].startswith("text/html")
+        assert response.headers["vary"] == LANGUAGE_VARY
+        assert int(response.headers["content-length"]) == len(client.get(HOME_PATH).content)
+
+    def test_a_page_request_keeps_the_405_of_a_known_post_only_address(self, application, client):
+        @application.post("/post-only")
+        async def post_only() -> None: ...
+
+        response = client.get("/post-only", headers=self.HTML)
+
+        assert response.status_code == 405
+        assert response.json() == {"detail": "Method Not Allowed"}
 
     def test_the_shell_comes_in_the_language_of_the_request(self, client):
         german = client.get("/no-such-page", headers={**self.HTML, "Accept-Language": "de"})
@@ -123,7 +143,7 @@ class TestUnknownAddress:
         assert response.status_code == 404
         assert response.json() == {"detail": "Not Found"}
 
-    def test_a_post_keeps_its_405_or_404_answer_as_json(self, client):
+    def test_a_post_to_an_unknown_address_keeps_the_json_404(self, client):
         response = client.post("/no-such-page", headers=self.HTML)
 
         assert response.status_code == 404
