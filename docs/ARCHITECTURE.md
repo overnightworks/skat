@@ -91,7 +91,7 @@ Skat runs from the image the `Release` workflow pushes to `ghcr.io/overnightwork
 
 A rolling update runs pods of two releases on one database, so shared data stays readable for the release before:
 
-- **Expand, then contract.** A migration only adds. A step that drops or changes what the release before reads declares `CONTRACTS = True`, is the first migration of its release and drops only what that release no longer reads. `tests/store/test_migrations_expand.py` fails on an undeclared contraction.
+- **Expand, then contract.** A migration only adds. A step that drops or changes what the release before reads declares `CONTRACTS = True`, is the first migration of its release and drops only what the release before no longer reads. `tests/store/test_migrations_expand.py` fails on an undeclared contraction.
 - **Admit, then write.** A release writes no persisted value the release before cannot read. A new value of a closed column is admitted in one release (`one_of` lists it, `held_back` keeps it out) and written in the next; likewise a meaning an `UPDATE` rewrites, receipt payloads, wake addresses and Redis formats. `tests/store/test_schema_values_one_release.py` checks the CHECK lists against the newest release tag.
 - **The serving window.** `serving_revisions` lists the revisions that may serve. `skat migrate` writes it with its steps: a run that only expands lists its starting revision beside the new head; a run whose contracting step is not its first lists the head alone. A pod starts only if its revision is listed and turns unready once it is not; `tests/host/test_main_serving_revisions.py` proves it with real processes.
 
