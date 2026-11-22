@@ -537,10 +537,22 @@ class Series:
 
 
 @dataclass(frozen=True)
+class EntryTraces:
+    """The traces, opaque `traceparent` texts, of the requests the table's latest version and its acts entered in: the
+    request that moved the table to its version and the request of each act by its number. A version or an act the
+    release before wrote, or one written outside a trace, has none.
+    """
+
+    version: str | None = None
+    acts: tuple[tuple[int, str], ...] = ()
+
+
+@dataclass(frozen=True)
 class TableRecord:
     """A table as stored; its game list outlives every deal of its series and goes with the next series' first deal
     or with the table. `bock` holds the pending Bock rounds, none at a table without Bock and after a series' end.
-    `style` is the look the whole table shares; it stays over hands and series."""
+    `style` is the look the whole table shares; it stays over hands and series. `traces` are the traces its version
+    and its acts entered in."""
 
     id: TableId
     version: int
@@ -554,6 +566,7 @@ class TableRecord:
     bock: BockRounds
     visibility: Visibility
     style: TableStyle
+    traces: EntryTraces = EntryTraces()
 
 
 class EndReason(StrEnum):
