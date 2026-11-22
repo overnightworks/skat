@@ -1,5 +1,5 @@
 claim_id = "c9ca29a5e86f48fea78bec573f8a9dba"
-agent = "Claude 08329d5b-8776-4078-b270-c37efe5b15d8"
+agent = "Claude a37a7494-f263-4372-b296-e883a1ec2851"
 role = "builder"
 base = "5845a3cbd460008c401b7ccfe1e30917358165e4"
 branch = "claude/issue-825-skat-reads-the-realm-names-from-settings"
