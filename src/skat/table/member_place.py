@@ -47,11 +47,11 @@ __all__ = [
     "control_shown",
     "decide_accept",
     "decide_invite",
+    "ended_by_owner_leaving",
     "forgotten_if_expired",
     "keep_turn_state",
     "offer_of",
     "offers_at",
-    "ended_by_owner_leaving",
     "open_invitation",
     "seated_agents",
     "seated_call_facts",
@@ -277,7 +277,7 @@ def ended_by_owner_leaving(entries: Iterable[BookEntry], owner_account: str, now
     """The entries whose open invitation is bound to the owner, each with that invitation ended as of now with the
     outcome owner away, to keep for its caller to be told how it ended; the others are left out.
     """
-    ended = []
+    ended: list[BookEntry] = []
     for entry in entries:
         invitation = open_invitation(entry, now)
         if invitation is not None and invitation.owner_account == owner_account:
