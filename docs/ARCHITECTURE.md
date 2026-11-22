@@ -114,7 +114,7 @@ Redis holds nothing durable: its restart resets the limit windows and each pod r
 
 ### Persistence
 
-Postgres holds every table, its running hand as append-only step logs replayed through the engine, the finished games, receipts and sessions. A finished game is never deleted; an ended table stays a tombstone, so its id is never reissued. Every command a person or an agent sends stores a receipt under (account, command id), so a retry replays its first outcome. Sessions are stored under the SHA-256 of their id, so a dump yields no usable cookie.
+Postgres holds every table, its running hand as append-only step logs replayed through the engine, the finished games, receipts and sessions. A finished game is never deleted, and an ended table with games stays; one without games is forgotten after `SKAT_ENDED_TABLE_DAYS`. Every command a person or an agent sends stores a receipt under (account, command id), so a retry replays its first outcome. Sessions are stored under the SHA-256 of their id, so a dump yields no usable cookie.
 
 ### Presence and Redis
 
