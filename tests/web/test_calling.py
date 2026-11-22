@@ -10,6 +10,7 @@ from agents.member import INVITATION_SECONDS
 from skat.table.member_place import ENDED_CALL_KEPT
 from skat.table.records import OccupantKind, TableId
 from skat.web.calling import CallRefusal
+from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
 from tests.web.support.agent import Agent
 from tests.web.support.calling import (
     CallingTable,
@@ -24,7 +25,7 @@ from tests.web.support.calling import (
     seat_of_nobody_but,
     send_away,
 )
-from tests.web.support.skat import streams_of
+from tests.web.support.skat import advance, streams_of
 
 NOVA = "agent-nova"
 BACH = "agent-bach"
@@ -328,6 +329,23 @@ class TestACallInvitesTheAgent(CallingTable):
 
             assert (row["state"], row["outcome"], answer.is_error) == ("inviting", None, False)
 
+    def test_an_owner_who_leaves_ends_only_the_invitations_of_their_own_agents(self, skat, issuer, felix, table_id):
+        leaving = person(skat, issuer)
+        staying = person(skat, issuer)
+        with (
+            streams_of(skat, table_id, [(staying.headers, None)]),
+            listening(skat, issuer, leaving, "Nova", NOVA),
+            listening(skat, issuer, staying, "Bach", BACH) as bach,
+        ):
+            with streams_of(skat, table_id, [(leaving.headers, None)]):
+                for row in read_control(skat, felix, table_id).json()["rows"]:
+                    call(skat, felix, table_id, row["key"])
+
+            states = {row["name"]: row["state"] for row in read_control(skat, felix, table_id).json()["rows"]}
+            answer = bach.accept(table_id, offer_of(bach))
+
+            assert (states, answer.is_error) == ({"Nova": "ended", "Bach": "inviting"}, False)
+
     def test_a_new_call_after_the_outcome_makes_the_row_inviting_again(self, skat, issuer, time, felix, table_id):
         with listening(skat, issuer, felix, "Nova", NOVA):
             key = only_row(skat, felix, table_id)["key"]
@@ -338,6 +356,68 @@ class TestACallInvitesTheAgent(CallingTable):
 
         (row,) = answer.json()["rows"]
         assert (row["state"], row["outcome"]) == ("inviting", None)
+
+
+@pytest.mark.usefixtures("watching")
+class TestAnOwnerWhoseSeatLostItsConnection(CallingTable):
+    """The owner holds a chair, so a leave starts the chair's hold; the hold is shorter than the invitation."""
+
+    @pytest.fixture
+    def hold(self, sign_in_settings):
+        return sign_in_settings(chair_hold_seconds=INVITATION_SECONDS // 4)
+
+    @pytest.fixture
+    def owner(self, skat, issuer, table_id):
+        seated = person(skat, issuer)
+        skat.sit(seated.headers, table_id, 2)
+        return seated
+
+    def test_an_owner_who_returns_within_the_hold_keeps_the_invitation(
+        self, skat, issuer, time, hold, felix, owner, table_id
+    ):
+        with listening(skat, issuer, owner, "Nova", NOVA) as nova:
+            with streams_of(skat, table_id, [(owner.headers, None)]):
+                key = only_row(skat, felix, table_id)["key"]
+                call(skat, felix, table_id, key)
+            advance(skat, time, hold.settings.chair_hold_seconds - 1)
+
+            with streams_of(skat, table_id, [(owner.headers, None)]):
+                advance(skat, time, hold.settings.chair_hold_seconds)
+                row = only_row(skat, felix, table_id)
+                answer = nova.accept(table_id, offer_of(nova))
+
+            assert (row["key"], row["state"], row["outcome"], answer.is_error) == (key, "inviting", None, False)
+
+    def test_an_accept_while_the_owner_waits_to_resume_is_refused_as_sponsor_away(
+        self, skat, issuer, time, hold, felix, owner, table_id
+    ):
+        with listening(skat, issuer, owner, "Nova", NOVA) as nova:
+            with streams_of(skat, table_id, [(owner.headers, None)]):
+                call(skat, felix, table_id, only_row(skat, felix, table_id)["key"])
+                offer = offer_of(nova)
+            advance(skat, time, hold.settings.chair_hold_seconds - 1)
+
+            answer = nova.accept(table_id, offer)
+
+            assert (answer.is_error, answer.json()) == (True, {"refused": "sponsor_away"})
+
+    def test_an_owner_whose_hold_runs_out_ends_the_invitation_as_owner_away(
+        self, skat, issuer, time, hold, felix, owner, table_id
+    ):
+        with listening(skat, issuer, owner, "Nova", NOVA) as nova:
+            with streams_of(skat, table_id, [(owner.headers, None)]):
+                key = only_row(skat, felix, table_id)["key"]
+                call(skat, felix, table_id, key)
+            advance(skat, time, hold.settings.chair_hold_seconds + HOLD_SWEEP_EVERY_SECONDS)
+
+            row = only_row(skat, felix, table_id)
+
+            assert (row["key"], row["state"], row["outcome"], invitations_of(nova)) == (
+                key,
+                "ended",
+                "owner-absent",
+                [],
+            )
 
 
 @pytest.mark.usefixtures("watching")
