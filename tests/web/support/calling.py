@@ -16,9 +16,8 @@ from skat.web.calling import (
     TABLE_AGENT_SEND_AWAY_SUFFIX,
     TABLE_AGENTS_SUFFIX,
 )
-from skat.web.mcp import MCP_GROUP
 from skat.web.tables import TABLES_PATH
-from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.support.sign_in_settings import MCP_GROUP, TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import new_account
 from tests.web.support.agent import Agent
 from tests.web.support.changes import RecordedChanges

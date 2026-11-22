@@ -2,7 +2,7 @@ import secrets
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from skat.web.settings import ServerSettings
+from skat.web.settings import RealmSettings, ServerSettings
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -13,6 +13,21 @@ TEST_PUBLIC_ORIGIN = "https://skat.test.invalid"
 TEST_DATABASE_URL = "postgresql://skat@database.test.invalid/skat"
 # Names no server either: a test that reaches Redis overrides `redis_url`.
 TEST_REDIS_URL = "redis://redis.test.invalid:6379/0"
+# The realm's names as the platform hands them, by their environment keys; the values are this suite's own.
+REALM_ENVIRONMENT = {
+    "REALM_CLIENT_ID": "test-client",
+    "REALM_LOGIN_GROUP": "/apps/test",
+    "REALM_MCP_GROUP": "/apps/test/mcp",
+    "REALM_MCP_SCOPE": "mcp-test",
+    "REALM_AGENT_GROUP": "/agents",
+    "REALM_MCP_CLIENT_ID": "test-agents",
+}
+TEST_REALM = RealmSettings.model_validate(REALM_ENVIRONMENT)
+LOGIN_GROUP = str(TEST_REALM.login_group)
+MCP_GROUP = str(TEST_REALM.mcp_group)
+AGENT_GROUP = str(TEST_REALM.agent_group)
+MCP_SCOPE = TEST_REALM.mcp_scope
+MCP_CLIENT_ID = TEST_REALM.mcp_client_id
 SESSION_SECRET_BYTES = 36
 DATABASE_PASSWORD_BYTES = 18
 CLIENT_SECRET_BYTES = 24
@@ -50,8 +65,8 @@ def build_sign_in_settings(directory: Path, **overrides: str | int | Path | None
     }
     present = {name: value for name, value in values.items() if value is not None}
     return SignInSettings(
-        environment={f"SKAT_{name.upper()}": str(value) for name, value in present.items()},
-        settings=ServerSettings(**present),
+        environment={**REALM_ENVIRONMENT, **{f"SKAT_{name.upper()}": str(value) for name, value in present.items()}},
+        settings=ServerSettings(realm=TEST_REALM, **present),
         client_secret=client_secret,
         session_secret=session_secret,
         database_password=database_password,

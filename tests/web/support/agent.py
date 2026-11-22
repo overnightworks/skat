@@ -6,9 +6,9 @@ from agents.mcp_wire import MCP_ENDPOINT_PATH
 from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI, PlaceRef, place_view_uri, place_window_uri
 
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
-from skat.web.mcp import MCP_GROUP, OPEN_TABLE_TOOL, PLAY_CARD_TOOL, READ_TABLE_TOOL, SIT_DOWN_TOOL, STAND_UP_TOOL
+from skat.web.mcp import OPEN_TABLE_TOOL, PLAY_CARD_TOOL, READ_TABLE_TOOL, SIT_DOWN_TOOL, STAND_UP_TOOL
 from skat.web.tables import TABLES_PATH
-from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.support.sign_in_settings import MCP_GROUP, TEST_PUBLIC_ORIGIN
 from tests.web.support.playing import card_body
 from tests.web.support.skat import mcp_message
 

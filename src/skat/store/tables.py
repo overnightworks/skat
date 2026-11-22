@@ -24,7 +24,14 @@ from skat.store.hand_log import (
     standing_values,
 )
 from skat.store.kontra import append_words, kontra_no_words, kontra_words, read_no_words, read_words, write_no_words
-from skat.store.member_book import accounts_at, forget_table, locked_entries_of, locked_entry, save_entry
+from skat.store.member_book import (
+    accounts_at,
+    forget_table,
+    locked_entries_at,
+    locked_entries_of,
+    locked_entry,
+    save_entry,
+)
 from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.pushing import append_pushing_steps, pushing_steps, read_pushing_steps
 from skat.store.schema import (
@@ -697,6 +704,9 @@ class _PostgresTableTransaction:
 
     def locked_book_entries_of(self, agent_account: str) -> tuple[BookEntry, ...]:
         return locked_entries_of(self._connection, agent_account)
+
+    def locked_book_entries_at(self, table_id: TableId) -> tuple[BookEntry, ...]:
+        return locked_entries_at(self._connection, table_id.value)
 
     def save_book_entry(self, entry: BookEntry) -> None:
         save_entry(self._connection, entry)

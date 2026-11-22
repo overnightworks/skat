@@ -13,7 +13,7 @@ from webauth.dependencies import session_id_from_request
 from skat.host.app import Clocks, create_app, end_with_sigterm
 from skat.table.records import Actor, CreateTable, EndReason, SitDown
 from skat.table.service import TableService
-from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, HOME_PATH, LOGIN_GROUP
+from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, HOME_PATH
 from skat.web.paused import PAUSED_TABLES_PATH
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
 from skat.web.secret_files import StartRefusedError
@@ -31,7 +31,7 @@ from tests.support.page_build import (
     SIGN_IN_STYLESHEET,
     fixture_page_build,
 )
-from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.support.sign_in_settings import LOGIN_GROUP, TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import cookie_header, seed_member
 from tests.web.support.skat import FakeTime
 

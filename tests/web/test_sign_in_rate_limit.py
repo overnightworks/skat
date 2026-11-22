@@ -25,7 +25,7 @@ from tests.support.fake_rule_sets import in_memory_rule_sets
 from tests.support.fake_tables import in_memory_tables
 from tests.support.in_memory_stores import in_memory_stores, in_process_rate_limits, single_pod
 from tests.support.page_build import fixture_page_build
-from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.support.sign_in_settings import LOGIN_GROUP, TEST_PUBLIC_ORIGIN
 from tests.support.skat_process import LOOPBACK, free_port
 
 if TYPE_CHECKING:
@@ -101,7 +101,7 @@ class Deployment:
         """Callback queries carrying a valid code, from a start made by an address nobody else uses."""
         start = self.client("192.0.2.200").get(AUTH_START_PATH)
         return [
-            self.issuer.authorize(start.headers["location"], subject="anna", groups=["/apps/skat"], username="anna")
+            self.issuer.authorize(start.headers["location"], subject="anna", groups=[LOGIN_GROUP], username="anna")
             for _ in range(count)
         ]
 
@@ -109,7 +109,7 @@ class Deployment:
         browser = self.client(address)
         start = browser.get(AUTH_START_PATH)
         assert start.status_code == HTTPStatus.SEE_OTHER
-        query = self.issuer.authorize(start.headers["location"], subject="anna", groups=["/apps/skat"], username="anna")
+        query = self.issuer.authorize(start.headers["location"], subject="anna", groups=[LOGIN_GROUP], username="anna")
         callback = browser.get(f"{AUTH_CALLBACK_PATH}?{query}")
         assert callback.headers["location"] != NO_ACCESS_PATH
         account = browser.get(ACCOUNT_PATH)

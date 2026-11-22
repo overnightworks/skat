@@ -604,30 +604,32 @@ const chipsOf=(rules)=>rules.filter((r,i)=>r.chip&&rules.findIndex(o=>o.chip===r
 const ruleRow=(r,on,sub)=>`<div class="rule ${sub?'sub':''} ${on.includes(r.id)?'on':''}" role="group" aria-label="${r.name}"><span class="ic">${r.ic}</span><span class="txt"><b>${r.name}</b><small>${r.line}</small></span>
   <span class="sw ${on.includes(r.id)?'on':''}" role="switch" tabindex="0" aria-checked="${on.includes(r.id)}" aria-label="${r.name}"><i>${I.check}</i></span></div>`;
 /* a rule's variants start with the values of the picked set; „Offiziell“ holds none, so a rule switched on there starts with Felix's */
-const askRow=(a)=>a.flags
+const askRow=(a)=>a.num!==undefined
+  ?`<div class="ask" role="group" aria-label="${a.q}"><span class="q">${a.q}</span><div class="stepper ask-number"><span class="step" role="button" tabindex="0" aria-label="${a.step} weniger">−</span><span class="value" role="spinbutton" tabindex="0" aria-valuemin="${a.step}" aria-valuenow="${a.num}" aria-label="${a.q}">${a.num}<small>${a.unit}</small></span><span class="step" role="button" tabindex="0" aria-label="${a.step} mehr">${I.plus}</span></div></div>`
+  :a.flags
   ?`<div class="ask" role="group" aria-label="${a.q}"><span class="q">${a.q}</span><div class="flags">${a.flags.map(([name,v])=>`<div class="flag"><span>${name}</span><span class="sw sm ${v?'on':''}" role="switch" tabindex="0" aria-checked="${!!v}" aria-label="${name}"><i>${I.check}</i></span></div>`).join('')}</div></div>`
   :`<div class="ask" role="radiogroup" aria-label="${a.q}"><span class="q">${a.q}</span><div class="pick" style="--n:${a.pick.length}">${a.pick.map((name,i)=>`<span class="pk ${i===a.at?'on':''}" role="radio" aria-checked="${i===a.at}" tabindex="0">${i===a.at?I.check:''}${name}</span>`).join('')}</div></div>`;
 /* a rule switched on unfolds into its variants; one with none, or off, stays the plain row */
 const ruleUnit=(r,on,sub)=>on.includes(r.id)&&r.vars
   ?`<div class="unit ${sub?'sub':''}">${ruleRow(r,on)}<div class="vars">${r.vars.map(askRow).join('')}</div></div>`
   :ruleRow(r,on,sub);
-const rulesPart=(on)=>`<div class="rules">${HOUSE_RULES.map(r=>ruleUnit(r,on)+(r.sub&&on.includes(r.id)?ruleUnit(r.sub,on,true):'')).join('')}</div>`;
+const rulesPart=(on,rules=HOUSE_RULES)=>`<div class="rules">${rules.map(r=>ruleUnit(r,on)+(r.sub&&on.includes(r.id)?ruleUnit(r.sub,on,true):'')).join('')}</div>`;
 /* the sets a person can pick when opening a table; the official one is the default */
 const RULE_SETS=[{id:'official',name:'Offiziell',on:[]},{id:'felix',name:'Felix',on:['kontra','ramsch','schieben','bock']},{id:'skatabend',name:'Skatabend',on:[]}];
-const setChoice=(picked)=>`<div class="sets" role="radiogroup" aria-label="Regeln">${RULE_SETS.map(t=>`<span class="set ${t.id===picked?'on':''}" role="radio" aria-checked="${t.id===picked}" tabindex="0">${t.id===picked?I.check:''}${t.name}</span>`).join('')}</div>`;
+const setChoice=(picked,sets=RULE_SETS)=>`<div class="sets" role="radiogroup" aria-label="Regeln">${sets.map(t=>`<span class="set ${t.id===picked?'on':''}" role="radio" aria-checked="${t.id===picked}" tabindex="0">${t.id===picked?I.check:''}${t.name}</span>`).join('')}</div>`;
 /* the length of a table's series: any multiple of 3 from 3 to 99, set in a number field with steps of 3 and named once when the table opens */
 const lengthChoice=(length)=>`<div class="stepper" role="group" aria-label="Länge der Serie"><span class="step" role="button" tabindex="0" aria-label="3 Spiele weniger">−</span><span class="value" role="spinbutton" tabindex="0" aria-valuemin="3" aria-valuemax="99" aria-valuenow="${length}" aria-label="Spiele">${length}<small>Spiele</small></span><span class="step" role="button" tabindex="0" aria-label="3 Spiele mehr">${I.plus}</span></div>`;
 const saveOffer=(name)=>`<div class="save" role="group" aria-label="Als eigene Regeln speichern"><span class="ic">${I.plus}</span><span class="txt"><b>Als eigene Regeln speichern</b><span class="name" aria-label="Name">${name}</span></span></div>`;
 /* a switch changed away from the picked set offers to save the result as the person's own rules */
-const savedName=(picked,on)=>{const set=RULE_SETS.find(t=>t.id===picked),added=chipsOf(HOUSE_RULES.filter(r=>on.includes(r.id)&&!set.on.includes(r.id))).map(r=>r.chip);
+const savedName=(picked,on,rules=HOUSE_RULES,sets=RULE_SETS)=>{const set=sets.find(t=>t.id===picked),added=chipsOf(rules.filter(r=>on.includes(r.id)&&!set.on.includes(r.id))).map(r=>r.chip);
   return on.length===set.on.length&&on.every(id=>set.on.includes(id))?'':`${set.name}, mit ${added.join(' und ')}`};
 const newTable=(x,y,w,on=[],picked='official',length=36,o={})=>`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Neuer Tisch" style="${at({left:x,top:y,width:w,'max-height':o.h})}"><h3>Neuer Tisch</h3>
   <span class="info" role="button" tabindex="0" title="Offen: steht in der Lobby. Privat: nur mit dem Link." aria-label="Info">i</span>
   <div class="choice" role="radiogroup"><span class="opt on" role="radio" aria-checked="true"><span class="tick">${I.check}</span><span class="ic">${I.people}</span>Offen</span>
   <span class="opt" role="radio" aria-checked="false"><span class="ic">${I.lock}</span>Privat</span></div>
   ${lengthChoice(length)}
-  ${setChoice(picked)}
-  <div class="sheet-body"${o.scroll!==undefined?` data-scroll="${o.scroll}"`:''}>${rulesPart(on)}</div>${savedName(picked,on)?saveOffer(savedName(picked,on)):''}
+  ${setChoice(picked,o.sets)}
+  <div class="sheet-body"${o.scroll!==undefined?` data-scroll="${o.scroll}"`:''}>${rulesPart(on,o.rules)}</div>${savedName(picked,on,o.rules,o.sets)?saveOffer(savedName(picked,on,o.rules,o.sets)):''}
   <div class="btns"><span class="button button-stage">${I.check}Aufmachen</span><span class="button button-glass">Abbrechen</span></div></div>`;
 /* a listed table names its house rules under its name; a table without plays the official rules */
 const ruleChips=(on)=>`<span class="chips">${on.length?chipsOf(HOUSE_RULES.filter(r=>on.includes(r.id))).map(r=>`<span class="chip">${r.chipIc||r.ic}${r.chip}</span>`).join(''):`<span class="chip official">${I.check}Offiziell</span>`}</span>`;
@@ -757,13 +759,34 @@ frame('s3-new-1280','Neuer Tisch','Desktop 1280 px','d1280',lobbyBackdrop(1280)+
 const RULES_SHEET={360:{x:180,w:324,top:40,h:716,frame:780},390:{x:195,w:354,top:40,h:780,frame:844},1280:{x:640,w:440,top:24,h:752,frame:800}};
 const UNFOLD_NOTES=[...LENGTH_NOTE,'Eine eingeschaltete Regel klappt unter sich in ihre Varianten auf, jede eine kurze Frage mit der gewählten Antwort. Eine Regel, die bei „Offiziell“ eingeschaltet wird, beginnt mit den Werten von „Felix“; bei einem gewählten Satz mit den Werten dieses Satzes. Nur die Regeln scrollen, unter der Wahl des Satzes; Titel, Satzwahl, „Aufmachen“ und das Speichern bleiben immer in Reichweite.'];
 const DEADLINE_NOTE='Kontra und Re fragt zuletzt, wann das Wort fallen muss: „bis zur eigenen Karte“, wie bisher und der Wert von „Felix“, oder „vor der ersten Karte“; dann hält der Tisch die erste Karte, bis jeder, der noch ein Wort hat, es gesagt oder abgelehnt hat.';
-const rulesScene=(id,title,on,picked,scroll,notes=UNFOLD_NOTES)=>[360,390,1280].forEach(w=>{const z=RULES_SHEET[w];
-  frame(`${id}-${w}`,title,w===1280?'Desktop 1280 px':`Handy ${w} px`,LOBBY_SIZES[w].cls,lobbyBackdrop(w)+newTable(z.x,z.top,z.w,on,picked,36,{h:z.h,scroll}),notes);ORDER.push(`${id}-${w}`)});
+/* o.rules and o.sets draw a sheet with rules beyond today's; o.after joins the frame, as a candidate's mark does */
+const rulesScene=(id,title,on,picked,scroll,notes=UNFOLD_NOTES,o={})=>(o.widths||[360,390,1280]).forEach(w=>{const z=RULES_SHEET[w];
+  frame(`${id}-${w}`,title,w===1280?'Desktop 1280 px':`Handy ${w} px`,LOBBY_SIZES[w].cls,lobbyBackdrop(w)+newTable(z.x,z.top,z.w,on,picked,36,{h:z.h,scroll,rules:o.rules,sets:o.sets})+(o.after||''),notes);ORDER.push(`${id}-${w}`)});
 /* the sheet comes to rest at the end of Kontra und Re, so its last question shows whole at every width */
 rulesScene('rules-on','Neuer Tisch mit Hausregeln',['kontra','ramsch'],'official','0:end',[...UNFOLD_NOTES,DEADLINE_NOTE]);
 rulesScene('rules-set','Neuer Tisch mit eigenem Regelsatz',['points','kontra','ramsch','schieben','bock'],'felix',1);
 rulesScene('rules-detail','Neuer Tisch mit Bockrunden',['bock'],'official','end');
 rulesScene('rules-give-up','Neuer Tisch mit Sonderregeln zum Aufgeben',['partner','immer'],'official','end',[...LENGTH_NOTE,'Zuletzt stehen die zwei Sonderregeln zum Aufgeben, beide aus: Ohne sie gibt der Alleinspieler mit neun Karten frei auf, mit weniger nur mit dem Ja eines Gegners, und das Aufgeben eines Gegners beendet das Spiel sofort für beide (ISkO 4.4). „Partner muss zustimmen“ lässt das Spiel erst mit dem Ja des Partners enden, „Aufgeben immer“ den Alleinspieler jederzeit ohne Ja aufgeben. Sie haben keine Varianten und gelten für die ganze Serie.']);
+/* ===== house variants 1 and 2, candidate scenes: the rule sheet's switches „Schenken ablehnen heißt Schneider“ and „Brötchen und Baguette“ with its penalty; „Felix“ has both on ===== */
+{
+const DRAFT='<span class="draft-tab">Entwurf zur Wahl</span>';
+I.refuse=sv('<path d="M5 21V3.5"/><path d="M5 4.5c4-2 7 2 11.5 0v8.5c-4.5 2-7.5-2-11.5 0z"/><path d="M3 3l18 18"/>');
+I.baguette=sv('<g transform="rotate(-35 12 12)"><rect x="1" y="9" width="22" height="6" rx="3"/><path d="M6.5 10.5l2 3M10.5 10.5l2 3M14.5 10.5l2 3"/></g>');
+/* the two switches stand after Bockrunden, before the two special rules of giving up */
+const VARIANTS=[
+  {id:'ablehnen',ic:I.refuse,name:'Schenken ablehnen heißt Schneider',line:'Der Alleinspieler darf ein Aufgeben ablehnen',chip:'Ablehnen'},
+  {id:'broetchen',ic:I.baguette,name:'Brötchen und Baguette',line:'Neun Spiele ohne Alleinspiel kosten Punkte',chip:'Baguette',vars:[
+    {q:'Ein Baguette kostet',num:50,unit:'Punkte',step:10}]},
+];
+const afterBock=HOUSE_RULES.findIndex(r=>r.id==='bock')+1;
+const rules=[...HOUSE_RULES.slice(0,afterBock),...VARIANTS,...HOUSE_RULES.slice(afterBock)];
+const sets=RULE_SETS.map(t=>t.id==='felix'?{...t,on:[...t.on,...VARIANTS.map(r=>r.id)]}:t);
+const FELIX_ON=sets.find(t=>t.id==='felix').on;
+const VARIANT_NOTE='„Schenken ablehnen heißt Schneider“ ist ein Schalter ohne Varianten: wer als Alleinspieler das Aufgeben der Gegner ablehnt, muss Schneider erreichen, und das Spiel zählt wie Schneider angesagt. Ein zweites Ablehnen fordert Schwarz.';
+const BREAD_NOTE='„Brötchen und Baguette“ klappt in eine Frage auf: wie viele Punkte ein Baguette kostet, eine Zahl mit Schritten von 10, vorbelegt mit 50 wie der Zuschlag der Liste. Drei Spiele in Folge ohne Alleinspiel sind ein Brötchen, drei Brötchen ein Baguette; diese Schwellen stehen fest und fragen nichts. Ein Ramsch und ein eingepasstes Spiel zählen für jede sitzende Person als Spiel ohne Alleinspiel, ein abgebrochenes Spiel zählt nicht und setzt nichts zurück; das Blatt fragt es nicht.';
+rulesScene('rules-variants','Neuer Tisch mit Schenken ablehnen und Baguette',VARIANTS.map(r=>r.id),'official','0:end',[...LENGTH_NOTE,VARIANT_NOTE,BREAD_NOTE],{rules,sets,after:DRAFT,widths:[390,1280]});
+rulesScene('rules-variants-felix','„Felix“ mit beiden Hausregeln',FELIX_ON,'felix','4:end',[...LENGTH_NOTE,'„Felix“ schaltet beide neuen Hausregeln ein, mit 50 Punkten für ein Baguette.',VARIANT_NOTE],{rules,sets,after:DRAFT,widths:[390,1280]});
+}
 const byId=Object.fromEntries(FRAMES);
 document.getElementById('frames').innerHTML=ORDER.map(id=>byId[id]).join('');
 const q=new URLSearchParams(location.search),solo=q.get('f');
@@ -790,6 +813,8 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .seat.sm .plate:has(.turn-state){top:calc(100% - 11px);width:min-content;padding-bottom:3px}
 .seat.sm .plate .turn-state{display:block;font-size:11px;line-height:1.1;text-align:center;white-space:normal}
 .seat.sm .plate .turn-state svg{display:inline-block;width:12px;height:12px;margin-right:4px;vertical-align:-2px}
+/* a number asked under a rule: the length's stepper, as tall as the picks beside it */
+.ask-number .step,.ask-number .value{height:40px}
 /* a scene that is one variant of an open choice carries its mark inside the frame, so a single frame shows it too */
 .draft-tab{position:absolute;left:50%;bottom:0;translate:-50% 0;z-index:80;padding:2px 12px;border-radius:8px 8px 0 0;background:#f3cf7a;color:#2a1c00;font-size:11px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
 </style>

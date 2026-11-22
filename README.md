@@ -27,7 +27,12 @@ Every setting is an environment variable. The secrets are read from the files na
 | Variable | Default | Meaning |
 |---|---|---|
 | `SKAT_OIDC_ISSUER` | required | The realm's issuer URL, without a trailing slash. |
-| `SKAT_OIDC_CLIENT_ID` | `skat` | The issuer's client for Skat. |
+| `REALM_CLIENT_ID` | required | The issuer's client for Skat. |
+| `REALM_LOGIN_GROUP` | required | The group whose members may sign in, as a path such as `/apps/skat`; Skat refuses to start if it is not a well-formed group path. |
+| `REALM_MCP_GROUP` | required | The group whose members the agent endpoint `/mcp` admits, as a group path. |
+| `REALM_MCP_SCOPE` | required | The scope, and audience, a token for `/mcp` carries. |
+| `REALM_AGENT_GROUP` | required | The group of agents' own accounts, which `/mcp` admits from any client, as a group path. |
+| `REALM_MCP_CLIENT_ID` | required | The client agents sign in with. |
 | `SKAT_OIDC_CLIENT_SECRET_FILE` | required | Absolute path of the file holding the client secret. |
 | `SKAT_PUBLIC_ORIGIN` | required | The https origin people open Skat at, written as the browser writes an origin: a lowercase host, no path, no port 443. |
 | `SKAT_CALL_ORIGIN` | unset | The one https origin whose pages may frame Skat, in the same form as `SKAT_PUBLIC_ORIGIN`. Unset or empty, no page may. Set, a seated player's bottom strip also carries an Anruf key that opens `<origin>/c/new?app=skat&context=<table id>` in a new tab. |

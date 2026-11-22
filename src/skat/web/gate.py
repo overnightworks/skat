@@ -1,4 +1,4 @@
-from webauth.admission import AdmissionConfig, NoAdmins
+from webauth.admission import AdmissionConfig, GroupPath, NoAdmins
 from webauth.dependencies import LoginRedirect
 from webauth.middleware import SessionGate
 from webauth.policies import PathRules, PublicRule
@@ -7,7 +7,6 @@ from skat.web.constants import (
     CALL_SIGN_IN_PATH,
     HEALTH_PATH,
     IMMUTABLE_ASSET_PATH_RULES,
-    LOGIN_GROUP,
     LOGIN_PATH,
     NO_ACCESS_PATH,
     RETURN_PATH_QUERY_NAME,
@@ -17,9 +16,9 @@ from skat.web.constants import (
 PUBLIC_PATHS = frozenset({HEALTH_PATH, LOGIN_PATH, CALL_SIGN_IN_PATH, NO_ACCESS_PATH, VERSION_FILE_PATH})
 
 
-def admission_for(issuer: str) -> AdmissionConfig:
+def admission_for(issuer: str, login_group: GroupPath) -> AdmissionConfig:
     """Who is admitted, for a sign-in and for a token alike: the login group, and no admins."""
-    return AdmissionConfig(bound_issuer=issuer, login_group=LOGIN_GROUP, admin_group=NoAdmins.IN_THIS_APP)
+    return AdmissionConfig(bound_issuer=issuer, login_group=login_group, admin_group=NoAdmins.IN_THIS_APP)
 
 
 def session_gate() -> SessionGate:

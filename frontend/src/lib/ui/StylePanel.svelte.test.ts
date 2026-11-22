@@ -2,7 +2,7 @@
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TABLE_ID } from "#lib/table.fixtures.ts";
-import { showTableStyle } from "#lib/tableStyle.svelte.ts";
+import { showTableStyle, tableStyle } from "#lib/tableStyle.svelte.ts";
 import StylePanel from "#lib/ui/StylePanel.svelte";
 import StyleScene from "#lib/ui/StyleScene.svelte";
 import { TABLE_STYLE_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
@@ -142,5 +142,27 @@ describe("the scene behind the table", () => {
         flushSync();
 
         expect(document.querySelectorAll(".beach")).toHaveLength(beaches);
+    });
+
+    it("hands the page's style back to the classic look when the table is left", async () => {
+        mounted = mount(StyleScene, { target: document.body, props: { style: "strandbar" } });
+        flushSync();
+        const shown = tableStyle();
+
+        await unmount(mounted);
+        mounted = undefined;
+
+        expect([shown, tableStyle()]).toEqual(["strandbar", "klassik"]);
+    });
+
+    it("follows a table whose style changes while it is shown", () => {
+        const props = $state<{ style: "strandbar" | "klassik" }>({ style: "klassik" });
+        mounted = mount(StyleScene, { target: document.body, props });
+        flushSync();
+
+        props.style = "strandbar";
+        flushSync();
+
+        expect(tableStyle()).toBe("strandbar");
     });
 });
