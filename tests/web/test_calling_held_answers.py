@@ -120,7 +120,10 @@ class TestTheDisplayReadsTheGroupsOncePerSession:
             with listening(restarted, issuer, felix, "Nova", NOVA):
                 after = read_control(restarted, felix, table_id).json()
 
-        assert (before, [row["name"] for row in after["rows"]]) == ({"shown": True, "rows": []}, ["Nova"])
+        assert (before, [row["name"] for row in after["rows"]]) == (
+            {"shown": True, "full": False, "rows": []},
+            ["Nova"],
+        )
         assert refresh_requests(issuer) == 2
 
 

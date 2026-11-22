@@ -30,7 +30,7 @@
         shown: boolean;
     } = $props();
 
-    let control = $state<AgentsControl>({ shown: false, rows: [] });
+    let control = $state<AgentsControl>({ shown: false, full: false, rows: [] });
     // The latest read failed: the rows of an earlier read offer actions that cannot work, so the line replaces
     // them until a read succeeds.
     let readFailed = $state(false);
@@ -84,7 +84,7 @@
         refusal = undefined;
         if (!hiddenUnderRefusal) return;
         hiddenUnderRefusal = false;
-        control = { shown: false, rows: [] };
+        control = { shown: false, full: false, rows: [] };
     });
 </script>
 
@@ -96,6 +96,7 @@
     <div class="agents-list">
         <AgentControl
             rows={control.rows}
+            full={control.full}
             onCall={(key) => void follower?.call(key)}
             onSendAway={(key) => void follower?.sendAway(key)}
             {refusal}

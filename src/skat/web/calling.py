@@ -113,9 +113,12 @@ class AgentRowAnswer(BaseModel):
 
 
 class AgentControlAnswer(BaseModel):
-    """The person's control: whether it is shown at all, and its rows."""
+    """The person's control: whether it is shown at all, whether the table has no free chair for an agent the person
+    could otherwise call, and its rows.
+    """
 
     shown: bool
+    full: bool
     rows: list[AgentRowAnswer]
 
 
@@ -399,7 +402,8 @@ class _Calling:
         shown = control_shown(
             viewer_present=viewer_present, viewer_is_member=viewer_is_member, sends_agent_away=sends_agent_away
         )
-        return AgentControlAnswer(shown=shown, rows=rows)
+        full = any(agent.offer.answer is InviteRefusal.NO_FREE_CHAIR for agent in offered)
+        return AgentControlAnswer(shown=shown, full=full, rows=rows)
 
     async def call_of(self, request: Request, table_id: TableId, key: str) -> CallRefusal | None:
         """What the call comes to. The cheap checks run first with the person counted a member, so a double tap, a full
