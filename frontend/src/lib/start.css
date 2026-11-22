@@ -1317,6 +1317,8 @@ body {
     --round-key-tint: rgba(244, 246, 248, 0.26);
     /* The one red of leaving: white text on it meets 4.5:1, and the declined cross on the dark glass meets 3:1. */
     --leave: #d63a40;
+    /* The ring a look gives its own seat, which its states may keep in place of their own. */
+    --tile-mine-ring: var(--tile-mine-shadow);
     /* The pile and the last trick shown again. */
     --brass-hi: #f1d898;
     --pile-card: 32px;
@@ -2122,11 +2124,6 @@ body {
     border-radius: var(--tile-radius);
     background: var(--tile-background);
     box-shadow: var(--tile-shadow);
-}
-
-/* The ring a look gives its own seat, which its states may keep in place of their own. */
-.room {
-    --tile-mine-ring: var(--tile-mine-shadow);
 }
 
 .room.framed {
