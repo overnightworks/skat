@@ -3,6 +3,6 @@ agent = "Claude a37a7494-f263-4372-b296-e883a1ec2851"
 role = "builder"
 base = "5845a3cbd460008c401b7ccfe1e30917358165e4"
 branch = "claude/issue-825-skat-reads-the-realm-names-from-settings"
-scope = ["README.md", "pyproject.toml", "src/skat/host/app.py", "src/skat/web/constants.py", "src/skat/web/gate.py", "src/skat/web/mcp.py", "src/skat/web/settings.py", "src/skat/web/sign_in.py", "tests", "uv.lock"]
+scope = ["README.md", "pyproject.toml", "src/skat/host/app.py", "src/skat/web/calling.py", "src/skat/web/constants.py", "src/skat/web/gate.py", "src/skat/web/mcp.py", "src/skat/web/settings.py", "src/skat/web/sign_in.py", "tests", "uv.lock"]
 opened_commit = "6af98bd7c662416769856db613b336be382bda81"
 whole_reason = "The settings class, its readers and the deleted constants are one switch of where the realm names come from; half of it leaves two sources."
