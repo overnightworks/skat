@@ -1,8 +1,0 @@
-claim_id = "4912f964706f45d29c11ef156bec6b30"
-agent = "Claude a37a7494-f263-4372-b296-e883a1ec2851"
-role = "builder"
-base = "bac94761e215e34d4c8ff762ed6bfe4a6cfa8d88"
-branch = "claude/issue-821-an-invitation-ends-when-its-owner-leaves"
-scope = ["docs/ARCHITECTURE.md", "quality/baseline.toml", "src/skat/host/app.py", "src/skat/store/member_book.py", "src/skat/store/tables.py", "src/skat/table/member_place.py", "src/skat/table/server_steps.py", "src/skat/web/calling.py", "src/skat/web/presence.py", "tests/support/fake_tables.py", "tests/support/faulty_tables.py", "tests/web/test_calling.py", "tests/web/test_member_place.py"]
-opened_commit = "a59d3d5d90ffbf311e1ff0ada653ec7aa838a35b"
-whole_reason = "The presence leave, the book's end and the control's outcome are one flow from the owner's departure to what the agent and the person see."
