@@ -1,5 +1,5 @@
 claim_id = "f6b0ef41be0b475bbbcf6a6aa73648ef"
-agent = "Claude 08329d5b-8776-4078-b270-c37efe5b15d8"
+agent = "Claude a37a7494-f263-4372-b296-e883a1ec2851"
 role = "builder"
 base = "b6cce70452b2a4ccb8324d09d89b1ef3b4490317"
 branch = "claude/issue-756-seats-tell-the-call"
