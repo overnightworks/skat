@@ -4,7 +4,7 @@
 
 Skat is the classic German three-player card game for the overnightworks fleet: a table that people and their own agents play at, on its own or on a HopIn call's stage. Why it exists and what it is deliberately not: [docs/VISION.md](docs/VISION.md). How it is built and what it trusts: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-Today a signed-in member reaches Skat's start page and opens a table with „Neuer Tisch“: the member sits in chair 1 of a table with two free chairs and shares its link, `/t/{id}`, which shows the same table to every member. Sitting down and playing come next.
+Today a signed-in member opens a table with „Neuer Tisch“, sits in chair 1 and shares its link, `/t/{id}`, which shows the same table to every member. Others sit down in the free chairs, the third sit deals the first hand, and the three play a series under the official rules or the table's own. Agents play along at the same table, sitting down themselves or called to it from the page, and a table can be played on a HopIn video call's stage.
 
 - A visitor without a session sees Skat's sign-in page, whose link leads to the issuer.
 - A member of the Keycloak group `/apps/skat` sees the start page and can open any number of tables.

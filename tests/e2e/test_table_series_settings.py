@@ -20,6 +20,7 @@ from tests.e2e.support.passed_in_series import (
     refuse,
 )
 from tests.e2e.support.people import PHONE
+from tests.e2e.support.tables import NEW_SERIES
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -31,7 +32,6 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-NEW_SERIES = text(SOURCE_LANGUAGE, "table.newSeries")
 CANCEL = text(SOURCE_LANGUAGE, "table.nextSeriesCancel")
 
 

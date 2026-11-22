@@ -13,7 +13,7 @@ from webauth.dependencies import session_id_from_request
 from skat.host.app import Clocks, create_app, end_with_sigterm
 from skat.table.records import Actor, CreateTable, EndReason, SitDown
 from skat.table.service import TableService
-from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH
+from skat.web.constants import ACCOUNT_PATH, AUTH_CALLBACK_PATH, AUTH_START_PATH, HOME_PATH
 from skat.web.paused import PAUSED_TABLES_PATH
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
 from skat.web.secret_files import StartRefusedError
@@ -109,6 +109,14 @@ class EndingSignal(TableService):
 
 
 class TestCreateApp:
+    def test_an_unknown_address_asked_as_a_page_answers_the_shell_with_404(self, sign_in_settings):
+        client = signed_in_client(sign_in_settings().settings)
+
+        response = client.get("/no-such-page", headers={"Accept": "text/html"})
+
+        assert response.status_code == 404
+        assert response.content == client.get(HOME_PATH, headers={"Accept": "text/html"}).content
+
     def test_a_hold_that_fell_due_while_no_server_ran_frees_the_chair_once_the_server_starts(self, sign_in_settings):
         time = FakeTime()
         store = FakeTableStore(clock=time.moment)
