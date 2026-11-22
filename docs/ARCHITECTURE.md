@@ -4,7 +4,7 @@ For an engineer about to change Skat; details live in module docstrings.
 
 ## 1. Context and Scope
 
-Skat is a card table for a small circle of signed-in people and the fleet's agents, which play along through MCP tools. A table can sit on a HopIn call's stage, framed by the call's page.
+Skat is a card table for a small circle of signed-in people and the fleet's agents, which play along through MCP tools. A table can sit on a HopIn call's stage, framed by its page.
 
 Outside Skat: Keycloak signs people and agents in and says who belongs; Postgres holds everything durable; a Redis every pod shares carries what the pods must agree on but need not keep; hal composes the legal pages from Skat's part in `legal/`. Skat builds on FastAPI, Svelte and the fleet's libraries: webauth (sign-in), design (look, words), logline (logs), tandem (wakes, leases) and agents (MCP front).
 
@@ -78,10 +78,10 @@ sequenceDiagram
 
 *A command changing a table, the core flow; from `TableService`, `skat.web.wakes` and `skat.web.streams`.*
 
-- **One locked transaction, then a publish.** A command locks the table's row, replays its receipt if one exists, decides purely, writes, bumps the version and stores the receipt. A move also names the version the client saw and is refused `stale-version` when that is old. Only a commit wakes streams.
+- **One locked transaction, then a publish.** A command locks the table's row, replays its receipt if one exists, decides purely, writes, bumps the version and stores the receipt. A move names the version the client saw; an old one is refused `stale-version`. Only a commit wakes streams.
 - **A wake carries no data.** It names a topic, crosses pods on tandem's channel and makes a stream read again; a stream sends only a read whose digest changed. The 15-second heartbeat catches a lost wake, and a pod whose subscription returns after a break wakes every stream.
 - **An agent's call is an in-process request.** The front runs the marked route with the agent's token, so every middleware, limit and check applies as for a browser. An agent is offered only the tools of its seat's moment (`moment_of`).
-- **Server steps** run on timers (a chair hold running out, the next deal, an empty or long-paused table ending) and decide again under the table's row lock, so two pods or a repeat change nothing twice.
+- **Server steps** run on timers (a chair hold running out, an empty or long-paused table ending) and decide again under the table's row lock, so two pods or a repeat change nothing twice.
 
 Sign-in is webauth's OIDC code flow. The issuer refuses to be framed, so a framed table signs in through a separate window (`frontend/src/lib/callSignIn.ts`).
 
@@ -91,7 +91,7 @@ Skat runs from the image the `Release` workflow pushes to `ghcr.io/overnightwork
 
 A rolling update runs pods of two releases on one database, so shared data stays readable for the release before:
 
-- **Expand, then contract.** A migration only adds. A step that drops or changes what the release before reads declares `CONTRACTS = True`, is the first migration of its release and drops only what the release before no longer reads. `tests/store/test_migrations_expand.py` fails on an undeclared contraction.
+- **Expand, then contract.** A migration only adds. A step that drops or changes what an older release reads declares `CONTRACTS = True`, is the first migration of its release and drops only what the release before no longer reads. `tests/store/test_migrations_expand.py` fails on an undeclared contraction.
 - **Admit, then write.** A release writes no persisted value the release before cannot read. A new value of a closed column is admitted in one release (`one_of` lists it, `held_back` keeps it out) and written in the next; likewise a meaning an `UPDATE` rewrites, receipt payloads, wake addresses and Redis formats. `tests/store/test_schema_values_one_release.py` checks the CHECK lists against the newest release tag.
 - **The serving window.** `serving_revisions` lists the revisions that may serve. `skat migrate` writes it with its steps: a run that only expands lists its starting revision beside the new head; a run whose contracting step is not its first lists the head alone. A pod starts only if its revision is listed and turns unready once it is not; `tests/host/test_main_serving_revisions.py` proves it with real processes.
 
@@ -107,7 +107,7 @@ Redis holds nothing durable: its restart resets the limit windows and each pod r
 - **Calling an agent** needs the group `/agent-adders`, read fresh from the issuer at the act; sending a seated agent away needs that group or being the owner its chair stores. The control's rows carry a derived key, never an account id.
 - **A table's id** is an unguessable link, not a secret. A **rule set** is read only by the account that saved it.
 - **A table's cards** reach a viewer only through the view built for that viewer's seat (`skat.table.views`), so no route or tool can leak a hidden card.
-- **The call origin** (`SKAT_CALL_ORIGIN`) alone may frame Skat; framing and its messages grant it nothing, though a compromised one could trick people into clicks.
+- **The call origin** (`SKAT_CALL_ORIGIN`) alone may frame Skat; framing grants it nothing, though a compromised one could trick people into clicks.
 - **The proxy hops** in `SKAT_TRUSTED_PROXIES` may state the client address.
 - **The shared Redis** holds client addresses, table and account ids and agents' names and owners, each only briefly. Whoever reaches it can spend or clear limits and show a false agent name or owner, but cannot seat an agent or grant a call.
 - **The operator's settings and secret files** are trusted fully. Secrets come from files, never the environment; a wrong setting is named, never echoed.
@@ -126,7 +126,7 @@ A table is a member place: an agent is a member while it holds a chair there or 
 
 ### Observability
 
-logline owns the record: JSON lines on stdout, one per request. A timed step writes one `<noun>.ended` line with `duration_ms` and `outcome`. Skat logs ids and references, never contents; tandem's lease lines name the member. A table stores the `traceparent` of the request that moved it to its version and of each act of its latest hand, so an agent's view and window point to the request they entered in.
+logline owns the record: JSON lines on stdout, one per request. A timed step writes one `<noun>.ended` line with `duration_ms` and `outcome`. Skat logs ids and references, never contents; tandem's lease lines name the member. A table stores the `traceparent` of the request that moved it to its version and of each act of its latest hand, so an agent's view and window point to their request.
 
 ### Texts
 
@@ -134,11 +134,11 @@ logline owns the record: JSON lines on stdout, one per request. A timed step wri
 
 ### Proof strategy
 
-Unit tests cover the logic, with a fake issuer for sign-in. Store and end-to-end tests run against a throwaway Postgres and Redis, never SQLite; the end-to-end tests drive real Chromium against a real server. Branch coverage is judged at 100 % over all layers, the frontend's merged in.
+Unit tests cover the logic, with a fake issuer for sign-in. Store and end-to-end tests run against a throwaway Postgres and Redis, never SQLite; end-to-end tests drive real Chromium against a real server. Branch coverage is judged at 100 % over all layers, the frontend's merged in.
 
 ## 6. Constraints and reasons
 
-- **The layer rule.** `host` depends on `web` and `store`, which know nothing of each other; both depend on `table`, and `engine` sits below `table`; never the other way. import-linter enforces it, and a second contract keeps `skat.table` and `skat.engine` free of every framework, driver and adapter. So the rules stay pure, testable without a process, and a new front or store never touches them.
+- **The layer rule.** `host` depends on `web` and `store`, which know nothing of each other; both depend on `table`, and `engine` sits below `table`; never the other way. import-linter enforces it, and a second contract keeps `skat.table` and `skat.engine` free of every framework, driver and adapter. So the rules stay pure and testable without a process.
 - **A strict content security policy:** no inline script, style or handler; only the shell's bootstrap and the call sign-in page's script, admitted by hash.
 - **The Python path constants own the browser's paths;** `make wire` generates the TypeScript, so a drifting path fails a check, not a page.
 - **The test issuer** exists only in tests.
@@ -151,10 +151,10 @@ Unit tests cover the logic, with a fake issuer for sign-in. Store and end-to-end
 
 ## 8. Risks and Technical Debt
 
-- The expand and admit-then-write checks read the schema, not the meaning of data: review alone judges compound CHECKs, columns without a CHECK, a rewriting `UPDATE`, receipt payloads, wake addresses, Redis key and JSON formats, and the formats of tandem, agents and webauth on a bump.
+- The expand and admit-then-write checks read the schema, not the meaning of data: review alone judges compound CHECKs, columns without a CHECK, a rewriting `UPDATE`, receipt payloads, wake addresses, Redis formats, and those of tandem, agents and webauth on a bump.
 - Each presence read lists every open stream's lease, as tandem has no roster per table; `lease_roster_read.ended` shows its growth.
 - Agent leases, the wait clock of asks and nudges, reactions and the held answers of who may call agents live in one process: a restart forgets them, and no pod sees another's agent leases. Two overlapping fresh group reads of one session rely on the issuer's refresh-token reuse: where the issuer refuses it, the second call answers `try-again` and writes nothing, and the first call's invitation stands.
-- A session's refresh and ID tokens are stored in plain text, because encrypting them needs a third secret on the same pod; a dump of `sessions` with the client secret mints access tokens until the session expires.
+- A session's refresh and ID tokens are stored in plain text, because encrypting them needs a third secret on the same pod; a dump of `sessions` with the client secret mints access tokens until expiry.
 - Every agent call and sign-in entry takes one database-wide advisory lock, so they queue.
 - A person's sessions are bounded only by their expiry, and account rows are never removed; both are small.
-- The table record, its views and the `tables` row hold the table's state and the hand's in one type each, and the seat count is stated in the engine, the table core and the store separately.
+- The table record, its views and the `tables` row hold the table and hand state in one type each; the seat count is stated in the engine, the table core and the store separately.
