@@ -101,7 +101,7 @@ Redis holds nothing durable: its restart resets the limit windows and each pod r
 
 ### Trust
 
-- **A person's browser** controls everything it sends. Skat trusts only the session, from which the acting account always comes; a state-changing request needs same-origin provenance; requests are rate-limited per address across pods. Without a session one reaches only `/health`, the sign-in pages, the build's static files and the MCP metadata document.
+- **A person's browser** controls everything it sends. Skat trusts only the session, from which the acting account always comes; a state-changing request needs same-origin provenance; requests are rate-limited per address across pods. Without a session one reaches only `/health`, the sign-in pages and routes, Keycloak's logout POST, the build's static files and the MCP metadata document.
 - **Keycloak** decides membership: the group `/apps/skat` admits, and nothing makes anyone an admin. Skat trusts signed tokens from its one issuer and adds no rule on which clients may mint its audience.
 - **An agent** is its own account, never its owner's. Its token needs the group `/agents` with an owner and a name, the group `/apps/skat/mcp` and the scope `mcp-skat`; it is valid at `/mcp` and the marked routes only, and `/mcp` refuses it with an Origin, so no browser reaches it. Only that agent reads its standing and table views.
 - **Calling an agent** needs the group `/agent-adders`, read fresh from the issuer at the act; sending a seated agent away needs that group or being the owner its chair stores. The control's rows carry a derived key, never an account id.
@@ -156,4 +156,5 @@ Unit tests cover the logic, with a fake issuer for sign-in. Store and end-to-end
 - Agent leases, the wait clock of asks and nudges, reactions and the held answers of who may call agents live in one process: a restart forgets them, and no pod sees another's agent leases. Two overlapping fresh group reads of one session rely on the issuer's refresh-token reuse: where the issuer refuses it, the second call answers `try-again` and writes nothing, and the first call's invitation stands.
 - A session's refresh and ID tokens are stored in plain text, because encrypting them needs a third secret on the same pod; a dump of `sessions` with the client secret mints access tokens until the session expires.
 - Every agent call and sign-in entry takes one database-wide advisory lock, so they queue.
+- A person's sessions are bounded only by their expiry, and account rows are never removed; both are small.
 - The table record, its views and the `tables` row hold the table's state and the hand's in one type each, and the seat count is stated in the engine, the table core and the store separately.

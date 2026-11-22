@@ -2,8 +2,8 @@
 the member thinks, the whole seconds the thinking has left under the cap.
 
 The seconds are read from one clock, the service's, which also stamps each statement, so no viewer's clock decides,
-and no timer runs on the server. Skat infers nothing from a member's silence. The cap lives here in the core, not
-beside the web's constants, because the core computes the seconds and may not import the adapter.
+and no timer runs on the server. Skat infers nothing about a turn from a member's silence. The cap lives here in the
+core, not beside the web's constants, because the core computes the seconds and may not import the adapter.
 
 The statement is stored, in the chair's own columns, because several pods serve a table and a restart must not lose
 a value the runner believes stands; a chair already changes hands in one place, `with_occupant`, so the statement
