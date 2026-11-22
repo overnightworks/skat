@@ -18,6 +18,7 @@ from tests.e2e.support.server import server_of_its_own
 from tests.e2e.support.table_menu import (
     AGENTS,
     AGENTS_PANEL,
+    EDGE_MARGIN,
     MENU,
     close_table_menu,
     menu_button,
@@ -46,8 +47,6 @@ SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 BESIDE_THE_LIST = (4, 4)
 AI_MARK = "AI"
 INVITATION_WITHIN_SECONDS = 15
-# The list keeps this far from either edge of the viewport, in pixels.
-EDGE_MARGIN = 16
 # The page's fetches leave this long after the call, so they leave while the test already waits for the agent.
 DELAY_FETCHES = """
     const send = window.fetch;

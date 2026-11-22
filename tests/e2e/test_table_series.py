@@ -26,6 +26,7 @@ from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
 from tests.e2e.support.result_card import MINUS, waiting_for
 from tests.e2e.support.table_menu import close_table_menu, menu_button, open_table_menu
+from tests.e2e.support.tables import NEW_SERIES
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -61,7 +62,6 @@ COASTER = ".coaster"
 END_KEY = ".row.end-series"
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-NEW_SERIES = text(SOURCE_LANGUAGE, "table.newSeries")
 STOP_PLAYING = text(SOURCE_LANGUAGE, "table.stopPlaying")
 RULE_SETS = text(SOURCE_LANGUAGE, "start.ruleSets")
 SAVE_RULES = text(SOURCE_LANGUAGE, "start.saveRules")
