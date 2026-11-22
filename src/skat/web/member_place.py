@@ -15,7 +15,9 @@ read, so an open stream gets no more of it until the agent calls again.
 
 The window beside the view holds the acts of the table's latest hand (`skat.table.acts`), each told as the view
 tells it: a seat as its number, a card, a game and a word by the tokens of `skat.web.tables`. The commit that adds
-an act tells the window and the view; the revision of the view alone moves with the asks and the nudges.
+an act tells the window and the view; the revision of the view alone moves with the asks and the nudges. A line and a
+view carry the trace of the request that committed their act or version, as the table stored it, and none where the
+table stored none; the trace at a read is the reader's own and is never used.
 
 The asks follow from when the table began to wait, which `AskClock` (`skat.web.waits`) keeps in this process only.
 Every touch of it runs on the event loop's thread, in the read of the view, which also schedules the pulses that tell
@@ -87,10 +89,6 @@ if TYPE_CHECKING:
 TABLE_PLACE_KIND: Final = "table"
 NOBODY_NAME: Final = "Table"
 SIGNAL_FAILED_EVENT: Final = "member_signal.failed"
-UNTRACED: Final = None
-"""The trace of a line and of a view: none, since an act and a table's version keep no trace of the command that
-made them, and the trace at a read is the reader's own.
-"""
 
 logger = structlog.get_logger()
 
@@ -207,7 +205,7 @@ def _entry_of(act: Act, member: MemberActs) -> PlaceEntry:
         text=_text_of(act),
         own=act.seat == member.own_seat,
         act=True,
-        traceparent=UNTRACED,
+        traceparent=member.traces.get(act.seq),
     )
 
 
@@ -268,7 +266,7 @@ class MemberStandings:
             revision=revision_of(member.view.version, asks + own_nudges(member.view, nudges)),
             awaits_you=member.awaits_you,
             state=answer_of(member.view, nudges).model_dump(mode="json"),
-            traceparent=UNTRACED,
+            traceparent=member.traceparent,
         )
 
     async def _window(self, principal: Principal, place: PlaceRef) -> PlaceWindow | None:

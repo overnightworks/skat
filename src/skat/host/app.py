@@ -13,6 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from logline import current_traceparent
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
 from webauth.config import installed_web_auth_config
@@ -252,9 +253,12 @@ def _agent_changes(store: PlaceStore) -> ResourceChanges:
 def _telling_agents(
     tables: TableService, live_leases: Callable[[], frozenset[str]], changes: ResourceChanges, issuer: str
 ) -> TableService:
-    """`tables` counting `live_leases` and telling agents their standing, their tables' views and their tools."""
+    """`tables` counting `live_leases`, storing the trace of each commit and telling agents their standing, their
+    tables' views and their tools.
+    """
     return (
         tables.with_leases(live_leases)
+        .with_trace(current_traceparent)
         .with_standing_signal(standing_signal(changes, issuer))
         .with_view_signal(view_signal(changes, issuer))
         .with_tools_signal(tools_signal(changes, issuer))

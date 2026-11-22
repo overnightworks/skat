@@ -29,6 +29,7 @@ from skat.table.series_end import (
     end_answer_left,
     new_series_lapsed,
 )
+from skat.table.transactions import save_traced
 
 if TYPE_CHECKING:
     import random
@@ -63,7 +64,7 @@ class ServerSteps:
     """The server's own steps over the table's transactions; `live_leases` is read under a table's row lock and has no
     side effect, `tell` names the agents that sat down or left in a commit, `tell_view` the table and the agents whose
     view it changed and `tell_moments` the agents whose moment it changed, each after the commit and on the thread the
-    step ran on.
+    step ran on. `trace` is read on that thread when a step saves a table, for the traces the save enters in.
     """
 
     def __init__(
@@ -75,6 +76,7 @@ class ServerSteps:
         tell: Callable[[frozenset[str]], None],
         tell_view: ViewSignal,
         tell_moments: Callable[[frozenset[str]], None],
+        trace: Callable[[], str | None],
     ) -> None:
         self._transactions = transactions
         self._live_leases = live_leases
@@ -83,6 +85,7 @@ class ServerSteps:
         self._tell = tell
         self._tell_view = tell_view
         self._tell_moments = tell_moments
+        self._trace = trace
 
     def note_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
         """Store the account's chair hold as due `hold_seconds` from now: when `newest_wins` in place of an earlier
@@ -128,7 +131,7 @@ class ServerSteps:
             decision = decide_free_chair(table, account_id)
             if decision.refusal is not None:
                 return False
-            transaction.save_table(decision.table, played_at=None)
+            save_traced(transaction, table, decision.table, self._trace(), played_at=None)
         self._tell_moments(moment_recipients(table, decision.table))
         self._tell(agents_seated_at(table) - agents_seated_at(decision.table))
         self._tell_view(table_id, view_recipients(table, decision.table))
@@ -150,7 +153,7 @@ class ServerSteps:
             if connected is None or not next_deal_due(table, connected):
                 return False
             dealt = dealt_next(table, drawn_hand(table, self._random_source))
-            transaction.save_table(dealt, played_at=self._now())
+            save_traced(transaction, table, dealt, self._trace(), played_at=self._now())
         self._tell_moments(moment_recipients(table, dealt))
         self._tell_view(table_id, view_recipients(table, dealt))
         return True
@@ -203,7 +206,7 @@ class ServerSteps:
                 left = end_answer_left(decided, now)
                 if decided.version == table.version:
                     return EndAnswerLapse(None if left is None else max(0.0, left.total_seconds()))
-                transaction.save_table(decided, played_at=None)
+                save_traced(transaction, table, decided, self._trace(), played_at=None)
         if stops:
             self._tell_moments(members)
             self._tell(members)
