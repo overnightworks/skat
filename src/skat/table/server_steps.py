@@ -22,6 +22,7 @@ from skat.table.rules import (
     presence_step,
     present_at,
     resume_step,
+    seat_of,
 )
 from skat.table.series_end import (
     answer_left,
@@ -37,7 +38,6 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
     from datetime import datetime
 
-    from skat.table.member_place import BookEntry
     from skat.table.member_view import ViewSignal
     from skat.table.records import TableId
     from skat.table.transactions import HeldChair, TableTransaction, TableTransactions
@@ -89,19 +89,29 @@ class ServerSteps:
         self._trace = trace
 
     def note_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
-        """The account left the table: end each open invitation bound to it as owner away, and store its chair hold as
-        due `hold_seconds` from now, when `newest_wins` in place of an earlier one, the newest leave on any pod
-        winning, else only where the account has no hold at the table. A watcher stores no hold; an ended or forgotten
-        table stores nothing.
+        """Store the account's chair hold as due `hold_seconds` from now: when `newest_wins` in place of an earlier
+        one, the newest leave on any pod winning, else only where the account has no hold at the table. A watcher, an
+        ended table or a forgotten one stores nothing. A watcher has no chair to hold, so its leave is the last
+        stream's end and ends the invitations bound to it at once; a seated account's are ended when its hold frees.
         """
-        ended: tuple[BookEntry, ...] = ()
+        ended: frozenset[str] = frozenset()
         with self._transactions.begin() as transaction:
-            if transaction.locked_table(table_id) is not None:
-                ended = ended_by_owner_leaving(transaction.locked_book_entries_at(table_id), account_id, self._now())
-                for entry in ended:
-                    transaction.save_book_entry(entry)
+            table = transaction.locked_table(table_id)
+            if table is not None and seat_of(table, account_id) is None:
+                ended = self._end_invitations_of(transaction, table_id, account_id)
             transaction.store_leave(table_id, account_id, hold_seconds, newest_wins=newest_wins)
-        self._tell(frozenset(entry.agent_account for entry in ended))
+        self._tell(ended)
+
+    def _end_invitations_of(
+        self, transaction: TableTransaction, table_id: TableId, owner_account: str
+    ) -> frozenset[str]:
+        """End each open invitation at the table bound to the owner as owner away, in the caller's transaction; the
+        agents to tell.
+        """
+        ended = ended_by_owner_leaving(transaction.locked_book_entries_at(table_id), owner_account, self._now())
+        for entry in ended:
+            transaction.save_book_entry(entry)
+        return frozenset(entry.agent_account for entry in ended)
 
     def clear_hold(self, table_id: TableId, account_id: str) -> None:
         """Drop the account's chair hold, as it arrived; a freeing in flight makes this wait for its commit."""
@@ -120,8 +130,9 @@ class ServerSteps:
         The table's row is locked first, then the hold's. A hold not due, or gone, changes nothing. `absent` is entered
         then and left after the commit: None frees nothing and keeps the hold for another pod, False keeps the chair
         and drops the hold, True frees the chair where the rules let a hold free it, and the hold is dropped either
-        way; a guard that raises rolls everything back. The hold of an ended or forgotten table is dropped. True when
-        it freed the chair.
+        way; a guard that raises rolls everything back. The hold of an ended or forgotten table is dropped. An account
+        found absent has left the table, so each open invitation bound to it ends as owner away in the same
+        transaction, whether or not the rules let the hold free its chair. True when it freed the chair.
         """
         with ExitStack() as after_commit, self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
@@ -134,14 +145,19 @@ class ServerSteps:
             if is_absent is None:
                 return False
             transaction.delete_hold(table_id, account_id)
-            if not is_absent or not hold_frees_chair(table):
+            if not is_absent:
                 return False
-            decision = decide_free_chair(table, account_id)
-            if decision.refusal is not None:
-                return False
-            save_traced(transaction, table, decision.table, self._trace(), played_at=None)
+            ended = self._end_invitations_of(transaction, table_id, account_id)
+            decision = decide_free_chair(table, account_id) if hold_frees_chair(table) else None
+            if decision is None or decision.refusal is not None:
+                decision = None
+            else:
+                save_traced(transaction, table, decision.table, self._trace(), played_at=None)
+        if decision is None:
+            self._tell(ended)
+            return False
         self._tell_moments(moment_recipients(table, decision.table))
-        self._tell(agents_seated_at(table) - agents_seated_at(decision.table))
+        self._tell(ended | agents_seated_at(table) - agents_seated_at(decision.table))
         self._tell_view(table_id, view_recipients(table, decision.table))
         return True
 
