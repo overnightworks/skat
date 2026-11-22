@@ -281,6 +281,9 @@ class FakeTableStore:
     def locked_book_entries_of(self, agent_account: str) -> tuple[BookEntry, ...]:
         return tuple(entry for (_, account), entry in sorted(self.book.items()) if account == agent_account)
 
+    def locked_book_entries_at(self, table_id: TableId) -> tuple[BookEntry, ...]:
+        return tuple(entry for (at_table, _), entry in sorted(self.book.items()) if at_table == table_id.value)
+
     def save_book_entry(self, entry: BookEntry) -> None:
         self.book[entry.table_id.value, entry.agent_account] = entry
 

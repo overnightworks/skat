@@ -7,7 +7,7 @@ from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
-from skat.table.member_place import agents_seated_at
+from skat.table.member_place import agents_seated_at, ended_by_owner_leaving
 from skat.table.member_view import moment_recipients, view_recipients
 from skat.table.records import Ending, TableRecord
 from skat.table.rules import (
@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
     from datetime import datetime
 
+    from skat.table.member_place import BookEntry
     from skat.table.member_view import ViewSignal
     from skat.table.records import TableId
     from skat.table.transactions import HeldChair, TableTransaction, TableTransactions
@@ -88,12 +89,19 @@ class ServerSteps:
         self._trace = trace
 
     def note_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
-        """Store the account's chair hold as due `hold_seconds` from now: when `newest_wins` in place of an earlier
-        one, the newest leave on any pod winning, else only where the account has no hold at the table. A watcher, an
-        ended table or a forgotten one stores nothing.
+        """The account left the table: end each open invitation bound to it as owner away, and store its chair hold as
+        due `hold_seconds` from now, when `newest_wins` in place of an earlier one, the newest leave on any pod
+        winning, else only where the account has no hold at the table. A watcher stores no hold; an ended or forgotten
+        table stores nothing.
         """
+        ended: tuple[BookEntry, ...] = ()
         with self._transactions.begin() as transaction:
+            if transaction.locked_table(table_id) is not None:
+                ended = ended_by_owner_leaving(transaction.locked_book_entries_at(table_id), account_id, self._now())
+                for entry in ended:
+                    transaction.save_book_entry(entry)
             transaction.store_leave(table_id, account_id, hold_seconds, newest_wins=newest_wins)
+        self._tell(frozenset(entry.agent_account for entry in ended))
 
     def clear_hold(self, table_id: TableId, account_id: str) -> None:
         """Drop the account's chair hold, as it arrived; a freeing in flight makes this wait for its commit."""

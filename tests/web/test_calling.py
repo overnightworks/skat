@@ -289,7 +289,7 @@ class TestACallInvitesTheAgent(CallingTable):
 
         assert (row["key"], row["state"], row["outcome"]) == (key, "ended", "busy")
 
-    def test_an_accept_that_finds_the_owner_away_shows_the_caller_the_row_ended_owner_absent(
+    def test_an_owner_who_leaves_the_table_ends_the_invitation_at_once_as_owner_away(
         self, skat, issuer, felix, table_id
     ):
         owner = person(skat, issuer)
@@ -297,12 +297,36 @@ class TestACallInvitesTheAgent(CallingTable):
             with streams_of(skat, table_id, [(owner.headers, None)]):
                 key = only_row(skat, felix, table_id)["key"]
                 call(skat, felix, table_id, key)
-                offer = offer_of(nova)
-            nova.accept(table_id, offer)
 
             row = only_row(skat, felix, table_id)
 
-        assert (row["key"], row["state"], row["outcome"]) == (key, "ended", "owner-absent")
+            assert (row["key"], row["state"], row["outcome"]) == (key, "ended", "owner-absent")
+            assert invitations_of(nova) == []
+
+    def test_an_accept_after_the_owner_left_is_refused_as_a_stale_invitation(self, skat, issuer, felix, table_id):
+        owner = person(skat, issuer)
+        with listening(skat, issuer, owner, "Nova", NOVA) as nova:
+            with streams_of(skat, table_id, [(owner.headers, None)]):
+                key = only_row(skat, felix, table_id)["key"]
+                call(skat, felix, table_id, key)
+                offer = offer_of(nova)
+
+            answer = nova.accept(table_id, offer)
+
+            assert (answer.is_error, answer.json()) == (True, {"refused": "stale_invitation"})
+
+    def test_an_owner_whose_other_stream_stays_open_keeps_the_invitation(self, skat, issuer, felix, table_id):
+        owner = person(skat, issuer)
+        with listening(skat, issuer, owner, "Nova", NOVA) as nova, streams_of(skat, table_id, [(owner.headers, None)]):
+            with streams_of(skat, table_id, [(owner.headers, None)]):
+                key = only_row(skat, felix, table_id)["key"]
+                call(skat, felix, table_id, key)
+                offer = offer_of(nova)
+
+            row = only_row(skat, felix, table_id)
+            answer = nova.accept(table_id, offer)
+
+            assert (row["state"], row["outcome"], answer.is_error) == ("inviting", None, False)
 
     def test_a_new_call_after_the_outcome_makes_the_row_inviting_again(self, skat, issuer, time, felix, table_id):
         with listening(skat, issuer, felix, "Nova", NOVA):
