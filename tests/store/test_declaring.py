@@ -7,6 +7,7 @@ from sqlalchemy import func, select, table, text
 from skat.engine.deal import Position, positions_from
 from skat.engine.declaration import Announcement, DeclarationRefusal, Declare, PutBack, TakeSkat
 from skat.engine.games import GameKind
+from skat.store.hand_log import StepKind
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
@@ -16,7 +17,7 @@ from skat.table.records import Refusal
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.played_game import HERZ_HAND
-from tests.support.stored_game import person, seated_table_id
+from tests.support.stored_game import a_step_appended, person, seated_table_id
 
 pytestmark = pytest.mark.postgres
 
@@ -228,14 +229,9 @@ def test_steps_shorter_than_the_stored_ones_raise_and_change_nothing(hand, trans
 
 
 def test_a_stored_log_the_engine_refuses_raises_at_the_next_command(hand, engine):
-    with engine.begin() as connection:
-        connection.execute(
-            text(
-                "INSERT INTO declaring_steps VALUES "
-                "(:table_id, 1, 'put-back', 'hearts', 'ace', 'spades', 'ace', NULL, NULL, NULL, NULL)"
-            ),
-            {"table_id": hand.table_id},
-        )
+    a_step_appended(
+        engine, hand.table_id, StepKind.PUT_BACK, suit="hearts", rank="ace", second_suit="spades", second_rank="ace"
+    )
 
     command_id = step_id(1)
     step = TakeSkat()

@@ -538,13 +538,15 @@ class Series:
 
 @dataclass(frozen=True)
 class EntryTraces:
-    """The traces, opaque `traceparent` texts, of the requests the table's latest version and its acts entered in: the
-    request that moved the table to its version and the request of each act by its number. A version or an act the
-    release before wrote, or one written outside a trace, has none.
+    """The traces, opaque `traceparent` texts, of the requests the table's latest version and its latest hand's acts
+    entered in: the request that moved the table to its version, the request of each step of the hand by its slot, the
+    deal's slot being 1, and the request that ended the hand, which every act ending it carries. A version or a step
+    the release before wrote, or one written outside a trace, has none.
     """
 
     version: str | None = None
-    acts: tuple[tuple[int, str], ...] = ()
+    steps: tuple[tuple[int, str], ...] = ()
+    ending: str | None = None
 
 
 @dataclass(frozen=True)

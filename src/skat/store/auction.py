@@ -81,11 +81,6 @@ def read_steps(connection: Connection, table_id: str) -> tuple[AuctionStep, ...]
     return tuple(step_of(AuctionAction(row.action), row.value, POSITION_OF_TEXT[row.position]) for row in rows)
 
 
-def delete_steps(connection: Connection, table_id: str) -> None:
-    """Forget the steps of the hand before; only a new hand's write calls this."""
-    connection.execute(delete(auction_actions).where(auction_actions.c.table_id == table_id))
-
-
 def append_steps(connection: Connection, table_id: str, steps: tuple[AuctionStep, ...]) -> None:
     """Store the steps not yet stored; stored steps that are no prefix of `steps` raise."""
     stored = read_steps(connection, table_id)

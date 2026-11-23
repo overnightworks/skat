@@ -14,6 +14,7 @@ from skat.engine.deal import Position
 from skat.table.acts import ActKind, next_seq_of
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.member_place import Acceptance, InvitationOffer
+from skat.table.member_view import traces_of_acts
 from skat.table.playing import AgreeToGiveUpCommand, GiveUpCommand
 from skat.table.ready import ReadyCommand
 from skat.table.records import (
@@ -22,7 +23,6 @@ from skat.table.records import (
     EndedTable,
     Ending,
     EndProposal,
-    EntryTraces,
     GiveUpOptions,
     HandProgress,
     OccupantKind,
@@ -241,7 +241,12 @@ def _traced_as_committed_earlier(scene):
     """The table as stored, its version and each act of it entered in the trace `EARLIER_TRACE`."""
     viewer = actor_of(Position.FOREHAND).account_id
     acts = scene.acts_of(viewer).acts
-    scene.put(replace(scene.table, traces=EntryTraces(EARLIER_TRACE, tuple((act.seq, EARLIER_TRACE) for act in acts))))
+    scene.put(
+        replace(
+            scene.table,
+            traces=traces_of_acts(scene.table, EARLIER_TRACE, dict.fromkeys((act.seq for act in acts), EARLIER_TRACE)),
+        )
+    )
     return viewer
 
 
