@@ -64,6 +64,10 @@ class ServerStepCalls:
         """The tables whose wait for somebody is up; see `ServerSteps.due_empty_tables`."""
         return self._server_steps().due_empty_tables(empty_seconds)
 
+    def unstamped_tables(self) -> tuple[TableId, ...]:
+        """The live undealt tables with no time since when nobody was there; see `ServerSteps.unstamped_tables`."""
+        return self._server_steps().unstamped_tables()
+
     def end_empty_table(
         self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None], empty_seconds: int
     ) -> bool:

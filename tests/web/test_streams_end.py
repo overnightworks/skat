@@ -112,7 +112,7 @@ class TestAStreamWhoseArrivalWriteFails:
                 raise ConnectionError
             return False
 
-        empty_table = EmptyTable(end_no_table, note, nothing_due)
+        empty_table = EmptyTable(end_no_table, note, nothing_due, nothing_due)
         presence = Presence(
             idle_hold(),
             idle_next_deal(),

@@ -123,6 +123,9 @@ class _FaultyTransaction:
     def due_empty_tables(self, empty_seconds: int, limit: int) -> tuple[TableId, ...]:
         return self._inner.due_empty_tables(empty_seconds, limit)
 
+    def unstamped_tables(self) -> tuple[TableId, ...]:
+        return self._inner.unstamped_tables()
+
     def store_next_deal(self, table_id: TableId, seconds: float, *, replace: bool) -> None:
         self._inner.store_next_deal(table_id, seconds, replace=replace)
 

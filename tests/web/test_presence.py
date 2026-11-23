@@ -21,6 +21,7 @@ from tests.support.idle_presence import (
     idle_presence,
     idle_wakes,
     note_nothing,
+    nothing_due,
     pause_no_table,
     store_no_leave,
 )
@@ -161,7 +162,7 @@ def presence_whose_only_due_row_is(swept, worker, time):
             free_on_worker,
         ),
         NextDeal(on_worker, on_worker_for_the_pause, pause_no_table, pause_no_table, due_when_swept("pause", [TABLE])),
-        EmptyTable(on_worker, note_nothing, due_when_swept("wait", [TABLE])),
+        EmptyTable(on_worker, note_nothing, due_when_swept("wait", [TABLE]), nothing_due),
         idle_agent_lease(),
         idle_wakes(),
         InMemoryLeases(),

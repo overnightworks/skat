@@ -129,6 +129,12 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         """
         ...
 
+    def unstamped_tables(self) -> tuple[TableId, ...]:
+        """Every live table on which no hand was dealt and that has no time since when nobody has been at it, in id
+        order; no row is locked, so the list is a candidate list.
+        """
+        ...
+
     def live_end_asks(self) -> tuple[LiveAsk, ...]:
         """Every live table whose current series holds a proposal to end it, or at its end the first „Neue Serie“, with
         the instant it was made: an unlocked read, since the server's start only arms timers that re-read each table

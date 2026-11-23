@@ -244,6 +244,13 @@ class ServerSteps:
         with self._transactions.begin() as transaction:
             return transaction.due_empty_tables(empty_seconds, DUE_PER_SWEEP)
 
+    def unstamped_tables(self) -> tuple[TableId, ...]:
+        """The live undealt tables that have no time since when nobody was there, for a pod's start to note who is
+        present at: a candidate list.
+        """
+        with self._transactions.begin() as transaction:
+            return transaction.unstamped_tables()
+
     def end_empty_table(
         self,
         table_id: TableId,

@@ -317,7 +317,10 @@ def _empty_table(settings: ServerSettings, tables: TableService) -> EmptyTable:
             for table_id in await run_in_threadpool(tables.due_empty_tables, settings.empty_table_seconds)
         ]
 
-    return EmptyTable(end, note, due)
+    async def unstamped() -> list[str]:
+        return [table_id.value for table_id in await run_in_threadpool(tables.unstamped_tables)]
+
+    return EmptyTable(end, note, due, unstamped)
 
 
 def _presence(
@@ -547,6 +550,7 @@ def _serving(
             forget_expired_sessions = _session_forgetter(serving, sessions)
             await forget_expired_sessions()
             _sweep_tables(settings, tables, presence, scheduler, forget_expired_sessions, rounds.unplayed_sweep_seconds)
+            await presence.note_unstamped_tables()
             # The holds, pauses and waits are stored, so the first sweeps act on those that fell due while no pod ran.
             presence.start_sweeps()
             lapses = asyncio.create_task(presence.serve_lapses())

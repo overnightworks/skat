@@ -31,6 +31,7 @@ from tests.support.idle_presence import (
     idle_hold,
     idle_next_deal,
     idle_wakes,
+    nothing_due,
 )
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.payload_cards import with_known_deal
@@ -490,7 +491,7 @@ class TestAnEndedTablesWaitIsDropped:
         presence = Presence(
             idle_hold(time.clock, time),
             idle_next_deal(),
-            EmptyTable(ending.answer, ending.answer, ending.due),
+            EmptyTable(ending.answer, ending.answer, ending.due, nothing_due),
             idle_agent_lease(),
             idle_wakes(),
             InMemoryLeases(),

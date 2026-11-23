@@ -19,7 +19,7 @@ from skat.web.presence import (
     Presence,
 )
 from skat.web.presence_line import EVENT, PresenceTimer
-from tests.support.idle_presence import idle_wakes
+from tests.support.idle_presence import idle_wakes, nothing_due
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.log_lines import lines_of, logged
 from tests.web.support.presence import FAILURE_NAMING_AN_ACCOUNT, TABLE, Notes, chair_hold, connect, run
@@ -58,7 +58,7 @@ def timers(time, holds, deals, ends, lapses):
     presence = Presence(
         chair_hold(time, holds),
         deals.port(),
-        EmptyTable(ends.end, notes.note, ends.due),
+        EmptyTable(ends.end, notes.note, ends.due, nothing_due),
         AgentLease(LEASE_SECONDS, leases.seated_tables),
         idle_wakes(),
         roster,

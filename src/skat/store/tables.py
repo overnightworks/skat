@@ -612,6 +612,16 @@ class _PostgresTableTransaction:
             ).scalars()
         )
 
+    def unstamped_tables(self) -> tuple[TableId, ...]:
+        return tuple(
+            TableId(table_id)
+            for table_id in self._connection.execute(
+                select(tables.c.id)
+                .where(tables.c.end_reason.is_(None), tables.c.dealer.is_(None), tables.c.empty_since.is_(None))
+                .order_by(tables.c.id)
+            ).scalars()
+        )
+
     def live_end_asks(self) -> tuple[LiveAsk, ...]:
         asking = self._connection.execute(
             select(series.c.table_id)

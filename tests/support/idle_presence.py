@@ -61,7 +61,7 @@ def idle_end_answers() -> EndAnswers:
 
 
 def idle_empty_table() -> EmptyTable:
-    return EmptyTable(end_no_table, note_nothing, nothing_due)
+    return EmptyTable(end_no_table, note_nothing, nothing_due, nothing_due)
 
 
 def idle_next_deal() -> NextDeal:

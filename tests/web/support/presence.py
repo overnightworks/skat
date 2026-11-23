@@ -12,7 +12,7 @@ from skat.web.presence_line import EVENT
 from skat.web.stream_holder import StreamHolder
 from skat.web.tables import TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
-from tests.support.idle_presence import idle_agent_lease, idle_end_answers, idle_wakes, note_nothing
+from tests.support.idle_presence import idle_agent_lease, idle_end_answers, idle_wakes, note_nothing, nothing_due
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.log_lines import lines_of
 from tests.support.played_game import after_the_first_game
@@ -132,7 +132,7 @@ def presence_on(time, holds, deals, ends, *, note=note_nothing, lease=None, leas
     return Presence(
         chair_hold(time, holds),
         deals.port(),
-        EmptyTable(ends.end, note, ends.due),
+        EmptyTable(ends.end, note, ends.due, nothing_due),
         lease or idle_agent_lease(),
         idle_wakes(),
         leases or InMemoryLeases(),

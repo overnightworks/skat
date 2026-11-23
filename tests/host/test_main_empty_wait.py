@@ -10,10 +10,8 @@ from typing import TYPE_CHECKING
 
 import httpx2
 import pytest
-from sqlalchemy import update
 
 from skat.store.redis_clients import STREAM_LEASE_LASTS
-from skat.store.schema import tables
 from skat.table.records import EndReason
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS, LAPSE_SWEEP_EVERY
 from tests.support.pods import Pods, running_pods
@@ -60,6 +58,13 @@ def wait_until_stamped(pods: Pods, table_id: str, within: float = LAPSED_WITHIN_
         assert time.monotonic() - since < within, "nobody-was-there was not stored in time"
         time.sleep(POLL_SECONDS)
     return pods.table_row(table_id).empty_since
+
+
+def wait_until_cleared(pods: Pods, table_id: str, within: float = HOLD_SWEEP_EVERY_SECONDS + MARGIN_SECONDS) -> None:
+    since = time.monotonic()
+    while pods.table_row(table_id).empty_since is not None:
+        assert time.monotonic() - since < within, "the stamp was not cleared in time"
+        time.sleep(POLL_SECONDS)
 
 
 def assert_ended_once_for_its_wait(pods: Pods, table_id: str, stamp, ended) -> None:
@@ -127,15 +132,9 @@ def test_a_stamp_left_while_somebody_is_at_the_table_is_cleared_and_never_ends_i
     table_id = pods.table_opened_by(pods.first, cookie)
     with pods.first.event_stream(pods.events_path(table_id), within_seconds=ENDED_WITHIN_SECONDS, cookie=cookie) as e:
         next(e)
-        with pods.engine.begin() as connection:
-            connection.execute(
-                update(tables).where(tables.c.id == table_id).values(empty_since=pods.database_now() - 10 * WAIT)
-            )
+        pods.set_empty_since(table_id, pods.database_now() - 10 * WAIT)
 
-        since = time.monotonic()
-        while pods.table_row(table_id).empty_since is not None:
-            assert time.monotonic() - since < HOLD_SWEEP_EVERY_SECONDS + MARGIN_SECONDS, "the stale stamp was kept"
-            time.sleep(POLL_SECONDS)
+        wait_until_cleared(pods, table_id)
 
         assert pods.table_row(table_id).ended_at is None
     second_stamp = wait_until_stamped(pods, table_id)
@@ -158,6 +157,38 @@ def test_a_pod_killed_with_the_only_streams_leaves_the_table_to_end_once_after_t
     ended = wait_until_ended(pods, table_id)
 
     assert_ended_once_for_its_wait(pods, table_id, stamp, ended)
+
+
+def test_a_pod_started_stamps_an_undealt_table_nobody_is_at_that_has_no_stamp_and_ends_it_once(pods):
+    table_id = pods.table_opened_by(pods.first, pods.member()[0])
+    pods.set_empty_since(table_id, None)
+    pods.stop_both()
+    pods.start_both()
+
+    stamp = wait_until_stamped(pods, table_id, MARGIN_SECONDS)
+    ended = wait_until_ended(pods, table_id)
+
+    assert_ended_once_for_its_wait(pods, table_id, stamp, ended)
+
+
+def test_a_pod_started_leaves_a_table_somebody_streams_at_on_the_other_pod_unstamped(pods):
+    cookie = pods.member()[0]
+    table_id = pods.table_opened_by(pods.first, cookie)
+    with pods.second.event_stream(pods.events_path(table_id), within_seconds=ENDED_WITHIN_SECONDS, cookie=cookie) as e:
+        next(e)
+        wait_until_cleared(pods, table_id)
+        pods.first.stop()
+        pods.first.start()
+
+        # The sweep clears a stamp once the wait is up, so a stamp of the start shows within the wait.
+        stamped_within_the_wait = []
+        since = time.monotonic()
+        while time.monotonic() - since < EMPTY_TABLE_SECONDS - 1:
+            stamped_within_the_wait.append(pods.table_row(table_id).empty_since)
+            time.sleep(POLL_SECONDS)
+
+        assert stamped_within_the_wait == [None] * len(stamped_within_the_wait)
+        assert pods.table_row(table_id).ended_at is None
 
 
 def test_a_dealt_table_everybody_left_is_never_ended_by_the_empty_wait(pods):

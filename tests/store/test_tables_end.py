@@ -356,6 +356,16 @@ def test_the_due_tables_are_the_undealt_ones_whose_wait_is_up_on_the_stores_cloc
     assert service.due_empty_tables(DEFAULT_EMPTY_TABLE_SECONDS) == (overdue, up_to_the_second)
 
 
+def test_the_unstamped_tables_are_the_live_undealt_ones_without_a_time_since_nobody_was_there(service, engine):
+    unset, _stamped, ended = (undealt_table(service, name) for name in ("one", "two", "three"))
+    dealt = seated_table(service, "four")
+    end(service, engine, ended)
+    for table_id in (unset, dealt, ended):
+        set_since(engine, table_id, None)
+
+    assert service.unstamped_tables() == (unset,)
+
+
 def test_every_stamp_is_the_stores_clock_and_not_the_services(transactions, engine):
     service = TableService(transactions, now=lambda: datetime(2001, 1, 1, tzinfo=UTC))
     before = datetime.now(UTC)

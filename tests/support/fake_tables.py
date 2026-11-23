@@ -205,6 +205,15 @@ class FakeTableStore:
         )
         return tuple(TableId(table_id) for _, table_id in waiting[:limit])
 
+    def unstamped_tables(self) -> tuple[TableId, ...]:
+        return tuple(
+            TableId(table_id)
+            for table_id, table in sorted(self.tables.items())
+            if isinstance(table, TableRecord)
+            and table.dealer is None
+            and self.empty_since_by_table.get(table_id) is None
+        )
+
     def store_next_deal(self, table_id: TableId, seconds: float, *, replace: bool) -> None:
         table = self.tables.get(table_id.value)
         if (

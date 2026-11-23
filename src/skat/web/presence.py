@@ -168,12 +168,13 @@ class EmptyTable:
     `end` settles a table whose wait looked up and `note` stores since when nobody has been at a table, wherever who
     is connected changes; both answer whether the table ended and enter `connected_accounts` in their worker once
     they hold the table, which yields who is connected then, and None once the presence has stopped. `due` answers
-    the tables whose wait is up on the store's clock.
+    the tables whose wait is up on the store's clock and `unstamped` the live undealt tables with no wait started.
     """
 
     end: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
     note: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
     due: Callable[[], Awaitable[Iterable[str]]]
+    unstamped: Callable[[], Awaitable[Iterable[str]]]
 
 
 @dataclass(frozen=True)
@@ -202,36 +203,34 @@ class Presence:
     subscriptions and makes it under `_state`. Otherwise a worker touches only the write markers and the lease ends,
     all under `_state`: inside a write's guard, and where `TableService`'s worker reads `live_leases`; it reads the
     roster before it takes `_state`, from the event loop that owns the client. A wake carries no data: a stream that
-    falls behind finds several changes folded into one wake and reads the latest state, which is its fresh snapshot.
+    falls behind finds several changes folded into one wake and reads the latest state.
 
     A chair hold is a deadline in the store, on the store's clock, so it outlives the pod that wrote it. A stream that
     was the account's last at the table on any pod, or whose pod cannot read the roster, stores the account's leave
     before its lease ends, even while the presence stops; a stream lapsed on a dead pod and an agent's lapsed lease
-    store it too, unless the account is back. A leave that cannot be stored is logged and stored again after
-    `CHAIR_RELEASE_RETRY_SECONDS` while the presence runs; until then the chair is kept. An arrival clears the account's
-    hold once its lease has started. Every pod sweeps the due holds every `HOLD_SWEEP_EVERY_SECONDS`; the freeing locks
-    the table and the hold, and frees the chair only while the roster vouches that the account streams on no pod and no
-    lease of it runs here. An arrival's clear waits for a freeing in flight.
+    store it too, unless the account is back. A leave that cannot be stored is stored again after
+    `CHAIR_RELEASE_RETRY_SECONDS` while the presence runs. An arrival clears the account's hold once its lease has
+    started. Every pod sweeps the due holds every `HOLD_SWEEP_EVERY_SECONDS`; the freeing locks the table and the hold,
+    and frees the chair only while the roster vouches that the account streams on no pod and no lease of it runs here.
+    An arrival's clear waits for a freeing in flight.
 
     The next deal's pause is a deadline in the store too: a hand's end stores it in its own transaction, a stream's
     first view of a passed-in table stores one where none is pending, and a deal that failed is stored as due now.
     Every pod sweeps the pauses every `PAUSE_SWEEP_EVERY_SECONDS`; a pause that is over is dropped under the table's
-    row lock and the table dealt when all three are connected then, so a pause is spent once; a roster that is unsettled
-    and misses a seated person keeps it for the next sweep.
+    row lock and the table dealt when all three are connected then; an unsettled roster that misses a seated person
+    keeps it for the next sweep.
 
     An agent holds no stream: every admitted call of it renews its lease, and while the lease runs the agent counts
     as present at the tables it sits at (`live_leases`; the table's rule intersects them with its occupants). One
     timer per lease re-arms itself to the lease's end. A lapse is the agent's leave from each of its tables: the
-    streams are woken, a hold starts as for a person and a table with no stream open waits afresh; a pending hold
-    never frees a chair while a lease runs. An agent's leases are in the process that heard its call and gone at a
-    restart.
+    streams are woken, a hold starts as for a person and a table with no stream open waits afresh. An agent's leases
+    are in the process that heard its call and gone at a restart, so a pod's start notes the tables without a wait.
 
     Since when nobody has been at an undealt table is stored on its row, on the store's clock: creating the table stamps
-    it, and a table's last leave, a lease starting or lapsing, a lapsed stream and the first arrival note who is
-    present under the table's row lock (an empty table gets the time, a table someone is at loses it, and one someone
-    arrives at after its wait was up ends instead of reviving). Every pod sweeps the tables whose wait is up every
-    `HOLD_SWEEP_EVERY_SECONDS`; the settling reads who is present again, so a restart never gives a table a fresh wait
-    and a table that someone is at never ends.
+    it, and a table's last leave, a lease starting or lapsing, a lapsed stream, the first arrival and a pod's start note
+    who is present under the table's row lock (an empty table gets the time, a table someone is at loses it, and one
+    someone arrives at after its wait was up ends instead of reviving). Every pod sweeps the tables whose wait is up
+    every `HOLD_SWEEP_EVERY_SECONDS`, reading who is present again, so a table that someone is at never ends.
 
     `waits` is the one `AskClock` of the process and `reactions` the one `ReactionLog`, both on the chair hold's clock;
     the presence drops a table's entries where its end or note answers that the table ended.
@@ -348,9 +347,8 @@ class Presence:
 
     async def _leave_lapsed(self, lapse: Lapse) -> None:
         """Store the leave only where no hold exists, since tandem queues a lapse for every lease that ends, a close's
-        too; a leave that cannot be stored raises, so tandem hands the lapse again once its claim runs out. The table
-        notes who is present before the lapse is done, since a lapse on a dead pod may have been the last stream's
-        end and no other pod would note it; a note that fails raises the same way.
+        too. The table notes who is present before the lapse is done, since a lapse on a dead pod may have been the last
+        stream's end; a leave or a note that fails raises, so tandem hands the lapse again once its claim runs out.
         """
         holder = StreamHolder.parse(lapse.holder)
         if not await self._is_back(holder.table_id, holder.account_id):
@@ -359,15 +357,11 @@ class Presence:
         await self._write_presence(holder.table_id)
 
     async def _is_back(self, table_id: str, account_id: str) -> bool:
-        """Whether the account is here at the table; an unreadable roster says no, which stores a leave the freeing
-        reads the roster against again.
-        """
+        """Whether the account is here at the table; an unreadable roster says no, and the freeing reads it again."""
         return self._is_here(account_id, await self._connected_or_none(table_id))
 
     def _is_here(self, account_id: str, connected: frozenset[str]) -> bool:
-        """Whether the account counts as here at a table whose streams on every pod are `connected`: it streams there,
-        or a lease of it runs here.
-        """
+        """Whether the account streams at the table (`connected`) or a lease of it runs here."""
         return account_id in connected or account_id in self.live_leases()
 
     def live_leases(self) -> frozenset[str]:
@@ -377,10 +371,8 @@ class Presence:
 
     def renew_lease(self, account_id: str) -> None:
         """Count the account as present at every table it sits at for one more lease; call it on the event loop's
-        thread for every admitted call of an agent.
-
-        A lease that starts has its tables woken and their next deal asked for; one timer per lease re-arms itself
-        until the lease has run out without a renewal.
+        thread for every admitted call of an agent. A lease that starts has its tables woken and their next deal asked
+        for; one timer per lease re-arms itself until the lease has run out without a renewal.
         """
         if self._stopped:
             return
@@ -422,10 +414,10 @@ class Presence:
         for table_id in table_ids:
             self.wake_table(table_id)
             self._note_soon(table_id)
-            if not lapsed:
+            if lapsed:
+                await self._store_leave(table_id, account_id, lapsed=True)
+            else:
                 await self.deal_soon(table_id)
-                continue
-            await self._store_leave(table_id, account_id, lapsed=True)
 
     async def subscribe(self, table_id: str, account_id: str, wake: Callable[[], None]) -> Subscription:
         """Register before the stream reads its view, so a change after this call wakes it.
@@ -615,6 +607,14 @@ class Presence:
         return await self._empty_table.end(
             table_id, self._connected_while_writing(table_id, asyncio.get_running_loop())
         )
+
+    async def note_unstamped_tables(self) -> None:
+        """At a pod's start, note who is present at every live undealt table with no wait started: an agent's lease
+        dies with its pod without a lapse, so only the roster says whether anyone is at such a table. A failed read
+        raises; a failed note is retried.
+        """
+        for table_id in await self._empty_table.unstamped():
+            self._note_soon(table_id)
 
     def chair_taken(self, table_id: str) -> None:
         """A command opened a table or seated someone at it; call it on the event loop's thread after the commit.

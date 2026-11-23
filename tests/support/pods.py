@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import httpx2
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, update
 from sqlalchemy.engine import make_url
 
 from skat.store.migrate import create_store_engine
@@ -116,6 +116,11 @@ class Pods:
                     tables.c.end_reason,
                 ).where(tables.c.id == table_id)
             ).one()
+
+    def set_empty_since(self, table_id: str, since) -> None:
+        """Store the table's time since when nobody was there, as a pod that is gone left it."""
+        with self.engine.begin() as connection:
+            connection.execute(update(tables).where(tables.c.id == table_id).values(empty_since=since))
 
     def next_deal_due_at(self, table_id: str):
         """When the table's stored pause is over, or None where it has none."""
