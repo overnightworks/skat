@@ -569,9 +569,7 @@ class Presence:
                 self._hold.scheduler.schedule(every, partial(self._sweep_every, every))
 
     async def _sweep(self, sweep: _Sweep) -> None:
-        """Decide each due subject. A roster that cannot be read ends the sweep, since it is unknown for every subject;
-        an unsettled roster that cannot vouch for one table keeps that subject due and goes on with the next.
-        """
+        """Decide each due subject; an unreadable roster ends the sweep, an unsettled one skips just that subject."""
         run = self._timer_runs.start(sweep.sweep_timer)
         try:
             due = list(await sweep.due())
@@ -710,9 +708,8 @@ class Presence:
     ) -> AbstractContextManager[bool | None]:
         """Enter on a worker once it holds the table and the hold: yields whether the account is gone, and None once
         stopped. The account is gone when, by the roster, it is not here (`_is_here`).
-        A roster that cannot be read raises `PresenceUnknownError`, and one that is unsettled and does not list
-        the account `PresenceUnsettledError`; either frees nothing. The exit runs on the worker after the commit, so
-        `finish_writes` outlives a cancelled event-loop task.
+        An unreadable roster raises `PresenceUnknownError`, one unsettled without the account `PresenceUnsettledError`;
+        neither frees anything. The exit runs on the worker after the commit, so `finish_writes` outlives its task.
         """
 
         connected = self._connected_while_writing(table_id, loop, vouches=lambda listed: account_id in listed)
@@ -727,9 +724,8 @@ class Presence:
     ) -> AbstractContextManager[frozenset[str] | None]:
         """Enter on a worker once it holds the table: yields who is connected then, and None once stopped.
 
-        The roster is read before `_state` is taken. A roster that cannot be read raises `PresenceUnknownError`; an
-        unsettled one whose listing at the table `vouches` does not accept raises `PresenceUnsettledError`: by default
-        one listing nobody.
+        The roster is read before `_state` is taken. One that cannot be read raises `PresenceUnknownError`, an
+        unsettled one whose listing `vouches` rejects (by default: nobody) `PresenceUnsettledError`.
         The exit runs on the worker after the commit, so `finish_writes` outlives a cancelled event-loop task.
         """
 
