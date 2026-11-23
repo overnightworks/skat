@@ -1,0 +1,7 @@
+claim_id = "62b78fea3456435986f7693708e072f5"
+agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
+role = "builder"
+base = "c15a6829b682b1f15c818865145e51f5a95f679d"
+branch = "claude/issue-850-skat-pins-tandem-v0-15-0"
+scope = ["pyproject.toml", "uv.lock"]
+opened_commit = "139b3207c644efe49d8debb542e5f54f3d755f68"
