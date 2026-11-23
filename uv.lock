@@ -769,8 +769,8 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.123.7" },
     { name = "overnightworks-agents", extras = ["mcp-server"], git = "https://github.com/overnightworks/agents?rev=v0.70.0" },
     { name = "overnightworks-logline", git = "https://github.com/overnightworks/logline?rev=v1.9.0" },
-    { name = "overnightworks-tandem", git = "https://github.com/overnightworks/tandem?rev=v0.14.0" },
-    { name = "overnightworks-webauth", extras = ["redis", "postgres"], git = "https://github.com/overnightworks/webauth?rev=v0.45.0" },
+    { name = "overnightworks-tandem", git = "https://github.com/overnightworks/tandem?rev=v0.15.0" },
+    { name = "overnightworks-webauth", extras = ["redis", "postgres"], git = "https://github.com/overnightworks/webauth?rev=v0.46.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pydantic-settings", specifier = ">=2.7" },
@@ -798,8 +798,8 @@ dev = [
 
 [[package]]
 name = "overnightworks-tandem"
-version = "0.14.0"
-source = { git = "https://github.com/overnightworks/tandem?rev=v0.14.0#878534408dc5bac10c828033c488a55398843396" }
+version = "0.15.0"
+source = { git = "https://github.com/overnightworks/tandem?rev=v0.15.0#a0721f9e114d12dba3589d39ddd4b9cb53bc2172" }
 dependencies = [
     { name = "overnightworks-logline" },
     { name = "redis" },
@@ -807,8 +807,8 @@ dependencies = [
 
 [[package]]
 name = "overnightworks-webauth"
-version = "0.45.0"
-source = { git = "https://github.com/overnightworks/webauth?rev=v0.45.0#f30388aab1742b58c9718ae8bfa34bf0c0f94949" }
+version = "0.46.0"
+source = { git = "https://github.com/overnightworks/webauth?rev=v0.46.0#b70f583c27a7f01b1f471d9dd84dd19d6992ab1d" }
 dependencies = [
     { name = "anyio" },
     { name = "cryptography" },
