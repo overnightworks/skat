@@ -8,6 +8,7 @@ written for the version in its `stamp_version`; a release that moves the table w
 stamp behind the table's version.
 """
 
+import copy
 from dataclasses import asdict, dataclass, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Final
@@ -188,7 +189,7 @@ def _position(position: Position) -> str:
 
 def _with_two_cards(row: StepRow, cards: tuple[Card, ...]) -> StepRow:
     first, second = cards
-    return replace(
+    return copy.replace(
         row,
         suit=SUIT_TEXT[first.suit],
         rank=RANK_TEXT[first.rank],

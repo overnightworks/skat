@@ -1,3 +1,4 @@
+import copy
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Final, Literal
@@ -265,14 +266,16 @@ def _table_record(
     if standing is not None:
         return record
     acts: dict[str, str] = table.act_traceparents or {}
-    return replace(record, traces=traces_of_acts(record, version_trace, {int(seq): each for seq, each in acts.items()}))
+    return copy.replace(
+        record, traces=traces_of_acts(record, version_trace, {int(seq): each for seq, each in acts.items()})
+    )
 
 
 def _step_tables_progress(connection: Connection, table: Row[Any]) -> HandProgress:
     """The hand's steps and standing state as the step tables and the table row hold them, which the release before
     writes alone.
     """
-    return replace(
+    return copy.replace(
         standing_of(table, aborted=table.hand_aborted),
         auction=read_steps(connection, table.id),
         declaring=read_declaring_steps(connection, table.id),
