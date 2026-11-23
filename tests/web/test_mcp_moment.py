@@ -1,45 +1,54 @@
-"""An agent is offered the tools of its table's moment and no others, and is told when the moment changes; a person's
+"""An agent is offered one fixed list whatever its table is doing, and is told when it sits down or leaves; a person's
 token is offered every tool.
 """
 
 from contextlib import nullcontext
-from dataclasses import replace
 from datetime import timedelta
 
 import pytest
 from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI
 from starlette.concurrency import run_in_threadpool
 
-from skat.table.records import Series, TableId
+from skat.table.records import TableId
 from skat.web.declaring import TABLE_DECLARING_TAKE_SUFFIX
 from skat.web.mcp import (
+    AGREE_TO_ABORT_HAND_TOOL,
+    AGREE_TO_END_SERIES_TOOL,
     AUCTION_BID_TOOL,
     AUCTION_HOLD_TOOL,
     AUCTION_PASS_TOOL,
     AUCTION_PLAY_TOOL,
+    CHANGE_NEXT_SERIES_SETTINGS_TOOL,
+    CONTINUE_AFTER_RESULT_TOOL,
+    DECLARE_GAME_TOOL,
     NUDGE_SEAT_TOOL,
     OPEN_TABLE_TOOL,
     PLAY_CARD_TOOL,
+    PUT_BACK_CARDS_TOOL,
+    RAMSCH_PUT_BACK_CARDS_TOOL,
     READ_PAUSED_TABLES_TOOL,
     READ_RULE_SETS_TOOL,
     READ_SERIES_LIST_TOOL,
     READ_TABLE_TOOL,
+    REFUSE_TO_ABORT_HAND_TOOL,
+    REFUSE_TO_END_SERIES_TOOL,
     SAVE_RULE_SET_TOOL,
+    SAY_KONTRA_TOOL,
     SIT_DOWN_TOOL,
     STAND_UP_TOOL,
+    START_NEW_SERIES_TOOL,
+    STOP_PLAYING_TOOL,
+    TABLE_COMMAND_TOOLS,
     TAKE_SKAT_TOOL,
     THROW_REACTION_TOOL,
-    TOOLS_OF_MOMENT,
 )
 from skat.web.member_place import ACCEPT_INVITATION_DECLARATION, SET_TURN_STATE_DECLARATION
 from tests.support.calls import call_facts
-from tests.support.played_game import a_whole_game
 from tests.web.support.agent import Agent, agent_account_id, person_passes, person_steps, view_uri_of, window_uri_of
 from tests.web.support.calling import a_person
-from tests.web.support.playing import FOREHAND, MIDDLEHAND, REARHAND
+from tests.web.support.playing import MIDDLEHAND, REARHAND, card, card_body
 from tests.web.support.sdk_agent import TOOLS_CHANGED, SdkAgent
-from tests.web.support.series import headers_of, tap_weiter
-from tests.web.support.skat import AgentTable, running_skat, streams_of
+from tests.web.support.skat import running_skat, stored, streams_of
 
 READS = {READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, READ_PAUSED_TABLES_TOOL, READ_RULE_SETS_TOOL}
 SEATED = READS | {
@@ -49,13 +58,14 @@ SEATED = READS | {
     ACCEPT_INVITATION_DECLARATION.name,
     SET_TURN_STATE_DECLARATION.name,
 }
+MOVE_TOOLS = TABLE_COMMAND_TOOLS - {NUDGE_SEAT_TOOL}
 NOT_OFFERED = "the tool is not offered now"
 
 
 skat = pytest.fixture(name="skat")(running_skat)
 
 
-class TestTheListFollowsTheMoment:
+class TestTheListStaysTheSameThroughAGame:
     def test_an_agent_at_no_table_is_offered_the_lobby_tools(self, agent):
         agent.admitted()
 
@@ -67,27 +77,14 @@ class TestTheListFollowsTheMoment:
             SET_TURN_STATE_DECLARATION.name,
         }
 
-    def test_a_seated_agent_in_the_auction_is_offered_the_four_auction_tools_and_the_seated_ones(
-        self, agent, middlehand_auction
-    ):
-        assert set(agent.listed_tools()) == SEATED | {
-            AUCTION_BID_TOOL,
-            AUCTION_HOLD_TOOL,
-            AUCTION_PASS_TOOL,
-            AUCTION_PLAY_TOOL,
-        }
+    def test_a_seated_agent_is_offered_the_seated_tools_and_the_moves_of_every_moment(self, agent, middlehand_auction):
+        assert set(agent.listed_tools()) == SEATED | MOVE_TOOLS
 
-    def test_the_declarer_is_offered_the_tools_of_declaring_and_nothing_of_the_auction(self, agent, middlehand_auction):
+    def test_the_list_after_the_auction_is_the_list_in_it(self, agent, middlehand_auction):
+        in_the_auction = agent.listed_tools()
         middlehand_auction.middlehand_wins()
 
-        offered = set(agent.listed_tools())
-
-        assert (TAKE_SKAT_TOOL in offered, AUCTION_BID_TOOL in offered) == (True, False)
-
-    def test_a_player_is_offered_the_tools_of_play_and_none_of_the_auction(self, agent, forehand_table):
-        offered = set(agent.listed_tools())
-
-        assert (PLAY_CARD_TOOL in offered, AUCTION_BID_TOOL in offered) == (True, False)
+        assert agent.listed_tools() == in_the_auction
 
     def test_a_person_is_offered_every_tool_and_so_a_tool_of_every_moment(
         self, skat, issuer, agent, middlehand_auction
@@ -97,21 +94,86 @@ class TestTheListFollowsTheMoment:
         assert offered > set(agent.listed_tools())
         assert {OPEN_TABLE_TOOL, TAKE_SKAT_TOOL, PLAY_CARD_TOOL} <= offered
 
-    def test_the_moments_together_offer_every_tool_the_front_declares_and_no_other(self, skat, issuer):
-        declared = set(a_person(skat, issuer).listed_tools())
+    def test_the_lobby_and_the_seated_lists_together_offer_every_tool_the_front_declares_and_no_other(
+        self, skat, issuer, agent
+    ):
+        agent.admitted()
+        in_the_lobby = set(agent.listed_tools())
+        agent.open_table()
 
-        assert set().union(*TOOLS_OF_MOMENT.values()) == declared
+        assert in_the_lobby | set(agent.listed_tools()) == set(a_person(skat, issuer).listed_tools())
 
-    def test_a_tool_not_offered_now_answers_a_failure_and_runs_nothing(self, agent, middlehand_auction):
-        answer = agent.take_step(PLAY_CARD_TOOL, middlehand_auction)
+    def test_a_tool_not_offered_to_an_agent_without_a_chair_answers_a_failure_and_runs_nothing(self, agent):
+        agent.admitted()
+
+        answer = agent.call(PLAY_CARD_TOOL, table_id="any", command_id="agent-step-0001", version=0)
 
         assert (answer.is_error, answer.text) == (True, NOT_OFFERED)
 
 
-class TestTheAgentIsToldWhenTheListChanges:
-    def test_the_notice_comes_when_the_auction_ends_and_not_on_a_move_that_keeps_the_moment(
-        self, skat, sdk, agent, forehand_auction
+AUCTION_TOOLS = {AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, AUCTION_PASS_TOOL, AUCTION_PLAY_TOOL}
+
+# What each move names besides the table and its retry key. The series moves and the abort votes name no version.
+_TWO_CARDS = [card_body(card("S7")), card_body(card("S8"))]
+_THE_SERIES = {"series": 1}
+MOVE_ARGUMENTS = {
+    AUCTION_BID_TOOL: {"value": 18},
+    PLAY_CARD_TOOL: card_body(card("S7")),
+    PUT_BACK_CARDS_TOOL: {"cards": _TWO_CARDS},
+    RAMSCH_PUT_BACK_CARDS_TOOL: {"cards": _TWO_CARDS},
+    DECLARE_GAME_TOOL: {"game": "herz", "hand": False, "ouvert": False, "announcement": "none"},
+    SAY_KONTRA_TOOL: {"word": "kontra"},
+    CONTINUE_AFTER_RESULT_TOOL: {**_THE_SERIES, "ordinal": 1},
+    START_NEW_SERIES_TOOL: _THE_SERIES,
+    CHANGE_NEXT_SERIES_SETTINGS_TOOL: {**_THE_SERIES, "series_length": 36},
+}
+UNVERSIONED_MOVES = {
+    CONTINUE_AFTER_RESULT_TOOL,
+    START_NEW_SERIES_TOOL,
+    CHANGE_NEXT_SERIES_SETTINGS_TOOL,
+    STOP_PLAYING_TOOL,
+    AGREE_TO_END_SERIES_TOOL,
+    REFUSE_TO_END_SERIES_TOOL,
+    AGREE_TO_ABORT_HAND_TOOL,
+    REFUSE_TO_ABORT_HAND_TOOL,
+}
+
+
+def attempt(agent, table, tool):
+    """The agent calls the move with the arguments its route takes."""
+    version = {} if tool in UNVERSIONED_MOVES else {"version": table.record.version}
+    return agent.call(
+        tool, table_id=table.table_id, command_id="agent-step-refused", **version, **MOVE_ARGUMENTS.get(tool, {})
+    )
+
+
+class TestAToolOutsideTheMomentIsRefusedByItsRoute:
+    @pytest.mark.parametrize("tool", sorted(MOVE_TOOLS - AUCTION_TOOLS))
+    def test_a_move_of_another_moment_is_refused_in_the_auction_and_changes_nothing(
+        self, skat, agent, middlehand_auction, tool
     ):
+        table = middlehand_auction
+        before = stored(skat)
+
+        answer = attempt(agent, table, tool)
+
+        assert answer.is_error
+        assert answer.json().get("reason"), answer.text
+        assert stored(skat)[0] == before[0]
+
+    @pytest.mark.parametrize("tool", sorted(AUCTION_TOOLS))
+    def test_an_auction_step_is_refused_in_the_play_and_changes_nothing(self, skat, agent, forehand_table, tool):
+        before = stored(skat)
+
+        answer = attempt(agent, forehand_table, tool)
+
+        assert answer.is_error
+        assert answer.json().get("reason"), answer.text
+        assert stored(skat)[0] == before[0]
+
+
+class TestTheAgentIsToldWhenTheListChanges:
+    def test_no_notice_comes_when_a_moment_ends_and_the_next_begins(self, skat, sdk, agent, forehand_auction):
         table = forehand_auction
         window, view = window_uri_of(table.table_id), view_uri_of(table.table_id)
 
@@ -123,14 +185,14 @@ class TestTheAgentIsToldWhenTheListChanges:
             )
             second = [events.next_kind() for _ in range(2)]
             person_passes(table, REARHAND)
-            ending = [events.next_kind() for _ in range(3)]
+            ending = [events.next_kind() for _ in range(2)]
             person_steps(table, MIDDLEHAND, TABLE_DECLARING_TAKE_SUFFIX)
             after = [events.next_kind() for _ in range(2)]
 
         assert (first, second, ending, after) == (
             [window, view],
             [window, view],
-            [TOOLS_CHANGED, window, view],
+            [window, view],
             [window, view],
         )
 
@@ -153,52 +215,19 @@ def on_the_apps_worker(skat, step, *arguments):
     return skat.client.portal.call(run)
 
 
-def _a_move(skat, agent):
-    table = AgentTable(skat, agent, FOREHAND)
-    table.middlehand_bids()
-    agent.take_step(AUCTION_PASS_TOOL, table, command_id="agent-pass")
-    return lambda _session: person_passes(table, REARHAND)
-
-
-def _a_sit_that_deals(skat, agent):
-    table_id = agent.open_table().json()["id"]
-    first, second = skat.member()[0], skat.member()[0]
-    skat.sit(first, table_id, 2, command_id="command-sit-2")
-    return lambda _session: skat.sit(second, table_id, 3, command_id="command-sit-3")
-
-
-def _the_deal_after_the_third_continue(skat, agent):
-    table = AgentTable(skat, agent, FOREHAND)
-    skat.store.tables[table.table_id] = replace(table.record, series=Series(3, 1))
-    table.declared_hand_game()
-    table.played_out(each.card for each in a_whole_game(table.record))
-    for number, headers in enumerate(headers_of(table), start=1):
-        assert tap_weiter(skat, headers, table.table_id, f"weiter-{number}").status_code == 200
-    everyone = frozenset(chair.occupant.account_id for chair in table.record.chairs)
-    return lambda _session: on_the_apps_worker(
-        skat, skat.tables.deal_next, TableId(table.table_id), nullcontext(everyone)
-    )
-
-
-def _a_freed_chair(skat, agent):
-    agent.admitted()
-    table_id = skat.create(skat.member()[0]).json()["id"]
-    agent.sit_down(table_id, 2)
-    skat.store.hold_due(table_id, agent_account_id(skat))
-    return lambda _session: on_the_apps_worker(
-        skat, skat.tables.free_held_chair, TableId(table_id), agent_account_id(skat), nullcontext(True)
-    )
-
-
 class TestTheNoticeComesBeforeTheTellingsOfTheSameChange:
-    @pytest.mark.parametrize(
-        "arrange", [_a_move, _a_sit_that_deals, _the_deal_after_the_third_continue, _a_freed_chair]
-    )
-    def test_the_stream_writes_the_notice_before_the_window_and_the_view_of_the_change(self, skat, sdk, agent, arrange):
-        act = arrange(skat, agent)
+    def test_the_stream_writes_the_notice_of_a_freed_chair_before_the_window_and_the_view_of_the_change(
+        self, skat, sdk, agent
+    ):
+        agent.admitted()
+        table_id = skat.create(skat.member()[0]).json()["id"]
+        agent.sit_down(table_id, 2)
+        skat.store.hold_due(table_id, agent_account_id(skat))
 
         with sdk.connected() as session, session.listening(tools_list_changed=True) as events:
-            act(session)
+            on_the_apps_worker(
+                skat, skat.tables.free_held_chair, TableId(table_id), agent_account_id(skat), nullcontext(True)
+            )
             told = [events.next_kind() for _ in range(2)]
 
         assert (told[0], told[1] != TOOLS_CHANGED) == (TOOLS_CHANGED, True)

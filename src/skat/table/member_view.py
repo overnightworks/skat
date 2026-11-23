@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 from skat.table.acts import Act, acts_of, next_seq_of, step_slot_of
 from skat.table.awaiting import awaits_you
 from skat.table.member_place import agents_seated_at
-from skat.table.moment import TableMoment, moment_of
 from skat.table.records import EntryTraces, TableId, TableRecord
 from skat.table.rules import seat_of
 from skat.table.views import TableView, view_of
@@ -29,8 +28,6 @@ __all__ = [
     "act_traces",
     "member_acts_of",
     "member_view_of",
-    "moment_at",
-    "moment_recipients",
     "traces_after",
     "traces_of_acts",
     "view_recipients",
@@ -122,19 +119,3 @@ def traces_after(before: TableRecord, after: TableRecord, trace: str | None) -> 
 def view_recipients(before: TableRecord, after: TableRecord) -> frozenset[str]:
     """The agents a change of the table tells: those seated after it, when it raised the table's version."""
     return agents_seated_at(after) if after.version > before.version else frozenset()
-
-
-def moment_at(table: TableRecord, account_id: str) -> TableMoment:
-    """The moment of the account's seat at the live table; the moment does not depend on who is present."""
-    return moment_of(view_of(table, account_id, frozenset()))
-
-
-def moment_recipients(before: TableRecord, after: TableRecord) -> frozenset[str]:
-    """The agents seated at both tables whose moment differs between them; an agent that sat down or stood up is told
-    by the service, which tells its seat's change on its own.
-    """
-    return frozenset(
-        account
-        for account in agents_seated_at(before) & agents_seated_at(after)
-        if moment_at(before, account) is not moment_at(after, account)
-    )
