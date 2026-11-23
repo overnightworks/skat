@@ -106,10 +106,11 @@ def test_the_end_step_deletes_the_chairs_holds_hand_and_steps_of_a_running_hand_
 @pytest.mark.parametrize("make", [played_hand, listed_game], ids=["running-hand", "game-list"])
 def test_a_dealt_table_nobody_is_connected_to_is_kept_with_every_row(make, service, transactions, stored, engine):
     table_id = make(service, transactions, stored, "one")
+    lapse_the_empty_wait(engine, table_id.value)
     before = rows_of(engine, table_id.value)
     version = stored(transactions, table_id.value).version
 
-    assert end(service, engine, table_id) is False
+    assert service.end_empty_table(table_id, nullcontext(NOBODY_CONNECTED), POSTGRES_EMPTY_SECONDS) is False
 
     assert rows_of(engine, table_id.value) == before
     assert stored(transactions, table_id.value).version == version

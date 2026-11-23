@@ -35,11 +35,15 @@ def pods(postgres_template, tmp_path) -> Iterator[Pods]:
 def streaming(pods: Pods, process, table_id: str, cookies: list[str]) -> Iterator[None]:
     """Each of `cookies` has a stream open at the table on `process`."""
     with ExitStack() as streams:
-        for cookie in cookies:
-            events = streams.enter_context(
+        # Every reader stays referenced: a stream whose reader is dropped is closed.
+        readers = [
+            streams.enter_context(
                 process.event_stream(pods.events_path(table_id), within_seconds=DEALT_WITHIN_SECONDS, cookie=cookie)
             )
-            next(events)
+            for cookie in cookies
+        ]
+        for reader in readers:
+            next(reader)
         yield
 
 
