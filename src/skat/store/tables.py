@@ -231,12 +231,7 @@ def _table_record(
     revision = mark_revision_of(played)
     standing = stamped_hand(connection, table_id)
     version_trace = table.traceparent if table.traceparent_version == table.version else None
-    if standing is None:
-        logged, traces = _step_tables_progress(connection, table), EntryTraces(version_trace)
-    else:
-        hand_standing = standing_of(standing, aborted=standing.aborted)
-        logged, step_traces = decoded(read_log(connection, table_id), hand_standing, standing.end_traceparent)
-        traces = replace(step_traces, version=version_trace)
+    logged, traces = _logged_progress(connection, table, standing, version_trace)
     record = TableRecord(
         id=TableId(table_id),
         version=table.version,
@@ -269,6 +264,16 @@ def _table_record(
     return copy.replace(
         record, traces=traces_of_acts(record, version_trace, {int(seq): each for seq, each in acts.items()})
     )
+
+
+def _logged_progress(
+    connection: Connection, table: Row[Any], standing: Row[Any] | None, version_trace: str | None
+) -> tuple[HandProgress, EntryTraces]:
+    if standing is None:
+        return _step_tables_progress(connection, table), EntryTraces(version_trace)
+    hand_standing = standing_of(standing, aborted=standing.aborted)
+    logged, step_traces = decoded(read_log(connection, table.id), hand_standing, standing.end_traceparent)
+    return logged, replace(step_traces, version=version_trace)
 
 
 def _step_tables_progress(connection: Connection, table: Row[Any]) -> HandProgress:
