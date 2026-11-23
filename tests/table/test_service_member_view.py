@@ -14,7 +14,6 @@ from skat.engine.deal import Position
 from skat.table.acts import ActKind, next_seq_of
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.member_place import Acceptance, InvitationOffer
-from skat.table.moment import TableMoment
 from skat.table.playing import AgreeToGiveUpCommand, GiveUpCommand
 from skat.table.ready import ReadyCommand
 from skat.table.records import (
@@ -538,28 +537,22 @@ class TestTheSignalOfACommit:
         assert scene.signals == []
 
 
-class TestTheMomentsOfAnAccount:
-    def test_an_account_that_holds_no_chair_is_in_the_lobby(self, scene):
-        assert scene.service.moments_of(WATCHER.account_id) == {TableMoment.LOBBY}
+class TestWhetherAnAccountHoldsAChair:
+    def test_an_account_that_holds_no_chair_holds_none(self, scene):
+        assert scene.service.holds_a_chair(WATCHER.account_id) is False
 
-    def test_a_seated_account_is_in_the_moment_of_its_seat(self, scene):
-        assert scene.service.moments_of(MOZART.account_id) == {TableMoment.AUCTION}
+    def test_a_seated_account_holds_a_chair(self, scene):
+        assert scene.service.holds_a_chair(MOZART.account_id) is True
 
-    def test_an_account_at_two_tables_in_different_moments_is_in_both(self, scene):
-        second_table_id = scene.service.create(CLEO, CreateTable(command_id="command-open-second")).id
-        scene.service.sit(MOZART, SitDown(scene.command_id(), second_table_id, 2), NOBODY)
-
-        assert scene.service.moments_of(MOZART.account_id) == {TableMoment.AUCTION, TableMoment.WAITING}
-
-    def test_a_table_that_ended_after_the_candidates_were_listed_counts_for_no_moment(self, scene, monkeypatch):
+    def test_a_table_that_ended_after_the_candidates_were_listed_gives_no_chair(self, scene, monkeypatch):
         scene.store.tables[scene.table_id] = EndedTable(TableId(scene.table_id), 9, Ending.empty(3600))
         monkeypatch.setattr(scene.store, "tables_of", lambda _account: (TableVersion(TableId(scene.table_id), 8, ()),))
 
-        assert scene.service.moments_of(MOZART.account_id) == {TableMoment.LOBBY}
+        assert scene.service.holds_a_chair(MOZART.account_id) is False
 
 
 class TestTheToolsSignal:
-    def test_the_agents_whose_moment_a_commit_changed_are_told_and_a_commit_that_keeps_it_tells_nobody(self):
+    def test_a_move_of_the_game_tells_nobody_the_tools_changed(self):
         told = []
         scene = Scene().seat_three()
         scene.service = scene.service.with_tools_signal(told.append)
@@ -569,10 +562,9 @@ class TestTheToolsSignal:
 
         auction_bid(scene.service, on_turn(), scene.table_id, scene.table.version)
         auction_pass(scene.service, on_turn(), scene.table_id, scene.table.version)
-        kept = list(told)
         auction_pass(scene.service, on_turn(), scene.table_id, scene.table.version)
 
-        assert (kept, told) == ([], [{MOZART.account_id, BACH.account_id}])
+        assert told == []
 
     def test_inviting_an_agent_sends_no_tools_notice(self):
         told = []
@@ -586,17 +578,6 @@ class TestTheToolsSignal:
 
         assert isinstance(offer, InvitationOffer)
         assert told == []
-
-
-def _a_move(scene):
-    scene.seat_three()
-
-    def on_turn():
-        return next(actor for actor in (ANNA, MOZART, BACH) if scene.view_of(actor.account_id).awaits_you)
-
-    auction_bid(scene.service, on_turn(), scene.table_id, scene.table.version)
-    auction_pass(scene.service, on_turn(), scene.table_id, scene.table.version)
-    return lambda: auction_pass(scene.service, on_turn(), scene.table_id, scene.table.version)
 
 
 def _a_sit_that_deals(scene):
@@ -615,12 +596,6 @@ def _an_accepted_invitation(scene):
     return lambda: scene.service.accept_invitation(BACH, ANNA.account_id, acceptance, frozenset({ANNA.account_id}))
 
 
-def _the_deal_after_the_third_continue(scene):
-    scene.put(with_agents(between_games(1, 2, 3), 2, 3))
-    everyone = frozenset(chair.occupant.account_id for chair in scene.table.chairs)
-    return lambda: scene.service.deal_next(TableId(scene.table_id), nullcontext(everyone))
-
-
 def _a_freed_chair(scene):
     scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
     scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
@@ -633,7 +608,7 @@ def _a_freed_chair(scene):
 class TestTheOrderOfTheTellings:
     @pytest.mark.parametrize(
         "arrange",
-        [_a_move, _a_sit_that_deals, _an_accepted_invitation, _the_deal_after_the_third_continue, _a_freed_chair],
+        [_a_sit_that_deals, _an_accepted_invitation, _a_freed_chair],
     )
     def test_the_tools_notice_of_a_change_precedes_every_other_telling_of_it(self, arrange):
         told = []

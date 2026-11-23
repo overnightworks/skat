@@ -31,7 +31,6 @@ from webauth.middleware.bearer_gate import (
 )
 from webauth.policies import AuthorizedParties
 
-
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Collection
 
@@ -187,11 +186,11 @@ TABLE_COMMAND_TOOLS: Final = frozenset(
 )
 
 
-# Every agent is offered the reads, so it finds out what it needs whatever it is doing. An account that holds no chair is
-# offered the lobby tools; the turn state is among them, so an agent that holds no chair gets the tool's own refusal and
-# not a not-offered text. A seated agent is offered one fixed set, the tools of every moment of a table, which does not
-# change with the moment: the list stays the same through a game, and a route refuses a tool the table's rules do not
-# allow now. The offer is a display filter and no right.
+# Every agent is offered the reads, so it finds out what it needs whatever it is doing. An account that holds no chair
+# is offered the lobby tools; the turn state is among them, so an agent that holds no chair gets the tool's own refusal
+# and not a not-offered text. A seated agent is offered one fixed set, the tools of every moment of a table, which does
+# not change with the moment: the list stays the same through a game, and a route refuses a tool the table's rules do
+# not allow now. The offer is a display filter and no right.
 _READ_TOOLS: Final = frozenset({READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, READ_PAUSED_TABLES_TOOL, READ_RULE_SETS_TOOL})
 LOBBY_TOOLS: Final = _READ_TOOLS | {
     ACCEPT_INVITATION_TOOL,
@@ -200,41 +199,11 @@ LOBBY_TOOLS: Final = _READ_TOOLS | {
     SIT_DOWN_TOOL,
     SAVE_RULE_SET_TOOL,
 }
-SEATED_TOOLS: Final = _READ_TOOLS | {
-    STAND_UP_TOOL,
-    NUDGE_SEAT_TOOL,
-    THROW_REACTION_TOOL,
-    ACCEPT_INVITATION_TOOL,
-    SET_TURN_STATE_TOOL,
-    AUCTION_BID_TOOL,
-    AUCTION_HOLD_TOOL,
-    AUCTION_PASS_TOOL,
-    AUCTION_PLAY_TOOL,
-    TAKE_SKAT_TOOL,
-    PUT_BACK_CARDS_TOOL,
-    DECLARE_GAME_TOOL,
-    RAMSCH_TAKE_SKAT_TOOL,
-    RAMSCH_PUT_BACK_CARDS_TOOL,
-    RAMSCH_PUSH_SKAT_TOOL,
-    RAMSCH_DECLARE_GRAND_HAND_TOOL,
-    PLAY_CARD_TOOL,
-    SAY_KONTRA_TOOL,
-    SAY_NO_WORD_TOOL,
-    GIVE_UP_GAME_TOOL,
-    SHORTEN_GAME_TOOL,
-    PLAY_OPEN_TOOL,
-    AGREE_TO_GIVE_UP_TOOL,
-    DECLINE_GIVE_UP_TOOL,
-    THROW_DOWN_CARDS_TOOL,
-    AGREE_TO_ABORT_HAND_TOOL,
-    REFUSE_TO_ABORT_HAND_TOOL,
-    CONTINUE_AFTER_RESULT_TOOL,
-    AGREE_TO_END_SERIES_TOOL,
-    REFUSE_TO_END_SERIES_TOOL,
-    START_NEW_SERIES_TOOL,
-    CHANGE_NEXT_SERIES_SETTINGS_TOOL,
-    STOP_PLAYING_TOOL,
-}
+SEATED_TOOLS: Final = (
+    _READ_TOOLS
+    | TABLE_COMMAND_TOOLS
+    | {STAND_UP_TOOL, THROW_REACTION_TOOL, ACCEPT_INVITATION_TOOL, SET_TURN_STATE_TOOL}
+)
 
 type IsSeated = Callable[[Principal], Awaitable[bool]]
 

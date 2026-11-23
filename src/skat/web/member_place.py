@@ -402,7 +402,9 @@ def standing_signal(changes: ResourceChanges, issuer: str) -> Callable[[frozense
 
 
 def tools_signal(changes: ResourceChanges, issuer: str) -> Callable[[frozenset[str]], None]:
-    """The signal `TableService` tells after a commit that changed the tools an agent is offered: it sat down or left."""
+    """The signal `TableService` tells after a commit that changed the tools an agent is offered: it sat down or
+    left.
+    """
 
     def tell(accounts: frozenset[str]) -> None:
         _pulse(issuer, accounts, changes.tools_changed)

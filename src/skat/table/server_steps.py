@@ -63,8 +63,9 @@ def members_of(transaction: TableTransaction, table: TableRecord) -> frozenset[s
 
 class ServerSteps:
     """The server's own steps over the table's transactions; `live_leases` is read under a table's row lock and has no
-    side effect, `tell` names the agents that sat down or left in a commit and `tell_view` the table and the agents whose
-    view it changed, each after the commit and on the thread the step ran on. `trace` is read on that thread when a step saves a table, for the traces the save enters in.
+    side effect, `tell` names the agents that sat down or left in a commit and `tell_view` the table and the agents
+    whose view it changed, each after the commit and on the thread the step ran on. `trace` is read on that thread when
+    a step saves a table, for the traces the save enters in.
     """
 
     def __init__(
