@@ -68,6 +68,54 @@ class TestTheNextDeal:
         run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
         assert deals.calls == [(TABLE, {"anna"})]
 
+    def test_a_due_pause_stays_while_the_roster_is_unsettled_and_misses_someone_seated_and_deals_once_it_lists_all(
+        self, holding, elsewhere, leases, time, deals
+    ):
+        deals.seated = frozenset({"anna", "ben"})
+        deals.due_now = [TABLE]
+        holding.start_sweeps()
+        connect(elsewhere, TABLE, "anna", lambda: None)
+        leases.settled = False
+
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+        assert (deals.calls, deals.due_now) == ([], [TABLE])
+
+        connect(elsewhere, TABLE, "ben", lambda: None)
+        leases.settled = True
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+
+        assert (deals.calls, deals.due_now) == ([(TABLE, {"anna", "ben"})], [])
+
+    def test_a_due_pause_is_dropped_without_a_deal_once_the_roster_settles_without_someone_seated(
+        self, holding, elsewhere, leases, time, deals, wakes
+    ):
+        deals.seated = frozenset({"anna", "ben"})
+        deals.due_now = [TABLE]
+        holding.start_sweeps()
+        connect(elsewhere, TABLE, "anna", wakes.callback("anna"))
+        leases.settled = False
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+        before = wakes.counts["anna"]
+
+        leases.settled = True
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+
+        assert (deals.calls, deals.due_now, wakes.counts["anna"]) == ([(TABLE, {"anna"})], [], before)
+
+    def test_a_due_pause_counts_a_seated_agent_whose_lease_runs_on_this_pod_as_listed(
+        self, holding, leases, time, deals
+    ):
+        deals.seated = frozenset({"agent"})
+        deals.due_now = [TABLE]
+        holding.start_sweeps()
+        holding.renew_lease("agent")
+        leases.settled = False
+
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+
+        assert (deals.calls, deals.due_now) == ([(TABLE, frozenset())], [])
+
     def test_acts_on_the_holders_an_unsettled_roster_lists_even_when_it_lists_nobody(self, holding, leases, deals):
         leases.settled = False
 

@@ -490,6 +490,11 @@ def result_pending(table: TableRecord) -> bool:
     )
 
 
+def seated_accounts(table: TableRecord) -> frozenset[str]:
+    """The accounts that sit at the table's chairs."""
+    return frozenset(chair.occupant.account_id for chair in table.chairs if chair.occupant is not None)
+
+
 @overload
 def present_at(
     table: TableRecord, streams: frozenset[str], leases: frozenset[str]
@@ -508,8 +513,7 @@ def present_at(table: TableRecord, streams: frozenset[str] | None, leases: froze
     """
     if streams is None:
         return None
-    occupants = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
-    return streams | (leases & occupants)
+    return streams | (leases & seated_accounts(table))
 
 
 def unplayed_end(last_played_at: datetime, days: int) -> datetime:
@@ -576,7 +580,7 @@ def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> boo
     """The next hand is due when no hand runs, the table has a dealer and all three occupants are connected; while a
     result is pending or at a series' end, all three chairs must be ready too.
     """
-    occupants = [chair.occupant.account_id for chair in table.chairs if chair.occupant is not None]
+    occupants = seated_accounts(table)
     return (
         not hand_runs(table)
         and hand_was_dealt(table)

@@ -45,6 +45,15 @@ def pass_in(service, transactions, stored, table_id):
         assert service.take_auction_step(SEATED[seat - 1], command, NOBODY_CONNECTED).refusal is None
 
 
+class RosterCannotSayError(Exception):
+    """What the presence raises when its roster cannot yet vouch for who is gone."""
+
+
+def connected(accounts):
+    """The roster read of a pause step, answering `accounts` whoever sits at the table."""
+    return lambda _seated: nullcontext(accounts)
+
+
 def pause_due_in(engine, table_id, seconds):
     with engine.begin() as connection:
         connection.execute(
@@ -90,7 +99,7 @@ class TestThePause:
     def test_a_pause_not_over_changes_nothing_and_stays(self, service, engine, transactions, stored, passed_in_table):
         version = version_of(stored, transactions, passed_in_table)
 
-        assert service.deal_after_pause(passed_in_table, nullcontext(ALL_THREE)) is False
+        assert service.deal_after_pause(passed_in_table, connected(ALL_THREE)) is False
 
         assert (version_of(stored, transactions, passed_in_table), pause_rows(engine)) == (
             version,
@@ -101,8 +110,8 @@ class TestThePause:
         version = version_of(stored, transactions, passed_in_table)
         pause_due_in(engine, passed_in_table, -1)
 
-        dealt = service.deal_after_pause(passed_in_table, nullcontext(ALL_THREE))
-        again = service.deal_after_pause(passed_in_table, nullcontext(ALL_THREE))
+        dealt = service.deal_after_pause(passed_in_table, connected(ALL_THREE))
+        again = service.deal_after_pause(passed_in_table, connected(ALL_THREE))
 
         assert (dealt, again) == (True, False)
         assert version_of(stored, transactions, passed_in_table) == version + 1
@@ -114,16 +123,36 @@ class TestThePause:
         version = version_of(stored, transactions, passed_in_table)
         pause_due_in(engine, passed_in_table, -1)
 
-        assert service.deal_after_pause(passed_in_table, nullcontext(ALL_THREE - {SEATED[1].account_id})) is False
+        assert service.deal_after_pause(passed_in_table, connected(ALL_THREE - {SEATED[1].account_id})) is False
 
         assert (version_of(stored, transactions, passed_in_table), pause_rows(engine)) == (version, [])
 
     def test_an_unknown_presence_keeps_the_pause(self, service, engine, passed_in_table):
         pause_due_in(engine, passed_in_table, -1)
 
-        assert service.deal_after_pause(passed_in_table, nullcontext(None)) is False
+        assert service.deal_after_pause(passed_in_table, connected(None)) is False
 
         assert pause_rows(engine) == [passed_in_table.value]
+
+    def test_the_roster_read_is_given_who_sits_at_the_table_and_a_read_that_raises_keeps_the_pause(
+        self, service, engine, transactions, stored, passed_in_table
+    ):
+        version = version_of(stored, transactions, passed_in_table)
+        pause_due_in(engine, passed_in_table, -1)
+        asked = []
+
+        def cannot_say(seated):
+            asked.append(seated)
+            raise RosterCannotSayError
+
+        with pytest.raises(RosterCannotSayError):
+            service.deal_after_pause(passed_in_table, cannot_say)
+
+        assert (asked, version_of(stored, transactions, passed_in_table), pause_rows(engine)) == (
+            [ALL_THREE],
+            version,
+            [passed_in_table.value],
+        )
 
     def test_a_deal_that_failed_is_stored_as_due_now_and_replaces_the_pause_pending(
         self, service, engine, passed_in_table
@@ -157,7 +186,7 @@ class TestThePauseBesideTheReleaseBefore:
         dealt = version_of(stored, transactions, passed_in_table)
         pause_due_in(engine, passed_in_table, -1)
 
-        assert service.deal_after_pause(passed_in_table, nullcontext(ALL_THREE)) is False
+        assert service.deal_after_pause(passed_in_table, connected(ALL_THREE)) is False
 
         assert (version_of(stored, transactions, passed_in_table), pause_rows(engine)) == (dealt, [])
 
@@ -166,7 +195,7 @@ class TestThePauseBesideTheReleaseBefore:
     ):
         version = version_of(stored, transactions, passed_in_table)
         pause_due_in(engine, passed_in_table, -1)
-        sweep = WorkInAThread(lambda: service.deal_after_pause(passed_in_table, nullcontext(ALL_THREE)))
+        sweep = WorkInAThread(lambda: service.deal_after_pause(passed_in_table, connected(ALL_THREE)))
 
         with transactions.begin() as old_release:
             deals_as_the_release_before_does(old_release, passed_in_table)
@@ -184,7 +213,7 @@ class TestThePauseBesideTheReleaseBefore:
             connection.execute(next_deals.delete())
         version = version_of(stored, transactions, passed_in_table)
 
-        assert (service.due_next_deals(), service.deal_after_pause(passed_in_table, nullcontext(ALL_THREE))) == (
+        assert (service.due_next_deals(), service.deal_after_pause(passed_in_table, connected(ALL_THREE))) == (
             (),
             False,
         )

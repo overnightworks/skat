@@ -276,7 +276,9 @@ def _next_deal(tables: TableService) -> NextDeal:
     async def deal(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
         return await run_in_threadpool(tables.deal_next, TableId(table_id), connected_accounts)
 
-    async def after_pause(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
+    async def after_pause(
+        table_id: str, connected_accounts: Callable[[frozenset[str]], AbstractContextManager[frozenset[str] | None]]
+    ) -> bool:
         return await run_in_threadpool(tables.deal_after_pause, TableId(table_id), connected_accounts)
 
     async def pause(table_id: str) -> None:

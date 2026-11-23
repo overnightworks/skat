@@ -159,6 +159,9 @@ class TestFinishingWrites:
         async def on_worker(table_id, connected_accounts):
             return await asyncio.to_thread(worker, connected_accounts)
 
+        async def on_worker_for_the_pause(table_id, connected_accounts):
+            return await on_worker(table_id, connected_accounts(frozenset()))
+
         def due_when_swept(kind, due):
             async def due_now():
                 return due if swept == kind else []
@@ -177,7 +180,9 @@ class TestFinishingWrites:
                     due_when_swept("hold", [(TABLE, "anna")]),
                     free_on_worker,
                 ),
-                NextDeal(on_worker, on_worker, pause_no_table, pause_no_table, due_when_swept("pause", [TABLE])),
+                NextDeal(
+                    on_worker, on_worker_for_the_pause, pause_no_table, pause_no_table, due_when_swept("pause", [TABLE])
+                ),
                 EmptyTable(on_worker, note_nothing, due_when_swept("wait", [TABLE])),
                 idle_agent_lease(),
                 idle_wakes(),

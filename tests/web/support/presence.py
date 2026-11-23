@@ -154,6 +154,7 @@ class Deals:
         self.due_failures = []
         self.write_failures = []
         self.dealt = True
+        self.seated = frozenset()
         self.meanwhile = None
 
     def port(self):
@@ -168,10 +169,14 @@ class Deals:
         return self.dealt
 
     async def after_pause(self, table_id, connected_accounts):
-        dealt = await self.deal_next(table_id, connected_accounts)
-        if self.calls[-1][1] is not None and table_id in self.due_now:
+        """The pause step: it deals only when everyone seated is connected, and drops the pause once the presence
+        answered; a presence that raises leaves it.
+        """
+        dealt = await self.deal_next(table_id, connected_accounts(self.seated))
+        connected = self.calls[-1][1]
+        if connected is not None and table_id in self.due_now:
             self.due_now.remove(table_id)
-        return dealt
+        return dealt and connected is not None and self.seated <= connected
 
     async def pause(self, table_id):
         if self.write_failures:

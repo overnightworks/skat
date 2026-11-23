@@ -145,13 +145,16 @@ class NextDeal:
     """The next deal's commands and its stored pause; each call raises when the store fails.
 
     `deal` deals at once and `after_pause` deals a table whose pause is over, dropping the pause once; both answer
-    whether they dealt, and enter `connected_accounts` in their worker once they hold the table. It yields who is
-    connected then, and None once the presence has stopped, which deals nothing and keeps the pause. `pause` stores
-    a pause where there is none, `defer` stores it as due now and `due` answers the tables whose pause is over.
+    whether they dealt, and enter `connected_accounts` in their worker once they hold the table (`after_pause` calls
+    it with those seated there). It yields who is connected then, and None once the presence has stopped; either
+    that or a `PresenceUnknownError` deals nothing and keeps the pause. `pause` stores a pause where there is none,
+    `defer` stores it as due now and `due` answers the tables whose pause is over.
     """
 
     deal: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
-    after_pause: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
+    after_pause: Callable[
+        [str, Callable[[frozenset[str]], AbstractContextManager[frozenset[str] | None]]], Awaitable[bool]
+    ]
     pause: Callable[[str], Awaitable[None]]
     defer: Callable[[str], Awaitable[None]]
     due: Callable[[], Awaitable[Iterable[str]]]
@@ -213,7 +216,8 @@ class Presence:
     The next deal's pause is a deadline in the store too: a hand's end stores it in its own transaction, a stream's
     first view of a passed-in table stores one where none is pending, and a deal that failed is stored as due now.
     Every pod sweeps the pauses every `PAUSE_SWEEP_EVERY_SECONDS`; a pause that is over is dropped under the table's
-    row lock and the table dealt when all three are connected then, so a pause is spent once.
+    row lock and the table dealt when all three are connected then, so a pause is spent once; a roster that is unsettled
+    and misses a seated person keeps it for the next sweep.
 
     An agent holds no stream: every admitted call of it renews its lease, and while the lease runs the agent counts
     as present at the tables it sits at (`live_leases`; the table's rule intersects them with its occupants). One
@@ -596,9 +600,13 @@ class Presence:
 
     async def _deal_after_pause(self, subject: tuple[str, ...]) -> bool:
         (table_id,) = subject
-        return await self._next_deal.after_pause(
-            table_id, self._connected_while_writing(table_id, asyncio.get_running_loop(), absence_decides=False)
-        )
+        loop = asyncio.get_running_loop()
+
+        def connected_for(seated: frozenset[str]) -> AbstractContextManager[frozenset[str] | None]:
+            # The pause is dropped even when nothing is dealt, so an unsettled roster must list everyone seated.
+            return self._connected_while_writing(table_id, loop, vouches=(seated - self.live_leases()).issubset)
+
+        return await self._next_deal.after_pause(table_id, connected_for)
 
     async def _end_empty(self, subject: tuple[str, ...]) -> bool:
         (table_id,) = subject
@@ -642,7 +650,7 @@ class Presence:
         try:
             dealt = await self._next_deal.deal(
                 table_id,
-                self._connected_while_writing(table_id, asyncio.get_running_loop(), absence_decides=False),
+                self._connected_while_writing(table_id, asyncio.get_running_loop(), vouches=lambda _listed: True),
             )
         except Exception as failure:
             run.failed(failure)
@@ -703,36 +711,28 @@ class Presence:
         outlives a cancelled event-loop task.
         """
 
-        def connected_unless_unknown() -> frozenset[str] | None:
-            present = self._present_from_worker(loop)
-            if present is None:
-                return None
-            if not (account_id in present.at(table_id) or present.settled):
-                raise PresenceUnknownError
-            return present.at(table_id)
-
-        return _absent_from(self._guarded_write(loop, connected_unless_unknown), partial(self._is_here, account_id))
+        connected = self._connected_while_writing(table_id, loop, vouches=lambda listed: account_id in listed)
+        return _absent_from(connected, partial(self._is_here, account_id))
 
     def _connected_while_writing(
         self,
         table_id: str,
         loop: asyncio.AbstractEventLoop,
         *,
-        absence_decides: bool = True,
+        vouches: Callable[[frozenset[str]], bool] = bool,
     ) -> AbstractContextManager[frozenset[str] | None]:
         """Enter on a worker once it holds the table: yields who is connected then, and None once stopped.
 
         The roster is read before `_state` is taken. A roster that cannot be read raises `PresenceUnknownError`, and
-        so does an unsettled one that lists nobody at the table when `absence_decides`, which a write that ends or
-        stamps an empty table sets and a deal does not. The exit runs on the worker after the commit, so
-        `finish_writes` outlives a cancelled event-loop task.
+        so does an unsettled one whose listing at the table `vouches` does not accept: by default one listing nobody.
+        The exit runs on the worker after the commit, so `finish_writes` outlives a cancelled event-loop task.
         """
 
         def connected_at_the_table() -> frozenset[str] | None:
             present = self._present_from_worker(loop)
             if present is None:
                 return None
-            if absence_decides and not (present.at(table_id) or present.settled):
+            if not (present.settled or vouches(present.at(table_id))):
                 raise PresenceUnknownError
             return present.at(table_id)
 

@@ -22,6 +22,7 @@ from skat.table.rules import (
     presence_step,
     present_at,
     seat_of,
+    seated_accounts,
 )
 from skat.table.series_end import (
     answer_left,
@@ -197,16 +198,19 @@ class ServerSteps:
             return transaction.due_next_deals(DUE_PER_SWEEP)
 
     def deal_after_pause(
-        self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]
+        self,
+        table_id: TableId,
+        connected_accounts: Callable[[frozenset[str]], AbstractContextManager[frozenset[str] | None]],
     ) -> bool:
         """Deal the next hand of a table whose pause is over, on the server's own account, with no actor, command id
         or receipt, and drop the pause in the same transaction, so it deals once.
 
         The table's row is locked first, then the pause's. A pause not over, or gone, changes nothing. A pause that is
         over is dropped whether or not the table is dealt: its deal is due only while the three are connected, and a
-        player who comes back starts the next pause. `connected_accounts` is entered then, as for `deal_next`; None
-        keeps the pause for another pod, and a guard that raises rolls everything back. The pause of an ended or
-        forgotten table is dropped. True when it dealt.
+        player who comes back starts the next pause. `connected_accounts` is called with the accounts seated at the
+        table and its result entered then, as for `deal_next`; None keeps the pause for another pod, and a guard
+        that raises, as for a roster that cannot say whether those seated are gone, rolls everything back and keeps
+        it. The pause of an ended or forgotten table is dropped. True when it dealt.
         """
         with ExitStack() as after_commit, self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
@@ -215,7 +219,7 @@ class ServerSteps:
                 return False
             if not transaction.locked_next_deal_due(table_id):
                 return False
-            connected = after_commit.enter_context(connected_accounts)
+            connected = after_commit.enter_context(connected_accounts(seated_accounts(table)))
             if connected is None:
                 return False
             transaction.delete_next_deal(table_id)

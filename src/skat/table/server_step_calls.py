@@ -53,7 +53,9 @@ class ServerStepCalls:
         return self._server_steps().due_next_deals()
 
     def deal_after_pause(
-        self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]
+        self,
+        table_id: TableId,
+        connected_accounts: Callable[[frozenset[str]], AbstractContextManager[frozenset[str] | None]],
     ) -> bool:
         """The server's step of dealing after a pause that is over; see `ServerSteps.deal_after_pause`."""
         return self._server_steps().deal_after_pause(table_id, connected_accounts)
