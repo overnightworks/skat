@@ -281,8 +281,10 @@ class TestAnUnreachableDatabase:
                 yield connection
                 cut_every_other_connection(engine)
 
+        records = PostgresSessionRecords(cutting_before_the_commit)
+
         with pytest.raises(StoreUnavailableError):
-            PostgresSessionRecords(cutting_before_the_commit).delete("session-unknown")
+            records.delete("session-unknown")
 
 
 class TestADeadlock:
