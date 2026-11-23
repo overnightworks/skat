@@ -127,3 +127,8 @@ what = 'size baseline adds function_lines frontend/src/routes/(start)/agents.ts 
 item = "overnightworks/skat#843"
 date = 2026-11-23
 reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[layout.allow]]
+path = "tests/scripts/test_shards.py"
+rule = "test-layout"
+reason = "tests tests/e2e/support/shards.py, which the end-to-end conftest uses; a test under tests/e2e would itself be sharded and need the browser stack"

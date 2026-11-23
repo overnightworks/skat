@@ -1,6 +1,5 @@
 """Tests for the split of the end-to-end suite across CI runners."""
 
-import random
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -36,15 +35,15 @@ def kept_node_ids(monkeypatch: pytest.MonkeyPatch, items: list[SimpleNamespace],
     return {item.nodeid for item in kept}
 
 
-def shuffled_runs(count: int) -> Iterator[list[SimpleNamespace]]:
-    for seed in range(SHARD_COUNT):
-        items = suite_items(count)
-        random.Random(seed).shuffle(items)
-        yield items
+def reordered_runs(count: int) -> Iterator[list[SimpleNamespace]]:
+    items = suite_items(count)
+    yield items
+    yield items[::-1]
+    yield items[1::2] + items[::2]
 
 
 def test_shards_that_collect_in_different_orders_partition_the_suite(monkeypatch: pytest.MonkeyPatch) -> None:
-    kept = [kept_node_ids(monkeypatch, items, index) for index, items in enumerate(shuffled_runs(12))]
+    kept = [kept_node_ids(monkeypatch, items, index) for index, items in enumerate(reordered_runs(12))]
 
     assert sum(len(share) for share in kept) == 12
     assert set().union(*kept) == {item.nodeid for item in suite_items(12)}
