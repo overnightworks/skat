@@ -68,7 +68,5 @@ def decide_send_away_by(
 
 
 def save_book_after_send_away(book: MemberBook, table_id: TableId, agent_account: str) -> None:
-    """Write the agent's row once it was sent away: the epoch raised and any invitation to this table cleared, so an
-    accept of an older epoch is stale and the standing no longer offers the place; a missing row counts as epoch 0.
-    """
+    """Write the row `book_after_send_away` gives for the agent."""
     book.save_book_entry(book_after_send_away(book.locked_book_entry(table_id, agent_account), table_id, agent_account))
