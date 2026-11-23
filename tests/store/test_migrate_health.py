@@ -18,6 +18,7 @@ from tests.support.migrations import head_revision, serve_only
 pytestmark = pytest.mark.postgres
 
 WELL_PAST_THE_DEADLINE_SECONDS = 30
+CHUNK_BYTES = 1024
 
 
 class TestRequireServedRevision:
@@ -101,6 +102,23 @@ class TestDatabaseHealth:
 
             engine.dispose()
         assert health.ready is False
+
+    def test_a_probe_the_deadline_cut_off_leaves_no_connection_open(self, monkeypatch):
+        monkeypatch.setattr(migrate_module, "HEALTH_DEADLINE_SECONDS", 1)
+        with socket.socket() as silent:
+            silent.bind(("127.0.0.1", 0))
+            silent.listen()
+            engine = create_store_engine(f"postgresql://skat:secret@127.0.0.1:{silent.getsockname()[1]}/skat")
+
+            database_health(engine)
+
+            engine.dispose()
+            client, _ = silent.accept()
+            with client:
+                client.settimeout(WELL_PAST_THE_DEADLINE_SECONDS)
+                heard = b"start"
+                while heard:
+                    heard = client.recv(CHUNK_BYTES)
 
     def test_a_database_that_connected_and_then_stops_answering_is_given_up_on_at_the_deadline(
         self, database_url, relay_in_front_of, monkeypatch

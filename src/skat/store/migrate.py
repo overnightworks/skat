@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import os
 import socket
 import time
@@ -259,6 +260,11 @@ def database_health(engine: Engine) -> DatabaseHealth:
     try:
         served = _run_within_deadline(engine)
     except psycopg.Error, TimeoutError:
+        served = None
+    if served is None:
+        # A connect that the deadline cancelled leaves its libpq connection to the collector, which closes the socket
+        # once the exception that holds it has been handled.
+        gc.collect()
         return DatabaseHealth(serves_queries=False, revision_served=False)
     return DatabaseHealth(serves_queries=True, revision_served=_head_revision() in served)
 
