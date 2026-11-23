@@ -85,6 +85,8 @@ sequenceDiagram
 
 Sign-in is webauth's OIDC code flow. The issuer refuses to be framed, so a framed table signs in through a separate window (`frontend/src/lib/callSignIn.ts`).
 
+A framed table's listener for the call's `hello` stays for the page's life. The first `hello` drops the page's own bar and blocks the stage's taps for one second; every later `hello` leaves the bar alone, empties the placed set and asks for a full `seats`.
+
 A framed table tells the call where each chair is. After the call's `hello` it posts `seats` to the call origin, never `*`: one entry per occupied chair, in seat order and at most three, each with the chair's person key and its tile's box, shape and corner radii (`frontend/src/lib/callSeats.ts`, `frontend/src/lib/ui/CallSeats.svelte`). The call answers with `placed`, the person keys whose video it places, and a chair is see-through only while its key is in the last `placed` and in the last posted entry and the chair still holds the occupant it held then, so a freed or taken-over chair never shows the previous video. A see-through chair has its box cut out of the page's backdrops by a `clip-path`; its marks, name and coaster lie on the video. The person key is the hex SHA-256 over `hallucinai/skat/person-key/v1`, the issuer, the occupant's account id and the table id, joined by NUL; `GET /api/tables/{id}/person-keys` answers it per occupied chair under the table read's admission, names no account and is no agent tool. While the keys are older than the view, the call keeps its last layout, so an ordinary table event never blinks a video shut; a failed read, an ended table or a gone table posts `seats: []`.
 
 ## 4. Deployment View
