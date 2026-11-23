@@ -46,6 +46,8 @@ LOOPBACK_HOST = "127.0.0.1"
 READINESS_POLL_INTERVAL_SECONDS = 0.1
 READINESS_DEADLINE_SECONDS = 20
 SERVER_STOP_TIMEOUT_SECONDS = 10
+# A stream tick this short brings a game listed through the store to the open pages without a reload.
+STORE_READ_SECONDS = 0.1
 
 
 def listening_loopback_socket(port: int = 0) -> socket.socket:

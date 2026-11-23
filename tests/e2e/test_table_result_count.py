@@ -9,11 +9,13 @@ from skat.engine.tricks import CARDS_IN_A_GAME
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.result_card import CARD, MINUS
+from tests.e2e.support.server import STORE_READ_SECONDS, skat_on_new_database
 from tests.support.played_game import an_entry
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
+    from tests.e2e.support.deal_pause import HeldDealPause
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
@@ -147,8 +149,21 @@ def test_a_card_update_while_the_count_runs_neither_restarts_it_nor_moves_the_co
     assert page_errors == []
 
 
+@pytest.fixture(scope="module")
+def e2e_server(
+    tmp_path_factory: pytest.TempPathFactory, deal_pause_scheduler: HeldDealPause
+) -> Iterator[RunningServer]:
+    """This module's Skat, whose streams read the table again every tenth of a second, so a game listed through the
+    store reaches the open pages without a reload.
+    """
+    with skat_on_new_database(
+        tmp_path_factory, heartbeat_seconds=STORE_READ_SECONDS, chair_scheduler=deal_pause_scheduler
+    ) as server:
+        yield server
+
+
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_next_hands_result_counts_again_and_a_card_update_does_not_restart_it(
+def test_the_next_hands_result_counts_again(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -172,12 +187,6 @@ def test_the_next_hands_result_counts_again_and_a_card_update_does_not_restart_i
     expect(cell).to_have_class("dl count")
     expect(cell).to_have_text(shown(gains[won_seat]))
     assert cell.evaluate(ANIMATION_NAME) == "count"
-    started = cell.evaluate(START_OF_THE_COUNT)
-
-    table.ready_through_the_api(won_seat)
-
-    expect(table.watcher.locator(f".chair[data-seat='{won_seat}'] .mark.ready")).to_have_count(1)
-    assert cell.evaluate(START_OF_THE_COUNT) == started
     assert page_errors == []
 
 
