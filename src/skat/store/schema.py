@@ -229,6 +229,53 @@ ANNOUNCEMENT_TEXT: Final = {
     Announcement.SCHWARZ: "schwarz",
 }
 
+
+def standing_checks(table: str, aborted: str) -> tuple[CheckConstraint, ...]:
+    """The checks on the standing state of a hand, named for `table`, whose column `aborted` says the hand ended by a
+    vote: a give-up or shortening asked and its answers, the cards left open, and the votes to abort.
+    """
+    return (
+        one_of("give_up_asked_by", POSITION_TEXT.values(), f"{table}_give_up_asker_is_a_position"),
+        one_of("give_up_declined_by", POSITION_TEXT.values(), f"{table}_give_up_decliner_is_a_position"),
+        CheckConstraint(
+            "give_up_declined_by IS NULL OR give_up_asked_by IS NOT NULL", name=f"{table}_give_up_no_comes_with_an_ask"
+        ),
+        CheckConstraint(
+            "give_up_declined_by <> give_up_asked_by", name=f"{table}_give_up_no_comes_from_another_position"
+        ),
+        one_of("give_up_claim", ANNOUNCEMENT_TEXT.values(), f"{table}_give_up_claim_is_an_announcement"),
+        one_of("give_up_agreed_by", POSITION_TEXT.values(), f"{table}_give_up_agreer_is_a_position"),
+        one_of("shortening_refused_by", POSITION_TEXT.values(), f"{table}_shortening_refuser_is_a_position"),
+        CheckConstraint(
+            "give_up_claim IS NULL OR give_up_asked_by IS NOT NULL", name=f"{table}_give_up_claim_comes_with_an_ask"
+        ),
+        CheckConstraint(
+            "give_up_agreed_by IS NULL OR (give_up_claim IS NOT NULL AND give_up_agreed_by <> give_up_asked_by)",
+            name=f"{table}_give_up_yes_is_to_a_shortening_by_another",
+        ),
+        CheckConstraint(
+            "give_up_claim IS NULL OR give_up_declined_by IS NULL", name=f"{table}_a_shortening_ends_with_its_first_no"
+        ),
+        CheckConstraint(
+            "NOT give_up_open OR (give_up_asked_by IS NOT NULL AND give_up_claim IS NULL"
+            " AND give_up_declined_by IS NULL AND give_up_agreed_by IS NULL)",
+            name=f"{table}_an_open_play_is_asked_of_the_declarer_alone",
+        ),
+        CheckConstraint(
+            f"played_open <@ ARRAY[{', '.join(f"'{each}'" for each in POSITION_TEXT.values())}]::text[]"
+            " AND array_position(played_open, NULL) IS NULL",
+            name=f"{table}_played_open_are_positions",
+        ),
+        CheckConstraint(
+            "abort_yes_seats <@ ARRAY[1, 2, 3]::smallint[] AND array_position(abort_yes_seats, NULL) IS NULL",
+            name=f"{table}_abort_yes_are_seats",
+        ),
+        CheckConstraint(
+            f"NOT {aborted} OR cardinality(abort_yes_seats) = 0", name=f"{table}_an_aborted_hand_holds_no_proposal"
+        ),
+    )
+
+
 tables = Table(
     "tables",
     metadata,
@@ -287,42 +334,7 @@ tables = Table(
     one_of("style", (style.value for style in TableStyle), "tables_style_is_a_style"),
     CheckConstraint("series_number >= 1", name="tables_series_number_is_a_number"),
     one_of("end_reason", (reason.value for reason in EndReason), "tables_end_reason_is_a_reason"),
-    one_of("give_up_asked_by", POSITION_TEXT.values(), "tables_give_up_asker_is_a_position"),
-    one_of("give_up_declined_by", POSITION_TEXT.values(), "tables_give_up_decliner_is_a_position"),
-    CheckConstraint(
-        "give_up_declined_by IS NULL OR give_up_asked_by IS NOT NULL", name="tables_give_up_no_comes_with_an_ask"
-    ),
-    CheckConstraint("give_up_declined_by <> give_up_asked_by", name="tables_give_up_no_comes_from_another_position"),
-    one_of("give_up_claim", ANNOUNCEMENT_TEXT.values(), "tables_give_up_claim_is_an_announcement"),
-    one_of("give_up_agreed_by", POSITION_TEXT.values(), "tables_give_up_agreer_is_a_position"),
-    one_of("shortening_refused_by", POSITION_TEXT.values(), "tables_shortening_refuser_is_a_position"),
-    CheckConstraint(
-        "give_up_claim IS NULL OR give_up_asked_by IS NOT NULL", name="tables_give_up_claim_comes_with_an_ask"
-    ),
-    CheckConstraint(
-        "give_up_agreed_by IS NULL OR (give_up_claim IS NOT NULL AND give_up_agreed_by <> give_up_asked_by)",
-        name="tables_give_up_yes_is_to_a_shortening_by_another",
-    ),
-    CheckConstraint(
-        "give_up_claim IS NULL OR give_up_declined_by IS NULL", name="tables_a_shortening_ends_with_its_first_no"
-    ),
-    CheckConstraint(
-        "NOT give_up_open OR (give_up_asked_by IS NOT NULL AND give_up_claim IS NULL AND give_up_declined_by IS NULL"
-        " AND give_up_agreed_by IS NULL)",
-        name="tables_an_open_play_is_asked_of_the_declarer_alone",
-    ),
-    CheckConstraint(
-        f"played_open <@ ARRAY[{', '.join(f"'{each}'" for each in POSITION_TEXT.values())}]::text[]"
-        " AND array_position(played_open, NULL) IS NULL",
-        name="tables_played_open_are_positions",
-    ),
-    CheckConstraint(
-        "abort_yes_seats <@ ARRAY[1, 2, 3]::smallint[] AND array_position(abort_yes_seats, NULL) IS NULL",
-        name="tables_abort_yes_are_seats",
-    ),
-    CheckConstraint(
-        "NOT hand_aborted OR cardinality(abort_yes_seats) = 0", name="tables_an_aborted_hand_holds_no_proposal"
-    ),
+    *standing_checks("tables", "hand_aborted"),
 )
 
 # One row per series of a table: the settings the series started with and its counters, proposal and Bock state. The

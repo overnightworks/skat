@@ -15,6 +15,7 @@ from skat.engine.ramsch import (
 )
 from skat.engine.schieberamsch import GrandHandRule, PushingRule, PushRefusal
 from skat.engine.tricks import play_card
+from skat.store.hand_log import StepKind
 from skat.store.migrate import create_store_engine
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.hand_state import game_of, pushing_of
@@ -22,7 +23,7 @@ from skat.table.playing import PlayCardCommand
 from skat.table.pushing import PushingCommand, PushingKind
 from skat.table.records import RamschOccasion, RamschSetting, TableOptions
 from tests.support.seated_tables import restarted
-from tests.support.stored_game import StoredHand, count_rows, nobody_connected, person, seated_table_id
+from tests.support.stored_game import StoredHand, a_step_appended, count_rows, nobody_connected, person, seated_table_id
 
 pytestmark = pytest.mark.postgres
 
@@ -190,11 +191,7 @@ def test_a_stored_log_the_engine_refuses_raises_at_the_next_command(service, tra
     table = StageTable(service, transactions, stored)
     engine = create_store_engine(database_url)
     try:
-        with engine.begin() as connection:
-            connection.execute(
-                text("INSERT INTO pushing_steps VALUES (:id, 1, 'rearhand', 'push', NULL, NULL, NULL, NULL)"),
-                {"id": table.table_id},
-            )
+        a_step_appended(engine, table.table_id, StepKind.STAGE_PUSH, position="rearhand")
     finally:
         engine.dispose()
 

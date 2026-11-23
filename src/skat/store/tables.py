@@ -1,4 +1,6 @@
+import copy
 from contextlib import contextmanager
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 from sqlalchemy import Integer, delete, exists, func, insert, literal, or_, select, update
@@ -10,9 +12,18 @@ from sqlalchemy.orm import aliased
 from skat.engine.bidding import PassedIn
 from skat.engine.cards import DECK, Card
 from skat.engine.deal import Deal, Position
-from skat.store.auction import append_steps, auction_actions, delete_steps, read_plans, read_steps, write_plans
+from skat.store.auction import append_steps, auction_actions, read_plans, read_steps, write_plans
 from skat.store.declaring import append_declaring_steps, declaring_steps, read_declaring_steps
 from skat.store.game_list import append_game_list, game_list, read_game_cards, read_game_list
+from skat.store.hand_log import (
+    decoded,
+    forget_hand_log,
+    read_log,
+    save_hand_log,
+    stamped_hand,
+    standing_of,
+    standing_values,
+)
 from skat.store.kontra import append_words, kontra_no_words, kontra_words, read_no_words, read_words, write_no_words
 from skat.store.member_book import (
     accounts_at,
@@ -25,9 +36,6 @@ from skat.store.member_book import (
 from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.pushing import append_pushing_steps, pushing_steps, read_pushing_steps
 from skat.store.schema import (
-    ANNOUNCEMENT_OF_TEXT,
-    ANNOUNCEMENT_TEXT,
-    POSITION_OF_TEXT,
     POSITION_TEXT,
     RANK_TEXT,
     SKAT_HOLDER,
@@ -52,6 +60,7 @@ from skat.store.series import (
     series_with_next_settings,
 )
 from skat.table.hand_state import auction_of
+from skat.table.member_view import act_traces, traces_of_acts
 from skat.table.records import (
     Chair,
     EndedTable,
@@ -59,7 +68,6 @@ from skat.table.records import (
     EndReason,
     EntryTraces,
     FormerHolder,
-    GiveUpAsked,
     HandProgress,
     Occupant,
     OccupantKind,
@@ -96,7 +104,14 @@ if TYPE_CHECKING:
     from skat.table.game_cards import GameCards
     from skat.table.member_place import BookEntry
 
-__all__ = ["DealtHandRewrittenError", "PostgresTableTransactions", "metadata"]
+__all__ = [
+    "DealtHandRewrittenError",
+    "HandMoment",
+    "PostgresTableTransactions",
+    "metadata",
+    "save_shared",
+    "save_step_tables",
+]
 
 UNIQUE_VIOLATION: Final = "23505"
 
@@ -214,25 +229,18 @@ def _table_record(
     current = series_row(connection, table_id, table.series_number)
     played = series_with_next_settings(connection, table_id, current)
     revision = mark_revision_of(played)
-    standing = tuple(_chair_of(seat, revision) for seat in seats)
+    standing = stamped_hand(connection, table_id)
+    version_trace = table.traceparent if table.traceparent_version == table.version else None
+    logged, traces = _logged_progress(connection, table, standing, version_trace)
     record = TableRecord(
         id=TableId(table_id),
         version=table.version,
-        chairs=standing,
+        chairs=tuple(_chair_of(seat, revision) for seat in seats),
         dealer=table.dealer,
         hand=hand,
-        progress=HandProgress(
-            auction=read_steps(connection, table_id),
-            declaring=read_declaring_steps(connection, table_id),
-            plays=read_plays(connection, table_id),
-            give_up=_read_give_up(table),
-            shortening_refused_by=_position_of(table.shortening_refused_by),
-            played_open=frozenset(POSITION_OF_TEXT[each] for each in table.played_open),
-            words=read_words(connection, table_id),
+        progress=replace(
+            logged,
             no_words=read_no_words(connection, table_id),
-            pushing=read_pushing_steps(connection, table_id),
-            abort_yes=frozenset(table.abort_yes_seats),
-            aborted=table.hand_aborted,
             seats_held=frozenset(SeatHeld(account_id, seat.seat) for seat in seats for account_id in seat.held_in_hand),
             former_holders=frozenset(
                 FormerHolder(seat.seat, seat.former_holder_name)
@@ -247,52 +255,158 @@ def _table_record(
         bock=bock_of(current),
         visibility=Visibility(table.visibility),
         style=TableStyle(table.style),
-        traces=_traces_of(table),
+        traces=traces,
     )
-    return with_standing_ask(record)
-
-
-def _traces_of(table: Row[Any]) -> EntryTraces:
-    """The version's trace only while it was written for the version the row has, else the release before moved it."""
-    moved_here = table.traceparent_version == table.version
+    record = with_standing_ask(record)
+    if standing is not None:
+        return record
     acts: dict[str, str] = table.act_traceparents or {}
-    return EntryTraces(table.traceparent if moved_here else None, tuple((int(seq), each) for seq, each in acts.items()))
-
-
-def _position_of(text: str | None) -> Position | None:
-    return None if text is None else POSITION_OF_TEXT[text]
-
-
-def _text_of(position: Position | None) -> str | None:
-    return None if position is None else POSITION_TEXT[position]
-
-
-def _read_give_up(table: Row[Any]) -> GiveUpAsked | None:
-    if table.give_up_asked_by is None:
-        return None
-    return GiveUpAsked(
-        POSITION_OF_TEXT[table.give_up_asked_by],
-        _position_of(table.give_up_declined_by),
-        None if table.give_up_claim is None else ANNOUNCEMENT_OF_TEXT[table.give_up_claim],
-        _position_of(table.give_up_agreed_by),
-        table.give_up_open,
+    return copy.replace(
+        record, traces=traces_of_acts(record, version_trace, {int(seq): each for seq, each in acts.items()})
     )
+
+
+def _logged_progress(
+    connection: Connection, table: Row[Any], standing: Row[Any] | None, version_trace: str | None
+) -> tuple[HandProgress, EntryTraces]:
+    if standing is None:
+        return _step_tables_progress(connection, table), EntryTraces(version_trace)
+    hand_standing = standing_of(standing, aborted=standing.aborted)
+    logged, step_traces = decoded(read_log(connection, table.id), hand_standing, standing.end_traceparent)
+    return logged, replace(step_traces, version=version_trace)
+
+
+def _step_tables_progress(connection: Connection, table: Row[Any]) -> HandProgress:
+    """The hand's steps and standing state as the step tables and the table row hold them, which the release before
+    writes alone.
+    """
+    return copy.replace(
+        standing_of(table, aborted=table.hand_aborted),
+        auction=read_steps(connection, table.id),
+        declaring=read_declaring_steps(connection, table.id),
+        plays=read_plays(connection, table.id),
+        words=read_words(connection, table.id),
+        pushing=read_pushing_steps(connection, table.id),
+    )
+
+
+_STEP_TABLES: Final = (auction_actions, declaring_steps, pushing_steps, played_cards, kontra_words)
 
 
 def _forget_played_hand(connection: Connection, table_id: str) -> None:
     """A played-out or aborted hand keeps nothing but its list entry, if it has one: its cards and every step it took
     go.
     """
-    for rows in (
-        hand_cards,
-        auction_actions,
-        declaring_steps,
-        pushing_steps,
-        played_cards,
-        kontra_words,
-        kontra_no_words,
-    ):
+    for rows in (hand_cards, *_STEP_TABLES, kontra_no_words):
         connection.execute(delete(rows).where(rows.c.table_id == table_id))
+
+
+@dataclass(frozen=True)
+class HandMoment:
+    """What a save does to the stored hand: `dealt` a new one, `forgot` the steps of one played out or aborted, or
+    `passed_in` one whose auction passed it in, whose steps stay until the next deal.
+    """
+
+    dealt: bool
+    forgot: bool
+    passed_in: bool
+
+
+def _hand_moment(connection: Connection, table: TableRecord, series_number: int) -> HandMoment:
+    """What saving `table` does to the stored hand; a hand with progress that differs from the one dealt raises."""
+    table_id = table.id.value
+    dealt = _read_hand(connection, table_id)
+    ended = dealt is not None and table.hand is None
+    aborted = ended and table.progress.aborted
+    passed_in = ended and isinstance(auction_of(table).result, PassedIn)
+    played_out = ended and len(table.game_list) > len(read_game_list(connection, table_id, series_number))
+    if dealt is not None and table.hand != dealt and table.progress != HandProgress() and not (passed_in or aborted):
+        message = f"the hand saved for table {table_id} differs from the one dealt"
+        raise DealtHandRewrittenError(message)
+    return HandMoment(dealt=table.hand is not None and dealt is None, forgot=played_out or aborted, passed_in=passed_in)
+
+
+def _write_table_row(connection: Connection, table: TableRecord, played_at: datetime | None) -> None:
+    """The row's own columns: the visibility and the opener's name are written by `add_table` and never here; no time
+    leaves the last played time as it is.
+    """
+    played = {} if played_at is None else {"last_played_at": played_at}
+    connection.execute(
+        update(tables)
+        .where(tables.c.id == table.id.value)
+        .values(
+            version=table.version,
+            traceparent=table.traces.version,
+            traceparent_version=None if table.traces.version is None else table.version,
+            dealer=table.dealer,
+            style=table.style.value,
+            **played,
+            series_number=series_number_of(table),
+        )
+    )
+
+
+def save_shared(connection: Connection, table: TableRecord, played_at: datetime | None) -> HandMoment:
+    """Store what every release writes alike: the table row's own columns, the series, the deal, the game list, the
+    chairs, the plans and the answers of no word.
+    """
+    table_id = table.id.value
+    series_number = series_number_of(table)
+    moment = _hand_moment(connection, table, series_number)
+    _write_table_row(connection, table, played_at)
+    save_series(connection, table)
+    if moment.passed_in or moment.forgot:
+        connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table_id))
+    append_game_list(connection, table_id, series_number, table.game_list, played_at)
+    if moment.dealt and table.hand is not None:
+        connection.execute(insert(hand_cards), _hand_rows(table_id, table.hand))
+    write_no_words(connection, table_id, table.progress.no_words)
+    _write_chairs(connection, table)
+    write_plans(connection, table)
+    return moment
+
+
+def save_step_tables(connection: Connection, table: TableRecord, moment: HandMoment, *, rewrite: bool) -> None:
+    """Store the hand in the step tables and the table row's hand columns, the store the release before reads: append
+    the steps not yet stored, and stored steps that are no prefix of the hand's raise; `rewrite` deletes the stored
+    ones first, as a new hand and a hand whose end forgets its steps do.
+    """
+    table_id = table.id.value
+    if rewrite or moment.dealt or moment.forgot:
+        for rows in _STEP_TABLES:
+            connection.execute(delete(rows).where(rows.c.table_id == table_id))
+    append_steps(connection, table_id, table.progress.auction)
+    append_declaring_steps(connection, table_id, table.progress.declaring)
+    append_pushing_steps(connection, table_id, table.progress.pushing)
+    append_plays(connection, table_id, table.progress.plays)
+    append_words(connection, table_id, table.progress.words)
+    standing = standing_values(table.progress)
+    standing["hand_aborted"] = standing.pop("aborted")
+    by_number = {str(seq): each for seq, each in act_traces(table).items()}
+    connection.execute(
+        update(tables).where(tables.c.id == table_id).values(**standing, act_traceparents=by_number or None)
+    )
+
+
+def _write_chairs(connection: Connection, table: TableRecord) -> None:
+    revision = mark_revision_of(table.series)
+    for chair in table.chairs:
+        occupant = chair.occupant
+        connection.execute(
+            update(chairs)
+            .where(chairs.c.table_id == table.id.value, chairs.c.seat == chair.seat)
+            .values(
+                account_id=None if occupant is None else occupant.account_id,
+                display_name=None if occupant is None else occupant.display_name,
+                occupant_kind=None if occupant is None else occupant.kind.value,
+                owner_account=None if occupant is None else occupant.owner_account,
+                ready=chair.ready,
+                ready_settings=revision if chair.ready else None,
+                held_in_hand=sorted(mark.account_id for mark in table.progress.seats_held if mark.seat == chair.seat),
+                former_holder_name=table.progress.former_holder_name(chair.seat),
+                **_turn_state_values(chair),
+            )
+        )
 
 
 def _turn_statement_times_of_table() -> ScalarSelect[list[datetime]]:
@@ -351,58 +465,6 @@ class _PostgresTableTransaction:
         table = _table_record(self._connection, table_id.value, row_lock="update")
         return table if isinstance(table, TableRecord) else None
 
-    def _write_table_row(self, table: TableRecord, played_at: datetime | None) -> None:
-        """The row's changing columns: the visibility and the opener's name are written by `add_table` and never here,
-        the series' columns by `save_series`; no time leaves the last played time as it is.
-        """
-        asked = table.progress.give_up
-        played = {} if played_at is None else {"last_played_at": played_at}
-        self._connection.execute(
-            update(tables)
-            .where(tables.c.id == table.id.value)
-            .values(
-                version=table.version,
-                traceparent=table.traces.version,
-                traceparent_version=None if table.traces.version is None else table.version,
-                act_traceparents={str(seq): each for seq, each in table.traces.acts} or None,
-                dealer=table.dealer,
-                style=table.style.value,
-                **played,
-                series_number=series_number_of(table),
-                abort_yes_seats=sorted(table.progress.abort_yes),
-                hand_aborted=table.progress.aborted,
-                give_up_asked_by=None if asked is None else POSITION_TEXT[asked.asker],
-                give_up_declined_by=None if asked is None else _text_of(asked.declined_by),
-                give_up_claim=None if asked is None or asked.claim is None else ANNOUNCEMENT_TEXT[asked.claim],
-                give_up_agreed_by=None if asked is None else _text_of(asked.agreed_by),
-                give_up_open=asked is not None and asked.open_play,
-                shortening_refused_by=_text_of(table.progress.shortening_refused_by),
-                played_open=sorted(POSITION_TEXT[each] for each in table.progress.played_open),
-            )
-        )
-
-    def _write_chairs(self, table: TableRecord) -> None:
-        revision = mark_revision_of(table.series)
-        for chair in table.chairs:
-            occupant = chair.occupant
-            self._connection.execute(
-                update(chairs)
-                .where(chairs.c.table_id == table.id.value, chairs.c.seat == chair.seat)
-                .values(
-                    account_id=None if occupant is None else occupant.account_id,
-                    display_name=None if occupant is None else occupant.display_name,
-                    occupant_kind=None if occupant is None else occupant.kind.value,
-                    owner_account=None if occupant is None else occupant.owner_account,
-                    ready=chair.ready,
-                    ready_settings=revision if chair.ready else None,
-                    held_in_hand=sorted(
-                        mark.account_id for mark in table.progress.seats_held if mark.seat == chair.seat
-                    ),
-                    former_holder_name=table.progress.former_holder_name(chair.seat),
-                    **_turn_state_values(chair),
-                )
-            )
-
     def save_turn_state(self, table_id: TableId, chair: Chair) -> None:
         self._connection.execute(
             update(chairs)
@@ -414,40 +476,14 @@ class _PostgresTableTransaction:
         return read_game_cards(self._connection, table_id.value, series_number, number)
 
     def save_table(self, table: TableRecord, *, played_at: datetime | None) -> None:
-        dealt = _read_hand(self._connection, table.id.value)
-        ended = dealt is not None and table.hand is None
-        aborted = ended and table.progress.aborted
-        passed_in = ended and isinstance(auction_of(table).result, PassedIn)
-        series_number = series_number_of(table)
-        played_out = ended and len(table.game_list) > len(
-            read_game_list(self._connection, table.id.value, series_number)
-        )
-        if (
-            dealt is not None
-            and table.hand != dealt
-            and table.progress != HandProgress()
-            and not (passed_in or aborted)
-        ):
-            message = f"the hand saved for table {table.id.value} differs from the one dealt"
-            raise DealtHandRewrittenError(message)
-        self._write_table_row(table, played_at)
-        save_series(self._connection, table)
-        if passed_in:
-            self._connection.execute(delete(hand_cards).where(hand_cards.c.table_id == table.id.value))
-        if played_out or aborted:
-            _forget_played_hand(self._connection, table.id.value)
-        append_game_list(self._connection, table.id.value, series_number, table.game_list, played_at)
-        if table.hand is not None and dealt is None:
-            delete_steps(self._connection, table.id.value)
-            self._connection.execute(insert(hand_cards), _hand_rows(table.id.value, table.hand))
-        append_steps(self._connection, table.id.value, table.progress.auction)
-        append_declaring_steps(self._connection, table.id.value, table.progress.declaring)
-        append_pushing_steps(self._connection, table.id.value, table.progress.pushing)
-        append_plays(self._connection, table.id.value, table.progress.plays)
-        append_words(self._connection, table.id.value, table.progress.words)
-        write_no_words(self._connection, table.id.value, table.progress.no_words)
-        self._write_chairs(table)
-        write_plans(self._connection, table)
+        """Store the table in both stores of its hand: the one it was read from appends, and the other, which another
+        release may have moved on, is rewritten from the record.
+        """
+        log_read = stamped_hand(self._connection, table.id.value) is not None
+        moment = save_shared(self._connection, table, played_at)
+        # The log goes first: a rewritten step raises at its prefix check before the step tables' traces replay it.
+        save_hand_log(self._connection, table, rewrite=not log_read or moment.dealt or moment.forgot)
+        save_step_tables(self._connection, table, moment, rewrite=log_read)
 
     def add_table(self, table: TableRecord, opener_name: str) -> None:
         self._connection.execute(
@@ -501,6 +537,7 @@ class _PostgresTableTransaction:
             )
         )
         _forget_played_hand(self._connection, table_id.value)
+        forget_hand_log(self._connection, table_id.value)
         self._connection.execute(delete(chairs).where(chairs.c.table_id == table_id.value))
         self._connection.execute(delete(chair_holds).where(chair_holds.c.table_id == table_id.value))
         forget_table(self._connection, table_id.value)
