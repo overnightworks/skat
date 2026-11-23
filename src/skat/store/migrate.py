@@ -257,14 +257,19 @@ def database_health(engine: Engine) -> DatabaseHealth:
     ask, because a rollout moves the revisions served while Skat runs; the process's own revision is not, because it
     cannot change in the process.
     """
+    deadline_passed = False
     try:
         served = _run_within_deadline(engine)
-    except psycopg.Error, TimeoutError:
+    except psycopg.Error:
         served = None
-    if served is None:
+    except TimeoutError:
+        served = None
+        deadline_passed = True
+    if deadline_passed:
         # A connect that the deadline cancelled leaves its libpq connection to the collector, which closes the socket
-        # once the exception that holds it has been handled.
+        # once the exception that holds it has been handled; a refused connect leaves none.
         gc.collect()
+    if served is None:
         return DatabaseHealth(serves_queries=False, revision_served=False)
     return DatabaseHealth(serves_queries=True, revision_served=_head_revision() in served)
 

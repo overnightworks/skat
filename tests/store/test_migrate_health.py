@@ -21,6 +21,17 @@ WELL_PAST_THE_DEADLINE_SECONDS = 30
 CHUNK_BYTES = 1024
 
 
+@pytest.fixture
+def silent_database():
+    """A listener that accepts connections and never answers, and an engine pointed at it."""
+    with socket.socket() as silent:
+        silent.bind(("127.0.0.1", 0))
+        silent.listen()
+        engine = create_store_engine(f"postgresql://skat:secret@127.0.0.1:{silent.getsockname()[1]}/skat")
+        yield silent, engine
+        engine.dispose()
+
+
 class TestRequireServedRevision:
     def test_accepts_a_database_that_serves_the_head(self, unmigrated_engine):
         migrate(unmigrated_engine)
@@ -91,34 +102,26 @@ class TestDatabaseHealth:
         engine.dispose()
         assert (health.serves_queries, health.revision_served, health.ready) == (False, False, False)
 
-    def test_a_database_that_accepts_and_never_answers_gives_up_instead_of_hanging(self, monkeypatch):
+    def test_a_database_that_accepts_and_never_answers_gives_up_instead_of_hanging(self, silent_database, monkeypatch):
         monkeypatch.setattr(migrate_module, "STORE_CONNECT_TIMEOUT_SECONDS", 2)
-        with socket.socket() as silent:
-            silent.bind(("127.0.0.1", 0))
-            silent.listen()
-            engine = create_store_engine(f"postgresql://skat:secret@127.0.0.1:{silent.getsockname()[1]}/skat")
+        _, engine = silent_database
 
-            health = database_health(engine)
+        health = database_health(engine)
 
-            engine.dispose()
         assert health.ready is False
 
-    def test_a_probe_the_deadline_cut_off_leaves_no_connection_open(self, monkeypatch):
+    def test_a_probe_the_deadline_cut_off_leaves_no_connection_open(self, silent_database, monkeypatch):
         monkeypatch.setattr(migrate_module, "HEALTH_DEADLINE_SECONDS", 1)
-        with socket.socket() as silent:
-            silent.bind(("127.0.0.1", 0))
-            silent.listen()
-            engine = create_store_engine(f"postgresql://skat:secret@127.0.0.1:{silent.getsockname()[1]}/skat")
+        silent, engine = silent_database
 
-            database_health(engine)
+        database_health(engine)
 
-            engine.dispose()
-            client, _ = silent.accept()
-            with client:
-                client.settimeout(WELL_PAST_THE_DEADLINE_SECONDS)
-                heard = b"start"
-                while heard:
-                    heard = client.recv(CHUNK_BYTES)
+        engine.dispose()
+        client, _ = silent.accept()
+        with client:
+            client.settimeout(WELL_PAST_THE_DEADLINE_SECONDS)
+            while client.recv(CHUNK_BYTES):
+                continue
 
     def test_a_database_that_connected_and_then_stops_answering_is_given_up_on_at_the_deadline(
         self, database_url, relay_in_front_of, monkeypatch

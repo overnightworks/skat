@@ -15,9 +15,11 @@ COVERED_BY = (
     + OVERLAPS
     + """
     const offenders = []
+    let shown = 0
     for (const own of document.querySelectorAll(covering)) {
         const box = boxOf(own)
         if (box === null) continue
+        shown += 1
         for (const selector of covered) {
             for (const other of document.querySelectorAll(selector)) {
                 const there = boxOf(other)
@@ -25,11 +27,15 @@ COVERED_BY = (
             }
         }
     }
+    if (shown === 0) throw new Error(`no shown element of ${covering}`)
     return offenders
 }"""
 )
 
 
 def covered_by(page: Page, covering: str, covered: tuple[str, ...]) -> list[str]:
-    """The selectors among `covered` whose shown elements overlap a shown element of `covering`, in one browser pass."""
+    """The selectors among `covered` whose shown elements overlap a shown element of `covering`, in one browser pass.
+
+    It raises when no element of `covering` is shown, since nothing is then checked.
+    """
     return page.evaluate(COVERED_BY, {"covering": covering, "covered": list(covered)})
