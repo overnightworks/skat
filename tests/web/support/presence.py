@@ -7,11 +7,13 @@ from tandem.deadlines import Due
 
 from skat.table.server_steps import EndAnswerLapse
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
-from skat.web.presence import ChairHold, NextDeal
+from skat.web.presence import ChairHold, EmptyTable, NextDeal, Presence
 from skat.web.presence_line import EVENT
 from skat.web.stream_holder import StreamHolder
 from skat.web.tables import TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
+from tests.support.idle_presence import idle_agent_lease, idle_end_answers, idle_wakes, note_nothing
+from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.log_lines import lines_of
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -123,6 +125,19 @@ class Holds:
 def chair_hold(time, holds):
     """The chair hold of a presence on the test's time, over the fake store of holds."""
     return ChairHold(time.clock, time, holds.leave, holds.lapse, holds.clear, holds.due, holds.free_chair)
+
+
+def presence_on(time, holds, deals, ends, *, note=note_nothing, lease=None, leases=None, end_answers=None):
+    """A presence on the test's time over the fakes of the stores, idle where a part is not given."""
+    return Presence(
+        chair_hold(time, holds),
+        deals.port(),
+        EmptyTable(ends.end, note, ends.due),
+        lease or idle_agent_lease(),
+        idle_wakes(),
+        leases or InMemoryLeases(),
+        end_answers or idle_end_answers(),
+    )
 
 
 class Deals:

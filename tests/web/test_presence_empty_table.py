@@ -5,11 +5,8 @@ import pytest
 from skat.web.presence import (
     CHAIR_RELEASE_RETRY_SECONDS,
     HOLD_SWEEP_EVERY_SECONDS,
-    EmptyTable,
-    Presence,
 )
 from skat.web.presence_line import PresenceTimer
-from tests.support.idle_presence import idle_agent_lease, idle_end_answers, idle_wakes
 from tests.support.log_lines import logged
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
@@ -17,10 +14,10 @@ from tests.web.support.presence import (
     TABLE,
     Notes,
     Wakes,
-    chair_hold,
     connect,
     failed_timers,
     lapse_of,
+    presence_on,
     run,
     serve_lapses,
 )
@@ -162,15 +159,7 @@ def notes():
 
 @pytest.fixture
 def noting(time, holds, deals, ends, notes, leases):
-    return Presence(
-        chair_hold(time, holds),
-        deals.port(),
-        EmptyTable(ends.end, notes.note, ends.due),
-        idle_agent_lease(),
-        idle_wakes(),
-        leases,
-        idle_end_answers(),
-    )
+    return presence_on(time, holds, deals, ends, note=notes.note, leases=leases)
 
 
 class TestTheStoredTimeSinceNobodyWasThere:

@@ -170,9 +170,6 @@ table_in = [["tests/table/test_playing.py", "table_in"]]
 [clones."tests/table/test_service.py"]
 "TestDealNext.test_changes_nothing_while_a_member_is_away" = [["tests/table/test_service_end.py", "TestEndUnplayedTable.test_a_table_with_no_hand_dealt_changes_nothing"]]
 
-[clones."tests/web/conftest.py"]
-holding = [["tests/web/test_presence_empty_table.py", "noting"]]
-
 [clones."tests/web/support/agent.py"]
 "Agent.take_step" = [["tests/web/test_mcp.py", "TestAnsweringAGiveUp.answer"], ["tests/web/test_mcp.py", "TestGiveUpGame.give_up"], ["tests/web/test_mcp.py", "TestThrowDownCards.throw_down"], ["tests/web/test_mcp_kontra.py", "TestSayNoWord.say_no_word"]]
 person_steps = [["tests/web/support/playing.py", "Table._post"]]

@@ -1,13 +1,12 @@
 import pytest
 
 from skat.engine.deal import Position
-from skat.web.presence import EmptyTable, Presence
 from tests.support.fake_issuer import FakeIssuer
-from tests.support.idle_presence import idle_agent_lease, idle_end_answers, idle_presence, idle_wakes, note_nothing
+from tests.support.idle_presence import idle_presence
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.web.support.agent import Agent
 from tests.web.support.playing import EIGHT_CARDS, Table
-from tests.web.support.presence import Deals, Holds, Lapses, Wakes, chair_hold, on_a_worker
+from tests.web.support.presence import Deals, Holds, Lapses, Wakes, on_a_worker, presence_on
 from tests.web.support.sdk_agent import SdkAgent
 from tests.web.support.skat import AgentTable, FakeTime, Skat
 from tests.web.support.waiting_table import WaitingTable
@@ -134,15 +133,7 @@ def elsewhere(leases):
 
 @pytest.fixture
 def holding(time, holds, deals, ends, leases):
-    return Presence(
-        chair_hold(time, holds),
-        deals.port(),
-        EmptyTable(ends.end, note_nothing, ends.due),
-        idle_agent_lease(),
-        idle_wakes(),
-        leases,
-        idle_end_answers(),
-    )
+    return presence_on(time, holds, deals, ends, leases=leases)
 
 
 @pytest.fixture
