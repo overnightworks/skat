@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.14"
 
 [manifest]
@@ -737,7 +737,7 @@ dependencies = [
     { name = "overnightworks-agents", extra = ["mcp-server"] },
     { name = "overnightworks-logline" },
     { name = "overnightworks-tandem" },
-    { name = "overnightworks-webauth", extra = ["redis"] },
+    { name = "overnightworks-webauth", extra = ["postgres", "redis"] },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -770,7 +770,7 @@ requires-dist = [
     { name = "overnightworks-agents", extras = ["mcp-server"], git = "https://github.com/overnightworks/agents?rev=v0.67.0" },
     { name = "overnightworks-logline", git = "https://github.com/overnightworks/logline?rev=v1.7.0" },
     { name = "overnightworks-tandem", git = "https://github.com/overnightworks/tandem?rev=v0.13.1" },
-    { name = "overnightworks-webauth", extras = ["redis"], git = "https://github.com/overnightworks/webauth?rev=v0.44.0" },
+    { name = "overnightworks-webauth", extras = ["redis", "postgres"], git = "https://github.com/overnightworks/webauth?rev=v0.45.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pydantic-settings", specifier = ">=2.7" },
@@ -807,8 +807,8 @@ dependencies = [
 
 [[package]]
 name = "overnightworks-webauth"
-version = "0.44.0"
-source = { git = "https://github.com/overnightworks/webauth?rev=v0.44.0#43cf8d1693a175c0f63b27ec0427e843baa513e9" }
+version = "0.45.0"
+source = { git = "https://github.com/overnightworks/webauth?rev=v0.45.0#f30388aab1742b58c9718ae8bfa34bf0c0f94949" }
 dependencies = [
     { name = "anyio" },
     { name = "cryptography" },
@@ -822,6 +822,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+postgres = [
+    { name = "sqlalchemy" },
+]
 redis = [
     { name = "redis" },
 ]

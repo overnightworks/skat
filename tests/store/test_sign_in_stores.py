@@ -10,8 +10,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import SecretStr
 from sqlalchemy import select, text
-from sqlalchemy.exc import DataError
-from webauth.ports import AccountEvent, AccountEventKind, AccountKind
+from webauth.ports import AccountEvent, AccountEventKind, AccountKind, StoreUnavailableError
+from webauth.postgres import SessionStoreError
 from webauth.store_contract import STORE_CHECKS, StoreAdapter
 
 from skat.store.accounts import PostgresAccounts
@@ -141,7 +141,7 @@ class TestASignInEntry:
         assert (row_count(engine, accounts), row_count(engine, sessions)) == (0, 0)
 
     def test_whose_session_write_fails_keeps_the_tokens_out_of_the_error_text(self, stores):
-        with pytest.raises(DataError, match="NUL") as failure:
+        with pytest.raises(SessionStoreError) as failure:
             sign_in(stores, refresh_token="secret-refresh-token\x00")
 
         assert "secret-refresh-token" not in str(failure.value)
@@ -194,6 +194,89 @@ class TestASignInEntry:
             thread.join(WAIT_DEADLINE_SECONDS)
 
         assert (failures, row_count(engine, accounts), row_count(engine, sessions)) == ([], 1, 2)
+
+
+def a_transaction_waits_for_a_row(engine):
+    with engine.connect() as connection:
+        return connection.execute(
+            text("SELECT count(*) FROM pg_locks WHERE locktype = 'transactionid' AND NOT granted")
+        ).scalar_one()
+
+
+def cut_every_other_connection(engine):
+    with engine.connect() as cutter:
+        cutter.execute(
+            text(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity"
+                " WHERE datname = current_database() AND pid <> pg_backend_pid()"
+            )
+        )
+        cutter.commit()
+
+
+class TestAnUnreachableDatabase:
+    @pytest.fixture
+    def nowhere(self):
+        engine = create_store_engine("postgresql://nobody:none@127.0.0.1:1/none")
+        yield PostgresSignInStores(engine, audit=RecordingAudit())
+        engine.dispose()
+
+    def test_raises_store_unavailable_when_a_session_call_cannot_open_its_transaction(self, nowhere):
+        with pytest.raises(StoreUnavailableError):
+            nowhere.sessions.load("session-unknown")
+
+    def test_raises_store_unavailable_when_a_sign_in_entry_cannot_open_its_transaction(self, nowhere):
+        with pytest.raises(StoreUnavailableError), nowhere.transaction():
+            pytest.fail("the entry opened")
+
+    @pytest.mark.parametrize(
+        "call",
+        [lambda entry: entry.accounts.get(SUBJECT), lambda entry: entry.sessions.load("session-unknown")],
+        ids=["an account call", "a session call"],
+    )
+    def test_raises_store_unavailable_from_a_call_after_the_connection_was_cut(self, engine, stores, call):
+        def cut_then_call():
+            with stores.transaction() as entry:
+                cut_every_other_connection(engine)
+                call(entry)
+
+        with pytest.raises(StoreUnavailableError):
+            cut_then_call()
+
+
+class TestADeadlock:
+    def test_raises_session_store_error_not_store_unavailable(self, engine, stores):
+        first = sign_in(stores).id
+        second = sign_in(stores).id
+        failures = []
+
+        def entry_that_locks_the_second_then_the_first():
+            try:
+                with stores.transaction() as entry:
+                    entry.sessions.touch(second, expires_at=NOW + LIFETIME)
+                    entry.sessions.touch(first, expires_at=NOW + LIFETIME)
+            except Exception as failure:
+                failures.append(failure)
+
+        def lock(connection, session_id):
+            connection.execute(
+                sessions.update()
+                .where(sessions.c.id_hash == hashlib.sha256(session_id.encode()).hexdigest())
+                .values(expires_at=NOW)
+            )
+
+        with engine.begin() as holder:
+            lock(holder, first)
+            thread = threading.Thread(target=entry_that_locks_the_second_then_the_first)
+            thread.start()
+            deadline = time.monotonic() + WAIT_DEADLINE_SECONDS
+            while not a_transaction_waits_for_a_row(engine):
+                assert time.monotonic() < deadline
+                time.sleep(POLL_SECONDS)
+            lock(holder, second)
+            thread.join(WAIT_DEADLINE_SECONDS)
+
+        assert [type(failure) for failure in failures] == [SessionStoreError]
 
 
 class TestAnAccount:

@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import insert, select, update
 from webauth.ports import AccountKind
+from webauth.postgres import database_errors_as_store_errors
 
 from skat.store.schema import accounts
 
@@ -34,10 +35,12 @@ class PostgresAccounts:
     def __init__(self, connection: Connection) -> None:
         self._connection = connection
 
+    @database_errors_as_store_errors()
     def get(self, user_id: str) -> AccountRecord | None:
         row = self._connection.execute(select(accounts).where(accounts.c.id == user_id)).one_or_none()
         return None if row is None else account_of(row)
 
+    @database_errors_as_store_errors()
     def create_for_subject(self, subject: str, username: str, role: str, kind: AccountKind) -> AccountRecord:
         """The username is for display; the trusted issuer decides who a subject is, so no username is taken."""
         row = self._connection.execute(
@@ -51,6 +54,7 @@ class PostgresAccounts:
     def set_kind(self, user_id: str, kind: AccountKind) -> AccountRecord:
         return self._changed(user_id, kind=kind.value)
 
+    @database_errors_as_store_errors()
     def _changed(self, user_id: str, **values: str) -> AccountRecord:
         """The changed account; an account that is not there raises, as admission only changes one it just read."""
         row = self._connection.execute(

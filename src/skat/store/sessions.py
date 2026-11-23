@@ -1,15 +1,17 @@
 import hashlib
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from pydantic import SecretStr
 from sqlalchemy import delete, insert, select, update
+from webauth.postgres import database_errors_as_store_errors
 
 from skat.store.accounts import AccountRecord, account_of
 from skat.store.schema import accounts, sessions
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Generator
     from contextlib import AbstractContextManager
     from datetime import datetime
 
@@ -71,6 +73,13 @@ class PostgresSessionRecords:
     def __init__(self, connect: Callable[[], AbstractContextManager[Connection]]) -> None:
         self._connect = connect
 
+    @contextmanager
+    def _connection(self) -> Generator[Connection]:
+        """The connection of one call, with database errors reported as webauth's store errors, those of opening
+        and committing the transaction included."""
+        with database_errors_as_store_errors(), self._connect() as connection:
+            yield connection
+
     def create(
         self,
         user_id: str,
@@ -82,7 +91,7 @@ class PostgresSessionRecords:
         id_token: SecretStr | None,
         account_language: str | None,
     ) -> StoredSession:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 insert(sessions).values(
                     id_hash=_hash_of(session_id),
@@ -97,7 +106,7 @@ class PostgresSessionRecords:
             return _stored(session_id, connection.execute(_with_account(session_id)).one())
 
     def load(self, session_id: str) -> StoredSession | None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(_with_account(session_id)).one_or_none()
         return None if row is None else _stored(session_id, row)
 
@@ -108,12 +117,12 @@ class PostgresSessionRecords:
         return self._updated(session_id, refresh_token=refresh_token.get_secret_value())
 
     def delete(self, session_id: str) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(delete(sessions).where(sessions.c.id_hash == _hash_of(session_id)))
 
     def delete_for_user(self, user_id: str) -> int:
         """Ends every session of the account and keeps the account."""
-        with self._connect() as connection:
+        with self._connection() as connection:
             return connection.execute(delete(sessions).where(sessions.c.account_id == user_id)).rowcount
 
     def prune_overflow(self, user_id: str, keep_newest: int) -> None:
@@ -123,16 +132,16 @@ class PostgresSessionRecords:
             .order_by(sessions.c.created_at.desc(), sessions.c.id_hash)
             .offset(keep_newest)
         )
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(delete(sessions).where(sessions.c.id_hash.in_(overflow)))
 
     def delete_expired(self, now: datetime) -> int:
         """Deletes the sessions expired at `now` and returns how many went; a repeat deletes none."""
-        with self._connect() as connection:
+        with self._connection() as connection:
             return connection.execute(delete(sessions).where(sessions.c.expires_at < now)).rowcount
 
     def _updated(self, session_id: str, **values: object) -> bool:
-        with self._connect() as connection:
+        with self._connection() as connection:
             result = connection.execute(
                 update(sessions).where(sessions.c.id_hash == _hash_of(session_id)).values(**values)
             )
