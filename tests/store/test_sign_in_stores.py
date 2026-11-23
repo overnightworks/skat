@@ -201,7 +201,10 @@ class TestASignInEntry:
 def a_transaction_waits_for_a_row(engine):
     with engine.connect() as connection:
         return connection.execute(
-            text("SELECT count(*) FROM pg_locks WHERE locktype = 'transactionid' AND NOT granted")
+            text(
+                "SELECT count(*) FROM pg_locks JOIN pg_stat_activity USING (pid)"
+                " WHERE locktype = 'transactionid' AND NOT granted AND datname = current_database()"
+            )
         ).scalar_one()
 
 
