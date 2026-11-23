@@ -17,7 +17,7 @@ from webauth.config import installed_web_auth_config
 
 from skat.host.app import UNPLAYED_SWEEP_SECONDS, Clocks, ServerRounds, create_app
 from skat.host.main import streams_ending_server, uvicorn_options
-from skat.store.migrate import create_store_engine
+from skat.store.migrate import ReadinessProbe, create_store_engine
 from skat.store.rule_sets import PostgresRuleSets
 from skat.store.sign_in import PostgresSignInStores
 from skat.store.tables import PostgresTableTransactions
@@ -193,6 +193,7 @@ class RunningServer:
                 rounds=ServerRounds(unplayed_sweep_seconds=self._unplayed_sweep_seconds),
                 clocks=Clocks(chair=self._chair_clock),
                 chair_scheduler=self._chair_scheduler,
+                database_ready=ReadinessProbe.over(self.engine),
                 **single_pod(),
             )
             self.config = installed_web_auth_config(app)
