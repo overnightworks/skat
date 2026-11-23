@@ -1,0 +1,8 @@
+claim_id = "78631903824a4210a21dc29d552e00c1"
+agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
+role = "builder"
+base = "f1fc7f5274dc2c14ed53634b1f338a45b3a85ce3"
+branch = "claude/issue-856-skat-s-tests-talk-to-mcp-through-agents"
+scope = ["pyproject.toml", "tests/web/conftest.py", "tests/web/support", "tests/web/test_mcp_moment.py", "tests/web/test_mcp_sdk_agent_transport.py", "uv.lock"]
+opened_commit = "21c1912a347f5ec24f3d1b6061537a3577a56ba3"
+whole_reason = "One test-support client replaced by the shared one, with its four users and the pin it needs."
