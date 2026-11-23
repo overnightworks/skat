@@ -1,8 +1,0 @@
-claim_id = "38cee7d0262f4cc38835c63c66694adb"
-agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
-role = "builder"
-base = "40b576c9dfb1c2e585a4456725c592e3073918b6"
-branch = "claude/issue-861-skat-takes-tandem-v0-16-0-a-store-failur"
-scope = ["pyproject.toml", "src/skat/host/app.py", "tests/host/test_app.py", "tests/support/in_memory_leases.py", "uv.lock"]
-opened_commit = "ebb328408d520c8ab8bbdfc03b3c64b9b265e261"
-whole_reason = "One tandem release's pin move with the lapse fake and the stopped-line test that model its changed contract."
