@@ -128,7 +128,7 @@ class TestTheChairOpensAtOnce:
         scene = Scene()
         scene.send_away()
 
-        ended = scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
+        ended = scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 0)
 
         assert (ended, scene.table.hand is not None) == (False, True)
 

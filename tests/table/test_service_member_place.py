@@ -49,7 +49,7 @@ class Scene(ServiceScene):
     """A seeded service on a clock the test moves: Anna opened a table, and Mozart's owner is Anna."""
 
     def __init__(self) -> None:
-        self.store = FakeTableStore()
+        self.store = FakeTableStore(clock=lambda: self.now)
         self.now = START
         numbers = itertools.count(1)
         self.service = TableService(
@@ -185,7 +185,7 @@ class TestInviteAnAgent:
         assert scene.book() is None
 
     def test_is_refused_for_a_table_that_ended(self, scene):
-        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
+        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 0)
 
         assert scene.invite() is InviteRefusal.NO_TABLE
 
@@ -231,7 +231,7 @@ class TestOffersAtATable:
         assert self.offers(scene, MOZART, table_id=table_id) is None
 
     def test_a_table_that_ended_has_no_offers(self, scene):
-        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
+        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 0)
 
         assert self.offers(scene, MOZART) is None
 
@@ -458,7 +458,7 @@ class TestStaleInvitation:
 
     def test_when_the_table_ended(self, scene):
         offer = scene.invite()
-        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
+        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 0)
 
         assert scene.accept(offer).refusal is MemberRefusal.STALE_INVITATION
 
@@ -615,7 +615,7 @@ class TestTheStandingFollowsTheChair:
         scene.sit(MOZART, 2)
         scene.stand(OPENER)
 
-        assert scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60) is True
+        assert scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 0) is True
 
         assert (scene.standing(), scene.standing(BACH)) == ((), ())
         assert scene.store.book == {}
@@ -717,7 +717,7 @@ class TestSignals:
         scene.stand(OPENER)
         scene.signals.clear()
 
-        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
+        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 0)
 
         assert scene.signals == [(frozenset({MOZART.account_id, BACH.account_id}), ())]
 

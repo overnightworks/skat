@@ -32,13 +32,14 @@ from skat.table.records import (
 from skat.table.service import CommandIdReusedError, TableService
 from skat.table.style import StyleCommand
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
-from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
+from skat.web.presence import PAUSE_SWEEP_EVERY_SECONDS
 from skat.web.tables import TABLES_PATH
-from tests.support.ended_tables import end_the_table
+from tests.support.ended_tables import POSTGRES_EMPTY_SECONDS, end_the_table, lapse_the_empty_wait
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.played_game import after_the_first_game
 from tests.support.postgres import service_on
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.support.stored_game import next_deals
 from tests.web.support.skat import FakeTime, Skat, streams_of
 
 pytestmark = pytest.mark.postgres
@@ -121,9 +122,10 @@ def test_a_visitor_without_a_chair_cannot_change_the_style_and_it_stays_after_a_
     assert service.view(OPENER, created.id, frozenset()).style is TableStyle.KLASSIK
 
 
-def test_an_ended_open_table_is_listed_to_nobody(service):
+def test_an_ended_open_table_is_listed_to_nobody(service, engine):
     table_id = service.create(OPENER, CreateTable(command_id="command-1")).id
-    end_the_table(service, table_id)
+    lapse_the_empty_wait(engine, table_id)
+    end_the_table(service, table_id, POSTGRES_EMPTY_SECONDS)
 
     assert service.open_table_ids() == ()
 
@@ -679,7 +681,9 @@ def pass_in_by_turn(server, table_id, people):
         assert answer.status_code == 200, answer.text
 
 
-def test_a_restart_during_the_pause_deals_once_when_all_three_streams_reopen_with_no_sweep(sign_in_settings, engine):
+def test_a_restart_during_the_pause_keeps_its_deadline_and_deals_once_when_it_is_due_and_all_three_stream(
+    sign_in_settings, engine
+):
     settings = sign_in_settings()
     time = FakeTime()
     transactions = PostgresTableTransactions(engine)
@@ -695,22 +699,28 @@ def test_a_restart_during_the_pause_deals_once_when_all_three_streams_reopen_wit
             before_restart.sit(headers, table_id, seat, command_id=f"command-sit-{seat}")
         before_restart.client.cookies.clear()
         pass_in_by_turn(before_restart, table_id, people)
+    pause = next_deals(engine)
+    assert [stored_table for stored_table, _ in pause] == [table_id]
 
     def table(server):
         return server.client.get(f"{TABLES_PATH}/{table_id}", headers=people[0][0]).json()
 
     after_restart = server_on(before_restart.stores)
     with after_restart.client:
-        after_restart.client.portal.call(time.advance, NEXT_DEAL_PAUSE_SECONDS * 2)
         waiting = table(after_restart)
-        assert waiting["hand"] is None
         after_restart.client.cookies.clear()
 
         with streams_of(after_restart, table_id, people):
-            after_restart.client.portal.call(time.advance, NEXT_DEAL_PAUSE_SECONDS)
+            after_restart.client.portal.call(time.advance, PAUSE_SWEEP_EVERY_SECONDS)
+            assert (table(after_restart)["version"], next_deals(engine)) == (waiting["version"], pause)
+
+            with engine.begin() as connection:
+                connection.execute(text("UPDATE next_deals SET due_at = now() - interval '1 second'"))
+            after_restart.client.portal.call(time.advance, PAUSE_SWEEP_EVERY_SECONDS)
 
         dealt = table(after_restart)
         assert (dealt["version"], dealt["passed_in"]) == (waiting["version"] + 1, None)
         assert dealt["hand"] is not None
-        after_restart.client.portal.call(time.advance, NEXT_DEAL_PAUSE_SECONDS * 2)
+        assert next_deals(engine) == []
+        after_restart.client.portal.call(time.advance, PAUSE_SWEEP_EVERY_SECONDS * 8)
         assert table(after_restart)["version"] == dealt["version"]

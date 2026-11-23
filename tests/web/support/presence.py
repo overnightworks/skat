@@ -5,7 +5,7 @@ from logline import Outcome
 
 from skat.table.server_steps import EndAnswerLapse
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
-from skat.web.presence import ChairHold
+from skat.web.presence import ChairHold, NextDeal
 from skat.web.presence_line import EVENT
 from skat.web.tables import TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
@@ -123,13 +123,23 @@ def chair_hold(time, holds):
 
 
 class Deals:
-    """The deal command as the presence calls it: what it was asked, and what it answers or raises next."""
+    """The deal commands as the presence calls them, with the pauses stored for them: what each was asked, the tables
+    whose pause is over, and what the commands answer or raise next.
+    """
 
     def __init__(self):
         self.calls = []
+        self.paused = []
+        self.deferred = []
+        self.due_now = []
         self.failures = []
+        self.due_failures = []
+        self.write_failures = []
         self.dealt = True
         self.meanwhile = None
+
+    def port(self):
+        return NextDeal(self.deal_next, self.after_pause, self.pause, self.defer, self.due)
 
     async def deal_next(self, table_id, connected_accounts):
         if self.failures:
@@ -138,6 +148,27 @@ class Deals:
             await self.meanwhile()
         await on_a_worker(connected_accounts, lambda connected: self.calls.append((table_id, connected)))
         return self.dealt
+
+    async def after_pause(self, table_id, connected_accounts):
+        dealt = await self.deal_next(table_id, connected_accounts)
+        if self.calls[-1][1] is not None and table_id in self.due_now:
+            self.due_now.remove(table_id)
+        return dealt
+
+    async def pause(self, table_id):
+        if self.write_failures:
+            raise self.write_failures.pop(0)
+        self.paused.append(table_id)
+
+    async def defer(self, table_id):
+        if self.write_failures:
+            raise self.write_failures.pop(0)
+        self.deferred.append(table_id)
+
+    async def due(self):
+        if self.due_failures:
+            raise self.due_failures.pop(0)
+        return list(self.due_now)
 
 
 class Lapses:

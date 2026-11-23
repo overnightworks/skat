@@ -14,7 +14,6 @@ from sqlalchemy import select
 from skat.store.redis_clients import STREAM_LEASE_LASTS
 from skat.store.schema import chair_holds
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS, LAPSE_SWEEP_EVERY, STREAM_RENEWAL_EVERY
-from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.pods import Pods, running_pods
 
 if TYPE_CHECKING:
@@ -40,10 +39,6 @@ LEAVER_SEAT = 2
 def pods(postgres_template, tmp_path) -> Iterator[Pods]:
     with running_pods(postgres_template, tmp_path, chair_hold_seconds=HOLD_SECONDS) as running:
         yield running
-
-
-def events_path(table_id: str) -> str:
-    return f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}"
 
 
 def leaver_at_a_new_table(pods: Pods) -> tuple[str, str, str]:
@@ -86,7 +81,9 @@ def test_a_member_whose_pod_died_loses_the_chair_after_the_lapse_and_the_hold_ex
 
     with (
         suppress(httpx2.TransportError),
-        pods.second.event_stream(events_path(table_id), within_seconds=FREED_WITHIN_SECONDS, cookie=leaver_cookie) as e,
+        pods.second.event_stream(
+            pods.events_path(table_id), within_seconds=FREED_WITHIN_SECONDS, cookie=leaver_cookie
+        ) as e,
     ):
         next(e)
         version = pods.table_at(pods.first, table_id, opener_cookie)["version"]
@@ -100,10 +97,14 @@ def test_a_member_whose_pod_died_loses_the_chair_after_the_lapse_and_the_hold_ex
 
 def test_a_member_who_came_back_on_the_other_pod_keeps_the_chair(pods):
     table_id, opener_cookie, leaver_cookie = leaver_at_a_new_table(pods)
-    with pods.first.event_stream(events_path(table_id), within_seconds=KEPT_FOR_SECONDS, cookie=leaver_cookie) as e:
+    with pods.first.event_stream(
+        pods.events_path(table_id), within_seconds=KEPT_FOR_SECONDS, cookie=leaver_cookie
+    ) as e:
         next(e)
 
-    with pods.second.event_stream(events_path(table_id), within_seconds=KEPT_FOR_SECONDS, cookie=leaver_cookie) as e:
+    with pods.second.event_stream(
+        pods.events_path(table_id), within_seconds=KEPT_FOR_SECONDS, cookie=leaver_cookie
+    ) as e:
         next(e)
         time.sleep(KEPT_FOR_SECONDS)
         seated = occupants(pods, table_id, opener_cookie)
@@ -116,7 +117,7 @@ def test_a_hold_stored_before_both_pods_restarted_frees_the_chair_at_its_deadlin
 
     with (
         suppress(httpx2.TransportError),
-        pods.first.event_stream(events_path(table_id), within_seconds=MARGIN_SECONDS, cookie=leaver_cookie) as e,
+        pods.first.event_stream(pods.events_path(table_id), within_seconds=MARGIN_SECONDS, cookie=leaver_cookie) as e,
     ):
         next(e)
         stopped = time.monotonic()

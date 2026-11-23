@@ -544,7 +544,7 @@ class TestACallThatChangesNothing(CallingTable):
             caller = threading.Thread(target=lambda: answers.append(call(skat, felix, table_id, key)))
             caller.start()
             hold.arrivals.get(timeout=10)
-            assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 60)
+            assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 0)
             hold.release.set()
             caller.join(timeout=10)
 

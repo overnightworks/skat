@@ -94,6 +94,7 @@ from skat.table.rules import (
     CREATE_TABLE_COMMAND,
     DECLINE_GIVE_UP_COMMAND,
     GIVE_UP_COMMAND,
+    NEXT_DEAL_PAUSE_SECONDS,
     PLAY_CARD_COMMAND,
     PLAY_OPEN_COMMAND,
     SHORTEN_COMMAND,
@@ -106,13 +107,13 @@ from skat.table.rules import (
     decide_create,
     decide_stand,
     drawn_hand,
+    hand_ended,
     hand_was_dealt,
     is_deal_or_step_of_play,
     present_at,
     replayed_decision,
     replayed_table,
     result_pending,
-    seated_if_hand_ended,
     sit_deals,
     sit_payload,
     stand_payload,
@@ -235,7 +236,7 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
                 EntryTraces(self._trace()),
             )
             transaction.add_table(table, actor.display_name)
-            transaction.set_empty_since(table.id, self._now())
+            transaction.stamp_empty_since(table.id)
             transaction.add_receipt(create_receipt(actor, command, table))
         self._tell_seats(agents_seated_at(table))
         return view_of(table, actor.account_id, frozenset())
@@ -710,7 +711,6 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
             if table is None:
                 return None
             replay = transaction.replay(actor.account_id, command_id)
-            seated_when_hand_ended: frozenset[str] = frozenset()
             told: frozenset[str] = frozenset()
             viewers: frozenset[str] = frozenset()
             if replay is None:
@@ -727,13 +727,8 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
             else:
                 decision = replayed_decision(replay, command, payload)
             present = present_at(decision.table, connected_accounts, self._live_leases())
-            if replay is None:
-                seated_when_hand_ended = seated_if_hand_ended(table, decision.table)
             result = CommandResult(
-                view_of(decision.table, actor.account_id, present, self._now()),
-                decision.refusal,
-                decision.holder,
-                seated_when_hand_ended,
+                view_of(decision.table, actor.account_id, present, self._now()), decision.refusal, decision.holder
             )
         self._tell_seats(told)
         self._tell_view(identifier, viewers)
@@ -745,4 +740,6 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
         played = is_deal_or_step_of_play(command, before, after)
         save_traced(transaction, before, after, self._trace(), played_at=self._now() if played else None)
         if hand_was_dealt(after) and not hand_was_dealt(before):
-            transaction.set_empty_since(after.id, None)
+            transaction.clear_empty_since(after.id)
+        if hand_ended(before, after):
+            transaction.store_next_deal(after.id, NEXT_DEAL_PAUSE_SECONDS, replace=True)

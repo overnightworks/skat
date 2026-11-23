@@ -139,7 +139,7 @@ class TestTheViewOfAMember:
         scene = Scene()
         scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
         scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
-        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
+        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 0)
 
         assert scene.view_of(MOZART.account_id) is None
 
@@ -177,7 +177,7 @@ class TestTheActsOfAMember:
         scene = Scene()
         scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
         scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
-        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
+        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 0)
 
         assert scene.acts_of(MOZART.account_id) is None
 
@@ -331,7 +331,7 @@ class TestTheAgentInAChair:
         scene = Scene()
         scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
         scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
-        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
+        scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 0)
 
         assert scene.service.agent_in_chair(scene.table_id, 2) is None
 

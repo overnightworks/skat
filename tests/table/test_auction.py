@@ -1,5 +1,6 @@
 import random
 from dataclasses import astuple
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -33,7 +34,7 @@ from skat.table.auction import (
 from skat.table.hand_state import auction_of
 from skat.table.records import Actor, Occupant, Refusal, SitDown, StandUp, parsed_refusal
 from skat.table.service import TableService
-from tests.support.seated_auction import ANNA, BEN, CLEO, DORA, NOBODY_CONNECTED, Seated, open_table, seat_three
+from tests.support.seated_auction import ANNA, BEN, DORA, NOBODY_CONNECTED, Seated, open_table, seat_three
 
 if TYPE_CHECKING:
     from tests.support.fake_tables import FakeTableStore
@@ -105,7 +106,6 @@ class AlwaysDrawsSeatOne(random.Random):
 
 
 THIRD_PASS = "pass-forehand"
-SEATED_ACCOUNTS = {ANNA.account_id, BEN.account_id, CLEO.account_id}
 
 
 def two_pass(seated: Seated) -> None:
@@ -156,28 +156,33 @@ class TestPassedIn:
         assert result.refusal is Refusal.NO_HAND
         assert seated.table() == before
 
-    def test_the_same_third_pass_again_is_the_same_answer_with_no_bump_and_names_nobody(self, seated: Seated) -> None:
+    def test_the_same_third_pass_again_is_the_same_answer_with_no_bump_and_no_new_pause(
+        self, seated: Seated, store: FakeTableStore
+    ) -> None:
         two_pass(seated)
         version = seated.table().version
         first = seated.send(seated.forehand, AuctionAction.PASS, command_id=THIRD_PASS)
         after_first = seated.table()
+        pause = dict(store.next_deals)
+        store.clock = lambda: datetime.now(UTC) + timedelta(hours=1)
 
         again = seated.send(seated.forehand, AuctionAction.PASS, version=version, command_id=THIRD_PASS)
 
         assert (again.view, again.refusal) == (first.view, first.refusal)
         assert seated.table() == after_first
-        assert again.seated_when_hand_ended == frozenset()
+        assert store.next_deals == pause
 
-    def test_only_the_command_that_ended_the_hand_names_the_accounts_seated_at_its_end(self, seated: Seated) -> None:
-        first = seated.send(seated.middlehand, AuctionAction.PASS, command_id="pass-middlehand")
-        refused = seated.send(seated.forehand, AuctionAction.PASS, command_id="out-of-turn")
-        second = seated.send(seated.rearhand, AuctionAction.PASS, command_id="pass-rearhand")
-        third = seated.send(seated.forehand, AuctionAction.PASS, command_id=THIRD_PASS)
+    def test_only_the_command_that_ended_the_hand_stores_the_pause_before_the_next_deal(
+        self, seated: Seated, store: FakeTableStore
+    ) -> None:
+        seated.send(seated.middlehand, AuctionAction.PASS, command_id="pass-middlehand")
+        seated.send(seated.forehand, AuctionAction.PASS, command_id="out-of-turn")
+        seated.send(seated.rearhand, AuctionAction.PASS, command_id="pass-rearhand")
+        assert store.next_deals == {}
 
-        assert third.seated_when_hand_ended == SEATED_ACCOUNTS
-        assert first.seated_when_hand_ended == frozenset()
-        assert refused.seated_when_hand_ended == frozenset()
-        assert second.seated_when_hand_ended == frozenset()
+        seated.send(seated.forehand, AuctionAction.PASS, command_id=THIRD_PASS)
+
+        assert set(store.next_deals) == {seated.table_id}
 
     def test_standing_up_works_again_and_the_next_dealer_is_gone(self, seated: Seated) -> None:
         pass_in(seated)
@@ -205,7 +210,6 @@ class TestPassedIn:
         assert seated.table().progress.auction == ()
         assert result.view.passed_in is None
         assert seated.table().version == version + 1
-        assert result.seated_when_hand_ended == frozenset()
 
     def test_the_new_hand_starts_a_fresh_auction(self, store: FakeTableStore) -> None:
         seated = seat_three(TableService(store, random_source=AlwaysDrawsSeatOne()), store)

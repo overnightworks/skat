@@ -2,7 +2,7 @@ import itertools
 import random
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import replace
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -23,6 +23,7 @@ from skat.table.records import (
     TableId,
     Visibility,
 )
+from skat.table.rules import NEXT_DEAL_PAUSE_SECONDS
 from skat.table.service import CommandIdReusedError, TableService
 from tests.support.fake_tables import FakeTableStore, numbered_service
 from tests.support.faulty_tables import FaultyTableTransactions
@@ -30,6 +31,7 @@ from tests.support.played_game import after_the_first_game, before_the_last_card
 
 OPENER = Actor(account_id="account-opener", display_name="Anna")
 VISITOR = Actor(account_id="account-visitor", display_name="Ben")
+NOON = datetime(2026, 11, 9, 12, 0, tzinfo=UTC)
 
 
 @pytest.fixture
@@ -686,26 +688,29 @@ class TestPlayCard:
         command = PlayCardCommand("command-card", table_id, version, played.card)
         return service.play_card(actor, command, frozenset({OPENER.account_id}))
 
-    def test_the_thirtieth_card_names_who_sat(self, service, store, table_id):
+    def test_the_thirtieth_card_stores_the_pause_before_the_next_deal(self, service, store, table_id):
         last = at_the_last_card(store, table_id)
+        store.clock = lambda: NOON
 
-        result = self.play(service, store, table_id, last, store.tables[table_id].version)
+        self.play(service, store, table_id, last, store.tables[table_id].version)
 
-        assert result.seated_when_hand_ended == {OPENER.account_id, VISITOR.account_id, CLEO.account_id}
+        assert store.next_deals[table_id] == NOON + timedelta(seconds=NEXT_DEAL_PAUSE_SECONDS)
 
     def test_a_card_before_the_thirtieth_ends_no_hand(self, service, store, table_id):
         declared(store, table_id)
         lead = CardPlayed(Position.FOREHAND, playing_of(store.tables[table_id]).hands[Position.FOREHAND][0])
 
-        result = self.play(service, store, table_id, lead, store.tables[table_id].version)
+        self.play(service, store, table_id, lead, store.tables[table_id].version)
 
-        assert result.seated_when_hand_ended == frozenset()
+        assert store.next_deals == {}
 
-    def test_a_retry_of_the_thirtieth_card_names_nobody(self, service, store, table_id):
+    def test_a_retry_of_the_thirtieth_card_leaves_the_pause_as_it_is(self, service, store, table_id):
         last = at_the_last_card(store, table_id)
         version = store.tables[table_id].version
         self.play(service, store, table_id, last, version)
+        stored = dict(store.next_deals)
+        store.clock = lambda: NOON + timedelta(hours=1)
 
-        again = self.play(service, store, table_id, last, version)
+        self.play(service, store, table_id, last, version)
 
-        assert again.seated_when_hand_ended == frozenset()
+        assert store.next_deals == stored

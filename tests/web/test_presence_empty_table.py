@@ -4,13 +4,11 @@ import pytest
 
 from skat.web.presence import (
     CHAIR_RELEASE_RETRY_SECONDS,
-    NEXT_DEAL_PAUSE_SECONDS,
+    HOLD_SWEEP_EVERY_SECONDS,
     EmptyTable,
-    NextDeal,
     Presence,
 )
 from skat.web.presence_line import PresenceTimer
-from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.idle_presence import idle_agent_lease, idle_end_answers, idle_wakes
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.log_lines import logged
@@ -26,100 +24,45 @@ from tests.web.support.presence import (
     run,
 )
 
-MINUTE = 60
 
+class TestTheEmptySweep:
+    def test_asks_for_the_end_of_a_table_whose_wait_is_up_with_who_is_connected_then(self, holding, time, ends):
+        ends.due_now = [TABLE]
+        holding.start_sweeps()
 
-class TestWhenTheTimerStarts:
-    def test_a_created_table_ends_after_the_wait_and_not_a_moment_before(self, holding, time, ends):
-        holding.watch_empty_table(TABLE)
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS - 1))
+        assert ends.calls == [(TABLE, frozenset())]
+
+    def test_sweeps_every_hold_sweep_and_not_before(self, holding, time, ends):
+        ends.due_now = [TABLE]
+        holding.start_sweeps()
+
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS - 1))
         assert ends.calls == []
 
         run(time.advance(1))
         assert ends.calls == [(TABLE, frozenset())]
 
-    def test_a_second_create_retry_neither_restarts_nor_stretches_the_wait(self, holding, time, ends):
-        holding.watch_empty_table(TABLE)
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS - MINUTE))
+    def test_asks_for_each_due_table_and_for_none_that_is_not_due(self, holding, time, ends):
+        ends.due_now = [TABLE, OTHER_TABLE]
+        holding.start_sweeps()
 
-        holding.watch_empty_table(TABLE)
-        run(time.advance(MINUTE))
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
-        assert ends.calls == [(TABLE, frozenset())]
+        assert ends.calls == [(TABLE, frozenset()), (OTHER_TABLE, frozenset())]
 
-    def test_a_created_table_somebody_is_connected_to_starts_none(self, holding, time):
-        connect(holding, TABLE, "anna", lambda: None)
-
-        holding.watch_empty_table(TABLE)
-
-        assert time.pending == 0
-
-    def test_the_last_stream_ending_starts_the_wait_from_then(self, holding, time, ends):
-        leaving = connect(holding, TABLE, "anna", lambda: None)
-        run(time.advance(MINUTE))
-        run(holding.close(leaving))
-
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS - 1))
-        assert ends.calls == []
-
-        run(time.advance(1))
-        assert ends.calls == [(TABLE, frozenset())]
-
-    def test_a_stream_ending_while_another_account_stays_connected_starts_no_wait_for_the_table(
-        self, holding, time, ends
-    ):
-        leaving = connect(holding, TABLE, "anna", lambda: None)
-        connect(holding, TABLE, "ben", lambda: None)
-
-        run(holding.close(leaving))
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
-
-        assert ends.calls == []
-
-    def test_a_watcher_who_stays_keeps_the_table_for_good(self, holding, time, ends):
-        holding.watch_empty_table(TABLE)
-        connect(holding, TABLE, "ben", lambda: None)
-
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS * 4))
-
-        assert ends.calls == []
-
-    def test_each_table_has_its_own_wait(self, holding, time, ends):
-        holding.watch_empty_table(TABLE)
-        holding.watch_empty_table(OTHER_TABLE)
-        connect(holding, OTHER_TABLE, "ben", lambda: None)
-
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
-
-        assert ends.calls == [(TABLE, frozenset())]
-
-    def test_a_return_and_a_second_leave_restart_the_wait_and_the_first_timer_ends_nothing(self, holding, time, ends):
-        first_leave = connect(holding, TABLE, "anna", lambda: None)
-        run(holding.close(first_leave))
-        run(time.advance(20 * MINUTE))
-        second_leave = connect(holding, TABLE, "anna", lambda: None)
-        run(time.advance(5 * MINUTE))
-        run(holding.close(second_leave))
-
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS - 25 * MINUTE))
-        assert ends.calls == []
-
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS - 5 * MINUTE))
-        assert ends.calls == [(TABLE, frozenset())]
-
-
-class TestWhenTheCheckRuns:
-    def test_a_stream_opening_before_the_check_holds_the_row_leaves_the_table_alone(self, holding, time, ends, wakes):
+    def test_a_stream_opening_before_the_check_holds_the_row_is_read_as_connected(self, holding, time, ends, wakes):
         async def ben_arrives():
             await holding.subscribe(TABLE, "ben", wakes.callback("ben"))
 
         ends.meanwhile = ben_arrives
-        holding.watch_empty_table(TABLE)
+        ends.due_now = [TABLE]
+        holding.start_sweeps()
 
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
-        assert ends.calls == [(TABLE, None)]
+        assert ends.calls == [(TABLE, frozenset({"ben"}))]
         assert wakes.counts["ben"] == 0
 
     @pytest.mark.parametrize(("ended", "woken"), [(True, 1), (False, 0)], ids=["ended", "refused"])
@@ -131,9 +74,10 @@ class TestWhenTheCheckRuns:
 
         ends.within = ben_arrives_during_the_end
         ends.ended = ended
-        holding.watch_empty_table(TABLE)
+        ends.due_now = [TABLE]
+        holding.start_sweeps()
 
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
         assert wakes.counts["ben"] == woken
 
@@ -145,13 +89,15 @@ class TestWhenTheCheckRuns:
             await asyncio.Event().wait()
 
         holds.on_clear = clear_until_cancelled
+        ends.due_now = [TABLE]
+        holding.start_sweeps()
 
         async def scenario():
             returning = asyncio.create_task(holding.subscribe(TABLE, "anna", lambda: None))
             await clearing.wait()
             returning.cancel()
             await asyncio.gather(returning, return_exceptions=True)
-            await time.advance(DEFAULT_EMPTY_TABLE_SECONDS)
+            await time.advance(HOLD_SWEEP_EVERY_SECONDS)
 
         run(scenario())
 
@@ -162,57 +108,50 @@ class TestWhenTheCheckRuns:
             holding.stop()
 
         ends.meanwhile = stops
-        holding.watch_empty_table(TABLE)
+        ends.due_now = [TABLE]
+        holding.start_sweeps()
 
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
         assert (ends.calls, ends.outcomes, time.pending) == ([(TABLE, None)], [False], 0)
 
-    def test_a_stopped_presence_starts_no_wait(self, holding, time):
+    def test_stopping_ends_the_sweeps(self, holding, time, ends):
+        ends.due_now = [TABLE]
+        holding.start_sweeps()
+
         holding.stop()
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS * 2))
 
-        holding.watch_empty_table(TABLE)
-        run(holding.close(connect(holding, OTHER_TABLE, "anna", lambda: None)))
+        assert (time.pending, ends.calls) == (0, [])
 
-        assert time.pending == 0
-
-
-class TestWhenTheStoreFails:
-    def test_a_failed_end_writes_the_streak_warning_and_is_retried_after_the_retry_delay(
-        self, holding, time, ends, capsys
-    ):
+    def test_a_failed_end_writes_the_streak_warning_and_the_next_sweep_asks_again(self, holding, time, ends, capsys):
         ends.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
-        holding.watch_empty_table(TABLE)
+        ends.due_now = [TABLE]
+        holding.start_sweeps()
 
         with logged(capsys) as lines:
-            run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
+            run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
         assert failed_timers(lines) == [(PresenceTimer.EMPTY_TABLE_END, "warning")]
         assert "anna" not in str(lines)
         assert ends.calls == []
 
-        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
         assert ends.calls == [(TABLE, frozenset())]
 
-    def test_a_stream_opening_while_the_retry_waits_keeps_the_table(self, holding, time, ends):
-        ends.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
-        holding.watch_empty_table(TABLE)
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
+    def test_a_failed_read_of_the_due_tables_writes_the_sweeps_streak_warning_and_the_next_sweep_reads_again(
+        self, holding, time, ends, capsys
+    ):
+        ends.due_failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
+        ends.due_now = [TABLE]
+        holding.start_sweeps()
 
-        connect(holding, TABLE, "anna", lambda: None)
-        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+        with logged(capsys) as lines:
+            run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
-        assert ends.calls == []
-
-
-class TestWhenTheServerStops:
-    def test_stopping_cancels_every_pending_wait(self, holding, time, ends):
-        holding.watch_empty_table(TABLE)
-
-        holding.stop()
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS * 2))
-
-        assert (time.pending, ends.calls) == (0, [])
+        assert (failed_timers(lines), ends.calls) == ([(PresenceTimer.EMPTY_SWEEP, "warning")], [])
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
+        assert ends.calls == [(TABLE, frozenset())]
 
 
 @pytest.fixture
@@ -224,8 +163,8 @@ def notes():
 def noting(time, holds, deals, ends, notes):
     return Presence(
         chair_hold(time, holds),
-        NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
-        EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end, notes.note),
+        deals.port(),
+        EmptyTable(ends.end, notes.note, ends.due),
         idle_agent_lease(),
         idle_wakes(),
         InMemoryLeases(),
@@ -356,23 +295,3 @@ class TestTheStoredTimeSinceNobodyWasThere:
         run(time.advance(0))
 
         assert len(notes.calls) == 1
-
-
-class TestTheWaitAfterAStart:
-    def test_each_table_found_at_the_start_ends_when_its_own_left_wait_passes(self, holding, time, ends):
-        holding.watch_empty_tables({TABLE: 20 * MINUTE, OTHER_TABLE: 5 * MINUTE})
-
-        run(time.advance(5 * MINUTE))
-        assert ends.calls == [(OTHER_TABLE, frozenset())]
-
-        run(time.advance(15 * MINUTE))
-        assert ends.calls == [(OTHER_TABLE, frozenset()), (TABLE, frozenset())]
-
-    def test_a_table_found_at_the_start_ends_when_what_is_left_of_its_wait_passes(self, holding, time, ends):
-        holding.watch_empty_table(TABLE, 20 * MINUTE)
-
-        run(time.advance(20 * MINUTE - 1))
-        assert ends.calls == []
-
-        run(time.advance(1))
-        assert ends.calls == [(TABLE, frozenset())]

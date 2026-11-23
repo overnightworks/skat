@@ -6,9 +6,10 @@ import pytest
 from skat.engine.bidding import Pass
 from skat.engine.deal import Position, next_dealer, positions_from
 from skat.table.records import Actor, CreateTable, HandProgress, SitDown, TableId
+from skat.table.rules import NEXT_DEAL_PAUSE_SECONDS
 from skat.table.service import TableService
 from skat.web.playing import TABLE_CARD_SUFFIX
-from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS
+from skat.web.presence import PAUSE_SWEEP_EVERY_SECONDS
 from skat.web.presence_line import PresenceTimer
 from skat.web.streams import IDLE_HEARTBEAT
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, TABLES_PATH
@@ -46,108 +47,115 @@ from tests.web.support.streams import (
 CLEO = Actor(account_id="cleo", display_name="Cleo")
 
 
-class TestNextDealPause:
-    def test_a_second_request_during_the_pause_starts_no_second_timer(self, holding, time, deals):
-        holding.deal_soon(TABLE)
-        holding.deal_soon(TABLE)
-
-        assert time.pending == 1
-        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
-        assert len(deals.calls) == 1
-
-    def test_a_restart_replaces_the_pending_pause_and_a_later_request_leaves_the_new_one_alone(
-        self, holding, time, deals
-    ):
-        holding.deal_soon(TABLE)
-        run(time.advance(NEXT_DEAL_PAUSE_SECONDS - 1))
-
-        holding.restart_deal_pause(TABLE)
-        holding.deal_soon(TABLE)
-        run(time.advance(NEXT_DEAL_PAUSE_SECONDS - 0.001))
-        assert deals.calls == []
-
-        run(time.advance(0.001))
-        assert len(deals.calls) == 1
-
-    def test_each_table_has_its_own_pause(self, holding, time):
-        holding.deal_soon(TABLE)
-        holding.deal_soon(OTHER_TABLE)
-
-        assert time.pending == 2
-
-    def test_asks_for_the_deal_with_who_is_connected_when_the_pause_ends(self, holding, time, deals):
-        holding.deal_soon(TABLE)
+class TestPauseSweep:
+    def test_asks_for_the_deal_of_a_table_whose_pause_is_over_with_who_is_connected_then(self, holding, time, deals):
+        holding.start_sweeps()
         connect(holding, TABLE, "anna", lambda: None)
+        deals.due_now = [TABLE]
 
-        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
 
         assert deals.calls == [(TABLE, frozenset({"anna"}))]
+
+    def test_sweeps_every_pause_second_and_not_a_pause_that_is_not_over(self, holding, time, deals):
+        holding.start_sweeps()
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS * 3))
+        assert deals.calls == []
+
+        deals.due_now = [TABLE, OTHER_TABLE]
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+
+        assert [call[0] for call in deals.calls] == [TABLE, OTHER_TABLE]
 
     def test_who_is_connected_is_read_once_the_deal_holds_the_row(self, holding, time, deals):
         async def anna_returns_while_the_deal_waits():
             await holding.subscribe(TABLE, "anna", lambda: None)
 
         deals.meanwhile = anna_returns_while_the_deal_waits
-        holding.deal_soon(TABLE)
+        deals.due_now = [TABLE]
+        holding.start_sweeps()
 
-        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
 
         assert deals.calls == [(TABLE, frozenset({"anna"}))]
 
     def test_a_deal_wakes_the_table_and_a_refused_deal_wakes_nobody(self, holding, time, deals, wakes):
         connect(holding, TABLE, "anna", wakes.callback("anna"))
         before = wakes.counts["anna"]
+        holding.start_sweeps()
 
-        holding.deal_soon(TABLE)
+        deals.due_now = [TABLE]
         deals.dealt = False
-        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
         assert wakes.counts["anna"] == before
 
-        holding.deal_soon(TABLE)
+        deals.due_now = [TABLE]
         deals.dealt = True
-        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
         assert wakes.counts["anna"] == before + 1
 
-    def test_a_request_while_the_deal_runs_starts_a_fresh_pause_after_it(self, holding, time, deals):
-        async def another_request():
-            deals.meanwhile = None
-            holding.deal_soon(TABLE)
-
-        deals.meanwhile = another_request
-        holding.deal_soon(TABLE)
-
-        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
-
-        assert time.pending == 1
-
-    def test_a_failed_deal_writes_the_streak_warning_wakes_nobody_and_leaves_the_next_request_free(
+    def test_a_failed_deal_writes_the_streak_warning_wakes_nobody_and_the_next_sweep_asks_again(
         self, holding, time, deals, wakes, capsys
     ):
         connect(holding, TABLE, "anna", wakes.callback("anna"))
         before = wakes.counts["anna"]
         deals.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
+        deals.due_now = [TABLE]
+        holding.start_sweeps()
 
-        holding.deal_soon(TABLE)
         with logged(capsys) as lines:
-            run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+            run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
 
         assert wakes.counts["anna"] == before
         assert failed_timers(lines) == [(PresenceTimer.NEXT_DEAL, "warning")]
         assert "anna" not in str(lines)
-        holding.deal_soon(TABLE)
-        run(time.advance(NEXT_DEAL_PAUSE_SECONDS))
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
         assert wakes.counts["anna"] == before + 1
 
-    def test_the_server_stopping_during_the_pause_cancels_the_deal_and_a_later_request_starts_none(
-        self, holding, time, deals
+    def test_a_failed_read_of_the_due_pauses_writes_the_sweeps_streak_warning_and_the_next_sweep_reads_again(
+        self, holding, time, deals, capsys
     ):
-        holding.deal_soon(TABLE)
+        deals.due_failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
+        deals.due_now = [TABLE]
+        holding.start_sweeps()
+
+        with logged(capsys) as lines:
+            run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+
+        assert (failed_timers(lines), deals.calls) == ([(PresenceTimer.PAUSE_SWEEP, "warning")], [])
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+        assert [call[0] for call in deals.calls] == [TABLE]
+
+    def test_the_server_stopping_ends_the_sweeps_and_a_later_request_stores_no_pause(self, holding, time, deals):
+        holding.start_sweeps()
+        deals.due_now = [TABLE]
 
         holding.stop()
-        holding.deal_soon(OTHER_TABLE)
-        run(time.advance(NEXT_DEAL_PAUSE_SECONDS * 2))
+        run(holding.deal_soon(OTHER_TABLE))
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS * 2))
 
-        assert (time.pending, deals.calls) == (0, [])
+        assert (time.pending, deals.calls, deals.paused) == (0, [], [])
+
+
+class TestStoringThePause:
+    def test_asking_to_deal_soon_stores_the_pause_of_that_table(self, holding, deals):
+        run(holding.deal_soon(TABLE))
+        run(holding.deal_soon(OTHER_TABLE))
+
+        assert deals.paused == [TABLE, OTHER_TABLE]
+
+    def test_a_pause_that_cannot_be_stored_writes_the_streak_warning_and_asks_nothing_more(
+        self, holding, deals, capsys
+    ):
+        deals.write_failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
+
+        with logged(capsys) as lines:
+            run(holding.deal_soon(TABLE))
+
+        assert failed_timers(lines) == [(PresenceTimer.NEXT_DEAL_WRITE, "warning")]
+        assert "anna" not in str(lines)
+        run(holding.deal_soon(TABLE))
+        assert deals.paused == [TABLE]
 
 
 class TestDealNow:
@@ -170,7 +178,9 @@ class TestDealNow:
         run(holding.deal_now(TABLE))
         assert wakes.counts["anna"] == before + 1
 
-    def test_a_failed_deal_writes_the_streak_warning_and_wakes_nobody(self, holding, deals, wakes, capsys):
+    def test_a_failed_deal_writes_the_streak_warning_wakes_nobody_and_stores_the_deal_as_due_now(
+        self, holding, time, deals, wakes, capsys
+    ):
         connect(holding, TABLE, "anna", wakes.callback("anna"))
         before = wakes.counts["anna"]
         deals.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
@@ -181,6 +191,20 @@ class TestDealNow:
         assert wakes.counts["anna"] == before
         assert failed_timers(lines) == [(PresenceTimer.NEXT_DEAL, "warning")]
         assert "anna" not in str(lines)
+        assert (deals.deferred, time.pending) == ([TABLE], 0)
+
+    def test_a_deal_that_cannot_be_stored_as_due_now_writes_a_second_streak_warning(self, holding, deals, capsys):
+        deals.failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
+        deals.write_failures = [ConnectionError(FAILURE_NAMING_AN_ACCOUNT)]
+
+        with logged(capsys) as lines:
+            run(holding.deal_now(TABLE))
+
+        assert failed_timers(lines) == [
+            (PresenceTimer.NEXT_DEAL, "warning"),
+            (PresenceTimer.NEXT_DEAL_WRITE, "warning"),
+        ]
+        assert deals.deferred == []
 
     def test_once_the_server_stopped_it_asks_with_none_connected_to_say_so(self, holding, deals):
         connect(holding, TABLE, "anna", lambda: None)
@@ -375,7 +399,7 @@ class TestNextHandComes:
 
             assert server.store.tables[table_id] == before
 
-    def test_a_store_failure_in_the_deal_writes_the_streak_warning_changes_nothing_and_the_next_stream_opening_deals(
+    def test_a_store_failure_in_the_deal_writes_the_streak_warning_changes_nothing_and_the_next_sweep_deals(
         self, hold, time, capsys
     ):
         store = OvertakenStore()
@@ -399,10 +423,9 @@ class TestNextHandComes:
                 assert failed_timers(lines) == [(PresenceTimer.NEXT_DEAL, "warning")]
                 assert "anna" not in str(lines)
 
-                with streams_of(server, table_id, people[3:]):
-                    advance(server, time, NEXT_DEAL_PAUSE_SECONDS)
+                advance(server, time, PAUSE_SWEEP_EVERY_SECONDS)
 
-                    assert store.tables[table_id].version == passed_in.version + 1
+                assert store.tables[table_id].version == passed_in.version + 1
 
     def test_the_server_stopping_during_the_pause_deals_nothing(self, server, time):
         table_id, people = seated_three(server)
@@ -529,27 +552,23 @@ class TestNextDealTrigger:
         steps = (Pass(Position.MIDDLEHAND), Pass(Position.REARHAND), Pass(Position.FOREHAND))
         store.tables[table_id] = replace(store.tables[table_id], dealer=1, hand=None, progress=HandProgress(steps))
 
-    def test_the_first_view_of_a_passed_in_table_starts_one_pause_and_a_later_view_starts_none(
-        self, store, table, holding, time, deals
+    def test_the_first_view_of_a_passed_in_table_asks_for_one_pause_and_a_later_view_asks_for_none(
+        self, store, table, holding, deals
     ):
         service, table_id = table
         self.passed_in(store, table_id)
-        deals.dealt = False
 
         async def scenario():
             stream = stream_of(holding, service, OPENER, table_id, heartbeat_seconds=SHORT_HEARTBEAT_SECONDS)
             await next_view(stream)
-            assert time.pending == 1
-            await time.advance(NEXT_DEAL_PAUSE_SECONDS)
-            assert time.pending == 0
+            assert deals.paused == [table_id]
             holding.wake_table(table_id)
             assert await next_item(stream) == IDLE_HEARTBEAT
-            assert time.pending == 0
             await stream.aclose()
 
         run_on_a_loop_of_its_own(scenario())
 
-        assert [call[0] for call in deals.calls] == [table_id]
+        assert deals.paused == [table_id]
 
     def test_the_first_view_of_a_pending_result_asks_for_the_deal_at_once_and_a_later_view_does_not(
         self, store, table, holding, time, deals

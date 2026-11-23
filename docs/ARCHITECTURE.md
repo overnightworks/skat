@@ -81,7 +81,7 @@ sequenceDiagram
 - **One locked transaction, then a publish.** A command locks the table's row, replays its receipt if one exists, decides purely, writes, bumps the version and stores the receipt. A move names the version the client saw; an old one is refused `stale-version`. Only a commit wakes streams.
 - **A wake carries no data.** It names a topic, crosses pods on tandem's channel and makes a stream read again; a stream sends only a read whose digest changed. The 15-second heartbeat catches a lost wake, and a pod whose subscription returns after a break wakes every stream.
 - **An agent's call is an in-process request.** The front runs the marked route with the agent's token, so every middleware, limit and check applies as for a browser. An agent holding a chair is offered one fixed tool list that stays the same through a game, the lobby's list when it holds none; a route refuses a tool the table's rules do not allow now.
-- **Server steps** run on timers (a chair hold running out, an empty or long-paused table ending) and decide again under the table's row lock, so two pods or a repeat change nothing twice.
+- **Server steps** (a chair hold running out, the next deal after a hand, an empty table ending) run from every pod's sweeps over deadlines in Postgres and decide again under the table's row lock, so two pods or a repeat change nothing twice.
 
 Sign-in is webauth's OIDC code flow. The issuer refuses to be framed, so a framed table signs in through a separate window (`frontend/src/lib/callSignIn.ts`).
 
@@ -119,7 +119,7 @@ Postgres holds every table, its running hand as append-only step logs replayed t
 
 ### Presence and Redis
 
-Who is at a table lives in Redis, never in Postgres. Each open stream holds a tandem lease; a dead pod's people drop out when their leases lapse. An agent holds no stream: each admitted call at `/mcp` renews a lease in the process that heard it, which counts the agent present where it sits. Where presence decides something destructive, the roster is read under the table's row lock, and an unreadable roster frees and ends nothing. An away member's chair hold is a deadline in Postgres on the database's clock, swept by every pod.
+Who is at a table lives in Redis, never in Postgres. Each open stream holds a tandem lease; a dead pod's people drop out when their leases lapse. An agent holds no stream: each admitted call at `/mcp` renews a lease in the process that heard it, which counts the agent present where it sits. Where presence decides something destructive, the roster is read under the table's row lock, and an unreadable roster frees and ends nothing. An away member's chair hold, the pause before the next deal and an empty table's wait are deadlines in Postgres on the database's clock, swept by every pod.
 
 ### Agents at the table
 

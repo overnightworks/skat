@@ -20,8 +20,11 @@ class PresenceTimer(StrEnum):
 
     LEASE_SETTLE = "lease_settle"
     NEXT_DEAL = "next_deal"
+    NEXT_DEAL_WRITE = "next_deal_write"
+    PAUSE_SWEEP = "pause_sweep"
     EMPTY_SINCE_WRITE = "empty_since_write"
     EMPTY_TABLE_END = "empty_table_end"
+    EMPTY_SWEEP = "empty_sweep"
     CHAIR_RELEASE = "chair_release"
     HOLD_SWEEP = "hold_sweep"
     LEAVE_WRITE = "leave_write"

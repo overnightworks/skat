@@ -324,16 +324,11 @@ def _series_view(table: TableRecord) -> SeriesView | None:
 
 @dataclass(frozen=True)
 class CommandResult:
-    """What a table command did: the table as the actor sees it, and why it changed nothing if it did not.
-
-    `seated_when_hand_ended` names who sat at the table if this command ended its hand; a replay names nobody, so a
-    retry restarts no pause.
-    """
+    """What a table command did: the table as the actor sees it, and why it changed nothing if it did not."""
 
     view: TableView
     refusal: CommandRefusal | None = None
     holder: str | None = None
-    seated_when_hand_ended: frozenset[str] = frozenset()
 
 
 def _ended_view_of(table: EndedTable) -> TableView:

@@ -19,14 +19,13 @@ from skat.table.records import (
     TableRecord,
     Visibility,
 )
-from skat.table.rules import CREATE_TABLE_COMMAND, played_series_of
+from skat.table.rules import CREATE_TABLE_COMMAND, EmptyWait, played_series_of
 from skat.table.series_end import series_asked_at
 from skat.table.service import TableService
 from skat.table.transactions import (
     DuplicateReceiptError,
     HeldChair,
     LiveAsk,
-    LiveWait,
     OccupiedChair,
     PausedFacts,
     TableVersion,
@@ -50,12 +49,13 @@ class DealtWithoutTimeError(Exception):
 class FakeTableStore:
     """The transaction port in memory: a block that raises leaves the store as it found it.
 
-    `clock` is the store's own clock, on which a chair hold falls due.
+    `clock` is the store's own clock, on which a chair hold, a next-deal pause and an empty table's wait fall due.
     """
 
     def __init__(self, clock: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
         self.clock = clock
         self.holds: dict[tuple[str, str], datetime] = {}
+        self.next_deals: dict[str, datetime] = {}
         self.tables: dict[str, TableRecord | EndedTable] = {}
         self.receipts: dict[tuple[str, str], Receipt] = {}
         self.ended_at: dict[str, datetime] = {}
@@ -78,6 +78,7 @@ class FakeTableStore:
                 self.opener_names,
                 self.book,
                 self.holds,
+                self.next_deals,
             )
         )
         try:
@@ -93,6 +94,7 @@ class FakeTableStore:
                 self.opener_names,
                 self.book,
                 self.holds,
+                self.next_deals,
             ) = before
             raise
 
@@ -155,6 +157,7 @@ class FakeTableStore:
             self.with_games.add(table_id.value)
         self.last_played_at.pop(table_id.value, None)
         self.opener_names.pop(table_id.value, None)
+        self.next_deals.pop(table_id.value, None)
         self.book = {key: entry for key, entry in self.book.items() if entry.table_id != table_id}
         self.receipts = {
             key: receipt
@@ -171,26 +174,56 @@ class FakeTableStore:
                 key: receipt for key, receipt in self.receipts.items() if receipt.table_id.value != table_id
             }
             self.holds = {key: due for key, due in self.holds.items() if key[0] != table_id}
+            self.next_deals.pop(table_id, None)
         for table_id in due & self.with_games:
             ended = self.tables[table_id]
             self.tables[table_id] = replace(ended, ending=replace(ended.ending, closed_by_name=None))
         return deleted
 
-    def empty_since(self, table_id: TableId) -> datetime | None:
-        return self.empty_since_by_table.get(table_id.value)
+    def empty_wait(self, table_id: TableId, empty_seconds: int) -> EmptyWait:
+        since = self.empty_since_by_table.get(table_id.value)
+        if since is None:
+            return EmptyWait.UNSET
+        return EmptyWait.UP if since + timedelta(seconds=empty_seconds) <= self.clock() else EmptyWait.RUNNING
 
     def paused_facts(self, table_id: TableId) -> PausedFacts:
         return PausedFacts(self.last_played_at.get(table_id.value), self.opener_names.get(table_id.value))
 
-    def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
-        self.empty_since_by_table[table_id.value] = since
+    def stamp_empty_since(self, table_id: TableId) -> None:
+        self.empty_since_by_table[table_id.value] = self.clock()
 
-    def live_empty_since(self) -> tuple[LiveWait, ...]:
-        return tuple(
-            LiveWait(table.id, table.dealer, self.empty_since_by_table.get(table.id.value))
+    def clear_empty_since(self, table_id: TableId) -> None:
+        self.empty_since_by_table[table_id.value] = None
+
+    def due_empty_tables(self, empty_seconds: int, limit: int) -> tuple[TableId, ...]:
+        waiting = sorted(
+            (since, table.id.value)
             for table in self.tables.values()
-            if isinstance(table, TableRecord)
+            if isinstance(table, TableRecord) and table.dealer is None
+            if (since := self.empty_since_by_table.get(table.id.value)) is not None
+            if since + timedelta(seconds=empty_seconds) <= self.clock()
         )
+        return tuple(TableId(table_id) for _, table_id in waiting[:limit])
+
+    def store_next_deal(self, table_id: TableId, seconds: float, *, replace: bool) -> None:
+        table = self.tables.get(table_id.value)
+        if (
+            isinstance(table, TableRecord)
+            and table.dealer is not None
+            and (replace or table_id.value not in self.next_deals)
+        ):
+            self.next_deals[table_id.value] = self.clock() + timedelta(seconds=seconds)
+
+    def locked_next_deal_due(self, table_id: TableId) -> bool:
+        due_at = self.next_deals.get(table_id.value)
+        return due_at is not None and due_at <= self.clock()
+
+    def delete_next_deal(self, table_id: TableId) -> None:
+        self.next_deals.pop(table_id.value, None)
+
+    def due_next_deals(self, limit: int) -> tuple[TableId, ...]:
+        due = sorted((due_at, table_id) for table_id, due_at in self.next_deals.items() if due_at <= self.clock())
+        return tuple(TableId(table_id) for _, table_id in due[:limit])
 
     def live_end_asks(self) -> tuple[LiveAsk, ...]:
         return tuple(

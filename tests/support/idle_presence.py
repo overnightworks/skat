@@ -1,8 +1,7 @@
 from agents.member import LEASE_SECONDS
 
 from skat.web.end_answers import EndAnswers
-from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, AgentLease, ChairHold, EmptyTable, NextDeal, Presence
-from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
+from skat.web.presence import AgentLease, ChairHold, EmptyTable, NextDeal, Presence
 from skat.web.wakes import Topic, WakeList
 from tests.support.in_memory_leases import InMemoryLeases
 
@@ -41,6 +40,10 @@ async def deal_no_hand(table_id, connected_accounts):
     return False
 
 
+async def pause_no_table(table_id):
+    pass
+
+
 async def end_no_table(table_id, connected_accounts):
     return False
 
@@ -58,11 +61,11 @@ def idle_end_answers() -> EndAnswers:
 
 
 def idle_empty_table() -> EmptyTable:
-    return EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_no_table, note_nothing)
+    return EmptyTable(end_no_table, note_nothing, nothing_due)
 
 
 def idle_next_deal() -> NextDeal:
-    return NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal_no_hand)
+    return NextDeal(deal_no_hand, deal_no_hand, pause_no_table, pause_no_table, nothing_due)
 
 
 def idle_hold(clock=lambda: 0.0, scheduler=None) -> ChairHold:

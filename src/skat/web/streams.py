@@ -166,7 +166,7 @@ class TableSource:
 
     async def _ask_for_next_deal(self, view: TableView) -> None:
         if view.passed_in is not None:
-            self._presence.deal_soon(self._table_id)
+            await self._presence.deal_soon(self._table_id)
         if view.result is not None:
             await self._presence.deal_now(self._table_id)
 

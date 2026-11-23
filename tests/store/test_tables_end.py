@@ -27,6 +27,7 @@ from skat.table.rules import CREATE_TABLE_COMMAND
 from skat.table.series_end import END_ANSWER_SECONDS
 from skat.table.service import TableService
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
+from tests.support.ended_tables import POSTGRES_EMPTY_SECONDS, lapse_the_empty_wait
 from tests.support.faulty_tables import HANG_DEADLINE_SECONDS, FaultyTableTransactions
 from tests.support.held_writes import HeldWrite, HoldingAfterSave
 from tests.support.played_game import (
@@ -72,8 +73,10 @@ def listed_games_in_two_series(service, transactions, stored, name):
     return table_id
 
 
-def end(service, table_id):
-    return service.end_empty_table(table_id, nullcontext(NOBODY_CONNECTED), DEFAULT_EMPTY_TABLE_SECONDS)
+def end(service, engine, table_id):
+    """End the table for nobody being there once its wait is up."""
+    lapse_the_empty_wait(engine, table_id.value)
+    return service.end_empty_table(table_id, nullcontext(NOBODY_CONNECTED), POSTGRES_EMPTY_SECONDS)
 
 
 def end_at_the_store(transactions, table_id):
@@ -106,7 +109,7 @@ def test_a_dealt_table_nobody_is_connected_to_is_kept_with_every_row(make, servi
     before = rows_of(engine, table_id.value)
     version = stored(transactions, table_id.value).version
 
-    assert end(service, table_id) is False
+    assert end(service, engine, table_id) is False
 
     assert rows_of(engine, table_id.value) == before
     assert stored(transactions, table_id.value).version == version
@@ -116,12 +119,13 @@ def test_an_end_whose_store_fails_after_it_writes_leaves_the_table_live_with_all
     service, transactions, stored, engine
 ):
     table_id = undealt_table(service, "one")
+    lapse_the_empty_wait(engine, table_id.value)
     before = rows_of(engine, table_id.value)
     failing = TableService(FaultyTableTransactions(transactions, end_failure=ConnectionError("lost")))
     nobody_connected = nullcontext(NOBODY_CONNECTED)
 
     with pytest.raises(ConnectionError):
-        failing.end_empty_table(table_id, nobody_connected, DEFAULT_EMPTY_TABLE_SECONDS)
+        failing.end_empty_table(table_id, nobody_connected, POSTGRES_EMPTY_SECONDS)
 
     assert rows_of(engine, table_id.value) == before
     assert isinstance(stored(transactions, table_id.value), TableRecord)
@@ -143,7 +147,7 @@ def test_ending_a_table_keeps_its_create_receipt_and_deletes_every_other_receipt
     table_id = undealt_table(service, "one")
     assert len(rows_of(engine, table_id.value)["receipts"]) == 2
 
-    end(service, table_id)
+    end(service, engine, table_id)
 
     assert [row[:3] for row in rows_of(engine, table_id.value)["receipts"]] == [
         (OPENER.account_id, "open-one", CREATE_TABLE_COMMAND)
@@ -159,7 +163,7 @@ def test_ending_one_table_changes_no_row_of_another_table_of_the_same_opener_or_
     kept_before = rows_of(engine, kept.value)
     other_before = rows_of(engine, other.value)
 
-    assert end(service, ended) is True
+    assert end(service, engine, ended) is True
 
     assert rows_of(engine, kept.value) == kept_before
     assert rows_of(engine, other.value) == other_before
@@ -170,6 +174,8 @@ def test_the_end_stores_the_time_the_reason_and_the_wait_and_bumps_the_version_o
     service = TableService(transactions, now=lambda: at)
     table_id = undealt_table(service, "one")
     version = stored(transactions, table_id.value).version
+
+    set_since(engine, table_id, datetime.now(UTC) - timedelta(seconds=42))
 
     service.end_empty_table(table_id, nullcontext(NOBODY_CONNECTED), 42)
 
@@ -200,33 +206,24 @@ def test_a_read_that_meets_an_end_in_flight_waits_for_its_commit_and_sees_the_en
 
 
 def test_an_ended_table_reads_as_a_tombstone_and_is_no_live_table_and_no_chair_is_occupied(
-    service, transactions, stored
+    service, transactions, stored, engine
 ):
     ended = undealt_table(service, "one")
     live = seated_table(service, "two")
 
-    end(service, ended)
+    end(service, engine, ended)
 
     with transactions.begin() as transaction:
         assert transaction.locked_table(ended) is None
         assert isinstance(transaction.locked_table(live), TableRecord)
         seated = frozenset(actor.account_id for actor in SEATED)
         assert {chair.table_id for chair in transaction.chairs_taken_by([ended, live], seated)} == {live}
-    with transactions.begin() as transaction:
-        assert [wait.table_id for wait in transaction.live_empty_since()] == [live]
     assert isinstance(stored(transactions, ended.value), EndedTable)
-
-
-def test_the_start_locks_the_live_tables_in_id_order_as_every_other_step_that_locks_several_does(service, transactions):
-    opened = [undealt_table(service, str(number)) for number in range(8)]
-
-    with transactions.begin() as transaction:
-        assert [wait.table_id for wait in transaction.live_empty_since()] == sorted(opened, key=lambda each: each.value)
 
 
 def test_a_create_retry_under_an_ended_tables_command_id_returns_it_and_makes_no_table(service, transactions, engine):
     ended = undealt_table(service, "one")
-    end(service, ended)
+    end(service, engine, ended)
 
     again = service.create(OPENER, CreateTable(command_id="open-one"))
 
@@ -236,9 +233,9 @@ def test_a_create_retry_under_an_ended_tables_command_id_returns_it_and_makes_no
         assert connection.execute(select(tables.c.id)).all() == [(ended.value,)]
 
 
-def test_an_ended_tables_id_is_never_issued_again(service, transactions):
+def test_an_ended_tables_id_is_never_issued_again(service, transactions, engine):
     ended = undealt_table(service, "one")
-    end(service, ended)
+    end(service, engine, ended)
     reusing = TableService(transactions, new_table_id=lambda: ended)
     command = CreateTable(command_id="open-new")
 
@@ -248,6 +245,7 @@ def test_an_ended_tables_id_is_never_issued_again(service, transactions):
 
 def test_the_end_enters_the_presence_once_the_row_is_locked_and_leaves_it_after_the_commit(service, engine):
     table_id = undealt_table(service, "one")
+    lapse_the_empty_wait(engine, table_id.value)
     seen = {}
     lock_attempt = select(tables.c.id).where(tables.c.id == table_id.value).with_for_update(nowait=True)
 
@@ -260,7 +258,7 @@ def test_the_end_enters_the_presence_once_the_row_is_locked_and_leaves_it_after_
             ended_at = select(tables.c.ended_at).where(tables.c.id == table_id.value)
             seen["ended_at"] = other.execute(ended_at).scalar_one()
 
-    assert service.end_empty_table(table_id, presence(), DEFAULT_EMPTY_TABLE_SECONDS) is True
+    assert service.end_empty_table(table_id, presence(), POSTGRES_EMPTY_SECONDS) is True
 
     assert seen["ended_at"] is not None
 
@@ -343,30 +341,29 @@ def test_the_note_enters_the_presence_once_the_row_is_locked_so_a_rival_leave_or
     assert (note_inside, stored_since(engine, table_id) is not None) == (False, True)
 
 
-def test_the_start_stamps_a_table_with_no_time_ends_one_past_its_wait_and_leaves_the_rest_their_time_left(
-    service, transactions, stored, engine
-):
-    unset, overdue, recent = (undealt_table(service, name) for name in ("one", "two", "three"))
+def test_the_due_tables_are_the_undealt_ones_whose_wait_is_up_on_the_stores_clock(service, engine):
+    unset, overdue, recent, up_to_the_second = (
+        undealt_table(service, name) for name in ("one", "two", "three", "four")
+    )
+    dealt = seated_table(service, "five")
     set_since(engine, unset, None)
-    set_since(engine, overdue, datetime.now(UTC) - timedelta(seconds=DEFAULT_EMPTY_TABLE_SECONDS + 1))
+    set_since(engine, overdue, datetime.now(UTC) - timedelta(seconds=DEFAULT_EMPTY_TABLE_SECONDS + 5))
     set_since(engine, recent, datetime.now(UTC) - timedelta(seconds=60))
+    set_since(engine, up_to_the_second, datetime.now(UTC) - timedelta(seconds=DEFAULT_EMPTY_TABLE_SECONDS))
+    set_since(engine, dealt, datetime.now(UTC) - timedelta(seconds=DEFAULT_EMPTY_TABLE_SECONDS + 5))
 
-    left = service.resume_empty_waits(DEFAULT_EMPTY_TABLE_SECONDS)
-
-    assert left.keys() == {unset.value, recent.value}
-    assert left[unset.value] == pytest.approx(DEFAULT_EMPTY_TABLE_SECONDS, abs=5)
-    assert left[recent.value] == pytest.approx(DEFAULT_EMPTY_TABLE_SECONDS - 60, abs=5)
-    assert stored_since(engine, unset) is not None
-    assert isinstance(stored(transactions, overdue.value), EndedTable)
+    assert service.due_empty_tables(DEFAULT_EMPTY_TABLE_SECONDS) == (overdue, up_to_the_second)
 
 
-def test_the_start_leaves_a_dealt_table_with_no_time_unstamped_and_unwaited(service, engine):
-    dealt = seated_table(service, "one")
-    set_since(engine, dealt, None)
+def test_every_stamp_is_the_stores_clock_and_not_the_services(transactions, engine):
+    service = TableService(transactions, now=lambda: datetime(2001, 1, 1, tzinfo=UTC))
+    before = datetime.now(UTC)
 
-    left = service.resume_empty_waits(DEFAULT_EMPTY_TABLE_SECONDS)
+    table_id = undealt_table(service, "one")
+    note(service, table_id, SOMEBODY_CONNECTED)
+    note(service, table_id, NOBODY_CONNECTED)
 
-    assert (left, stored_since(engine, dealt)) == ({}, None)
+    assert before <= stored_since(engine, table_id) <= datetime.now(UTC)
 
 
 UNPLAYED_DAYS = 90

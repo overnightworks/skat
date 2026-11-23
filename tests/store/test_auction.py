@@ -163,7 +163,7 @@ def test_two_identical_third_passes_at_once_end_the_hand_once_and_the_other_repl
         thread.join()
 
     assert [result.refusal for result in results] == [None, None]
-    assert sorted(bool(result.seated_when_hand_ended) for result in results) == [False, True]
+    assert count_rows(engine, "next_deals") == 1
     assert count_steps(engine) == 3
     assert stored(transactions, hand.table_id).version == version + 1
     assert count_cards(engine) == 0

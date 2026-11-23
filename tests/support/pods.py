@@ -5,13 +5,16 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import httpx2
+from sqlalchemy import func, select
 from sqlalchemy.engine import make_url
 
 from skat.store.migrate import create_store_engine
+from skat.store.schema import next_deals, tables
 from skat.store.sign_in import PostgresSignInStores
+from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.constants import ACCOUNT_PATH
 from skat.web.sign_in import LoggingAuditSink, build_sign_in_configs
-from skat.web.tables import TABLE_SIT_SUFFIX, TABLES_PATH
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.support.in_memory_stores import in_process_rate_limits
 from tests.support.postgres import created_database
 from tests.support.redis import fresh_database_url
@@ -76,6 +79,52 @@ class Pods:
     def table_at(self, process: SkatProcess, table_id: str, cookie: str) -> dict:
         """The table's view as the process answers it, read once."""
         return process.request("GET", f"{TABLES_PATH}/{table_id}", cookie=cookie, **FETCH).json()
+
+    def three_seated(self) -> tuple[str, list[str]]:
+        """A table with three members seated, which deals the first hand: its id and their cookies by seat."""
+        cookies = [self.member()[0] for _ in range(3)]
+        table_id = self.table_opened_by(self.first, cookies[0])
+        for seat in (2, 3):
+            self.sit(self.first, cookies[seat - 1], table_id, seat)
+        return table_id, cookies
+
+    def pass_hand_in(self, process: SkatProcess, table_id: str, cookies: list[str]) -> None:
+        """Every seat passes in its turn through the bid route, which ends the hand where nobody bids."""
+        for _ in cookies:
+            view = self.table_at(process, table_id, cookies[0])
+            passed = process.request(
+                "POST",
+                f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_PASS_SUFFIX}",
+                cookie=cookies[view["hand"]["auction"]["turn_seat"] - 1],
+                json={"command_id": new_command_id(), "version": view["version"]},
+                **SAME_ORIGIN,
+            )
+            assert passed.status_code == httpx2.codes.OK, passed.text
+
+    def events_path(self, table_id: str) -> str:
+        return f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}"
+
+    def table_row(self, table_id: str):
+        """The table's stored row: its version, wait and end."""
+        with self.engine.connect() as connection:
+            return connection.execute(
+                select(
+                    tables.c.version,
+                    tables.c.empty_since,
+                    tables.c.empty_seconds,
+                    tables.c.ended_at,
+                    tables.c.end_reason,
+                ).where(tables.c.id == table_id)
+            ).one()
+
+    def next_deal_due_at(self, table_id: str):
+        """When the table's stored pause is over, or None where it has none."""
+        with self.engine.connect() as connection:
+            return connection.execute(select(next_deals.c.due_at).where(next_deals.c.table_id == table_id)).scalar()
+
+    def database_now(self):
+        with self.engine.connect() as connection:
+            return connection.execute(select(func.now())).scalar_one()
 
     def stop_both(self) -> None:
         """Stop both processes with SIGTERM, as a rollout does."""

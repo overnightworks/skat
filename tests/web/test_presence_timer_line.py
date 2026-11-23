@@ -13,14 +13,12 @@ from skat.web.end_answers import EndAnswers
 from skat.web.presence import (
     CHAIR_RELEASE_RETRY_SECONDS,
     HOLD_SWEEP_EVERY_SECONDS,
-    NEXT_DEAL_PAUSE_SECONDS,
+    PAUSE_SWEEP_EVERY_SECONDS,
     AgentLease,
     EmptyTable,
-    NextDeal,
     Presence,
 )
 from skat.web.presence_line import EVENT, PresenceTimer
-from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.idle_presence import idle_wakes
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.log_lines import lines_of, logged
@@ -59,8 +57,8 @@ def timers(time, holds, deals, ends, lapses):
     leases, notes, roster = Leases(), Notes(), InMemoryLeases()
     presence = Presence(
         chair_hold(time, holds),
-        NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
-        EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end, notes.note),
+        deals.port(),
+        EmptyTable(ends.end, notes.note, ends.due),
         AgentLease(LEASE_SECONDS, leases.seated_tables),
         idle_wakes(),
         roster,
@@ -73,8 +71,11 @@ def fail_the_next_runs(world, timer, count):
     store, failures = {
         PresenceTimer.LEASE_SETTLE: (world.leases, "failures"),
         PresenceTimer.NEXT_DEAL: (world.deals, "failures"),
+        PresenceTimer.NEXT_DEAL_WRITE: (world.deals, "write_failures"),
+        PresenceTimer.PAUSE_SWEEP: (world.deals, "due_failures"),
         PresenceTimer.EMPTY_SINCE_WRITE: (world.notes, "failures"),
         PresenceTimer.EMPTY_TABLE_END: (world.ends, "failures"),
+        PresenceTimer.EMPTY_SWEEP: (world.ends, "due_failures"),
         PresenceTimer.CHAIR_RELEASE: (world.holds, "free_failures"),
         PresenceTimer.HOLD_SWEEP: (world.holds, "due_failures"),
         PresenceTimer.LEAVE_WRITE: (world.holds, "leave_failures"),
@@ -91,12 +92,18 @@ def first_run(world, timer, leaving):
         run(time.advance(0))
     elif timer is PresenceTimer.NEXT_DEAL:
         run(presence.deal_now(TABLE))
+    elif timer is PresenceTimer.NEXT_DEAL_WRITE:
+        run(presence.deal_soon(TABLE))
+    elif timer is PresenceTimer.PAUSE_SWEEP:
+        presence.start_sweeps()
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
     elif timer in (PresenceTimer.EMPTY_SINCE_WRITE, PresenceTimer.LEAVE_WRITE):
         run(presence.close(leaving))
         run(time.advance(0))
-    elif timer is PresenceTimer.EMPTY_TABLE_END:
-        presence.watch_empty_table(TABLE)
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
+    elif timer in (PresenceTimer.EMPTY_TABLE_END, PresenceTimer.EMPTY_SWEEP):
+        world.ends.due_now = [TABLE]
+        presence.start_sweeps()
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
     elif timer is PresenceTimer.HOLD_CLEAR:
         connect(presence, TABLE, MEMBER, lambda: None)
     elif timer is PresenceTimer.END_ANSWER_LAPSE:
@@ -104,16 +111,25 @@ def first_run(world, timer, leaving):
         run(time.advance(0))
     else:
         world.holds.due_now = [(TABLE, MEMBER)]
-        presence.start_hold_sweeps()
+        presence.start_sweeps()
         run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
 
 def next_run(world, timer):
     if timer is PresenceTimer.NEXT_DEAL:
         run(world.presence.deal_now(TABLE))
+    elif timer is PresenceTimer.NEXT_DEAL_WRITE:
+        run(world.presence.deal_soon(TABLE))
     elif timer is PresenceTimer.HOLD_CLEAR:
         connect(world.presence, TABLE, MEMBER, lambda: None)
-    elif timer in (PresenceTimer.CHAIR_RELEASE, PresenceTimer.HOLD_SWEEP):
+    elif timer is PresenceTimer.PAUSE_SWEEP:
+        run(world.time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+    elif timer in (
+        PresenceTimer.CHAIR_RELEASE,
+        PresenceTimer.HOLD_SWEEP,
+        PresenceTimer.EMPTY_TABLE_END,
+        PresenceTimer.EMPTY_SWEEP,
+    ):
         run(world.time.advance(HOLD_SWEEP_EVERY_SECONDS))
     else:
         run(world.time.advance(CHAIR_RELEASE_RETRY_SECONDS))
@@ -129,6 +145,7 @@ def started(world, timer, failures):
 
 
 TIMERS = list(PresenceTimer)
+SWEEP_TIMERS = (PresenceTimer.HOLD_SWEEP, PresenceTimer.PAUSE_SWEEP, PresenceTimer.EMPTY_SWEEP)
 
 
 class TestThePresenceTimerLine:
@@ -174,7 +191,7 @@ class TestThePresenceTimerLine:
         assert lines_of(lines, EVENT) == []
 
     @pytest.mark.parametrize(
-        "timer", [timer for timer in TIMERS if timer not in (PresenceTimer.LEASE_SETTLE, PresenceTimer.HOLD_SWEEP)]
+        "timer", [timer for timer in TIMERS if timer not in (PresenceTimer.LEASE_SETTLE, *SWEEP_TIMERS)]
     )
     def test_a_timers_line_names_its_table(self, timers, capsys, timer):
         with logged(capsys) as lines:

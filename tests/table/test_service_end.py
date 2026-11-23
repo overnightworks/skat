@@ -30,7 +30,7 @@ from skat.table.records import (
     TableId,
     TableRecord,
 )
-from skat.table.rules import CREATE_TABLE_COMMAND, ends_empty, played_series_of, with_occupant
+from skat.table.rules import CREATE_TABLE_COMMAND, played_series_of, with_occupant
 from skat.table.series_end import END_ANSWER_SECONDS, STOP_PLAYING_COMMAND
 from skat.table.service import CommandIdReusedError, TableService
 from skat.table.views import EndedView
@@ -49,7 +49,7 @@ UNPLAYED_DAYS = 90
 
 @pytest.fixture
 def store():
-    return FakeTableStore()
+    return FakeTableStore(clock=lambda: ENDED_AT)
 
 
 @pytest.fixture
@@ -59,8 +59,11 @@ def service(store):
 
 
 @pytest.fixture
-def table_id(service):
-    return TableId(service.create(OPENER, CreateTable(command_id="command-open")).id)
+def table_id(service, store):
+    """An opened table that has waited its time, since nobody was there."""
+    opened = TableId(service.create(OPENER, CreateTable(command_id="command-open")).id)
+    stamp(store, opened, EMPTY_SECONDS)
+    return opened
 
 
 @pytest.fixture
@@ -78,22 +81,6 @@ def dealt_id(service, table_id):
 
 def end_empty(service, table_id, connected=NOBODY):
     return service.end_empty_table(table_id, nullcontext(connected), EMPTY_SECONDS)
-
-
-@pytest.mark.parametrize(
-    ("connected", "dealt", "ends"),
-    [
-        pytest.param(frozenset(), False, True, id="nobody-and-no-hand-dealt"),
-        pytest.param(frozenset({"account-opener"}), False, False, id="a-member"),
-        pytest.param(frozenset({"account-visitor"}), False, False, id="a-watcher"),
-        pytest.param(None, False, False, id="presence-stopped"),
-        pytest.param(frozenset(), True, False, id="nobody-and-a-hand-dealt"),
-    ],
-)
-def test_a_table_ends_only_while_no_hand_was_dealt_and_nobody_is_connected(table, connected, dealt, ends):
-    table = replace(table, dealer=1 if dealt else None)
-
-    assert ends_empty(table, connected) is ends
 
 
 class TestEndEmptyTable:
@@ -119,6 +106,18 @@ class TestEndEmptyTable:
 
         assert end_empty(service, table_id, connected) is False
         assert store.tables == written
+
+    def test_keeps_a_table_whose_wait_is_not_up_on_the_stores_clock(self, service, store, table_id):
+        stamp(store, table_id, EMPTY_SECONDS - 1)
+
+        assert end_empty(service, table_id) is False
+        assert isinstance(store.tables[table_id.value], TableRecord)
+
+    def test_clears_the_time_of_a_table_someone_is_at_and_never_ends_it(self, service, store, table_id):
+        assert end_empty(service, table_id, SOMEBODY) is False
+
+        assert store.empty_since_by_table[table_id.value] is None
+        assert isinstance(store.tables[table_id.value], TableRecord)
 
     def test_a_second_run_changes_nothing(self, service, store, table_id):
         end_empty(service, table_id)
@@ -258,10 +257,8 @@ class TestAtAnEndedTable:
         with pytest.raises(CommandIdReusedError):
             service.sit(OPENER, sit_down, NOBODY)
 
-    def test_lists_no_live_table_for_it(self, service, ended_id):
-        live = TableId(service.create(VISITOR, CreateTable(command_id="command-other")).id)
-
-        assert service.resume_empty_waits(EMPTY_SECONDS).keys() == {live.value}
+    def test_lists_no_empty_wait_for_it(self, service, ended_id):
+        assert service.due_empty_tables(EMPTY_SECONDS) == ()
 
 
 def test_a_deal_asked_for_with_presence_stopped_deals_nothing(service, store, dealt_id):
@@ -286,8 +283,10 @@ def note(service, table_id, connected):
 
 
 class TestNotePresence:
-    def test_a_created_table_is_stamped_with_the_service_clock(self, store, table_id):
-        assert store.empty_since_by_table[table_id.value] == ENDED_AT
+    def test_a_created_table_is_stamped_with_the_stores_clock(self, service, store):
+        opened = service.create(VISITOR, CreateTable(command_id="command-other"))
+
+        assert store.empty_since_by_table[opened.id] == ENDED_AT
 
     def test_the_sit_that_deals_the_first_hand_clears_the_time_with_no_stream_open(self, store, dealt_id):
         assert store.empty_since_by_table[dealt_id.value] is None
@@ -347,34 +346,26 @@ class TestNotePresence:
         assert store.tables == {}
 
 
-class TestResumeEmptyWaits:
-    def test_a_table_with_no_time_is_stamped_now_and_waits_a_full_time(self, service, store, table_id):
-        store.empty_since_by_table[table_id.value] = None
-
-        assert service.resume_empty_waits(EMPTY_SECONDS) == {table_id.value: EMPTY_SECONDS}
-        assert store.empty_since_by_table[table_id.value] == ENDED_AT
-
-    def test_a_table_waits_what_is_left_of_its_wait(self, service, store, table_id):
-        stamp(store, table_id, 3)
-
-        assert service.resume_empty_waits(EMPTY_SECONDS) == {table_id.value: EMPTY_SECONDS - 3}
-
-    def test_a_table_past_its_wait_has_ended_and_is_not_waited_for(self, service, store, table_id):
+class TestDueEmptyTables:
+    def test_lists_the_undealt_tables_whose_wait_is_up_the_longest_waiting_first(self, service, store, table_id):
+        newer = TableId(service.create(VISITOR, CreateTable(command_id="command-newer")).id)
+        stamp(store, newer, EMPTY_SECONDS)
         stamp(store, table_id, EMPTY_SECONDS + 1)
 
-        assert service.resume_empty_waits(EMPTY_SECONDS) == {}
-        assert isinstance(store.tables[table_id.value], EndedTable)
+        assert service.due_empty_tables(EMPTY_SECONDS) == (table_id, newer)
 
-    @pytest.mark.parametrize("seconds_ago", [None, EMPTY_SECONDS + 1], ids=["without-a-time", "past-its-wait"])
-    def test_a_dealt_table_is_kept_and_stamped_with_nothing(self, service, store, dealt_id, seconds_ago):
-        store.empty_since_by_table[dealt_id.value] = None
+    @pytest.mark.parametrize("seconds_ago", [None, EMPTY_SECONDS - 1], ids=["without-a-time", "wait-running"])
+    def test_lists_no_table_whose_wait_has_not_begun_or_is_not_up(self, service, store, table_id, seconds_ago):
+        store.empty_since_by_table[table_id.value] = None
         if seconds_ago is not None:
-            stamp(store, dealt_id, seconds_ago)
-        before = store.empty_since_by_table[dealt_id.value]
+            stamp(store, table_id, seconds_ago)
 
-        assert service.resume_empty_waits(EMPTY_SECONDS) == {}
-        assert isinstance(store.tables[dealt_id.value], TableRecord)
-        assert store.empty_since_by_table[dealt_id.value] == before
+        assert service.due_empty_tables(EMPTY_SECONDS) == ()
+
+    def test_lists_no_dealt_table(self, service, store, dealt_id):
+        stamp(store, dealt_id, EMPTY_SECONDS + 1)
+
+        assert service.due_empty_tables(EMPTY_SECONDS) == ()
 
 
 def last_played(store, table_id, *, days_ago=UNPLAYED_DAYS, seconds_more=0):

@@ -13,6 +13,7 @@ from skat.table.member_place import ENDED_CALL_KEPT, Acceptance, CallOutcome, Me
 from skat.table.records import Actor, CreateTable, OccupantKind, SitDown, TableId
 from skat.table.service import TableService
 from tests.support.calls import call_facts
+from tests.support.ended_tables import POSTGRES_EMPTY_SECONDS, lapse_the_empty_wait
 from tests.support.faulty_tables import BothReadBeforeEitherWrites
 
 pytestmark = pytest.mark.postgres
@@ -156,7 +157,8 @@ class TestRetention:
         invite(service, table_id, MOZART)
         invite(service, table_id, BACH)
 
-        assert service.end_empty_table(TableId(table_id), nullcontext(frozenset()), 60) is True
+        lapse_the_empty_wait(engine, table_id)
+        assert service.end_empty_table(TableId(table_id), nullcontext(frozenset()), POSTGRES_EMPTY_SECONDS) is True
 
         with engine.connect() as connection:
             assert connection.execute(text("SELECT count(*) FROM member_book")).scalar_one() == 0

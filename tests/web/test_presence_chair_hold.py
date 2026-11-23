@@ -40,7 +40,7 @@ def error_types(lines, timer):
 
 def sweep(holding, time):
     """Start the sweeps and run the first."""
-    holding.start_hold_sweeps()
+    holding.start_sweeps()
     run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
 
@@ -105,7 +105,7 @@ class TestTheFreeingGuard:
         self, holding, holds, leases, time, due, monkeypatch
     ):
         monkeypatch.setattr(presence_module, "ROSTER_READ_TIMEOUT_SECONDS", 30)
-        holding.start_hold_sweeps()
+        holding.start_sweeps()
 
         stop_during_a_hanging_read(holding, leases, lambda: time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
@@ -370,7 +370,7 @@ class TestTheSweep:
         assert error_types(lines, PresenceTimer.CHAIR_RELEASE)[0] == "ConnectionError"
 
     def test_a_stopped_presence_sweeps_no_more(self, holding, holds, time):
-        holding.start_hold_sweeps()
+        holding.start_sweeps()
         holding.stop()
         holds.due_now = [(TABLE, "anna")]
 

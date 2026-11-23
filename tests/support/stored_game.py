@@ -1,4 +1,4 @@
-from sqlalchemy import func, insert, select, table
+from sqlalchemy import func, insert, select, table, text
 
 from skat.engine.deal import Position, positions_from
 from skat.engine.declaration import Announcement, Declare
@@ -36,6 +36,12 @@ def a_step_appended(engine, table_id, kind, **columns):
 def count_rows(engine, name="played_cards"):
     with engine.connect() as connection:
         return connection.execute(select(func.count()).select_from(table(name))).scalar_one()
+
+
+def next_deals(engine):
+    """The stored next-deal pauses: the table id and due time of each."""
+    with engine.connect() as connection:
+        return connection.execute(text("SELECT table_id, due_at FROM next_deals ORDER BY table_id")).all()
 
 
 def seated_table_id(service, options=TableOptions()):  # noqa: B008 - TableOptions is frozen

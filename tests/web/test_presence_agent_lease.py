@@ -9,8 +9,9 @@ from webauth.ports import AccountKind
 
 from skat.engine.deal import Position, seats_from
 from skat.table.records import EndedTable, Refusal
+from skat.table.rules import NEXT_DEAL_PAUSE_SECONDS
 from skat.web.mcp import AUCTION_PASS_TOOL, CONTINUE_AFTER_RESULT_TOOL
-from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, NEXT_DEAL_PAUSE_SECONDS
+from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS
 from skat.web.presence_line import PresenceTimer
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH

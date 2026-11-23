@@ -1,8 +1,7 @@
 import pytest
 
 from skat.engine.deal import Position
-from skat.web.presence import NEXT_DEAL_PAUSE_SECONDS, EmptyTable, NextDeal, Presence
-from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
+from skat.web.presence import EmptyTable, Presence
 from tests.support.fake_issuer import FakeIssuer
 from tests.support.idle_presence import idle_agent_lease, idle_end_answers, idle_presence, idle_wakes, note_nothing
 from tests.support.in_memory_leases import InMemoryLeases
@@ -90,6 +89,13 @@ class Ends:
         self.ended = True
         self.meanwhile = None
         self.within = None
+        self.due_now = []
+        self.due_failures = []
+
+    async def due(self):
+        if self.due_failures:
+            raise self.due_failures.pop(0)
+        return list(self.due_now)
 
     async def end(self, table_id, connected_accounts):
         if self.failures:
@@ -98,8 +104,10 @@ class Ends:
             await self.meanwhile()
         connected = await on_a_worker(connected_accounts, lambda yielded: yielded, self.within)
         self.calls.append((table_id, connected))
-        outcome = self.ended and connected is not None
+        outcome = self.ended and connected == frozenset()
         self.outcomes.append(outcome)
+        if connected is not None and table_id in self.due_now:
+            self.due_now.remove(table_id)
         return outcome
 
 
@@ -128,8 +136,8 @@ def elsewhere(leases):
 def holding(time, holds, deals, ends, leases):
     return Presence(
         chair_hold(time, holds),
-        NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
-        EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end, note_nothing),
+        deals.port(),
+        EmptyTable(ends.end, note_nothing, ends.due),
         idle_agent_lease(),
         idle_wakes(),
         leases,

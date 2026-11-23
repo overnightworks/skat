@@ -9,10 +9,10 @@ if TYPE_CHECKING:
     from skat.table.game_cards import GameCards
     from skat.table.member_place import BookEntry
     from skat.table.records import EndedTable, Ending, Receipt, Replay, TableId, TableRecord
+    from skat.table.rules import EmptyWait
     from skat.table.transactions import (
         HeldChair,
         LiveAsk,
-        LiveWait,
         PausedFacts,
         TableTransaction,
         TableTransactions,
@@ -108,17 +108,32 @@ class _FaultyTransaction:
     def forget_ended_before(self, cutoff: datetime) -> int:
         return self._inner.forget_ended_before(cutoff)
 
-    def empty_since(self, table_id: TableId) -> datetime | None:
-        return self._inner.empty_since(table_id)
+    def empty_wait(self, table_id: TableId, empty_seconds: int) -> EmptyWait:
+        return self._inner.empty_wait(table_id, empty_seconds)
 
     def paused_facts(self, table_id: TableId) -> PausedFacts:
         return self._inner.paused_facts(table_id)
 
-    def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
-        self._inner.set_empty_since(table_id, since)
+    def stamp_empty_since(self, table_id: TableId) -> None:
+        self._inner.stamp_empty_since(table_id)
 
-    def live_empty_since(self) -> tuple[LiveWait, ...]:
-        return self._inner.live_empty_since()
+    def clear_empty_since(self, table_id: TableId) -> None:
+        self._inner.clear_empty_since(table_id)
+
+    def due_empty_tables(self, empty_seconds: int, limit: int) -> tuple[TableId, ...]:
+        return self._inner.due_empty_tables(empty_seconds, limit)
+
+    def store_next_deal(self, table_id: TableId, seconds: float, *, replace: bool) -> None:
+        self._inner.store_next_deal(table_id, seconds, replace=replace)
+
+    def locked_next_deal_due(self, table_id: TableId) -> bool:
+        return self._inner.locked_next_deal_due(table_id)
+
+    def delete_next_deal(self, table_id: TableId) -> None:
+        self._inner.delete_next_deal(table_id)
+
+    def due_next_deals(self, limit: int) -> tuple[TableId, ...]:
+        return self._inner.due_next_deals(limit)
 
     def live_end_asks(self) -> tuple[LiveAsk, ...]:
         return self._inner.live_end_asks()

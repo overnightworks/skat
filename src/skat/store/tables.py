@@ -33,6 +33,7 @@ from skat.store.member_book import (
     locked_entry,
     save_entry,
 )
+from skat.store.next_deals import delete_next_deal, due_next_deals, locked_next_deal_due, store_next_deal
 from skat.store.playing import append_plays, played_cards, read_plays
 from skat.store.pushing import append_pushing_steps, pushing_steps, read_pushing_steps
 from skat.store.schema import (
@@ -81,13 +82,12 @@ from skat.table.records import (
     Visibility,
     parsed_refusal,
 )
-from skat.table.rules import CREATE_TABLE_COMMAND, series_number_of, with_standing_ask
+from skat.table.rules import CREATE_TABLE_COMMAND, EmptyWait, series_number_of, with_standing_ask
 from skat.table.series_end import series_asked_at
 from skat.table.transactions import (
     DuplicateReceiptError,
     HeldChair,
     LiveAsk,
-    LiveWait,
     OccupiedChair,
     PausedFacts,
     TableTransaction,
@@ -421,6 +421,13 @@ def _turn_statement_times_of_table() -> ScalarSelect[list[datetime]]:
     )
 
 
+def _empty_wait_is_up(empty_seconds: int) -> ColumnElement[bool]:
+    """Whether a table's wait of `empty_seconds` since its `empty_since` is up on the database's clock; null while the
+    time is unset.
+    """
+    return tables.c.empty_since + func.make_interval(0, 0, 0, 0, 0, 0, literal(empty_seconds)) <= func.now()
+
+
 def _hold_of(table_id: TableId, account_id: str) -> tuple[ColumnElement[bool], ...]:
     return chair_holds.c.table_id == table_id.value, chair_holds.c.account_id == account_id
 
@@ -540,6 +547,7 @@ class _PostgresTableTransaction:
         forget_hand_log(self._connection, table_id.value)
         self._connection.execute(delete(chairs).where(chairs.c.table_id == table_id.value))
         self._connection.execute(delete(chair_holds).where(chair_holds.c.table_id == table_id.value))
+        delete_next_deal(self._connection, table_id.value)
         forget_table(self._connection, table_id.value)
         self._connection.execute(
             delete(receipts).where(receipts.c.table_id == table_id.value, receipts.c.command != CREATE_TABLE_COMMAND)
@@ -571,8 +579,15 @@ class _PostgresTableTransaction:
         )
         return deleted
 
-    def empty_since(self, table_id: TableId) -> datetime | None:
-        return self._connection.execute(select(tables.c.empty_since).where(tables.c.id == table_id.value)).scalar_one()
+    def empty_wait(self, table_id: TableId, empty_seconds: int) -> EmptyWait:
+        stamped, up = self._connection.execute(
+            select(tables.c.empty_since.is_not(None), _empty_wait_is_up(empty_seconds)).where(
+                tables.c.id == table_id.value
+            )
+        ).one()
+        if not stamped:
+            return EmptyWait.UNSET
+        return EmptyWait.UP if up else EmptyWait.RUNNING
 
     def paused_facts(self, table_id: TableId) -> PausedFacts:
         row = self._connection.execute(
@@ -580,18 +595,21 @@ class _PostgresTableTransaction:
         ).one()
         return PausedFacts(row.last_played_at, row.opener_name)
 
-    def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
-        self._connection.execute(update(tables).where(tables.c.id == table_id.value).values(empty_since=since))
+    def stamp_empty_since(self, table_id: TableId) -> None:
+        self._connection.execute(update(tables).where(tables.c.id == table_id.value).values(empty_since=func.now()))
 
-    def live_empty_since(self) -> tuple[LiveWait, ...]:
+    def clear_empty_since(self, table_id: TableId) -> None:
+        self._connection.execute(update(tables).where(tables.c.id == table_id.value).values(empty_since=None))
+
+    def due_empty_tables(self, empty_seconds: int, limit: int) -> tuple[TableId, ...]:
         return tuple(
-            LiveWait(TableId(row.id), row.dealer, row.empty_since)
-            for row in self._connection.execute(
-                select(tables.c.id, tables.c.dealer, tables.c.empty_since)
-                .where(tables.c.end_reason.is_(None))
-                .order_by(tables.c.id)
-                .with_for_update()
-            )
+            TableId(table_id)
+            for table_id in self._connection.execute(
+                select(tables.c.id)
+                .where(tables.c.end_reason.is_(None), tables.c.dealer.is_(None), _empty_wait_is_up(empty_seconds))
+                .order_by(tables.c.empty_since)
+                .limit(limit)
+            ).scalars()
         )
 
     def live_end_asks(self) -> tuple[LiveAsk, ...]:
@@ -664,6 +682,18 @@ class _PostgresTableTransaction:
                 select(chair_holds.c.account_id, left.label("left")).where(chair_holds.c.table_id == table_id.value)
             )
         }
+
+    def store_next_deal(self, table_id: TableId, seconds: float, *, replace: bool) -> None:
+        store_next_deal(self._connection, table_id.value, seconds, replace=replace)
+
+    def locked_next_deal_due(self, table_id: TableId) -> bool:
+        return locked_next_deal_due(self._connection, table_id.value)
+
+    def delete_next_deal(self, table_id: TableId) -> None:
+        delete_next_deal(self._connection, table_id.value)
+
+    def due_next_deals(self, limit: int) -> tuple[TableId, ...]:
+        return tuple(TableId(table_id) for table_id in due_next_deals(self._connection, limit))
 
     def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
         return tuple(

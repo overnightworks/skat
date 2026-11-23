@@ -314,7 +314,7 @@ class TestASendAwayThatChangesNothing(CallingTable):
         caller.start()
         hold.arrivals.get(timeout=10)
         skat.client.portal.call(time.advance, LEASE_SECONDS + 1)
-        assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 60)
+        assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 0)
         hold.release.set()
         caller.join(timeout=10)
 
@@ -330,7 +330,7 @@ class TestASendAwayThatChangesNothing(CallingTable):
 
         def ends_the_table_first(actor, command, connected, is_member):
             skat.client.portal.call(time.advance, LEASE_SECONDS + 1)
-            assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 60)
+            assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 0)
             return send_away_of_service(actor, command, connected, is_member)
 
         monkeypatch.setattr(skat.tables, "send_away", ends_the_table_first)

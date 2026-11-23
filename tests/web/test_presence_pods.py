@@ -6,7 +6,6 @@ import pytest
 
 from skat.store.redis_clients import shared_stream_leases
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
-from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.redis import settle_wake_epoch
 from tests.web.support.presence import TABLE
 
@@ -48,7 +47,7 @@ class TestTheHoldOfAChair:
         connect(elsewhere, TABLE, "anna", lambda: None)
         holds.due_now = list(holds.left)
 
-        holding.start_hold_sweeps()
+        holding.start_sweeps()
         run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
         assert holds.outcomes == [False]
@@ -60,7 +59,9 @@ class TestAnEmptyTable:
     ):
         run(holding.close(connect(holding, TABLE, "anna", lambda: None)))
         connect(elsewhere, TABLE, "ben", lambda: None)
+        ends.due_now = [TABLE]
+        holding.start_sweeps()
 
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
         assert ends.calls == [(TABLE, {"ben"})]
