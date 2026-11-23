@@ -3,6 +3,6 @@ agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
 role = "builder"
 base = "04690c9f862f1b0b0277616940661597b58bbe2d"
 branch = "claude/issue-832-skat-decides-calling-and-sending-away-an"
-scope = ["pyproject.toml", "quality/config.toml", "src/skat/store/member_book.py", "src/skat/table/member_place.py", "src/skat/table/send_away.py", "src/skat/table/server_steps.py", "src/skat/table/service.py", "src/skat/web/calling.py", "src/skat/web/member_place.py", "tests", "uv.lock"]
+scope = ["docs/ARCHITECTURE.md", "pyproject.toml", "quality/config.toml", "src/skat/store/member_book.py", "src/skat/table/member_place.py", "src/skat/table/send_away.py", "src/skat/table/server_steps.py", "src/skat/table/service.py", "src/skat/web/calling.py", "src/skat/web/member_place.py", "tests", "uv.lock"]
 opened_commit = "24e4c9f5b4b53eeb749dbd5fefeb400d8061034a"
 whole_reason = "The core's adoption, the deleted copies and the import exception are one switch of who decides calling; half of it leaves two deciders or an unmatched ignore line."
