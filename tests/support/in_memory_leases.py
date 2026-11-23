@@ -42,8 +42,8 @@ class InMemoryLeases:
     The failures to come are listed in `reading_fails`, `starting_fails`, `ending_fails` and `serving_fails`; the
     last holds only what tandem lets out of `serve_lapses`, an exception that is no `StoreError`, since it rides out
     an outage or a refusal, and `serve_lapses` refuses a `StoreError` in it. `reading_hangs` never answers a read
-    and `ending_gate` holds every ending until it is set. `read_threads` names
-    the thread of each read and `read_started` is set by the first.
+    and `ending_gate` holds every ending until it is set. `read_threads` names the thread of each read and
+    `read_started` is set by the first.
     """
 
     def __init__(self) -> None:
