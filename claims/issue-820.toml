@@ -1,8 +1,0 @@
-claim_id = "53c76f4c120747cea11383b14a80a5ec"
-agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
-role = "builder"
-base = "0b8a7d2df6719469caed7bf39646df3b4654c8fa"
-branch = "claude/issue-820-a-busy-agent-declines-an-invitation-at-o"
-scope = ["src/skat/table/member_place.py", "src/skat/web/calling.py", "src/skat/web/mcp.py", "tests/web/test_calling.py"]
-opened_commit = "8f0ed1065281e0d6071d0df0dcafca9363cb6bad"
-whole_reason = "The tool, the invitation's end and the control's outcome are one flow from the agent to the person."
