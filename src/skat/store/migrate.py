@@ -305,6 +305,11 @@ class ReadinessProbe:
         self._started_at = 0.0
         self._running: asyncio.Task[bool] | None = None
 
+    @classmethod
+    def over(cls, engine: Engine) -> ReadinessProbe:
+        """The probe of the database `engine` points at, as the server and the end-to-end server serve it."""
+        return cls(lambda: database_health(engine))
+
     async def __call__(self) -> bool:
         if self._running is None:
             if self._reusable_until is not None and self._clock() < self._reusable_until:
