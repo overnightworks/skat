@@ -132,6 +132,43 @@ class TestWakingATable:
         presence.wake_table(TABLE)
 
 
+def presence_whose_only_due_row_is(swept, worker, time):
+    """A presence whose decide steps run `worker` on a thread and whose sweep finds one due row of the kind `swept`."""
+
+    async def free_on_worker(table_id, account_id, absent):
+        return await asyncio.to_thread(worker, absent)
+
+    async def on_worker(table_id, connected_accounts):
+        return await asyncio.to_thread(worker, connected_accounts)
+
+    async def on_worker_for_the_pause(table_id, connected_accounts):
+        return await on_worker(table_id, connected_accounts(frozenset()))
+
+    def due_when_swept(kind, due):
+        async def due_now():
+            return due if swept == kind else []
+
+        return due_now
+
+    return Presence(
+        ChairHold(
+            time.clock,
+            time,
+            store_no_leave,
+            store_no_leave,
+            clear_no_hold,
+            due_when_swept("hold", [(TABLE, "anna")]),
+            free_on_worker,
+        ),
+        NextDeal(on_worker, on_worker_for_the_pause, pause_no_table, pause_no_table, due_when_swept("pause", [TABLE])),
+        EmptyTable(on_worker, note_nothing, due_when_swept("wait", [TABLE])),
+        idle_agent_lease(),
+        idle_wakes(),
+        InMemoryLeases(),
+        idle_end_answers(),
+    )
+
+
 class TestFinishingWrites:
     @pytest.mark.parametrize(
         ("swept", "seconds", "entered_with"),
@@ -153,42 +190,9 @@ class TestFinishingWrites:
                 committed.append(still_due)
             return still_due
 
-        async def free_on_worker(table_id, account_id, absent):
-            return await asyncio.to_thread(worker, absent)
-
-        async def on_worker(table_id, connected_accounts):
-            return await asyncio.to_thread(worker, connected_accounts)
-
-        async def on_worker_for_the_pause(table_id, connected_accounts):
-            return await on_worker(table_id, connected_accounts(frozenset()))
-
-        def due_when_swept(kind, due):
-            async def due_now():
-                return due if swept == kind else []
-
-            return due_now
-
         async def scenario():
             time = FakeTime()
-            presence = Presence(
-                ChairHold(
-                    time.clock,
-                    time,
-                    store_no_leave,
-                    store_no_leave,
-                    clear_no_hold,
-                    due_when_swept("hold", [(TABLE, "anna")]),
-                    free_on_worker,
-                ),
-                NextDeal(
-                    on_worker, on_worker_for_the_pause, pause_no_table, pause_no_table, due_when_swept("pause", [TABLE])
-                ),
-                EmptyTable(on_worker, note_nothing, due_when_swept("wait", [TABLE])),
-                idle_agent_lease(),
-                idle_wakes(),
-                InMemoryLeases(),
-                idle_end_answers(),
-            )
+            presence = presence_whose_only_due_row_is(swept, worker, time)
             if swept == "pause":
                 await presence.subscribe(TABLE, "anna", lambda: None)
             presence.start_sweeps()
