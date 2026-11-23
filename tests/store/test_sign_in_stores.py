@@ -227,6 +227,11 @@ def cut_connection(engine):
         yield connection
 
 
+def _enter_the_sign_in_transaction(stores):
+    with stores.transaction():
+        pytest.fail("the entry opened")
+
+
 class TestAnUnreachableDatabase:
     @pytest.fixture
     def nowhere(self):
@@ -234,13 +239,14 @@ class TestAnUnreachableDatabase:
         yield PostgresSignInStores(engine, audit=RecordingAudit())
         engine.dispose()
 
-    def test_raises_store_unavailable_when_a_session_call_cannot_open_its_transaction(self, nowhere):
+    @pytest.mark.parametrize(
+        "enter",
+        [lambda stores: stores.sessions.load("session-unknown"), _enter_the_sign_in_transaction],
+        ids=["a session store call", "the sign-in transaction"],
+    )
+    def test_raises_store_unavailable_when_the_transaction_cannot_be_opened(self, nowhere, enter):
         with pytest.raises(StoreUnavailableError):
-            nowhere.sessions.load("session-unknown")
-
-    def test_raises_store_unavailable_when_a_sign_in_entry_cannot_open_its_transaction(self, nowhere):
-        with pytest.raises(StoreUnavailableError), nowhere.transaction():
-            pytest.fail("the entry opened")
+            enter(nowhere)
 
     @pytest.mark.parametrize(
         "call",
