@@ -11,7 +11,7 @@ from skat.engine.deal import Position, seats_from
 from skat.table.records import EndedTable, Refusal
 from skat.table.rules import NEXT_DEAL_PAUSE_SECONDS
 from skat.web.mcp import AUCTION_PASS_TOOL, CONTINUE_AFTER_RESULT_TOOL
-from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS
+from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, HOLD_SWEEP_EVERY_SECONDS
 from skat.web.presence_line import PresenceTimer
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
@@ -440,7 +440,7 @@ class TestUndealtTable:
 
         advance(skat, time, LEASE_SECONDS + empty_seconds - 1)
         waiting = skat.store.tables[table_id]
-        advance(skat, time, 2)
+        advance(skat, time, HOLD_SWEEP_EVERY_SECONDS + 1)
 
         assert not isinstance(waiting, EndedTable)
         assert isinstance(skat.store.tables[table_id], EndedTable)
@@ -494,7 +494,7 @@ class TestATableTheAgentOpened:
 
         advance(skat, time, LEASE_SECONDS + empty_seconds - 1)
         waiting = skat.store.tables[opened]
-        advance(skat, time, 2)
+        advance(skat, time, HOLD_SWEEP_EVERY_SECONDS + 1)
 
         assert not isinstance(waiting, EndedTable)
         assert isinstance(skat.store.tables[opened], EndedTable)
@@ -514,7 +514,7 @@ class TestATableTheAgentOpened:
 
         advance(skat, time, empty_seconds - 1)
         waiting = skat.store.tables[opened]
-        advance(skat, time, 2)
+        advance(skat, time, HOLD_SWEEP_EVERY_SECONDS + 1)
 
         assert not isinstance(waiting, EndedTable)
         assert isinstance(skat.store.tables[opened], EndedTable)
