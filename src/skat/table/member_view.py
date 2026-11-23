@@ -3,14 +3,15 @@
 The view is the member's own `TableView` with the decision whether the table waits for it, both from one record, so
 the seat check and the view cannot drift. `skat.web.member_place` builds the revision of a seat's view from
 the table's version and the asks due. Its acts are the lines of the window beside the view, from the same record.
-The record keeps the traces its version and its acts entered in, and `traces_after` carries them over a change.
+The record keeps the traces its version and its hand's steps and ending entered in; `traces_after` carries them over a
+change, and `act_traces` and `traces_of_acts` map them to and from the acts' numbers.
 """
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from skat.table.acts import Act, acts_of, next_seq_of
+from skat.table.acts import Act, acts_of, next_seq_of, step_slot_of
 from skat.table.awaiting import awaits_you
 from skat.table.member_place import agents_seated_at
 from skat.table.moment import TableMoment, moment_of
@@ -25,11 +26,13 @@ __all__ = [
     "MemberActs",
     "MemberView",
     "ViewSignal",
+    "act_traces",
     "member_acts_of",
     "member_view_of",
     "moment_at",
     "moment_recipients",
     "traces_after",
+    "traces_of_acts",
     "view_recipients",
 ]
 
@@ -76,11 +79,34 @@ def member_acts_of(table: TableRecord, account_id: str) -> MemberActs | None:
     if chair is None:
         return None
     acts = acts_of(table, view_of(table, account_id, frozenset()))
-    return MemberActs(chair.seat, acts[0].seq if acts else next_seq_of(table), acts, dict(table.traces.acts))
+    return MemberActs(chair.seat, acts[0].seq if acts else next_seq_of(table), acts, act_traces(table))
 
 
-def _act_numbers(table: TableRecord) -> frozenset[int]:
-    return frozenset(act.seq for act in acts_of(table, view_of(table, "", frozenset())))
+def _acts(table: TableRecord) -> tuple[Act, ...]:
+    return acts_of(table, view_of(table, "", frozenset()))
+
+
+def _trace_of(traces: EntryTraces, act: Act) -> str | None:
+    slot = step_slot_of(act)
+    return traces.ending if slot is None else dict(traces.steps).get(slot)
+
+
+def _traces_by_act(version: str | None, traced: list[tuple[Act, str | None]]) -> EntryTraces:
+    steps = tuple((slot, each) for act, each in traced if (slot := step_slot_of(act)) is not None and each is not None)
+    ending = next((each for act, each in traced if step_slot_of(act) is None and each is not None), None)
+    return EntryTraces(version, steps, ending)
+
+
+def act_traces(table: TableRecord) -> dict[int, str]:
+    """The trace of each act of the table's latest hand by the act's number; an act that has none is not among them."""
+    return {act.seq: each for act in _acts(table) if (each := _trace_of(table.traces, act)) is not None}
+
+
+def traces_of_acts(table: TableRecord, version: str | None, by_number: Mapping[int, str]) -> EntryTraces:
+    """The traces of the table whose version entered in `version` and whose acts entered in `by_number`, the trace of
+    each act by its number.
+    """
+    return _traces_by_act(version, [(act, by_number.get(act.seq)) for act in _acts(table)])
 
 
 def traces_after(before: TableRecord, after: TableRecord, trace: str | None) -> EntryTraces:
@@ -88,11 +114,9 @@ def traces_after(before: TableRecord, after: TableRecord, trace: str | None) -> 
     raised it, and each act that `before` did not hold has it; what stood before keeps its trace, and a change made
     outside a trace adds none.
     """
-    held = _act_numbers(before)
-    kept = dict(before.traces.acts)
-    acts = {seq: kept.get(seq) if seq in held else trace for seq in sorted(_act_numbers(after))}
-    traced = tuple((seq, each) for seq, each in acts.items() if each is not None)
-    return EntryTraces(trace if after.version > before.version else before.traces.version, traced)
+    held = {act.seq: _trace_of(before.traces, act) for act in _acts(before)}
+    traced = [(act, held.get(act.seq, trace)) for act in _acts(after)]
+    return _traces_by_act(trace if after.version > before.version else before.traces.version, traced)
 
 
 def view_recipients(before: TableRecord, after: TableRecord) -> frozenset[str]:

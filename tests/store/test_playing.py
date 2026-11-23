@@ -9,6 +9,7 @@ from skat.engine.cards import DECK
 from skat.engine.deal import Position
 from skat.engine.declaration import Announcement
 from skat.engine.tricks import CARDS_IN_A_GAME, CardPlayed, PlayRefusal
+from skat.store.hand_log import StepKind
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
@@ -30,7 +31,7 @@ from tests.support.faulty_tables import (
     FaultyTableTransactions,
     HoldsTheRowLock,
 )
-from tests.support.stored_game import card_id, count_rows, nobody_connected, person, seated_game
+from tests.support.stored_game import a_step_appended, card_id, count_rows, nobody_connected, person, seated_game
 from tests.support.table_rows import WorkInAThread, wait_until_a_session_waits_for_a_lock
 
 pytestmark = pytest.mark.postgres
@@ -545,11 +546,7 @@ def test_the_same_card_stored_twice_raises_on_the_unique_key(game, transactions)
 def test_a_stored_log_the_engine_refuses_raises_at_the_next_command(game, engine):
     position, card = game.legal_card()
     wrong_seat = Position.REARHAND if position is not Position.REARHAND else Position.FOREHAND
-    with engine.begin() as connection:
-        connection.execute(
-            text("INSERT INTO played_cards VALUES (:table_id, 1, :position, 'hearts', 'ace')"),
-            {"table_id": game.table_id, "position": wrong_seat.name.lower()},
-        )
+    a_step_appended(engine, game.table_id, StepKind.CARD, position=wrong_seat.name.lower(), suit="hearts", rank="ace")
 
     command_id = card_id(1)
 
