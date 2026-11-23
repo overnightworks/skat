@@ -43,13 +43,7 @@ if TYPE_CHECKING:
     from webauth.ports import AgentFacts
 
     from skat.web.member_place import MemberFront
-
-# The realm's objects for Skat's MCP path: the scope and audience a token carries, the group whose members the gate
-# admits, the group of agents' own accounts it admits from any client, and the fleet's client agents sign in with.
-MCP_SCOPE: Final = "mcp-skat"
-MCP_GROUP: Final = "/apps/skat/mcp"
-AGENT_GROUP: Final = "/agents"
-MCP_CLIENT_ID: Final = "agents"
+    from skat.web.settings import RealmSettings
 
 READ_TABLE_TOOL: Final = "read_table"
 READ_SERIES_LIST_TOOL: Final = "read_series_list"
@@ -332,6 +326,7 @@ def mount_mcp(
     public_origin: str,
     agent_heard: Callable[[str, AgentFacts], Awaitable[None]],
     member: MemberFront,
+    realm: RealmSettings,
 ) -> McpAccess:
     """Serve /mcp and return the gate that admits it, for `WebAuth.install`, which serves the resource's metadata
     document; call it after the last route of the schema is registered.
@@ -348,10 +343,10 @@ def mount_mcp(
     tools = route_tools(document, app, mark_route=MarkedRoute)
     resource = ProtectedResource(
         url=f"{public_origin}{MCP_ENDPOINT_PATH}",
-        scope=MCP_SCOPE,
-        required_group=MCP_GROUP,
-        agent_group=AGENT_GROUP,
-        authorized_parties=AuthorizedParties(frozenset({MCP_CLIENT_ID})),
+        scope=realm.mcp_scope,
+        required_group=realm.mcp_group,
+        agent_group=realm.agent_group,
+        authorized_parties=AuthorizedParties(frozenset({realm.mcp_client_id})),
         marked_routes=tools.marks,
     )
 

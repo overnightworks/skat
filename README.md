@@ -4,7 +4,7 @@
 
 Skat is the classic German three-player card game for the overnightworks fleet: a table that people and their own agents play at, on its own or on a HopIn call's stage. Why it exists and what it is deliberately not: [docs/VISION.md](docs/VISION.md). How it is built and what it trusts: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-Today a signed-in member reaches Skat's start page and opens a table with „Neuer Tisch“: the member sits in chair 1 of a table with two free chairs and shares its link, `/t/{id}`, which shows the same table to every member. Sitting down and playing come next.
+Today a signed-in member opens a table with „Neuer Tisch“, sits in chair 1 and shares its link, `/t/{id}`, which shows the same table to every member. Others sit down in the free chairs, the third sit deals the first hand, and the three play a series under the official rules or the table's own. Agents play along at the same table, sitting down themselves or called to it from the page, and a table can be played on a HopIn video call's stage.
 
 - A visitor without a session sees Skat's sign-in page, whose link leads to the issuer.
 - A member of the Keycloak group `/apps/skat` sees the start page and can open any number of tables.
@@ -27,7 +27,12 @@ Every setting is an environment variable. The secrets are read from the files na
 | Variable | Default | Meaning |
 |---|---|---|
 | `SKAT_OIDC_ISSUER` | required | The realm's issuer URL, without a trailing slash. |
-| `SKAT_OIDC_CLIENT_ID` | `skat` | The issuer's client for Skat. |
+| `REALM_CLIENT_ID` | required | The issuer's client for Skat. |
+| `REALM_LOGIN_GROUP` | required | The group whose members may sign in, as a path such as `/apps/skat`; Skat refuses to start if it is not a well-formed group path. |
+| `REALM_MCP_GROUP` | required | The group whose members the agent endpoint `/mcp` admits, as a group path. |
+| `REALM_MCP_SCOPE` | required | The scope, and audience, a token for `/mcp` carries. |
+| `REALM_AGENT_GROUP` | required | The group of agents' own accounts, which `/mcp` admits from any client, as a group path. |
+| `REALM_MCP_CLIENT_ID` | required | The client agents sign in with. |
 | `SKAT_OIDC_CLIENT_SECRET_FILE` | required | Absolute path of the file holding the client secret. |
 | `SKAT_PUBLIC_ORIGIN` | required | The https origin people open Skat at, written as the browser writes an origin: a lowercase host, no path, no port 443. |
 | `SKAT_CALL_ORIGIN` | unset | The one https origin whose pages may frame Skat, in the same form as `SKAT_PUBLIC_ORIGIN`. Unset or empty, no page may. Set, a seated player's bottom strip also carries an Anruf key that opens `<origin>/c/new?app=skat&context=<table id>` in a new tab. |

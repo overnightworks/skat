@@ -6,12 +6,12 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from playwright.sync_api import Page, expect
 
-from skat.web.constants import AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_PATH, OIDC_CLIENT_ID
+from skat.web.constants import AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_PATH
 from tests.e2e.support.browser import ACCOUNT_AVATAR, NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import FORM_FACTORS, playwright_cookie
 from tests.e2e.support.server import LOOPBACK_HOST
-from tests.support.sign_in_settings import TEST_ISSUER
+from tests.support.sign_in_settings import TEST_ISSUER, TEST_REALM
 from tests.support.signed_in import seed_member
 
 if TYPE_CHECKING:
@@ -83,7 +83,7 @@ def test_a_visitor_without_a_session_sees_the_sign_in_page_and_its_link_leads_to
     start, issuer = documents[-2:]
     assert urlsplit(start).path == AUTH_START_PATH
     query = parse_qs(urlsplit(issuer).query)
-    assert query["client_id"] == [OIDC_CLIENT_ID]
+    assert query["client_id"] == [TEST_REALM.client_id]
     assert query["redirect_uri"] == [f"{e2e_server.base_url}{AUTH_CALLBACK_PATH}"]
 
 

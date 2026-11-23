@@ -16,12 +16,13 @@ from starlette.concurrency import run_in_threadpool
 
 from skat.table.member_place import MemberRefusal
 from skat.table.records import TableId
-from skat.web.mcp import MCP_GROUP, READ_TABLE_TOOL
+from skat.web.mcp import READ_TABLE_TOOL
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.calls import call_facts
 from tests.support.log_lines import lines_of, logged
 from tests.support.played_game import after_the_first_game
+from tests.support.sign_in_settings import MCP_GROUP
 from tests.web.support.agent import UPDATED, Agent
 from tests.web.support.calling import INVITATION_SECONDS, a_person
 from tests.web.support.playing import HERZ_GAME
@@ -264,10 +265,11 @@ class TestAnAcceptThatIsStale:
 
         with at_the_table(skat, table_id, owner):
             answer = agent.accept(table_id, offer, **changes)
+            standing_states = [standing["state"] for standing in standing_of(agent)]
 
         assert (answer.is_error, answer.json()) == (True, STALE)
         assert stored(skat) == before
-        assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
+        assert standing_states == ["invited"]
 
     @pytest.mark.parametrize(
         ("changes", "failing_field"),
@@ -287,12 +289,13 @@ class TestAnAcceptThatIsStale:
 
         with at_the_table(skat, table_id, owner):
             answer = agent.accept(table_id, offer, **changes)
+            standing_states = [standing["state"] for standing in standing_of(agent)]
 
         refused_fields = answer.text.removeprefix(f"{ARGUMENTS_REFUSED_TEXT}: ")
         assert (answer.is_error, refused_fields != answer.text) == (True, True)
         assert f"{failing_field} (" in refused_fields
         assert stored(skat) == before
-        assert [standing["state"] for standing in standing_of(agent)] == ["invited"]
+        assert standing_states == ["invited"]
 
     def test_when_it_comes_a_second_time_after_seating(self, invite, skat, agent, owner, table_id):
         offer = invite(agent, table_id, owner)

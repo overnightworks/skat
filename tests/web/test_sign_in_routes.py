@@ -25,7 +25,6 @@ from skat.web.constants import (
     CALL_MODE,
     CALL_SIGN_IN_PATH,
     HOME_PATH,
-    LOGIN_GROUP,
     LOGIN_PATH,
     LOGOUT_PATH,
     MODE_QUERY_NAME,
@@ -49,7 +48,7 @@ from tests.support.fake_issuer import FakeIssuer
 from tests.support.in_memory_stores import in_memory_stores, in_process_rate_limits
 from tests.support.log_lines import lines_of, logged
 from tests.support.page_build import fixture_page_build, served_page
-from tests.support.sign_in_settings import TEST_ISSUER, TEST_PUBLIC_ORIGIN, SignInSettings
+from tests.support.sign_in_settings import LOGIN_GROUP, TEST_ISSUER, TEST_PUBLIC_ORIGIN, SignInSettings
 from tests.support.signed_in import new_id_token
 
 if TYPE_CHECKING:
@@ -240,7 +239,7 @@ class TestStart:
             f"{harness.sign_in.settings.oidc_issuer}/protocol/openid-connect/auth"
         )
         assert {name: query[name] for name in ("client_id", "redirect_uri", "response_type", "scope")} == {
-            "client_id": [harness.sign_in.settings.oidc_client_id],
+            "client_id": [harness.sign_in.settings.realm.client_id],
             "redirect_uri": [TEST_PUBLIC_ORIGIN + AUTH_CALLBACK_PATH],
             "response_type": ["code"],
             "scope": ["openid profile groups"],
@@ -412,7 +411,7 @@ class TestLogout:
         assert response.headers["cache-control"] == "no-store"
         assert page.action == f"{TEST_ISSUER}/protocol/openid-connect/logout"
         assert page.fields == {
-            "client_id": harness.sign_in.settings.oidc_client_id,
+            "client_id": harness.sign_in.settings.realm.client_id,
             "post_logout_redirect_uri": TEST_PUBLIC_ORIGIN + LOGIN_PATH,
             "id_token_hint": id_token,
         }
@@ -468,7 +467,7 @@ class TestBackchannelLogout:
             session_ids.append(harness.who(browser)["session_id"])
         return session_ids
 
-    def test_a_valid_token_ends_every_session_and_removes_the_account_of_its_subject_and_no_one_elses(self, harness):
+    def test_a_valid_token_ends_every_session_of_its_subject_and_no_one_elses_and_keeps_every_account(self, harness):
         anna = self.sign_in_on_devices(harness, "anna")
         (other,) = self.sign_in_on_devices(harness, "ben", devices=1)
         ben = harness.accounts.get("ben")
@@ -478,7 +477,7 @@ class TestBackchannelLogout:
 
         assert response.status_code == 200
         assert [harness.sessions.load(session_id) for session_id in anna] == [None, None]
-        assert harness.accounts.get("anna") is None
+        assert harness.accounts.get("anna") is not None
         assert harness.sessions.load(other) is not None
         assert harness.accounts.get("ben") == ben
         ended = [log for log in logs if log.get("kind") == AccountEventKind.BACKCHANNEL_LOGOUT.value]
@@ -491,14 +490,14 @@ class TestBackchannelLogout:
         assert response.status_code == 200
         assert harness.accounts.get("stranger") is None
 
-    def test_a_token_for_a_subject_without_a_session_removes_the_account_and_logs_no_logout(self, harness):
+    def test_a_token_for_a_subject_without_a_session_keeps_the_account_and_logs_no_logout(self, harness):
         harness.accounts.create_for_subject("anna", USERNAME, role="user", kind=AccountKind.PERSON)
 
         with structlog.testing.capture_logs() as logs:
             response = harness.post_logout_token(harness.issuer.logout_token("anna"))
 
         assert response.status_code == 200
-        assert harness.accounts.get("anna") is None
+        assert harness.accounts.get("anna") is not None
         assert [log for log in logs if log.get("kind") == AccountEventKind.BACKCHANNEL_LOGOUT.value] == []
 
     def test_the_same_token_sent_again_is_accepted_and_changes_nothing(self, harness):
@@ -510,10 +509,10 @@ class TestBackchannelLogout:
             response = harness.post_logout_token(token)
 
         assert response.status_code == 200
-        assert harness.accounts.get("anna") is None
+        assert harness.accounts.get("anna") is not None
         assert [log for log in logs if log.get("kind") == AccountEventKind.BACKCHANNEL_LOGOUT.value] == []
 
-    def test_a_person_signs_in_again_after_the_erasure_and_gets_a_new_account_and_session(self, harness):
+    def test_a_person_signs_in_again_after_the_logout_and_gets_a_new_session_on_the_same_account(self, harness):
         old_browser = harness.browser()
         harness.sign_in_through(old_browser, subject="anna")
         harness.post_logout_token(harness.issuer.logout_token("anna"))
@@ -522,8 +521,7 @@ class TestBackchannelLogout:
             new_browser = harness.browser()
             harness.sign_in_through(new_browser, subject="anna")
 
-        created = [log for log in logs if log.get("kind") == AccountEventKind.USER_CREATED.value]
-        assert [(log["sub"], log["role"]) for log in created] == [("anna", "user")]
+        assert [log for log in logs if log.get("kind") == AccountEventKind.USER_CREATED.value] == []
         assert harness.who(old_browser) == {"user": None}
         assert harness.who(new_browser)["user"] == {"id": "anna", "username": USERNAME}
 

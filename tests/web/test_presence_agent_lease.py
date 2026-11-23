@@ -9,14 +9,14 @@ from webauth.ports import AccountKind
 
 from skat.engine.deal import Position, seats_from
 from skat.table.records import EndedTable, Refusal
-from skat.web.mcp import AUCTION_PASS_TOOL, CONTINUE_AFTER_RESULT_TOOL, MCP_GROUP
+from skat.web.mcp import AUCTION_PASS_TOOL, CONTINUE_AFTER_RESULT_TOOL
 from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, NEXT_DEAL_PAUSE_SECONDS
 from skat.web.presence_line import PresenceTimer
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from tests.support.log_lines import logged
 from tests.support.payload_cards import DEALER_SEAT
-from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.support.sign_in_settings import MCP_GROUP, TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, Agent, person_passes
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,

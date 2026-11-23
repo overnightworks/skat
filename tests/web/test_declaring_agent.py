@@ -14,7 +14,6 @@ from skat.web.declaring import (
     TABLE_DECLARING_TAKE_SUFFIX,
 )
 from skat.web.mcp import (
-    AGENT_GROUP,
     AUCTION_BID_TOOL,
     AUCTION_PLAY_TOOL,
     DECLARE_GAME_TOOL,
@@ -31,7 +30,7 @@ from tests.support.payload_cards import (
     cards_in,
     wire_cards,
 )
-from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
+from tests.support.sign_in_settings import AGENT_GROUP, TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, Agent, person_passes, person_steps
 from tests.web.support.playing import card_body, declared_body
 from tests.web.support.skat import FETCH, UNKNOWN_ID, issuer_skat, stored, streams_of
