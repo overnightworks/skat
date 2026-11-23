@@ -1,16 +1,16 @@
 """A person at a table calls a listening agent from the page: the control's rows, the call and what it writes."""
 
 import threading
-from contextlib import nullcontext
 from datetime import datetime, timedelta
 
 import pytest
 from agents.member import INVITATION_SECONDS
 
 from skat.table.member_place import ENDED_CALL_KEPT
-from skat.table.records import OccupantKind, TableId
+from skat.table.records import OccupantKind
 from skat.web.calling import CallRefusal
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
+from tests.support.ended_tables import end_the_table_nobody_is_at
 from tests.web.support.agent import Agent
 from tests.web.support.calling import (
     CallingTable,
@@ -544,7 +544,7 @@ class TestACallThatChangesNothing(CallingTable):
             caller = threading.Thread(target=lambda: answers.append(call(skat, felix, table_id, key)))
             caller.start()
             hold.arrivals.get(timeout=10)
-            assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 0)
+            end_the_table_nobody_is_at(skat.store, skat.tables, table_id)
             hold.release.set()
             caller.join(timeout=10)
 

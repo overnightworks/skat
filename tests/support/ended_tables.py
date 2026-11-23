@@ -17,6 +17,14 @@ def end_the_table(service, table_id, empty_seconds=EMPTY_SECONDS):
     assert ended
 
 
+def end_the_table_nobody_is_at(store, service, table_id):
+    """End the live table in the in-memory store as the server does once the last one left: its note stamped the
+    time since when nobody has been there, and the empty wait of no seconds is up at once.
+    """
+    store.stamp_empty_since(TableId(table_id))
+    end_the_table(service, table_id)
+
+
 def lapse_the_empty_wait(engine, table_id):
     """Make the wait of a table in Postgres up: its stamp is the database clock's, so it is moved back."""
     with engine.begin() as connection:

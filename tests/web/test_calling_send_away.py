@@ -2,13 +2,13 @@
 
 import json
 import threading
-from contextlib import nullcontext
 
 import pytest
 from agents.member import LEASE_SECONDS
 
-from skat.table.records import Actor, SendAway, TableId
+from skat.table.records import Actor, SendAway
 from skat.web.calling import CallRefusal
+from tests.support.ended_tables import end_the_table_nobody_is_at
 from tests.web.support.agent import Agent
 from tests.web.support.calling import (
     CallingTable,
@@ -314,7 +314,7 @@ class TestASendAwayThatChangesNothing(CallingTable):
         caller.start()
         hold.arrivals.get(timeout=10)
         skat.client.portal.call(time.advance, LEASE_SECONDS + 1)
-        assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 0)
+        end_the_table_nobody_is_at(skat.store, skat.tables, table_id)
         hold.release.set()
         caller.join(timeout=10)
 
@@ -330,7 +330,7 @@ class TestASendAwayThatChangesNothing(CallingTable):
 
         def ends_the_table_first(actor, command, connected, is_member):
             skat.client.portal.call(time.advance, LEASE_SECONDS + 1)
-            assert skat.tables.end_empty_table(TableId(table_id), nullcontext(frozenset()), 0)
+            end_the_table_nobody_is_at(skat.store, skat.tables, table_id)
             return send_away_of_service(actor, command, connected, is_member)
 
         monkeypatch.setattr(skat.tables, "send_away", ends_the_table_first)
