@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.14"
 
 [manifest]
@@ -769,7 +769,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.123.7" },
     { name = "overnightworks-agents", extras = ["mcp-server"], git = "https://github.com/overnightworks/agents?rev=v0.70.0" },
     { name = "overnightworks-logline", git = "https://github.com/overnightworks/logline?rev=v1.7.0" },
-    { name = "overnightworks-tandem", git = "https://github.com/overnightworks/tandem?rev=v0.13.1" },
+    { name = "overnightworks-tandem", git = "https://github.com/overnightworks/tandem?rev=v0.14.0" },
     { name = "overnightworks-webauth", extras = ["redis", "postgres"], git = "https://github.com/overnightworks/webauth?rev=v0.45.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.10" },
@@ -798,8 +798,8 @@ dev = [
 
 [[package]]
 name = "overnightworks-tandem"
-version = "0.13.1"
-source = { git = "https://github.com/overnightworks/tandem?rev=v0.13.1#ac2b961e31009a218b3a966838a8d787c99ec195" }
+version = "0.14.0"
+source = { git = "https://github.com/overnightworks/tandem?rev=v0.14.0#878534408dc5bac10c828033c488a55398843396" }
 dependencies = [
     { name = "overnightworks-logline" },
     { name = "redis" },
