@@ -1,7 +1,0 @@
-claim_id = "5417f3752cc745dca4d1ae6537720500"
-agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
-role = "builder"
-base = "136ccdf8b55c6d9957212d97f764802436e90544"
-branch = "claude/issue-845-take-logline-v1-9-0-closing-lines-carry"
-scope = ["pyproject.toml", "uv.lock"]
-opened_commit = "bf8ef633162e387718851b5ad2f692ee82673cc9"
