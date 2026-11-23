@@ -1,0 +1,7 @@
+claim_id = "b510e08164a34a478020c7043c70be5d"
+agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
+role = "builder"
+base = "11b08bd6d0082c9d32ecba32af2af6c4b4a3fd7a"
+branch = "claude/issue-863-skat-takes-tandem-v0-17-0"
+scope = ["pyproject.toml", "uv.lock"]
+opened_commit = "76fb784a14f8bc7375e89c17930eea8e628177c3"
