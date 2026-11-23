@@ -1,8 +1,0 @@
-claim_id = "06fd69e89be44ab79f0c20ef0b36efa7"
-agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
-role = "builder"
-base = "0b8a7d2df6719469caed7bf39646df3b4654c8fa"
-branch = "claude/issue-826-skat-lists-its-tools-once-instead-of-per"
-scope = ["docs/ARCHITECTURE.md", "src/skat/table/member_view.py", "src/skat/table/moment.py", "src/skat/table/server_steps.py", "src/skat/table/service.py", "src/skat/table/table_reads.py", "src/skat/web/mcp.py", "src/skat/web/member_place.py", "tests/table/test_moment.py", "tests/table/test_service_member_view.py", "tests/web/support/sdk_agent.py", "tests/web/test_mcp_moment.py"]
-opened_commit = "685934dee056bc59deb875d5f61d2beb8ee823f8"
-whole_reason = "The tool list, the moment it no longer depends on, its test and the overview sentence that states it are one rule; half of it leaves the old rule written down."
