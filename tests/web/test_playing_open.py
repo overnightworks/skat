@@ -364,7 +364,9 @@ class TestThroughTheMcpTools(IssuerSkat):
             pytest.param(FOREHAND, {"version": 0}, Refusal.STALE_VERSION, id="a-stale-version"),
         ],
     )
-    def test_an_agent_playing_open_where_the_engine_refuses_gets_the_reason(self, skat, agent, position, step, reason):
+    def test_an_agent_playing_open_where_the_engine_or_the_service_refuses_gets_the_reason(
+        self, skat, agent, position, step, reason
+    ):
         table = AgentTable(skat, agent, position)
         table.declared_hand_game()
         skat.client.cookies.clear()

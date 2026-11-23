@@ -95,10 +95,14 @@ class Edge:
     async def _serve(self) -> None:
         self._loop = asyncio.get_running_loop()
         self._stop = asyncio.Event()
-        key_file, certificate_file = write_self_signed_certificate(self._certificate_directory)
-        server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        server_context.load_cert_chain(certificate_file, key_file)
-        server = await asyncio.start_server(self._handle, sock=self._listener, ssl=server_context)
+        try:
+            key_file, certificate_file = write_self_signed_certificate(self._certificate_directory)
+            server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            server_context.load_cert_chain(certificate_file, key_file)
+            server = await asyncio.start_server(self._handle, sock=self._listener, ssl=server_context)
+        except Exception:
+            self._listener.close()
+            raise
         self._started.set()
         await self._stop.wait()
         server.close()
