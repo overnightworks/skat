@@ -5,6 +5,7 @@ deal that is not due is never made twice.
 
 import time
 from contextlib import ExitStack, contextmanager
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -22,6 +23,7 @@ pytestmark = [pytest.mark.postgres, pytest.mark.redis]
 MARGIN_SECONDS = 30
 DEALT_WITHIN_SECONDS = NEXT_DEAL_PAUSE_SECONDS + PAUSE_SWEEP_EVERY_SECONDS + MARGIN_SECONDS
 POLL_SECONDS = 0.2
+HELD_FOR = timedelta(hours=1)
 SETTLED_FOR_SECONDS = 2 * PAUSE_SWEEP_EVERY_SECONDS + 2
 
 
@@ -128,12 +130,15 @@ def test_both_pods_restarted_during_the_pause_keep_its_deadline_and_deal_once(po
     with streaming(pods, pods.first, table_id, cookies):
         pods.pass_hand_in(pods.first, table_id, cookies)
         version = pods.table_row(table_id).version
+        # Kept far off, the pause cannot come due while the pods restart and the players return, however slow they are.
+        pods.move_next_deal(table_id, HELD_FOR)
         due_at = pods.next_deal_due_at(table_id)
         pods.stop_both()
     pods.start_both()
 
-    assert pods.next_deal_due_at(table_id) == due_at
     with streaming(pods, pods.second, table_id, cookies):
+        assert (pods.next_deal_due_at(table_id), pods.table_row(table_id).version) == (due_at, version)
+        pods.move_next_deal(table_id, timedelta())
         wait_until_dealt(pods, table_id, version)
 
     assert_dealt_once_and_the_pause_spent(pods, table_id, version)

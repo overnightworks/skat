@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import httpx2
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.engine import make_url
 
 from skat.store.migrate import create_store_engine
@@ -121,6 +121,13 @@ class Pods:
         """When the table's stored pause is over, or None where it has none."""
         with self.engine.connect() as connection:
             return connection.execute(select(next_deals.c.due_at).where(next_deals.c.table_id == table_id)).scalar()
+
+    def move_next_deal(self, table_id: str, by: timedelta) -> None:
+        """Make the table's stored pause due `by` from the database's clock."""
+        with self.engine.begin() as connection:
+            connection.execute(
+                update(next_deals).where(next_deals.c.table_id == table_id).values(due_at=func.now() + by)
+            )
 
     def database_now(self):
         with self.engine.connect() as connection:
