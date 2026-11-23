@@ -1,0 +1,8 @@
+claim_id = "2c4f365eee544379a5560f3d41e01aec"
+agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
+role = "builder"
+base = "4ec0eb9b6aaa08f663580b2b90bf1dc002b67f1c"
+branch = "claude/issue-854-test-and-documentation-follow-ups-of-lan"
+scope = ["docs/ARCHITECTURE.md", "frontend/src/routes/(start)/agents.test.ts", "frontend/src/routes/(start)/tablesAgents.test.ts", "src/skat/store/migrate.py", "src/skat/web/calling.py", "tests/e2e/support", "tests/e2e/test_table_declaring.py", "tests/e2e/test_table_result.py", "tests/e2e/test_table_stand_mid_hand.py", "tests/store/test_migrate_ended_call.py", "tests/store/test_migrate_hand_abort.py", "tests/store/test_schema_values_one_release.py", "tests/store/test_tables_hand_abort.py", "tests/table/test_acts.py", "tests/table/test_bock.py", "tests/web/test_mcp_new_series.py", "tests/web/test_playing_open.py", "tests/web/test_ready.py", "tests/web/test_ready_new_series.py", "tests/web/test_tables_ramsch_bock.py"]
+opened_commit = "60e50ad74e78a1f16d2c190a695658291195b9f6"
+whole_reason = "Fourteen small follow-ups of #560, each a few lines in its own owner, bundled so they land in one review."
