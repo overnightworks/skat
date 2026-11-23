@@ -1,0 +1,8 @@
+claim_id = "caa4661e8d6945618cbcf48d48577368"
+agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
+role = "builder"
+base = "4ec0eb9b6aaa08f663580b2b90bf1dc002b67f1c"
+branch = "claude/issue-843-skat-pins-quality-v0-25-0"
+scope = [".github/workflows/ci.yml", ".github/workflows/code-scanning.yml", ".github/workflows/release.yml", "frontend/vite.config.ts", "pyproject.toml", "quality/baseline.toml", "quality/config.toml", "uv.lock"]
+opened_commit = "5a3b8581b00cfb9510f23c69aa9f954c7e83a15d"
+whole_reason = "One quality release's pin move: the pins in three workflows and the fixes and baseline entries the release requires, which must land together for the gate to judge them."
