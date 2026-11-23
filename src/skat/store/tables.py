@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Final, Literal
 
-from sqlalchemy import Integer, delete, exists, func, insert, literal, or_, select, update
+from sqlalchemy import Integer, and_, delete, exists, func, insert, literal, or_, select, update
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.dialects.postgresql import insert as upsert
 from sqlalchemy.exc import IntegrityError
@@ -421,6 +421,10 @@ def _turn_statement_times_of_table() -> ScalarSelect[list[datetime]]:
     )
 
 
+# A table that is open and not dealt on: the only kind an empty wait runs at.
+_IS_LIVE_UNDEALT: ColumnElement[bool] = and_(tables.c.end_reason.is_(None), tables.c.dealer.is_(None))
+
+
 def _empty_wait_is_up(empty_seconds: int) -> ColumnElement[bool]:
     """Whether a table's wait of `empty_seconds` since its `empty_since` is up on the database's clock; null while the
     time is unset.
@@ -606,7 +610,7 @@ class _PostgresTableTransaction:
             TableId(table_id)
             for table_id in self._connection.execute(
                 select(tables.c.id)
-                .where(tables.c.end_reason.is_(None), tables.c.dealer.is_(None), _empty_wait_is_up(empty_seconds))
+                .where(_IS_LIVE_UNDEALT, _empty_wait_is_up(empty_seconds))
                 .order_by(tables.c.empty_since)
                 .limit(limit)
             ).scalars()
@@ -616,9 +620,7 @@ class _PostgresTableTransaction:
         return tuple(
             TableId(table_id)
             for table_id in self._connection.execute(
-                select(tables.c.id)
-                .where(tables.c.end_reason.is_(None), tables.c.dealer.is_(None), tables.c.empty_since.is_(None))
-                .order_by(tables.c.id)
+                select(tables.c.id).where(_IS_LIVE_UNDEALT, tables.c.empty_since.is_(None)).order_by(tables.c.id)
             ).scalars()
         )
 

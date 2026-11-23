@@ -174,11 +174,15 @@ def test_a_pod_started_stamps_an_undealt_table_nobody_is_at_that_has_no_stamp_an
 def test_a_pod_started_leaves_a_table_somebody_streams_at_on_the_other_pod_unstamped(pods):
     cookie = pods.member()[0]
     table_id = pods.table_opened_by(pods.first, cookie)
+    control_id = pods.table_opened_by(pods.first, pods.member()[0])
+    pods.set_empty_since(control_id, None)
     with pods.second.event_stream(pods.events_path(table_id), within_seconds=ENDED_WITHIN_SECONDS, cookie=cookie) as e:
         next(e)
         wait_until_cleared(pods, table_id)
         pods.first.stop()
         pods.first.start()
+        # The start note stamps the control table nobody is at, so it has run before the window opens.
+        wait_until_stamped(pods, control_id, MARGIN_SECONDS)
 
         # The sweep clears a stamp once the wait is up, so a stamp of the start shows within the wait.
         stamped_within_the_wait = []
