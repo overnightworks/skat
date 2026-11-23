@@ -25,7 +25,7 @@ from tests.e2e.support.result_card import (
     expect_the_seat_tiles_inside_the_card,
     loosely,
 )
-from tests.e2e.support.server import skat_on_new_database
+from tests.e2e.support.server import STORE_READ_SECONDS, skat_on_new_database
 from tests.support.played_game import an_entry
 
 if TYPE_CHECKING:
@@ -112,7 +112,6 @@ GRAND_HAND_WORDS = text(SOURCE_LANGUAGE, "game.handName", game=GAME_GRAND)
 SCHNEIDER_MISSED = text(SOURCE_LANGUAGE, "result.missedSchneider")
 SCHWARZ_MISSED = text(SOURCE_LANGUAGE, "result.missedSchwarz")
 LOST_GAME_SHARE = "+40"
-STORE_READ_SECONDS = 0.1
 
 RECKONINGS = [
     Reckoning(

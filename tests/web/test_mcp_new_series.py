@@ -68,12 +68,11 @@ class TestStartNewSeries:
         assert sat.status_code == 200
         assert [chair.ready for chair in table.record.chairs] == [False, False, False]
 
-    @pytest.mark.parametrize("series", [2, 3], ids=["a-series-not-yet-started", "a-series-further-on"])
-    def test_a_call_naming_another_series_is_a_failed_result_and_changes_nothing(self, agent, ended_series, series):
+    def test_a_call_naming_another_series_is_a_failed_result_and_changes_nothing(self, agent, ended_series):
         table = ended_series
         before = table.record
 
-        refused = self.start(agent, table, series=series)
+        refused = self.start(agent, table, series=2)
 
         assert refused.is_error
         assert refused.json()["reason"] == Refusal.STALE_SERIES

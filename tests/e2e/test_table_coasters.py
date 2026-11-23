@@ -6,6 +6,7 @@ from playwright.sync_api import Page, expect
 
 from skat.engine.tricks import CARDS_IN_A_GAME
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.boxes import OVERLAPS
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.table_menu import menu_button
@@ -25,13 +26,6 @@ AWAY = ".chair .mark.away"
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 NEVER_UNDER_A_COASTER = (".plate", COASTER, ".mark", ".fan", ".plaque", ".result", ".actions")
 PLAQUE_COVERS = (".fan", ".laid .face", ".chair .tile")
-# The boxes are read in the browser in one pass, so a mark that leaves meanwhile is no stale handle that blocks a call.
-OVERLAPS = """
-    const overlaps = (first, second) =>
-        first.x < second.x + second.width && second.x < first.x + first.width
-        && first.y < second.y + second.height && second.y < first.y + first.height
-    const boxOf = element => element.getClientRects().length ? element.getBoundingClientRect() : null
-"""
 # A coaster's tilt only widens the box the browser reports, so its own square is the centre and the unrotated side.
 OFFENDERS_UNDER_A_COASTER = (
     "({coaster, others}) => {"

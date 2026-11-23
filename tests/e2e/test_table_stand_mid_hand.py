@@ -8,6 +8,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.boxes import OVERLAPS
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.table_menu import menu_button
@@ -41,14 +42,13 @@ SENTENCE_INSIDE_THE_PILL = """notice => {
 # The notice leaves after a few seconds, so each page reads its boxes in the browser in one pass while it shows.
 NOTICE_ON_THE_PAGE = (
     "(root, [noticeSelector, covers]) => {"
+    + OVERLAPS
     + """
     const notice = root.querySelector(noticeSelector);
     if (notice === null || notice.getClientRects().length === 0) return null;
     const pill = notice.getBoundingClientRect();
-    const overlaps = (box) =>
-        pill.left < box.right && box.left < pill.right && pill.top < box.bottom && box.top < pill.bottom;
     const coversShown = (selector) => [...root.querySelectorAll(selector)]
-        .some((element) => element.getClientRects().length > 0 && overlaps(element.getBoundingClientRect()));
+        .some((element) => element.getClientRects().length > 0 && overlaps(pill, element.getBoundingClientRect()));
     return {
         covered: covers.filter(coversShown),
         sentenceInside: ("""

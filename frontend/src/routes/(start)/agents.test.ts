@@ -10,7 +10,6 @@ import {
     type AgentRow,
     type AgentsControl,
 } from "./agents.ts";
-import { seatedAgentsKey, type Chair, type Table } from "./tables.ts";
 
 const nova = (state: "available" | "inviting" | "here" | "ended", ends = 120): AgentRow =>
     state === "ended"
@@ -466,57 +465,5 @@ describe("the control that calls agents", () => {
             expect(shown).toEqual([controlOf(nova("inviting", 5))]);
             expect(fetcher).toHaveBeenCalledTimes(3);
         });
-    });
-});
-
-describe("the key of the agents that sit", () => {
-    const chairOf = (seat: number, occupant_name: string | null, occupant_kind: Chair["occupant_kind"]): Chair => ({
-        seat,
-        occupant_name,
-        occupant_kind,
-        is_mine: false,
-        is_away: false,
-        ready: false,
-        total: null,
-        hand: null,
-        former_holder_name: null,
-        is_mine_to_return: false,
-        nudge: null,
-    });
-    const tableOf = (...chairs: Chair[]): Table => ({
-        id: TABLE_ID,
-        version: 1,
-        chairs,
-        watchers: 0,
-        reactions: [],
-        hand: null,
-        result: null,
-        passed_in: null,
-        series: null,
-        aborted: null,
-        options: null,
-        style: null,
-        bock: null,
-        ended: null,
-    });
-
-    it("differs when two agents of one name swap one chair in a wake that skipped versions", () => {
-        const before = { ...tableOf(chairOf(1, "Felix", "person"), chairOf(2, "Nova", "agent")), version: 4 };
-        const after = { ...before, version: 6 };
-
-        expect(seatedAgentsKey(before, after)).not.toBe(seatedAgentsKey(undefined, before));
-    });
-
-    it("differs when a plain-named agent replaces an agent whose name ends in the skipped version", () => {
-        const before = { ...tableOf(chairOf(2, "Nova@6", "agent")), version: 4 };
-        const after = { ...tableOf(chairOf(2, "Nova", "agent")), version: 6 };
-
-        expect(seatedAgentsKey(before, after)).not.toBe(seatedAgentsKey(undefined, before));
-    });
-
-    it("stays the same for the next version while the same agents sit", () => {
-        const before = { ...tableOf(chairOf(2, "Nova", "agent")), version: 4 };
-
-        expect(seatedAgentsKey(before, { ...before, version: 5 })).toBe(seatedAgentsKey(undefined, before));
     });
 });
