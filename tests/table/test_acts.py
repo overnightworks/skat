@@ -12,10 +12,9 @@ from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschOptions, Ram
 from skat.engine.schieberamsch import DeclareGrandHand, GrandHandRule, Push, PushingRule, Put, Take
 from skat.engine.tricks import CardPlayed
 from skat.table.acts import HAND_SPAN, LAST_SLOT, ActKind, next_seq_of
-from skat.table.acts import acts_of as acts_told_by
 from skat.table.game_list import GameEnding
+from skat.table.member_view import member_acts_of
 from skat.table.records import GiveUpAsked, HandProgress, RamschOccasion, RamschSetting, Series, TableOptions
-from skat.table.views import view_of
 from tests.support.played_game import (
     HERZ_HAND,
     a_ramsch_entry,
@@ -29,6 +28,7 @@ from tests.support.played_game import (
 FOREHAND, MIDDLEHAND, REARHAND = Position.FOREHAND, Position.MIDDLEHAND, Position.REARHAND
 # Seat 2 deals in `table_in`: seat 3 is forehand, seat 1 middlehand and seat 2 rearhand.
 FOREHAND_SEAT, MIDDLEHAND_SEAT, REARHAND_SEAT, DEALER_SEAT = 3, 1, 2, 2
+SEATED_ACCOUNT = "account-forehand"
 A_STAGE_WITH_GRAND_HAND = TableOptions(
     ramsch=RamschSetting(
         RamschOccasion.PASSED_IN,
@@ -43,17 +43,13 @@ def a_hand(progress=None, series=Series(36, 1), options=None):  # noqa: B008 - S
     return replace(table_in(progress or HandProgress(), options), series=series)
 
 
-def acts_of(table):
-    return acts_told_by(table, view_of(table, "a seat", frozenset()))
-
-
 def kinds(table):
-    return [each.kind for each in acts_of(table)]
+    return [each.kind for each in member_acts_of(table, SEATED_ACCOUNT).acts]
 
 
 class TestWhatHappenedInTheRunningHand:
     def test_a_dealt_hand_holds_one_line_the_table_says_with_the_dealers_seat(self):
-        (deal,) = acts_of(a_hand())
+        (deal,) = member_acts_of(a_hand(), SEATED_ACCOUNT).acts
 
         assert (deal.kind, deal.seat, deal.detail) == (ActKind.DEAL, None, DEALER_SEAT)
 
@@ -61,7 +57,7 @@ class TestWhatHappenedInTheRunningHand:
         steps = (Bid(MIDDLEHAND, 18), Hold(FOREHAND), Bid(MIDDLEHAND, 20), Pass(FOREHAND))
         table = a_hand(HandProgress(auction=steps))
 
-        assert [(each.kind, each.seat, each.detail) for each in acts_of(table)[1:]] == [
+        assert [(each.kind, each.seat, each.detail) for each in member_acts_of(table, SEATED_ACCOUNT).acts[1:]] == [
             (ActKind.BID, MIDDLEHAND_SEAT, 18),
             (ActKind.HOLD, FOREHAND_SEAT, 18),
             (ActKind.BID, MIDDLEHAND_SEAT, 20),
@@ -72,13 +68,15 @@ class TestWhatHappenedInTheRunningHand:
         steps = (Pass(MIDDLEHAND), Pass(REARHAND), Play(FOREHAND))
         table = a_hand(HandProgress(auction=steps))
 
-        assert [(each.kind, each.detail) for each in acts_of(table)[-1:]] == [(ActKind.BID, 18)]
+        assert [(each.kind, each.detail) for each in member_acts_of(table, SEATED_ACCOUNT).acts[-1:]] == [
+            (ActKind.BID, 18)
+        ]
 
     def test_the_declarers_steps_follow_the_auction_and_a_put_back_names_no_card(self):
         declared = replace(HERZ_HAND, hand=False)
         table = a_hand(replace(declared_herz_hand(), declaring=(TakeSkat(), PutBack((DECK[30], DECK[31])), declared)))
 
-        declaring = acts_of(table)[4:]
+        declaring = member_acts_of(table, SEATED_ACCOUNT).acts[4:]
         assert [(each.kind, each.seat) for each in declaring] == [
             (ActKind.TAKE_SKAT, MIDDLEHAND_SEAT),
             (ActKind.PUT_BACK, MIDDLEHAND_SEAT),
@@ -94,7 +92,7 @@ class TestWhatHappenedInTheRunningHand:
         pushing = (Take(FOREHAND), Put(FOREHAND, (DECK[0], DECK[1])), Push(MIDDLEHAND), DeclareGrandHand(REARHAND))
         table = a_hand(HandProgress(auction=steps, pushing=pushing), options=A_STAGE_WITH_GRAND_HAND)
 
-        stage = acts_of(table)[4:]
+        stage = member_acts_of(table, SEATED_ACCOUNT).acts[4:]
         assert [(each.kind, each.seat) for each in stage] == [
             (ActKind.TAKE_SKAT, FOREHAND_SEAT),
             (ActKind.PUT_BACK, FOREHAND_SEAT),
@@ -118,7 +116,7 @@ class TestWhatHappenedInTheRunningHand:
             ),
         )
 
-        played = acts_of(a_hand(progress))[5:]
+        played = member_acts_of(a_hand(progress), SEATED_ACCOUNT).acts[5:]
         assert [(each.kind, each.detail) for each in played] == [
             (ActKind.WORD, Word.KONTRA),
             (ActKind.PLAY, first.card),
@@ -132,12 +130,12 @@ class TestWhatHappenedInTheRunningHand:
         table = a_hand(declared_herz_hand())
         asked = replace(table, progress=replace(table.progress, give_up=GiveUpAsked(MIDDLEHAND, REARHAND)))
 
-        assert acts_of(asked) == acts_of(table)
+        assert member_acts_of(asked, SEATED_ACCOUNT).acts == member_acts_of(table, SEATED_ACCOUNT).acts
 
 
 class TestNumbering:
     def test_the_lines_of_a_hand_are_numbered_one_after_the_other_in_order(self):
-        seqs = [each.seq for each in acts_of(a_hand(declared_herz_hand(), Series(36, 5)))]
+        seqs = [each.seq for each in member_acts_of(a_hand(declared_herz_hand(), Series(36, 5)), SEATED_ACCOUNT).acts]
 
         assert len(seqs) > 1
         assert seqs == list(range(seqs[0], seqs[0] + len(seqs)))
@@ -150,21 +148,23 @@ class TestNumbering:
         ],
     )
     def test_a_later_hand_numbers_all_its_lines_above_every_line_of_an_earlier_one(self, earlier, later):
-        before = acts_of(a_hand(replace(declared_herz_hand(), plays=(CardPlayed(FOREHAND, DECK[0]),)), earlier))
-        after = acts_of(a_hand(HandProgress(), later))
+        before = member_acts_of(
+            a_hand(replace(declared_herz_hand(), plays=(CardPlayed(FOREHAND, DECK[0]),)), earlier), SEATED_ACCOUNT
+        ).acts
+        after = member_acts_of(a_hand(HandProgress(), later), SEATED_ACCOUNT).acts
 
         assert min(each.seq for each in after) > max(each.seq for each in before)
 
     def test_a_table_that_keeps_no_series_numbers_no_hand_and_holds_no_line(self):
         table = a_hand(series=None)
 
-        assert (acts_of(table), next_seq_of(table)) == ((), 1)
+        assert (member_acts_of(table, SEATED_ACCOUNT).acts, next_seq_of(table)) == ((), 1)
 
     def test_before_the_first_deal_the_next_line_is_the_first_of_the_first_hand(self):
         table = replace(a_hand(series=Series(36, 0)), hand=None, dealer=None)
 
-        (first_deal, *_) = acts_of(a_hand(series=Series(36, 1)))
-        assert (acts_of(table), next_seq_of(table)) == ((), first_deal.seq)
+        (first_deal, *_) = member_acts_of(a_hand(series=Series(36, 1)), SEATED_ACCOUNT).acts
+        assert (member_acts_of(table, SEATED_ACCOUNT).acts, next_seq_of(table)) == ((), first_deal.seq)
 
 
 class TestHandsThatEnd:
@@ -172,9 +172,9 @@ class TestHandsThatEnd:
         running = a_hand(declared_herz_hand(), Series(36, 3))
         ended = replace(after_the_first_game(running), series=Series(36, 3))
 
-        (result,) = acts_of(ended)
+        (result,) = member_acts_of(ended, SEATED_ACCOUNT).acts
         assert (result.kind, result.seat, result.seq % HAND_SPAN) == (ActKind.RESULT, None, LAST_SLOT)
-        assert max(each.seq for each in acts_of(running)) < result.seq
+        assert max(each.seq for each in member_acts_of(running, SEATED_ACCOUNT).acts) < result.seq
 
     @pytest.mark.parametrize(
         ("ending", "kind"),
@@ -189,7 +189,10 @@ class TestHandsThatEnd:
         entry = replace(an_entry(), ending=ending, ended_by_seat=2)
         ended = replace(after_a_game(a_hand(), entry), series=Series(36, 3))
 
-        assert [(each.kind, each.seat) for each in acts_of(ended)] == [(kind, 2), (ActKind.RESULT, None)]
+        assert [(each.kind, each.seat) for each in member_acts_of(ended, SEATED_ACCOUNT).acts] == [
+            (kind, 2),
+            (ActKind.RESULT, None),
+        ]
 
     def test_a_ramsch_result_is_a_line_too(self):
         ended = replace(after_a_game(a_hand(), a_ramsch_entry()), series=Series(36, 3))
@@ -201,13 +204,13 @@ class TestHandsThatEnd:
         passed_in = replace(a_hand(HandProgress(auction=steps)), hand=None)
 
         assert kinds(passed_in) == [ActKind.DEAL, ActKind.PASS, ActKind.PASS, ActKind.PASS, ActKind.PASSED_IN]
-        assert acts_of(passed_in)[-1].seq % HAND_SPAN == LAST_SLOT
+        assert member_acts_of(passed_in, SEATED_ACCOUNT).acts[-1].seq % HAND_SPAN == LAST_SLOT
 
     def test_a_table_whose_hand_ended_with_no_result_holds_no_line(self):
-        assert acts_of(replace(a_hand(), hand=None)) == ()
+        assert member_acts_of(replace(a_hand(), hand=None), SEATED_ACCOUNT).acts == ()
 
     def test_a_hand_aborted_by_a_vote_leaves_one_line(self):
         aborted = replace(a_hand(HandProgress(aborted=True)), hand=None)
 
-        (line,) = acts_of(aborted)
+        (line,) = member_acts_of(aborted, SEATED_ACCOUNT).acts
         assert (line.kind, line.seat, line.seq % HAND_SPAN) == (ActKind.ABORTED, None, LAST_SLOT)
