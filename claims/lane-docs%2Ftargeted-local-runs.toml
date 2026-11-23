@@ -1,0 +1,7 @@
+claim_id = "cced9d52a44a454d847decc2ffae8e8e"
+agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
+role = "builder"
+base = "f1fc7f5274dc2c14ed53634b1f338a45b3a85ce3"
+branch = "docs/targeted-local-runs"
+scope = ["AGENTS.md", "README.md"]
+opened_commit = "97bbe41bbe174530e28f652ae9f9185b4f34fa2b"
