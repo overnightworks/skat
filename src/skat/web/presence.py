@@ -342,13 +342,14 @@ class Presence:
     async def _leave_lapsed(self, lapse: Lapse) -> None:
         """Store the leave only where no hold exists, since tandem queues a lapse for every lease that ends, a close's
         too; a leave that cannot be stored raises, so tandem hands the lapse again once its claim runs out. The table
-        notes who is present, since a lapse on a dead pod may have been the last stream's end.
+        notes who is present before the lapse is done, since a lapse on a dead pod may have been the last stream's
+        end and no other pod would note it; a note that fails raises the same way.
         """
         holder = StreamHolder.parse(lapse.holder)
         if not await self._is_back(holder.table_id, holder.account_id):
             await self._hold.lapse(holder.table_id, holder.account_id)
         self.wake_table(holder.table_id)
-        self._note_soon(holder.table_id)
+        await self._write_presence(holder.table_id)
 
     async def _is_back(self, table_id: str, account_id: str) -> bool:
         """Whether the account is here at the table; an unreadable roster says no, which stores a leave the freeing
@@ -663,7 +664,14 @@ class Presence:
         self._hold.scheduler.schedule(delay_seconds, partial(self._note_presence, table_id))
 
     async def _note_presence(self, table_id: str) -> None:
-        """Store who is present now, read once the row is locked; a failure is retried while the presence runs."""
+        """Store who is present now; a failure is retried while the presence runs."""
+        try:
+            await self._write_presence(table_id)
+        except Exception:
+            self._note_soon(table_id, CHAIR_RELEASE_RETRY_SECONDS)
+
+    async def _write_presence(self, table_id: str) -> None:
+        """Store who is present now, read once the row is locked; a failure is logged and raised."""
         run = self._timer_runs.start(PresenceTimer.EMPTY_SINCE_WRITE, table_id, table_id=table_id)
         try:
             ended = await self._empty_table.note(
@@ -671,8 +679,7 @@ class Presence:
             )
         except Exception as failure:
             run.failed(failure)
-            self._note_soon(table_id, CHAIR_RELEASE_RETRY_SECONDS)
-            return
+            raise
         run.succeeded()
         if ended:
             self.table_ended(table_id)

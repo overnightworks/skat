@@ -2,11 +2,14 @@ import asyncio
 from contextlib import contextmanager
 
 from logline import Outcome
+from tandem import Lapse
+from tandem.deadlines import Due
 
 from skat.table.server_steps import EndAnswerLapse
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.presence import ChairHold, NextDeal
 from skat.web.presence_line import EVENT
+from skat.web.stream_holder import StreamHolder
 from skat.web.tables import TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
 from tests.support.log_lines import lines_of
@@ -207,6 +210,18 @@ class Notes:
 # one asyncio.run, which the store tests' `run` also is; a one-line wrapper that no neutral support module is worth
 def run(scenario):
     return asyncio.run(scenario)
+
+
+def lapse_of(table_id, account_id):
+    return Lapse(StreamHolder(table_id, account_id, "stream").encoded(), "generation", Due("key", "claim"))
+
+
+async def serve_lapses(holding, leases):
+    """Serve the lapses `leases` lists until each is handed, then stop serving."""
+    serving = asyncio.create_task(holding.serve_lapses())
+    await asyncio.wait_for(leases.lapses_handed.wait(), 5)
+    serving.cancel()
+    await asyncio.gather(serving, return_exceptions=True)
 
 
 def stop_during_a_hanging_read(holding, leases, work):

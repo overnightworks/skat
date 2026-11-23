@@ -2,17 +2,12 @@
 arrival, and sweeps the due holds with a guard that frees only an account the roster vouches is gone.
 """
 
-import asyncio
-
 import pytest
 from agents.member import LEASE_SECONDS
-from tandem import Lapse
-from tandem.deadlines import Due
 
 from skat.web import presence as presence_module
 from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, HOLD_SWEEP_EVERY_SECONDS, AgentLease, Presence
 from skat.web.presence_line import EVENT, PresenceTimer
-from skat.web.stream_holder import StreamHolder
 from tests.support.idle_presence import (
     idle_agent_lease,
     idle_empty_table,
@@ -27,7 +22,9 @@ from tests.web.support.presence import (
     chair_hold,
     connect,
     failed_timers,
+    lapse_of,
     run,
+    serve_lapses,
     stop_during_a_hanging_read,
 )
 
@@ -42,10 +39,6 @@ def sweep(holding, time):
     """Start the sweeps and run the first."""
     holding.start_sweeps()
     run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
-
-
-def lapse_of(table_id, account_id):
-    return Lapse(StreamHolder(table_id, account_id, "stream").encoded(), "generation", Due("key", "claim"))
 
 
 def streams_on_another_pod(holding, elsewhere, account_id):
@@ -222,7 +215,7 @@ class TestALeave:
         before = wakes.counts["ben"]
         leases.lapses = [lapse_of(TABLE, "anna")]
 
-        run(self.served(holding, leases))
+        run(serve_lapses(holding, leases))
 
         assert (holds.lapsed, holds.left) == ([(TABLE, "anna")], [])
         assert wakes.counts["ben"] == before + 1
@@ -232,7 +225,7 @@ class TestALeave:
         back(holding, elsewhere, "anna")
         leases.lapses = [lapse_of(TABLE, "anna")]
 
-        run(self.served(holding, leases))
+        run(serve_lapses(holding, leases))
 
         assert (holds.lapsed, holds.left) == ([], [])
 
@@ -240,7 +233,7 @@ class TestALeave:
         holds.leave_failures = [UNREACHABLE]
         leases.lapses = [lapse_of(TABLE, "anna")]
 
-        run(self.served(holding, leases))
+        run(serve_lapses(holding, leases))
 
         assert (leases.handler_failures, holds.lapsed) == ([UNREACHABLE], [(TABLE, "anna")])
 
@@ -282,13 +275,6 @@ class TestALeave:
             leases,
             idle_end_answers(),
         )
-
-    @staticmethod
-    async def served(holding, leases):
-        serving = asyncio.create_task(holding.serve_lapses())
-        await asyncio.wait_for(leases.lapses_handed.wait(), 5)
-        serving.cancel()
-        await asyncio.gather(serving, return_exceptions=True)
 
 
 class TestAnArrival:

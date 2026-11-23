@@ -10,7 +10,6 @@ from skat.web.presence import (
 )
 from skat.web.presence_line import PresenceTimer
 from tests.support.idle_presence import idle_agent_lease, idle_end_answers, idle_wakes
-from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.log_lines import logged
 from tests.web.support.presence import (
     FAILURE_NAMING_AN_ACCOUNT,
@@ -21,7 +20,9 @@ from tests.web.support.presence import (
     chair_hold,
     connect,
     failed_timers,
+    lapse_of,
     run,
+    serve_lapses,
 )
 
 
@@ -160,14 +161,14 @@ def notes():
 
 
 @pytest.fixture
-def noting(time, holds, deals, ends, notes):
+def noting(time, holds, deals, ends, notes, leases):
     return Presence(
         chair_hold(time, holds),
         deals.port(),
         EmptyTable(ends.end, notes.note, ends.due),
         idle_agent_lease(),
         idle_wakes(),
-        InMemoryLeases(),
+        leases,
         idle_end_answers(),
     )
 
@@ -295,3 +296,12 @@ class TestTheStoredTimeSinceNobodyWasThere:
         run(time.advance(0))
 
         assert len(notes.calls) == 1
+
+    def test_a_lapse_is_handed_again_until_the_empty_table_is_noted(self, noting, notes, leases):
+        failure = ConnectionError(FAILURE_NAMING_AN_ACCOUNT)
+        notes.failures = [failure]
+        leases.lapses = [lapse_of(TABLE, "anna")]
+
+        run(serve_lapses(noting, leases))
+
+        assert (leases.handler_failures, notes.calls) == ([failure], [(TABLE, frozenset())])
