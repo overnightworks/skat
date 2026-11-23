@@ -18,6 +18,7 @@ from skat.table.rules import NEXT_DEAL_PAUSE_SECONDS, dealt_next, drawn_hand
 from skat.table.service import TableService
 from tests.support.ended_tables import POSTGRES_EMPTY_SECONDS, lapse_the_empty_wait
 from tests.support.seated_tables import ENDED_AT, NOBODY_CONNECTED, SEATED, ended_at, seated_table, undealt_table
+from tests.support.stored_game import next_deals as stored_next_deals
 from tests.support.table_rows import WorkInAThread, wait_until_a_session_waits_for_a_lock
 
 pytestmark = pytest.mark.postgres
@@ -53,8 +54,7 @@ def pause_due_in(engine, table_id, seconds):
 
 
 def pause_rows(engine):
-    with engine.connect() as connection:
-        return connection.execute(select(next_deals.c.table_id)).scalars().all()
+    return [table_id for table_id, _ in stored_next_deals(engine)]
 
 
 def seconds_until_the_pause_is_over(engine, table_id):

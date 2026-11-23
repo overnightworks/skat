@@ -470,14 +470,9 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
     )
 
 
-def hand_was_dealt_by(dealer: int | None) -> bool:
-    """A hand was dealt at some time, by the stored dealer: the store writes the dealer with the first hand."""
-    return dealer is not None
-
-
 def hand_was_dealt(table: TableRecord) -> bool:
-    """A hand was dealt on the table at some time."""
-    return hand_was_dealt_by(table.dealer)
+    """A hand was dealt on the table at some time: the store writes the dealer with the first hand."""
+    return table.dealer is not None
 
 
 def result_pending(table: TableRecord) -> bool:
