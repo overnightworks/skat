@@ -13,12 +13,15 @@ from skat.store.migrate import (
     migrate,
     require_served_revision,
 )
+from tests.support.database_relay import READY_FOR_QUERY
 from tests.support.migrations import head_revision, serve_only
 
 pytestmark = pytest.mark.postgres
 
 WELL_PAST_THE_DEADLINE_SECONDS = 30
 CHUNK_BYTES = 1024
+DECLINE_ENCRYPTION = b"N"
+AUTHENTICATION_OK = b"R\x00\x00\x00\x08\x00\x00\x00\x00"
 
 
 @pytest.fixture
@@ -30,6 +33,15 @@ def silent_database():
         engine = create_store_engine(f"postgresql://skat:secret@127.0.0.1:{silent.getsockname()[1]}/skat")
         yield silent, engine
         engine.dispose()
+
+
+def greet_and_go_silent(client: socket.socket) -> None:
+    """Takes a client through its start as a server does, up to ready for a query, and answers nothing after it."""
+    client.settimeout(WELL_PAST_THE_DEADLINE_SECONDS)
+    client.recv(CHUNK_BYTES)  # the request to encrypt the connection
+    client.sendall(DECLINE_ENCRYPTION)
+    client.recv(CHUNK_BYTES)  # the start-up message
+    client.sendall(AUTHENTICATION_OK + READY_FOR_QUERY)
 
 
 class TestRequireServedRevision:
@@ -122,6 +134,24 @@ class TestDatabaseHealth:
             client.settimeout(WELL_PAST_THE_DEADLINE_SECONDS)
             while client.recv(CHUNK_BYTES):
                 continue
+
+    def test_a_query_the_deadline_cut_off_leaves_no_connection_open(self, silent_database, monkeypatch):
+        monkeypatch.setattr(migrate_module, "HEALTH_DEADLINE_SECONDS", 1)
+        silent, engine = silent_database
+        executor = ThreadPoolExecutor(max_workers=1)
+
+        try:
+            probe = executor.submit(database_health, engine)
+            client, _ = silent.accept()
+            with client:
+                greet_and_go_silent(client)
+                while client.recv(CHUNK_BYTES):
+                    continue
+            health = probe.result(timeout=WELL_PAST_THE_DEADLINE_SECONDS)
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
+        assert (health.serves_queries, health.ready) == (False, False)
 
     def test_a_database_that_connected_and_then_stops_answering_is_given_up_on_at_the_deadline(
         self, database_url, relay_in_front_of, monkeypatch
