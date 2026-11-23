@@ -30,6 +30,7 @@ def silent_database():
     with socket.socket() as silent:
         silent.bind(("127.0.0.1", 0))
         silent.listen()
+        silent.settimeout(WELL_PAST_THE_DEADLINE_SECONDS)
         engine = create_store_engine(f"postgresql://skat:secret@127.0.0.1:{silent.getsockname()[1]}/skat")
         yield silent, engine
         engine.dispose()
