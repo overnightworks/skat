@@ -269,7 +269,7 @@ class TestCreateApp:
 
     def test_a_pod_whose_lapse_serving_fails_logs_it_and_keeps_serving(self, sign_in_settings, capsys):
         leases = InMemoryLeases()
-        leases.serving_fails = [ConnectionError("redis is unreachable")]
+        leases.serving_fails = [RuntimeError("the lapse loop is broken")]
         app = create_app(
             sign_in_settings().settings,
             page_build=fixture_page_build(),
@@ -282,7 +282,7 @@ class TestCreateApp:
         with logged(capsys) as lines, TestClient(app):
             pass
 
-        assert [line["error_type"] for line in lines_of(lines, "stream_lapses.stopped")] == ["ConnectionError"]
+        assert [line["error_type"] for line in lines_of(lines, "stream_lapses.stopped")] == ["RuntimeError"]
 
     def test_a_dealt_table_with_a_time_left_over_is_kept_by_the_sweeps(self, sign_in_settings):
         time = FakeTime()
