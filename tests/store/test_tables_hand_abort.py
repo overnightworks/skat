@@ -2,6 +2,8 @@
 forgets and the deal that follows it.
 """
 
+from dataclasses import replace
+
 import pytest
 from sqlalchemy import text
 
@@ -10,7 +12,9 @@ from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.hand_abort import AbortVoteCommand
 from skat.table.records import Actor, CreateTable, OccupantKind, SendAway, SitDown, StandUp
 from tests.support.open_chairs import RAMSCH
+from tests.support.played_game import an_entry
 from tests.support.postgres import service_on
+from tests.support.seated_tables import save
 from tests.support.stored_game import count_rows, nobody_connected, person, seated_table_id
 
 pytestmark = pytest.mark.postgres
@@ -73,6 +77,22 @@ class TestARestartInEachState:
         ended = agree(service_on(engine), VISITOR, table_id)
 
         assert (ended.refusal, ended.view.aborted is not None) == (None, True)
+
+    def test_a_restart_after_an_abort_keeps_the_games_played_before(self, service, engine, transactions, stored):
+        table_id = seated_table_id(service)
+        earlier = replace(stored(transactions, table_id), game_list=(an_entry(),))
+        save(transactions, earlier)
+        service.stand(person("Cleo"), StandUp("command-stand", table_id), nobody_connected())
+
+        agree(service, person("Anna"), table_id)
+        agree(service, person("Ben"), table_id)
+
+        view = service_on(engine).view(person("Anna"), table_id, nobody_connected())
+        assert (view.aborted is not None, view.hand, stored(transactions, table_id).game_list) == (
+            True,
+            None,
+            earlier.game_list,
+        )
 
 
 class TestTheAbortedHand:

@@ -46,6 +46,8 @@ LOOPBACK_HOST = "127.0.0.1"
 READINESS_POLL_INTERVAL_SECONDS = 0.1
 READINESS_DEADLINE_SECONDS = 20
 SERVER_STOP_TIMEOUT_SECONDS = 10
+# A stream tick this short brings a game listed through the store to the open pages without a reload.
+STORE_READ_SECONDS = 0.1
 
 
 def listening_loopback_socket(port: int = 0) -> socket.socket:
@@ -175,33 +177,37 @@ class RunningServer:
         self._tls_files = write_self_signed_certificate(tls_directory)
 
     def start(self) -> None:
-        self.stores = PostgresSignInStores(self.engine, audit=LoggingAuditSink())
-        app = create_app(
-            self._loopback.sign_in.settings,
-            page_build=PageBuild.load(self._page_build_directory),
-            tables=TableService(PostgresTableTransactions(self.engine), random_source=self._random_source),
-            rule_sets=RuleSetService(PostgresRuleSets(self.engine)),
-            stores=self.stores,
-            issuer_transports=self.issuer.transports,
-            heartbeat_seconds=self._heartbeat_seconds,
-            rounds=ServerRounds(unplayed_sweep_seconds=self._unplayed_sweep_seconds),
-            clocks=Clocks(chair=self._chair_clock),
-            chair_scheduler=self._chair_scheduler,
-            **single_pod(),
-        )
-        self.config = installed_web_auth_config(app)
-        key_file, certificate_file = self._tls_files
-        self._server = streams_ending_server(
-            app,
-            **uvicorn_options(self._loopback.sign_in.settings),
-            ssl_keyfile=str(key_file),
-            ssl_certfile=str(certificate_file),
-        )
         # A restart serves on the port again, and only the first start has the listener of the sign-in.
         listener = self._listener or listening_loopback_socket(self._loopback.sign_in.settings.port)
         self._listener = None
-        self._thread = threading.Thread(target=self._server.run, args=([listener],), daemon=True)
-        self._thread.start()
+        try:
+            self.stores = PostgresSignInStores(self.engine, audit=LoggingAuditSink())
+            app = create_app(
+                self._loopback.sign_in.settings,
+                page_build=PageBuild.load(self._page_build_directory),
+                tables=TableService(PostgresTableTransactions(self.engine), random_source=self._random_source),
+                rule_sets=RuleSetService(PostgresRuleSets(self.engine)),
+                stores=self.stores,
+                issuer_transports=self.issuer.transports,
+                heartbeat_seconds=self._heartbeat_seconds,
+                rounds=ServerRounds(unplayed_sweep_seconds=self._unplayed_sweep_seconds),
+                clocks=Clocks(chair=self._chair_clock),
+                chair_scheduler=self._chair_scheduler,
+                **single_pod(),
+            )
+            self.config = installed_web_auth_config(app)
+            key_file, certificate_file = self._tls_files
+            self._server = streams_ending_server(
+                app,
+                **uvicorn_options(self._loopback.sign_in.settings),
+                ssl_keyfile=str(key_file),
+                ssl_certfile=str(certificate_file),
+            )
+            self._thread = threading.Thread(target=self._server.run, args=([listener],), daemon=True)
+            self._thread.start()
+        except BaseException:
+            listener.close()
+            raise
         deadline = time.monotonic() + READINESS_DEADLINE_SECONDS
         while not self._server.started:
             if not self._thread.is_alive():

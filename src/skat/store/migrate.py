@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import os
 import socket
 import time
@@ -143,6 +144,10 @@ class ServingWindow:
     its release: a contraction that is not the first step of the run is taken to skip a release, and the database
     then serves the new revision alone, so that processes of the release before turn unready too. A fresh database
     serves its head, and a run that applies no step changes nothing.
+
+    The check that a release writes only values the release before reads covers only the columns and tables that
+    release already has; a contraction ships in a later release than the one that stops reading what it drops, once no
+    pod serves the old revision.
     """
 
     def __init__(self) -> None:
@@ -252,9 +257,19 @@ def database_health(engine: Engine) -> DatabaseHealth:
     ask, because a rollout moves the revisions served while Skat runs; the process's own revision is not, because it
     cannot change in the process.
     """
+    deadline_passed = False
     try:
         served = _run_within_deadline(engine)
-    except psycopg.Error, TimeoutError:
+    except psycopg.Error:
+        served = None
+    except TimeoutError:
+        served = None
+        deadline_passed = True
+    if deadline_passed:
+        # A connect that the deadline cancelled leaves its libpq connection to the collector, which closes the socket
+        # once the exception that holds it has been handled; a refused connect leaves none.
+        gc.collect()
+    if served is None:
         return DatabaseHealth(serves_queries=False, revision_served=False)
     return DatabaseHealth(serves_queries=True, revision_served=_head_revision() in served)
 

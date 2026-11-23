@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from skat.store.tables import PostgresTableTransactions
 from skat.table.records import TableId
@@ -40,5 +41,5 @@ def test_the_store_refuses_an_outcome_without_an_invitation(before_the_upgrade):
         " inviter_account = NULL, ended_outcome = 'busy'"
     )
 
-    with pytest.raises(Exception, match="violates check constraint"), before_the_upgrade.begin() as connection:
+    with pytest.raises(IntegrityError, match="violates check constraint"), before_the_upgrade.begin() as connection:
         connection.execute(text(update))
