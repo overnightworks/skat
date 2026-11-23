@@ -3,5 +3,6 @@ agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
 role = "builder"
 base = "04963f93916c029da711f9b22c0ff3f272df2dfd"
 branch = "claude/issue-857-the-readiness-probe-closes-its-connectio"
-scope = ["src/skat/store/migrate.py", "tests/e2e/support/server.py", "tests/store/test_migrate_health.py"]
+scope = ["src/skat/host/main.py", "src/skat/store/migrate.py", "tests/e2e/support/server.py", "tests/store/test_migrate_health.py"]
 opened_commit = "fbe32ca46a52fac81e4432f90a52a34f3ace3989"
+whole_reason = "The readiness probe's deterministic close and its one shared construction, used by the app's entry point and the end-to-end server."
