@@ -15,6 +15,9 @@ class HeldDealPause:
     a passed-in hand stays pending and what the pages show during it does not depend on how fast a runner is.
     `release` lets the held sweep run and the following ones run on the event loop's timers as usual. Every other
     timer, the sweeps of the chair holds and of the empty tables included, always runs on those timers.
+
+    One instance serves one server: a server that stops cancels every timer the instance made, the sweeps of another
+    server sharing it included, and a cancelled sweep is never scheduled again.
     """
 
     def __init__(self) -> None:
