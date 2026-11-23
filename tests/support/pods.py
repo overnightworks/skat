@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import httpx2
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text
 from sqlalchemy.engine import make_url
 
 from skat.store.migrate import create_store_engine
@@ -23,7 +23,7 @@ from tests.support.signed_in import cookie_header, seed_member
 from tests.support.skat_process import SkatProcess
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
     from datetime import timedelta
     from pathlib import Path
 
@@ -122,12 +122,36 @@ class Pods:
         with self.engine.connect() as connection:
             return connection.execute(select(next_deals.c.due_at).where(next_deals.c.table_id == table_id)).scalar()
 
-    def move_next_deal(self, table_id: str, by: timedelta) -> None:
-        """Make the table's stored pause due `by` from the database's clock."""
+    @contextmanager
+    def next_deals_held(self) -> Iterator[Callable[[], None]]:
+        """No stored pause is dropped until the yielded release is called or the block ends, so none is dealt or lost
+        and its due time stays as written.
+
+        The database refuses every delete of a pause, which rolls back the sweeping pod's deal and keeps the row.
+        """
         with self.engine.begin() as connection:
             connection.execute(
-                update(next_deals).where(next_deals.c.table_id == table_id).values(due_at=func.now() + by)
+                text(
+                    "CREATE FUNCTION hold_next_deals() RETURNS trigger LANGUAGE plpgsql AS "
+                    "$$ BEGIN RAISE EXCEPTION 'the stored pauses are held'; END $$"
+                )
             )
+            connection.execute(
+                text(
+                    "CREATE TRIGGER hold_next_deals BEFORE DELETE ON next_deals "
+                    "FOR EACH ROW EXECUTE FUNCTION hold_next_deals()"
+                )
+            )
+
+        def release() -> None:
+            with self.engine.begin() as connection:
+                connection.execute(text("DROP TRIGGER IF EXISTS hold_next_deals ON next_deals"))
+                connection.execute(text("DROP FUNCTION IF EXISTS hold_next_deals()"))
+
+        try:
+            yield release
+        finally:
+            release()
 
     def database_now(self):
         with self.engine.connect() as connection:
