@@ -4,6 +4,7 @@ import hashlib
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -17,6 +18,7 @@ from webauth.store_contract import STORE_CHECKS, StoreAdapter
 from skat.store.accounts import PostgresAccounts
 from skat.store.migrate import SIGN_IN_LOCK_KEY, create_store_engine
 from skat.store.schema import accounts, sessions
+from skat.store.sessions import PostgresSessionRecords
 from skat.store.sign_in import PostgresSignInStores
 from skat.web.sign_in import LoggingAuditSink
 from tests.support.postgres import row_count
@@ -214,6 +216,14 @@ def cut_every_other_connection(engine):
         cutter.commit()
 
 
+@pytest.fixture
+def cut_connection(engine):
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+        cut_every_other_connection(engine)
+        yield connection
+
+
 class TestAnUnreachableDatabase:
     @pytest.fixture
     def nowhere(self):
@@ -242,6 +252,34 @@ class TestAnUnreachableDatabase:
 
         with pytest.raises(StoreUnavailableError):
             cut_then_call()
+
+    @pytest.mark.parametrize(
+        "call",
+        [
+            lambda accounts: accounts.get(SUBJECT),
+            lambda accounts: accounts.create_for_subject(SUBJECT, "Anna", "user", AccountKind.PERSON),
+            lambda accounts: accounts.set_role(SUBJECT, "admin"),
+            lambda accounts: accounts.set_kind(SUBJECT, AccountKind.AGENT),
+        ],
+        ids=["get", "create_for_subject", "set_role", "set_kind"],
+    )
+    def test_raises_store_unavailable_from_an_account_call_on_a_cut_connection(self, cut_connection, call):
+        with pytest.raises(StoreUnavailableError):
+            call(PostgresAccounts(cut_connection))
+
+    def test_raises_store_unavailable_when_a_sign_in_entry_cannot_commit(self, engine, stores):
+        with pytest.raises(StoreUnavailableError), stores.transaction():
+            cut_every_other_connection(engine)
+
+    def test_raises_store_unavailable_when_a_session_call_cannot_commit(self, engine):
+        @contextmanager
+        def cutting_before_the_commit():
+            with engine.begin() as connection:
+                yield connection
+                cut_every_other_connection(engine)
+
+        with pytest.raises(StoreUnavailableError):
+            PostgresSessionRecords(cutting_before_the_commit).delete("session-unknown")
 
 
 class TestADeadlock:
