@@ -6,10 +6,11 @@ from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from agents.member import INVITATION_SECONDS, AcceptInvitationRefusal, StandingState
 from sqlalchemy import text
 
 from skat.store.tables import PostgresTableTransactions
-from skat.table.member_place import ENDED_CALL_KEPT, Acceptance, CallOutcome, MemberRefusal, MembershipState
+from skat.table.member_place import ENDED_CALL_KEPT, Acceptance, CallOffer, CallOutcome, OfferState
 from skat.table.records import Actor, CreateTable, OccupantKind, SitDown, TableId
 from skat.table.service import TableService
 from tests.support.calls import call_facts
@@ -22,7 +23,7 @@ VISITOR = Actor(account_id="account-visitor", display_name="Ben")
 MOZART = Actor(account_id="account-mozart", display_name="Mozart", kind=OccupantKind.AGENT)
 BACH = Actor(account_id="account-bach", display_name="Bach", kind=OccupantKind.AGENT)
 START = datetime(2026, 11, 1, 12, tzinfo=UTC)
-LASTING = timedelta(hours=1)
+LASTING = timedelta(seconds=INVITATION_SECONDS)
 LATER = START + LASTING
 OWNER_AT_THE_TABLE = frozenset({OPENER.account_id})
 
@@ -41,7 +42,7 @@ def table_id(service):
 
 def invite(service, table_id, agent):
     facts = call_facts(agent.account_id, OPENER.account_id)
-    return service.invite_agent(TableId(table_id), facts, LASTING)
+    return service.invite_agent(TableId(table_id), facts)
 
 
 def book_row(engine, agent):
@@ -78,12 +79,14 @@ class TestTwoAcceptsForTheLastChair:
 
         winners = [agent for agent in offers if results[agent.display_name].refusal is None]
         losers = [agent for agent in offers if results[agent.display_name].refusal is not None]
-        assert [results[agent.display_name].refusal for agent in losers] == [MemberRefusal.BUSY]
+        assert [results[agent.display_name].refusal for agent in losers] == [AcceptInvitationRefusal.BUSY]
         assert len(winners) == 1
         chairs = service.view(OPENER, table_id, frozenset()).chairs
         assert [chair.occupant_name for chair in chairs] == ["Anna", "Ben", winners[0].display_name]
-        assert [standing.state for standing in service.standings_of(winners[0].account_id)] == [MembershipState.ACTIVE]
-        assert service.standings_of(losers[0].account_id) == ()
+        assert [standing.state for standing in service.standings_of(winners[0].account_id, serves_view=False)] == [
+            StandingState.ACTIVE
+        ]
+        assert service.standings_of(losers[0].account_id, serves_view=False) == ()
 
 
 class TestTheBookAcrossARestart:
@@ -95,11 +98,13 @@ class TestTheBookAcrossARestart:
 
         restarted = TableService(transactions, now=lambda: START)
 
-        shown = restarted.standings_of(MOZART.account_id)
+        shown = restarted.standings_of(MOZART.account_id, serves_view=False)
         assert [(standing.state, standing.invitation.id, standing.invitation.epoch) for standing in shown] == [
-            (MembershipState.INVITED, offer.id, 4)
+            (StandingState.INVITED, offer.id, 4)
         ]
-        assert [standing.state for standing in restarted.standings_of(BACH.account_id)] == [MembershipState.ACTIVE]
+        assert [standing.state for standing in restarted.standings_of(BACH.account_id, serves_view=False)] == [
+            StandingState.ACTIVE
+        ]
 
 
 class TestRetention:
@@ -121,7 +126,7 @@ class TestRetention:
             MOZART, OPENER.account_id, Acceptance(table_id, offer.id, offer.epoch), frozenset()
         )
 
-        assert result.refusal is MemberRefusal.SPONSOR_AWAY
+        assert result.refusal is AcceptInvitationRefusal.SPONSOR_AWAY
         row = book_row(engine, MOZART)
         assert (row.inviter_account, row.ended_outcome) == (OPENER.account_id, CallOutcome.OWNER_ABSENT.value)
 
@@ -131,7 +136,7 @@ class TestRetention:
         invite(service, table_id, MOZART)
         later = TableService(transactions, now=lambda: LATER + ENDED_CALL_KEPT)
 
-        assert later.standings_of(MOZART.account_id) == ()
+        assert later.standings_of(MOZART.account_id, serves_view=False) == ()
 
         assert tuple(book_row(engine, MOZART)) == (0, None, None, None, None)
 
@@ -139,7 +144,7 @@ class TestRetention:
         invite(service, table_id, MOZART)
         later = TableService(transactions, now=lambda: LATER + timedelta(seconds=1))
 
-        assert later.standings_of(MOZART.account_id) == ()
+        assert later.standings_of(MOZART.account_id, serves_view=False) == ()
 
         assert book_row(engine, MOZART).inviter_account == OPENER.account_id
 
@@ -148,7 +153,7 @@ class TestRetention:
         later = TableService(transactions, now=lambda: LATER + ENDED_CALL_KEPT)
         facts = call_facts("account-mozart", "account-new-owner", "account-new-inviter")
 
-        later.invite_agent(TableId(table_id), facts, LASTING)
+        later.invite_agent(TableId(table_id), facts)
 
         assert book_row(engine, MOZART).owner_account == "account-new-owner"
 
@@ -160,3 +165,72 @@ class TestRetention:
 
         with engine.connect() as connection:
             assert connection.execute(text("SELECT count(*) FROM member_book")).scalar_one() == 0
+
+
+class TestRowsWrittenBeforeCoreDecidedCalling:
+    """Rows in the book's layout, as earlier code wrote them, read and decide the same without a migration."""
+
+    SOON_AFTER = START + timedelta(seconds=10)
+
+    @staticmethod
+    def write_row(engine, table_id, agent, *, expires_at, ended_outcome=None):
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO member_book (table_id, agent_account, epoch, invitation_id, invitation_expires_at,"
+                    " owner_account, inviter_account, ended_outcome)"
+                    " VALUES (:t, :a, 2, 'invitation-written-before', :e, :o, :o, :ended)"
+                ),
+                {"t": table_id, "a": agent.account_id, "e": expires_at, "o": OPENER.account_id, "ended": ended_outcome},
+            )
+
+    @staticmethod
+    def offer_of(service, table_id, agent):
+        calls = [call_facts(agent.account_id, OPENER.account_id)]
+        offers = service.offers_at(TableId(table_id), calls, lambda account: call_facts(account, OPENER.account_id))
+        return offers.listed[0]
+
+    def test_an_open_invitation_stands_and_is_accepted(self, service, engine, table_id):
+        self.write_row(engine, table_id, MOZART, expires_at=LATER)
+
+        shown = service.standings_of(MOZART.account_id, serves_view=False)
+        result = service.accept_invitation(
+            MOZART, OPENER.account_id, Acceptance(table_id, "invitation-written-before", 2), OWNER_AT_THE_TABLE
+        )
+
+        assert [(standing.state, standing.invitation.id) for standing in shown] == [
+            (StandingState.INVITED, "invitation-written-before")
+        ]
+        assert result.refusal is None
+
+    @pytest.mark.parametrize(
+        ("ended_outcome", "outcome"),
+        [
+            pytest.param(None, CallOutcome.NO_ANSWER, id="an-invitation-that-ran-out-is-no-answer"),
+            pytest.param(CallOutcome.BUSY, CallOutcome.BUSY, id="a-busy-accept-stays-busy"),
+            pytest.param(CallOutcome.OWNER_ABSENT, CallOutcome.OWNER_ABSENT, id="an-owner-away-accept-stays-away"),
+        ],
+    )
+    def test_an_ended_call_tells_its_caller_how_it_ended_while_it_is_kept(
+        self, engine, transactions, table_id, ended_outcome, outcome
+    ):
+        self.write_row(
+            engine,
+            table_id,
+            MOZART,
+            expires_at=START,
+            ended_outcome=None if ended_outcome is None else ended_outcome.value,
+        )
+        later = TableService(transactions, now=lambda: self.SOON_AFTER)
+
+        assert self.offer_of(later, table_id, MOZART) == CallOffer(OfferState.AVAILABLE, outcome=outcome)
+
+    def test_a_later_accept_of_an_invitation_that_ran_out_is_stale(self, engine, transactions, table_id):
+        self.write_row(engine, table_id, MOZART, expires_at=START)
+        later = TableService(transactions, now=lambda: self.SOON_AFTER)
+
+        result = later.accept_invitation(
+            MOZART, OPENER.account_id, Acceptance(table_id, "invitation-written-before", 2), OWNER_AT_THE_TABLE
+        )
+
+        assert result.refusal is AcceptInvitationRefusal.STALE_INVITATION

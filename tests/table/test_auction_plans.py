@@ -4,7 +4,6 @@ for him as ruled, shows the plan to him alone and forgets it with the hand and t
 
 import random
 from dataclasses import replace
-from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -263,9 +262,7 @@ class TestTheSitThatEndsTheWait:
     def test_an_agents_accept_takes_the_planned_step(self, seated: Seated) -> None:
         self.an_open_hand_where_the_forehand_planned_to_hold(seated)
         owner = ANNA.account_id
-        offer = seated.service.invite_agent(
-            TableId(seated.table_id), call_facts(AGENT.account_id, owner), timedelta(seconds=600)
-        )
+        offer = seated.service.invite_agent(TableId(seated.table_id), call_facts(AGENT.account_id, owner))
 
         accepted = seated.service.accept_invitation(
             AGENT,

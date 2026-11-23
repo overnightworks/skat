@@ -23,6 +23,24 @@ item = "overnightworks/skat#275"
 date = 2026-11-10
 reason = "the agent runtime library is renamed to agents, so the contract forbids the new module name in place of agent_runtime_client"
 
+[[gate.loosened]]
+what = 'import contract "The table core imports no framework, driver or adapter" ignores skat.table.** -> agents.calling'
+item = "overnightworks/agents#1073"
+date = 2026-11-22
+reason = "the operator ruled agents.calling and agents.member into app cores (agents#1073 line 1 A)"
+
+[[gate.loosened]]
+what = 'import contract "The table core imports no framework, driver or adapter" ignores skat.table.** -> agents.member'
+item = "overnightworks/agents#1073"
+date = 2026-11-22
+reason = "the operator ruled agents.calling and agents.member into app cores (agents#1073 line 1 A)"
+
+[[gate.loosened]]
+what = 'import-linter changes root_packages'
+item = "overnightworks/agents#1073"
+date = 2026-11-22
+reason = "the operator ruled agents.calling and agents.member into app cores (agents#1073 line 1 A)"
+
 [[size.generated]]
 path = "frontend/src/lib/words/de.ts"
 job = "Lint and test"

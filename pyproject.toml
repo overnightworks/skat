@@ -173,7 +173,7 @@ min_confidence = 80
 # --- Import contracts ---
 
 [tool.importlinter]
-root_packages = ["skat"]
+root_packages = ["skat", "agents"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -195,6 +195,9 @@ id = "table-core"
 name = "The table core imports no framework, driver or adapter"
 type = "forbidden"
 source_modules = ["skat.table", "skat.engine"]
+# agents.calling and agents.member are agents' pure modules (pydantic and agents' own pure modules only) that decide
+# calling for every app on the facts it supplies; the table core is their one caller here.
+ignore_imports = ["skat.table.** -> agents.calling", "skat.table.** -> agents.member"]
 forbidden_modules = [
     "sqlalchemy",
     "alembic",

@@ -9,11 +9,12 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from agents.member import Invitation
 
 from skat.engine.deal import Position
 from skat.table.acts import ActKind, next_seq_of
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.member_place import Acceptance, InvitationOffer
+from skat.table.member_place import Acceptance
 from skat.table.moment import TableMoment
 from skat.table.playing import AgreeToGiveUpCommand, GiveUpCommand
 from skat.table.ready import ReadyCommand
@@ -510,7 +511,7 @@ class TestTheSignalOfACommit:
         scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
         scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
         facts = call_facts(BACH.account_id, ANNA.account_id)
-        offer = scene.service.invite_agent(TableId(scene.table_id), facts, timedelta(hours=1))
+        offer = scene.service.invite_agent(TableId(scene.table_id), facts)
         scene.signals.clear()
 
         scene.service.accept_invitation(
@@ -580,11 +581,9 @@ class TestTheToolsSignal:
         scene.service = scene.service.with_tools_signal(told.append)
         scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
 
-        offer = scene.service.invite_agent(
-            TableId(scene.table_id), call_facts(BACH.account_id, ANNA.account_id), timedelta(hours=1)
-        )
+        offer = scene.service.invite_agent(TableId(scene.table_id), call_facts(BACH.account_id, ANNA.account_id))
 
-        assert isinstance(offer, InvitationOffer)
+        assert isinstance(offer, Invitation)
         assert told == []
 
 
@@ -608,9 +607,7 @@ def _a_sit_that_deals(scene):
 def _an_accepted_invitation(scene):
     scene.table_id = scene.service.create(ANNA, CreateTable(command_id="command-open")).id
     scene.service.sit(MOZART, SitDown("command-mozart", scene.table_id, 2), NOBODY)
-    offer = scene.service.invite_agent(
-        TableId(scene.table_id), call_facts(BACH.account_id, ANNA.account_id), timedelta(hours=1)
-    )
+    offer = scene.service.invite_agent(TableId(scene.table_id), call_facts(BACH.account_id, ANNA.account_id))
     acceptance = Acceptance(scene.table_id, offer.id, offer.epoch)
     return lambda: scene.service.accept_invitation(BACH, ANNA.account_id, acceptance, frozenset({ANNA.account_id}))
 

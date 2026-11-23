@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from agents.member import INVITATION_SECONDS
 
 from skat.table.member_place import (
     ENDED_CALL_KEPT,
@@ -25,7 +26,7 @@ from tests.support.open_chairs import PHASES, REARHAND_SEAT, sent_away
 from tests.support.played_game import after_the_first_game, table_in, with_agents
 
 NOW = datetime(2026, 11, 12, 9, tzinfo=UTC)
-LASTING = timedelta(seconds=120)
+LASTING = timedelta(seconds=INVITATION_SECONDS)
 VIEWER = "account-viewer"
 OWNER = "account-owner"
 AGENT = "account-agent"
@@ -68,6 +69,11 @@ class TestWhatACallComesTo:
     )
     def test_a_fact_against_the_call_refuses_it_with_its_reason(self, changes, refusal):
         assert offer_of(facts(**changes), a_table_with_a_free_chair(), None, NOW) is refusal
+
+    def test_an_agent_without_a_known_owner_is_not_offered(self):
+        assert offer_of(replace(facts(), owner_account=None), a_table_with_a_free_chair(), None, NOW) is (
+            InviteRefusal.NOT_OFFERED
+        )
 
     def test_a_table_that_is_not_live_offers_nothing(self):
         assert offer_of(facts(), None, None, NOW) is InviteRefusal.NO_TABLE
@@ -311,9 +317,7 @@ class TestACallThatEndedWithoutASeatTellsTheCallerWhy:
     def test_a_call_again_is_offered_and_writes_a_new_invitation(self):
         entry = entry_inviting(VIEWER, expires_at=NOW, ended=CallOutcome.BUSY)
 
-        written, _ = decide_invite(
-            a_table_with_a_free_chair(), entry, facts(), InvitationId("invitation-2"), NOW, LASTING
-        )
+        written, _ = decide_invite(a_table_with_a_free_chair(), entry, facts(), InvitationId("invitation-2"), NOW)
 
         assert written.invitation == OpenInvitation("invitation-2", NOW + LASTING, OWNER, VIEWER)
 
@@ -322,7 +326,7 @@ class TestDecidingAnInvite:
     def test_writes_an_invitation_that_expires_after_the_duration_on_the_given_clock(self):
         table = a_table_with_a_free_chair()
 
-        written = decide_invite(table, None, facts(), InvitationId("invitation-1"), NOW, LASTING)
+        written = decide_invite(table, None, facts(), InvitationId("invitation-1"), NOW)
 
         entry, offer = written
         assert entry.invitation == OpenInvitation("invitation-1", NOW + LASTING, OWNER, VIEWER)
@@ -332,7 +336,7 @@ class TestDecidingAnInvite:
         table = a_table_with_a_free_chair()
         row = BookEntry(table.id, AGENT, 3)
 
-        entry, offer = decide_invite(table, row, facts(), InvitationId("invitation-2"), NOW, LASTING)
+        entry, offer = decide_invite(table, row, facts(), InvitationId("invitation-2"), NOW)
 
         assert (entry.epoch, offer.epoch) == (3, 3)
 
@@ -340,9 +344,9 @@ class TestDecidingAnInvite:
         table = a_table_with_a_free_chair()
         row = entry_inviting(VIEWER, epoch=2)
 
-        entry, offer = decide_invite(table, row, facts(), InvitationId("invitation-2"), NOW, LASTING)
+        entry, offer = decide_invite(table, row, facts(), InvitationId("invitation-2"), NOW)
 
-        assert entry is row
+        assert entry == row
         assert (offer.id, offer.epoch) == ("invitation-1", 2)
 
     @pytest.mark.parametrize(
@@ -352,14 +356,14 @@ class TestDecidingAnInvite:
     def test_writes_nothing_for_a_call_that_is_not_offered(self, changes):
         table = a_table_with_a_free_chair()
 
-        assert isinstance(decide_invite(table, None, facts(**changes), InvitationId("i"), NOW, LASTING), InviteRefusal)
+        assert isinstance(decide_invite(table, None, facts(**changes), InvitationId("i"), NOW), InviteRefusal)
 
     def test_a_seated_agent_is_not_invited(self):
         seated = with_agents(a_table_with_a_free_chair(), 1)
 
-        written = decide_invite(seated, None, seated_facts(seated), InvitationId("i"), NOW, LASTING)
+        written = decide_invite(seated, None, seated_facts(seated), InvitationId("i"), NOW)
 
         assert written is InviteRefusal.NOT_OFFERED
 
     def test_a_table_that_is_not_live_gets_no_invitation(self):
-        assert decide_invite(None, None, facts(), InvitationId("i"), NOW, LASTING) is InviteRefusal.NO_TABLE
+        assert decide_invite(None, None, facts(), InvitationId("i"), NOW) is InviteRefusal.NO_TABLE

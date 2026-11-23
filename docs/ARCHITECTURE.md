@@ -122,7 +122,7 @@ Who is at a table lives in Redis, never in Postgres. Each open stream holds a ta
 
 ### Agents at the table
 
-A table is a member place: an agent is a member while it holds a chair there or an open invitation to it (`skat.table.member_place`). It reads `member://standing`, its tables' views and their windows of numbered acts, and is told when a commit changes one. A person calls an agent to a table or sends it away from the page; `offer_of` decides both. An open invitation ends when it expires, when the agent accepts, or as owner away when its owner leaves: a seated owner has left when their chair's hold falls due while they are away, an owner without a chair when their last stream at the table ends. The end is decided under the table's row lock and tells the agents; a seated owner who resumes within the hold keeps the invitation, and an accept meanwhile is refused as owner away. A seated agent states its turn with `set_turn_state`, which its chair keeps until the holder changes.
+A table is a member place: an agent is a member while it holds a chair there or an open invitation to it (`skat.table.member_place`). It reads `member://standing`, its tables' views and their windows of numbered acts, and is told when a commit changes one. A person calls an agent to a table or sends it away from the page; agents' pure `agents.calling` decides both, on the facts `skat.table.member_place` reads from the table and the member book, and skat keeps its own tokens for the answers. An open invitation ends when it expires, when the agent accepts, or as owner away when its owner leaves: a seated owner has left when their chair's hold falls due while they are away, an owner without a chair when their last stream at the table ends. The end is decided under the table's row lock and tells the agents; a seated owner who resumes within the hold keeps the invitation, and an accept meanwhile is refused as owner away. A seated agent states its turn with `set_turn_state`, which its chair keeps until the holder changes.
 
 ### Observability
 
@@ -138,7 +138,7 @@ Unit tests cover the logic, with a fake issuer for sign-in. Store and end-to-end
 
 ## 6. Constraints and reasons
 
-- **The layer rule.** `host` depends on `web` and `store`, which know nothing of each other; both depend on `table`, and `engine` sits below `table`; never the other way. import-linter enforces it, and a second contract keeps `skat.table` and `skat.engine` free of every framework, driver and adapter. So the rules stay pure and testable without a process.
+- **The layer rule.** `host` depends on `web` and `store`, which know nothing of each other; both depend on `table`, and `engine` sits below `table`; never the other way. import-linter enforces it, and a second contract keeps `skat.table` and `skat.engine` free of every framework, driver and adapter, except agents' pure `agents.calling` and `agents.member`, which decide calling for every app. So the rules stay pure and testable without a process.
 - **A strict content security policy:** no inline script, style or handler; only the shell's bootstrap and the call sign-in page's script, admitted by hash.
 - **The Python path constants own the browser's paths;** `make wire` generates the TypeScript, so a drifting path fails a check, not a page.
 - **The test issuer** exists only in tests.

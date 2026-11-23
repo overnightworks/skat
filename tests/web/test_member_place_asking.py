@@ -47,7 +47,6 @@ TABLE = "a-table"
 ACCOUNT = "an-account"
 OTHER_ACCOUNT = "another-account"
 OWNER = "the-agents-owner"
-INVITATION_SECONDS = 600
 
 
 class Moments:

@@ -8,9 +8,10 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from agents.member import AcceptInvitationRefusal, PlaceRef, Standing, StandingState
 
 from skat.table.auction import AuctionAction, AuctionCommand
-from skat.table.member_place import Acceptance, MemberRefusal, MembershipState, TableStanding
+from skat.table.member_place import TABLE_PLACE_KIND, Acceptance
 from skat.table.records import Actor, CreateTable, OccupantKind, Refusal, SendAway, StandUp, TableId
 from skat.table.service import CommandIdReusedError, TableService
 from tests.support.calls import call_facts
@@ -61,7 +62,7 @@ class Scene(ServiceScene):
 
     # reads this file's own MOZART
     def standing(self, agent=MOZART):
-        return self.service.standings_of(agent.account_id)
+        return self.service.standings_of(agent.account_id, serves_view=False)
 
 
 class TestTheChairOpensAtOnce:
@@ -154,9 +155,7 @@ class TestWhileTheChairIsOpen:
     def test_an_agent_accepting_its_invitation_takes_the_lowest_free_chair_of_the_running_hand(self):
         scene = Scene()
         scene.send_away()
-        offer = scene.service.invite_agent(
-            TableId(scene.table_id), call_facts(BACH.account_id, ANNA.account_id), timedelta(hours=1)
-        )
+        offer = scene.service.invite_agent(TableId(scene.table_id), call_facts(BACH.account_id, ANNA.account_id))
 
         result = scene.service.accept_invitation(
             BACH, ANNA.account_id, Acceptance(scene.table_id, offer.id, offer.epoch), frozenset({ANNA.account_id})
@@ -164,7 +163,9 @@ class TestWhileTheChairIsOpen:
 
         assert result.refusal is None
         assert scene.table.chairs[MOZARTS_SEAT - 1].occupant.display_name == "Bach"
-        assert scene.standing(BACH) == (TableStanding(TableId(scene.table_id), MembershipState.ACTIVE),)
+        assert scene.standing(BACH) == (
+            Standing(place=PlaceRef(kind=TABLE_PLACE_KIND, id=scene.table_id), state=StandingState.ACTIVE),
+        )
 
 
 class TestRefusals:
@@ -238,9 +239,7 @@ class TestTheOwnersRight:
 class TestTheBook:
     def test_an_open_invitation_is_cleared_and_the_epoch_raised(self):
         scene = Scene(agent_seated=False)
-        offer = scene.service.invite_agent(
-            TableId(scene.table_id), call_facts(MOZART.account_id, ANNA.account_id), timedelta(hours=1)
-        )
+        offer = scene.service.invite_agent(TableId(scene.table_id), call_facts(MOZART.account_id, ANNA.account_id))
         scene.sit(MOZART, MOZARTS_SEAT)
 
         scene.send_away()
@@ -250,9 +249,7 @@ class TestTheBook:
 
     def test_an_accept_with_the_old_epoch_is_stale_and_the_standing_lists_no_table(self):
         scene = Scene(agent_seated=False)
-        offer = scene.service.invite_agent(
-            TableId(scene.table_id), call_facts(MOZART.account_id, ANNA.account_id), timedelta(hours=1)
-        )
+        offer = scene.service.invite_agent(TableId(scene.table_id), call_facts(MOZART.account_id, ANNA.account_id))
         scene.sit(MOZART, MOZARTS_SEAT)
         scene.send_away()
 
@@ -260,7 +257,7 @@ class TestTheBook:
             MOZART, ANNA.account_id, Acceptance(scene.table_id, offer.id, offer.epoch), frozenset({ANNA.account_id})
         )
 
-        assert result.refusal is MemberRefusal.STALE_INVITATION
+        assert result.refusal is AcceptInvitationRefusal.STALE_INVITATION
         assert scene.standing() == ()
 
 

@@ -4,17 +4,15 @@ seated, it reads the acts of the hand in its window.
 
 import json
 from dataclasses import replace
-from datetime import timedelta
 
 import pytest
 from agents.mcp_server.route_call import ARGUMENTS_REFUSED_TEXT
 from agents.mcp_wire import MCP_ENDPOINT_PATH
-from agents.member import ACCEPT_INVITATION_TOOL, LEASE_SECONDS, STANDING_URI, AcceptInvitationRefusal
+from agents.member import ACCEPT_INVITATION_TOOL, INVITATION_SECONDS, LEASE_SECONDS, STANDING_URI
 from agents.turn import ToolRefusal
 from logline import REQUEST_EVENT, Outcome
 from starlette.concurrency import run_in_threadpool
 
-from skat.table.member_place import MemberRefusal
 from skat.table.records import TableId
 from skat.web.mcp import READ_TABLE_TOOL
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
@@ -24,7 +22,7 @@ from tests.support.log_lines import lines_of, logged
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import MCP_GROUP
 from tests.web.support.agent import UPDATED, Agent
-from tests.web.support.calling import INVITATION_SECONDS, a_person
+from tests.web.support.calling import a_person
 from tests.web.support.playing import HERZ_GAME
 from tests.web.support.presence import HOLD_SECONDS
 from tests.web.support.series import deal_the_next_game
@@ -69,13 +67,11 @@ def table_id(skat, owner):
 def invite(skat, time):
     """Writes an invitation through the service the app wired, on its event loop's worker."""
 
-    def write_invitation(agent, table_id, owner, *, inviter=None, lasting=INVITATION_SECONDS):
+    def write_invitation(agent, table_id, owner, *, inviter=None):
         facts = call_facts(agent.subject, owner[1].id, (inviter or owner)[1].id)
 
         async def write():
-            return await run_in_threadpool(
-                skat.tables.invite_agent, TableId(table_id), facts, timedelta(seconds=lasting)
-            )
+            return await run_in_threadpool(skat.tables.invite_agent, TableId(table_id), facts)
 
         return skat.client.portal.call(write)
 
@@ -453,10 +449,6 @@ class TestAFailingStore:
         answer = agent.accept(table_id, offer)
 
         assert (answer.is_error, answer.text) == (True, "the tool failed")
-
-
-def test_every_refusal_the_table_gives_is_one_the_library_knows():
-    assert {refusal.value for refusal in MemberRefusal} <= {refusal.value for refusal in AcceptInvitationRefusal}
 
 
 @pytest.fixture

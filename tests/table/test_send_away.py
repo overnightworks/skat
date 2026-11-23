@@ -100,7 +100,7 @@ class TestWhoMaySendAnAgentAway:
     def sent_by(self, table, sender, *, is_member=True, present=True, agent=None):
         command = SendAway("command-away", table.id.value, agent or account_of(REARHAND))
         connected = frozenset({sender}) if present else frozenset()
-        return decide_send_away_by(table, command, Actor(sender, "Sender"), connected, is_member, NOW)
+        return decide_send_away_by(table, command, Actor(sender, "Sender"), connected, is_member)
 
     @pytest.mark.parametrize("sender", [SENDER, OWNER])
     def test_a_member_and_the_owner_present_free_the_chair(self, sender):
