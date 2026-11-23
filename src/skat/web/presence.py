@@ -255,7 +255,25 @@ class Presence:
         self._next_deal = next_deal
         self._empty_table = empty_table
         self._timer_runs = TimerRuns()
-        self._sweeps = {
+        self._sweeps = self._sweeps_by_cadence(hold, next_deal, empty_table)
+        self.end_answer_watch = EndAnswerWatch(
+            end_answers,
+            hold.clock,
+            hold.scheduler.schedule,
+            self._timer_runs,
+            self.wake_table,
+            self.table_ended,
+            lambda: self._stopped,
+            CHAIR_RELEASE_RETRY_SECONDS,
+        )
+        self._state = threading.Lock()
+        self._writing: set[asyncio.Event] = set()
+        self._reads: set[Future[Present]] = set()
+
+    def _sweeps_by_cadence(
+        self, hold: ChairHold, next_deal: NextDeal, empty_table: EmptyTable
+    ) -> dict[float, tuple[_Sweep, ...]]:
+        return {
             PAUSE_SWEEP_EVERY_SECONDS: (
                 _Sweep(
                     PresenceTimer.PAUSE_SWEEP,
@@ -282,19 +300,6 @@ class Presence:
                 ),
             ),
         }
-        self.end_answer_watch = EndAnswerWatch(
-            end_answers,
-            hold.clock,
-            hold.scheduler.schedule,
-            self._timer_runs,
-            self.wake_table,
-            self.table_ended,
-            lambda: self._stopped,
-            CHAIR_RELEASE_RETRY_SECONDS,
-        )
-        self._state = threading.Lock()
-        self._writing: set[asyncio.Event] = set()
-        self._reads: set[Future[Present]] = set()
 
     @property
     def stopped(self) -> bool:
