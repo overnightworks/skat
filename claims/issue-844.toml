@@ -1,8 +1,0 @@
-claim_id = "6bfcb7b793eb4a5b880b4b4030891c7a"
-agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
-role = "builder"
-base = "136ccdf8b55c6d9957212d97f764802436e90544"
-branch = "claude/issue-844-skat-takes-webauth-0-45-0-its-store-adap"
-scope = ["pyproject.toml", "src/skat/host/main.py", "src/skat/store/accounts.py", "src/skat/store/sessions.py", "src/skat/store/sign_in.py", "tests/store/test_sign_in_stores.py", "uv.lock"]
-opened_commit = "be3acae3cbeeb5124d954b6903cab45655ec6dd3"
-whole_reason = "The pin and the adapters that raise its new error are one release step; the pin alone leaves an outage answering 500."
