@@ -2,7 +2,7 @@ import asyncio
 import threading
 from typing import TYPE_CHECKING
 
-from tandem import Hold, Roster
+from tandem import Hold, Roster, StoreError
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -41,8 +41,8 @@ class InMemoryLeases:
 
     The failures to come are listed in `reading_fails`, `starting_fails`, `ending_fails` and `serving_fails`; the
     last holds only what tandem lets out of `serve_lapses`, an exception that is no `StoreError`, since it rides out
-    an outage or a refusal;
-    `reading_hangs` never answers a read and `ending_gate` holds every ending until it is set. `read_threads` names
+    an outage or a refusal, and `serve_lapses` refuses a `StoreError` in it. `reading_hangs` never answers a read
+    and `ending_gate` holds every ending until it is set. `read_threads` names
     the thread of each read and `read_started` is set by the first.
     """
 
@@ -82,7 +82,11 @@ class InMemoryLeases:
         every: timedelta,
     ) -> None:
         if self.serving_fails:
-            raise self.serving_fails.pop(0)
+            failure = self.serving_fails.pop(0)
+            if isinstance(failure, StoreError):
+                message = "serve_lapses never lets a StoreError out"
+                raise AssertionError(message) from failure
+            raise failure
         while self.lapses:
             lapse = self.lapses.pop(0)
             try:
