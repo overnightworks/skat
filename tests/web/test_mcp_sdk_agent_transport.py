@@ -1,7 +1,7 @@
 import anyio
 import httpx2
 
-from tests.web.support.sdk_agent import InProcessApp
+from tests.web.support.member_client import InProcessApp
 
 
 def test_an_app_that_writes_after_the_client_closed_its_response_ends_without_error():
