@@ -255,7 +255,7 @@ class Presence:
         self._next_deal = next_deal
         self._empty_table = empty_table
         self._timer_runs = TimerRuns()
-        self._sweeps = self._sweeps_by_cadence(hold, next_deal, empty_table)
+        self._sweeps = self._sweeps_by_cadence()
         self.end_answer_watch = EndAnswerWatch(
             end_answers,
             hold.clock,
@@ -270,15 +270,13 @@ class Presence:
         self._writing: set[asyncio.Event] = set()
         self._reads: set[Future[Present]] = set()
 
-    def _sweeps_by_cadence(
-        self, hold: ChairHold, next_deal: NextDeal, empty_table: EmptyTable
-    ) -> dict[float, tuple[_Sweep, ...]]:
+    def _sweeps_by_cadence(self) -> dict[float, tuple[_Sweep, ...]]:
         return {
             PAUSE_SWEEP_EVERY_SECONDS: (
                 _Sweep(
                     PresenceTimer.PAUSE_SWEEP,
                     PresenceTimer.NEXT_DEAL,
-                    partial(_table_subjects, next_deal.due),
+                    partial(_table_subjects, self._next_deal.due),
                     self._deal_after_pause,
                     self.wake_table,
                 ),
@@ -287,14 +285,14 @@ class Presence:
                 _Sweep(
                     PresenceTimer.HOLD_SWEEP,
                     PresenceTimer.CHAIR_RELEASE,
-                    hold.due,
+                    self._hold.due,
                     self._free_chair,
                     self.wake_table,
                 ),
                 _Sweep(
                     PresenceTimer.EMPTY_SWEEP,
                     PresenceTimer.EMPTY_TABLE_END,
-                    partial(_table_subjects, empty_table.due),
+                    partial(_table_subjects, self._empty_table.due),
                     self._end_empty,
                     self.table_ended,
                 ),
