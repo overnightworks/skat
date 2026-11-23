@@ -7,9 +7,9 @@ from tests.support.fake_issuer import FakeIssuer
 from tests.support.idle_presence import idle_agent_lease, idle_end_answers, idle_presence, idle_wakes, note_nothing
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.web.support.agent import Agent
+from tests.web.support.member_client import MemberClient
 from tests.web.support.playing import EIGHT_CARDS, Table
 from tests.web.support.presence import Deals, Holds, Lapses, Wakes, chair_hold, on_a_worker
-from tests.web.support.sdk_agent import SdkAgent
 from tests.web.support.skat import AgentTable, FakeTime, Skat
 from tests.web.support.waiting_table import WaitingTable
 
@@ -163,7 +163,7 @@ def herz_hand(table):
 
 @pytest.fixture
 def sdk(skat, issuer):
-    return SdkAgent(skat, issuer)
+    return MemberClient(skat, issuer)
 
 
 @pytest.fixture
