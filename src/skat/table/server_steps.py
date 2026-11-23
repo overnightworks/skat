@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
 from skat.table.member_place import agents_seated_at, ended_by_owner_leaving
-from skat.table.member_view import moment_recipients, view_recipients
+from skat.table.member_view import view_recipients
 from skat.table.records import Ending, TableRecord
 from skat.table.rules import (
     PresenceStep,
@@ -63,9 +63,8 @@ def members_of(transaction: TableTransaction, table: TableRecord) -> frozenset[s
 
 class ServerSteps:
     """The server's own steps over the table's transactions; `live_leases` is read under a table's row lock and has no
-    side effect, `tell` names the agents that sat down or left in a commit, `tell_view` the table and the agents whose
-    view it changed and `tell_moments` the agents whose moment it changed, each after the commit and on the thread the
-    step ran on. `trace` is read on that thread when a step saves a table, for the traces the save enters in.
+    side effect, `tell` names the agents that sat down or left in a commit and `tell_view` the table and the agents whose
+    view it changed, each after the commit and on the thread the step ran on. `trace` is read on that thread when a step saves a table, for the traces the save enters in.
     """
 
     def __init__(
@@ -76,7 +75,6 @@ class ServerSteps:
         random_source: random.Random,
         tell: Callable[[frozenset[str]], None],
         tell_view: ViewSignal,
-        tell_moments: Callable[[frozenset[str]], None],
         trace: Callable[[], str | None],
     ) -> None:
         self._transactions = transactions
@@ -85,7 +83,6 @@ class ServerSteps:
         self._random_source = random_source
         self._tell = tell
         self._tell_view = tell_view
-        self._tell_moments = tell_moments
         self._trace = trace
 
     def note_leave(self, table_id: TableId, account_id: str, hold_seconds: float, *, newest_wins: bool) -> None:
@@ -156,7 +153,6 @@ class ServerSteps:
         if decision is None:
             self._tell(ended)
             return False
-        self._tell_moments(moment_recipients(table, decision.table))
         self._tell(ended | agents_seated_at(table) - agents_seated_at(decision.table))
         self._tell_view(table_id, view_recipients(table, decision.table))
         return True
@@ -178,7 +174,6 @@ class ServerSteps:
                 return False
             dealt = dealt_next(table, drawn_hand(table, self._random_source))
             save_traced(transaction, table, dealt, self._trace(), played_at=self._now())
-        self._tell_moments(moment_recipients(table, dealt))
         self._tell_view(table_id, view_recipients(table, dealt))
         return True
 
@@ -232,7 +227,6 @@ class ServerSteps:
                     return EndAnswerLapse(None if left is None else max(0.0, left.total_seconds()))
                 save_traced(transaction, table, decided, self._trace(), played_at=None)
         if stops:
-            self._tell_moments(members)
             self._tell(members)
             return EndAnswerLapse(None, table_stopped=True)
         self._tell_view(table_id, view_recipients(table, decided))
