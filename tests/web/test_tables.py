@@ -665,14 +665,17 @@ class TestAnEmptyTableEnds:
         server.client.portal.call(time.advance, hold.settings.empty_table_seconds)
         return headers, table_id, hold.settings.empty_table_seconds
 
-    def test_a_created_table_starts_one_wait_and_a_retry_neither_restarts_nor_adds_one(self, server, time):
+    def test_a_created_table_starts_its_wait_once_and_a_retry_does_not_restart_it(self, server, time):
         headers, _ = server.member()
 
         first = server.create(headers)
+        stamped = server.store.empty_since_by_table[first.json()["id"]]
+        server.client.portal.call(time.advance, 1)
         again = server.create(headers)
 
         assert again.json() == first.json()
-        assert time.pending == 1
+        assert stamped is not None
+        assert server.store.empty_since_by_table[first.json()["id"]] == stamped
         assert first.json()["ended"] is None
 
     def test_a_create_retry_read_while_the_table_ends_leaves_no_wait_behind(self, server):
