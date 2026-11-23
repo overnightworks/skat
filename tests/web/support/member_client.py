@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager, contextmanager, suppress
 
 import anyio
 import httpx2
-from agents.mcp_client import ResourceWake, ToolsWake, open_member_session
+from agents.mcp_client import ResourceWake, open_member_session
 from agents.mcp_wire import MCP_ENDPOINT_PATH
 from agents.member import PlaceRef
 from pydantic import SecretStr
@@ -135,8 +135,9 @@ class MemberCalls:
         return ToolAnswer(outcome.is_error, outcome.content)
 
     def view(self, table_id):
-        """The table's view as the app serves it: revision, awaits_you and state."""
+        """The table's view as the app serves it: revision, awaits_you, state and traceparent."""
         view = self._portal.call(self._session.read_view, PlaceRef(kind="table", id=table_id))
+        assert view is not None, f"the app shows this member no view of table {table_id}"
         return view.model_dump(mode="json")
 
     @contextmanager
@@ -172,7 +173,6 @@ class MemberEvents:
                     if isinstance(wake, ResourceWake):
                         return wake.uri
                     if self._tools_list_changed:
-                        assert isinstance(wake, ToolsWake)
                         return TOOLS_CHANGED
             raise AssertionError("the stream ended")
 
