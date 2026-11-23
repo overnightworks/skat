@@ -39,7 +39,9 @@ class InMemoryLeases:
     `serve_lapses` hands each of `lapses` to its handler, once more after a handler that raised, which it keeps in
     `handler_failures`, and sets `lapses_handed` when none is left.
 
-    The failures to come are listed in `reading_fails`, `starting_fails`, `ending_fails` and `serving_fails`;
+    The failures to come are listed in `reading_fails`, `starting_fails`, `ending_fails` and `serving_fails`; the
+    last holds only what tandem lets out of `serve_lapses`, an exception that is no `StoreError`, since it rides out
+    an outage or a refusal;
     `reading_hangs` never answers a read and `ending_gate` holds every ending until it is set. `read_threads` names
     the thread of each read and `read_started` is set by the first.
     """
