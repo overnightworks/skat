@@ -80,7 +80,6 @@ if TYPE_CHECKING:
 
     from skat.table.member_place import TableStanding
     from skat.table.member_view import MemberActs, MemberView, ViewSignal
-    from skat.table.moment import TableMoment
     from skat.table.records import TableId
     from skat.table.service import TableService
     from skat.web.presence import Presence, Scheduler
@@ -403,8 +402,8 @@ def standing_signal(changes: ResourceChanges, issuer: str) -> Callable[[frozense
 
 
 def tools_signal(changes: ResourceChanges, issuer: str) -> Callable[[frozenset[str]], None]:
-    """The signal `TableService` tells after a commit that changed the tools an agent is offered: it sat down, left or
-    moved its seat on to another moment.
+    """The signal `TableService` tells after a commit that changed the tools an agent is offered: it sat down or
+    left.
     """
 
     def tell(accounts: frozenset[str]) -> None:
@@ -450,18 +449,18 @@ class MemberFront:
     tools: tuple[PersonTool, ...]
     resources: MemberResources
     changes: ResourceChanges
-    moments_of: Callable[[Principal], Awaitable[frozenset[TableMoment]]]
+    seated: Callable[[Principal], Awaitable[bool]]
 
 
 def member_front(
     tables: TableService, presence: Presence, changes: ResourceChanges, scheduler: Scheduler, asks: AskClock
 ) -> MemberFront:
-    async def moments_of(principal: Principal) -> frozenset[TableMoment]:
-        return await run_in_threadpool(tables.moments_of, principal.sub)
+    async def seated(principal: Principal) -> bool:
+        return await run_in_threadpool(tables.holds_a_chair, principal.sub)
 
     return MemberFront(
         (accept_invitation_tool(tables, presence), set_turn_state_tool(tables, presence)),
         MemberStandings(tables, presence, asks, scheduler, changes),
         changes,
-        moments_of,
+        seated,
     )
