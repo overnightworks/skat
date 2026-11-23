@@ -270,7 +270,7 @@ class Presence:
         self._writing: set[asyncio.Event] = set()
         self._reads: set[Future[Present]] = set()
 
-    def _sweeps_by_cadence(self) -> dict[float, tuple[_Sweep, ...]]:
+    def _sweeps_by_cadence(self) -> dict[int, tuple[_Sweep, ...]]:
         return {
             PAUSE_SWEEP_EVERY_SECONDS: (
                 _Sweep(
