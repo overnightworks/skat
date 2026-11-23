@@ -1,8 +1,8 @@
 import asyncio
-import gc
 import os
 import socket
 import time
+import traceback
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import cache
@@ -248,6 +248,19 @@ def _run_within_deadline(engine: Engine) -> frozenset[str]:
         loop.close()
 
 
+def _release_cancelled_connect(deadline_error: TimeoutError) -> None:
+    """Closes the libpq connection that a connect cut off by the deadline leaves half made.
+
+    The connection hangs in the cancelled connect's frames, which the exception's traceback keeps in a reference
+    cycle that only the collector would break; clearing the frames drops the connection, and with it its socket, at
+    once. A refused connect leaves none.
+    """
+    error: BaseException | None = deadline_error
+    while error is not None:
+        traceback.clear_frames(error.__traceback__)
+        error = error.__cause__ or error.__context__
+
+
 def database_health(engine: Engine) -> DatabaseHealth:
     """Whether the database serves a query and lists this process's revision as served; it raises on neither and
     returns within the health deadline.
@@ -257,18 +270,13 @@ def database_health(engine: Engine) -> DatabaseHealth:
     ask, because a rollout moves the revisions served while Skat runs; the process's own revision is not, because it
     cannot change in the process.
     """
-    deadline_passed = False
     try:
         served = _run_within_deadline(engine)
     except psycopg.Error:
         served = None
-    except TimeoutError:
+    except TimeoutError as deadline_error:
         served = None
-        deadline_passed = True
-    if deadline_passed:
-        # A connect that the deadline cancelled leaves its libpq connection to the collector, which closes the socket
-        # once the exception that holds it has been handled; a refused connect leaves none.
-        gc.collect()
+        _release_cancelled_connect(deadline_error)
     if served is None:
         return DatabaseHealth(serves_queries=False, revision_served=False)
     return DatabaseHealth(serves_queries=True, revision_served=_head_revision() in served)
@@ -296,6 +304,11 @@ class ReadinessProbe:
         self._reusable_until: float | None = None
         self._started_at = 0.0
         self._running: asyncio.Task[bool] | None = None
+
+    @classmethod
+    def over(cls, engine: Engine) -> ReadinessProbe:
+        """The probe of the database `engine` points at, as the server and the end-to-end server serve it."""
+        return cls(lambda: database_health(engine))
 
     async def __call__(self) -> bool:
         if self._running is None:
