@@ -13,7 +13,7 @@ from logline import unit_trace
 
 from skat.web.end_answers import EndAnswers, EndAnswerWatch
 from skat.web.presence_line import PresenceTimer, TimerRuns
-from skat.web.presence_roster import PresenceUnknownError, Present, StreamLeases
+from skat.web.presence_roster import PresenceUnknownError, PresenceUnsettledError, Present, StreamLeases
 from skat.web.reaction_log import ReactionLog
 from skat.web.stream_holder import StreamHolder
 from skat.web.waits import AskClock
@@ -569,7 +569,9 @@ class Presence:
                 self._hold.scheduler.schedule(every, partial(self._sweep_every, every))
 
     async def _sweep(self, sweep: _Sweep) -> None:
-        """Decide each due subject; an unknown presence ends the sweep, since it is unknown for every subject."""
+        """Decide each due subject. A roster that cannot be read ends the sweep, since it is unknown for every subject;
+        an unsettled roster that cannot vouch for one table keeps that subject due and goes on with the next.
+        """
         run = self._timer_runs.start(sweep.sweep_timer)
         try:
             due = list(await sweep.due())
@@ -584,6 +586,8 @@ class Presence:
                 changed = await sweep.step(subject)
             except PresenceUnknownError as failure:
                 run.failed(failure)
+                if isinstance(failure, PresenceUnsettledError):
+                    continue
                 return
             except Exception as failure:
                 run.failed(failure)
@@ -706,9 +710,9 @@ class Presence:
     ) -> AbstractContextManager[bool | None]:
         """Enter on a worker once it holds the table and the hold: yields whether the account is gone, and None once
         stopped. The account is gone when, by the roster, it is not here (`_is_here`).
-        A roster that cannot be read, or that is unsettled and does not list the account, raises
-        `PresenceUnknownError`, which frees nothing. The exit runs on the worker after the commit, so `finish_writes`
-        outlives a cancelled event-loop task.
+        A roster that cannot be read raises `PresenceUnknownError`, and one that is unsettled and does not list
+        the account `PresenceUnsettledError`; either frees nothing. The exit runs on the worker after the commit, so
+        `finish_writes` outlives a cancelled event-loop task.
         """
 
         connected = self._connected_while_writing(table_id, loop, vouches=lambda listed: account_id in listed)
@@ -723,8 +727,9 @@ class Presence:
     ) -> AbstractContextManager[frozenset[str] | None]:
         """Enter on a worker once it holds the table: yields who is connected then, and None once stopped.
 
-        The roster is read before `_state` is taken. A roster that cannot be read raises `PresenceUnknownError`, and
-        so does an unsettled one whose listing at the table `vouches` does not accept: by default one listing nobody.
+        The roster is read before `_state` is taken. A roster that cannot be read raises `PresenceUnknownError`; an
+        unsettled one whose listing at the table `vouches` does not accept raises `PresenceUnsettledError`: by default
+        one listing nobody.
         The exit runs on the worker after the commit, so `finish_writes` outlives a cancelled event-loop task.
         """
 
@@ -733,7 +738,7 @@ class Presence:
             if present is None:
                 return None
             if not (present.settled or vouches(present.at(table_id))):
-                raise PresenceUnknownError
+                raise PresenceUnsettledError
             return present.at(table_id)
 
         return self._guarded_write(loop, connected_at_the_table)

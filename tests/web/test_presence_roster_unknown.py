@@ -11,7 +11,7 @@ from skat.web import presence as presence_module
 from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS, PAUSE_SWEEP_EVERY_SECONDS
 from skat.web.presence_line import PresenceTimer
 from tests.support.log_lines import logged
-from tests.web.support.presence import TABLE, connect, failed_timers, run, stop_during_a_hanging_read
+from tests.web.support.presence import OTHER_TABLE, TABLE, connect, failed_timers, run, stop_during_a_hanging_read
 
 UNREACHABLE = ConnectionError("redis is unreachable")
 
@@ -86,6 +86,20 @@ class TestTheNextDeal:
         run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
 
         assert (deals.calls, deals.due_now) == ([(TABLE, {"anna", "ben"})], [])
+
+    def test_a_due_pause_the_unsettled_roster_cannot_vouch_for_does_not_hold_back_a_later_due_table(
+        self, holding, elsewhere, leases, time, deals
+    ):
+        deals.seated_at = {TABLE: frozenset({"anna", "ben"}), OTHER_TABLE: frozenset({"cem"})}
+        deals.due_now = [TABLE, OTHER_TABLE]
+        holding.start_sweeps()
+        connect(elsewhere, TABLE, "anna", lambda: None)
+        connect(elsewhere, OTHER_TABLE, "cem", lambda: None)
+        leases.settled = False
+
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+
+        assert (deals.calls, deals.due_now) == ([(OTHER_TABLE, {"cem"})], [TABLE])
 
     def test_a_due_pause_is_dropped_without_a_deal_once_the_roster_settles_without_someone_seated(
         self, holding, elsewhere, leases, time, deals, wakes

@@ -14,7 +14,13 @@ if TYPE_CHECKING:
 
 
 class PresenceUnknownError(Exception):
-    """Who is present could not be read, or cannot yet vouch for an absence: nothing is freed, ended or noted on it."""
+    """Who is present could not be read: nothing is freed, ended or noted on it, for any table."""
+
+
+class PresenceUnsettledError(PresenceUnknownError):
+    """The roster was read but is unsettled and cannot yet vouch for one table: nothing is freed, ended or noted
+    there, and the other tables are unaffected.
+    """
 
 
 class StreamLeases(Protocol):  # pragma: no cover - a port's method bodies are signatures; tandem's `Leases` runs
