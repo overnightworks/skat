@@ -1,0 +1,7 @@
+claim_id = "8bdee316a2664ace82e6a44147e50da2"
+agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
+role = "builder"
+base = "2fab02457a80b8497b8eb59d91a131ba5cf2d89b"
+branch = "dependabot/npm_and_yarn/frontend/eslint-10.15.0"
+scope = ["frontend/package.json", "frontend/pnpm-lock.yaml"]
+opened_commit = "93e150ee9b31b0871965911e48b2fe829db36d87"
