@@ -16,6 +16,7 @@ from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.records import Ending, EndReason
 from skat.table.rules import NEXT_DEAL_PAUSE_SECONDS, dealt_next, drawn_hand
 from skat.table.service import TableService
+from tests.support.deadlines import seconds_until_due
 from tests.support.ended_tables import POSTGRES_EMPTY_SECONDS, lapse_the_empty_wait
 from tests.support.seated_tables import ENDED_AT, NOBODY_CONNECTED, SEATED, ended_at, seated_table, undealt_table
 from tests.support.stored_game import next_deals as stored_next_deals
@@ -58,12 +59,7 @@ def pause_rows(engine):
 
 
 def seconds_until_the_pause_is_over(engine, table_id):
-    with engine.connect() as connection:
-        return connection.execute(
-            select(func.extract("epoch", next_deals.c.due_at - func.now())).where(
-                next_deals.c.table_id == table_id.value
-            )
-        ).scalar_one()
+    return seconds_until_due(engine, next_deals.c.due_at, next_deals.c.table_id == table_id.value)
 
 
 def version_of(stored, transactions, table_id):
