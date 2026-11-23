@@ -95,7 +95,7 @@ jobs:
           COVERAGE_FILE: .coverage.unit
           SKAT_TEST_POSTGRES_URL: postgresql+psycopg://postgres@localhost:5432/postgres
           SKAT_TEST_REDIS_URL: redis://localhost:6379/0
-        run: pytest -q -n auto -m "not e2e"
+        run: pytest -n auto -m "not e2e"
 
       - name: Upload the unit coverage data
         if: ${{ !cancelled() }}
@@ -434,7 +434,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    uses: overnightworks/quality/.github/workflows/gate.yml@7d1fccfcbfa984ab086ba059237ef3b263b0df09 # v0.23.1
+    uses: overnightworks/quality/.github/workflows/gate.yml@95ceb40c3c9b547c41ef2080df446bfa61bf42f0 # v0.25.0
     with:
       coverage-artifact: coverage
     secrets:
