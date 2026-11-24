@@ -1,5 +1,5 @@
 claim_id = "caa4661e8d6945618cbcf48d48577368"
-agent = "Claude 297f0118-ebfb-4a8c-a4c9-13474e1bdc54"
+agent = "Claude 975346cf-7ba3-4557-912c-b7da269cf78c"
 role = "builder"
 base = "4ec0eb9b6aaa08f663580b2b90bf1dc002b67f1c"
 branch = "claude/issue-843-skat-pins-quality-v0-25-0"
