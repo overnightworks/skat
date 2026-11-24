@@ -1,7 +1,0 @@
-claim_id = "ee56b00f7b4b4f909567c25d7cc6a758"
-agent = "Claude 975346cf-7ba3-4557-912c-b7da269cf78c"
-role = "builder"
-base = "c85f30998b2243f848c6dfc56895e67b0194e539"
-branch = "claude/issue-762-a-framed-chair-s-mark-row-fits-many-mark"
-scope = ["frontend/src/lib/start.css", "tests/e2e/test_call_mode_table.py"]
-opened_commit = "cf38ce92c5d0ed8bacb633062e41283d661f80f0"
