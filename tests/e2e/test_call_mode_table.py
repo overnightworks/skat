@@ -6,6 +6,7 @@ from playwright.sync_api import expect
 
 from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import CARDS_IN_A_GAME
+from skat.table.asking import ASK_AGAIN_AFTER
 from skat.web.call import CALL_ORIGIN_PATH
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.tables import TABLE_PAGE_PREFIX
@@ -26,7 +27,7 @@ from tests.e2e.support.call_frame import (
 )
 from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, passes
 from tests.e2e.support.hands import deal_playing_table
-from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
+from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.table_menu import AGENTS, MENU, MENU_KEY, menu_button
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of
 
@@ -57,6 +58,7 @@ TONE = text(SOURCE_LANGUAGE, "sound.tone")
 SPEAKER = ".actions .sound-button"
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 CARDS_IN_A_TRICK = 3
+MILLISECONDS_PER_SECOND = 1000
 
 
 @pytest.fixture(scope="module")
@@ -451,4 +453,58 @@ def test_a_framed_chair_keeps_its_marks_out_of_the_tiles_top_left_quarter_and_it
     assert unframed["positionedMarks"] > 0
     assert (unframed["barPillsShown"] > 0) == (form_factor is DESKTOP)
     assert unframed["rimsInsideTile"] > 0
+    assert page_errors == []
+
+
+# Every mark of a chair against its tile: how far it lies beyond the tile's edges and how many square pixels of it lie
+# in the tile's top-left quarter.
+_MARKS_AGAINST_THE_TILE_PROBE = """chair => {
+    const tile = chair.querySelector(".tile").getBoundingClientRect();
+    return [...chair.querySelectorAll(".mark:not(.pos)")].map(mark => {
+        const box = mark.getBoundingClientRect();
+        return {
+            name: mark.className,
+            outside: Math.max(
+                tile.left - box.left, box.right - tile.right, tile.top - box.top, box.bottom - tile.bottom, 0),
+            inQuarter: Math.max(0, Math.min(box.right, tile.left + tile.width / 2) - Math.max(box.left, tile.left))
+                * Math.max(0, Math.min(box.bottom, tile.top + tile.height / 2) - Math.max(box.top, tile.top)),
+        };
+    });
+}"""
+
+
+@pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
+@pytest.mark.parametrize("form_factor", [SMALL_PHONE, PHONE], ids=["360", "390"])
+@pytest.mark.parametrize("fourth_mark", ["bell", "away"])
+def test_a_framed_chair_with_the_most_marks_a_chair_carries_keeps_them_inside_its_tile_and_out_of_the_top_left_quarter(
+    open_person: Callable[..., Page],
+    member_of: Callable[[Page], SeededMember],
+    browser_coverage: BrowserCoverage,
+    framing_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    fourth_mark: str,
+) -> None:
+    """The declaring dealer is on turn, so its chair carries the dealer, declarer and turn marks and one more: the bell
+    the others may ring or, once its person left, the away mark; a chair that is away is not nudged, so never both."""
+    table = RearhandDeclaresTable(
+        open_person, framing_server, member_of, page_errors, {**form_factor, "server": framing_server}, console=False
+    )
+    watcher = table.others[0]
+    if fourth_mark == "bell":
+        watcher.clock.install()
+    else:
+        table.declarer.close()
+    path = f"{TABLE_PAGE_PREFIX}{table.table_id}"
+
+    with in_the_call_frame(watcher, browser_coverage, table_url(framing_server, path), filling_the_screen=True) as call:
+        chair = call.locator(f"{CHAIR}[data-seat='{table.declarer_seat}']")
+        if fourth_mark == "bell":
+            expect(chair.locator(".mark.turn")).to_be_visible()
+            watcher.clock.fast_forward(int(ASK_AGAIN_AFTER * MILLISECONDS_PER_SECOND))
+        expect(chair.locator(f".mark.{fourth_mark}")).to_be_visible()
+        marks = chair.evaluate(_MARKS_AGAINST_THE_TILE_PROBE)
+
+    assert len(marks) == 4
+    assert [mark for mark in marks if mark["outside"] > 0 or mark["inQuarter"] > 0] == []
     assert page_errors == []
