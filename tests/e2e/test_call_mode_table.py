@@ -17,6 +17,7 @@ from tests.e2e.support.call_frame import (
     CALL_ORIGIN,
     CHAIR,
     FRAME,
+    QUARTER_OVERLAP_JS,
     THREE_CHAIRS,
     chair_look,
     new_table,
@@ -58,7 +59,6 @@ TONE = text(SOURCE_LANGUAGE, "sound.tone")
 SPEAKER = ".actions .sound-button"
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 CARDS_IN_A_TRICK = 3
-MILLISECONDS_PER_SECOND = 1000
 
 
 @pytest.fixture(scope="module")
@@ -456,21 +456,28 @@ def test_a_framed_chair_keeps_its_marks_out_of_the_tiles_top_left_quarter_and_it
     assert page_errors == []
 
 
-# Every mark of a chair against its tile: how far it lies beyond the tile's edges and how many square pixels of it lie
-# in the tile's top-left quarter.
+# Every mark of a chair against its tile: how far it lies beyond the tile's edges, how many square pixels of it lie
+# in the tile's top-left quarter, and how far its waiting dots reach beyond the mark itself.
 _MARKS_AGAINST_THE_TILE_PROBE = """chair => {
+    const quarterOverlap = QUARTER_OVERLAP;
     const tile = chair.querySelector(".tile").getBoundingClientRect();
     return [...chair.querySelectorAll(".mark:not(.pos)")].map(mark => {
         const box = mark.getBoundingClientRect();
+        const dots = [...mark.querySelectorAll(".dots i")]
+            .filter(dot => getComputedStyle(dot.parentElement).display !== "none");
         return {
             name: mark.className,
             outside: Math.max(
                 tile.left - box.left, box.right - tile.right, tile.top - box.top, box.bottom - tile.bottom, 0),
-            inQuarter: Math.max(0, Math.min(box.right, tile.left + tile.width / 2) - Math.max(box.left, tile.left))
-                * Math.max(0, Math.min(box.bottom, tile.top + tile.height / 2) - Math.max(box.top, tile.top)),
+            inQuarter: quarterOverlap(box, tile),
+            dotsShown: dots.length,
+            dotsOutside: Math.max(0, ...dots.map(dot => {
+                const at = dot.getBoundingClientRect();
+                return Math.max(box.left - at.left, at.right - box.right, box.top - at.top, at.bottom - box.bottom);
+            })),
         };
     });
-}"""
+}""".replace("QUARTER_OVERLAP", QUARTER_OVERLAP_JS)
 
 
 @pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
@@ -501,10 +508,47 @@ def test_a_framed_chair_with_the_most_marks_a_chair_carries_keeps_them_inside_it
         chair = call.locator(f"{CHAIR}[data-seat='{table.declarer_seat}']")
         if fourth_mark == "bell":
             expect(chair.locator(".mark.turn")).to_be_visible()
-            watcher.clock.fast_forward(int(ASK_AGAIN_AFTER * MILLISECONDS_PER_SECOND))
+            watcher.clock.fast_forward("{:02d}:{:02d}".format(*divmod(int(ASK_AGAIN_AFTER), 60)))
         expect(chair.locator(f".mark.{fourth_mark}")).to_be_visible()
         marks = chair.evaluate(_MARKS_AGAINST_THE_TILE_PROBE)
 
     assert len(marks) == 4
     assert [mark for mark in marks if mark["outside"] > 0 or mark["inQuarter"] > 0] == []
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", [SMALL_PHONE, PHONE], ids=["360", "390"])
+def test_a_framed_chair_with_three_marks_on_the_result_keeps_its_not_ready_mark_as_dots_inside_the_mark(
+    open_person: Callable[..., Page],
+    member_of: Callable[[Page], SeededMember],
+    browser_coverage: BrowserCoverage,
+    framing_server: RunningServer,
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+) -> None:
+    """On the result screen a declarer who left and has not pressed Weiter carries declarer, not-ready and away."""
+    table = deal_playing_table(
+        open_person,
+        framing_server,
+        member_of,
+        page_errors,
+        {**form_factor, "server": framing_server},
+        console=False,
+    )
+    table.play_out(CARDS_IN_A_GAME)
+    table.pages[table.declarer_seat].close()
+    seated = table.pages[next(seat for seat in table.pages if seat != table.declarer_seat)]
+    path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
+
+    with in_the_call_frame(seated, browser_coverage, table_url(framing_server, path), filling_the_screen=True) as call:
+        chair = call.locator(f"{CHAIR}[data-seat='{table.declarer_seat}']")
+        expect(chair.locator(".mark.away")).to_be_visible()
+        expect(chair.locator(".mark.waits")).to_be_visible()
+        marks = chair.evaluate(_MARKS_AGAINST_THE_TILE_PROBE)
+
+    assert len(marks) == 3
+    assert [mark for mark in marks if mark["outside"] > 0 or mark["inQuarter"] > 0] == []
+    not_ready = next(mark for mark in marks if "waits" in mark["name"])
+    assert not_ready["dotsShown"] == 3
+    assert not_ready["dotsOutside"] == 0
     assert page_errors == []
