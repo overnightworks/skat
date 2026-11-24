@@ -1,7 +1,0 @@
-claim_id = "28a36dc6328b40bd95eec26ef74063a6"
-agent = "Claude 975346cf-7ba3-4557-912c-b7da269cf78c"
-role = "builder"
-base = "a0935a35d6f0abe917a444d381474d3ceb613fe7"
-branch = "dependabot/uv/sqlalchemy-2.1.9"
-scope = ["uv.lock"]
-opened_commit = "d2af6f07cb286e0ec7809a2c45ba867b940eb002"
