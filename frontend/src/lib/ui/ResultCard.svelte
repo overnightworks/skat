@@ -167,15 +167,17 @@
             {@const counting = counts && row.gain > 0}
             <div class="reck" class:win={row.won} data-seat={row.seat}>
                 <span class="dot" aria-hidden="true">{row.initial}</span>
-                <span class="nm"
-                    >{row.name}{#if row.gone}<em>{words["table.seriesGone"]}</em>{/if}</span
-                >
+                <span class="nm">
+                    {row.name}{#if row.gone}<em>{words["table.seriesGone"]}</em>{/if}
+                </span>
                 <span
                     class="dl"
                     class:minus={row.gain <= 0}
                     class:count={counting}
-                    {@attach counting ? countTo(row.gain) : undefined}>{row.gainText}</span
+                    {@attach counting ? countTo(row.gain) : undefined}
                 >
+                    {row.gainText}
+                </span>
             </div>
         {/each}
     </div>

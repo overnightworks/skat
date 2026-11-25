@@ -33,9 +33,9 @@
         {#if knocked}<span class="knock-ring" {@attach flyBetween(origin, landing)}></span>{/if}
         <span class={["emote", { knocked }]} {@attach flyBetween(origin, landing)}>
             <span>{emoteGlyph(thrown.reaction)}</span>
-            {#if thrown.by_name !== null}<span class={["from", `seat-${String(thrown.by_seat)}`]}
-                    >{thrown.by_name.slice(0, 1)}</span
-                >{/if}
+            {#if thrown.by_name !== null}<span class={["from", `seat-${String(thrown.by_seat)}`]}>
+                    {thrown.by_name.slice(0, 1)}
+                </span>{/if}
         </span>
     {/each}
 </div>
