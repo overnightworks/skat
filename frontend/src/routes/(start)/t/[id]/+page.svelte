@@ -690,14 +690,15 @@
                             />
                         {/if}
                         <TrickPile seat={chair.seat} playing={trick} />
-                        <span class="plate"
-                            >{chair.is_mine
+                        <span class="plate">
+                            {chair.is_mine
                                 ? words["table.sideYou"]
                                 : (chair.occupant_name ??
                                   words["table.seatFree"])}{#if chair.occupant_kind === "agent"}<AiMark
-                                />{/if}{#if chair.is_away}<small class="away-note">{words["table.seatAway"]}</small
-                                >{/if}</span
-                        >
+                                />{/if}{#if chair.is_away}<small class="away-note">
+                                    {words["table.seatAway"]}
+                                </small>{/if}
+                        </span>
                         {#if chair.total !== null}
                             <button
                                 type="button"

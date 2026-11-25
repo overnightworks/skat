@@ -15,18 +15,18 @@
 
 <div class="points" role="group" aria-label={words["result.trickPoints"]}>
     <span class="sides">
-        <span class="declarer"
-            ><Marked
+        <span class="declarer">
+            <Marked
                 parts={words["result.sidePoints"]({ side: sides.declarer, points: String(points.declarer) })}
                 marked={{ side, tally }}
-            /></span
-        >
-        <span class="opponents"
-            ><Marked
+            />
+        </span>
+        <span class="opponents">
+            <Marked
                 parts={words["result.sidePoints"]({ side: sides.opponents, points: String(points.opponents) })}
                 marked={{ side, tally }}
-            /></span
-        >
+            />
+        </span>
     </span>
     <span class="track">
         <svg viewBox={`0 0 ${String(ALL_POINTS)} 1`} preserveAspectRatio="none" aria-hidden="true">

@@ -153,8 +153,10 @@
                                             stroke-width="2.8"
                                             stroke-linecap="round"
                                             stroke-linejoin="round"
-                                            aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg
+                                            aria-hidden="true"
                                         >
+                                            <path d="M5 12.5l4.5 4.5L19 7.5" />
+                                        </svg>
                                     {/if}
                                     {option.name}
                                 </span>
@@ -177,7 +179,9 @@
         stroke-width="2.2"
         stroke-linecap="round"
         stroke-linejoin="round"
-        aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg
+        aria-hidden="true"
     >
+        <path d="M6 9l6 6 6-6" />
+    </svg>
     {words["sound.more"]}
 </div>
