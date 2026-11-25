@@ -33,7 +33,7 @@
         "monocart-coverage-reports": "^3.2.1",
         "overnightworks-design": "https://github.com/overnightworks/design/releases/download/v0.37.0/overnightworks-design-0.37.0.tgz",
         "prettier": "^3.10.1",
-        "prettier-plugin-svelte": "^4.1.1",
+        "prettier-plugin-svelte": "^4.2.0",
         "svelte": "^5.57.2",
         "svelte-check": "^4.7.7",
         "typescript": "^6.0.0",
