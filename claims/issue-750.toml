@@ -1,8 +1,0 @@
-claim_id = "711c40faadec4fa5b82fdd90732b7a02"
-agent = "Claude 43d1cd12-aa0a-4670-990a-06dae441c599"
-role = "builder"
-base = "042294237d6198867935bb4210002e44e6b1b8f5"
-branch = "claude/issue-750-the-menu-key-ends-the-table-top-row"
-scope = ["frontend/src/lib/start.css", "frontend/src/lib/ui/SeriesCount.svelte", "frontend/src/lib/ui/TableBar.svelte", "frontend/src/lib/ui/TableRules.svelte"]
-opened_commit = "651ab10c158c650e8e2ed6940f7b0fc399882851"
-whole_reason = "The top row's order lives in the bar, its count, its rule chips and the page stylesheet's phone block together; half of it leaves the menu key off the row's end."
