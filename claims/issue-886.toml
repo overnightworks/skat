@@ -1,0 +1,8 @@
+claim_id = "c34f89e5fc43472c9c775b8061996336"
+agent = "Claude 43d1cd12-aa0a-4670-990a-06dae441c599"
+role = "builder"
+base = "65791551972a3a177da8944cb447cf8dd17bb6c5"
+branch = "claude/issue-886-the-table-stream-s-answer-types-are-gene"
+scope = ["AGENTS.md", "docs/ARCHITECTURE.md", "frontend/src", "quality/config.toml", "scripts/generate_wire.py", "tests/scripts/test_generate_wire.py"]
+opened_commit = "b68c8f64a4c127d5c31d99115442f95aba351432"
+whole_reason = "The generator, its output and the page modules that re-export the generated types change together; half of it leaves a type with two owners or a stale wire.ts."
