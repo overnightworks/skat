@@ -4,7 +4,7 @@ import { handWaits } from "#lib/openChair.ts";
 import { tableOfWire, type WireTable } from "#lib/wireTable.ts";
 import {
     type AUCTION_ACTION_TOKENS,
-    CARD_STATE_TOKENS,
+    type CARD_STATE_TOKENS,
     type CardAnswer,
     type ChairAnswer,
     type GameSheetAnswer,
