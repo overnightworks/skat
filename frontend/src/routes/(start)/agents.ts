@@ -8,7 +8,7 @@ import {
     type AgentControlAnswer,
     type CallRefusalAnswer,
 } from "#lib/wire.ts";
-import { CONFLICT_STATUS, fetchOrNull, fetchSigningInAgain, NOT_FOUND_STATUS } from "./tables.ts";
+import { CONFLICT_STATUS, fetchOrNull, fetchSigningInAgain, isRefusal, NOT_FOUND_STATUS } from "./tables.ts";
 
 // The control that calls agents and one of its rows, as the server sends them; the kit's rows take the same shape.
 export type AgentsControl = AgentControlAnswer;
@@ -16,7 +16,6 @@ export type AgentRow = AgentsControl["rows"][number];
 type AgentsAnswer = { kind: "control"; control: AgentsControl } | { kind: "missing" } | { kind: "failed" };
 type CallAnswer = AgentsAnswer | { kind: "refused"; reason: CallRefusalAnswer["reason"] };
 
-const REFUSAL_REASONS: ReadonlySet<unknown> = new Set(CALL_REFUSAL_TOKENS);
 // The next read of an `inviting` row is at least this long after the last, so a clock that runs ahead asks once more
 // and never in a tight loop; a read that failed is asked again after the retry wait while a row is `inviting`.
 const MINIMUM_REREAD_SECONDS = 1;
@@ -47,16 +46,14 @@ export async function readAgents(id: string): Promise<AgentsAnswer> {
     return answerOfAgents(await fetchOrNull(agentsPath(id)));
 }
 
-function isCallRefusal(body: unknown): body is CallRefusalAnswer {
-    return typeof body === "object" && body !== null && "reason" in body && REFUSAL_REASONS.has(body.reason);
-}
-
 async function actOnAgent(id: string, key: string, suffix: string, init: RequestInit): Promise<CallAnswer> {
     const answer = await fetchSigningInAgain(`${agentsPath(id)}/${encodeURIComponent(key)}${suffix}`, init);
     if (answer?.status !== CONFLICT_STATUS) return answerOfAgents(answer);
     try {
         const body: unknown = await answer.json();
-        return isCallRefusal(body) ? { kind: "refused", reason: body.reason } : { kind: "failed" };
+        return isRefusal<CallRefusalAnswer>(body, CALL_REFUSAL_TOKENS)
+            ? { kind: "refused", reason: body.reason }
+            : { kind: "failed" };
     } catch {
         return { kind: "failed" };
     }
