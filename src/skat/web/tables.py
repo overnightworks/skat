@@ -8,10 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 from webauth.middleware import admitted_user
 
-from skat.engine.bidding import Awaiting
-from skat.engine.cards import Card, Rank, Suit
-from skat.engine.deal import Position
-from skat.engine.declaration import Stage
+from skat.engine.cards import Card
 from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.nudging import NudgeRefusal  # noqa: TC001 - pydantic reads the field type at runtime
@@ -35,6 +32,18 @@ from skat.web.result_answer import RamschResultAnswer, ResultAnswer, result_answ
 from skat.web.routes import READ_METHODS, built_page_response
 from skat.web.series_answer import SeriesAnswer, StandingAnswer, series_answer_of, standing_answer_of
 from skat.web.table_options import OptionsAnswer, options_answer_of
+from skat.web.table_tokens import (
+    AWAITING_TOKENS,
+    POSITION_TOKENS,
+    RANK_TOKENS,
+    STAGE_TOKENS,
+    SUIT_TOKENS,
+    AwaitingToken,
+    PositionToken,
+    RankToken,
+    StageToken,
+    SuitToken,
+)
 from skat.web.turn_state_answer import TurnStateAnswer, turn_state_answer_of
 
 if TYPE_CHECKING:
@@ -104,76 +113,6 @@ class TableReadRefusal(StrEnum):
     NO_TABLE = "no-table"
 
 
-class SuitToken(StrEnum):
-    KREUZ = "kreuz"
-    PIK = "pik"
-    HERZ = "herz"
-    KARO = "karo"
-
-
-class RankToken(StrEnum):
-    SEVEN = "seven"
-    EIGHT = "eight"
-    NINE = "nine"
-    TEN = "ten"
-    JACK = "jack"
-    QUEEN = "queen"
-    KING = "king"
-    ACE = "ace"
-
-
-class PositionToken(StrEnum):
-    FOREHAND = "forehand"
-    MIDDLEHAND = "middlehand"
-    REARHAND = "rearhand"
-
-
-class AwaitingToken(StrEnum):
-    BID = "bid"
-    ANSWER = "answer"
-    PLAY = "play"
-
-
-class StageToken(StrEnum):
-    CHOOSING = "choosing"
-    DISCARDING = "discarding"
-    PICKED = "picked"
-    DECLARED = "declared"
-
-
-# The engine orders cards by number; the wire names them by word, so that order is no public contract.
-SUIT_TOKENS: Final = {
-    Suit.KREUZ: SuitToken.KREUZ,
-    Suit.PIK: SuitToken.PIK,
-    Suit.HERZ: SuitToken.HERZ,
-    Suit.KARO: SuitToken.KARO,
-}
-RANK_TOKENS: Final = {
-    Rank.SEVEN: RankToken.SEVEN,
-    Rank.EIGHT: RankToken.EIGHT,
-    Rank.NINE: RankToken.NINE,
-    Rank.TEN: RankToken.TEN,
-    Rank.JACK: RankToken.JACK,
-    Rank.QUEEN: RankToken.QUEEN,
-    Rank.KING: RankToken.KING,
-    Rank.ACE: RankToken.ACE,
-}
-POSITION_TOKENS: Final = {
-    Position.FOREHAND: PositionToken.FOREHAND,
-    Position.MIDDLEHAND: PositionToken.MIDDLEHAND,
-    Position.REARHAND: PositionToken.REARHAND,
-}
-AWAITING_TOKENS: Final = {
-    Awaiting.BID: AwaitingToken.BID,
-    Awaiting.ANSWER: AwaitingToken.ANSWER,
-    Awaiting.PLAY: AwaitingToken.PLAY,
-}
-STAGE_TOKENS: Final = {
-    Stage.CHOOSING: StageToken.CHOOSING,
-    Stage.DISCARDING: StageToken.DISCARDING,
-    Stage.PICKED: StageToken.PICKED,
-    Stage.DECLARED: StageToken.DECLARED,
-}
 ANNOUNCEMENTS_OF_TOKEN: Final = {token: announcement for announcement, token in ANNOUNCEMENT_TOKENS.items()}
 
 

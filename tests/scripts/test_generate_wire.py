@@ -64,14 +64,16 @@ from skat.web.playing import (
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.rule_sets import RULE_SETS_PATH
 from skat.web.table_options import options_answer_of
-from skat.web.tables import (
-    TABLE_PAGE_PREFIX,
-    TABLES_PATH,
+from skat.web.table_tokens import (
     AwaitingToken,
     PositionToken,
     RankToken,
     StageToken,
     SuitToken,
+)
+from skat.web.tables import (
+    TABLE_PAGE_PREFIX,
+    TABLES_PATH,
 )
 
 if TYPE_CHECKING:

@@ -70,7 +70,8 @@ from skat.table.member_place import Acceptance, MembershipState
 from skat.table.nudging import own_nudges
 from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS
 from skat.web.mcp import token_carries_agent_facts
-from skat.web.tables import RANK_TOKENS, SUIT_TOKENS, actor_for, answer_of
+from skat.web.table_tokens import RANK_TOKENS, SUIT_TOKENS
+from skat.web.tables import actor_for, answer_of
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Collection, Coroutine, Iterable

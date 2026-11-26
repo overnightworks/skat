@@ -101,18 +101,20 @@ from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX, TABLE_SERIES_END_
 from skat.web.stopping import TABLE_STOP_PLAYING_SUFFIX  # noqa: E402
 from skat.web.style import TABLE_STYLE_SUFFIX  # noqa: E402
 from skat.web.table_options import options_answer_of  # noqa: E402
+from skat.web.table_tokens import (  # noqa: E402
+    AwaitingToken,
+    PositionToken,
+    RankToken,
+    StageToken,
+    SuitToken,
+)
 from skat.web.tables import (  # noqa: E402
     TABLE_EVENTS_SUFFIX,
     TABLE_PAGE_PREFIX,
     TABLE_SIT_SUFFIX,
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
-    AwaitingToken,
     PlanKind,
-    PositionToken,
-    RankToken,
-    StageToken,
-    SuitToken,
     TableAnswer,
 )
 from skat.web.turn_state_answer import StopOutcome  # noqa: E402
