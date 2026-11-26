@@ -1,0 +1,8 @@
+claim_id = "f3db1fbd54f54fe9b3426d86a3eb28b3"
+agent = "Claude 43d1cd12-aa0a-4670-990a-06dae441c599"
+role = "builder"
+base = "64a6083dd11b79366a6709ea79a729db7aa466d7"
+branch = "claude/issue-897-the-server-builds-only-legal-agent-rows"
+scope = ["frontend/src", "scripts/generate_wire.py", "src/skat/web/calling.py", "tests/scripts/test_generate_wire.py"]
+opened_commit = "45e8cb54f97e3a748127aed03b17c5fa8d658043"
+whole_reason = "The server's row union, the generator's roots and the page's re-export change together; half of it leaves AgentRow with two owners or a stale wire.ts."
