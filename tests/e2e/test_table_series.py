@@ -25,7 +25,7 @@ from tests.e2e.support.passed_in_series import (
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
 from tests.e2e.support.result_card import MINUS, waiting_for
-from tests.e2e.support.table_menu import close_table_menu, menu_button, open_table_menu
+from tests.e2e.support.table_menu import MENU_KEY, close_table_menu, menu_button, open_table_menu
 from tests.e2e.support.tables import NEW_SERIES
 
 if TYPE_CHECKING:
@@ -43,6 +43,7 @@ SHORT_ROOM = 160
 # A room that holds the head of an opened game and leaves its tricks less height than they need.
 SHEET_ROOM = 480
 GAME_LIST = ".game-list"
+RULE_CHIP = ".rules-slot .rulepill"
 ROWS = f"{GAME_LIST} .grow"
 SHEET = f"{GAME_LIST} .game-sheet"
 TRICKS = f"{SHEET} .tricks"
@@ -73,6 +74,8 @@ YES = text(SOURCE_LANGUAGE, "table.yes")
 NO = text(SOURCE_LANGUAGE, "table.no")
 YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 GONE = text(SOURCE_LANGUAGE, "table.seriesGone")
+# The menu key stands within this distance of the viewport's right edge.
+MENU_KEY_EDGE = 40
 # A point of the room outside the centred panel, where a tap lands on the backdrop of the list.
 BESIDE_THE_PANEL = (4, 4)
 
@@ -216,6 +219,30 @@ def test_the_list_of_the_first_game_says_nothing_is_finished(
     expect(first.locator(f"{GAME_LIST} .empty")).to_have_text(text(SOURCE_LANGUAGE, "table.seriesListEmpty"))
     first.keyboard.press("Escape")
     expect(first.locator(GAME_LIST)).not_to_be_visible()
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("form_factor", WIDTHS)
+@pytest.mark.parametrize("dealt", [True, False], ids=["with-count", "without-count"])
+def test_the_menu_key_ends_the_top_row_with_a_rule_chip(
+    open_person: Callable[..., Page],
+    e2e_server: RunningServer,
+    member_of: Callable[[Page], SeededMember],
+    page_errors: list[str],
+    form_factor: dict[str, Any],
+    dealt: bool,
+) -> None:
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor, dealt=dealt)
+    person = table.pages[1]
+    expect(person.locator(COUNT)).to_have_count(1 if dealt else 0)
+    expect(person.locator(RULE_CHIP)).not_to_have_count(0)
+    menu = person.locator(MENU_KEY).bounding_box()
+    assert menu is not None
+    assert menu["x"] + menu["width"] > form_factor["viewport"]["width"] - MENU_KEY_EDGE
+    for behind in (COUNT, RULE_CHIP):
+        for box in (each.bounding_box() for each in person.locator(behind).all()):
+            assert box is not None
+            assert box["y"] >= menu["y"] + menu["height"] or box["x"] + box["width"] <= menu["x"]
     assert page_errors == []
 
 
