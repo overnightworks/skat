@@ -499,6 +499,14 @@ export type OptionsAnswer = {
     ramsch: RamschOptionsAnswer | null;
     give_up: GiveUpOptionsAnswer;
 };
+export type PersonKeyAnswer = {
+    seat: number;
+    key: string;
+};
+export type PersonKeysAnswer = {
+    version: number;
+    keys: PersonKeyAnswer[];
+};
 export type PlayingAnswer = {
     turn_seat: number;
     current_trick: SeatedCardAnswer[];
