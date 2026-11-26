@@ -1,0 +1,8 @@
+claim_id = "85fe5cca7a0b45c1b642f4d57799ec99"
+agent = "Claude 43d1cd12-aa0a-4670-990a-06dae441c599"
+role = "builder"
+base = "65791551972a3a177da8944cb447cf8dd17bb6c5"
+branch = "claude/issue-852-skat-takes-design-v0-42-0-and-its-ask-to"
+scope = ["frontend/package.json", "frontend/pnpm-lock.yaml", "pyproject.toml", "uv.lock"]
+opened_commit = "ce5c87d594405f2f8589272c0d187fd8f6f8ce79"
+whole_reason = "The pin stands in four files and moves together."
