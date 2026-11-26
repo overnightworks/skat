@@ -1,0 +1,7 @@
+claim_id = "fdfd3e0691b8413a9bf669070013abf5"
+agent = "Claude 43d1cd12-aa0a-4670-990a-06dae441c599"
+role = "builder"
+base = "2ecddb15751f7985b1e9ad12c241e570fb47007b"
+branch = "claude/issue-890-the-pokerkeller-scenes-are-drawn-and-ble"
+scope = ["docs/mockups/table.html"]
+opened_commit = "f93ce37e89f69e35955cf695884247a42808a4a1"
