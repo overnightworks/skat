@@ -7,11 +7,12 @@ from logline import REQUEST_EVENT, Outcome
 from skat.table.game_list import Standing
 from skat.table.records import EndReason, TableId
 from skat.table.views import EndedView
+from skat.web.ended_answer import ended_answer_of
 from skat.web.lobby import LOBBY_EVENTS_PATH
 from skat.web.presence import EmptyTable, Presence
 from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamKind, StreamRefusal, messages_with_end_log
-from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH, ended_answer_of
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import in_memory_tables
 from tests.support.idle_presence import (
     end_no_table,

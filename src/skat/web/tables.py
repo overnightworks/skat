@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import TYPE_CHECKING, Annotated, Final, Literal
+from typing import TYPE_CHECKING, Annotated, Final
 
 import structlog
 from fastapi import APIRouter, HTTPException, Path, Request, Response
@@ -19,18 +19,18 @@ from skat.table.records import (
     AuctionPlan,
     BidLimit,
     CommandRefusal,
-    EndReason,
     OccupantKind,
     PlanMode,
     TableStyle,
 )
 from skat.table.service import CommandIdReusedError
 from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS, AnnouncementToken, GameToken
+from skat.web.ended_answer import EndedAnswer, ended_answer_of
 from skat.web.languages import LANGUAGE_VARY, language_of_request
 from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
 from skat.web.result_answer import RamschResultAnswer, ResultAnswer, result_answer_of
 from skat.web.routes import READ_METHODS, built_page_response
-from skat.web.series_answer import SeriesAnswer, StandingAnswer, series_answer_of, standing_answer_of
+from skat.web.series_answer import SeriesAnswer, series_answer_of
 from skat.web.table_options import OptionsAnswer, options_answer_of
 from skat.web.table_tokens import (
     AWAITING_TOKENS,
@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from skat.table.playing import PlayingView
     from skat.table.pushing import PushingView
     from skat.table.service import TableService
-    from skat.table.views import AbortedView, ChairHand, CommandResult, EndedView, HandView, PassedInView, TableView
+    from skat.table.views import AbortedView, ChairHand, CommandResult, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
     from skat.web.reaction_log import Thrown
@@ -364,100 +364,6 @@ class NextDealerAnswer(BaseModel):
     next_dealer_seat: int | None
 
 
-class EmptyNoGamesAnswer(BaseModel):
-    """A table nobody was at for `empty_seconds` whole seconds while no hand was dealt, which finished no game."""
-
-    reason: Literal[EndReason.EMPTY]
-    empty_seconds: int
-    unplayed_days: None
-    closed_by_name: None
-    standings: None
-    game_count: None
-
-
-class EmptyWithGamesAnswer(BaseModel):
-    """A table nobody was at for `empty_seconds` whole seconds, with the games its last series played and their
-    standings.
-    """
-
-    reason: Literal[EndReason.EMPTY]
-    empty_seconds: int
-    unplayed_days: None
-    closed_by_name: None
-    standings: list[StandingAnswer]
-    game_count: int
-
-
-class UnplayedNoGamesAnswer(BaseModel):
-    """A table nobody played at for `unplayed_days` days, which finished no game."""
-
-    reason: Literal[EndReason.UNPLAYED]
-    empty_seconds: None
-    unplayed_days: int
-    closed_by_name: None
-    standings: None
-    game_count: None
-
-
-class UnplayedWithGamesAnswer(BaseModel):
-    """A table nobody played at for `unplayed_days` days, with the games its last series played and their
-    standings.
-    """
-
-    reason: Literal[EndReason.UNPLAYED]
-    empty_seconds: None
-    unplayed_days: int
-    closed_by_name: None
-    standings: list[StandingAnswer]
-    game_count: int
-
-
-class ClosedNoGamesAnswer(BaseModel):
-    """A table that finished no game and was closed: `closed_by_name` is the opener who closed it before „Aufhören“,
-    null once the days of the link's reason have passed, and for a table whose series ended by „Aufhören“ or by a
-    silent seat, which is a close that names nobody.
-    """
-
-    reason: Literal[EndReason.CLOSED]
-    empty_seconds: None
-    unplayed_days: None
-    closed_by_name: str | None
-    standings: None
-    game_count: None
-
-
-class ClosedWithGamesAnswer(BaseModel):
-    """A table closed after it finished a game: it carries the games its last series played and their standings, and
-    names nobody who closed it.
-    """
-
-    reason: Literal[EndReason.CLOSED]
-    empty_seconds: None
-    unplayed_days: None
-    closed_by_name: None
-    standings: list[StandingAnswer]
-    game_count: int
-
-
-# Why a table ended with the one fact stored when it ended; the six shapes keep every key in this order.
-EndedAnswer = (
-    EmptyNoGamesAnswer
-    | EmptyWithGamesAnswer
-    | UnplayedNoGamesAnswer
-    | UnplayedWithGamesAnswer
-    | ClosedNoGamesAnswer
-    | ClosedWithGamesAnswer
-)
-_ENDED_ANSWER_MODELS: Final[Mapping[tuple[EndReason, bool], type[EndedAnswer]]] = {
-    (EndReason.EMPTY, False): EmptyNoGamesAnswer,
-    (EndReason.EMPTY, True): EmptyWithGamesAnswer,
-    (EndReason.UNPLAYED, False): UnplayedNoGamesAnswer,
-    (EndReason.UNPLAYED, True): UnplayedWithGamesAnswer,
-    (EndReason.CLOSED, False): ClosedNoGamesAnswer,
-    (EndReason.CLOSED, True): ClosedWithGamesAnswer,
-}
-
-
 class BockAnswer(BaseModel):
     """The Bock games still to come, the running one included, and what the running or next game's list score is
     multiplied by; the same for every viewer. A table without Bock has none.
@@ -652,22 +558,6 @@ def nudge_answer_of(view: TableView, state: NudgeState | None) -> NudgeAnswer | 
         return None
     by_name = None if state.by_seat is None else view.chairs[state.by_seat - 1].occupant_name
     return NudgeAnswer(nudges=state.nudges, may_nudge=state.may_nudge, by_name=by_name)
-
-
-def ended_answer_of(ended: EndedView | None) -> EndedAnswer | None:
-    if ended is None:
-        return None
-    standings = None if ended.standings is None else [standing_answer_of(each) for each in ended.standings]
-    return _ENDED_ANSWER_MODELS[ended.reason, standings is not None].model_validate(
-        {
-            "reason": ended.reason,
-            "empty_seconds": ended.empty_seconds,
-            "unplayed_days": ended.unplayed_days,
-            "closed_by_name": ended.closed_by_name,
-            "standings": standings,
-            "game_count": ended.game_count,
-        }
-    )
 
 
 def reaction_answer_of(view: TableView, thrown: Thrown) -> ReactionAnswer:
