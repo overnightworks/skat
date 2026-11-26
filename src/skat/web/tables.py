@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import TYPE_CHECKING, Annotated, Final
+from typing import TYPE_CHECKING, Annotated, Final, Literal
 
 import structlog
 from fastapi import APIRouter, HTTPException, Path, Request, Response
@@ -364,20 +364,98 @@ class NextDealerAnswer(BaseModel):
     next_dealer_seat: int | None
 
 
-class EndedAnswer(BaseModel):
-    """Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, the days nobody
-    played, or, for a close, the name of the opener who closed it before „Aufhören“, which is null once the days of the
-    link's reason have passed and for a table that finished a game; a table whose series ended by „Aufhören“ or by a
-    silent seat is a close that names nobody. Such a table carries the games its last series played and their standings,
-    whatever the reason; one that finished none carries neither.
+class EmptyNoGamesAnswer(BaseModel):
+    """A table nobody was at for `empty_seconds` whole seconds while no hand was dealt, which finished no game."""
+
+    reason: Literal[EndReason.EMPTY]
+    empty_seconds: int
+    unplayed_days: None
+    closed_by_name: None
+    standings: None
+    game_count: None
+
+
+class EmptyWithGamesAnswer(BaseModel):
+    """A table nobody was at for `empty_seconds` whole seconds, with the games its last series played and their
+    standings.
     """
 
-    reason: EndReason
-    empty_seconds: int | None
-    unplayed_days: int | None
+    reason: Literal[EndReason.EMPTY]
+    empty_seconds: int
+    unplayed_days: None
+    closed_by_name: None
+    standings: list[StandingAnswer]
+    game_count: int
+
+
+class UnplayedNoGamesAnswer(BaseModel):
+    """A table nobody played at for `unplayed_days` days, which finished no game."""
+
+    reason: Literal[EndReason.UNPLAYED]
+    empty_seconds: None
+    unplayed_days: int
+    closed_by_name: None
+    standings: None
+    game_count: None
+
+
+class UnplayedWithGamesAnswer(BaseModel):
+    """A table nobody played at for `unplayed_days` days, with the games its last series played and their
+    standings.
+    """
+
+    reason: Literal[EndReason.UNPLAYED]
+    empty_seconds: None
+    unplayed_days: int
+    closed_by_name: None
+    standings: list[StandingAnswer]
+    game_count: int
+
+
+class ClosedNoGamesAnswer(BaseModel):
+    """A table that finished no game and was closed: `closed_by_name` is the opener who closed it before „Aufhören“,
+    null once the days of the link's reason have passed, and for a table whose series ended by „Aufhören“ or by a
+    silent seat, which is a close that names nobody.
+    """
+
+    reason: Literal[EndReason.CLOSED]
+    empty_seconds: None
+    unplayed_days: None
     closed_by_name: str | None
-    standings: list[StandingAnswer] | None
-    game_count: int | None
+    standings: None
+    game_count: None
+
+
+class ClosedWithGamesAnswer(BaseModel):
+    """A table closed after it finished a game: it carries the games its last series played and their standings, and
+    names nobody who closed it.
+    """
+
+    reason: Literal[EndReason.CLOSED]
+    empty_seconds: None
+    unplayed_days: None
+    closed_by_name: None
+    standings: list[StandingAnswer]
+    game_count: int
+
+
+# Why a table ended with the one fact stored when it ended; the six shapes keep every key in this order.
+EndedAnswer = (
+    EmptyNoGamesAnswer
+    | EmptyWithGamesAnswer
+    | UnplayedNoGamesAnswer
+    | UnplayedWithGamesAnswer
+    | ClosedNoGamesAnswer
+    | ClosedWithGamesAnswer
+)
+ENDED_ANSWER_MODELS: dict[tuple[EndReason, bool], type[EndedAnswer]] = {
+    (EndReason.EMPTY, False): EmptyNoGamesAnswer,
+    (EndReason.EMPTY, True): EmptyWithGamesAnswer,
+    (EndReason.UNPLAYED, False): UnplayedNoGamesAnswer,
+    (EndReason.UNPLAYED, True): UnplayedWithGamesAnswer,
+    (EndReason.CLOSED, False): ClosedNoGamesAnswer,
+    (EndReason.CLOSED, True): ClosedWithGamesAnswer,
+}
 
 
 class BockAnswer(BaseModel):
@@ -580,13 +658,15 @@ def ended_answer_of(ended: EndedView | None) -> EndedAnswer | None:
     if ended is None:
         return None
     standings = None if ended.standings is None else [standing_answer_of(each) for each in ended.standings]
-    return EndedAnswer(
-        reason=ended.reason,
-        empty_seconds=ended.empty_seconds,
-        unplayed_days=ended.unplayed_days,
-        closed_by_name=ended.closed_by_name,
-        standings=standings,
-        game_count=ended.game_count,
+    return ENDED_ANSWER_MODELS[ended.reason, standings is not None].model_validate(
+        {
+            "reason": ended.reason,
+            "empty_seconds": ended.empty_seconds,
+            "unplayed_days": ended.unplayed_days,
+            "closed_by_name": ended.closed_by_name,
+            "standings": standings,
+            "game_count": ended.game_count,
+        }
     )
 
 

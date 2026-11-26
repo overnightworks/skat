@@ -195,19 +195,20 @@ def reference_type(node: JsonSchemaValue, definitions: JsonSchemaValue, enum_tup
     return f"(typeof {enum_tuples[name]})[number]"
 
 
+def union_members(node: JsonSchemaValue, definitions: JsonSchemaValue, enum_tuples: Mapping[str, str]) -> list[str]:
+    """The types a union node is one of, or none for a node that is no union."""
+    members: list[JsonSchemaValue] = node.get("anyOf") or (node.get("oneOf") if "discriminator" in node else None) or []
+    return [type_of(member, definitions, enum_tuples) for member in members]
+
+
 def type_of(node: JsonSchemaValue, definitions: JsonSchemaValue, enum_tuples: Mapping[str, str]) -> str:
     """A JSON schema node as a TypeScript type; a construct the answers do not use fails loudly."""
     if "$ref" in node:
         return reference_type(node, definitions, enum_tuples)
     if "const" in node:
         return json.dumps(node["const"])
-    if "anyOf" in node:
-        *members, null = node["anyOf"]
-        if len(members) != 1 or null != {"type": "null"}:
-            raise ValueError(f"generate_wire: anyOf is only a type or null: {node}")
-        return f"{type_of(members[0], definitions, enum_tuples)} | null"
-    if "oneOf" in node and "discriminator" in node:
-        return " | ".join(type_of(member, definitions, enum_tuples) for member in node["oneOf"])
+    if members := union_members(node, definitions, enum_tuples):
+        return " | ".join(members)
     if node.get("type") == "array":
         if "items" not in node:
             raise ValueError(f"generate_wire: no TypeScript for {node}")
@@ -218,11 +219,22 @@ def type_of(node: JsonSchemaValue, definitions: JsonSchemaValue, enum_tuples: Ma
     raise ValueError(f"generate_wire: no TypeScript for {node}")
 
 
+def member_line(
+    key: str, is_required: bool, node: JsonSchemaValue, definitions: JsonSchemaValue, enum_tuples: Mapping[str, str]
+) -> str:
+    """A member of a model; a union too long for one line stacks its types as prettier does."""
+    name = f"{key}{'' if is_required else '?'}"
+    line = f"    {name}: {type_of(node, definitions, enum_tuples)};\n"
+    if len(line.rstrip()) <= PRETTIER_WIDTH or not (members := union_members(node, definitions, enum_tuples)):
+        return line
+    stacked = "".join(f"        | {member}\n" for member in members)
+    return f"    {name}:\n{stacked[:-1]};\n"
+
+
 def model_type(name: str, model: JsonSchemaValue, definitions: JsonSchemaValue, enum_tuples: Mapping[str, str]) -> str:
     required = model.get("required", [])
     members = "".join(
-        f"    {key}{'' if key in required else '?'}: {type_of(node, definitions, enum_tuples)};\n"
-        for key, node in model["properties"].items()
+        member_line(key, key in required, node, definitions, enum_tuples) for key, node in model["properties"].items()
     )
     return f"export type {name} = {{\n{members}}};\n"
 
