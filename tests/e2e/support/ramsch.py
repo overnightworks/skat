@@ -31,7 +31,10 @@ command_numbers = itertools.count(1)
 
 
 class RamschTable:
-    """Three people at a table that plays Ramsch for a hand all pass, and a watcher; every step goes through the API."""
+    """Three people at a table that plays Ramsch for a hand all pass, and a watcher; every step goes through the API.
+
+    With `dealt` false only the table's opener sits, so no game is dealt yet.
+    """
 
     options: ClassVar[dict[str, Any]] = {"ramsch": RAMSCH_OPTIONS}
 
@@ -44,6 +47,7 @@ class RamschTable:
         form_factor: dict[str, Any],
         *,
         console: bool = True,
+        dealt: bool = True,
     ) -> None:
         people = {
             username: record_page_errors(open_person(username=username, **form_factor), page_errors, console=console)
@@ -64,12 +68,14 @@ class RamschTable:
         path = f"{TABLE_PAGE_PREFIX}{opened['id']}"
         for person in people.values():
             watch(person, server, path)
-        for seat, username in ((2, "ben"), (3, "cleo")):
-            sit_in(people[username], seat)
         self.sessions = dict(enumerate(sessions[:3], start=1))
         self.pages = dict(enumerate(list(people.values())[:3], start=1))
         self.watcher = people["dora"]
         self.everyone = list(people.values())
+        if not dealt:
+            return
+        for seat, username in ((2, "ben"), (3, "cleo")):
+            sit_in(people[username], seat)
         expect(self.watcher.locator(".mark.pos")).to_have_count(3)
         chairs = self.view(1)["chairs"]
         self.names = {chair["seat"]: chair["occupant_name"] for chair in chairs}

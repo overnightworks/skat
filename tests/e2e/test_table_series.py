@@ -43,6 +43,7 @@ SHORT_ROOM = 160
 # A room that holds the head of an opened game and leaves its tricks less height than they need.
 SHEET_ROOM = 480
 GAME_LIST = ".game-list"
+RULE_CHIP = ".rules-slot .rulepill"
 ROWS = f"{GAME_LIST} .grow"
 SHEET = f"{GAME_LIST} .game-sheet"
 TRICKS = f"{SHEET} .tricks"
@@ -222,22 +223,26 @@ def test_the_list_of_the_first_game_says_nothing_is_finished(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_menu_key_ends_the_top_row_beside_the_count(
+@pytest.mark.parametrize("dealt", [True, False], ids=["with-count", "without-count"])
+def test_the_menu_key_ends_the_top_row_with_a_rule_chip(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
     page_errors: list[str],
     form_factor: dict[str, Any],
+    dealt: bool,
 ) -> None:
-    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
+    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor, dealt=dealt)
     person = table.pages[1]
-    expect(person.locator(COUNT)).to_be_visible()
+    expect(person.locator(COUNT)).to_have_count(1 if dealt else 0)
+    expect(person.locator(RULE_CHIP)).not_to_have_count(0)
     menu = person.locator(MENU_KEY).bounding_box()
-    count = person.locator(COUNT).bounding_box()
     assert menu is not None
-    assert count is not None
-    assert menu["x"] >= count["x"] + count["width"]
     assert menu["x"] + menu["width"] > form_factor["viewport"]["width"] - MENU_KEY_EDGE
+    for behind in (COUNT, RULE_CHIP):
+        for box in (each.bounding_box() for each in person.locator(behind).all()):
+            assert box is not None
+            assert box["y"] >= menu["y"] + menu["height"] or box["x"] + box["width"] <= menu["x"]
     assert page_errors == []
 
 

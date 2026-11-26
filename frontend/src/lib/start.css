@@ -8340,7 +8340,7 @@ body {
 
 /* A phone keeps the first row for the back key, the reaction key, the speaker, the watchers and the menu key, which closes it; the count stands in the second row beside the rules' chips, so a break after the first row keeps it from joining the row behind the menu key. */
 @media (max-width: 899px) {
-    .room .bar:has(.series-count)::after {
+    .room:not(.framed) .bar:has(.series-count)::after {
         content: "";
         order: 2;
         flex: 0 0 100%;
@@ -8355,7 +8355,7 @@ body {
         transform: none;
     }
 
-    .room .rules-slot {
+    .room:not(.framed) .bar:has(.series-count) .rules-slot {
         flex: 1 1 auto;
     }
 }
