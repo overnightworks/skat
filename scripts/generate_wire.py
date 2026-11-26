@@ -31,6 +31,7 @@ from skat.table.auction import AuctionAction  # noqa: E402
 from skat.table.awaiting import WaitingCase  # noqa: E402
 from skat.table.game_list import GameEnding  # noqa: E402
 from skat.table.game_sheet import CardState  # noqa: E402
+from skat.table.member_place import CallOutcome, OfferState  # noqa: E402
 from skat.table.nudging import NudgeRefusal  # noqa: E402
 from skat.table.pushing import PushAction  # noqa: E402
 from skat.table.reacting import Reaction, ReactionRefusal  # noqa: E402
@@ -60,7 +61,14 @@ from skat.web.auction import (  # noqa: E402
     TABLE_AUCTION_PLAY_SUFFIX,
 )
 from skat.web.call import CALL_ORIGIN_PATH, CallOrigin  # noqa: E402
-from skat.web.calling import TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX  # noqa: E402
+from skat.web.calling import (  # noqa: E402
+    TABLE_AGENT_CALL_SUFFIX,
+    TABLE_AGENT_SEND_AWAY_SUFFIX,
+    TABLE_AGENTS_SUFFIX,
+    AgentControlAnswer,
+    CallRefusal,
+    CallRefusalAnswer,
+)
 from skat.web.constants import (  # noqa: E402
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -179,6 +187,9 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "PUSH_REFUSAL_TOKENS": PushRefusal,
     "NUDGE_REFUSAL_TOKENS": NudgeRefusal,
     "REACTION_REFUSAL_TOKENS": ReactionRefusal,
+    "OFFER_STATE_TOKENS": OfferState,
+    "CALL_OUTCOME_TOKENS": CallOutcome,
+    "CALL_REFUSAL_TOKENS": CallRefusal,
 }
 ANSWER_ROOTS = (
     TableAnswer,
@@ -191,6 +202,8 @@ ANSWER_ROOTS = (
     AccountName,
     CallOrigin,
     RefusalAnswer,
+    AgentControlAnswer,
+    CallRefusalAnswer,
 )
 ENUM_TUPLES = {tokens.__name__: name for name, tokens in TOKEN_TUPLES.items()}
 SCALAR_TYPES = {"string": "string", "integer": "number", "number": "number", "boolean": "boolean", "null": "null"}
