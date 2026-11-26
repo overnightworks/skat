@@ -115,6 +115,89 @@ export const REACTION_TOKENS = [
 export const OCCUPANT_KIND_TOKENS = ["person", "agent"] as const;
 export const STOP_OUTCOME_TOKENS = ["not_enabled", "busy", "budget_spent", "unavailable"] as const;
 export const PUSH_ACTION_TOKENS = ["took", "pushed"] as const;
+export const CARD_STATE_TOKENS = ["played", "put-away", "unplayed"] as const;
+export const RULE_SET_REFUSAL_TOKENS = ["name-taken"] as const;
+export const REFUSAL_TOKENS = [
+    "seat-taken",
+    "already-seated",
+    "not-seated",
+    "hand-running",
+    "no-hand",
+    "stale-version",
+    "wrong-phase",
+    "not-declarer",
+    "no-request",
+    "already-answered",
+    "request-pending",
+    "no-result",
+    "stale-result",
+    "stale-series",
+    "stale-settings",
+    "series-over",
+    "no-series",
+    "series-not-over",
+    "no-game-yet",
+    "no-proposal",
+    "end-refused",
+    "rule-off",
+    "not-an-agent",
+    "seat-open",
+    "own-seat-only",
+    "answer-time-over",
+    "not-allowed",
+    "hand-not-open",
+] as const;
+export const BID_REFUSAL_TOKENS = [
+    "over",
+    "already-passed",
+    "not-your-turn",
+    "wrong-action",
+    "invalid-value",
+    "not-above-standing",
+] as const;
+export const DECLARATION_REFUSAL_TOKENS = [
+    "already-declared",
+    "out-of-order",
+    "not-two-of-the-twelve",
+    "level-not-allowed-after-pick-up",
+    "announcement-in-null",
+] as const;
+export const PLAY_REFUSAL_TOKENS = [
+    "over",
+    "not-your-turn",
+    "not-in-hand",
+    "must-follow",
+    "claim-out-of-reach",
+    "needs-consent",
+    "not-an-opponent",
+] as const;
+export const KONTRA_REFUSAL_TOKENS = [
+    "over",
+    "beyond-reach",
+    "not-your-word",
+    "did-not-bid",
+    "too-late",
+    "words-due",
+] as const;
+export const PUSH_REFUSAL_TOKENS = [
+    "over",
+    "not-your-turn",
+    "out-of-order",
+    "grand-hand-off",
+    "not-two-of-the-twelve",
+    "jack-put-back",
+] as const;
+export const NUDGE_REFUSAL_TOKENS = [
+    "not-seated",
+    "stale-version",
+    "seat-open",
+    "not-waiting",
+    "own-seat",
+    "away",
+    "too-early",
+    "already-nudged",
+] as const;
+export const REACTION_REFUSAL_TOKENS = ["not-at-the-table", "too-fast"] as const;
 export const VALID_BIDS = [
     18, 20, 22, 23, 24, 27, 30, 33, 35, 36, 40, 44, 45, 46, 48, 50, 54, 55, 59, 60, 63, 66, 70, 72, 77, 80, 81, 84, 88,
     90, 96, 99, 100, 108, 110, 117, 120, 121, 126, 130, 132, 135, 140, 143, 144, 150, 153, 154, 156, 160, 162, 165, 168,
@@ -155,6 +238,9 @@ export const SWITCH_ON_OPTIONS = {
         any_time: false,
     },
 } as const;
+export type AccountName = {
+    name: string;
+};
 export type AuctionAnswer = {
     turn_seat: number | null;
     facing_seat: number | null;
@@ -188,6 +274,9 @@ export type BockAnswer = {
 export type BockOptionsAnswer = {
     triggers: (typeof BOCK_TRIGGER_TOKENS)[number][];
     overlap: (typeof BOCK_OVERLAP_TOKENS)[number];
+};
+export type CallOrigin = {
+    origin: string | null;
 };
 export type CardAnswer = {
     suit: (typeof SUIT_TOKENS)[number];
@@ -227,11 +316,26 @@ export type ClosedWithGamesAnswer = {
     standings: StandingAnswer[];
     game_count: number;
 };
+export type CommandRefusal =
+    | (typeof REFUSAL_TOKENS)[number]
+    | (typeof BID_REFUSAL_TOKENS)[number]
+    | (typeof DECLARATION_REFUSAL_TOKENS)[number]
+    | (typeof PLAY_REFUSAL_TOKENS)[number]
+    | (typeof KONTRA_REFUSAL_TOKENS)[number]
+    | (typeof PUSH_REFUSAL_TOKENS)[number];
 export type DeclarationAnswer = {
     game: (typeof GAME_TOKENS)[number];
     hand: boolean;
     ouvert: boolean;
     announcement: (typeof ANNOUNCEMENT_TOKENS)[number];
+};
+export type DeclaredCountAnswer = {
+    kind: "declared";
+    declarer_seat: number;
+    declarer_points: number;
+    opponents_points: number;
+    ending: (typeof GAME_ENDING_TOKENS)[number];
+    ended_by_seat: number | null;
 };
 export type DeclaringAnswer = {
     declarer_seat: number;
@@ -254,6 +358,12 @@ export type EmptyWithGamesAnswer = {
     closed_by_name: null;
     standings: StandingAnswer[];
     game_count: number;
+};
+export type GameSheetAnswer = {
+    number: number;
+    seat_names: (string | null)[];
+    count: DeclaredCountAnswer | RamschCountAnswer;
+    cards: SheetCardsAnswer | null;
 };
 export type GiveUpAnswer = {
     asking_seat: number;
@@ -307,9 +417,38 @@ export type LastTrickAnswer = {
     leader_seat: number;
     taker_seat: number;
 };
+export type LobbyChairAnswer = {
+    seat: number;
+    occupant_name: string | null;
+    occupant_kind: (typeof OCCUPANT_KIND_TOKENS)[number] | null;
+    is_mine: boolean;
+    ready: boolean;
+    total: number | null;
+    is_away: boolean;
+    is_turn: boolean;
+    hold_seconds_left: number | null;
+    turn_state: TurnStateAnswer | null;
+};
+export type LobbyTableAnswer = {
+    id: string;
+    private: boolean;
+    title_name: string | null;
+    game_number: number | null;
+    game_count: number | null;
+    dealt: boolean;
+    awaits_you: boolean;
+    waits_on: (typeof WAITING_CASE_TOKENS)[number] | null;
+    result_waits: boolean;
+    series_over: boolean;
+    ends_at: string | null;
+    chairs: LobbyChairAnswer[];
+};
 export type MatadorsAnswer = {
     mit: boolean;
     count: number;
+};
+export type MineAnswer = {
+    tables: LobbyTableAnswer[];
 };
 export type NextDealerAnswer = {
     next_dealer_seat: number | null;
@@ -324,9 +463,33 @@ export type NudgeAnswer = {
     may_nudge: boolean;
     by_name: string | null;
 };
+export type OpenAnswer = {
+    tables: OpenTableAnswer[];
+};
+export type OpenChairAnswer = {
+    seat: number;
+    occupant_name: string | null;
+    occupant_kind: (typeof OCCUPANT_KIND_TOKENS)[number] | null;
+    is_away: boolean;
+    hold_seconds_left: number | null;
+    turn_state: TurnStateAnswer | null;
+};
 export type OpenHandAnswer = {
     seat: number;
     cards: CardAnswer[];
+};
+export type OpenTableAnswer = {
+    id: string;
+    title_name: string | null;
+    game_number: number | null;
+    game_count: number | null;
+    options: OptionsAnswer;
+    watchers: number;
+    free_chairs: number;
+    dealt: boolean;
+    waiting_seat: number | null;
+    ends_at: string | null;
+    chairs: OpenChairAnswer[];
 };
 export type OptionsAnswer = {
     show_running_points: boolean;
@@ -364,6 +527,11 @@ export type PushingOptionsAnswer = {
     rule: (typeof PUSHING_RULE_TOKENS)[number];
     grand_hand: (typeof GRAND_HAND_TOKENS)[number];
 };
+export type RamschCountAnswer = {
+    kind: "ramsch";
+    seat_points: number[];
+    durchmarsch_seat: number | null;
+};
 export type RamschOptionsAnswer = {
     occasion: (typeof RAMSCH_OCCASION_TOKENS)[number];
     scoring: (typeof RAMSCH_SCORING_TOKENS)[number];
@@ -388,11 +556,30 @@ export type RamschSeatAnswer = {
     points: number;
     score: number;
 };
+export type RamschSeriesEntryAnswer = {
+    kind: "ramsch";
+    number: number;
+    seats: RamschSeriesSeatAnswer[];
+    durchmarsch: boolean;
+    jungfrau: boolean;
+    bock_factor: number;
+    pushes: number;
+    push_factor: number;
+};
+export type RamschSeriesSeatAnswer = {
+    name: string | null;
+    kind: (typeof OCCUPANT_KIND_TOKENS)[number] | null;
+    score: number;
+};
 export type ReactionAnswer = {
     number: number;
     reaction: (typeof REACTION_TOKENS)[number];
     by_seat: number | null;
     by_name: string | null;
+};
+export type RefusalAnswer = {
+    reason: CommandRefusal | (typeof NUDGE_REFUSAL_TOKENS)[number] | (typeof REACTION_REFUSAL_TOKENS)[number];
+    holder_name: string | null;
 };
 export type ResultAnswer = {
     kind: "declared";
@@ -426,6 +613,17 @@ export type ResultAnswer = {
     ending: (typeof GAME_ENDING_TOKENS)[number];
     ended_by_seat: number | null;
 };
+export type RuleSetAnswer = {
+    id: string;
+    name: string;
+    options: OptionsAnswer;
+};
+export type RuleSetRefusalAnswer = {
+    reason: (typeof RULE_SET_REFUSAL_TOKENS)[number];
+};
+export type RuleSetsAnswer = {
+    sets: RuleSetAnswer[];
+};
 export type SaidWordAnswer = {
     seat: number;
     word: (typeof WORD_TOKENS)[number];
@@ -454,6 +652,48 @@ export type SeriesEndProposalAnswer = {
     proposer_seat: number;
     agreed_seats: number[];
     answer_by: string;
+};
+export type SeriesEntryAnswer = {
+    kind: "declared";
+    number: number;
+    declarer_name: string | null;
+    declarer_seat: number;
+    declarer_kind: (typeof OCCUPANT_KIND_TOKENS)[number] | null;
+    game: (typeof GAME_TOKENS)[number];
+    hand: boolean;
+    ouvert: boolean;
+    announcement: (typeof ANNOUNCEMENT_TOKENS)[number];
+    levels: (typeof LEVEL_TOKENS)[number][];
+    settled_value: number;
+    score: number;
+    declarer_points: number;
+    kontra_word: (typeof WORD_TOKENS)[number] | null;
+    bock_factor: number;
+};
+export type SeriesListAnswer = {
+    entries: (SeriesEntryAnswer | RamschSeriesEntryAnswer)[];
+};
+export type SheetCardAnswer = {
+    card: CardAnswer;
+    state: (typeof CARD_STATE_TOKENS)[number];
+};
+export type SheetCardsAnswer = {
+    hands: SheetHandAnswer[];
+    skat: CardAnswer[];
+    laid_skat: CardAnswer[];
+    put_away: SeatedCardAnswer[];
+    tricks: SheetTrickAnswer[];
+    skat_takers: number[];
+};
+export type SheetHandAnswer = {
+    seat: number;
+    cards: SheetCardAnswer[];
+};
+export type SheetTrickAnswer = {
+    number: number;
+    cards: SeatedCardAnswer[];
+    taker_seat: number | null;
+    points: number | null;
 };
 export type ShorteningAnswer = {
     asking_seat: number;
