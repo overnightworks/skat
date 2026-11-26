@@ -820,7 +820,7 @@ body.tk-play .frame .mo.cyc{animation-play-state:running!important;animation-del
     <linearGradient id="pk-shade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0f3a2a"/><stop offset=".45" stop-color="#1f7552"/><stop offset="1" stop-color="#0a2a1e"/></linearGradient>
     <linearGradient id="pk-whisky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1a73a"/><stop offset="1" stop-color="#a8571a"/></linearGradient>
     <pattern id="pk-lines" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45 50 70)"><path d="M0 0H5M0 0V5" stroke="#f2b9a6" stroke-opacity=".3" stroke-width=".55"/></pattern>
-    <linearGradient id="pk-red" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8e1b2c"/><stop offset="1" stop-color="#5a0e1b"/></linearGradient>
+    <radialGradient id="pk-red" cx=".5" cy=".5" r=".7"><stop offset="0" stop-color="#8e1b2c"/><stop offset="1" stop-color="#5a0e1b"/></radialGradient>
     <symbol id="cardback-poker" viewBox="0 0 100 140">
       <rect x=".75" y=".75" width="98.5" height="138.5" rx="7" fill="#fbf8f0" stroke="#cfc6b1" stroke-width="1.5"/>
       <rect x="6" y="6" width="88" height="128" rx="4" fill="url(#pk-red)"/>
@@ -3006,10 +3006,12 @@ const SHELL=`<svg viewBox="0 0 72 62" aria-hidden="true"><ellipse cx="36" cy="57
   <path d="M36 55C10 50 2 29 10 17C18 5 54 5 62 17C70 29 62 50 36 55Z" fill="url(#sbShell)" stroke="#d7a99a" stroke-width="1.2"/>
   <path d="M36 52L14 18M36 52L22 12M36 52L31 9M36 52L41 9M36 52L50 12M36 52L58 18M36 52L10 28M36 52L62 28" fill="none" stroke="#d99a8c" stroke-opacity=".75" stroke-width="1.6" stroke-linecap="round"/>
   <path d="M30 56h12l-2 4H32z" fill="#e8bfae"/></svg>`;
-const strandDecor=(d,phoneAt)=>{const t=(d?DB:PB).table,cx=t.x+t.w/2,cy=t.y+t.h/2,a=t.w/2,b=t.h/2,rad=(deg)=>deg*Math.PI/180;
+/* a look's rail decor as data: each item has its class, the key of its phone override, its picture, and its angle and height on the phone and on the desk */
+const railDecor=(items)=>(d,phoneAt)=>{const t=(d?DB:PB).table,cx=t.x+t.w/2,cy=t.y+t.h/2,a=t.w/2,b=t.h/2,rad=(deg)=>deg*Math.PI/180;
   const rim=(deg)=>[cx+a*Math.cos(rad(deg)),cy+b*Math.sin(rad(deg))];
-  const [gx,gy]=!d&&phoneAt?.glass||rim(d?38:36),[sx,sy]=!d&&phoneAt?.shell||rim(d?150:144);
-  return `<span class="decor cocktail" style="${at({left:gx,top:gy,'--h':d?84:62})}">${COCKTAIL}</span><span class="decor shell" style="${at({left:sx,top:sy,'--h':d?44:34})}">${SHELL}</span>`;};
+  return items.map(({cls,spot,svg,deg,h})=>{const [x,y]=!d&&phoneAt?.[spot]||rim(d?deg[1]:deg[0]);
+    return `<span class="decor ${cls}" style="${at({left:x,top:y,'--h':d?h[1]:h[0]})}">${svg}</span>`;}).join('');};
+const strandDecor=railDecor([{cls:'cocktail',spot:'glass',svg:COCKTAIL,deg:[36,38],h:[62,84]},{cls:'shell',spot:'shell',svg:SHELL,deg:[144,150],h:[34,44]}]);
 /* a scene of Klassik drawn in a style: the style's backdrop behind, its card backs, its decoration at the rim */
 const lookView=(look)=>(draw,phoneAt)=>(d,w)=>{const [fw,fh]=STRAND_SIZE[w];klassikScene=false;
   try{return look.backdrop(fw,fh,d)+draw(d,w).replaceAll('href="#cardback"',`href="#cardback-${look.back}"`)+look.decor(d,phoneAt?.[w]??phoneAt);}finally{klassikScene=true;}};
@@ -3042,10 +3044,7 @@ const CHIPS=`<svg viewBox="0 0 92 66" aria-hidden="true"><ellipse cx="46" cy="58
 const TUMBLER=`<svg viewBox="0 0 44 56" aria-hidden="true"><ellipse cx="22" cy="51" rx="17" ry="4" fill="#000" opacity=".3"/>
   <path d="M6 12h32l-3 38H9z" fill="#ffffff" fill-opacity=".14" stroke="#f6e8cf" stroke-opacity=".8" stroke-width="1.4" stroke-linejoin="round"/><path d="M7.4 26h29.2l-1.7 24H9.1z" fill="url(#pk-whisky)"/>
   <rect x="14" y="19" width="10" height="10" rx="2" fill="#fff" fill-opacity=".38" stroke="#fff" stroke-opacity=".6" stroke-width=".8" transform="rotate(-12 19 24)"/><path d="M11 17L12.4 44" stroke="#fff" stroke-opacity=".5" stroke-width="2" stroke-linecap="round"/><ellipse cx="22" cy="12" rx="16" ry="2.6" fill="none" stroke="#f6e8cf" stroke-opacity=".8" stroke-width="1.2"/></svg>`;
-const pokerDecor=(d,phoneAt)=>{const t=(d?DB:PB).table,cx=t.x+t.w/2,cy=t.y+t.h/2,a=t.w/2,b=t.h/2,rad=(deg)=>deg*Math.PI/180;
-  const rim=(deg)=>[cx+a*Math.cos(rad(deg)),cy+b*Math.sin(rad(deg))];
-  const [gx,gy]=!d&&phoneAt?.glass||rim(d?38:36),[sx,sy]=!d&&phoneAt?.chips||rim(d?150:144);
-  return `<span class="decor glass" style="${at({left:gx,top:gy,'--h':d?64:48})}">${TUMBLER}</span><span class="decor chips" style="${at({left:sx,top:sy,'--h':d?60:46})}">${CHIPS}</span>`;};
+const pokerDecor=railDecor([{cls:'glass',spot:'glass',svg:TUMBLER,deg:[36,38],h:[48,64]},{cls:'chips',spot:'chips',svg:CHIPS,deg:[144,150],h:[46,60]}]);
 const pokerView=lookView({backdrop:cellar,back:'poker',decor:pokerDecor});
 const CELLAR_CAPTION='Dazu klingt der Keller: gedämpftes Klappern und Mischen von Chips unter dem Spiel, in der Lautstärke der Tafel und still bei „Ton aus“. Die Lampe schwankt kaum merklich; bei der Bewegung „dezent“ und bei „Bewegung reduzieren“ hängt sie still, wie dieses Bild.';
 const LOOK_PREVIEW={
@@ -3071,12 +3070,10 @@ const STRAND_SCENES=[
 ];
 soundScenes(STRAND_SCENES,'strand');
 /* ===== Pokerkeller's scenes: the same scene functions as Strandbar's, at the same widths ===== */
-/* the bid ladder's run-on chips, the outer ones of the row, stay lighter than Klassik's fade, so every value reads */
-const runOnChips=(html)=>html.replace(/class="bid-chip ([^"]*)"( style="" role="button" aria-pressed="false" aria-label="bis (?:27|36)")/g,'class="bid-chip $1 run-on"$2');
 const POKER_SCENES=[
-  ['poker-auction','Pokerkeller: Reizen',[360,390,1280],pokerView((d,w)=>runOnChips(BID_SCENES.find(([id])=>id==='bid-middle')[2](d,w))),
+  ['poker-auction','Pokerkeller: Reizen',[360,390,1280],pokerView(BID_SCENES.find(([id])=>id==='bid-middle')[2]),
     ['Der Tisch „Reizen“, dieselben Stühle, Karten und Tasten wie in Klassik, im Stil Pokerkeller: ein dunkler Backsteinkeller unter einer tief hängenden Lampe, ovaler Tisch aus grünem Filz mit gepolsterter Lederbande, Stühle aus dunklem Holz und Leder, Chips als Punktemarken an den Plätzen, eigene Kartenrücken in tiefem Rot. Chipstapel und Whiskyglas stehen auf der Bande und decken keine Karte und keine Taste.',
-     'Die Chips der Reizleiter, die nach außen weiterlaufen (♦ 27 und ♣ 36), bleiben hier lesbar blass: Sie stehen mit knapp vier Fünfteln ihrer Helligkeit da, nicht verblasst wie in Klassik, und behalten Rand und Wert deutlich.',CELLAR_CAPTION]],
+     'Die Reizleiter steht wie in Klassik: dieselben Tasten und Chips, alle in voller Helligkeit.',CELLAR_CAPTION]],
   ['poker-trick','Pokerkeller: ein Stich',[360,390,1280],pokerView((d,w)=>trickTable(d,w,{felt:restingTrick(d),annaLast:true,felixTricks:1}),{360:{chips:[41,424]}}),
     ['Der Stich liegt mit seinen Namen auf dem Filz: Annas Pik-König, Novas Sieben, Felix’ Ass. Neben Annas Stuhl liegt ihr Stapel mit dem letzten Stich und dem hellen Rand, neben Felix sein erster; die Lampe wirft den hellen Kreis auf die Mitte, zur Bande hin wird der Filz dunkel.',CELLAR_CAPTION]],
   ['poker-result','Pokerkeller: das Ergebnis',[360,390,1280],pokerView((d)=>endScene(d,OWN_WIN,tapButton,1,declarerWinsConfetti(d)),{glass:[336,590],chips:[54,596]}),
@@ -3837,7 +3834,7 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
   box-shadow:0 34px 46px -22px rgba(25,12,30,.75),0 0 0 1.5px rgba(86,52,22,.8),inset 0 1.5px 0 rgba(255,250,235,.7),inset 0 -2px 0 rgba(86,52,22,.45)}
 .strand .table::before{inset:calc(var(--rim) * .55);border-radius:50%;border:2px solid rgba(255,248,225,.7);box-shadow:0 0 0 1.5px rgba(96,58,22,.55),inset 0 0 0 1.5px rgba(96,58,22,.4)}
 .p390.strand .table{aspect-ratio:374 / 420;height:auto!important;top:150px!important}
-.strand .result{z-index:4}
+:is(.strand,.poker) .result{z-index:4}
 .strand .felt{border-radius:50%;
   background:
     radial-gradient(60% 50% at 50% 40%,rgba(255,236,190,.55),transparent 72%),
@@ -3846,11 +3843,11 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
     linear-gradient(180deg,#d9b57c,#c39a5e 60%,#b08550);
   box-shadow:inset 0 10px 22px rgba(90,52,20,.35),inset 0 -6px 16px rgba(90,52,20,.28),inset 0 0 0 1.5px rgba(90,52,20,.4)}
 .strand .felt::before{border-radius:50%;border:1.5px solid rgba(255,248,225,.5)}
-.strand .seatglow{background:radial-gradient(calc(var(--gw) / 2) calc(var(--gh) / 2) at var(--gx) var(--gy),rgba(122,167,240,.4),rgba(122,167,240,.12) 60%,transparent)}
+:is(.strand,.poker) .seatglow{background:radial-gradient(calc(var(--gw) / 2) calc(var(--gh) / 2) at var(--gx) var(--gy),rgba(122,167,240,.4),rgba(122,167,240,.12) 60%,transparent)}
 /* the stool: a woven frame around the picture, a cushion in the person's own colour and splayed legs with a footrest */
-.strand .seat{--pad:9px}
-.strand .seat.sm{--pad:6px}
-.strand .watchers .seat{--pad:4px}
+:is(.strand,.poker) .seat{--pad:9px}
+:is(.strand,.poker) .seat.sm{--pad:6px}
+:is(.strand,.poker) .watchers .seat{--pad:4px}
 .strand .chair{border-radius:28px 28px 20px 20px;
   background:
     repeating-linear-gradient(45deg,rgba(255,246,222,.45) 0 1.4px,transparent 1.4px 5px),
@@ -3897,13 +3894,13 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .strand .btns.chips{--unlit:rgba(28,17,22,.78)}
 .strand .duel,.strand .limit .mode,.strand .limit .clear,.strand .limit .said{background:rgba(28,17,22,.8)}
 .strand .cbar,.strand .sbar{--glass:rgba(28,17,22,.66)}
-.p360.strand .result.end{padding:10px 14px;gap:7px}
+.p360:is(.strand,.poker) .result.end{padding:10px 14px;gap:7px}
 .strand .button-glass{background:rgba(28,17,22,.62);color:var(--on-stage)}
 .strand .result{background:rgba(28,17,22,.84);box-shadow:inset 0 0 0 1.5px rgba(243,207,122,.4),0 24px 50px -16px rgba(25,12,30,.9)}
 .strand .stamp{background:rgba(28,17,22,.84);color:var(--cream)}
 .strand .tag{background:rgba(28,17,22,.84)}
 .strand .confetti i{box-shadow:0 3px 6px rgba(25,12,30,.4)}
-.p390.strand .cbar,.p390.strand .sbar{background:linear-gradient(to top,var(--stage-fade) 55%,transparent)}
+.p390:is(.strand,.poker) .cbar,.p390:is(.strand,.poker) .sbar{background:linear-gradient(to top,var(--stage-fade) 55%,transparent)}
 .strand .card{filter:drop-shadow(0 1px 1px rgba(30,15,10,.5)) drop-shadow(0 6px 8px rgba(30,15,10,.4))}
 /* the shell and the cocktail on the rim */
 .decor{z-index:3;pointer-events:none;height:var(--h);transform:translate(-50%,-78%);filter:drop-shadow(0 6px 5px rgba(25,12,30,.5))}
@@ -3912,7 +3909,7 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .decor.lamp{z-index:auto;transform:translate(-50%,-100%)}
 .decor.chips,.decor.glass{transform:translate(-50%,-70%)}
 /* ---------- Pokerkeller: a third look for the same table; every rule hangs on .poker, so Klassik's and Strandbar's frames stay as they are ---------- */
-.frame.poker{--glass-dark:rgba(20,11,8,.78);--stage-fade:rgba(12,7,5,.94);--lamp:rgba(255,190,110,.16);--leather:#2c1810;--leather-hi:#4a2c1d;--cream:#f4ecd9;--ink:#f4f6f8;
+.frame.poker{--glass-dark:rgba(20,11,8,.78);--stage-fade:rgba(12,7,5,.94);--lamp:rgba(255,190,110,.16);--leather:#2c1810;--leather-hi:#4a2c1d;--cream:#f4ecd9;
   border-color:#3b2418;background:#0d0806}
 .poker > .cellar{inset:0;width:100%;height:100%;z-index:-3;pointer-events:none}
 /* the table: an oval of green baize in a padded leather rail with a row of stitches; the lamp lights the rail's near edge */
@@ -3923,7 +3920,6 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
     linear-gradient(180deg,var(--leather-hi),var(--leather) 50%,#170c07);
   box-shadow:0 38px 56px -22px rgba(0,0,0,.95),0 0 0 1.5px rgba(0,0,0,.8),inset 0 3px 3px rgba(255,220,180,.22),inset 0 -5px 8px rgba(0,0,0,.6)}
 .poker .table::before{inset:calc(var(--rim) * .5);border-radius:50%;border:1.6px dashed rgba(226,190,140,.55);box-shadow:none}
-.poker .result{z-index:4}
 .poker .felt{border-radius:50%;
   background:
     radial-gradient(58% 50% at 50% 40%,rgba(255,214,140,.3),rgba(255,190,110,.1) 58%,transparent 84%),
@@ -3931,11 +3927,7 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
     radial-gradient(ellipse at 50% 40%,#1a7550 0%,#0f5238 46%,#08311f 82%,#052116 100%);
   box-shadow:inset 0 12px 30px rgba(0,0,0,.6),inset 0 -8px 26px rgba(0,0,0,.5),inset 0 0 0 2px rgba(0,0,0,.4)}
 .poker .felt::before{border-radius:50%;border:1.5px solid rgba(236,201,150,.16)}
-.poker .seatglow{background:radial-gradient(calc(var(--gw) / 2) calc(var(--gh) / 2) at var(--gx) var(--gy),rgba(122,167,240,.4),rgba(122,167,240,.12) 60%,transparent)}
 /* the chair: a frame of dark wood around the picture, leather in the person's own colour darkened, a row of brass studs */
-.poker .seat{--pad:9px}
-.poker .seat.sm{--pad:6px}
-.poker .watchers .seat{--pad:4px}
 .poker .chair{
   background:
     radial-gradient(circle,var(--brass-hi) 0 1.3px,var(--brass-lo) 1.9px,transparent 2.5px) 6px 1px / 13px 8px repeat-x,
@@ -3967,17 +3959,14 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .poker .plaque,.poker .tag-glass,.poker .pass{background:rgba(20,11,8,.78)}
 .poker .ladder span{background:rgba(20,11,8,.78);color:rgba(244,246,248,.8)}
 .poker .ladder span.held{background:rgba(20,11,8,.84);color:var(--on-stage)}
-.poker .bid-chip.run-on{opacity:.8}
 .poker .btns.chips{--unlit:rgba(20,11,8,.8)}
 .poker .duel,.poker .limit .mode,.poker .limit .clear,.poker .limit .said{background:rgba(20,11,8,.82)}
 .poker .cbar,.poker .sbar{--glass:rgba(20,11,8,.68)}
-.p360.poker .result.end{padding:10px 14px;gap:7px}
 .poker .button-glass{background:rgba(20,11,8,.66);color:var(--on-stage)}
 .poker .result{background:rgba(20,11,8,.86);box-shadow:inset 0 0 0 1.5px rgba(243,207,122,.38),0 24px 50px -16px rgba(0,0,0,.95)}
 .poker .stamp{background:rgba(20,11,8,.86);color:var(--cream)}
 .poker .tag{background:rgba(20,11,8,.86)}
 .poker .confetti i{box-shadow:0 3px 6px rgba(0,0,0,.5)}
-.p390.poker .cbar,.p390.poker .sbar{background:linear-gradient(to top,var(--stage-fade) 55%,transparent)}
 .poker .card{filter:drop-shadow(0 1px 1px rgba(0,0,0,.6)) drop-shadow(0 6px 8px rgba(0,0,0,.5))}
 /* the style row of the panel: one tile per style, each with a small preview */
 .snd-look{flex:1 0 100%;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
