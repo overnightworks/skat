@@ -4,9 +4,17 @@
 import { withMinus } from "#lib/result.ts";
 import { openStream, type StreamRefusal } from "#lib/stream.ts";
 import { tableRules, type RuleChip } from "#lib/tableRules.ts";
-import { LOBBY_EVENTS_PATH, type WAITING_CASE_TOKENS } from "#lib/wire.ts";
+import {
+    LOBBY_EVENTS_PATH,
+    type LobbyChairAnswer,
+    type LobbyTableAnswer,
+    type MineAnswer,
+    type OpenAnswer,
+    type OpenChairAnswer,
+    type OpenTableAnswer,
+    type WAITING_CASE_TOKENS,
+} from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
-import type { Options, TurnState } from "./tables.ts";
 
 const MILLISECONDS_PER_SECOND = 1_000;
 const SECONDS_PER_MINUTE = 60;
@@ -15,59 +23,10 @@ const MILLISECONDS_PER_DAY = 86_400_000;
 const SIBILANT_ENDINGS = /[sßxz]$/i;
 
 export type WaitingCase = (typeof WAITING_CASE_TOKENS)[number];
-export type LobbyChair = {
-    seat: number;
-    occupant_name: string | null;
-    occupant_kind: "person" | "agent" | null;
-    is_mine: boolean;
-    ready: boolean;
-    total: number | null;
-    is_away: boolean;
-    is_turn: boolean;
-    // Seconds until the place is free, on an away chair of a table where no hand was dealt.
-    hold_seconds_left?: number | null;
-    turn_state?: TurnState | null;
-};
-export type LobbyTable = {
-    id: string;
-    // A private table is listed to its chair holders alone.
-    private: boolean;
-    title_name: string | null;
-    game_number: number | null;
-    game_count: number | null;
-    dealt: boolean;
-    awaits_you: boolean;
-    waits_on: WaitingCase | null;
-    result_waits: boolean;
-    series_over: boolean;
-    ends_at: string | null;
-    chairs: LobbyChair[];
-};
-// A chair of an open table, whose entry names no card, no total and no account.
-export type OpenChair = {
-    seat: number;
-    occupant_name: string | null;
-    occupant_kind: "person" | "agent" | null;
-    is_away: boolean;
-    hold_seconds_left: number | null;
-    turn_state?: TurnState | null;
-};
-// An open table the member holds no chair at, with the chair a running hand waits at and the end of a paused one.
-export type OpenTable = {
-    id: string;
-    title_name: string | null;
-    game_number: number | null;
-    game_count: number | null;
-    options: Options;
-    watchers: number;
-    free_chairs: number;
-    dealt: boolean;
-    waiting_seat: number | null;
-    ends_at: string | null;
-    chairs: OpenChair[];
-};
-type Mine = { tables: LobbyTable[] };
-type Open = { tables: OpenTable[] };
+export type LobbyChair = LobbyChairAnswer;
+export type LobbyTable = LobbyTableAnswer;
+export type OpenChair = OpenChairAnswer;
+export type OpenTable = OpenTableAnswer;
 
 export type ChipKind = "turn" | "result" | "seriesOver" | "ends" | "gameWaits" | "paused";
 export type Chip = { kind: ChipKind; text: string; accent: boolean };
@@ -118,10 +77,10 @@ export function watchLobby(
     return openStream(LOBBY_EVENTS_PATH, {
         events: {
             mine: (data) => {
-                onMine((JSON.parse(data) as Mine).tables);
+                onMine((JSON.parse(data) as MineAnswer).tables);
             },
             open: (data) => {
-                onOpen((JSON.parse(data) as Open).tables);
+                onOpen((JSON.parse(data) as OpenAnswer).tables);
             },
         },
         onConnection,
@@ -176,7 +135,7 @@ function otherSeatFreeIn(name: string, minutes: number): string {
 
 function holdOf(chair: LobbyChair, heldMilliseconds: number): SeatCard["hold"] {
     const seconds = chair.hold_seconds_left;
-    if (chair.occupant_name === null || seconds === undefined || seconds === null) return null;
+    if (chair.occupant_name === null || seconds === null) return null;
     const minutes = minutesLeft(seconds, heldMilliseconds);
     if (minutes === null) return null;
     const gaps = { minutes: String(minutes) };

@@ -10,7 +10,7 @@ import json
 import sys
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from pydantic.json_schema import GenerateJsonSchema
 
@@ -51,6 +51,7 @@ from skat.table.records import (  # noqa: E402
 from skat.table.rule_sets import RULE_SET_NAME_MAX, SWITCH_ON_OPTIONS, RuleSetRefusal  # noqa: E402
 from skat.table.rules import CHAIRS_PER_TABLE  # noqa: E402
 from skat.web.abort import TABLE_ABORT_AGREE_SUFFIX, TABLE_ABORT_REFUSE_SUFFIX  # noqa: E402
+from skat.web.account import AccountName  # noqa: E402
 from skat.web.auction import (  # noqa: E402
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
@@ -58,7 +59,6 @@ from skat.web.auction import (  # noqa: E402
     TABLE_AUCTION_PLAN_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
 )
-from skat.web.account import AccountName  # noqa: E402
 from skat.web.call import CALL_ORIGIN_PATH, CallOrigin  # noqa: E402
 from skat.web.calling import TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX  # noqa: E402
 from skat.web.constants import (  # noqa: E402
@@ -126,7 +126,7 @@ from skat.web.tables import (  # noqa: E402
 from skat.web.turn_state_answer import StopOutcome  # noqa: E402
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping, Sequence
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
     from enum import StrEnum
 
     from pydantic import BaseModel, JsonValue
@@ -282,14 +282,16 @@ def model_type(name: str, model: JsonSchemaValue, definitions: JsonSchemaValue, 
 
 def reached_models(core_schema_node: object) -> Iterator[type[BaseModel]]:
     """The model classes a pydantic core schema reaches."""
+    children: Iterable[object] = ()
     if isinstance(core_schema_node, dict):
-        if core_schema_node.get("type") == "model":
-            yield core_schema_node["cls"]
-        for each in core_schema_node.values():
-            yield from reached_models(each)
+        mapping = cast("dict[str, object]", core_schema_node)
+        if mapping.get("type") == "model":
+            yield cast("type[BaseModel]", mapping["cls"])
+        children = mapping.values()
     elif isinstance(core_schema_node, list):
-        for each in core_schema_node:
-            yield from reached_models(each)
+        children = cast("list[object]", core_schema_node)
+    for each in children:
+        yield from reached_models(each)
 
 
 def require_one_model_per_name(roots: Sequence[type[BaseModel]]) -> None:
