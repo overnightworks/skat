@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 from webauth.ports import SignInStores
+from webauth.postgres import database_errors_as_store_errors
 
 from skat.store.accounts import PostgresAccounts
 from skat.store.migrate import SIGN_IN_LOCK_KEY
@@ -46,7 +47,7 @@ class PostgresSignInTransaction:
     @contextmanager
     def __call__(self) -> Generator[SignInStores]:
         deferred = _DeferredAudit()
-        with self._engine.begin() as connection:
+        with database_errors_as_store_errors(), self._engine.begin() as connection:
             connection.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": SIGN_IN_LOCK_KEY})
             yield SignInStores(
                 accounts=PostgresAccounts(connection),

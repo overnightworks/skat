@@ -6,6 +6,7 @@ from sqlalchemy import func, select, table, text
 
 from skat.engine.bidding import Bid, Hold, Pass, PassedIn
 from skat.engine.deal import Position, next_dealer, positions_from
+from skat.store.hand_log import StepKind
 from skat.store.migrate import create_store_engine
 from skat.store.schema import StepLogRewrittenError
 from skat.store.tables import PostgresTableTransactions
@@ -15,6 +16,7 @@ from skat.table.records import Actor, CreateTable, HandProgress, Refusal, SitDow
 from skat.table.service import TableService
 from tests.support.faulty_tables import BothReadBeforeEitherWrites, FaultyTableTransactions
 from tests.support.seated_tables import save
+from tests.support.stored_game import a_step_appended
 
 pytestmark = pytest.mark.postgres
 
@@ -307,11 +309,7 @@ def test_steps_shorter_than_the_stored_ones_raise_and_change_nothing(hand, trans
 
 
 def test_a_stored_log_the_engine_refuses_raises_at_the_next_command(hand, engine):
-    with engine.begin() as connection:
-        connection.execute(
-            text("INSERT INTO auction_actions VALUES (:table_id, 1, 'rearhand', 'pass', NULL)"),
-            {"table_id": hand.table_id},
-        )
+    a_step_appended(engine, hand.table_id, StepKind.PASS, position="rearhand")
 
     with pytest.raises(ValueError, match="impossible auction log"):
         hand.send(Position.MIDDLEHAND, AuctionAction.BID, 18, command_id=FIRST_STEP)

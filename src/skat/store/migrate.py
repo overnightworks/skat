@@ -2,6 +2,7 @@ import asyncio
 import os
 import socket
 import time
+import traceback
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import cache
@@ -143,6 +144,10 @@ class ServingWindow:
     its release: a contraction that is not the first step of the run is taken to skip a release, and the database
     then serves the new revision alone, so that processes of the release before turn unready too. A fresh database
     serves its head, and a run that applies no step changes nothing.
+
+    The check that a release writes only values the release before reads covers only the columns and tables that
+    release already has; a contraction ships in a later release than the one that stops reading what it drops, once no
+    pod serves the old revision.
     """
 
     def __init__(self) -> None:
@@ -243,6 +248,19 @@ def _run_within_deadline(engine: Engine) -> frozenset[str]:
         loop.close()
 
 
+def _release_cancelled_connect(deadline_error: TimeoutError) -> None:
+    """Closes the libpq connection that a connect cut off by the deadline leaves half made.
+
+    The connection hangs in the cancelled connect's frames, which the exception's traceback keeps in a reference
+    cycle that only the collector would break; clearing the frames drops the connection, and with it its socket, at
+    once. A refused connect leaves none.
+    """
+    error: BaseException | None = deadline_error
+    while error is not None:
+        traceback.clear_frames(error.__traceback__)
+        error = error.__cause__ or error.__context__
+
+
 def database_health(engine: Engine) -> DatabaseHealth:
     """Whether the database serves a query and lists this process's revision as served; it raises on neither and
     returns within the health deadline.
@@ -254,7 +272,12 @@ def database_health(engine: Engine) -> DatabaseHealth:
     """
     try:
         served = _run_within_deadline(engine)
-    except psycopg.Error, TimeoutError:
+    except psycopg.Error:
+        served = None
+    except TimeoutError as deadline_error:
+        served = None
+        _release_cancelled_connect(deadline_error)
+    if served is None:
         return DatabaseHealth(serves_queries=False, revision_served=False)
     return DatabaseHealth(serves_queries=True, revision_served=_head_revision() in served)
 
@@ -281,6 +304,11 @@ class ReadinessProbe:
         self._reusable_until: float | None = None
         self._started_at = 0.0
         self._running: asyncio.Task[bool] | None = None
+
+    @classmethod
+    def over(cls, engine: Engine) -> ReadinessProbe:
+        """The probe of the database `engine` points at, as the server and the end-to-end server serve it."""
+        return cls(lambda: database_health(engine))
 
     async def __call__(self) -> bool:
         if self._running is None:

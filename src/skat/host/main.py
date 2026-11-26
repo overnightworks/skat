@@ -10,7 +10,7 @@ import uvicorn
 from sqlalchemy.engine import make_url
 
 from skat.host.app import PodLinks, create_app
-from skat.store.migrate import ReadinessProbe, create_store_engine, database_health, migrate, require_served_revision
+from skat.store.migrate import ReadinessProbe, create_store_engine, migrate, require_served_revision
 from skat.store.redis_clients import (
     shared_agent_records,
     shared_place_store,
@@ -160,7 +160,7 @@ def _run(command: str, run_server: Callable[..., None], build_directory: Path) -
             agent_records=shared_agent_records(settings.redis_url),
             stream_leases=shared_stream_leases(settings.redis_url),
         ),
-        database_ready=ReadinessProbe(lambda: database_health(engine)),
+        database_ready=ReadinessProbe.over(engine),
     )
     run_server(app, **uvicorn_options(settings))
 

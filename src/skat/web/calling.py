@@ -10,7 +10,8 @@ The roster is read from what every pod shares, at each control: an agent is list
 listens on its standing under the issuer, which holds it until the library's `LISTEN_ALLOWANCE_SECONDS` after its last
 listen ended, and the record of its name and owner stands, which is written at each call of the agent and expires a
 lease after the last. Two agents of one owner with one name are two rows. A row's key is derived from the session
-secret and the agent's account, so every pod gives and accepts the same key whether or not the agent listens. The held
+secret and the agent's account, so every pod gives and accepts the same key whether or not the agent listens. Whoever
+holds the session secret can map row keys to accounts, which is a lesser power than forging a session. The held
 answers are one yes or no per session, kept in this process only: the display never reads the issuer per render, and a
 call or a send-away reads the person's groups fresh at the act.
 """

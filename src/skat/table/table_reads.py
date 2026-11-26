@@ -1,13 +1,12 @@
 """The reads of one table for one viewer: its view, the account's member view and acts, who is at the table, who holds
-each chair, the moments of an account's seats and the agent in a chair.
+each chair, whether an account holds a chair and the agent in a chair.
 """
 
 from typing import TYPE_CHECKING
 
 from skat.table.game_reads import GameListReads
 from skat.table.member_place import SeatedAccounts, agent_in_chair, at_the_table, seated_accounts_of
-from skat.table.member_view import MemberActs, MemberView, member_acts_of, member_view_of, moment_at
-from skat.table.moment import TableMoment
+from skat.table.member_view import MemberActs, MemberView, member_acts_of, member_view_of
 from skat.table.records import Actor, EndedTable, TableId, TableRecord
 from skat.table.rules import present_at
 from skat.table.views import TableView, view_of
@@ -66,14 +65,11 @@ class TableReads(GameListReads):
         table = self._table_read(table_id)
         return member_acts_of(table, account_id) if isinstance(table, TableRecord) else None
 
-    def moments_of(self, account_id: str) -> frozenset[TableMoment]:
-        """The moments of the account's seats at the live tables it holds a chair at, from one read; the lobby moment
-        when it holds none.
-        """
+    def holds_a_chair(self, account_id: str) -> bool:
+        """Whether the account holds a chair at a live table, from one read."""
         with self._transactions.begin() as transaction:
             tables = [transaction.table(held.table_id) for held in transaction.tables_of(account_id)]
-        moments = frozenset(moment_at(table, account_id) for table in tables if isinstance(table, TableRecord))
-        return moments or frozenset({TableMoment.LOBBY})
+        return any(isinstance(table, TableRecord) for table in tables)
 
     def agent_in_chair(self, table_id: str, seat: int) -> str | None:
         """The account of the agent that holds the chair `seat` of the live table; None for a person, a free chair,

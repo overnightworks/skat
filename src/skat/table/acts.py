@@ -20,6 +20,7 @@ from skat.engine.bidding import LOWEST_BID, Bid, Hold, Pass, Play
 from skat.engine.deal import seats_from
 from skat.engine.declaration import Declaration, Declare, PutBack, TakeSkat
 from skat.engine.schieberamsch import DeclareGrandHand, Push, Put, Take
+from skat.engine.tricks import CardPlayed
 from skat.table.game_list import GameEnding, ResultView
 from skat.table.hand_state import declaring_of
 from skat.table.records import SERIES_LENGTH_MAX
@@ -33,7 +34,6 @@ if TYPE_CHECKING:
     from skat.engine.deal import Position
     from skat.engine.declaration import DeclaringStep
     from skat.engine.kontra import Word, WordSaid
-    from skat.engine.tricks import CardPlayed
     from skat.table.game_list import RamschResultView
     from skat.table.records import Series, TableRecord
     from skat.table.views import TableView
@@ -149,18 +149,24 @@ def _declaring_events(table: TableRecord, seats: dict[Position, int]) -> Iterato
             yield seat, ActKind.DECLARE, _declaration_of(table)
 
 
-def _play_events(
-    plays: tuple[CardPlayed, ...], words: tuple[WordSaid, ...], seats: dict[Position, int]
-) -> Iterator[_Event]:
+def said_in_order(plays: tuple[CardPlayed, ...], words: tuple[WordSaid, ...]) -> Iterator[CardPlayed | WordSaid]:
     """The cards in order with each word before the card it was said ahead of, and the words said after the last."""
     unsaid = list(words)
     for played_before, play in enumerate(plays):
         while unsaid and unsaid[0].cards_before <= played_before:
-            said = unsaid.pop(0)
-            yield seats[said.position], ActKind.WORD, said.word
-        yield seats[play.position], ActKind.PLAY, play.card
-    for said in unsaid:
-        yield seats[said.position], ActKind.WORD, said.word
+            yield unsaid.pop(0)
+        yield play
+    yield from unsaid
+
+
+def _play_events(
+    plays: tuple[CardPlayed, ...], words: tuple[WordSaid, ...], seats: dict[Position, int]
+) -> Iterator[_Event]:
+    for each in said_in_order(plays, words):
+        if isinstance(each, CardPlayed):
+            yield seats[each.position], ActKind.PLAY, each.card
+        else:
+            yield seats[each.position], ActKind.WORD, each.word
 
 
 def _running_events(table: TableRecord, seats: dict[Position, int], dealer: int) -> Iterator[_Event]:
@@ -178,6 +184,14 @@ _ENDING_KINDS: Final = {
     GameEnding.PLAYED_OPEN: ActKind.PLAY_OPEN,
     GameEnding.THROWN_DOWN: ActKind.THROW_DOWN,
 }
+_ENDING_ACTS: Final = frozenset({*_ENDING_KINDS.values(), ActKind.RESULT, ActKind.PASSED_IN, ActKind.ABORTED})
+
+
+def step_slot_of(act: Act) -> int | None:
+    """The slot of the act among its hand's steps, the deal's being 1, so that the act's number is the hand's base
+    number plus that slot; None for an act that ends the hand, which is no step.
+    """
+    return None if act.kind in _ENDING_ACTS else act.seq % HAND_SPAN
 
 
 def _result_events(result: ResultView | RamschResultView) -> Iterator[_Event]:

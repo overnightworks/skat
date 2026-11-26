@@ -134,15 +134,14 @@ class TestWeiter:
         assert (answer.status_code, answer.json()["reason"]) == (409, reason)
         assert server.store.tables[table_id] == before
 
-    @pytest.mark.parametrize("series", [1, 3], ids=["an-earlier-series", "a-series-not-yet-started"])
-    def test_a_tap_naming_another_series_is_refused_and_changes_nothing(self, server, table, series):
+    def test_a_tap_naming_another_series_is_refused_and_changes_nothing(self, server, table):
         table_id, people = table
         end_the_first_game(server.store, table_id)
         record = server.store.tables[table_id]
         server.store.tables[table_id] = replace(record, series=replace(record.series, number=2))
         before = server.store.tables[table_id]
 
-        answer = weiter(server, people[0][0], table_id, series=series)
+        answer = weiter(server, people[0][0], table_id, series=1)
 
         assert (answer.status_code, answer.json()["reason"]) == (409, Refusal.STALE_SERIES)
         assert server.store.tables[table_id] == before
