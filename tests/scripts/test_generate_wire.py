@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Literal
 
 import pytest
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 
 from scripts import generate_wire
 from skat.engine.bidding import VALID_BIDS
@@ -288,6 +288,35 @@ class WithAlias(BaseModel):
     tint: ColourOrShade
 
 
+class TheFirstEnumWithAVeryLongEnumName(StrEnum):
+    FIRST = "first"
+
+
+class TheSecondEnumWithAVeryLongEnumName(StrEnum):
+    SECOND = "second"
+
+
+class TheThirdEnumWithAVeryLongEnumName(StrEnum):
+    THIRD = "third"
+
+
+type LongAlias = (
+    TheFirstEnumWithAVeryLongEnumName | TheSecondEnumWithAVeryLongEnumName | TheThirdEnumWithAVeryLongEnumName
+)
+
+
+class WithLongAlias(BaseModel):
+    tint: LongAlias
+
+
+class Plain(RootModel[dict[str, int]]):
+    pass
+
+
+class WithPlainRoot(BaseModel):
+    plain: Plain
+
+
 class WithMapping(BaseModel):
     names: dict[str, int]
 
@@ -345,7 +374,9 @@ def test_answer_types_fail_for_an_enum_without_a_token_tuple() -> None:
         generate_wire.answer_types((WithEnum,), {})
 
 
-@pytest.mark.parametrize("model", [WithMapping, WithTuple], ids=["mapping", "tuple"])
+@pytest.mark.parametrize(
+    "model", [WithMapping, WithTuple, WithPlainRoot], ids=["mapping", "tuple", "model-without-properties-or-union"]
+)
 def test_answer_types_fail_for_a_construct_they_do_not_render(model: type[BaseModel]) -> None:
     with pytest.raises(ValueError, match="no TypeScript for"):
         generate_wire.answer_types((model,), {})
@@ -361,6 +392,23 @@ def test_answer_types_render_a_union_of_enums_the_server_names_as_one_type() -> 
     rendered = generate_wire.answer_types((WithAlias,), {"Colour": "COLOUR_TOKENS", "Shade": "SHADE_TOKENS"})
 
     assert "export type ColourOrShade = (typeof COLOUR_TOKENS)[number] | (typeof SHADE_TOKENS)[number];" in rendered
+
+
+def test_answer_types_stack_a_union_alias_too_long_for_a_line_one_member_per_line() -> None:
+    tokens = {
+        "TheFirstEnumWithAVeryLongEnumName": "THE_FIRST_VERY_LONG_TOKENS",
+        "TheSecondEnumWithAVeryLongEnumName": "THE_SECOND_VERY_LONG_TOKENS",
+        "TheThirdEnumWithAVeryLongEnumName": "THE_THIRD_VERY_LONG_TOKENS",
+    }
+
+    rendered = generate_wire.answer_types((WithLongAlias,), tokens)
+
+    assert (
+        "export type LongAlias =\n"
+        "    | (typeof THE_FIRST_VERY_LONG_TOKENS)[number]\n"
+        "    | (typeof THE_SECOND_VERY_LONG_TOKENS)[number]\n"
+        "    | (typeof THE_THIRD_VERY_LONG_TOKENS)[number];\n"
+    ) in rendered
 
 
 def test_answer_types_fail_for_two_models_of_one_name() -> None:
