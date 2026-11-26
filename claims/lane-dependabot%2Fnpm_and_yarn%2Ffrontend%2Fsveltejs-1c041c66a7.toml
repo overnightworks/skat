@@ -1,7 +1,0 @@
-claim_id = "b3675e55f5634fd09520ea4ddfa7fb76"
-agent = "Claude 43d1cd12-aa0a-4670-990a-06dae441c599"
-role = "builder"
-base = "dd00ac3bbbbea7c5fff084351e74f2397404b5ed"
-branch = "dependabot/npm_and_yarn/frontend/sveltejs-1c041c66a7"
-scope = ["frontend/package.json", "frontend/pnpm-lock.yaml"]
-opened_commit = "7cc0e9afe270f7601566b8aa5a15c1b18f54c038"
