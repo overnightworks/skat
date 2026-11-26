@@ -238,8 +238,16 @@ class WithDefault(BaseModel):
     flag: bool = False
 
 
+class WithNestedDefault(BaseModel):
+    inner: WithDefault
+
+
 class WithMapping(BaseModel):
     names: dict[str, int]
+
+
+class WithTuple(BaseModel):
+    pair: tuple[int, str]
 
 
 @pytest.mark.parametrize(
@@ -253,6 +261,11 @@ class WithMapping(BaseModel):
         pytest.param(WithDiscriminator, "    branch: Leaf | Twig;", id="discriminated-union"),
         pytest.param(WithEnum, "    colour: (typeof COLOUR_TOKENS)[number];", id="enum-as-its-token-tuple"),
         pytest.param(WithDefault, "    flag: boolean;", id="field-with-default-is-required"),
+        pytest.param(
+            WithNestedDefault,
+            "export type WithDefault = {\n    flag: boolean;",
+            id="nested-field-with-default-is-required",
+        ),
     ],
 )
 def test_answer_types_render_each_construct(model: type[BaseModel], declaration: str) -> None:
@@ -274,6 +287,7 @@ def test_answer_types_fail_for_an_enum_without_a_token_tuple() -> None:
         generate_wire.answer_types(WithEnum, {})
 
 
-def test_answer_types_fail_for_a_construct_they_do_not_render() -> None:
+@pytest.mark.parametrize("model", [WithMapping, WithTuple], ids=["mapping", "tuple"])
+def test_answer_types_fail_for_a_construct_they_do_not_render(model: type[BaseModel]) -> None:
     with pytest.raises(ValueError, match="no TypeScript for"):
-        generate_wire.answer_types(WithMapping, {})
+        generate_wire.answer_types(model, {})

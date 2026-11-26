@@ -207,6 +207,8 @@ def type_of(node: JsonSchemaValue, definitions: JsonSchemaValue, enum_tuples: Ma
     if "oneOf" in node and "discriminator" in node:
         return " | ".join(type_of(member, definitions, enum_tuples) for member in node["oneOf"])
     if node.get("type") == "array":
+        if "items" not in node:
+            raise ValueError(f"generate_wire: no TypeScript for {node}")
         item = type_of(node["items"], definitions, enum_tuples)
         return f"({item})[]" if {"anyOf", "oneOf"} & node["items"].keys() else f"{item}[]"
     if node.get("type") in SCALAR_TYPES and "enum" not in node:
@@ -215,8 +217,10 @@ def type_of(node: JsonSchemaValue, definitions: JsonSchemaValue, enum_tuples: Ma
 
 
 def model_type(name: str, model: JsonSchemaValue, definitions: JsonSchemaValue, enum_tuples: Mapping[str, str]) -> str:
+    required = model.get("required", [])
     members = "".join(
-        f"    {key}: {type_of(node, definitions, enum_tuples)};\n" for key, node in model["properties"].items()
+        f"    {key}{'' if key in required else '?'}: {type_of(node, definitions, enum_tuples)};\n"
+        for key, node in model["properties"].items()
     )
     return f"export type {name} = {{\n{members}}};\n"
 
