@@ -448,7 +448,7 @@ EndedAnswer = (
     | ClosedNoGamesAnswer
     | ClosedWithGamesAnswer
 )
-ENDED_ANSWER_MODELS: dict[tuple[EndReason, bool], type[EndedAnswer]] = {
+_ENDED_ANSWER_MODELS: Final[Mapping[tuple[EndReason, bool], type[EndedAnswer]]] = {
     (EndReason.EMPTY, False): EmptyNoGamesAnswer,
     (EndReason.EMPTY, True): EmptyWithGamesAnswer,
     (EndReason.UNPLAYED, False): UnplayedNoGamesAnswer,
@@ -658,7 +658,7 @@ def ended_answer_of(ended: EndedView | None) -> EndedAnswer | None:
     if ended is None:
         return None
     standings = None if ended.standings is None else [standing_answer_of(each) for each in ended.standings]
-    return ENDED_ANSWER_MODELS[ended.reason, standings is not None].model_validate(
+    return _ENDED_ANSWER_MODELS[ended.reason, standings is not None].model_validate(
         {
             "reason": ended.reason,
             "empty_seconds": ended.empty_seconds,

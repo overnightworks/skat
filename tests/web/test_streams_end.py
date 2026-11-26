@@ -173,10 +173,9 @@ class TestAnUnplayedEnd:
         assert (old_link["chairs"], old_link["hand"], old_link["watchers"]) == ([], None, 0)
 
 
-PLAYED = (Standing("anna", "Anna", 1, None, 120, 2, 1, 1), Standing("ben", "Ben", 2, None, -30, 1, 2, 2))
-
-
 class TestEveryEndOfATable:
+    PLAYED = (Standing("anna", "Anna", 1, None, 120, 2, 1, 1), Standing("ben", "Ben", 2, None, -30, 1, 2, 2))
+
     @pytest.mark.parametrize(
         "ended",
         [
