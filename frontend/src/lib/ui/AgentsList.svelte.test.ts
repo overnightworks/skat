@@ -8,7 +8,7 @@ import { language, words } from "#lib/words.ts";
 
 const TABLE_ID = "b".repeat(32);
 const CONTROL_PATH = `${TABLES_PATH}/${TABLE_ID}${TABLE_AGENTS_SUFFIX}`;
-const row = { key: "key-nova", name: "Nova", state: "available", ends_in_seconds: null };
+const row = { key: "key-nova", name: "Nova", state: "available", outcome: null, ends_in_seconds: null };
 
 type Answer = { control: object; call?: Response };
 

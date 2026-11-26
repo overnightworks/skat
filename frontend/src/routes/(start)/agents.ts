@@ -1,26 +1,22 @@
-import type { AgentControlOutcome, AgentControlRefusal } from "overnightworks-design";
-import { TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX, TABLES_PATH } from "#lib/wire.ts";
+import type { AgentControlRefusal } from "overnightworks-design";
+import {
+    CALL_REFUSAL_TOKENS,
+    TABLE_AGENT_CALL_SUFFIX,
+    TABLE_AGENT_SEND_AWAY_SUFFIX,
+    TABLE_AGENTS_SUFFIX,
+    TABLES_PATH,
+    type AgentControlAnswer,
+    type CallRefusalAnswer,
+} from "#lib/wire.ts";
 import { CONFLICT_STATUS, fetchOrNull, fetchSigningInAgain, NOT_FOUND_STATUS } from "./tables.ts";
 
-// One row of the control that calls agents, in the shape the kit's rows take. `key` is Skat's opaque key; an `inviting`
-// row says in whole seconds on the server's clock how long its invitation stays open, a `here` row is an agent seated at
-// the table, and an `ended` row is the caller's call that ended without a seat, with how it ended.
-export type AgentRow =
-    | { key: string; name: string; state: "available"; ends_in_seconds: null }
-    | { key: string; name: string; state: "inviting"; ends_in_seconds: number }
-    | { key: string; name: string; state: "here"; ends_in_seconds: null }
-    | { key: string; name: string; state: "ended"; outcome: AgentControlOutcome; ends_in_seconds: null };
-export type AgentsControl = { shown: boolean; full: boolean; rows: AgentRow[] };
+// The control that calls agents and one of its rows, as the server sends them; the kit's rows take the same shape.
+export type AgentsControl = AgentControlAnswer;
+export type AgentRow = AgentsControl["rows"][number];
 type AgentsAnswer = { kind: "control"; control: AgentsControl } | { kind: "missing" } | { kind: "failed" };
-type CallAnswer = AgentsAnswer | { kind: "refused"; reason: AgentControlRefusal };
+type CallAnswer = AgentsAnswer | { kind: "refused"; reason: CallRefusalAnswer["reason"] };
 
-const REFUSAL_REASONS: ReadonlySet<unknown> = new Set<AgentControlRefusal>([
-    "not-allowed",
-    "owner-absent",
-    "place-full",
-    "agent-unavailable",
-    "try-again",
-]);
+const REFUSAL_REASONS: ReadonlySet<unknown> = new Set(CALL_REFUSAL_TOKENS);
 // The next read of an `inviting` row is at least this long after the last, so a clock that runs ahead asks once more
 // and never in a tight loop; a read that failed is asked again after the retry wait while a row is `inviting`.
 const MINIMUM_REREAD_SECONDS = 1;
@@ -51,15 +47,16 @@ export async function readAgents(id: string): Promise<AgentsAnswer> {
     return answerOfAgents(await fetchOrNull(agentsPath(id)));
 }
 
+function isCallRefusal(body: unknown): body is CallRefusalAnswer {
+    return typeof body === "object" && body !== null && "reason" in body && REFUSAL_REASONS.has(body.reason);
+}
+
 async function actOnAgent(id: string, key: string, suffix: string, init: RequestInit): Promise<CallAnswer> {
     const answer = await fetchSigningInAgain(`${agentsPath(id)}/${encodeURIComponent(key)}${suffix}`, init);
     if (answer?.status !== CONFLICT_STATUS) return answerOfAgents(answer);
     try {
         const body: unknown = await answer.json();
-        const reason = typeof body === "object" && body !== null && "reason" in body ? body.reason : null;
-        return REFUSAL_REASONS.has(reason)
-            ? { kind: "refused", reason: reason as AgentControlRefusal }
-            : { kind: "failed" };
+        return isCallRefusal(body) ? { kind: "refused", reason: body.reason } : { kind: "failed" };
     } catch {
         return { kind: "failed" };
     }
