@@ -20,6 +20,7 @@ const chair = (seat: number, isMine: boolean): Chair => ({
     former_holder_name: null,
     is_mine_to_return: false,
     nudge: null,
+    turn_state: null,
 });
 
 describe("what a thrown emote shows on the felt", () => {

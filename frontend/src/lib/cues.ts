@@ -174,7 +174,8 @@ function sitterOf(chair: Chair): Sitter {
     };
 }
 
-type Turn = { phase: "auction" | "declare" | "push" | "play"; seat: number };
+// The seat is null while the last trick of a hand rests and sweeps.
+type Turn = { phase: "auction" | "declare" | "push" | "play"; seat: number | null };
 
 // Where the hand waits for one chair: the auction's bidder, the declarer who chooses the game, the player of the stage
 // before a Ramsch or of the play. A turn is the chair together with that phase, so a chair that acts in two phases in a row
@@ -182,7 +183,7 @@ type Turn = { phase: "auction" | "declare" | "push" | "play"; seat: number };
 function turnOf(table: Table): Turn | null {
     const hand = table.hand;
     if (hand === null || handWaits(hand)) return null;
-    if (hand.playing !== null) return { phase: "play", seat: hand.playing.turn_seat as number };
+    if (hand.playing !== null) return { phase: "play", seat: hand.playing.turn_seat };
     if (hand.pushing !== null) return { phase: "push", seat: hand.pushing.turn_seat };
     if (hand.declaring !== null)
         return hand.declaring.stage === "declared" ? null : { phase: "declare", seat: hand.declaring.declarer_seat };

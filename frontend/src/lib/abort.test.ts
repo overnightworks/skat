@@ -20,6 +20,7 @@ function chairs(mine: number, open: number | null): Chair[] {
         former_holder_name: null,
         is_mine_to_return: false,
         nudge: null,
+        turn_state: null,
     }));
 }
 

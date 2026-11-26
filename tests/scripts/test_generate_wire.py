@@ -2,9 +2,11 @@
 
 import json
 import re
-from typing import TYPE_CHECKING
+from enum import StrEnum
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import pytest
+from pydantic import BaseModel, Field, RootModel
 
 from scripts import generate_wire
 from skat.engine.bidding import VALID_BIDS
@@ -62,18 +64,19 @@ from skat.web.playing import (
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.rule_sets import RULE_SETS_PATH
 from skat.web.table_options import options_answer_of
-from skat.web.tables import (
-    TABLE_PAGE_PREFIX,
-    TABLES_PATH,
+from skat.web.table_tokens import (
     AwaitingToken,
     PositionToken,
     RankToken,
     StageToken,
     SuitToken,
 )
+from skat.web.tables import (
+    TABLE_PAGE_PREFIX,
+    TABLES_PATH,
+)
 
 if TYPE_CHECKING:
-    from enum import StrEnum
     from pathlib import Path
 
 
@@ -192,3 +195,235 @@ def test_main_check_fails_for_a_missing_or_edited_module(tmp_path: Path, stale_c
 
     with pytest.raises(SystemExit, match="out of date"):
         generate_wire.main(["--check"], root=tmp_path)
+
+
+class Colour(StrEnum):
+    RED = "red"
+
+
+class Leaf(BaseModel):
+    kind: Literal["leaf"]
+
+
+class Twig(BaseModel):
+    kind: Literal["twig"]
+
+
+class WithReference(BaseModel):
+    leaf: Leaf
+
+
+class WithNullable(BaseModel):
+    note: str | None
+
+
+class WithArray(BaseModel):
+    numbers: list[int]
+
+
+class WithArrayOfNullables(BaseModel):
+    notes: list[str | None]
+
+
+class WithConstant(BaseModel):
+    kind: Literal["leaf"]
+
+
+class WithEnumConstant(BaseModel):
+    colour: Literal[Colour.RED]
+
+
+class WithNothing(BaseModel):
+    nothing: None
+
+
+class WithUnion(BaseModel):
+    branch: Leaf | Twig | None
+
+
+class TheFirstBranchWithAVeryLongModelName(BaseModel):
+    kind: Literal["first"]
+
+
+class TheSecondBranchWithAVeryLongModelName(BaseModel):
+    kind: Literal["second"]
+
+
+class TheThirdBranchWithAVeryLongModelName(BaseModel):
+    kind: Literal["third"]
+
+
+class WithLongUnion(BaseModel):
+    branch: (
+        TheFirstBranchWithAVeryLongModelName
+        | TheSecondBranchWithAVeryLongModelName
+        | TheThirdBranchWithAVeryLongModelName
+        | None
+    )
+
+
+class WithDiscriminator(BaseModel):
+    branch: Annotated[Leaf | Twig, Field(discriminator="kind")]
+
+
+class WithEnum(BaseModel):
+    colour: Colour
+
+
+class WithDefault(BaseModel):
+    flag: bool = False
+
+
+class WithNestedDefault(BaseModel):
+    inner: WithDefault
+
+
+class Shade(StrEnum):
+    DARK = "dark"
+
+
+type ColourOrShade = Colour | Shade
+
+
+class WithAlias(BaseModel):
+    tint: ColourOrShade
+
+
+class TheFirstEnumWithAVeryLongEnumName(StrEnum):
+    FIRST = "first"
+
+
+class TheSecondEnumWithAVeryLongEnumName(StrEnum):
+    SECOND = "second"
+
+
+class TheThirdEnumWithAVeryLongEnumName(StrEnum):
+    THIRD = "third"
+
+
+type LongAlias = (
+    TheFirstEnumWithAVeryLongEnumName | TheSecondEnumWithAVeryLongEnumName | TheThirdEnumWithAVeryLongEnumName
+)
+
+
+class WithLongAlias(BaseModel):
+    tint: LongAlias
+
+
+class Plain(RootModel[dict[str, int]]):
+    pass
+
+
+class WithPlainRoot(BaseModel):
+    plain: Plain
+
+
+class WithMapping(BaseModel):
+    names: dict[str, int]
+
+
+class WithTuple(BaseModel):
+    pair: tuple[int, str]
+
+
+@pytest.mark.parametrize(
+    ("model", "declaration"),
+    [
+        pytest.param(WithReference, "export type WithReference = {\n    leaf: Leaf;\n};", id="reference"),
+        pytest.param(WithNullable, "    note: string | null;", id="any-of-null"),
+        pytest.param(WithArray, "    numbers: number[];", id="array"),
+        pytest.param(WithArrayOfNullables, "    notes: (string | null)[];", id="array-of-a-union"),
+        pytest.param(WithConstant, '    kind: "leaf";', id="constant"),
+        pytest.param(WithEnumConstant, '    colour: "red";', id="constant-from-an-enum-member"),
+        pytest.param(WithNothing, "    nothing: null;", id="null-only"),
+        pytest.param(WithUnion, "    branch: Leaf | Twig | null;", id="any-of-models"),
+        pytest.param(
+            WithLongUnion,
+            "    branch:\n"
+            "        | TheFirstBranchWithAVeryLongModelName\n"
+            "        | TheSecondBranchWithAVeryLongModelName\n"
+            "        | TheThirdBranchWithAVeryLongModelName\n"
+            "        | null;\n",
+            id="any-of-too-long-for-a-line-stacks",
+        ),
+        pytest.param(WithDiscriminator, "    branch: Leaf | Twig;", id="discriminated-union"),
+        pytest.param(WithEnum, "    colour: (typeof COLOUR_TOKENS)[number];", id="enum-as-its-token-tuple"),
+        pytest.param(WithDefault, "    flag: boolean;", id="field-with-default-is-required"),
+        pytest.param(
+            WithNestedDefault,
+            "export type WithDefault = {\n    flag: boolean;",
+            id="nested-field-with-default-is-required",
+        ),
+    ],
+)
+def test_answer_types_render_each_construct(model: type[BaseModel], declaration: str) -> None:
+    assert declaration in generate_wire.answer_types((model,), {"Colour": "COLOUR_TOKENS"})
+
+
+def test_answer_types_name_every_model_the_root_reaches() -> None:
+    rendered = generate_wire.answer_types((WithDiscriminator,), {})
+
+    assert [line for line in rendered.splitlines() if line.startswith("export type")] == [
+        "export type Leaf = {",
+        "export type Twig = {",
+        "export type WithDiscriminator = {",
+    ]
+
+
+def test_answer_types_fail_for_an_enum_without_a_token_tuple() -> None:
+    with pytest.raises(ValueError, match="Colour has no token tuple"):
+        generate_wire.answer_types((WithEnum,), {})
+
+
+@pytest.mark.parametrize(
+    "model", [WithMapping, WithTuple, WithPlainRoot], ids=["mapping", "tuple", "model-without-properties-or-union"]
+)
+def test_answer_types_fail_for_a_construct_they_do_not_render(model: type[BaseModel]) -> None:
+    with pytest.raises(ValueError, match="no TypeScript for"):
+        generate_wire.answer_types((model,), {})
+
+
+def test_answer_types_render_a_model_two_roots_reach_once() -> None:
+    rendered = generate_wire.answer_types((WithReference, WithDiscriminator), {})
+
+    assert rendered.count("export type Leaf = {") == 1
+
+
+@pytest.mark.parametrize(
+    ("model", "tokens", "declaration"),
+    [
+        pytest.param(
+            WithAlias,
+            {"Colour": "COLOUR_TOKENS", "Shade": "SHADE_TOKENS"},
+            "export type ColourOrShade = (typeof COLOUR_TOKENS)[number] | (typeof SHADE_TOKENS)[number];",
+            id="union-of-enums-the-server-names-is-one-type",
+        ),
+        pytest.param(
+            WithLongAlias,
+            {
+                "TheFirstEnumWithAVeryLongEnumName": "THE_FIRST_VERY_LONG_TOKENS",
+                "TheSecondEnumWithAVeryLongEnumName": "THE_SECOND_VERY_LONG_TOKENS",
+                "TheThirdEnumWithAVeryLongEnumName": "THE_THIRD_VERY_LONG_TOKENS",
+            },
+            "export type LongAlias =\n"
+            "    | (typeof THE_FIRST_VERY_LONG_TOKENS)[number]\n"
+            "    | (typeof THE_SECOND_VERY_LONG_TOKENS)[number]\n"
+            "    | (typeof THE_THIRD_VERY_LONG_TOKENS)[number];\n",
+            id="union-alias-too-long-for-a-line-stacks-one-member-per-line",
+        ),
+    ],
+)
+def test_answer_types_render_a_union_alias(model: type[BaseModel], tokens: dict[str, str], declaration: str) -> None:
+    assert declaration in generate_wire.answer_types((model,), tokens)
+
+
+def test_answer_types_fail_for_two_models_of_one_name() -> None:
+    def named_leaf(module: str) -> type[BaseModel]:
+        return type("Leaf", (BaseModel,), {"__module__": module, "__annotations__": {"size": int}})
+
+    class Both(BaseModel):
+        first: named_leaf("first.module")  # type: ignore[valid-type]
+        second: named_leaf("second.module")  # type: ignore[valid-type]
+
+    with pytest.raises(ValueError, match=r"two models are named Leaf: first\.module and second\.module"):
+        generate_wire.answer_types((Both,), {})

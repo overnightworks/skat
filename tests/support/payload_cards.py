@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from skat.engine.cards import DECK
 from skat.engine.deal import Deal
-from skat.web.tables import RANK_TOKENS, SUIT_TOKENS
+from skat.web.table_tokens import RANK_TOKENS, SUIT_TOKENS
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

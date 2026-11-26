@@ -348,6 +348,7 @@ describe("the word of Kontra said between two versions of a table", () => {
         said,
         factor: 2 ** said.length,
         my_word: null,
+        my_word_answered: false,
         first_card_waits_on: [],
         first_card_declined: [],
     });

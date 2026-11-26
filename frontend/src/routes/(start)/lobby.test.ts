@@ -30,6 +30,8 @@ function chairOf(seat: number, overrides: Partial<LobbyChair> = {}): LobbyChair 
         total: null,
         is_away: false,
         is_turn: false,
+        hold_seconds_left: null,
+        turn_state: null,
         ...overrides,
     };
 }
@@ -59,6 +61,7 @@ function openChairOf(seat: number, overrides: Partial<OpenChair> = {}): OpenChai
         occupant_kind: seat < 2 ? "person" : null,
         is_away: false,
         hold_seconds_left: null,
+        turn_state: null,
         ...overrides,
     };
 }
