@@ -228,6 +228,39 @@ class WithConstant(BaseModel):
     kind: Literal["leaf"]
 
 
+class WithEnumConstant(BaseModel):
+    colour: Literal[Colour.RED]
+
+
+class WithNothing(BaseModel):
+    nothing: None
+
+
+class WithUnion(BaseModel):
+    branch: Leaf | Twig | None
+
+
+class TheFirstBranchWithAVeryLongModelName(BaseModel):
+    kind: Literal["first"]
+
+
+class TheSecondBranchWithAVeryLongModelName(BaseModel):
+    kind: Literal["second"]
+
+
+class TheThirdBranchWithAVeryLongModelName(BaseModel):
+    kind: Literal["third"]
+
+
+class WithLongUnion(BaseModel):
+    branch: (
+        TheFirstBranchWithAVeryLongModelName
+        | TheSecondBranchWithAVeryLongModelName
+        | TheThirdBranchWithAVeryLongModelName
+        | None
+    )
+
+
 class WithDiscriminator(BaseModel):
     branch: Annotated[Leaf | Twig, Field(discriminator="kind")]
 
@@ -260,6 +293,18 @@ class WithTuple(BaseModel):
         pytest.param(WithArray, "    numbers: number[];", id="array"),
         pytest.param(WithArrayOfNullables, "    notes: (string | null)[];", id="array-of-a-union"),
         pytest.param(WithConstant, '    kind: "leaf";', id="constant"),
+        pytest.param(WithEnumConstant, '    colour: "red";', id="constant-from-an-enum-member"),
+        pytest.param(WithNothing, "    nothing: null;", id="null-only"),
+        pytest.param(WithUnion, "    branch: Leaf | Twig | null;", id="any-of-models"),
+        pytest.param(
+            WithLongUnion,
+            "    branch:\n"
+            "        | TheFirstBranchWithAVeryLongModelName\n"
+            "        | TheSecondBranchWithAVeryLongModelName\n"
+            "        | TheThirdBranchWithAVeryLongModelName\n"
+            "        | null;\n",
+            id="any-of-too-long-for-a-line-stacks",
+        ),
         pytest.param(WithDiscriminator, "    branch: Leaf | Twig;", id="discriminated-union"),
         pytest.param(WithEnum, "    colour: (typeof COLOUR_TOKENS)[number];", id="enum-as-its-token-tuple"),
         pytest.param(WithDefault, "    flag: boolean;", id="field-with-default-is-required"),

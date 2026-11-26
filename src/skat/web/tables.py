@@ -19,18 +19,18 @@ from skat.table.records import (
     AuctionPlan,
     BidLimit,
     CommandRefusal,
-    EndReason,
     OccupantKind,
     PlanMode,
     TableStyle,
 )
 from skat.table.service import CommandIdReusedError
 from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS, AnnouncementToken, GameToken
+from skat.web.ended_answer import EndedAnswer, ended_answer_of
 from skat.web.languages import LANGUAGE_VARY, language_of_request
 from skat.web.mcp import READ_TABLE_MARK, Exclusion, excluded
 from skat.web.result_answer import RamschResultAnswer, ResultAnswer, result_answer_of
 from skat.web.routes import READ_METHODS, built_page_response
-from skat.web.series_answer import SeriesAnswer, StandingAnswer, series_answer_of, standing_answer_of
+from skat.web.series_answer import SeriesAnswer, series_answer_of
 from skat.web.table_options import OptionsAnswer, options_answer_of
 from skat.web.table_tokens import (
     AWAITING_TOKENS,
@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from skat.table.playing import PlayingView
     from skat.table.pushing import PushingView
     from skat.table.service import TableService
-    from skat.table.views import AbortedView, ChairHand, CommandResult, EndedView, HandView, PassedInView, TableView
+    from skat.table.views import AbortedView, ChairHand, CommandResult, HandView, PassedInView, TableView
     from skat.web.page_build import PageBuild
     from skat.web.presence import Presence
     from skat.web.reaction_log import Thrown
@@ -364,22 +364,6 @@ class NextDealerAnswer(BaseModel):
     next_dealer_seat: int | None
 
 
-class EndedAnswer(BaseModel):
-    """Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, the days nobody
-    played, or, for a close, the name of the opener who closed it before „Aufhören“, which is null once the days of the
-    link's reason have passed and for a table that finished a game; a table whose series ended by „Aufhören“ or by a
-    silent seat is a close that names nobody. Such a table carries the games its last series played and their standings,
-    whatever the reason; one that finished none carries neither.
-    """
-
-    reason: EndReason
-    empty_seconds: int | None
-    unplayed_days: int | None
-    closed_by_name: str | None
-    standings: list[StandingAnswer] | None
-    game_count: int | None
-
-
 class BockAnswer(BaseModel):
     """The Bock games still to come, the running one included, and what the running or next game's list score is
     multiplied by; the same for every viewer. A table without Bock has none.
@@ -574,20 +558,6 @@ def nudge_answer_of(view: TableView, state: NudgeState | None) -> NudgeAnswer | 
         return None
     by_name = None if state.by_seat is None else view.chairs[state.by_seat - 1].occupant_name
     return NudgeAnswer(nudges=state.nudges, may_nudge=state.may_nudge, by_name=by_name)
-
-
-def ended_answer_of(ended: EndedView | None) -> EndedAnswer | None:
-    if ended is None:
-        return None
-    standings = None if ended.standings is None else [standing_answer_of(each) for each in ended.standings]
-    return EndedAnswer(
-        reason=ended.reason,
-        empty_seconds=ended.empty_seconds,
-        unplayed_days=ended.unplayed_days,
-        closed_by_name=ended.closed_by_name,
-        standings=standings,
-        game_count=ended.game_count,
-    )
 
 
 def reaction_answer_of(view: TableView, thrown: Thrown) -> ReactionAnswer:

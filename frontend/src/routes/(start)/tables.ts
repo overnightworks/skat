@@ -7,7 +7,6 @@ import {
     type CardAnswer,
     type ChairAnswer,
     type OptionsAnswer,
-    type EndedAnswer,
     type SeatedCardAnswer,
     type OCCUPANT_KIND_TOKENS,
     type PUSH_ACTION_TOKENS,
@@ -120,39 +119,14 @@ export type StopOutcome = (typeof STOP_OUTCOME_TOKENS)[number];
 // A plan as a player sets it; null takes the plan back.
 export type PlanChoice = { kind: "limit"; value: number; mode: PlanMode } | { kind: "pass" } | null;
 export type EndReason = (typeof END_REASON_TOKENS)[number];
-// The page's refinement of the server's flat `EndedAnswer`, which ties two narrowings it does not state: the reason
-// decides which of the two counts is a number, and a table that played no game has neither standings nor game count.
-type EndedPlayed =
-    | { standings: NonNullable<EndedAnswer["standings"]>; game_count: NonNullable<EndedAnswer["game_count"]> }
-    | { standings: null; game_count: null };
-export type Ended = EndedPlayed &
-    (
-        | {
-              reason: Extract<EndReason, "empty">;
-              empty_seconds: NonNullable<EndedAnswer["empty_seconds"]>;
-              unplayed_days: null;
-              closed_by_name: null;
-          }
-        | {
-              reason: Extract<EndReason, "unplayed">;
-              empty_seconds: null;
-              unplayed_days: NonNullable<EndedAnswer["unplayed_days"]>;
-              closed_by_name: null;
-          }
-        | {
-              reason: Extract<EndReason, "closed">;
-              empty_seconds: null;
-              unplayed_days: null;
-              closed_by_name: EndedAnswer["closed_by_name"];
-          }
-    );
+export type Ended = NonNullable<TableAnswer["ended"]>;
 // What an opener sends: a rule that is off is left out, the running points and the give-up rules only when on.
 export type OptionsRequest = { show_running_points?: true; give_up?: OptionsAnswer["give_up"] } & {
     [Rule in "kontra" | "bock" | "ramsch"]?: NonNullable<OptionsAnswer[Rule]>;
 };
 export type TableStyle = (typeof TABLE_STYLE_TOKENS)[number];
 
-export type Table = Omit<TableAnswer, "ended"> & { ended: Ended | null };
+export type Table = TableAnswer;
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =
     { kind: "table"; table: Table } | { kind: "taken"; holder: string } | { kind: "missing" } | { kind: "failed" };

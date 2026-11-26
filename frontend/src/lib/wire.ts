@@ -211,6 +211,22 @@ export type ChairHandAnswer = {
     position: (typeof POSITION_TOKENS)[number];
     card_count: number;
 };
+export type ClosedNoGamesAnswer = {
+    reason: "closed";
+    empty_seconds: null;
+    unplayed_days: null;
+    closed_by_name: string | null;
+    standings: null;
+    game_count: null;
+};
+export type ClosedWithGamesAnswer = {
+    reason: "closed";
+    empty_seconds: null;
+    unplayed_days: null;
+    closed_by_name: null;
+    standings: StandingAnswer[];
+    game_count: number;
+};
 export type DeclarationAnswer = {
     game: (typeof GAME_TOKENS)[number];
     hand: boolean;
@@ -223,13 +239,21 @@ export type DeclaringAnswer = {
     declaration: DeclarationAnswer | null;
     open_cards: CardAnswer[];
 };
-export type EndedAnswer = {
-    reason: (typeof END_REASON_TOKENS)[number];
-    empty_seconds: number | null;
-    unplayed_days: number | null;
-    closed_by_name: string | null;
-    standings: StandingAnswer[] | null;
-    game_count: number | null;
+export type EmptyNoGamesAnswer = {
+    reason: "empty";
+    empty_seconds: number;
+    unplayed_days: null;
+    closed_by_name: null;
+    standings: null;
+    game_count: null;
+};
+export type EmptyWithGamesAnswer = {
+    reason: "empty";
+    empty_seconds: number;
+    unplayed_days: null;
+    closed_by_name: null;
+    standings: StandingAnswer[];
+    game_count: number;
 };
 export type GiveUpAnswer = {
     asking_seat: number;
@@ -462,7 +486,14 @@ export type TableAnswer = {
     options: OptionsAnswer | null;
     style: (typeof TABLE_STYLE_TOKENS)[number] | null;
     bock: BockAnswer | null;
-    ended: EndedAnswer | null;
+    ended:
+        | EmptyNoGamesAnswer
+        | EmptyWithGamesAnswer
+        | UnplayedNoGamesAnswer
+        | UnplayedWithGamesAnswer
+        | ClosedNoGamesAnswer
+        | ClosedWithGamesAnswer
+        | null;
     reactions: ReactionAnswer[];
 };
 export type TakenAnswer = {
@@ -472,4 +503,20 @@ export type TakenAnswer = {
 export type TurnStateAnswer = {
     stopped: (typeof STOP_OUTCOME_TOKENS)[number] | null;
     thinking_seconds_left: number | null;
+};
+export type UnplayedNoGamesAnswer = {
+    reason: "unplayed";
+    empty_seconds: null;
+    unplayed_days: number;
+    closed_by_name: null;
+    standings: null;
+    game_count: null;
+};
+export type UnplayedWithGamesAnswer = {
+    reason: "unplayed";
+    empty_seconds: null;
+    unplayed_days: number;
+    closed_by_name: null;
+    standings: StandingAnswer[];
+    game_count: number;
 };
