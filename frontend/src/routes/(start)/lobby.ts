@@ -134,7 +134,7 @@ function otherSeatFreeIn(name: string, minutes: number): string {
 }
 
 function holdOf(chair: LobbyChair, heldMilliseconds: number): SeatCard["hold"] {
-    const seconds = chair.hold_seconds_left;
+    const seconds = chair.hold_seconds_left ?? null;
     if (chair.occupant_name === null || seconds === null) return null;
     const minutes = minutesLeft(seconds, heldMilliseconds);
     if (minutes === null) return null;
