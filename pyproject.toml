@@ -222,7 +222,7 @@ dev = [
     "cryptography>=50.0.2",
     "httpx2>=2.13.1",
     "import-linter>=2.3",
-    "overnightworks-design[catalogs] @ git+https://github.com/overnightworks/design@v0.37.0",
+    "overnightworks-design[catalogs] @ git+https://github.com/overnightworks/design@v0.42.0",
     "pyjwt>=2.15.1",
     "pyright>=1.1.414",
     "pytest>=9.0.2",
