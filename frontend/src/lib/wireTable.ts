@@ -56,7 +56,7 @@ export function tableOfWire(wire: WireTable): Table {
                     : {
                           proposer_seat: proposal.proposer_seat,
                           agreed_seats: agreedSeatsOf(proposal),
-                          answer_by: proposal.answer_by ?? null,
+                          answer_by: (proposal.answer_by ?? null) as string,
                       },
             end_refused_seats: series.end_refused_seats ?? [],
             new_series_answer_by: series.new_series_answer_by ?? null,

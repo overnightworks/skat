@@ -2,9 +2,11 @@
 
 import json
 import re
-from typing import TYPE_CHECKING
+from enum import StrEnum
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import pytest
+from pydantic import BaseModel, Field
 
 from scripts import generate_wire
 from skat.engine.bidding import VALID_BIDS
@@ -73,7 +75,6 @@ from skat.web.tables import (
 )
 
 if TYPE_CHECKING:
-    from enum import StrEnum
     from pathlib import Path
 
 
@@ -191,3 +192,88 @@ def test_main_check_fails_for_a_missing_or_edited_module(tmp_path: Path, stale_c
 
     with pytest.raises(SystemExit, match="out of date"):
         generate_wire.main(["--check"], root=tmp_path)
+
+
+class Colour(StrEnum):
+    RED = "red"
+
+
+class Leaf(BaseModel):
+    kind: Literal["leaf"]
+
+
+class Twig(BaseModel):
+    kind: Literal["twig"]
+
+
+class WithReference(BaseModel):
+    leaf: Leaf
+
+
+class WithNullable(BaseModel):
+    note: str | None
+
+
+class WithArray(BaseModel):
+    numbers: list[int]
+
+
+class WithArrayOfNullables(BaseModel):
+    notes: list[str | None]
+
+
+class WithConstant(BaseModel):
+    kind: Literal["leaf"]
+
+
+class WithDiscriminator(BaseModel):
+    branch: Annotated[Leaf | Twig, Field(discriminator="kind")]
+
+
+class WithEnum(BaseModel):
+    colour: Colour
+
+
+class WithDefault(BaseModel):
+    flag: bool = False
+
+
+class WithMapping(BaseModel):
+    names: dict[str, int]
+
+
+@pytest.mark.parametrize(
+    ("model", "declaration"),
+    [
+        pytest.param(WithReference, "export type WithReference = {\n    leaf: Leaf;\n};", id="reference"),
+        pytest.param(WithNullable, "    note: string | null;", id="any-of-null"),
+        pytest.param(WithArray, "    numbers: number[];", id="array"),
+        pytest.param(WithArrayOfNullables, "    notes: (string | null)[];", id="array-of-a-union"),
+        pytest.param(WithConstant, '    kind: "leaf";', id="constant"),
+        pytest.param(WithDiscriminator, "    branch: Leaf | Twig;", id="discriminated-union"),
+        pytest.param(WithEnum, "    colour: (typeof COLOUR_TOKENS)[number];", id="enum-as-its-token-tuple"),
+        pytest.param(WithDefault, "    flag: boolean;", id="field-with-default-is-required"),
+    ],
+)
+def test_answer_types_render_each_construct(model: type[BaseModel], declaration: str) -> None:
+    assert declaration in generate_wire.answer_types(model, {"Colour": "COLOUR_TOKENS"})
+
+
+def test_answer_types_name_every_model_the_root_reaches() -> None:
+    rendered = generate_wire.answer_types(WithDiscriminator, {})
+
+    assert [line for line in rendered.splitlines() if line.startswith("export type")] == [
+        "export type Leaf = {",
+        "export type Twig = {",
+        "export type WithDiscriminator = {",
+    ]
+
+
+def test_answer_types_fail_for_an_enum_without_a_token_tuple() -> None:
+    with pytest.raises(ValueError, match="Colour has no token tuple"):
+        generate_wire.answer_types(WithEnum, {})
+
+
+def test_answer_types_fail_for_a_construct_they_do_not_render() -> None:
+    with pytest.raises(ValueError, match="no TypeScript for"):
+        generate_wire.answer_types(WithMapping, {})

@@ -141,7 +141,7 @@ Unit tests cover the logic, with a fake issuer for sign-in. Store and end-to-end
 
 - **The layer rule.** `host` depends on `web` and `store`, which know nothing of each other; both depend on `table`, and `engine` sits below `table`; never the other way. import-linter enforces it, and a second contract keeps `skat.table` and `skat.engine` free of every framework, driver and adapter. So the rules stay pure and testable without a process.
 - **A strict content security policy:** no inline script, style or handler; only the shell's bootstrap and the call sign-in page's script, admitted by hash.
-- **The Python path constants own the browser's paths;** `make wire` generates the TypeScript, so a drifting path fails a check, not a page.
+- **The Python path constants, token enums and table answer models own the browser's paths, tokens and answer types;** `make wire` generates the TypeScript, so a drifting path, token or answer shape fails a check, not a page.
 - **The test issuer** exists only in tests.
 
 ## 7. Not chosen

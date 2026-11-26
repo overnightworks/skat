@@ -43,10 +43,14 @@ function chairs(mine: number, positions: Record<number, Position> = POSITIONS): 
         former_holder_name: null,
         is_mine_to_return: false,
         nudge: null,
+        turn_state: null,
     }));
 }
 
-function playing(changes: Partial<Playing>): Playing {
+// The end of the play leaves no seat on turn, which the felt shows while the last trick closes.
+type PlayingChanges = Partial<Omit<Playing, "turn_seat">> & { turn_seat?: number | null };
+
+function playing(changes: PlayingChanges): Playing {
     return {
         turn_seat: 1,
         current_trick: [],
@@ -65,10 +69,10 @@ function playing(changes: Partial<Playing>): Playing {
         open_hands: [],
         kontra: null,
         ...changes,
-    };
+    } as Playing;
 }
 
-function table(mine: number, changes: Partial<Playing> | null): Table {
+function table(mine: number, changes: PlayingChanges | null): Table {
     return {
         id: "a".repeat(32),
         version: 7,
@@ -406,7 +410,14 @@ describe("the cards the viewer may play", () => {
     });
 
     it("are none while the first card waits for a Kontra word", () => {
-        const kontra = { said: [], factor: 1, my_word: null, first_card_waits_on: [2], first_card_declined: [] };
+        const kontra = {
+            said: [],
+            factor: 1,
+            my_word: null,
+            my_word_answered: false,
+            first_card_waits_on: [2],
+            first_card_declined: [],
+        };
 
         expect(cardsToPlay(table(1, { turn_seat: 1, legal_cards: legal, kontra }))).toBeNull();
     });

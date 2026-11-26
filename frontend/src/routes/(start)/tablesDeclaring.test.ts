@@ -29,6 +29,7 @@ describe("what the declaring stage asks of this viewer", () => {
             former_holder_name: null,
             is_mine_to_return: false,
             nudge: null,
+            turn_state: null,
         }));
     const bidWon = { seat: 2, value: 20 };
     const tableWith = (declaring: Declaring | null, mine: number): Table => ({

@@ -1,6 +1,7 @@
-"""Write the browser's typed copy of the paths and answer tokens the Python app owns.
+"""Write the browser's typed copy of the paths, answer tokens and table answers the Python app owns.
 
-The Python constants own the paths and the enums own the tokens; this generator renders them as TypeScript constants.
+The Python constants own the paths, the enums own the tokens and the pydantic models own the table's answers; this
+generator renders them as TypeScript constants and types.
 `--check` writes nothing and fails when the committed file differs from the rendering or is
 missing, so CI catches drift.
 """
@@ -10,6 +11,8 @@ import sys
 import textwrap
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from pydantic.json_schema import GenerateJsonSchema
 
 PRETTIER_WIDTH = 120  # the width prettier wraps the generated array at
 REPOSITORY = Path(__file__).resolve().parent.parent
@@ -26,6 +29,7 @@ from skat.table.asking import ASK_AGAIN_AFTER  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
 from skat.table.awaiting import WaitingCase  # noqa: E402
 from skat.table.game_list import GameEnding  # noqa: E402
+from skat.table.pushing import PushAction  # noqa: E402
 from skat.table.reacting import Reaction  # noqa: E402
 from skat.table.records import (  # noqa: E402
     SERIES_LENGTH_DEFAULT,
@@ -34,6 +38,7 @@ from skat.table.records import (  # noqa: E402
     SERIES_LENGTH_STEP,
     TABLE_ID_PATTERN,
     EndReason,
+    OccupantKind,
     PlanMode,
     RamschOccasion,
     TableStyle,
@@ -108,13 +113,17 @@ from skat.web.tables import (  # noqa: E402
     RankToken,
     StageToken,
     SuitToken,
+    TableAnswer,
 )
+from skat.web.turn_state_answer import StopOutcome  # noqa: E402
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
     from enum import StrEnum
 
-    from pydantic import JsonValue
+    from pydantic import BaseModel, JsonValue
+    from pydantic.json_schema import JsonSchemaValue
+    from pydantic_core import core_schema
 
 OUTPUT = Path("frontend/src/lib/wire.ts")
 CHECK_FLAG = "--check"
@@ -149,7 +158,21 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "VISIBILITY_TOKENS": Visibility,
     "TABLE_STYLE_TOKENS": TableStyle,
     "REACTION_TOKENS": Reaction,
+    "OCCUPANT_KIND_TOKENS": OccupantKind,
+    "STOP_OUTCOME_TOKENS": StopOutcome,
+    "PUSH_ACTION_TOKENS": PushAction,
 }
+ENUM_TUPLES = {tokens.__name__: name for name, tokens in TOKEN_TUPLES.items()}
+SCALAR_TYPES = {"string": "string", "integer": "number", "number": "number", "boolean": "boolean", "null": "null"}
+
+
+class EveryPropertyRequired(GenerateJsonSchema):
+    """The server serializes every field of an answer, so every property of every model the page reads is required."""
+
+    def model_schema(self, schema: core_schema.ModelSchema) -> JsonSchemaValue:
+        json_schema = super().model_schema(schema)
+        json_schema["required"] = list(json_schema.get("properties", {}))
+        return json_schema
 
 
 def token_tuple(name: str, tokens: type[StrEnum]) -> str:
@@ -159,6 +182,51 @@ def token_tuple(name: str, tokens: type[StrEnum]) -> str:
         return line
     stacked = "".join(f"    {value},\n" for value in values)
     return f"export const {name} = [\n{stacked}] as const;\n"
+
+
+def reference_type(node: JsonSchemaValue, definitions: JsonSchemaValue, enum_tuples: Mapping[str, str]) -> str:
+    name = node["$ref"].rsplit("/", 1)[-1]
+    if "enum" not in definitions[name]:
+        return name
+    if name not in enum_tuples:
+        raise ValueError(f"generate_wire: enum {name} has no token tuple")
+    return f"(typeof {enum_tuples[name]})[number]"
+
+
+def type_of(node: JsonSchemaValue, definitions: JsonSchemaValue, enum_tuples: Mapping[str, str]) -> str:
+    """A JSON schema node as a TypeScript type; a construct the answers do not use fails loudly."""
+    if "$ref" in node:
+        return reference_type(node, definitions, enum_tuples)
+    if "const" in node:
+        return json.dumps(node["const"])
+    if "anyOf" in node:
+        *members, null = node["anyOf"]
+        if len(members) != 1 or null != {"type": "null"}:
+            raise ValueError(f"generate_wire: anyOf is only a type or null: {node}")
+        return f"{type_of(members[0], definitions, enum_tuples)} | null"
+    if "oneOf" in node and "discriminator" in node:
+        return " | ".join(type_of(member, definitions, enum_tuples) for member in node["oneOf"])
+    if node.get("type") == "array":
+        item = type_of(node["items"], definitions, enum_tuples)
+        return f"({item})[]" if {"anyOf", "oneOf"} & node["items"].keys() else f"{item}[]"
+    if node.get("type") in SCALAR_TYPES and "enum" not in node:
+        return SCALAR_TYPES[node["type"]]
+    raise ValueError(f"generate_wire: no TypeScript for {node}")
+
+
+def model_type(name: str, model: JsonSchemaValue, definitions: JsonSchemaValue, enum_tuples: Mapping[str, str]) -> str:
+    members = "".join(
+        f"    {key}: {type_of(node, definitions, enum_tuples)};\n" for key, node in model["properties"].items()
+    )
+    return f"export type {name} = {{\n{members}}};\n"
+
+
+def answer_types(root: type[BaseModel], enum_tuples: Mapping[str, str]) -> str:
+    """Every model `root` reaches as an exported type named after it, an enum as the union of its token tuple."""
+    schema = root.model_json_schema(mode="serialization", schema_generator=EveryPropertyRequired)
+    definitions = schema.pop("$defs", {})
+    models = {schema["title"]: schema} | {name: each for name, each in definitions.items() if "enum" not in each}
+    return "".join(model_type(name, models[name], definitions, enum_tuples) for name in sorted(models))
 
 
 def literal(value: JsonValue, indent: int = 0) -> str:
@@ -274,6 +342,7 @@ def render() -> str:
         + rule_set_name_max
         + stream_heartbeat
         + switch_on_options()
+        + answer_types(TableAnswer, ENUM_TUPLES)
     )
 
 
