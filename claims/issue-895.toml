@@ -1,8 +1,0 @@
-claim_id = "50e91b3006da4fb2aa50c2686943baa1"
-agent = "Claude 43d1cd12-aa0a-4670-990a-06dae441c599"
-role = "builder"
-base = "a1446d1dd74acc53ca09e1520789d350ebeeed49"
-branch = "claude/issue-895-the-lobby-game-list-rule-sets-account-an"
-scope = ["frontend/src", "scripts/generate_wire.py", "tests/scripts/test_generate_wire.py"]
-opened_commit = "3e7e03f323e589e48a3c9713e6a9713ad4eda475"
-whole_reason = "The generator's roots, its output and the page modules that re-export the generated types change together; half of it leaves a type with two owners or a stale wire.ts."
