@@ -10,7 +10,7 @@ import json
 import sys
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from pydantic.json_schema import GenerateJsonSchema
 
@@ -18,19 +18,22 @@ PRETTIER_WIDTH = 120  # the width prettier wraps the generated array at
 REPOSITORY = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPOSITORY / "src"))
 
-from skat.engine.bidding import VALID_BIDS  # noqa: E402
+from skat.engine.bidding import VALID_BIDS, BidRefusal  # noqa: E402
 from skat.engine.bock import BockOverlap, BockTrigger  # noqa: E402
-from skat.engine.kontra import KontraDeadline, KontraReach, KontraSayer, Word  # noqa: E402
+from skat.engine.declaration import DeclarationRefusal  # noqa: E402
+from skat.engine.kontra import KontraDeadline, KontraReach, KontraRefusal, KontraSayer, Word  # noqa: E402
 from skat.engine.ramsch import DurchmarschRule, JungfrauRule, RamschScoring  # noqa: E402
-from skat.engine.schieberamsch import GrandHandRule, PushingRule  # noqa: E402
-from skat.engine.tricks import ALL_POINTS  # noqa: E402
+from skat.engine.schieberamsch import GrandHandRule, PushingRule, PushRefusal  # noqa: E402
+from skat.engine.tricks import ALL_POINTS, PlayRefusal  # noqa: E402
 from skat.engine.value import Level  # noqa: E402
 from skat.table.asking import ASK_AGAIN_AFTER  # noqa: E402
 from skat.table.auction import AuctionAction  # noqa: E402
 from skat.table.awaiting import WaitingCase  # noqa: E402
 from skat.table.game_list import GameEnding  # noqa: E402
+from skat.table.game_sheet import CardState  # noqa: E402
+from skat.table.nudging import NudgeRefusal  # noqa: E402
 from skat.table.pushing import PushAction  # noqa: E402
-from skat.table.reacting import Reaction  # noqa: E402
+from skat.table.reacting import Reaction, ReactionRefusal  # noqa: E402
 from skat.table.records import (  # noqa: E402
     SERIES_LENGTH_DEFAULT,
     SERIES_LENGTH_MAX,
@@ -41,12 +44,14 @@ from skat.table.records import (  # noqa: E402
     OccupantKind,
     PlanMode,
     RamschOccasion,
+    Refusal,
     TableStyle,
     Visibility,
 )
-from skat.table.rule_sets import RULE_SET_NAME_MAX, SWITCH_ON_OPTIONS  # noqa: E402
+from skat.table.rule_sets import RULE_SET_NAME_MAX, SWITCH_ON_OPTIONS, RuleSetRefusal  # noqa: E402
 from skat.table.rules import CHAIRS_PER_TABLE  # noqa: E402
 from skat.web.abort import TABLE_ABORT_AGREE_SUFFIX, TABLE_ABORT_REFUSE_SUFFIX  # noqa: E402
+from skat.web.account import AccountName  # noqa: E402
 from skat.web.auction import (  # noqa: E402
     TABLE_AUCTION_BID_SUFFIX,
     TABLE_AUCTION_HOLD_SUFFIX,
@@ -54,7 +59,7 @@ from skat.web.auction import (  # noqa: E402
     TABLE_AUCTION_PLAN_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
 )
-from skat.web.call import CALL_ORIGIN_PATH  # noqa: E402
+from skat.web.call import CALL_ORIGIN_PATH, CallOrigin  # noqa: E402
 from skat.web.calling import TABLE_AGENT_CALL_SUFFIX, TABLE_AGENT_SEND_AWAY_SUFFIX, TABLE_AGENTS_SUFFIX  # noqa: E402
 from skat.web.constants import (  # noqa: E402
     ACCOUNT_CONSOLE_PATH,
@@ -76,9 +81,9 @@ from skat.web.declaring import (  # noqa: E402
     TABLE_DECLARING_PUT_BACK_SUFFIX,
     TABLE_DECLARING_TAKE_SUFFIX,
 )
-from skat.web.game_list import TABLE_LIST_SUFFIX  # noqa: E402
+from skat.web.game_list import TABLE_LIST_SUFFIX, GameSheetAnswer, SeriesListAnswer  # noqa: E402
 from skat.web.kontra import TABLE_KONTRA_SUFFIX, TABLE_NO_WORD_SUFFIX  # noqa: E402
-from skat.web.lobby import LOBBY_EVENTS_PATH  # noqa: E402
+from skat.web.lobby import LOBBY_EVENTS_PATH, MineAnswer, OpenAnswer  # noqa: E402
 from skat.web.nudging import TABLE_NUDGE_SUFFIX  # noqa: E402
 from skat.web.playing import (  # noqa: E402
     TABLE_CARD_SUFFIX,
@@ -96,7 +101,7 @@ from skat.web.pushing import (  # noqa: E402
 )
 from skat.web.reacting import TABLE_REACTION_SUFFIX  # noqa: E402
 from skat.web.ready import TABLE_NEW_SERIES_SUFFIX, TABLE_NEXT_SETTINGS_SUFFIX, TABLE_READY_SUFFIX  # noqa: E402
-from skat.web.rule_sets import RULE_SETS_PATH  # noqa: E402
+from skat.web.rule_sets import RULE_SETS_PATH, RuleSetRefusalAnswer, RuleSetsAnswer  # noqa: E402
 from skat.web.series_end import TABLE_SERIES_END_AGREE_SUFFIX, TABLE_SERIES_END_REFUSE_SUFFIX  # noqa: E402
 from skat.web.stopping import TABLE_STOP_PLAYING_SUFFIX  # noqa: E402
 from skat.web.style import TABLE_STYLE_SUFFIX  # noqa: E402
@@ -115,12 +120,13 @@ from skat.web.tables import (  # noqa: E402
     TABLE_STAND_SUFFIX,
     TABLES_PATH,
     PlanKind,
+    RefusalAnswer,
     TableAnswer,
 )
 from skat.web.turn_state_answer import StopOutcome  # noqa: E402
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
     from enum import StrEnum
 
     from pydantic import BaseModel, JsonValue
@@ -163,7 +169,29 @@ TOKEN_TUPLES: dict[str, type[StrEnum]] = {
     "OCCUPANT_KIND_TOKENS": OccupantKind,
     "STOP_OUTCOME_TOKENS": StopOutcome,
     "PUSH_ACTION_TOKENS": PushAction,
+    "CARD_STATE_TOKENS": CardState,
+    "RULE_SET_REFUSAL_TOKENS": RuleSetRefusal,
+    "REFUSAL_TOKENS": Refusal,
+    "BID_REFUSAL_TOKENS": BidRefusal,
+    "DECLARATION_REFUSAL_TOKENS": DeclarationRefusal,
+    "PLAY_REFUSAL_TOKENS": PlayRefusal,
+    "KONTRA_REFUSAL_TOKENS": KontraRefusal,
+    "PUSH_REFUSAL_TOKENS": PushRefusal,
+    "NUDGE_REFUSAL_TOKENS": NudgeRefusal,
+    "REACTION_REFUSAL_TOKENS": ReactionRefusal,
 }
+ANSWER_ROOTS = (
+    TableAnswer,
+    MineAnswer,
+    OpenAnswer,
+    SeriesListAnswer,
+    GameSheetAnswer,
+    RuleSetsAnswer,
+    RuleSetRefusalAnswer,
+    AccountName,
+    CallOrigin,
+    RefusalAnswer,
+)
 ENUM_TUPLES = {tokens.__name__: name for name, tokens in TOKEN_TUPLES.items()}
 SCALAR_TYPES = {"string": "string", "integer": "number", "number": "number", "boolean": "boolean", "null": "null"}
 
@@ -231,7 +259,20 @@ def member_line(
     return f"    {name}:\n{stacked[:-1]};\n"
 
 
+def alias_type(name: str, node: JsonSchemaValue, definitions: JsonSchemaValue, enum_tuples: Mapping[str, str]) -> str:
+    """A union of enums the server names as one type, as a type alias; prettier stacks one too long for a line."""
+    if not (members := union_members(node, definitions, enum_tuples)):
+        raise ValueError(f"generate_wire: no TypeScript for {name}")
+    line = f"export type {name} = {' | '.join(members)};\n"
+    if len(line.rstrip()) <= PRETTIER_WIDTH:
+        return line
+    stacked = "".join(f"    | {member}\n" for member in members)
+    return f"export type {name} =\n{stacked[:-1]};\n"
+
+
 def model_type(name: str, model: JsonSchemaValue, definitions: JsonSchemaValue, enum_tuples: Mapping[str, str]) -> str:
+    if "properties" not in model:
+        return alias_type(name, model, definitions, enum_tuples)
     required = model.get("required", [])
     members = "".join(
         member_line(key, key in required, node, definitions, enum_tuples) for key, node in model["properties"].items()
@@ -239,11 +280,42 @@ def model_type(name: str, model: JsonSchemaValue, definitions: JsonSchemaValue, 
     return f"export type {name} = {{\n{members}}};\n"
 
 
-def answer_types(root: type[BaseModel], enum_tuples: Mapping[str, str]) -> str:
-    """Every model `root` reaches as an exported type named after it, an enum as the union of its token tuple."""
-    schema = root.model_json_schema(mode="serialization", schema_generator=EveryPropertyRequired)
-    definitions = schema.pop("$defs", {})
-    models = {schema["title"]: schema} | {name: each for name, each in definitions.items() if "enum" not in each}
+def reached_models(core_schema_node: object) -> Iterator[type[BaseModel]]:
+    """The model classes a pydantic core schema reaches."""
+    children: Iterable[object] = ()
+    if isinstance(core_schema_node, dict):
+        mapping = cast("dict[str, object]", core_schema_node)
+        if mapping.get("type") == "model":
+            yield cast("type[BaseModel]", mapping["cls"])
+        children = mapping.values()
+    elif isinstance(core_schema_node, list):
+        children = cast("list[object]", core_schema_node)
+    for each in children:
+        yield from reached_models(each)
+
+
+def require_one_model_per_name(roots: Sequence[type[BaseModel]]) -> None:
+    """The page names a type by its class name, so two models of one name would overwrite each other."""
+    owners: dict[str, set[type[BaseModel]]] = {}
+    for root in roots:
+        for model in reached_models(root.__pydantic_core_schema__):
+            owners.setdefault(model.__name__, set()).add(model)
+    for name, models in owners.items():
+        if len(models) > 1:
+            modules = " and ".join(sorted(model.__module__ for model in models))
+            raise ValueError(f"generate_wire: two models are named {name}: {modules}")
+
+
+def answer_types(roots: Sequence[type[BaseModel]], enum_tuples: Mapping[str, str]) -> str:
+    """Every model the roots reach as an exported type named after it, once; an enum as the union of its token tuple."""
+    require_one_model_per_name(roots)
+    models: dict[str, JsonSchemaValue] = {}
+    definitions: dict[str, JsonSchemaValue] = {}
+    for root in roots:
+        schema = root.model_json_schema(mode="serialization", schema_generator=EveryPropertyRequired)
+        definitions |= schema.pop("$defs", {})
+        models[schema["title"]] = schema
+    models |= {name: each for name, each in definitions.items() if "enum" not in each}
     return "".join(model_type(name, models[name], definitions, enum_tuples) for name in sorted(models))
 
 
@@ -360,7 +432,7 @@ def render() -> str:
         + rule_set_name_max
         + stream_heartbeat
         + switch_on_options()
-        + answer_types(TableAnswer, ENUM_TUPLES)
+        + answer_types(ANSWER_ROOTS, ENUM_TUPLES)
     )
 
 

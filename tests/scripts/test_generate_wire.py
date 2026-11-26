@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Literal
 
 import pytest
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 
 from scripts import generate_wire
 from skat.engine.bidding import VALID_BIDS
@@ -277,6 +277,46 @@ class WithNestedDefault(BaseModel):
     inner: WithDefault
 
 
+class Shade(StrEnum):
+    DARK = "dark"
+
+
+type ColourOrShade = Colour | Shade
+
+
+class WithAlias(BaseModel):
+    tint: ColourOrShade
+
+
+class TheFirstEnumWithAVeryLongEnumName(StrEnum):
+    FIRST = "first"
+
+
+class TheSecondEnumWithAVeryLongEnumName(StrEnum):
+    SECOND = "second"
+
+
+class TheThirdEnumWithAVeryLongEnumName(StrEnum):
+    THIRD = "third"
+
+
+type LongAlias = (
+    TheFirstEnumWithAVeryLongEnumName | TheSecondEnumWithAVeryLongEnumName | TheThirdEnumWithAVeryLongEnumName
+)
+
+
+class WithLongAlias(BaseModel):
+    tint: LongAlias
+
+
+class Plain(RootModel[dict[str, int]]):
+    pass
+
+
+class WithPlainRoot(BaseModel):
+    plain: Plain
+
+
 class WithMapping(BaseModel):
     names: dict[str, int]
 
@@ -316,11 +356,11 @@ class WithTuple(BaseModel):
     ],
 )
 def test_answer_types_render_each_construct(model: type[BaseModel], declaration: str) -> None:
-    assert declaration in generate_wire.answer_types(model, {"Colour": "COLOUR_TOKENS"})
+    assert declaration in generate_wire.answer_types((model,), {"Colour": "COLOUR_TOKENS"})
 
 
 def test_answer_types_name_every_model_the_root_reaches() -> None:
-    rendered = generate_wire.answer_types(WithDiscriminator, {})
+    rendered = generate_wire.answer_types((WithDiscriminator,), {})
 
     assert [line for line in rendered.splitlines() if line.startswith("export type")] == [
         "export type Leaf = {",
@@ -331,10 +371,58 @@ def test_answer_types_name_every_model_the_root_reaches() -> None:
 
 def test_answer_types_fail_for_an_enum_without_a_token_tuple() -> None:
     with pytest.raises(ValueError, match="Colour has no token tuple"):
-        generate_wire.answer_types(WithEnum, {})
+        generate_wire.answer_types((WithEnum,), {})
 
 
-@pytest.mark.parametrize("model", [WithMapping, WithTuple], ids=["mapping", "tuple"])
+@pytest.mark.parametrize(
+    "model", [WithMapping, WithTuple, WithPlainRoot], ids=["mapping", "tuple", "model-without-properties-or-union"]
+)
 def test_answer_types_fail_for_a_construct_they_do_not_render(model: type[BaseModel]) -> None:
     with pytest.raises(ValueError, match="no TypeScript for"):
-        generate_wire.answer_types(model, {})
+        generate_wire.answer_types((model,), {})
+
+
+def test_answer_types_render_a_model_two_roots_reach_once() -> None:
+    rendered = generate_wire.answer_types((WithReference, WithDiscriminator), {})
+
+    assert rendered.count("export type Leaf = {") == 1
+
+
+@pytest.mark.parametrize(
+    ("model", "tokens", "declaration"),
+    [
+        pytest.param(
+            WithAlias,
+            {"Colour": "COLOUR_TOKENS", "Shade": "SHADE_TOKENS"},
+            "export type ColourOrShade = (typeof COLOUR_TOKENS)[number] | (typeof SHADE_TOKENS)[number];",
+            id="union-of-enums-the-server-names-is-one-type",
+        ),
+        pytest.param(
+            WithLongAlias,
+            {
+                "TheFirstEnumWithAVeryLongEnumName": "THE_FIRST_VERY_LONG_TOKENS",
+                "TheSecondEnumWithAVeryLongEnumName": "THE_SECOND_VERY_LONG_TOKENS",
+                "TheThirdEnumWithAVeryLongEnumName": "THE_THIRD_VERY_LONG_TOKENS",
+            },
+            "export type LongAlias =\n"
+            "    | (typeof THE_FIRST_VERY_LONG_TOKENS)[number]\n"
+            "    | (typeof THE_SECOND_VERY_LONG_TOKENS)[number]\n"
+            "    | (typeof THE_THIRD_VERY_LONG_TOKENS)[number];\n",
+            id="union-alias-too-long-for-a-line-stacks-one-member-per-line",
+        ),
+    ],
+)
+def test_answer_types_render_a_union_alias(model: type[BaseModel], tokens: dict[str, str], declaration: str) -> None:
+    assert declaration in generate_wire.answer_types((model,), tokens)
+
+
+def test_answer_types_fail_for_two_models_of_one_name() -> None:
+    def named_leaf(module: str) -> type[BaseModel]:
+        return type("Leaf", (BaseModel,), {"__module__": module, "__annotations__": {"size": int}})
+
+    class Both(BaseModel):
+        first: named_leaf("first.module")  # type: ignore[valid-type]
+        second: named_leaf("second.module")  # type: ignore[valid-type]
+
+    with pytest.raises(ValueError, match=r"two models are named Leaf: first\.module and second\.module"):
+        generate_wire.answer_types((Both,), {})

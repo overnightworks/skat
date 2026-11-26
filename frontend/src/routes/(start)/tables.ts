@@ -4,9 +4,16 @@ import { handWaits } from "#lib/openChair.ts";
 import { tableOfWire, type WireTable } from "#lib/wireTable.ts";
 import {
     type AUCTION_ACTION_TOKENS,
+    type CARD_STATE_TOKENS,
     type CardAnswer,
     type ChairAnswer,
+    type GameSheetAnswer,
+    type HandAnswer,
+    type PlayingAnswer,
+    type SeriesAnswer,
+    type SeriesEndProposalAnswer,
     type OptionsAnswer,
+    type RefusalAnswer,
     type SeatedCardAnswer,
     type OCCUPANT_KIND_TOKENS,
     type PUSH_ACTION_TOKENS,
@@ -88,20 +95,16 @@ export type {
     ChairHandAnswer as ChairHand,
     DeclaringAnswer as Declaring,
     GiveUpAnswer as GiveUp,
-    HandAnswer as Hand,
     KontraAnswer as Kontra,
     LastTrickAnswer as LastTrick,
     NextDealerAnswer as PassedIn,
     NextSettingsAnswer as NextSettings,
     OpenHandAnswer as OpenHand,
-    PlayingAnswer as Playing,
     PushingAnswer as Pushing,
     RamschResultAnswer as RamschResult,
     RamschSeatAnswer as RamschSeat,
     ResultAnswer as Result,
     SeatGainAnswer as SeatGain,
-    SeriesAnswer as Series,
-    SeriesEndProposalAnswer as EndProposal,
     ShorteningAnswer as Shortening,
     SidesAnswer as Sides,
     StandingAnswer as Standing,
@@ -126,12 +129,18 @@ export type OptionsRequest = { show_running_points?: true; give_up?: OptionsAnsw
 };
 export type TableStyle = (typeof TABLE_STYLE_TOKENS)[number];
 
-export type Table = TableAnswer;
+// A proposal read from a legacy stream names no instant, so it carries the null the generated answer forbids.
+export type EndProposal = Omit<SeriesEndProposalAnswer, "answer_by"> & { answer_by: string | null };
+export type Series = Omit<SeriesAnswer, "end_proposal"> & { end_proposal: EndProposal | null };
+// While the last trick rests and sweeps no seat is on turn, a state the server never sends.
+export type Playing = Omit<PlayingAnswer, "turn_seat"> & { turn_seat: number | null };
+export type Hand = Omit<HandAnswer, "playing"> & { playing: Playing | null };
+export type Table = Omit<TableAnswer, "hand" | "series"> & { hand: Hand | null; series: Series | null };
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =
     { kind: "table"; table: Table } | { kind: "taken"; holder: string } | { kind: "missing" } | { kind: "failed" };
 
-function isTakenChair(body: unknown): body is { reason: "seat-taken"; holder_name: string } {
+function isTakenChair(body: unknown): body is RefusalAnswer & { reason: "seat-taken"; holder_name: string } {
     return typeof body === "object" && body !== null && "reason" in body && body.reason === "seat-taken";
 }
 
@@ -518,31 +527,10 @@ export async function copyTableLink(id: string): Promise<boolean> {
     }
 }
 
-export type CardState = "played" | "put-away" | "unplayed";
+export type CardState = (typeof CARD_STATE_TOKENS)[number];
 // One finished game of the series as the server opens it: what it counted and, unless it was finished before games kept
-// their cards, every card of it. A trick the end of the game interrupted has fewer than three cards and no taker.
-export type GameSheet = {
-    number: number;
-    seat_names: (string | null)[];
-    count:
-        | {
-              kind: "declared";
-              declarer_seat: number;
-              declarer_points: number;
-              opponents_points: number;
-              ending: GameEnding;
-              ended_by_seat: number | null;
-          }
-        | { kind: "ramsch"; seat_points: number[]; durchmarsch_seat: number | null };
-    cards: {
-        hands: { seat: number; cards: { card: Card; state: CardState }[] }[];
-        skat: Card[];
-        laid_skat: Card[];
-        put_away: SeatedCard[];
-        tricks: { number: number; cards: SeatedCard[]; taker_seat: number | null; points: number | null }[];
-        skat_takers: number[];
-    } | null;
-};
+// their cards, every card of it. A trick the end of the game interrupts has fewer than three cards and no taker.
+export type GameSheet = GameSheetAnswer;
 
 // The `number`th game of the current series; null when it cannot be read.
 export async function readGameSheet(id: string, number: number): Promise<GameSheet | null> {
@@ -551,7 +539,7 @@ export async function readGameSheet(id: string, number: number): Promise<GameShe
     );
     if (answer?.ok !== true) return null;
     try {
-        return (await answer.json()) as GameSheet;
+        return (await answer.json()) as GameSheetAnswer;
     } catch {
         return null;
     }

@@ -47,10 +47,7 @@ function chairs(mine: number, positions: Record<number, Position> = POSITIONS): 
     }));
 }
 
-// The end of the play leaves no seat on turn, which the felt shows while the last trick closes.
-type PlayingChanges = Partial<Omit<Playing, "turn_seat">> & { turn_seat?: number | null };
-
-function playing(changes: PlayingChanges): Playing {
+function playing(changes: Partial<Playing>): Playing {
     return {
         turn_seat: 1,
         current_trick: [],
@@ -69,10 +66,10 @@ function playing(changes: PlayingChanges): Playing {
         open_hands: [],
         kontra: null,
         ...changes,
-    } as Playing;
+    };
 }
 
-function table(mine: number, changes: PlayingChanges | null): Table {
+function table(mine: number, changes: Partial<Playing> | null): Table {
     return {
         id: "a".repeat(32),
         version: 7,
