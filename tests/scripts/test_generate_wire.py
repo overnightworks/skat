@@ -388,27 +388,32 @@ def test_answer_types_render_a_model_two_roots_reach_once() -> None:
     assert rendered.count("export type Leaf = {") == 1
 
 
-def test_answer_types_render_a_union_of_enums_the_server_names_as_one_type() -> None:
-    rendered = generate_wire.answer_types((WithAlias,), {"Colour": "COLOUR_TOKENS", "Shade": "SHADE_TOKENS"})
-
-    assert "export type ColourOrShade = (typeof COLOUR_TOKENS)[number] | (typeof SHADE_TOKENS)[number];" in rendered
-
-
-def test_answer_types_stack_a_union_alias_too_long_for_a_line_one_member_per_line() -> None:
-    tokens = {
-        "TheFirstEnumWithAVeryLongEnumName": "THE_FIRST_VERY_LONG_TOKENS",
-        "TheSecondEnumWithAVeryLongEnumName": "THE_SECOND_VERY_LONG_TOKENS",
-        "TheThirdEnumWithAVeryLongEnumName": "THE_THIRD_VERY_LONG_TOKENS",
-    }
-
-    rendered = generate_wire.answer_types((WithLongAlias,), tokens)
-
-    assert (
-        "export type LongAlias =\n"
-        "    | (typeof THE_FIRST_VERY_LONG_TOKENS)[number]\n"
-        "    | (typeof THE_SECOND_VERY_LONG_TOKENS)[number]\n"
-        "    | (typeof THE_THIRD_VERY_LONG_TOKENS)[number];\n"
-    ) in rendered
+@pytest.mark.parametrize(
+    ("model", "tokens", "declaration"),
+    [
+        pytest.param(
+            WithAlias,
+            {"Colour": "COLOUR_TOKENS", "Shade": "SHADE_TOKENS"},
+            "export type ColourOrShade = (typeof COLOUR_TOKENS)[number] | (typeof SHADE_TOKENS)[number];",
+            id="union-of-enums-the-server-names-is-one-type",
+        ),
+        pytest.param(
+            WithLongAlias,
+            {
+                "TheFirstEnumWithAVeryLongEnumName": "THE_FIRST_VERY_LONG_TOKENS",
+                "TheSecondEnumWithAVeryLongEnumName": "THE_SECOND_VERY_LONG_TOKENS",
+                "TheThirdEnumWithAVeryLongEnumName": "THE_THIRD_VERY_LONG_TOKENS",
+            },
+            "export type LongAlias =\n"
+            "    | (typeof THE_FIRST_VERY_LONG_TOKENS)[number]\n"
+            "    | (typeof THE_SECOND_VERY_LONG_TOKENS)[number]\n"
+            "    | (typeof THE_THIRD_VERY_LONG_TOKENS)[number];\n",
+            id="union-alias-too-long-for-a-line-stacks-one-member-per-line",
+        ),
+    ],
+)
+def test_answer_types_render_a_union_alias(model: type[BaseModel], tokens: dict[str, str], declaration: str) -> None:
+    assert declaration in generate_wire.answer_types((model,), tokens)
 
 
 def test_answer_types_fail_for_two_models_of_one_name() -> None:
