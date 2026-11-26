@@ -8,10 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 from webauth.middleware import admitted_user
 
-from skat.engine.bidding import Awaiting
-from skat.engine.cards import Card, Rank, Suit
-from skat.engine.deal import Position
-from skat.engine.declaration import Stage
+from skat.engine.cards import Card
 from skat.engine.kontra import Word  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.auction import AuctionAction  # noqa: TC001 - pydantic reads the field type at runtime
 from skat.table.nudging import NudgeRefusal  # noqa: TC001 - pydantic reads the field type at runtime
@@ -35,6 +32,18 @@ from skat.web.result_answer import RamschResultAnswer, ResultAnswer, result_answ
 from skat.web.routes import READ_METHODS, built_page_response
 from skat.web.series_answer import SeriesAnswer, StandingAnswer, series_answer_of, standing_answer_of
 from skat.web.table_options import OptionsAnswer, options_answer_of
+from skat.web.table_tokens import (
+    AWAITING_TOKENS,
+    POSITION_TOKENS,
+    RANK_TOKENS,
+    STAGE_TOKENS,
+    SUIT_TOKENS,
+    AwaitingToken,
+    PositionToken,
+    RankToken,
+    StageToken,
+    SuitToken,
+)
 from skat.web.turn_state_answer import TurnStateAnswer, turn_state_answer_of
 
 if TYPE_CHECKING:
@@ -104,76 +113,6 @@ class TableReadRefusal(StrEnum):
     NO_TABLE = "no-table"
 
 
-class SuitToken(StrEnum):
-    KREUZ = "kreuz"
-    PIK = "pik"
-    HERZ = "herz"
-    KARO = "karo"
-
-
-class RankToken(StrEnum):
-    SEVEN = "seven"
-    EIGHT = "eight"
-    NINE = "nine"
-    TEN = "ten"
-    JACK = "jack"
-    QUEEN = "queen"
-    KING = "king"
-    ACE = "ace"
-
-
-class PositionToken(StrEnum):
-    FOREHAND = "forehand"
-    MIDDLEHAND = "middlehand"
-    REARHAND = "rearhand"
-
-
-class AwaitingToken(StrEnum):
-    BID = "bid"
-    ANSWER = "answer"
-    PLAY = "play"
-
-
-class StageToken(StrEnum):
-    CHOOSING = "choosing"
-    DISCARDING = "discarding"
-    PICKED = "picked"
-    DECLARED = "declared"
-
-
-# The engine orders cards by number; the wire names them by word, so that order is no public contract.
-SUIT_TOKENS: Final = {
-    Suit.KREUZ: SuitToken.KREUZ,
-    Suit.PIK: SuitToken.PIK,
-    Suit.HERZ: SuitToken.HERZ,
-    Suit.KARO: SuitToken.KARO,
-}
-RANK_TOKENS: Final = {
-    Rank.SEVEN: RankToken.SEVEN,
-    Rank.EIGHT: RankToken.EIGHT,
-    Rank.NINE: RankToken.NINE,
-    Rank.TEN: RankToken.TEN,
-    Rank.JACK: RankToken.JACK,
-    Rank.QUEEN: RankToken.QUEEN,
-    Rank.KING: RankToken.KING,
-    Rank.ACE: RankToken.ACE,
-}
-POSITION_TOKENS: Final = {
-    Position.FOREHAND: PositionToken.FOREHAND,
-    Position.MIDDLEHAND: PositionToken.MIDDLEHAND,
-    Position.REARHAND: PositionToken.REARHAND,
-}
-AWAITING_TOKENS: Final = {
-    Awaiting.BID: AwaitingToken.BID,
-    Awaiting.ANSWER: AwaitingToken.ANSWER,
-    Awaiting.PLAY: AwaitingToken.PLAY,
-}
-STAGE_TOKENS: Final = {
-    Stage.CHOOSING: StageToken.CHOOSING,
-    Stage.DISCARDING: StageToken.DISCARDING,
-    Stage.PICKED: StageToken.PICKED,
-    Stage.DECLARED: StageToken.DECLARED,
-}
 ANNOUNCEMENTS_OF_TOKEN: Final = {token: announcement for announcement, token in ANNOUNCEMENT_TOKENS.items()}
 
 
@@ -276,11 +215,19 @@ class OpenHandAnswer(BaseModel):
 
 
 class GiveUpAnswer(BaseModel):
+    """A give-up the table was asked and has not settled: who asked and which opponent already said no, the same for
+    every viewer.
+    """
+
     asking_seat: int
     declined_seat: int | None
 
 
 class ShorteningAnswer(BaseModel):
+    """The declarer's shortening the opponents were asked and have not settled: the level he demands, none by default,
+    and the opponent who said yes so far, the same for every viewer.
+    """
+
     asking_seat: int
     claim: AnnouncementToken
     agreed_seat: int | None
@@ -292,6 +239,11 @@ class SaidWordAnswer(BaseModel):
 
 
 class KontraAnswer(BaseModel):
+    """The words said in the running hand and their product, with the word the viewer's own chair may say now (null for
+    a watcher and for a chair with none open). At a table whose words end with the first card, that card waits on the
+    seats it names for a word or a decline, and the seats that declined stand beside them; both are empty otherwise.
+    """
+
     said: list[SaidWordAnswer]
     factor: int
     my_word: Word | None
@@ -301,6 +253,12 @@ class KontraAnswer(BaseModel):
 
 
 class PlayingAnswer(BaseModel):
+    """`legal_cards` is told only to the seated player on turn; `running_points` is null unless the table shows them,
+    and in a Null game and a Ramsch; `shortening_refused_seat` is the opponent whose no left the declarer's cards open
+    and stays beside a new request; `open_play_seat` is the opponent whose wrong open play waits for the declarer's
+    answer; `kontra` is null at a table without Kontra.
+    """
+
     turn_seat: int
     current_trick: list[SeatedCardAnswer]
     last_trick: LastTrickAnswer | None
@@ -321,6 +279,10 @@ class PushingMoveAnswer(BaseModel):
 
 
 class PushingAnswer(BaseModel):
+    """The stage before a Ramsch's first card; only the seat on turn that holds twelve cards is told cards, the ones it
+    may put back.
+    """
+
     turn_seat: int
     stage: StageToken
     moves: list[PushingMoveAnswer]
@@ -329,6 +291,12 @@ class PushingAnswer(BaseModel):
 
 
 class HandAnswer(BaseModel):
+    """`waiting_seat` is the open seat a running hand waits for and `abort` the seats that said yes to aborting it
+    (null while no vote stands), the same for every viewer; `pushing` is set while the stage runs, the Ramsch's play
+    has none; `pushes` and `push_factor` are how often the skat was pushed on unseen and what that multiplies the
+    Ramsch's score by; `abortable` is true when a chair of the hand is open.
+    """
+
     dealer_seat: int
     own_cards: list[CardAnswer]
     skat_count: int
@@ -367,6 +335,13 @@ class ReactionAnswer(BaseModel):
 
 
 class ChairAnswer(BaseModel):
+    """`total` is the person's running total: null on a free chair and, in a table's first series, until its first
+    result; a later series reads 0 from its first deal. `former_holder_name` names whoever held the chair in the running
+    hand and left it, while it stays open; `is_mine_to_return` is true only on the chair of the running hand that the
+    viewer stood up from, open or taken since: the one chair they may sit in again; `nudge` is null on every chair the
+    table does not wait for.
+    """
+
     seat: int
     occupant_name: str | None
     occupant_kind: OccupantKind | None
@@ -390,6 +365,13 @@ class NextDealerAnswer(BaseModel):
 
 
 class EndedAnswer(BaseModel):
+    """Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, the days nobody
+    played, or, for a close, the name of the opener who closed it before „Aufhören“, which is null once the days of the
+    link's reason have passed and for a table that finished a game; a table whose series ended by „Aufhören“ or by a
+    silent seat is a close that names nobody. Such a table carries the games its last series played and their standings,
+    whatever the reason; one that finished none carries neither.
+    """
+
     reason: EndReason
     empty_seconds: int | None
     unplayed_days: int | None
@@ -399,6 +381,10 @@ class EndedAnswer(BaseModel):
 
 
 class BockAnswer(BaseModel):
+    """The Bock games still to come, the running one included, and what the running or next game's list score is
+    multiplied by; the same for every viewer. A table without Bock has none.
+    """
+
     games_left: int
     factor: int
 

@@ -112,6 +112,9 @@ export const REACTION_TOKENS = [
     "coaster",
     "lamp",
 ] as const;
+export const OCCUPANT_KIND_TOKENS = ["person", "agent"] as const;
+export const STOP_OUTCOME_TOKENS = ["not_enabled", "busy", "budget_spent", "unavailable"] as const;
+export const PUSH_ACTION_TOKENS = ["took", "pushed"] as const;
 export const VALID_BIDS = [
     18, 20, 22, 23, 24, 27, 30, 33, 35, 36, 40, 44, 45, 46, 48, 50, 54, 55, 59, 60, 63, 66, 70, 72, 77, 80, 81, 84, 88,
     90, 96, 99, 100, 108, 110, 117, 120, 121, 126, 130, 132, 135, 140, 143, 144, 150, 153, 154, 156, 160, 162, 165, 168,
@@ -152,3 +155,321 @@ export const SWITCH_ON_OPTIONS = {
         any_time: false,
     },
 } as const;
+export type AuctionAnswer = {
+    turn_seat: number | null;
+    facing_seat: number | null;
+    awaiting: (typeof AWAITING_TOKENS)[number] | null;
+    standing: number | null;
+    values: number[];
+    words: AuctionWordAnswer[];
+    steps: AuctionWordAnswer[];
+    declared: AuctionDeclaredAnswer | null;
+    plan: AuctionPlanAnswer | null;
+    hand_values: HandValueAnswer[];
+};
+export type AuctionDeclaredAnswer = {
+    seat: number;
+    value: number;
+};
+export type AuctionPlanAnswer = {
+    kind: (typeof PLAN_KIND_TOKENS)[number];
+    value: number | null;
+    mode: (typeof PLAN_MODE_TOKENS)[number] | null;
+};
+export type AuctionWordAnswer = {
+    seat: number;
+    action: (typeof AUCTION_ACTION_TOKENS)[number];
+    value: number | null;
+};
+export type BockAnswer = {
+    games_left: number;
+    factor: number;
+};
+export type BockOptionsAnswer = {
+    triggers: (typeof BOCK_TRIGGER_TOKENS)[number][];
+    overlap: (typeof BOCK_OVERLAP_TOKENS)[number];
+};
+export type CardAnswer = {
+    suit: (typeof SUIT_TOKENS)[number];
+    rank: (typeof RANK_TOKENS)[number];
+};
+export type ChairAnswer = {
+    seat: number;
+    occupant_name: string | null;
+    occupant_kind: (typeof OCCUPANT_KIND_TOKENS)[number] | null;
+    is_mine: boolean;
+    is_away: boolean;
+    ready: boolean;
+    hand: ChairHandAnswer | null;
+    total: number | null;
+    former_holder_name: string | null;
+    is_mine_to_return: boolean;
+    nudge: NudgeAnswer | null;
+    turn_state: TurnStateAnswer | null;
+};
+export type ChairHandAnswer = {
+    position: (typeof POSITION_TOKENS)[number];
+    card_count: number;
+};
+export type DeclarationAnswer = {
+    game: (typeof GAME_TOKENS)[number];
+    hand: boolean;
+    ouvert: boolean;
+    announcement: (typeof ANNOUNCEMENT_TOKENS)[number];
+};
+export type DeclaringAnswer = {
+    declarer_seat: number;
+    stage: (typeof STAGE_TOKENS)[number];
+    declaration: DeclarationAnswer | null;
+    open_cards: CardAnswer[];
+};
+export type EndedAnswer = {
+    reason: (typeof END_REASON_TOKENS)[number];
+    empty_seconds: number | null;
+    unplayed_days: number | null;
+    closed_by_name: string | null;
+    standings: StandingAnswer[] | null;
+    game_count: number | null;
+};
+export type GiveUpAnswer = {
+    asking_seat: number;
+    declined_seat: number | null;
+};
+export type GiveUpOptionsAnswer = {
+    partner_agrees: boolean;
+    any_time: boolean;
+};
+export type HandAnswer = {
+    dealer_seat: number;
+    own_cards: CardAnswer[];
+    skat_count: number;
+    auction: AuctionAnswer;
+    declaring: DeclaringAnswer | null;
+    playing: PlayingAnswer | null;
+    ramsch: boolean;
+    waiting_seat: number | null;
+    pushing: PushingAnswer | null;
+    pushes: number;
+    push_factor: number;
+    abort: number[] | null;
+    abortable: boolean;
+};
+export type HandValueAnswer = {
+    game: (typeof GAME_TOKENS)[number];
+    value: number;
+};
+export type KontraAnswer = {
+    said: SaidWordAnswer[];
+    factor: number;
+    my_word: (typeof WORD_TOKENS)[number] | null;
+    my_word_answered: boolean;
+    first_card_waits_on: number[];
+    first_card_declined: number[];
+};
+export type KontraOptionsAnswer = {
+    sayer: (typeof KONTRA_SAYER_TOKENS)[number];
+    reach: (typeof KONTRA_REACH_TOKENS)[number];
+    deadline: (typeof KONTRA_DEADLINE_TOKENS)[number];
+};
+export type KontraResultAnswer = {
+    steps: KontraStepAnswer[];
+};
+export type KontraStepAnswer = {
+    word: (typeof WORD_TOKENS)[number];
+    factor: number;
+};
+export type LastTrickAnswer = {
+    cards: CardAnswer[];
+    leader_seat: number;
+    taker_seat: number;
+};
+export type MatadorsAnswer = {
+    mit: boolean;
+    count: number;
+};
+export type NextDealerAnswer = {
+    next_dealer_seat: number | null;
+};
+export type NextSettingsAnswer = {
+    game_count: number;
+    options: OptionsAnswer;
+    revision: number;
+};
+export type NudgeAnswer = {
+    nudges: number;
+    may_nudge: boolean;
+    by_name: string | null;
+};
+export type OpenHandAnswer = {
+    seat: number;
+    cards: CardAnswer[];
+};
+export type OptionsAnswer = {
+    show_running_points: boolean;
+    kontra: KontraOptionsAnswer | null;
+    bock: BockOptionsAnswer | null;
+    ramsch: RamschOptionsAnswer | null;
+    give_up: GiveUpOptionsAnswer;
+};
+export type PlayingAnswer = {
+    turn_seat: number;
+    current_trick: SeatedCardAnswer[];
+    last_trick: LastTrickAnswer | null;
+    taken: TakenAnswer[];
+    legal_cards: CardAnswer[];
+    running_points: SidesAnswer | null;
+    give_up: GiveUpAnswer | null;
+    shortening: ShorteningAnswer | null;
+    shortening_refused_seat: number | null;
+    open_play_seat: number | null;
+    open_hands: OpenHandAnswer[];
+    kontra: KontraAnswer | null;
+};
+export type PushingAnswer = {
+    turn_seat: number;
+    stage: (typeof STAGE_TOKENS)[number];
+    moves: PushingMoveAnswer[];
+    factor: number;
+    put_back_cards: CardAnswer[];
+};
+export type PushingMoveAnswer = {
+    seat: number;
+    action: (typeof PUSH_ACTION_TOKENS)[number];
+};
+export type PushingOptionsAnswer = {
+    rule: (typeof PUSHING_RULE_TOKENS)[number];
+    grand_hand: (typeof GRAND_HAND_TOKENS)[number];
+};
+export type RamschOptionsAnswer = {
+    occasion: (typeof RAMSCH_OCCASION_TOKENS)[number];
+    scoring: (typeof RAMSCH_SCORING_TOKENS)[number];
+    jungfrau: (typeof JUNGFRAU_TOKENS)[number];
+    durchmarsch: (typeof DURCHMARSCH_TOKENS)[number];
+    pushing: PushingOptionsAnswer | null;
+};
+export type RamschResultAnswer = {
+    kind: "ramsch";
+    ordinal: number;
+    seat_names: (string | null)[];
+    seats: RamschSeatAnswer[];
+    durchmarsch_seat: number | null;
+    jungfrau: boolean;
+    bock_factor: number;
+    pushes: number;
+    push_factor: number;
+    divided_by_ten: boolean;
+};
+export type RamschSeatAnswer = {
+    seat: number;
+    points: number;
+    score: number;
+};
+export type ReactionAnswer = {
+    number: number;
+    reaction: (typeof REACTION_TOKENS)[number];
+    by_seat: number | null;
+    by_name: string | null;
+};
+export type ResultAnswer = {
+    kind: "declared";
+    ordinal: number;
+    seat_names: (string | null)[];
+    declarer_seat: number;
+    game: (typeof GAME_TOKENS)[number];
+    hand: boolean;
+    ouvert: boolean;
+    announcement: (typeof ANNOUNCEMENT_TOKENS)[number];
+    schneider: boolean;
+    schwarz: boolean;
+    matadors: MatadorsAnswer | null;
+    base_value: number | null;
+    levels: (typeof LEVEL_TOKENS)[number][];
+    multiplier: number | null;
+    list_bonus: number;
+    announcement_missed: boolean;
+    won: boolean;
+    doubled: boolean;
+    overbid: boolean;
+    bid: number;
+    game_value: number;
+    settled_value: number;
+    score: number;
+    declarer_points: number;
+    opponents_points: number;
+    gains: SeatGainAnswer[];
+    kontra: KontraResultAnswer | null;
+    bock_factor: number;
+    ending: (typeof GAME_ENDING_TOKENS)[number];
+    ended_by_seat: number | null;
+};
+export type SaidWordAnswer = {
+    seat: number;
+    word: (typeof WORD_TOKENS)[number];
+};
+export type SeatGainAnswer = {
+    seat: number;
+    gain: number;
+    won: boolean;
+};
+export type SeatedCardAnswer = {
+    seat: number;
+    card: CardAnswer;
+};
+export type SeriesAnswer = {
+    number: number;
+    game_number: number;
+    game_count: number;
+    over: boolean;
+    standings: StandingAnswer[] | null;
+    end_proposal: SeriesEndProposalAnswer | null;
+    end_refused_seats: number[];
+    new_series_answer_by: string | null;
+    next_settings: NextSettingsAnswer | null;
+};
+export type SeriesEndProposalAnswer = {
+    proposer_seat: number;
+    agreed_seats: number[];
+    answer_by: string;
+};
+export type ShorteningAnswer = {
+    asking_seat: number;
+    claim: (typeof ANNOUNCEMENT_TOKENS)[number];
+    agreed_seat: number | null;
+};
+export type SidesAnswer = {
+    declarer: number;
+    opponents: number;
+};
+export type StandingAnswer = {
+    display_name: string | null;
+    seat: number;
+    kind: (typeof OCCUPANT_KIND_TOKENS)[number] | null;
+    total: number;
+    won: number;
+    lost: number;
+    place: number;
+};
+export type TableAnswer = {
+    id: string;
+    version: number;
+    chairs: ChairAnswer[];
+    watchers: number;
+    hand: HandAnswer | null;
+    passed_in: NextDealerAnswer | null;
+    aborted: NextDealerAnswer | null;
+    result: ResultAnswer | RamschResultAnswer | null;
+    series: SeriesAnswer | null;
+    options: OptionsAnswer | null;
+    style: (typeof TABLE_STYLE_TOKENS)[number] | null;
+    bock: BockAnswer | null;
+    ended: EndedAnswer | null;
+    reactions: ReactionAnswer[];
+};
+export type TakenAnswer = {
+    seat: number;
+    tricks: number;
+};
+export type TurnStateAnswer = {
+    stopped: (typeof STOP_OUTCOME_TOKENS)[number] | null;
+    thinking_seconds_left: number | null;
+};

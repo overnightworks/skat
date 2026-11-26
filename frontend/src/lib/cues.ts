@@ -182,7 +182,7 @@ type Turn = { phase: "auction" | "declare" | "push" | "play"; seat: number };
 function turnOf(table: Table): Turn | null {
     const hand = table.hand;
     if (hand === null || handWaits(hand)) return null;
-    if (hand.playing !== null) return { phase: "play", seat: hand.playing.turn_seat as number };
+    if (hand.playing !== null) return { phase: "play", seat: hand.playing.turn_seat };
     if (hand.pushing !== null) return { phase: "push", seat: hand.pushing.turn_seat };
     if (hand.declaring !== null)
         return hand.declaring.stage === "declared" ? null : { phase: "declare", seat: hand.declaring.declarer_seat };

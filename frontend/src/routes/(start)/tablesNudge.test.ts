@@ -20,6 +20,7 @@ const chairOf = (seat: number, nudge: Nudge | null): Chair => ({
     former_holder_name: null,
     is_mine_to_return: false,
     nudge,
+    turn_state: null,
 });
 const tableAt = (version: number, ownNudge: Nudge | null): Table => ({
     id: TABLE_ID,

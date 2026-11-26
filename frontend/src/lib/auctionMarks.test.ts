@@ -192,6 +192,7 @@ function chair(seat: number, changes: Partial<Chair> = {}): Chair {
         former_holder_name: null,
         is_mine_to_return: false,
         nudge: null,
+        turn_state: null,
         ...changes,
     };
 }
@@ -253,6 +254,7 @@ describe("the scene of a passed-in hand", () => {
         former_holder_name: null,
         is_mine_to_return: false,
         nudge: null,
+        turn_state: null,
         ...changes,
     });
     const all = [chairOf(FOREHAND), chairOf(MIDDLEHAND), chairOf(REARHAND)];
@@ -307,6 +309,7 @@ describe("what the others see while the declarer decides", () => {
             former_holder_name: null,
             is_mine_to_return: false,
             nudge: null,
+            turn_state: null,
             ...(seat === MIDDLEHAND ? changes : {}),
         }));
     const tableAt = (
@@ -478,6 +481,7 @@ describe("the marks while a chair of the running hand is open", () => {
             former_holder_name: seat === REARHAND ? "Nova" : null,
             is_mine_to_return: false,
             nudge: null,
+            turn_state: null,
         })),
         watchers: 0,
         reactions: [],
