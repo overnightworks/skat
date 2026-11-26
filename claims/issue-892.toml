@@ -1,8 +1,0 @@
-claim_id = "e9ff381f4e344fd599bfe3936858221c"
-agent = "Claude 43d1cd12-aa0a-4670-990a-06dae441c599"
-role = "builder"
-base = "042294237d6198867935bb4210002e44e6b1b8f5"
-branch = "claude/issue-892-the-server-builds-only-legal-table-ends"
-scope = ["frontend/src/lib/wire.ts", "frontend/src/routes/(start)/tables.ts", "scripts/generate_wire.py", "src/skat/web/ended_answer.py", "src/skat/web/tables.py", "tests/scripts/test_generate_wire.py", "tests/web/test_streams_end.py"]
-opened_commit = "83815ff8830a822da2e1e744dcc0bbdfda470610"
-whole_reason = "The server union, the generated types and the page's re-export change together; half of it leaves Ended with two owners or a stale wire.ts."
