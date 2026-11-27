@@ -810,6 +810,27 @@ body.tk-play .frame .mo.cyc{animation-play-state:running!important;animation-del
         <path d="M6 70H94" stroke="#ffe3b0" stroke-width="1.3"/></g>
       <rect x="10.5" y="10.5" width="79" height="119" rx="2.5" fill="none" stroke="#f4dfae" stroke-opacity=".85" stroke-width="1.3"/>
     </symbol>
+    <!-- the Pokerkeller card back: deep red under two crossing fine lines and a chip in the middle; every part turns into itself by half a round, so it reads the same either way up -->
+    <pattern id="pk-brick" width="44" height="28" patternUnits="userSpaceOnUse"><rect width="44" height="28" fill="#1f130e"/>
+      <rect x="1" y="1" width="20" height="12" rx="1" fill="#4b2a1f"/><rect x="23" y="1" width="20" height="12" rx="1" fill="#3f2318"/>
+      <rect x="12" y="15" width="20" height="12" rx="1" fill="#472819"/><rect x="34" y="15" width="9" height="12" rx="1" fill="#3d2218"/><rect x="1" y="15" width="9" height="12" rx="1" fill="#3d2218"/></pattern>
+    <radialGradient id="pk-pool" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffcf8a" stop-opacity=".5"/><stop offset=".55" stop-color="#ff9f4a" stop-opacity=".16"/><stop offset="1" stop-color="#ff9f4a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="pk-dark" cx=".5" cy=".42" r=".72"><stop offset=".3" stop-color="#050302" stop-opacity=".25"/><stop offset=".72" stop-color="#050302" stop-opacity=".78"/><stop offset="1" stop-color="#050302" stop-opacity=".96"/></radialGradient>
+    <linearGradient id="pk-cone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".34"/><stop offset="1" stop-color="#ffd9a0" stop-opacity="0"/></linearGradient>
+    <linearGradient id="pk-shade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0f3a2a"/><stop offset=".45" stop-color="#1f7552"/><stop offset="1" stop-color="#0a2a1e"/></linearGradient>
+    <linearGradient id="pk-whisky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1a73a"/><stop offset="1" stop-color="#a8571a"/></linearGradient>
+    <pattern id="pk-lines" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45 50 70)"><path d="M0 0H5M0 0V5" stroke="#f2b9a6" stroke-opacity=".3" stroke-width=".55"/></pattern>
+    <radialGradient id="pk-red" cx=".5" cy=".5" r=".7"><stop offset="0" stop-color="#8e1b2c"/><stop offset="1" stop-color="#5a0e1b"/></radialGradient>
+    <symbol id="cardback-poker" viewBox="0 0 100 140">
+      <rect x=".75" y=".75" width="98.5" height="138.5" rx="7" fill="#fbf8f0" stroke="#cfc6b1" stroke-width="1.5"/>
+      <rect x="6" y="6" width="88" height="128" rx="4" fill="url(#pk-red)"/>
+      <rect x="6" y="6" width="88" height="128" rx="4" fill="url(#pk-lines)"/>
+      <rect x="10.5" y="10.5" width="79" height="119" rx="2.5" fill="none" stroke="#ecc9a4" stroke-opacity=".85" stroke-width="1.2"/>
+      <circle cx="50" cy="70" r="21" fill="#4a0a16" stroke="#ecc9a4" stroke-width="1.4"/>
+      <circle cx="50" cy="70" r="16.5" fill="none" stroke="#ecc9a4" stroke-width="3.4" stroke-dasharray="5.2 5.2" stroke-opacity=".9"/>
+      <circle cx="50" cy="70" r="11" fill="#7a1424" stroke="#ecc9a4" stroke-width=".9"/>
+      <path d="M50 62L58 70L50 78L42 70Z" fill="#ecc9a4"/>
+    </symbol>
     <symbol id="cardback" viewBox="0 0 100 140">
       <rect x=".75" y=".75" width="98.5" height="138.5" rx="7" fill="#fbf8f0" stroke="#cfc6b1" stroke-width="1.5"/>
       <rect x="6" y="6" width="88" height="128" rx="4" fill="url(#backfill)"/>
@@ -1336,6 +1357,7 @@ const IDEAS=[
   ['⏹','Spiel abbrechen','Solange ein Stuhl frei ist, bietet das Menü unter „Spiel“ „Abbrechen“ mit einem zweiten Tipp wie „Aufgeben“; die anderen antworten „Abbrechen“ oder „Warten“, und der Filz wird leer. (#332)','abort-offer, abort-asked, abort-waits, abort-done'],
   ['🔊','Ton und Bewegung','Ein runder Lautsprecher oben am Tisch öffnet die Tafel: Ton an oder aus, Lautstärke, die Klänge „Leise“, „Stammtisch“ oder „Funkeln“, die Bewegung „dezent“ oder „verspielt“, Stimme, letzter Stich, „Du bist dran“ im Hintergrund und Vibration; gemerkt auf diesem Gerät, durchgestrichen, wenn der Ton aus ist. (#376)','sound-button, sound-panel'],
   ['🏖','Stil Strandbar','Ein zweiter Stil für den Tisch, von einer sitzenden Person am Tisch gewählt und für alle am Tisch geltend: Strand bei Abenddämmerung, runder Barhocker-Tisch aus hellem Holz mit Rattanrand, Strohuntersetzer, eigene Kartenrücken, dazu Meeresrauschen. Klassik bleibt der Standard.','strand-auction, strand-trick, strand-result, strand-choose'],
+  ['🃏','Stil Pokerkeller','Ein dritter Stil für den Tisch, gewählt und geltend wie Strandbar: ein dunkler, niedriger Keller aus Backstein unter einer tief hängenden Lampe, ovaler Kartentisch aus grünem Filz in gepolsterter Lederbande, Stühle aus dunklem Holz und Leder, rote Kartenrücken mit feinem Linienmuster, dazu das Klappern von Chips. Klassik bleibt der Standard.','poker-auction, poker-trick, poker-result, poker-choose, poker-turn-pop'],
   ['🏠','Zurück zur Lobby','Ein runder Pfeil links oben bringt dich in die Lobby, ohne dass du aufstehst; die Zuschauer stehen rechts oben neben „⋯“, und eine Zahl am Knopf zeigt, dass ein anderer Tisch dich braucht.','s3-mine, rules-points, home-badge'],
   ['➜','Schieberamsch','Nach drei Pässen wird Ramsch: wer dran ist, nimmt den Skat und legt zwei Karten zurück oder schiebt ihn ungesehen weiter; die Tafel nennt, wie oft geschoben wurde, und die Ergebniskarte zeigt, wie der Verlust entsteht, bis zu Jungfrau und Durchmarsch.','push-mine, push-discard, push-wait, push-taken, push-pushed, push-agent, push-flat, push-watch, push-open, ramsch-play, ramsch-lost, ramsch-other, ramsch-jungfrau, ramsch-durchmarsch, ramsch-list, rules-ramsch'],
   ['✋','Grand Hand statt Ramsch','An einem Tisch, der es erlaubt, sagt wer beim Schieberamsch dran ist „Grand Hand“ an, statt zu nehmen oder zu schieben: ein Tipp macht die Taste scharf, der zweite sagt an, dann spielt er einen Grand Hand zum niedrigsten Reizwert, ohne Ansage. (#327)','push-grand, push-grand-arm, push-grand-done, push-grand-off'],
@@ -2984,17 +3006,51 @@ const SHELL=`<svg viewBox="0 0 72 62" aria-hidden="true"><ellipse cx="36" cy="57
   <path d="M36 55C10 50 2 29 10 17C18 5 54 5 62 17C70 29 62 50 36 55Z" fill="url(#sbShell)" stroke="#d7a99a" stroke-width="1.2"/>
   <path d="M36 52L14 18M36 52L22 12M36 52L31 9M36 52L41 9M36 52L50 12M36 52L58 18M36 52L10 28M36 52L62 28" fill="none" stroke="#d99a8c" stroke-opacity=".75" stroke-width="1.6" stroke-linecap="round"/>
   <path d="M30 56h12l-2 4H32z" fill="#e8bfae"/></svg>`;
-const strandDecor=(d,phoneAt)=>{const t=(d?DB:PB).table,cx=t.x+t.w/2,cy=t.y+t.h/2,a=t.w/2,b=t.h/2,rad=(deg)=>deg*Math.PI/180;
+/* a look's rail decor as data: each item has its class, the key of its phone override, its picture, and its angle and height on the phone and on the desk */
+const railDecor=(items)=>(d,phoneAt)=>{const t=(d?DB:PB).table,cx=t.x+t.w/2,cy=t.y+t.h/2,a=t.w/2,b=t.h/2,rad=(deg)=>deg*Math.PI/180;
   const rim=(deg)=>[cx+a*Math.cos(rad(deg)),cy+b*Math.sin(rad(deg))];
-  const [gx,gy]=!d&&phoneAt?.glass||rim(d?38:36),[sx,sy]=!d&&phoneAt?.shell||rim(d?150:144);
-  return `<span class="decor cocktail" style="${at({left:gx,top:gy,'--h':d?84:62})}">${COCKTAIL}</span><span class="decor shell" style="${at({left:sx,top:sy,'--h':d?44:34})}">${SHELL}</span>`;};
-/* a scene of Klassik drawn in the style: the beach behind, the style's card backs, the decoration at the rim */
-const strandView=(draw,phoneAt)=>(d,w)=>{const [fw,fh]=STRAND_SIZE[w];klassikScene=false;
-  try{return beach(fw,fh,d)+draw(d,w).replaceAll('href="#cardback"','href="#cardback-strand"')+strandDecor(d,phoneAt?.[w]??phoneAt);}finally{klassikScene=true;}};
+  return items.map(({cls,spot,svg,deg,h})=>{const [x,y]=!d&&phoneAt?.[spot]||rim(d?deg[1]:deg[0]);
+    return `<span class="decor ${cls}" style="${at({left:x,top:y,'--h':d?h[1]:h[0]})}">${svg}</span>`;}).join('');};
+const strandDecor=railDecor([{cls:'cocktail',spot:'glass',svg:COCKTAIL,deg:[36,38],h:[62,84]},{cls:'shell',spot:'shell',svg:SHELL,deg:[144,150],h:[34,44]}]);
+/* a scene of Klassik drawn in a style: the style's backdrop behind, its card backs, its decoration at the rim */
+const lookView=(look)=>(draw,phoneAt)=>(d,w)=>{const [fw,fh]=STRAND_SIZE[w];klassikScene=false;
+  try{return look.backdrop(fw,fh,d)+draw(d,w).replaceAll('href="#cardback"',`href="#cardback-${look.back}"`)+look.decor(d,phoneAt?.[w]??phoneAt);}finally{klassikScene=true;}};
+const strandView=lookView({backdrop:beach,back:'strand',decor:strandDecor});
 const SEA_CAPTION='Dazu klingt das Meer: leises, gleichmäßiges Rauschen der Brandung unter dem Spiel, in der Lautstärke der Tafel und still bei „Ton aus“. Die Wellen am Strand rollen langsam ein und aus; bei der Bewegung „dezent“ und bei „Bewegung reduzieren“ stehen sie still, wie dieses Bild.';
+/* ===== Pokerkeller: the table's third style, drawn the same way (a dark low cellar of brick under one hanging lamp, an oval card table of green baize in a padded leather rail, chairs of dark wood and leather, the style's own card backs, chip stacks and a glass at the rail) ===== */
+/* the cellar behind the table: brick walls, a beam under the ceiling, a flagstone floor, the lamp on its cord with its cone and its pool of light, shadow at the edges; sized to its frame */
+const cellar=(w,h,d)=>{const t=(d?DB:PB).table,cx=w/2,beam=d?40:26,floor=Math.round(h*(d?.8:.9)),shadeW=d?132:56,shadeH=d?17:22,shadeY=d?48:3,
+    bulbY=shadeY+shadeH,coneTo=t.y+t.h*.55,coneHalf=t.w*.5;
+  let seed=11;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  const flags=Array.from({length:d?14:6},(_,i)=>`<path d="M0 ${floor+10+i*(d?10:8)}H${w}" stroke="#000" stroke-opacity=".28" stroke-width="1.2"/>`).join('');
+  const bottles=d?[130,168,206,1074,1112,1150].map((x,i)=>`<g fill="#17110d" stroke="#6b4a2c" stroke-width="1" stroke-opacity=".6"><rect x="${x}" y="${70+i%2*6}" width="20" height="46" rx="6"/><rect x="${x+6}" y="${52+i%2*6}" width="8" height="22" rx="2"/></g>`).join('')+'<path d="M96 120H250M1040 120H1190" stroke="#4a2c1b" stroke-width="5" stroke-linecap="round"/>':'';
+  const specks=Array.from({length:d?60:30},()=>`<circle cx="${(rnd()*w).toFixed(0)}" cy="${(floor+rnd()*(h-floor)).toFixed(0)}" r="${(.6+rnd()*1.1).toFixed(1)}" fill="#8a6a50" opacity=".16"/>`).join('');
+  return `<svg class="cellar" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" preserveAspectRatio="none" aria-hidden="true">
+  <rect width="${w}" height="${h}" fill="url(#pk-brick)"/>${bottles}
+  <rect y="${floor}" width="${w}" height="${h-floor}" fill="#1a1411"/>${flags}${specks}<rect y="${floor-3}" width="${w}" height="5" fill="#2a1a10"/>
+  <rect width="${w}" height="${beam}" fill="#2a170c"/><rect width="${w}" height="${beam}" fill="#000" opacity=".25"/><rect y="${beam-3}" width="${w}" height="3" fill="#6b4524" opacity=".6"/>
+  <path d="M${cx-shadeW/2+6} ${bulbY}L${cx-coneHalf} ${coneTo}H${cx+coneHalf}L${cx+shadeW/2-6} ${bulbY}Z" fill="url(#pk-cone)"/>
+  <ellipse cx="${cx}" cy="${t.y+t.h/2}" rx="${t.w*.8}" ry="${t.h*.7}" fill="url(#pk-pool)"/>
+  <rect width="${w}" height="${h}" fill="url(#pk-dark)"/>
+  <path d="M${cx} 0V${shadeY}" stroke="#0a0705" stroke-width="2.4"/>
+  <path d="M${cx-shadeW/2} ${bulbY}Q${cx-shadeW*.38} ${shadeY} ${cx-10} ${shadeY}H${cx+10}Q${cx+shadeW*.38} ${shadeY} ${cx+shadeW/2} ${bulbY}Z" fill="url(#pk-shade)" stroke="#05150f" stroke-width="1.4"/>
+  <ellipse cx="${cx}" cy="${bulbY}" rx="${shadeW/2}" ry="${d?4:3}" fill="#ffe2ae"/><ellipse cx="${cx}" cy="${bulbY+2}" rx="${shadeW*.9}" ry="${d?16:11}" fill="url(#pk-pool)"/></svg>`;
+};
+/* the decoration on the rail: three stacks of chips and a tumbler of whisky; they sit on the rail's edge, away from every card and key; a scene whose card fills the phone's table moves them beside its rail */
+const CHIP_COLOURS=[['#b3202f','#f0e6d0'],['#1d2026','#d9b46a'],['#f1e8d2','#b3202f'],['#1f7a4d','#f0e6d0'],['#2b4f9b','#f0e6d0']];
+const chipStack=(x,colours)=>colours.map((c,i)=>{const [body,edge]=CHIP_COLOURS[c],y=52-i*5.5;
+  return `<path d="M${x-13} ${y}v-4.6a13 4.4 0 0 1 26 0V${y}a13 4.4 0 0 1-26 0Z" fill="${body}"/><ellipse cx="${x}" cy="${y-4.6}" rx="13" ry="4.4" fill="${body}" stroke="${edge}" stroke-width="1.2" stroke-dasharray="3.6 3.1"/><ellipse cx="${x}" cy="${y-4.6}" rx="7.4" ry="2.3" fill="none" stroke="${edge}" stroke-opacity=".55" stroke-width=".8"/>`;}).join('');
+const CHIPS=`<svg viewBox="0 0 92 66" aria-hidden="true"><ellipse cx="46" cy="58" rx="42" ry="6" fill="#000" opacity=".3"/>${chipStack(20,[0,0,2,0,0])}${chipStack(46,[1,1,3,1])}${chipStack(72,[4,2,4,4,2,4])}</svg>`;
+const TUMBLER=`<svg viewBox="0 0 44 56" aria-hidden="true"><ellipse cx="22" cy="51" rx="17" ry="4" fill="#000" opacity=".3"/>
+  <path d="M6 12h32l-3 38H9z" fill="#ffffff" fill-opacity=".14" stroke="#f6e8cf" stroke-opacity=".8" stroke-width="1.4" stroke-linejoin="round"/><path d="M7.4 26h29.2l-1.7 24H9.1z" fill="url(#pk-whisky)"/>
+  <rect x="14" y="19" width="10" height="10" rx="2" fill="#fff" fill-opacity=".38" stroke="#fff" stroke-opacity=".6" stroke-width=".8" transform="rotate(-12 19 24)"/><path d="M11 17L12.4 44" stroke="#fff" stroke-opacity=".5" stroke-width="2" stroke-linecap="round"/><ellipse cx="22" cy="12" rx="16" ry="2.6" fill="none" stroke="#f6e8cf" stroke-opacity=".8" stroke-width="1.2"/></svg>`;
+const pokerDecor=railDecor([{cls:'glass',spot:'glass',svg:TUMBLER,deg:[36,38],h:[48,64]},{cls:'chips',spot:'chips',svg:CHIPS,deg:[144,150],h:[46,60]}]);
+const pokerView=lookView({backdrop:cellar,back:'poker',decor:pokerDecor});
+const CELLAR_CAPTION='Dazu klingt der Keller: gedämpftes Klappern und Mischen von Chips unter dem Spiel, in der Lautstärke der Tafel und still bei „Ton aus“. Die Lampe schwankt kaum merklich; bei der Bewegung „dezent“ und bei „Bewegung reduzieren“ hängt sie still, wie dieses Bild.';
 const LOOK_PREVIEW={
   Klassik:`<svg class="prev" viewBox="0 0 120 76" aria-hidden="true"><rect width="120" height="76" fill="#1b130d"/><rect x="8" y="10" width="104" height="56" rx="28" fill="#7a4c2a"/><rect x="12" y="14" width="96" height="48" rx="24" fill="#1d7a55"/><rect x="48" y="26" width="13" height="19" rx="2" fill="#22386a" stroke="#d6b46a" stroke-width=".8" transform="rotate(-8 54 36)"/><rect x="60" y="26" width="13" height="19" rx="2" fill="#22386a" stroke="#d6b46a" stroke-width=".8" transform="rotate(7 66 36)"/><rect x="2" y="30" width="16" height="14" rx="3" fill="#3a3a40"/><rect x="102" y="30" width="16" height="14" rx="3" fill="#2a3b5e"/></svg>`,
   Strandbar:`<svg class="prev" viewBox="0 0 120 76" aria-hidden="true"><rect width="120" height="76" fill="#cba57a"/><rect width="120" height="24" fill="url(#lkSky)"/><circle cx="84" cy="24" r="7" fill="#fff0c2"/><rect y="24" width="120" height="12" fill="#2f6285"/><path d="M0 36Q8 33 16 36T32 36T48 36T64 36T80 36T96 36T112 36T128 36" fill="none" stroke="#fff" stroke-width="1.6" opacity=".85"/><circle cx="60" cy="48" r="26" fill="#e8cf9f"/><circle cx="60" cy="48" r="22" fill="#d7b27c"/><circle cx="60" cy="48" r="20" fill="none" stroke="#fff3d0" stroke-opacity=".6" stroke-width="1"/><rect x="50" y="38" width="12" height="17" rx="2" fill="#26427a" stroke="#f4dfae" stroke-width=".8" transform="rotate(-8 56 46)"/><rect x="59" y="38" width="12" height="17" rx="2" fill="#26427a" stroke="#f4dfae" stroke-width=".8" transform="rotate(7 65 46)"/><circle cx="14" cy="48" r="8" fill="#e6c88c"/><circle cx="106" cy="48" r="8" fill="#e6c88c"/></svg>`,
+  Pokerkeller:`<svg class="prev" viewBox="0 0 120 76" aria-hidden="true"><rect width="120" height="76" fill="url(#pk-brick)"/><rect width="120" height="76" fill="#0a0604" opacity=".55"/><path d="M60 0V8M46 18Q50 8 56 8H64Q70 8 74 18Z" fill="#1f7552" stroke="#05150f" stroke-width=".8"/><ellipse cx="60" cy="18" rx="14" ry="2" fill="#ffe2ae"/><ellipse cx="60" cy="46" rx="48" ry="29" fill="#2f1a10"/><ellipse cx="60" cy="46" rx="43" ry="24.5" fill="#0f5a3c"/><ellipse cx="60" cy="42" rx="30" ry="14" fill="#ffd28a" opacity=".2"/><rect x="50" y="36" width="12" height="17" rx="2" fill="#7a1424" stroke="#ecc9a4" stroke-width=".8" transform="rotate(-8 56 44)"/><rect x="59" y="36" width="12" height="17" rx="2" fill="#7a1424" stroke="#ecc9a4" stroke-width=".8" transform="rotate(7 65 44)"/><rect x="3" y="34" width="14" height="16" rx="3" fill="#3b2415"/><rect x="103" y="34" width="14" height="16" rx="3" fill="#3b2415"/><circle cx="28" cy="62" r="4" fill="#b3202f" stroke="#f0e6d0" stroke-width="1" stroke-dasharray="2 1.6"/><circle cx="35" cy="63" r="4" fill="#1d2026" stroke="#d9b46a" stroke-width="1" stroke-dasharray="2 1.6"/></svg>`,
 };
 const STYLES=Object.entries(LOOK_PREVIEW).map(([name,preview])=>({name,preview}));
 /* the table's style is chosen at the table, by a person who sits: a key in Skat's strip opens a small panel above it; the sound panel keeps only sound and motion */
@@ -3010,9 +3066,22 @@ const STRAND_SCENES=[
   ['strand-result','Strandbar: das Ergebnis',[360,390,1280],strandView((d)=>endScene(d,OWN_WIN,tapButton,1,declarerWinsConfetti(d)),{glass:[336,590],shell:[54,596]}),
     ['Die Ergebniskarte bleibt dunkles Glas mit hellem Text, die Strohuntersetzer tragen die Punkte; „Weiter“ bleibt hell in der Farbe des Tisches wie in Klassik.',SEA_CAPTION]],
   ['strand-choose','Strandbar: der Stil am Tisch',[360,390,1280],strandView((d,w)=>soundTable(d,w,{over:stylePanel(d,'Strandbar')}).replace(menuKey(d),styleKey(d,{open:true}))),
-    ['Wer am Tisch sitzt, wählt den Stil mit der Zeile „Stil“ im Menü „⋯“; das Menü schließt sich, und die Tafel hängt unter „⋯“: Klassik oder Strandbar, je mit einer kleinen Vorschau; die gewählte trägt Haken und Farbe. Der Stil gehört dem Tisch und nicht der Person: Er ändert sich für alle am Tisch sofort, auch für die Zuschauer, die selbst keine Taste dafür haben. Die Tafel „Ton und Bewegung“ behält nur Ton, Lautstärke und die Sets; Lautstärke und Stumm bleiben je Gerät.',SEA_CAPTION]],
+    ['Wer am Tisch sitzt, wählt den Stil mit der Zeile „Stil“ im Menü „⋯“; das Menü schließt sich, und die Tafel hängt unter „⋯“: Klassik, Strandbar oder Pokerkeller, je mit einer kleinen Vorschau; die gewählte trägt Haken und Farbe. Der Stil gehört dem Tisch und nicht der Person: Er ändert sich für alle am Tisch sofort, auch für die Zuschauer, die selbst keine Taste dafür haben. Die Tafel „Ton und Bewegung“ behält nur Ton, Lautstärke und die Sets; Lautstärke und Stumm bleiben je Gerät.',SEA_CAPTION]],
 ];
 soundScenes(STRAND_SCENES,'strand');
+/* ===== Pokerkeller's scenes: the same scene functions as Strandbar's, at the same widths ===== */
+const POKER_SCENES=[
+  ['poker-auction','Pokerkeller: Reizen',[360,390,1280],pokerView(BID_SCENES.find(([id])=>id==='bid-middle')[2]),
+    ['Der Tisch „Reizen“, dieselben Stühle, Karten und Tasten wie in Klassik, im Stil Pokerkeller: ein dunkler Backsteinkeller unter einer tief hängenden Lampe, ovaler Tisch aus grünem Filz mit gepolsterter Lederbande, Stühle aus dunklem Holz und Leder, Chips als Punktemarken an den Plätzen, eigene Kartenrücken in tiefem Rot. Chipstapel und Whiskyglas stehen auf der Bande und decken keine Karte und keine Taste.',
+     'Die Reizleiter steht wie in Klassik: dieselben Tasten und Chips, alle in voller Helligkeit.',CELLAR_CAPTION]],
+  ['poker-trick','Pokerkeller: ein Stich',[360,390,1280],pokerView((d,w)=>trickTable(d,w,{felt:restingTrick(d),annaLast:true,felixTricks:1}),{360:{chips:[41,424]}}),
+    ['Der Stich liegt mit seinen Namen auf dem Filz: Annas Pik-König, Novas Sieben, Felix’ Ass. Neben Annas Stuhl liegt ihr Stapel mit dem letzten Stich und dem hellen Rand, neben Felix sein erster; die Lampe wirft den hellen Kreis auf die Mitte, zur Bande hin wird der Filz dunkel.',CELLAR_CAPTION]],
+  ['poker-result','Pokerkeller: das Ergebnis',[360,390,1280],pokerView((d)=>endScene(d,OWN_WIN,tapButton,1,declarerWinsConfetti(d)),{glass:[336,590],chips:[54,596]}),
+    ['Die Ergebniskarte bleibt dunkles Glas mit hellem Text, in den Ton des Kellers getönt; die Punkte stehen auf dunklen Lederkarten, die Gewinner tragen den goldenen Rand. „Weiter“ bleibt hell in der Farbe des Tisches wie in Klassik.',CELLAR_CAPTION]],
+  ['poker-choose','Pokerkeller: der Stil am Tisch',[360,390,1280],pokerView((d,w)=>soundTable(d,w,{over:stylePanel(d,'Pokerkeller')}).replace(menuKey(d),styleKey(d,{open:true}))),
+    ['Die Tafel „Stil“ bietet jetzt drei Stile mit je einer kleinen Vorschau: Klassik, Strandbar und Pokerkeller; der gewählte trägt Haken und Farbe, und der Tisch ändert sich sofort für alle, auch für die Zuschauer. Die Tafel selbst bleibt in jedem Stil dieselbe.',CELLAR_CAPTION]],
+];
+soundScenes(POKER_SCENES,'poker');
 /* ===== a game decided before its tenth trick: the deciding trick lands and rests, the card that took it lifts with the brass rim of every taking card and is stamped with a seal no other trick carries, then the result rises ===== */
 /* Felix plays Null Hand; in the third trick Anna leads the ♥ 8, Nova adds the 7, and Felix must take it with the queen */
 const NULL_DECIDING=[['8','h','anna','left'],['7','h','nova','right'],['D','h','felix','near']];
@@ -3046,6 +3115,10 @@ const DECIDING_SCENES=[
     ['Auch in der Strandbar bleibt die Taste, auf die der Tisch wartet, hell in der Farbe des Tisches und ist nie dunkles Glas: „Weiter“, das Reizen, Kontra und „Ansagen“ sehen nie ausgegraut aus. Sie springt und glänzt wie in Klassik.',SEA_CAPTION]],
 ];
 soundScenes(DECIDING_SCENES);
+soundScenes([
+  ['poker-turn-pop','Pokerkeller: du bist dran',[390,1280],pokerView((d)=>turnKey(BID_SCENES.find(([id])=>id==='bid-middle')[2](d),/<span class="button button-stage">/)),
+    ['Auch im Pokerkeller bleibt die Taste, auf die der Tisch wartet, hell in der Farbe des Tisches und ist nie dunkles Glas: „Weiter“, das Reizen, Kontra und „Ansagen“ sehen nie ausgegraut aus. Sie springt und glänzt wie in Klassik.',CELLAR_CAPTION]],
+],'poker');
 
 /* ===== S15.11: the tapped bell: a cowbell swings in over the chair the table waits for and rings, the chair shakes, the nudged one grumbles in a bubble ===== */
 /* Anna holds the turn and stays silent; Felix tapped the bell at her chair. Every page at the table sees the same moment; the tap's own green tick is gone */
@@ -3761,7 +3834,7 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
   box-shadow:0 34px 46px -22px rgba(25,12,30,.75),0 0 0 1.5px rgba(86,52,22,.8),inset 0 1.5px 0 rgba(255,250,235,.7),inset 0 -2px 0 rgba(86,52,22,.45)}
 .strand .table::before{inset:calc(var(--rim) * .55);border-radius:50%;border:2px solid rgba(255,248,225,.7);box-shadow:0 0 0 1.5px rgba(96,58,22,.55),inset 0 0 0 1.5px rgba(96,58,22,.4)}
 .p390.strand .table{aspect-ratio:374 / 420;height:auto!important;top:150px!important}
-.strand .result{z-index:4}
+:is(.strand,.poker) .result{z-index:4}
 .strand .felt{border-radius:50%;
   background:
     radial-gradient(60% 50% at 50% 40%,rgba(255,236,190,.55),transparent 72%),
@@ -3770,11 +3843,11 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
     linear-gradient(180deg,#d9b57c,#c39a5e 60%,#b08550);
   box-shadow:inset 0 10px 22px rgba(90,52,20,.35),inset 0 -6px 16px rgba(90,52,20,.28),inset 0 0 0 1.5px rgba(90,52,20,.4)}
 .strand .felt::before{border-radius:50%;border:1.5px solid rgba(255,248,225,.5)}
-.strand .seatglow{background:radial-gradient(calc(var(--gw) / 2) calc(var(--gh) / 2) at var(--gx) var(--gy),rgba(122,167,240,.4),rgba(122,167,240,.12) 60%,transparent)}
+:is(.strand,.poker) .seatglow{background:radial-gradient(calc(var(--gw) / 2) calc(var(--gh) / 2) at var(--gx) var(--gy),rgba(122,167,240,.4),rgba(122,167,240,.12) 60%,transparent)}
 /* the stool: a woven frame around the picture, a cushion in the person's own colour and splayed legs with a footrest */
-.strand .seat{--pad:9px}
-.strand .seat.sm{--pad:6px}
-.strand .watchers .seat{--pad:4px}
+:is(.strand,.poker) .seat{--pad:9px}
+:is(.strand,.poker) .seat.sm{--pad:6px}
+:is(.strand,.poker) .watchers .seat{--pad:4px}
 .strand .chair{border-radius:28px 28px 20px 20px;
   background:
     repeating-linear-gradient(45deg,rgba(255,246,222,.45) 0 1.4px,transparent 1.4px 5px),
@@ -3821,21 +3894,82 @@ document.querySelectorAll('.replay').forEach(b=>b.addEventListener('click',()=>{
 .strand .btns.chips{--unlit:rgba(28,17,22,.78)}
 .strand .duel,.strand .limit .mode,.strand .limit .clear,.strand .limit .said{background:rgba(28,17,22,.8)}
 .strand .cbar,.strand .sbar{--glass:rgba(28,17,22,.66)}
-.p360.strand .result.end{padding:10px 14px;gap:7px}
+.p360:is(.strand,.poker) .result.end{padding:10px 14px;gap:7px}
 .strand .button-glass{background:rgba(28,17,22,.62);color:var(--on-stage)}
 .strand .result{background:rgba(28,17,22,.84);box-shadow:inset 0 0 0 1.5px rgba(243,207,122,.4),0 24px 50px -16px rgba(25,12,30,.9)}
 .strand .stamp{background:rgba(28,17,22,.84);color:var(--cream)}
 .strand .tag{background:rgba(28,17,22,.84)}
 .strand .confetti i{box-shadow:0 3px 6px rgba(25,12,30,.4)}
-.p390.strand .cbar,.p390.strand .sbar{background:linear-gradient(to top,var(--stage-fade) 55%,transparent)}
+.p390:is(.strand,.poker) .cbar,.p390:is(.strand,.poker) .sbar{background:linear-gradient(to top,var(--stage-fade) 55%,transparent)}
 .strand .card{filter:drop-shadow(0 1px 1px rgba(30,15,10,.5)) drop-shadow(0 6px 8px rgba(30,15,10,.4))}
 /* the shell and the cocktail on the rim */
 .decor{z-index:3;pointer-events:none;height:var(--h);transform:translate(-50%,-78%);filter:drop-shadow(0 6px 5px rgba(25,12,30,.5))}
 .decor svg{display:block;height:100%;width:auto}
 .decor.shell{transform:translate(-50%,-62%) rotate(-14deg)}
 .decor.lamp{z-index:auto;transform:translate(-50%,-100%)}
-/* the style row of the panel: two tiles, each with a small preview */
-.snd-look{flex:1 0 100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.decor.chips,.decor.glass{transform:translate(-50%,-70%)}
+/* ---------- Pokerkeller: a third look for the same table; every rule hangs on .poker, so Klassik's and Strandbar's frames stay as they are ---------- */
+.frame.poker{--glass-dark:rgba(20,11,8,.78);--stage-fade:rgba(12,7,5,.94);--lamp:rgba(255,190,110,.16);--leather:#2c1810;--leather-hi:#4a2c1d;--cream:#f4ecd9;
+  border-color:#3b2418;background:#0d0806}
+.poker > .cellar{inset:0;width:100%;height:100%;z-index:-3;pointer-events:none}
+/* the table: an oval of green baize in a padded leather rail with a row of stitches; the lamp lights the rail's near edge */
+.poker .table{border-radius:50%;padding:calc(var(--rim) * 1.5);
+  background:
+    radial-gradient(60% 34% at 50% 0%,rgba(255,206,140,.3),transparent 80%),
+    repeating-linear-gradient(45deg,rgba(255,235,210,.035) 0 1px,transparent 1px 3px),
+    linear-gradient(180deg,var(--leather-hi),var(--leather) 50%,#170c07);
+  box-shadow:0 38px 56px -22px rgba(0,0,0,.95),0 0 0 1.5px rgba(0,0,0,.8),inset 0 3px 3px rgba(255,220,180,.22),inset 0 -5px 8px rgba(0,0,0,.6)}
+.poker .table::before{inset:calc(var(--rim) * .5);border-radius:50%;border:1.6px dashed rgba(226,190,140,.55);box-shadow:none}
+.poker .felt{border-radius:50%;
+  background:
+    radial-gradient(58% 50% at 50% 40%,rgba(255,214,140,.3),rgba(255,190,110,.1) 58%,transparent 84%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.34'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 50% 40%,#1a7550 0%,#0f5238 46%,#08311f 82%,#052116 100%);
+  box-shadow:inset 0 12px 30px rgba(0,0,0,.6),inset 0 -8px 26px rgba(0,0,0,.5),inset 0 0 0 2px rgba(0,0,0,.4)}
+.poker .felt::before{border-radius:50%;border:1.5px solid rgba(236,201,150,.16)}
+/* the chair: a frame of dark wood around the picture, leather in the person's own colour darkened, a row of brass studs */
+.poker .chair{
+  background:
+    radial-gradient(circle,var(--brass-hi) 0 1.3px,var(--brass-lo) 1.9px,transparent 2.5px) 6px 1px / 13px 8px repeat-x,
+    radial-gradient(120% 70% at 50% 0%,rgba(255,210,160,.14),transparent 60%),
+    linear-gradient(180deg,color-mix(in srgb,var(--l1) 30%,#3c2314),color-mix(in srgb,var(--l2) 24%,#1a0e08));
+  box-shadow:0 0 0 2px #24140a,0 18px 30px -12px rgba(0,0,0,.95),inset 0 0 0 1.5px rgba(201,164,100,.32),inset 0 -6px 12px rgba(0,0,0,.5)}
+/* text on the dark top stays readable: tinted glass behind light text */
+.poker .plate{color:var(--on-stage);border-radius:7px;
+  background:
+    radial-gradient(circle at 6px 50%,var(--brass) 0 1.4px,transparent 2px),radial-gradient(circle at calc(100% - 6px) 50%,var(--brass) 0 1.4px,transparent 2px),
+    linear-gradient(180deg,rgba(44,26,16,.96),rgba(20,11,8,.96));
+  box-shadow:0 4px 10px -3px rgba(0,0,0,.9),inset 0 0 0 1px rgba(201,164,100,.55),inset 0 1px 0 rgba(255,225,180,.25)}
+.poker .plate b{text-shadow:none}
+.poker .plate small{color:var(--on-stage-soft)}
+.poker .plate .ai-mark{color:var(--accent-stage)}
+/* the chip at each seat carries the score: a red rim of white stripes round a dark face */
+.poker .coaster{color:var(--on-stage);text-shadow:none;
+  background:
+    radial-gradient(circle,#4d0e16 0 66%,#f1e8d2 67% 70%,transparent 71%),
+    repeating-conic-gradient(#f1e8d2 0 11deg,#a81f2e 11deg 30deg);
+  box-shadow:0 3px 0 #5e0f19,0 8px 12px -4px rgba(0,0,0,.85)}
+.poker .reck{background:linear-gradient(180deg,rgba(44,26,16,.96),rgba(20,11,8,.96));color:var(--on-stage);
+  box-shadow:inset 0 0 0 1.2px rgba(201,164,100,.5),0 3px 0 #0a0503,0 10px 16px -6px rgba(0,0,0,.9)}
+.poker .reck .nm .ai-mark{color:var(--accent-stage)}
+.poker .reck .dl{color:#6fdca0}
+.poker .reck .dl.minus{color:#c9ccd2}
+.poker .reck .tot{color:var(--on-stage-soft)}
+.poker .reck.win{box-shadow:0 0 0 3px #f3cf7a,0 3px 0 #0a0503,0 10px 22px -6px rgba(243,207,122,.5)}
+.poker .plaque,.poker .tag-glass,.poker .pass{background:rgba(20,11,8,.78)}
+.poker .ladder span{background:rgba(20,11,8,.78);color:rgba(244,246,248,.8)}
+.poker .ladder span.held{background:rgba(20,11,8,.84);color:var(--on-stage)}
+.poker .btns.chips{--unlit:rgba(20,11,8,.8)}
+.poker .duel,.poker .limit .mode,.poker .limit .clear,.poker .limit .said{background:rgba(20,11,8,.82)}
+.poker .cbar,.poker .sbar{--glass:rgba(20,11,8,.68)}
+.poker .button-glass{background:rgba(20,11,8,.66);color:var(--on-stage)}
+.poker .result{background:rgba(20,11,8,.86);box-shadow:inset 0 0 0 1.5px rgba(243,207,122,.38),0 24px 50px -16px rgba(0,0,0,.95)}
+.poker .stamp{background:rgba(20,11,8,.86);color:var(--cream)}
+.poker .tag{background:rgba(20,11,8,.86)}
+.poker .confetti i{box-shadow:0 3px 6px rgba(0,0,0,.5)}
+.poker .card{filter:drop-shadow(0 1px 1px rgba(0,0,0,.6)) drop-shadow(0 6px 8px rgba(0,0,0,.5))}
+/* the style row of the panel: one tile per style, each with a small preview */
+.snd-look{flex:1 0 100%;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .snd-look span{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 6px 8px;border-radius:14px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(240,214,150,.22);font-size:14px;font-weight:600;cursor:pointer}
 .snd-look span.on{background:var(--accent-stage);color:var(--stage)}
 .snd-look .prev{display:block;width:100%;height:auto;border-radius:9px}
