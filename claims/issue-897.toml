@@ -1,5 +1,5 @@
 claim_id = "f3db1fbd54f54fe9b3426d86a3eb28b3"
-agent = "Claude 43d1cd12-aa0a-4670-990a-06dae441c599"
+agent = "Claude db2d61d3-8b51-4183-99c4-2e9334064f60"
 role = "builder"
 base = "64a6083dd11b79366a6709ea79a729db7aa466d7"
 branch = "claude/issue-897-the-server-builds-only-legal-agent-rows"
