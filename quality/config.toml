@@ -35,7 +35,7 @@ path = "frontend/src/lib/wire.ts"
 job = "Lint and test"
 item = "overnightworks/skat#500"
 date = 2026-11-13
-reason = "written by scripts/generate_wire.py from the Python path constants, proven by make wire-check, which make lint in Lint and test runs"
+reason = "written by scripts/generate_wire.py from the Python path constants, token enums and table answer models, proven by make wire-check, which make lint in Lint and test runs"
 
 [[size.generated]]
 path = "src/skat/web/words.py"

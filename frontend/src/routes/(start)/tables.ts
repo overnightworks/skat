@@ -4,27 +4,31 @@ import { handWaits } from "#lib/openChair.ts";
 import { tableOfWire, type WireTable } from "#lib/wireTable.ts";
 import {
     type AUCTION_ACTION_TOKENS,
+    type CARD_STATE_TOKENS,
+    type CardAnswer,
+    type ChairAnswer,
+    type GameSheetAnswer,
+    type HandAnswer,
+    type PlayingAnswer,
+    type SeriesAnswer,
+    type SeriesEndProposalAnswer,
+    type OptionsAnswer,
+    type RefusalAnswer,
+    type SeatedCardAnswer,
+    type OCCUPANT_KIND_TOKENS,
+    type PUSH_ACTION_TOKENS,
+    type STOP_OUTCOME_TOKENS,
+    type TableAnswer,
     AUTH_START_PATH,
     type ANNOUNCEMENT_TOKENS,
     type LEVEL_TOKENS,
     type GAME_TOKENS,
     type AWAITING_TOKENS,
-    type BOCK_OVERLAP_TOKENS,
-    type BOCK_TRIGGER_TOKENS,
-    type DURCHMARSCH_TOKENS,
     type END_REASON_TOKENS,
     type GAME_ENDING_TOKENS,
-    type GRAND_HAND_TOKENS,
-    type JUNGFRAU_TOKENS,
-    type KONTRA_DEADLINE_TOKENS,
-    type KONTRA_REACH_TOKENS,
-    type KONTRA_SAYER_TOKENS,
     type PLAN_KIND_TOKENS,
     type PLAN_MODE_TOKENS,
     type POSITION_TOKENS,
-    type PUSHING_RULE_TOKENS,
-    type RAMSCH_OCCASION_TOKENS,
-    type RAMSCH_SCORING_TOKENS,
     type RANK_TOKENS,
     RETURN_PATH_QUERY_NAME,
     SIGNED_IN_AGAIN_QUERY_NAME,
@@ -61,8 +65,6 @@ import {
     type WORD_TOKENS,
 } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
-import type { Nudge } from "./nudge.ts";
-import type { Thrown } from "./reaction.ts";
 
 const SIGNED_OUT_STATUS = 401;
 export const NOT_FOUND_STATUS = 404;
@@ -82,297 +84,63 @@ export type Level = (typeof LEVEL_TOKENS)[number];
 // The Kontra words in the order they are said.
 export type Word = (typeof WORD_TOKENS)[number];
 export type Stage = (typeof STAGE_TOKENS)[number];
-export type Card = { suit: Suit; rank: Rank };
-export type ChairHand = { position: Position; card_count: number };
-export type Declaring = {
-    declarer_seat: number;
-    stage: Stage;
-    declaration: { game: Game; hand: boolean; ouvert: boolean; announcement: Announcement } | null;
-    open_cards: Card[];
-};
+export type Card = CardAnswer;
+export type Chair = ChairAnswer;
+export type SeatedCard = SeatedCardAnswer;
+export type {
+    AuctionAnswer as Auction,
+    AuctionPlanAnswer as AuctionPlan,
+    AuctionWordAnswer as AuctionWord,
+    BockAnswer as Bock,
+    ChairHandAnswer as ChairHand,
+    DeclaringAnswer as Declaring,
+    GiveUpAnswer as GiveUp,
+    KontraAnswer as Kontra,
+    LastTrickAnswer as LastTrick,
+    NextDealerAnswer as PassedIn,
+    NextSettingsAnswer as NextSettings,
+    OpenHandAnswer as OpenHand,
+    PushingAnswer as Pushing,
+    RamschResultAnswer as RamschResult,
+    RamschSeatAnswer as RamschSeat,
+    ResultAnswer as Result,
+    SeatGainAnswer as SeatGain,
+    ShorteningAnswer as Shortening,
+    SidesAnswer as Sides,
+    StandingAnswer as Standing,
+    TakenAnswer as Taken,
+    TurnStateAnswer as TurnState,
+} from "#lib/wire.ts";
 export type Awaiting = (typeof AWAITING_TOKENS)[number];
 export type AuctionAction = (typeof AUCTION_ACTION_TOKENS)[number];
-export type AuctionWord = { seat: number; action: AuctionAction; value: number | null };
 export type PlanMode = (typeof PLAN_MODE_TOKENS)[number];
 export type PlanKind = (typeof PLAN_KIND_TOKENS)[number];
-// The viewer's own plan as the table tells it: a limit carries its value and mode, a pass said ahead neither.
-export type AuctionPlan = { kind: PlanKind; value: number | null; mode: PlanMode | null };
+export type Options = OptionsAnswer;
+export type PushAction = (typeof PUSH_ACTION_TOKENS)[number];
+export type OccupantKind = (typeof OCCUPANT_KIND_TOKENS)[number];
+export type StopOutcome = (typeof STOP_OUTCOME_TOKENS)[number];
 // A plan as a player sets it; null takes the plan back.
 export type PlanChoice = { kind: "limit"; value: number; mode: PlanMode } | { kind: "pass" } | null;
-// `words` holds each chair's latest word, `steps` every word in the order it was said. `plan` and `hand_values`, what
-// the viewer's own ten cards reach in each suit game, are the viewer's alone.
-export type Auction = {
-    turn_seat: number | null;
-    facing_seat: number | null;
-    awaiting: Awaiting | null;
-    standing: number | null;
-    values: number[];
-    words: AuctionWord[];
-    steps: AuctionWord[];
-    declared: { seat: number; value: number } | null;
-    plan: AuctionPlan | null;
-    hand_values: { game: Game; value: number }[];
-};
-export type SeatedCard = { seat: number; card: Card };
-export type Sides = { declarer: number; opponents: number };
-// The last trick's cards lie in playing order from the seat that led it.
-export type LastTrick = { cards: Card[]; leader_seat: number; taker_seat: number };
-// How many tricks a seat has taken, 0 included; the answer lists the three seats in seat order.
-export type Taken = { seat: number; tricks: number };
-// A give-up the table was asked and has not settled: who asked and which opponent already said no, the same for every viewer.
-export type GiveUp = { asking_seat: number; declined_seat: number | null };
-// The declarer's shortening the opponents were asked and have not settled: the level he demands, none by default, and
-// the opponent who said yes so far, the same for every viewer.
-export type Shortening = { asking_seat: number; claim: Announcement; agreed_seat: number | null };
-// The cards an opponent's open play, or the declarer's no to his shortening, left open to every viewer.
-export type OpenHand = { seat: number; cards: Card[] };
-// The words said in the running hand and their product, with the word the viewer's own chair may say now (null for
-// a watcher and for a chair with none open). At a table whose words end with the first card, that card waits on the
-// seats it names for a word or a decline, and the seats that declined stand beside them; both are empty otherwise.
-export type Kontra = {
-    said: { seat: number; word: Word }[];
-    factor: number;
-    my_word: Word | null;
-    first_card_waits_on: number[];
-    first_card_declined: number[];
-};
-export type Playing = {
-    turn_seat: number | null;
-    current_trick: SeatedCard[];
-    last_trick: LastTrick | null;
-    taken: Taken[];
-    // Only the seated player on turn receives the cards they may play.
-    legal_cards: Card[];
-    // Both sides' points from completed tricks; null unless the table shows them, and in a Null game and a Ramsch.
-    running_points: Sides | null;
-    give_up: GiveUp | null;
-    shortening: Shortening | null;
-    // The opponent whose no to a shortening left the declarer's cards open; it stays beside a new request.
-    shortening_refused_seat: number | null;
-    // The opponent whose wrong open play waits for the declarer's answer.
-    open_play_seat: number | null;
-    open_hands: OpenHand[];
-    // Null at a table without Kontra.
-    kontra: Kontra | null;
-};
-// What a seat that finished its turn of the stage before a Ramsch did with the skat.
-export type PushAction = "took" | "pushed";
-// The stage before a Ramsch's first card; only the seat on turn that holds twelve cards is told cards, the ones it may
-// put back.
-export type Pushing = {
-    turn_seat: number;
-    stage: Stage;
-    moves: { seat: number; action: PushAction }[];
-    factor: number;
-    put_back_cards: Card[];
-};
-export type Hand = {
-    dealer_seat: number;
-    own_cards: Card[];
-    skat_count: number;
-    auction: Auction;
-    declaring: Declaring | null;
-    playing: Playing | null;
-    // The open seat a running hand waits for, the same for every viewer.
-    waiting_seat: number | null;
-    ramsch: boolean;
-    // Set while the stage runs; the Ramsch's play has none.
-    pushing: Pushing | null;
-    // How often the skat was pushed on unseen and what that multiplies the Ramsch's score by, through the play.
-    pushes: number;
-    push_factor: number;
-    // The seats that said yes to aborting the hand, null while no vote stands; the same for every viewer.
-    abort: number[] | null;
-    // A chair of the hand is open, so the seated players may vote to abort it.
-    abortable: boolean;
-};
-// The kind of occupant a chair holds.
-export type OccupantKind = "person" | "agent";
-// Why an agent's turns at a chair stop, as its runner stated it.
-export type StopOutcome = "not_enabled" | "busy" | "budget_spent" | "unavailable";
-// What the occupant of a chair last stated about its turns, the same for every viewer: the outcome they stopped with,
-// or, while a turn runs, the whole seconds the server keeps it shown for under its cap. Absent while nothing shows.
-export type TurnState = { stopped: StopOutcome | null; thinking_seconds_left: number | null };
-export type Chair = {
-    seat: number;
-    occupant_name: string | null;
-    occupant_kind: OccupantKind | null;
-    is_mine: boolean;
-    is_away: boolean;
-    ready: boolean;
-    // The person's running total; null on a free chair and, in a table's first series, until its first result;
-    // a later series reads 0 from its first deal.
-    total: number | null;
-    hand: ChairHand | null;
-    // Whoever held the chair in the running hand and left it, while it stays open; the same for every viewer.
-    former_holder_name: string | null;
-    // True only on the chair of the running hand that the viewer stood up from, open or taken since: the one chair they
-    // may sit in again.
-    is_mine_to_return: boolean;
-    // What the viewer is shown of the nudges of a chair the table waits for; null on every other chair.
-    nudge: Nudge | null;
-    turn_state?: TurnState | null;
-};
-type SeatNames = (string | null)[]; // The seats' names at a game's end; null for an entry stored before names were kept.
-export type RamschSeat = { seat: number; points: number; score: number };
-// The finished Ramsch as the server counted it: what each seat's counted eyes were and what it added, the sweeper of a
-// Durchmarsch, and the factors the losers' score carries.
-export type RamschResult = {
-    kind: "ramsch";
-    ordinal: number;
-    seat_names: SeatNames;
-    seats: RamschSeat[];
-    durchmarsch_seat: number | null;
-    jungfrau: boolean;
-    bock_factor: number;
-    pushes: number;
-    push_factor: number;
-    // The eyes were divided by ten before the factors.
-    divided_by_ten: boolean;
-};
-export type SeatGain = { seat: number; gain: number; won: boolean };
-// The finished game as the server counted it; the page draws these numbers and decides no rule.
-export type Result = {
-    kind: "declared";
-    ordinal: number;
-    seat_names: SeatNames;
-    declarer_seat: number;
-    game: Game;
-    hand: boolean;
-    ouvert: boolean;
-    announcement: Announcement;
-    // Null has no matadors, base value or multiplier.
-    matadors: { mit: boolean; count: number } | null;
-    base_value: number | null;
-    levels: Level[];
-    multiplier: number | null;
-    list_bonus: number;
-    announcement_missed: boolean;
-    won: boolean;
-    doubled: boolean;
-    overbid: boolean;
-    bid: number;
-    game_value: number;
-    settled_value: number;
-    score: number;
-    declarer_points: number;
-    opponents_points: number;
-    gains: SeatGain[];
-    // What the Bock rounds multiplied the list score by; 1 outside a Bock game.
-    bock_factor: number;
-    // Each word said, in the order said, with the factor it doubled the score to; null when no word was said.
-    kontra: { steps: { word: Word; factor: number }[] } | null;
-    // How the game ended, and the seat whose give-up, shortening, open play or throw-down ended it; null exactly when it was played out.
-    ending: GameEnding;
-    ended_by_seat: number | null;
-};
-// Set between hands after three passes; the next dealer is named only while all three chairs are occupied.
-export type PassedIn = { next_dealer_seat: number | null };
 export type EndReason = (typeof END_REASON_TOKENS)[number];
-// Why a table ended with the one fact stored when it ended: the whole seconds nobody was there, the days nobody played,
-// or, for a close, the name of the opener who closed it before „Aufhören“, which is null once the days of the link's
-// reason have passed and for a table that finished a game; a table whose series ended by „Aufhören“ or by a silent seat
-// is a close that names nobody. Such a table carries the games its last series played and their standings, whatever the
-// reason; one that finished none carries neither.
-type EndedPlayed = { standings: Standing[]; game_count: number } | { standings: null; game_count: null };
-export type Ended = EndedPlayed &
-    (
-        | { reason: Extract<EndReason, "empty">; empty_seconds: number; unplayed_days: null; closed_by_name: null }
-        | { reason: Extract<EndReason, "unplayed">; empty_seconds: null; unplayed_days: number; closed_by_name: null }
-        | {
-              reason: Extract<EndReason, "closed">;
-              empty_seconds: null;
-              unplayed_days: null;
-              closed_by_name: string | null;
-          }
-    );
-// The rules a table was opened with, answered to every viewer; a rule that is off is null.
-export type Options = {
-    show_running_points: boolean;
-    kontra: {
-        sayer: (typeof KONTRA_SAYER_TOKENS)[number];
-        reach: (typeof KONTRA_REACH_TOKENS)[number];
-        deadline: (typeof KONTRA_DEADLINE_TOKENS)[number];
-    } | null;
-    bock: { triggers: (typeof BOCK_TRIGGER_TOKENS)[number][]; overlap: (typeof BOCK_OVERLAP_TOKENS)[number] } | null;
-    ramsch: {
-        occasion: (typeof RAMSCH_OCCASION_TOKENS)[number];
-        scoring: (typeof RAMSCH_SCORING_TOKENS)[number];
-        jungfrau: (typeof JUNGFRAU_TOKENS)[number];
-        durchmarsch: (typeof DURCHMARSCH_TOKENS)[number];
-        pushing: { rule: (typeof PUSHING_RULE_TOKENS)[number]; grand_hand: (typeof GRAND_HAND_TOKENS)[number] } | null;
-    } | null;
-    // The two special rules of giving up, each off where the table plays the ISkO.
-    give_up: { partner_agrees: boolean; any_time: boolean };
-};
+export type Ended = NonNullable<TableAnswer["ended"]>;
 // What an opener sends: a rule that is off is left out, the running points and the give-up rules only when on.
-export type OptionsRequest = { show_running_points?: true; give_up?: Options["give_up"] } & {
-    [Rule in "kontra" | "bock" | "ramsch"]?: NonNullable<Options[Rule]>;
-};
-// The Bock games still to come, the running one included, and what the running or next game's list score is multiplied
-// by; the same for every viewer. A table without Bock has none.
-export type Bock = { games_left: number; factor: number };
-// One account's place at the end of a series; a name stored with no name is null. `seat` and `kind` are the chair and
-// the kind of occupant the series' list last seated the account as; a game stored before kinds were kept has no kind.
-export type Standing = {
-    display_name: string | null;
-    seat: number;
-    kind: OccupantKind | null;
-    total: number;
-    won: number;
-    lost: number;
-    place: number;
-};
-// The seat that proposed ending the series early, the seats that have said yes so far and the instant a seat that
-// stays silent counts as no, which a proposal made on the release before has not.
-export type EndProposal = { proposer_seat: number; agreed_seats: number[]; answer_by: string | null };
-// What the next series is played with once the series is over: the last series' length and rules until a seat saves
-// others. `revision` counts the saves and is what „Neue Serie“ names.
-export type NextSettings = { game_count: number; options: Options; revision: number };
-// Which series of the table this is, 1 for the first, which of its games runs (0 before the first deal) and whether it
-// is over; the standings come once it is, the same for every viewer.
-export type Series = {
-    number: number;
-    game_number: number;
-    game_count: number;
-    over: boolean;
-    standings: Standing[] | null;
-    end_proposal: EndProposal | null;
-    // The seats whose no, or silence, ended the last proposal; empty after the next hand is dealt.
-    end_refused_seats: number[];
-    // The instant a seat that has not chosen „Neue Serie“ ends the table, once the first has; null before and while
-    // the series runs.
-    new_series_answer_by: string | null;
-    // Null while the series runs.
-    next_settings: NextSettings | null;
+export type OptionsRequest = { show_running_points?: true; give_up?: OptionsAnswer["give_up"] } & {
+    [Rule in "kontra" | "bock" | "ramsch"]?: NonNullable<OptionsAnswer[Rule]>;
 };
 export type TableStyle = (typeof TABLE_STYLE_TOKENS)[number];
 
-export type Table = {
-    id: string;
-    version: number;
-    chairs: Chair[];
-    watchers: number;
-    hand: Hand | null;
-    result: Result | RamschResult | null;
-    passed_in: PassedIn | null;
-    series: Series | null;
-    // Set between hands after a vote aborted the hand, with the next dealer as a passed-in hand names it.
-    aborted: PassedIn | null;
-    // Null once the table has ended.
-    options: Options | null;
-    // The look the whole table shares, which a seated person changes; null once the table has ended.
-    style: TableStyle | null;
-    bock: Bock | null;
-    ended: Ended | null;
-    // The reactions thrown at the table in the last seconds, oldest first.
-    reactions: Thrown[];
-};
+// A proposal read from a legacy stream names no instant, so it carries the null the generated answer forbids.
+export type EndProposal = Omit<SeriesEndProposalAnswer, "answer_by"> & { answer_by: string | null };
+export type Series = Omit<SeriesAnswer, "end_proposal"> & { end_proposal: EndProposal | null };
+// While the last trick rests and sweeps no seat is on turn, a state the server never sends.
+export type Playing = Omit<PlayingAnswer, "turn_seat"> & { turn_seat: number | null };
+export type Hand = Omit<HandAnswer, "playing"> & { playing: Playing | null };
+export type Table = Omit<TableAnswer, "hand" | "series"> & { hand: Hand | null; series: Series | null };
 // A chair that was taken: `holder` is who sits there now.
 export type Outcome =
     { kind: "table"; table: Table } | { kind: "taken"; holder: string } | { kind: "missing" } | { kind: "failed" };
 
-function isTakenChair(body: unknown): body is { reason: "seat-taken"; holder_name: string } {
+function isTakenChair(body: unknown): body is RefusalAnswer & { reason: "seat-taken"; holder_name: string } {
     return typeof body === "object" && body !== null && "reason" in body && body.reason === "seat-taken";
 }
 
@@ -759,31 +527,10 @@ export async function copyTableLink(id: string): Promise<boolean> {
     }
 }
 
-export type CardState = "played" | "put-away" | "unplayed";
+export type CardState = (typeof CARD_STATE_TOKENS)[number];
 // One finished game of the series as the server opens it: what it counted and, unless it was finished before games kept
-// their cards, every card of it. A trick the end of the game interrupted has fewer than three cards and no taker.
-export type GameSheet = {
-    number: number;
-    seat_names: (string | null)[];
-    count:
-        | {
-              kind: "declared";
-              declarer_seat: number;
-              declarer_points: number;
-              opponents_points: number;
-              ending: GameEnding;
-              ended_by_seat: number | null;
-          }
-        | { kind: "ramsch"; seat_points: number[]; durchmarsch_seat: number | null };
-    cards: {
-        hands: { seat: number; cards: { card: Card; state: CardState }[] }[];
-        skat: Card[];
-        laid_skat: Card[];
-        put_away: SeatedCard[];
-        tricks: { number: number; cards: SeatedCard[]; taker_seat: number | null; points: number | null }[];
-        skat_takers: number[];
-    } | null;
-};
+// their cards, every card of it. A trick the end of the game interrupts has fewer than three cards and no taker.
+export type GameSheet = GameSheetAnswer;
 
 // The `number`th game of the current series; null when it cannot be read.
 export async function readGameSheet(id: string, number: number): Promise<GameSheet | null> {
@@ -792,7 +539,7 @@ export async function readGameSheet(id: string, number: number): Promise<GameShe
     );
     if (answer?.ok !== true) return null;
     try {
-        return (await answer.json()) as GameSheet;
+        return (await answer.json()) as GameSheetAnswer;
     } catch {
         return null;
     }

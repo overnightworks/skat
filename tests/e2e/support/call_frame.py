@@ -102,12 +102,16 @@ def new_table(open_person: Callable[..., Page], server: RunningServer) -> str:
     return open_new_table(open_person(server=server), server)
 
 
+# A JS function giving how many square pixels of a mark's box lie in the top-left quarter of a tile's box.
+QUARTER_OVERLAP_JS = """(mark, tile) =>
+    Math.max(0, Math.min(mark.right, tile.left + tile.width / 2) - Math.max(mark.left, tile.left))
+    * Math.max(0, Math.min(mark.bottom, tile.top + tile.height / 2) - Math.max(mark.top, tile.top))"""
+
 # What the page's chairs draw, read in the frame: which marks lie in a tile's top-left quarter or under its position
 # label, whether an own-seat bar shows its glass, whether any tile rim lies inside its box, and how the dashed
 # agent rim lies against its box (the probe gives each tile the agent class).
 _CHAIR_LOOK_PROBE = """chairs => {
-    const overlaps = (mark, tile) => mark.right > tile.left && mark.left < tile.left + tile.width / 2
-        && mark.bottom > tile.top && mark.top < tile.top + tile.height / 2;
+    const quarterOverlap = QUARTER_OVERLAP;
     const look = {
         marks: 0, marksInTopLeftQuarter: 0, positionedMarks: 0, marksOverPositionLabel: 0, barPillsShown: 0,
         rimsInsideTile: 0, agentRimInsideTile: 0, mostMarksOnAChair: 0,
@@ -127,7 +131,7 @@ _CHAIR_LOOK_PROBE = """chairs => {
             const at = mark.getBoundingClientRect();
             if (labelBox && at.right > labelBox.left && at.left < labelBox.right
                 && at.bottom > labelBox.top && at.top < labelBox.bottom) look.marksOverPositionLabel += 1;
-            if (overlaps(mark.getBoundingClientRect(), box)) look.marksInTopLeftQuarter += 1;
+            if (quarterOverlap(at, box) > 0) look.marksInTopLeftQuarter += 1;
             if (getComputedStyle(mark).position === "absolute") look.positionedMarks += 1;
         }
         if (getComputedStyle(tile).boxShadow.includes("inset")) look.rimsInsideTile += 1;
@@ -138,7 +142,7 @@ _CHAIR_LOOK_PROBE = """chairs => {
         tile.classList.remove("agent");
     }
     return look;
-}"""
+}""".replace("QUARTER_OVERLAP", QUARTER_OVERLAP_JS)
 
 
 def chair_look(scope: Page | FrameLocator) -> dict[str, int]:

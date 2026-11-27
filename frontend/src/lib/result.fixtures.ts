@@ -16,6 +16,7 @@ export function chairs(mine: number, changes: Record<number, Partial<Chair>> = {
         former_holder_name: null,
         is_mine_to_return: false,
         nudge: null,
+        turn_state: null,
         ...changes[seat],
     }));
 }
@@ -30,6 +31,8 @@ export const WON_GAME: Result = {
     hand: false,
     ouvert: false,
     announcement: "none",
+    schneider: false,
+    schwarz: false,
     matadors: { mit: true, count: 2 },
     base_value: 12,
     levels: ["spiel"],

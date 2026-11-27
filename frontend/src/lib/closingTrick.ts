@@ -56,6 +56,7 @@ export function closeHand(previous: Table, next: Table, sheet: GameSheet | null)
             playing: {
                 ...playing,
                 open_hands: playing.open_hands.map((open) => ({ ...open, cards: keptBy(open.seat, open.cards) })),
+                // No seat is on turn while the closed trick is shown.
                 turn_seat: null,
                 current_trick: [],
                 last_trick: trick,

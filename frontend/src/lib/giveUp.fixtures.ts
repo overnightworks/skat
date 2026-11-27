@@ -19,6 +19,7 @@ function chairs(mine: number): Chair[] {
         former_holder_name: null,
         is_mine_to_return: false,
         nudge: null,
+        turn_state: null,
     }));
 }
 
@@ -96,6 +97,7 @@ export function tableWith(
                           my_word: changes.kontraWord,
                           first_card_waits_on: changes.owedBy === undefined ? [] : [changes.owedBy],
                           first_card_declined: [],
+                          my_word_answered: false,
                       }
                     : null,
             },

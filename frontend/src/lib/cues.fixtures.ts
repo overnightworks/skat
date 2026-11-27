@@ -45,6 +45,7 @@ export function chairsWithCards(cards: [number, number, number]): Chair[] {
         former_holder_name: null,
         is_mine_to_return: false,
         nudge: null,
+        turn_state: null,
     }));
 }
 

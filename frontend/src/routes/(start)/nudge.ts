@@ -1,11 +1,9 @@
 import type { SeatNotice } from "#lib/openChair.ts";
-import { TABLE_NUDGE_SUFFIX } from "#lib/wire.ts";
+import { TABLE_NUDGE_SUFFIX, type NudgeAnswer } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
 import { post, type Chair, type Outcome, type Table } from "./tables.ts";
 
-// How often the chair was nudged at this version, whether the viewer may nudge it (the minute is the server's to judge)
-// and, in the nudged chair's own answer only, who nudged last.
-export type Nudge = { nudges: number; may_nudge: boolean; by_name: string | null };
+export type Nudge = NudgeAnswer;
 
 // The chairs nudged since `previous` was shown: a table at the same version counts from the nudges it showed, a newer one
 // from none, since the nudges go with the version.

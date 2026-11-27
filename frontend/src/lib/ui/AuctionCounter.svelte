@@ -81,10 +81,9 @@
         <span class="sr-only">{@render word(auction.standing ?? "")}</span>
         <span class="drums" aria-hidden="true">
             {#each digits as digit, index (digits.length - index)}
-                <span class="drum"
-                    ><i class="reel" use:rolls={{ digit, place: digits.length - 1 - index, seen: bidSeen }}>{digit}</i
-                    ></span
-                >
+                <span class="drum">
+                    <i class="reel" use:rolls={{ digit, place: digits.length - 1 - index, seen: bidSeen }}>{digit}</i>
+                </span>
             {/each}
         </span>
     </div>

@@ -22,6 +22,7 @@ function chairs(): Chair[] {
         former_holder_name: null,
         is_mine_to_return: false,
         nudge: null,
+        turn_state: null,
         is_mine: seat === OPPONENT,
         is_away: false,
         ready: false,
@@ -41,6 +42,7 @@ function kontra(
         my_word: myWord,
         first_card_waits_on: firstCard.waitsOn,
         first_card_declined: firstCard.declined,
+        my_word_answered: false,
     };
 }
 
@@ -170,6 +172,7 @@ describe("the plaque's line", () => {
             my_word: null,
             first_card_waits_on: [],
             first_card_declined: [],
+            my_word_answered: false,
         });
 
         expect(line).toEqual(words["kontra.plaque"]({ word: words[`kontra.${word}`], factor: String(factor) }));
