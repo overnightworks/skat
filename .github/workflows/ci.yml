@@ -110,7 +110,6 @@ jobs:
     needs: unit-shard
     if: ${{ always() }}
     steps:
-    steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -121,16 +120,7 @@ jobs:
         with:
           python-version: "3.14"
 
-      # This is the only step that installs, and it installs only what the
-      # lockfile resolved: --locked refuses a stale lock instead of resolving
-      # fresh versions. Only one build is allowed, the git-pinned
-      # overnightworks library named in pyproject.toml (tool.uv), run with
-      # exact build tools; --no-build refuses every other source distribution,
-      # whose build script would run third-party code on the runner, so third-party
-      # packages are wheel-only. skat itself stays out of the environment: nothing
-      # below needs it installed, because pytest puts src/ on the import path
-      # (pyproject.toml, tool.pytest.ini_options.pythonpath). The steps below then
-      # call their tool straight from that environment instead of installing again.
+      # Installs as the Unit shard job does.
       - name: Install dependencies
         run: |
           uv sync --locked --no-install-project --no-build
