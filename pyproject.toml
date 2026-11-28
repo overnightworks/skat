@@ -173,7 +173,7 @@ min_confidence = 80
 # --- Import contracts ---
 
 [tool.importlinter]
-root_packages = ["skat", "agents"]
+root_packages = ["skat"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]

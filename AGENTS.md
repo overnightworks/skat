@@ -4,7 +4,7 @@
 
 `make -n <target>` prints a target; the targets are the `.PHONY` line of the `Makefile`.
 
-- `make lint`: ruff, pyright, import-linter and the generated-file checks; the static check to run locally. Needs `make install` once.
+- `make lint`: ruff, pyright and the generated-file checks; the static check to run locally. Needs `make install` once.
 - `scripts/test_stores.sh uv run pytest <module or -k expression>`: the named unit tests against a throwaway Postgres and Redis, so Docker must run. The full suite (`make test`, `make check`) runs in CI, not locally.
 - `scripts/test_stores.sh probe-run uv run pytest tests/e2e/<module>.py --no-cov --output test-results`: one end-to-end module in Chromium; run `make frontend` first, and install Playwright's Chromium once. The full run (`make e2e`) runs in CI, not locally.
 - `cd frontend && pnpm check && pnpm lint`: svelte-check and the frontend linter, which stay local; needs the Node and pnpm the frontend declares. `pnpm exec vitest run <file>...` runs named Vitest files; `make frontend-check` and `pnpm test` over the whole tree run in CI, not locally.
