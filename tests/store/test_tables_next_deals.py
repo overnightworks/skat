@@ -154,6 +154,18 @@ class TestThePause:
             [passed_in_table.value],
         )
 
+    def test_the_pause_of_an_ended_table_is_dropped_and_deals_nothing(self, service, engine, transactions):
+        table_id = undealt_table(service, "ended")
+        ended_at(transactions, table_id)
+        with engine.begin() as connection:
+            connection.execute(
+                insert(next_deals).values(table_id=table_id.value, due_at=func.now() - timedelta(seconds=1))
+            )
+
+        assert service.deal_after_pause(table_id, connected(ALL_THREE)) is False
+
+        assert pause_rows(engine) == []
+
     def test_a_deal_that_failed_is_stored_as_due_now_and_replaces_the_pause_pending(
         self, service, engine, passed_in_table
     ):
