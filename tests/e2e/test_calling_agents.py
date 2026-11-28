@@ -47,6 +47,8 @@ SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 BESIDE_THE_LIST = (4, 4)
 AI_MARK = "AI"
 INVITATION_WITHIN_SECONDS = 15
+# The kit shows an outcome for a few seconds, after which a row whose agent may not be called again leaves the list.
+OUTCOME_LAPSES_MS = 15_000
 # The page's fetches leave this long after the call, so they leave while the test already waits for the agent.
 DELAY_FETCHES = """
     const send = window.fetch;
@@ -307,7 +309,7 @@ def test_two_agents_of_one_owner_are_called_one_after_the_other_and_both_sit(
 
 @pytest.mark.usefixtures("realm_reusing_refresh_tokens")
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_call_the_agent_answers_busy_tells_the_caller_so_on_the_row_and_no_one_else(
+def test_a_call_the_agent_answers_busy_tells_the_caller_so_on_the_row_and_no_one_else_and_the_row_leaves_once_read(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -335,6 +337,7 @@ def test_a_call_the_agent_answers_busy_tells_the_caller_so_on_the_row_and_no_one
 
         expect(felix.get_by_text(BUSY)).to_be_visible()
         expect(agents_list(guests[0])).to_have_count(0)
+        expect(agents_list(felix).get_by_text("Michelangelo")).to_have_count(0, timeout=OUTCOME_LAPSES_MS)
     finally:
         agent.close()
 
