@@ -3,8 +3,7 @@ import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { tableIntents } from "#lib/table/intents.ts";
-import type { Reaction, TableStyle } from "#lib/table/scene.ts";
-import { words } from "#lib/words.ts";
+import { objectName, type Reaction, type TableStyle } from "#lib/table/scene.ts";
 import { lookOf } from "../registry.ts";
 
 describe("the furniture the flat table draws for each style", () => {
@@ -40,14 +39,14 @@ describe("the furniture the flat table draws for each style", () => {
         {
             style: "klassik" as const,
             taps: { lamp: 1 },
-            drawn: [{ name: "table.objectLamp", object: "lamp", beat: "odd" }],
+            drawn: [{ object: "lamp" as const, beat: "odd" }],
         },
         {
             style: "strandbar" as const,
             taps: { shell: 2 },
             drawn: [
-                { name: "table.objectCocktail", object: "cocktail", beat: null },
-                { name: "table.objectShell", object: "shell", beat: "even" },
+                { object: "cocktail" as const, beat: null },
+                { object: "shell" as const, beat: "even" },
             ],
         },
     ])("draws only the $style table's own objects, each throwing its own reaction", ({ style, taps, drawn }) => {
@@ -59,7 +58,7 @@ describe("the furniture the flat table draws for each style", () => {
             buttons.map((button) => [button.getAttribute("aria-label"), button.dataset.beat ?? null]),
             posted(),
         ]).toEqual([
-            drawn.map(({ name, beat }) => [words[name as keyof typeof words], beat]),
+            drawn.map(({ object, beat }) => [objectName(object), beat]),
             drawn.map(({ object }) => ({ reaction: object })),
         ]);
     });

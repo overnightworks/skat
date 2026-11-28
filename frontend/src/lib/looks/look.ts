@@ -6,7 +6,7 @@ import type { Key } from "#lib/words.ts";
 /** A piece of furniture a look draws on the felt: the object of the table it is, and the component that draws it. */
 export interface Furnishing {
     readonly object: Reaction;
-    readonly Piece: Component<{ taps: number; ontap: () => void }>;
+    readonly Piece: Component<{ taps: number; label: string; ontap: () => void }>;
 }
 
 /** The component set that draws a look's table from the scene, handing each gesture to the intents. */

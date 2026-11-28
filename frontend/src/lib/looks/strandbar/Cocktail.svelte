@@ -1,20 +1,13 @@
 <script lang="ts">
     import { beatAfter } from "#lib/table/scene.ts";
-    import { words } from "#lib/words.ts";
 
     // A cocktail on a straw coaster at the rim of the table: a tap on it is a reaction every page at the table shows and
     // hears.
-    const { taps, ontap }: { taps: number; ontap: () => void } = $props();
+    const { taps, label, ontap }: { taps: number; label: string; ontap: () => void } = $props();
     const uid = $props.id();
 </script>
 
-<button
-    type="button"
-    class="decor cocktail"
-    data-beat={beatAfter(taps)}
-    aria-label={words["table.objectCocktail"]}
-    onclick={ontap}
->
+<button type="button" class="decor cocktail" data-beat={beatAfter(taps)} aria-label={label} onclick={ontap}>
     <svg viewBox="0 0 64 100" focusable="false">
         <defs>
             <linearGradient id="drink-{uid}" x1="0" y1="0" x2="1" y2="1">

@@ -1,19 +1,12 @@
 <script lang="ts">
     import { beatAfter } from "#lib/table/scene.ts";
-    import { words } from "#lib/words.ts";
 
     // The green-shaded brass lamp that stands on the rim and lights the room: a tap on it is a reaction every page at the
     // table shows and hears.
-    const { taps, ontap }: { taps: number; ontap: () => void } = $props();
+    const { taps, label, ontap }: { taps: number; label: string; ontap: () => void } = $props();
 </script>
 
-<button
-    type="button"
-    class="decor lamp"
-    data-beat={beatAfter(taps)}
-    aria-label={words["table.objectLamp"]}
-    onclick={ontap}
->
+<button type="button" class="decor lamp" data-beat={beatAfter(taps)} aria-label={label} onclick={ontap}>
     <svg viewBox="0 0 48 64" focusable="false" aria-hidden="true">
         <ellipse cx="24" cy="59" rx="15" ry="3.6" fill="#8c6a2f" />
         <ellipse cx="24" cy="57.6" rx="13" ry="2.6" fill="#c9a464" />

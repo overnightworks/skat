@@ -1,19 +1,12 @@
 <script lang="ts">
     import { beatAfter } from "#lib/table/scene.ts";
-    import { words } from "#lib/words.ts";
 
     // A shell on the rim of the table: a tap on it is a reaction every page at the table shows and hears.
-    const { taps, ontap }: { taps: number; ontap: () => void } = $props();
+    const { taps, label, ontap }: { taps: number; label: string; ontap: () => void } = $props();
     const uid = $props.id();
 </script>
 
-<button
-    type="button"
-    class="decor shell"
-    data-beat={beatAfter(taps)}
-    aria-label={words["table.objectShell"]}
-    onclick={ontap}
->
+<button type="button" class="decor shell" data-beat={beatAfter(taps)} aria-label={label} onclick={ontap}>
     <svg viewBox="0 0 72 62" focusable="false">
         <defs>
             <radialGradient id="shell-{uid}" cx=".5" cy=".75" r=".8">

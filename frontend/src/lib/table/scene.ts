@@ -1,4 +1,5 @@
-import type { Reaction } from "../../routes/(start)/reaction.ts";
+import { reactionName, type Reaction } from "../../routes/(start)/reaction.ts";
+import { words } from "../words.ts";
 
 // A look reads the table through this contract and never the routes or the wire, so the names it needs pass through here.
 export type { Reaction } from "../../routes/(start)/reaction.ts";
@@ -16,4 +17,9 @@ export interface TableScene {
 export function beatAfter(taps: number): "odd" | "even" | undefined {
     if (taps === 0) return undefined;
     return taps % 2 === 1 ? "odd" : "even";
+}
+
+/** What an object of the table is called, as its accessible name and as the table announces it. */
+export function objectName(object: Reaction): string {
+    return words[reactionName(object)];
 }
