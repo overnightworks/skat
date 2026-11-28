@@ -390,6 +390,7 @@ export type EndedAgentRowAnswer = {
     state: "ended";
     outcome: (typeof CALL_OUTCOME_TOKENS)[number];
     ends_in_seconds: null;
+    may_call_again: boolean;
 };
 export type GameSheetAnswer = {
     number: number;

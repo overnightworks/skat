@@ -252,7 +252,14 @@ class TestACallInvitesTheAgent(CallingTable):
 
             row = only_row(skat, felix, table_id)
 
-        assert row == {"key": key, "name": "Nova", "state": "ended", "outcome": "no-answer", "ends_in_seconds": None}
+        assert row == {
+            "key": key,
+            "name": "Nova",
+            "state": "ended",
+            "outcome": "no-answer",
+            "ends_in_seconds": None,
+            "may_call_again": True,
+        }
 
     def test_the_outcome_is_gone_once_it_was_kept_long_enough_and_the_row_is_available_again(
         self, skat, issuer, time, felix, table_id
@@ -288,7 +295,7 @@ class TestACallInvitesTheAgent(CallingTable):
             nova.accept(table_id, offer)
             row = only_row(skat, felix, table_id)
 
-        assert (row["key"], row["state"], row["outcome"]) == (key, "ended", "busy")
+        assert (row["key"], row["state"], row["outcome"], row["may_call_again"]) == (key, "ended", "busy", False)
 
     def test_an_owner_who_leaves_the_table_ends_the_invitation_at_once_as_owner_away(
         self, skat, issuer, felix, table_id
@@ -301,7 +308,12 @@ class TestACallInvitesTheAgent(CallingTable):
 
             row = only_row(skat, felix, table_id)
 
-            assert (row["key"], row["state"], row["outcome"]) == (key, "ended", "owner-absent")
+            assert (row["key"], row["state"], row["outcome"], row["may_call_again"]) == (
+                key,
+                "ended",
+                "owner-absent",
+                False,
+            )
             assert invitations_of(nova) == []
 
     def test_an_accept_after_the_owner_left_is_refused_as_a_stale_invitation(self, skat, issuer, felix, table_id):
