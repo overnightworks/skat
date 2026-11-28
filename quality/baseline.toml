@@ -13,7 +13,7 @@ resultView = 16
 switchRule = 16
 
 [ccn."frontend/src/routes/(start)/t/[id]/+page.svelte"]
-presentTable = 18
+presentTable = 17
 
 [function_lines."frontend/src/lib/callSignIn.ts"]
 createCallSignIn = 103
