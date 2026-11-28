@@ -1,5 +1,6 @@
 import { MOTION_SETS } from "./motionSets.ts";
 import { motionInForce } from "./settings.svelte.ts";
+import { beatAfter } from "./table/scene.ts";
 import { soundForReaction } from "./tableSound.ts";
 import { isTableObject, type Reaction, type Thrown } from "../routes/(start)/reaction.ts";
 
@@ -26,14 +27,14 @@ export function flyingEmotes(): readonly Thrown[] {
     return flying;
 }
 
-/**
- * Which move an object makes next: the two moves alternate, so a CSS animation that names one of them starts anew at every
- * tap without the button being made again. None until the first tap.
- */
+/** How often each object of the table was tapped at this table, which the table's scene carries to its look. */
+export function tapCounts(): Readonly<Partial<Record<Reaction, number>>> {
+    return taps;
+}
+
+/** Which move an object makes next; none until the first tap. */
 export function beatOf(object: Reaction): "odd" | "even" | undefined {
-    const count = taps[object] ?? 0;
-    if (count === 0) return undefined;
-    return count % 2 === 1 ? "odd" : "even";
+    return beatAfter(taps[object] ?? 0);
 }
 
 function stayOf(): number {
