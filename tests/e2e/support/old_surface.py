@@ -36,6 +36,11 @@ def chairs(scope: Scope) -> Locator:
     return scope.locator(CHAIR)
 
 
+def expect_the_table_shown(scope: Scope) -> None:
+    """The table page has drawn its table: its three chairs stand."""
+    expect(chairs(scope)).to_have_count(3)
+
+
 def chair(scope: Scope, seat: int) -> Locator:
     return scope.locator(_chair_of(seat))
 

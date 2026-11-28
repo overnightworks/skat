@@ -93,7 +93,7 @@ def table_id_of(path: str) -> str:
 
 def watch(person: Page, server: RunningServer, path: str) -> None:
     person.goto(f"{server.base_url}{path}")
-    expect(old_surface.chairs(person)).to_have_count(3)
+    old_surface.expect_the_table_shown(person)
 
 
 def watch_until_the_agents_are_read(person: Page, server: RunningServer, path: str) -> None:

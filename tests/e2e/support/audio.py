@@ -2,8 +2,6 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from playwright.sync_api import Page, expect
-
 from skat.web.words import SOURCE_LANGUAGE, WORDS
 from tests.e2e.support import old_surface
 from tests.e2e.support.browser import record_page_errors
@@ -12,6 +10,8 @@ from tests.e2e.support.people import PHONE
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from playwright.sync_api import Page
 
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -48,7 +48,7 @@ def open_at(open_person: Callable[..., Page], page_errors: list[str], table: Pla
     """The table's watcher page, opened in the browser context the keywords describe."""
     watcher = record_page_errors(open_person(**context), page_errors)
     watcher.goto(table.watcher.url)
-    expect(old_surface.chairs(watcher)).to_have_count(3)
+    old_surface.expect_the_table_shown(watcher)
     return watcher
 
 

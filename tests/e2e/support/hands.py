@@ -3,7 +3,6 @@ import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Locator, Page, expect
 
 from skat.engine.cards import Card
 from skat.engine.games import GameKind
@@ -19,6 +18,8 @@ from tests.e2e.support.raw_http import RawSession
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
+
+    from playwright.sync_api import Locator, Page
 
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
@@ -38,7 +39,7 @@ def leave_the_last_trick_on_the_felt(pages: Iterable[Page]) -> None:
     for person in pages:
         person.evaluate("localStorage.setItem('skat.settings', JSON.stringify({ lastTrick: 'stay' }))")
         person.reload()
-        expect(old_surface.chairs(person)).to_have_count(3)
+        old_surface.expect_the_table_shown(person)
 
 
 class AddressedSession(RawSession):

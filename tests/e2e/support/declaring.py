@@ -71,7 +71,7 @@ def button_of(person: Page, name: str) -> Locator:
 
 def reload_and_wait(person: Page) -> None:
     person.reload()
-    expect(old_surface.chairs(person)).to_have_count(3)
+    old_surface.expect_the_table_shown(person)
 
 
 class DeclaringTable:

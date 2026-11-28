@@ -1,8 +1,6 @@
 import json
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import expect
-
 from tests.e2e.support import old_surface
 
 if TYPE_CHECKING:
@@ -18,7 +16,7 @@ def let_it_move(person: Page, motion_set: str = "verspielt") -> Page:
     stored = {"replayMotion": True, "motionSet": motion_set}
     person.add_init_script(f"localStorage.setItem({SETTINGS_KEY!r}, {json.dumps(json.dumps(stored))})")
     person.reload()
-    expect(old_surface.chairs(person)).to_have_count(3)
+    old_surface.expect_the_table_shown(person)
     return person
 
 

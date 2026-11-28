@@ -166,7 +166,7 @@ class RamschStageTable:
     def reload_everyone(self) -> None:
         for person in self.everyone:
             person.reload()
-            expect(old_surface.chairs(person)).to_have_count(3)
+            old_surface.expect_the_table_shown(person)
 
     def chair(self, person: Page, position: str):
         return old_surface.chair(person, self.seat_of(position))
