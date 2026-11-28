@@ -4,6 +4,7 @@ from skat.engine.bidding import VALID_BIDS
 from skat.engine.kontra import Word
 from skat.web.kontra import TABLE_KONTRA_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, command_numbers, holds, passes
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.tables import open_table_with_options
@@ -21,8 +22,8 @@ KONTRA_OPTIONS = {"sayer": "any-opponent", "reach": "kontra-re", "deadline": "ow
 # Only an opponent who bid says Kontra, and the declarer answers with Re.
 BIDDERS_ONLY_OPTIONS = {"sayer": "bidders-only", "reach": "kontra-re", "deadline": "own-card"}
 FIRST_CARD_OPTIONS = {**BIDDERS_ONLY_OPTIONS, "deadline": "first-card"}
-KEY = ".copy.kontra"
-STAMP = ".callout"
+KEY = old_surface.KONTRA_KEY
+STAMP = old_surface.CALLOUT
 
 
 class KontraTable(DeclaringTable):
@@ -88,7 +89,7 @@ def expect_nothing_to_overflow(person: Page) -> None:
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     viewport = person.viewport_size
     assert viewport is not None
-    for box in person.evaluate(MEASURE_PARTS, f"{KEY}, {STAMP}, .actions > :not(.anchored-overlay)"):
+    for box in person.evaluate(MEASURE_PARTS, old_surface.KONTRA_KEY_CALLOUT_AND_KEYS):
         assert box is not None
         assert box["x"] >= 0, box
         assert box["x"] + box["width"] <= viewport["width"], box

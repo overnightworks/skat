@@ -18,6 +18,7 @@ from skat.web.declaring import (
 )
 from skat.web.tables import TABLE_SIT_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
@@ -70,7 +71,7 @@ def button_of(person: Page, name: str) -> Locator:
 
 def reload_and_wait(person: Page) -> None:
     person.reload()
-    expect(person.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(person)
 
 
 class DeclaringTable:
