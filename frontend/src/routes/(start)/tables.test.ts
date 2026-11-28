@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TABLE_ID } from "#lib/table.fixtures.ts";
 import { seriesAt } from "#lib/series.fixtures.ts";
+import { table as tableWithResult } from "#lib/result.fixtures.ts";
 import {
     AUTH_START_PATH,
     CALL_MODE,
@@ -50,9 +51,10 @@ import {
     takeAuctionStep,
     seatedAgentsKey,
     type Chair,
+    type Options,
     type Table,
 } from "./tables.ts";
-import { changeNextSettings, markReady, seriesNumberOf, startNewSeries } from "./seriesCommands.ts";
+import { changeNextSettings, markReady, seriesNumberOf, startNewSeries, weiter } from "./seriesCommands.ts";
 import { readSeriesList } from "./seriesList.ts";
 
 class FakeEventSource {
@@ -331,6 +333,13 @@ describe("watchTable after a stream error", () => {
 
 describe("asking for a table", () => {
     const reload = vi.fn();
+    const NO_RULES: Options = {
+        show_running_points: false,
+        kontra: null,
+        bock: null,
+        ramsch: null,
+        give_up: { partner_agrees: false, any_time: false },
+    };
     const table = {
         id: TABLE_ID,
         version: 1,
@@ -565,6 +574,39 @@ describe("asking for a table", () => {
         const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
         expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
         expect(JSON.parse((init as { body: string }).body)).toEqual({ command_id: "command-6" });
+    });
+
+    it.each([
+        {
+            name: "starts the next series once the series is over",
+            series: seriesAt({
+                number: 2,
+                over: true,
+                next_settings: { game_count: 12, options: NO_RULES, revision: 3 },
+            }),
+            suffix: TABLE_NEW_SERIES_SUFFIX,
+            body: { series: 2, settings: 3 },
+        },
+        {
+            name: "marks the result seen while the series runs",
+            series: seriesAt({ number: 2 }),
+            suffix: TABLE_READY_SUFFIX,
+            body: { ordinal: 4, series: 2 },
+        },
+    ])("sends Weiter as a command that $name", async ({ series, suffix, body }) => {
+        answerWith(Response.json(table));
+
+        expect(await weiter(TABLE_ID, { ...tableWithResult(1, { ordinal: 4 }), options: NO_RULES, series })).toEqual({
+            kind: "table",
+            table,
+        });
+
+        const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+        expect(path).toBe(`${TABLES_PATH}/${TABLE_ID}${suffix}`);
+        expect(JSON.parse((init as { body: string }).body)).toEqual({
+            command_id: expect.any(String) as string,
+            ...body,
+        });
     });
 
     it("sends the command id, the series' number and the settings' revision when starting the next series", async () => {
