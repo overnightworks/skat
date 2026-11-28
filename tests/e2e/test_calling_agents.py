@@ -309,7 +309,7 @@ def test_two_agents_of_one_owner_are_called_one_after_the_other_and_both_sit(
 
 @pytest.mark.usefixtures("realm_reusing_refresh_tokens")
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_call_the_agent_answers_busy_tells_the_caller_so_on_the_row_and_no_one_else_and_the_row_leaves_once_read(
+def test_a_busy_answer_shows_on_the_callers_row_alone_and_the_row_leaves_once_read_and_stays_away(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -338,6 +338,12 @@ def test_a_call_the_agent_answers_busy_tells_the_caller_so_on_the_row_and_no_one
         expect(felix.get_by_text(BUSY)).to_be_visible()
         expect(agents_list(guests[0])).to_have_count(0)
         expect(agents_list(felix).get_by_text("Michelangelo")).to_have_count(0, timeout=OUTCOME_LAPSES_MS)
+        felix.keyboard.press("Escape")
+        with felix.expect_response(
+            lambda response: response.request.method == "GET" and response.url.endswith(TABLE_AGENTS_SUFFIX)
+        ):
+            open_agents_panel(felix)
+        expect(agents_list(felix).get_by_text("Michelangelo")).to_have_count(0)
     finally:
         agent.close()
 
