@@ -15,6 +15,7 @@ from tests.e2e.support.deal_pause import HeldDealPause
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.failure_record import FailureRecord
 from tests.e2e.support.hands import deal_playing_table
+from tests.e2e.support.looks import Look
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
 from tests.e2e.support.server import RunningServer, skat_on_new_database
 from tests.support.shards import select_shard
@@ -28,13 +29,6 @@ if TYPE_CHECKING:
     from tests.e2e.support.hands import PlayingTable
 
 PAGE_NAVIGATED_AWAY = "net::ERR_ABORTED"
-
-
-class Look(StrEnum):
-    """A surface a page shows the table on: today's, or a look that draws the whole table, named by its id."""
-
-    TODAY = "today"
-    LAMPE = "lampe"
 
 
 class Family(StrEnum):

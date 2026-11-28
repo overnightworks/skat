@@ -9,10 +9,10 @@ from playwright.sync_api import Locator, Page, expect
 from skat.web.mcp import SIT_DOWN_TOOL
 from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.conftest import Look
 from tests.e2e.support.bidding import answer_of, dealt_table
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import deal_playing_table
+from tests.e2e.support.looks import Look
 from tests.e2e.support.people import DESKTOP, McpAgent
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of
 
