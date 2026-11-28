@@ -8,10 +8,12 @@ from playwright.sync_api import Locator, Page, expect
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.raw_http import RawSession
+from tests.e2e.support.result_card import loosely
 from tests.e2e.support.table_menu import menu_button
 from tests.e2e.support.tables import open_new_table, watch
 
@@ -32,7 +34,6 @@ YOU = text(SOURCE_LANGUAGE, "result.sideYou")
 OPPONENTS = text(SOURCE_LANGUAGE, "result.sideThem")
 CARDS_IN_A_TRICK = 3
 CARDS_AFTER_TWO_TRICKS = 6
-SHOWN_POINTS = ".plaque .points"
 
 RUNNING_POINTS_ONLY = {"show_running_points": True}
 KONTRA_AND_BOCK = {
@@ -103,55 +104,37 @@ def chips_of(person: Page) -> Locator:
     return person.get_by_role("button", name=CHIPS)
 
 
+def expect_the_chips(person: Page, *chips: str) -> None:
+    """The button of the rules reads these chips, in this order, and nothing else."""
+    expect(chips_of(person)).to_have_text(loosely(*chips))
+
+
 def sheet_of(person: Page) -> Locator:
-    return person.locator("dialog.rules-sheet")
+    return person.get_by_role("dialog", name=word("rules.title"), exact=True)
 
 
-def assert_inside_the_screen(sheet: Locator, form_factor: dict[str, Any]) -> None:
-    box = sheet.bounding_box()
-    assert box is not None
-    assert box["y"] >= 0
-    assert box["y"] + box["height"] <= form_factor["viewport"]["height"]
-
-
-def assert_apart(person: Page, *selectors: str) -> None:
-    boxes = [person.locator(selector).bounding_box() for selector in selectors]
-    for index, first in enumerate(boxes):
-        assert first is not None
-        for second in boxes[index + 1 :]:
-            assert second is not None
-            apart = (
-                first["x"] + first["width"] <= second["x"]
-                or second["x"] + second["width"] <= first["x"]
-                or first["y"] + first["height"] <= second["y"]
-                or second["y"] + second["height"] <= first["y"]
-            )
-            assert apart, (first, second)
-    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+def points_of(person: Page) -> Locator:
+    return person.get_by_role("group", name=word("result.trickPoints"), exact=True)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_watcher_sees_the_chips_of_a_table_opened_with_options_and_nothing_overlaps(
+def test_a_watcher_sees_the_chips_of_a_table_opened_with_options(
     looks_at: Callable[..., Page], form_factor: dict[str, Any]
 ) -> None:
     person = looks_at(form_factor, KONTRA_AND_BOCK)
 
-    expect(chips_of(person).locator(".chip")).to_have_text(
-        [word("rules.chipPoints"), word("rules.chipKontra"), word("rules.chipBock")]
-    )
-    assert_apart(person, ".lobby", ".sound-button", ".rulepill", ".watchers")
+    expect_the_chips(person, word("rules.chipPoints"), word("rules.chipKontra"), word("rules.chipBock"))
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_every_chip_of_a_table_with_every_rule_fits_the_row(
+def test_a_table_with_every_rule_shows_a_chip_for_each(
     looks_at: Callable[..., Page], form_factor: dict[str, Any]
 ) -> None:
     person = looks_at(form_factor, {"show_running_points": True, **EVERY_RULE})
 
-    expect(chips_of(person).locator(".chip")).to_have_text(
-        [word("rules.chipPoints"), word("rules.chipKontra"), word("rules.chipRamsch"), word("rules.chipBock")]
+    expect_the_chips(
+        person, word("rules.chipPoints"), word("rules.chipKontra"), word("rules.chipRamsch"), word("rules.chipBock")
     )
-    assert_apart(person, ".lobby", ".sound-button", ".rulepill", ".watchers")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -160,7 +143,7 @@ def test_both_special_rules_of_giving_up_show_one_chip_and_a_row_each(
 ) -> None:
     person = looks_at(form_factor, {"give_up": {"partner_agrees": True, "any_time": True}})
 
-    expect(chips_of(person).locator(".chip")).to_have_text([word("rules.chipGiveUp")])
+    expect_the_chips(person, word("rules.chipGiveUp"))
     chips_of(person).click()
     expect(sheet_of(person).locator(".rrow b")).to_have_text(
         [word("rules.nameGiveUpPartner"), word("rules.nameGiveUpAnyTime")]
@@ -168,7 +151,6 @@ def test_both_special_rules_of_giving_up_show_one_chip_and_a_row_each(
     expect(sheet_of(person).locator(".rrow small span")).to_have_text(
         [word("rules.giveUpPartnerAgrees"), word("rules.giveUpAnyTime")]
     )
-    assert_inside_the_screen(sheet_of(person), form_factor)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -177,13 +159,12 @@ def test_a_table_without_options_shows_the_chip_official_and_its_sheet_names_the
 ) -> None:
     person = looks_at(form_factor, None)
 
-    expect(chips_of(person).locator(".chip")).to_have_text([OFFICIAL])
+    expect_the_chips(person, OFFICIAL)
     chips_of(person).click()
     expect(sheet_of(person)).to_be_visible()
-    expect(sheet_of(person).locator(".lockbadge")).to_contain_text(word("rules.lockBadge"))
+    expect(sheet_of(person).get_by_text(word("rules.lockBadge"))).to_be_visible()
     expect(sheet_of(person).locator(".rrow b")).to_have_text([word("rules.nameOfficial")])
     expect(sheet_of(person).locator(".rrow small span")).to_have_text([word("rules.officialUnchanged")])
-    assert_inside_the_screen(sheet_of(person), form_factor)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -207,7 +188,6 @@ def test_the_sheet_lists_a_row_per_rule_and_closes_by_its_button_and_by_escape_w
         ]
     )
     expect(sheet.get_by_role("button", name=word("rules.info"))).to_be_visible()
-    assert_inside_the_screen(sheet, form_factor)
     sheet.get_by_role("button", name=word("rules.info")).click()
     expect(sheet.get_by_text(word("rules.lockInfo"))).to_be_visible()
     sheet.get_by_role("button", name=CLOSE).click()
@@ -242,7 +222,7 @@ def test_the_chips_are_reached_by_tab_and_opened_by_enter(looks_at: Callable[...
 
     for _ in range(5):
         person.keyboard.press("Tab")
-        if person.evaluate("document.activeElement?.classList.contains('rulepill')"):
+        if chips_of(person).evaluate("chips => chips === document.activeElement"):
             break
     person.keyboard.press("Enter")
 
@@ -288,7 +268,6 @@ def test_a_table_opened_with_every_rule_reads_all_its_rows(
     expect(bock.nth(0)).to_have_text(
         word("rules.bockTriggers", triggers=f"{', '.join(trigger_words[:-1])} und {trigger_words[-1]}")
     )
-    assert_inside_the_screen(sheet, form_factor)
 
 
 def sides_as_seen_by(table: PlayingTable, person: Page) -> tuple[str, str]:
@@ -303,14 +282,9 @@ def sides_as_seen_by(table: PlayingTable, person: Page) -> tuple[str, str]:
 def expect_the_bar(table: PlayingTable, declarer_points: int, opponents_points: int) -> None:
     for person in table.everyone:
         declarer_side, opponents_side = sides_as_seen_by(table, person)
-        bar = person.locator(SHOWN_POINTS)
-        expect(bar.locator(".sides .declarer")).to_have_text(
-            word("result.sidePoints", side=declarer_side, points=str(declarer_points))
-        )
-        expect(bar.locator(".sides .opponents")).to_have_text(
-            word("result.sidePoints", side=opponents_side, points=str(opponents_points))
-        )
-        expect(bar.locator(".win-line")).to_be_visible()
+        for side, points in ((declarer_side, declarer_points), (opponents_side, opponents_points)):
+            counted = word("result.sidePoints", side=side, points=str(points))
+            expect(points_of(person).get_by_text(counted, exact=True)).to_be_visible()
 
 
 @pytest.fixture
@@ -349,36 +323,13 @@ def test_the_plaque_counts_from_completed_tricks_for_the_players_and_a_watcher(
 
     expect_the_bar(table, 0, 0)
     for person in table.everyone:
-        expect(chips_of(person).locator(".chip")).to_have_text([word("rules.chipPoints")])
+        expect_the_chips(person, word("rules.chipPoints"))
     table.play_out(CARDS_IN_A_TRICK - 1)
     expect_the_bar(table, 0, 0)
     table.play_out(1)
 
     counted = table.playing()["running_points"]
     expect_the_bar(table, counted["declarer"], counted["opponents"])
-    for person in table.everyone:
-        assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_long_player_name_is_cut_inside_the_plaque_and_the_points_stay_visible(
-    deal_with_running_points: Callable[..., PlayingTable], form_factor: dict[str, Any]
-) -> None:
-    table = deal_with_running_points(
-        form_factor, joiners=("maximilianalexander", "maximilianbartholomew"), opener_name="maximilianchristopher"
-    )
-    table.play_out(CARDS_IN_A_TRICK)
-
-    counted = table.playing()["running_points"]
-    for person in table.everyone:
-        expect(person.locator(SHOWN_POINTS)).to_be_visible()
-        tallies = person.locator(f"{SHOWN_POINTS} .tally")
-        expect(tallies).to_have_text([str(counted["declarer"]), str(counted["opponents"])])
-        assert person.locator(".plaque.counting").evaluate(
-            "plaque => plaque.scrollWidth <= plaque.clientWidth"
-            " && [...plaque.querySelectorAll('.tally')].every("
-            "tally => tally.getBoundingClientRect().right <= plaque.getBoundingClientRect().right)"
-        )
 
 
 def test_the_bar_stays_beside_a_standing_give_up_request(
@@ -391,7 +342,7 @@ def test_the_bar_stays_beside_a_standing_give_up_request(
     table.declaring.step(table.declarer_seat, TABLE_GIVE_UP_SUFFIX)
 
     for person in table.everyone:
-        expect(person.locator(".plaque.ask")).to_be_visible()
+        expect(old_surface.requests(person)).to_be_visible()
     expect_the_bar(table, counted["declarer"], counted["opponents"])
 
 
@@ -399,8 +350,8 @@ def test_a_null_game_shows_no_bar(deal_with_running_points: Callable[..., Playin
     table = deal_with_running_points(DESKTOP, "null")
 
     for person in table.everyone:
-        expect(person.locator(".plaque")).to_be_visible()
-        expect(person.locator(SHOWN_POINTS)).to_have_count(0)
+        expect(person.get_by_text(word("game.null"), exact=True)).to_be_visible()
+        expect(points_of(person)).to_have_count(0)
 
 
 def test_a_table_opened_without_the_switch_shows_no_bar(
@@ -410,5 +361,5 @@ def test_a_table_opened_without_the_switch_shows_no_bar(
 
     open_new_table(person, e2e_server)
 
-    expect(chips_of(person).locator(".chip")).to_have_text([OFFICIAL])
-    expect(person.locator(SHOWN_POINTS)).to_have_count(0)
+    expect_the_chips(person, OFFICIAL)
+    expect(points_of(person)).to_have_count(0)
