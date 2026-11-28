@@ -8,7 +8,7 @@ vi.mock("./tableSound.ts", () => ({
 vi.mock("./settings.svelte.ts", () => ({ motionInForce: () => motion }));
 let motion: "dezent" | "verspielt" | undefined;
 
-const { beatOf, flyingEmotes, reactionTray, receiveReactions, resetReactions, setReactionTray } =
+const { beatOf, flyingEmotes, reactionTray, receiveReactions, resetReactions, setReactionTray, tapCounts } =
     await import("./tableReactions.svelte.ts");
 const { MOTION_SETS } = await import("./motionSets.ts");
 
@@ -53,14 +53,19 @@ describe("what the table plays of the reactions it receives", () => {
         expect([lying, flyingEmotes().length]).toEqual([1, 0]);
     });
 
-    it("moves an object on every tap, its two beats taking turns so that each tap starts the move anew", () => {
+    it("counts every tap on an object and moves it, its two beats taking turns so that each tap starts the move anew", () => {
         const beats = [beatOf("cocktail")];
         for (const number of [1, 2, 3]) {
             receiveReactions([thrown(number, "cocktail")]);
             beats.push(beatOf("cocktail"));
         }
 
-        expect([beats, beatOf("shell"), flyingEmotes()]).toEqual([[undefined, "odd", "even", "odd"], undefined, []]);
+        expect([beats, beatOf("shell"), tapCounts(), flyingEmotes()]).toEqual([
+            [undefined, "odd", "even", "odd"],
+            undefined,
+            { cocktail: 3 },
+            [],
+        ]);
     });
 
     it("forgets the flying emotes and the taps and closes the tray when the page leaves the table", () => {
@@ -69,6 +74,6 @@ describe("what the table plays of the reactions it receives", () => {
 
         resetReactions();
 
-        expect([flyingEmotes(), beatOf("shell"), reactionTray().open]).toEqual([[], undefined, false]);
+        expect([flyingEmotes(), tapCounts(), reactionTray().open]).toEqual([[], {}, false]);
     });
 });
