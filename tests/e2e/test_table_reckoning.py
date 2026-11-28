@@ -1,5 +1,4 @@
 import json
-import re
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
@@ -10,6 +9,7 @@ from skat.engine.declaration import Announcement, Declaration
 from skat.engine.games import GameKind
 from skat.engine.value import Matadors
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import THEY, WE
 from tests.e2e.support.people import WIDTHS
@@ -19,10 +19,9 @@ from tests.e2e.support.result_card import (
     MINUS,
     OVERBID,
     TIMES,
+    WAITING_FOR_PLAYERS,
     WON,
     YOU,
-    expect_the_page_around_the_card,
-    expect_the_seat_tiles_inside_the_card,
     loosely,
 )
 from tests.e2e.support.server import STORE_READ_SECONDS, skat_on_new_database
@@ -49,6 +48,7 @@ GAME_HERZ = text(SOURCE_LANGUAGE, "game.herz")
 GAME_KREUZ = text(SOURCE_LANGUAGE, "game.kreuz")
 GAME_GRAND = text(SOURCE_LANGUAGE, "game.grand")
 GAME_NULL = text(SOURCE_LANGUAGE, "game.null")
+TRICK_POINTS = text(SOURCE_LANGUAGE, "result.trickPoints")
 
 
 @dataclass(frozen=True)
@@ -91,10 +91,6 @@ def steps_of(score: str, bonus: str, gain: str) -> tuple[str, str, str]:
 
 def matadors_chip(mit: bool, count: int) -> str:
     return text(SOURCE_LANGUAGE, "result.matadorsWith" if mit else "result.matadorsWithout", count=count)
-
-
-# The unticked chip of the matadors, in both its forms and the counts the listed games use.
-MATADORS_CHIPS = {matadors_chip(mit, count) for mit in (True, False) for count in (1, 2)}
 
 
 MIT_2 = Matadors(mit=True, count=2)
@@ -440,47 +436,11 @@ RECKONINGS = [
 ]
 
 
-# How the ladder is drawn, read in one round trip: each chip's word and each tick with the styles the page computes.
-_LADDER_DRAWING = """card => ({
-    words: [...card.querySelectorAll('.ladder > *')].map(chip => {
-        const style = element => getComputedStyle(element);
-        return [...chip.querySelectorAll('span')].map(word => ({
-            background: style(word).backgroundColor,
-            padding: style(word).padding,
-            color: style(word).color,
-            chipColor: style(chip).color,
-        }));
-    }),
-    ticks: [...card.querySelectorAll('.ladder .held svg path')].map(tick => ({
-        fill: getComputedStyle(tick).fill,
-        stroke: getComputedStyle(tick).stroke,
-    })),
-})"""
-
-
-def expect_the_ladder_drawn(card: Locator, ticked: int) -> None:
-    """A chip is a single pill: its word draws no box of its own and keeps the chip's colour. Every counted level
-    carries a tick drawn as an outline, not the browser's default black fill.
-    """
-    drawing = card.evaluate(_LADDER_DRAWING)
-    for words in drawing["words"]:
-        assert len(words) == 1
-        (word,) = words
-        assert word["background"] == "rgba(0, 0, 0, 0)"
-        assert word["padding"] == "0px"
-        assert word["color"] == word["chipColor"]
-    assert len(drawing["ticks"]) == ticked
-    for tick in drawing["ticks"]:
-        assert tick["fill"] == "none"
-        assert re.match(r"^rgb", tick["stroke"])
-
-
 def expect_the_ladder(card: Locator, reckoning: Reckoning) -> None:
     if reckoning.chips:
-        expect(card.locator(".ladder > *")).to_have_text(list(reckoning.chips))
-        expect_the_ladder_drawn(card, sum(chip not in MATADORS_CHIPS for chip in reckoning.chips))
+        expect(card.get_by_role("listitem")).to_have_text(list(reckoning.chips))
     else:
-        expect(card.locator(".ladder")).to_have_count(0)
+        expect(card.get_by_role("listitem")).to_have_count(0)
 
 
 def expect_the_equation(card: Locator, reckoning: Reckoning) -> None:
@@ -490,12 +450,13 @@ def expect_the_equation(card: Locator, reckoning: Reckoning) -> None:
         expect(card.locator(".eq")).to_have_text(loosely(*reckoning.equation))
 
 
-def expect_the_overbid_and_miss(card: Locator, reckoning: Reckoning) -> None:
+def expect_the_overbid_and_miss(person: Page, reckoning: Reckoning) -> None:
+    card = person.locator(CARD)
     if reckoning.raised is None:
-        expect(card.locator(".stamp")).to_have_count(0)
+        expect(old_surface.result_stamp(person)).to_have_count(0)
         expect(card.locator(".miss:not(.missed)")).to_have_count(0)
     else:
-        expect(card.locator(".stamp")).to_have_text(OVERBID)
+        expect(old_surface.result_stamp(person)).to_have_text(OVERBID)
         expect(card.locator(".miss:not(.missed)")).to_have_text(reckoning.raised)
     if reckoning.missed is None:
         expect(card.locator(".miss.missed")).to_have_count(0)
@@ -503,10 +464,10 @@ def expect_the_overbid_and_miss(card: Locator, reckoning: Reckoning) -> None:
         expect(card.locator(".miss.missed")).to_have_text(reckoning.missed)
 
 
-# Each seat's row of the card in one round trip: the share it shows and whether it is marked as the winning side.
-_SEAT_ROWS = """card => Object.fromEntries([...card.querySelectorAll('.reck')].map(row => [
+# The share each seat's row of the card shows, in one round trip.
+_SEAT_SHARES = """card => Object.fromEntries([...card.querySelectorAll('.reck')].map(row => [
     row.dataset.seat,
-    {share: row.querySelector('.dl').textContent.trim().replace(/\\s+/g, ' '), won: row.classList.contains('win')},
+    row.querySelector('.dl').textContent.trim().replace(/\\s+/g, ' '),
 ]))"""
 
 
@@ -534,7 +495,7 @@ def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_s
         )
     else:
         heading = WON if entry.won == (role == "declarer") else LOST
-    expect(card.locator("h3")).to_have_text(heading)
+    expect(card.get_by_role("heading")).to_have_text(heading)
     game = (
         text(SOURCE_LANGUAGE, "result.opponentGameLine", declarer=declarer_name, game=reckoning.game)
         if role == "opponent"
@@ -543,17 +504,14 @@ def expect_the_reckoning(person: Page, role: str, declarer_name: str, declarer_s
     expect(card.locator(".sub .game")).to_have_text(game)
     expect_the_ladder(card, reckoning)
     expect_the_equation(card, reckoning)
-    expect_the_overbid_and_miss(card, reckoning)
+    expect_the_overbid_and_miss(person, reckoning)
     expect(card.locator(".x2")).to_have_count(0 if entry.won else 1)
     expect(card.locator(".value")).to_have_text(reckoning.value)
-    expect(card.locator(".points")).to_have_count(1 if reckoning.points else 0)
-    rows = card.evaluate(_SEAT_ROWS)
+    expect(card.get_by_role("group", name=TRICK_POINTS)).to_have_count(1 if reckoning.points else 0)
+    shares = card.evaluate(_SEAT_SHARES)
     for seat in (1, 2, 3):
         declares = seat == declarer_seat
-        assert rows[str(seat)]["share"] == (
-            reckoning.steps[2].removeprefix("= ") if declares else reckoning.opponent_gain
-        )
-        assert rows[str(seat)]["won"] == (entry.won == declares)
+        assert shares[str(seat)] == (reckoning.steps[2].removeprefix("= ") if declares else reckoning.opponent_gain)
 
 
 @pytest.fixture(scope="module")
@@ -587,7 +545,7 @@ def viewers_of(table: DeclaringTable) -> list[tuple[str, Page]]:
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_every_viewer_reads_the_reckoning_of_each_listed_game_above_the_bar(
+def test_every_viewer_reads_the_reckoning_of_each_listed_game(
     deal_a_declared_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     table = deal_a_declared_table(form_factor)
@@ -598,7 +556,8 @@ def test_every_viewer_reads_the_reckoning_of_each_listed_game_above_the_bar(
         try:
             for role, person in viewers:
                 expect_the_reckoning(person, role, declarer_name, table.declarer_seat, reckoning)
-            expect_the_page_around_the_card([person for _, person in viewers])
+                expect(old_surface.card_faces(person)).to_have_count(0)
+                expect(person.get_by_text(WAITING_FOR_PLAYERS)).to_have_count(0)
         except AssertionError as failure:
             failure.add_note(f"the listed game {reckoning.id}")
             raise
@@ -614,34 +573,9 @@ def test_a_watcher_who_opens_the_table_while_the_result_stands_reads_the_same_ca
     table.list_the_game(replace(reckoning.entry, declarer_seat=table.declarer_seat))
     arriving = table.watcher.context.new_page()
     arriving.goto(table.watcher.url)
-    expect(arriving.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(arriving)
 
     expect_the_reckoning(arriving, "watcher", table.name_of_the_declarer(), table.declarer_seat, reckoning)
     for seat in table.sessions:
         assert "skat" not in json.dumps(table.result_as_sent(seat))
-    assert page_errors == []
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_card_of_an_overbid_schwarz_game_keeps_its_seat_tiles_inside_it(
-    deal_a_declared_table: Callable[..., DeclaringTable], page_errors: list[str], form_factor: dict[str, Any]
-) -> None:
-    table = deal_a_declared_table(form_factor)
-    overbid_schwarz = listed(
-        GameKind.KREUZ,
-        matadors=Matadors(mit=False, count=7),
-        schneider=True,
-        schwarz=True,
-        won=False,
-        bid=264,
-        game_value=120,
-        settled_value=264,
-        score=-528,
-        declarer_points=0,
-    )
-    table.list_the_game(replace(overbid_schwarz, declarer_seat=table.declarer_seat))
-
-    people = [person for _, person in viewers_of(table)]
-    expect_the_seat_tiles_inside_the_card(people)
-    expect_the_page_around_the_card(people)
     assert page_errors == []

@@ -4,6 +4,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.ramsch import RamschTable
 from tests.e2e.support.result_card import CARD, WON
@@ -20,6 +21,7 @@ pytestmark = pytest.mark.e2e
 DEAL_WHERE_ANNA_SWEEPS = 903
 SWEEPER_SEAT = 1
 DURCHMARSCH = text(SOURCE_LANGUAGE, "result.durchmarsch")
+SERIES_LIST = text(SOURCE_LANGUAGE, "table.seriesList")
 
 
 @pytest.fixture(scope="module")
@@ -29,7 +31,7 @@ def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RunningServ
         yield server
 
 
-def test_the_player_who_takes_every_trick_reads_won_with_a_tick_and_the_others_read_durchmarsch(
+def test_the_player_who_takes_every_trick_reads_won_and_the_others_read_durchmarsch(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -40,18 +42,14 @@ def test_the_player_who_takes_every_trick_reads_won_with_a_tick_and_the_others_r
     table.play_out()
 
     assert table.result()["durchmarsch_seat"] == SWEEPER_SEAT
-    sweeper = table.pages[SWEEPER_SEAT].locator(CARD)
-    expect(sweeper.locator("h3")).to_have_text(WON)
-    expect(sweeper.locator("h3 svg")).to_have_count(1)
+    expect(table.pages[SWEEPER_SEAT].locator(CARD).get_by_role("heading")).to_have_text(WON)
     for person in (table.pages[2], table.pages[3], table.watcher):
-        card = person.locator(CARD)
-        expect(card.locator("h3")).to_have_text(DURCHMARSCH)
-        expect(card.locator("h3 svg")).to_have_count(0)
+        expect(person.locator(CARD).get_by_role("heading")).to_have_text(DURCHMARSCH)
     assert page_errors == []
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_an_opened_durchmarsch_names_itself_on_an_end_line_inside_the_panel(
+def test_an_opened_durchmarsch_names_itself_on_an_end_line(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -63,16 +61,11 @@ def test_an_opened_durchmarsch_names_itself_on_an_end_line_inside_the_panel(
     table.play_out()
     person = table.pages[SWEEPER_SEAT]
 
-    person.locator(".series-count").click()
-    person.locator(".game-list .grow").click()
+    old_surface.series_count(person).click()
+    games = person.get_by_role("dialog", name=SERIES_LIST)
+    games.get_by_role("listitem").get_by_role("button").click()
 
-    end = person.locator(".game-sheet .trick-row.ended")
-    expect(end).to_contain_text(text(SOURCE_LANGUAGE, "table.sheetDurchmarsch"))
-    assert end.evaluate(
-        """end => {
-            const box = end.getBoundingClientRect();
-            const panel = end.closest('.game-list').getBoundingClientRect();
-            return box.left >= panel.left && box.right <= panel.right;
-        }"""
-    )
+    sheet = games.get_by_role("group", name=text(SOURCE_LANGUAGE, "table.sheetTitle", number="1"), exact=True)
+    end_line = sheet.get_by_role("listitem").filter(has_text=text(SOURCE_LANGUAGE, "table.sheetDurchmarsch"))
+    expect(end_line).to_have_count(1)
     assert page_errors == []

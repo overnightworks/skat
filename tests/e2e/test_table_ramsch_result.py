@@ -2,10 +2,11 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import pytest
-from playwright.sync_api import Locator, Page, expect
+from playwright.sync_api import Page, expect
 
 from skat.web.seating import TABLE_STAND_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.ramsch import RamschTable
 from tests.e2e.support.result_card import (
@@ -13,12 +14,13 @@ from tests.e2e.support.result_card import (
     LOST,
     MINUS,
     SERIES_GONE,
+    WAITING_FOR_PLAYERS,
     WON,
     expect_a_new_sitter_reads_the_leaver_as_gone,
-    expect_the_page_around_the_card,
     listed,
     signed,
 )
+from tests.e2e.support.tables import chair_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -29,6 +31,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
+TAPPED_WEITER = text(SOURCE_LANGUAGE, "table.readyMark")
 
 
 def with_minus(number: int) -> str:
@@ -66,14 +69,14 @@ def expect_the_card(table: RamschTable) -> None:
     )
     seats = {page: seat for seat, page in table.pages.items()}
     for person in table.everyone:
-        card: Locator = person.locator(CARD)
+        card = person.locator(CARD)
         expect(card).to_have_count(1)
-        expect(card.locator("h3")).to_have_text(expected_head(table, result, seats.get(person)))
+        expect(card.get_by_role("heading")).to_have_text(expected_head(table, result, seats.get(person)))
         expect(card.locator(".sub")).to_have_text(text(SOURCE_LANGUAGE, "game.ramsch"))
         expect(card.locator(".eq")).to_have_text(text(SOURCE_LANGUAGE, "result.eyes", points=str(leader["points"])))
         expect(card.locator(".value")).to_have_text(signed(leader["score"]))
         expect(card.locator(".list span")).to_have_text(expected_eye_counts(table, result, seats.get(person)))
-        expect(card.locator(".reck")).to_have_count(3)
+        expect(old_surface.reckoning_tiles(person)).to_have_count(3)
         for each in result["seats"]:
             expect(card.locator(f".reck[data-seat='{each['seat']}'] .dl")).to_have_text(
                 signed(each["score"]) if each["score"] > 0 else with_minus(each["score"])
@@ -93,10 +96,12 @@ def test_everyone_reads_the_ramsch_result_card_and_weiter_works(
     table.play_out()
 
     expect_the_card(table)
-    expect_the_page_around_the_card(table.everyone)
-    table.pages[1].locator(".actions").get_by_role("button", name=WEITER).click()
     for person in table.everyone:
-        expect(person.locator(".chair[data-seat='1'] .mark.ready")).to_have_count(1)
+        expect(old_surface.card_faces(person)).to_have_count(0)
+        expect(person.get_by_text(WAITING_FOR_PLAYERS)).to_have_count(0)
+    table.pages[1].get_by_role("button", name=WEITER, exact=True).click()
+    for person in table.everyone:
+        expect(chair_of(person, 1).get_by_title(TAPPED_WEITER, exact=True)).to_have_count(1)
     assert page_errors == []
 
 
@@ -118,8 +123,7 @@ def test_a_seat_that_stood_up_after_the_hand_keeps_its_name_marked_gone_on_the_c
     )
 
     for person in table.everyone:
-        coaster_name = person.locator(CARD).locator(f".reck[data-seat='{leaver_seat}'] .nm")
-        expect(coaster_name).to_contain_text(table.names[leaver_seat])
-        expect(coaster_name.locator("em")).to_have_text(SERIES_GONE)
+        expect(old_surface.reckoning_name(person, leaver_seat)).to_contain_text(table.names[leaver_seat])
+        expect(old_surface.gone_note(person, leaver_seat)).to_have_text(SERIES_GONE)
     expect_a_new_sitter_reads_the_leaver_as_gone(table.watcher, leaver_seat, table.names[leaver_seat])
     assert page_errors == []

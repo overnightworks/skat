@@ -94,13 +94,14 @@ def test_the_seat_that_saves_the_next_series_never_sees_its_own_sheet_say_the_se
     pass_the_series_in(table)
     first = table.pages[1]
     first.evaluate(
-        """() => {
+        """sheet => {
             window.seenStatus = [];
             new MutationObserver(() => {
-                const status = document.querySelector('.sheet.next-series [role=status]');
+                const status = document.querySelector(`${sheet} [role=status]`);
                 if (status) window.seenStatus.push(status.textContent);
             }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
         }""",
+        NEXT_SHEET,
     )
     sheet = first.locator(NEXT_SHEET)
     longer = text(SOURCE_LANGUAGE, "table.seriesGames", count=SERIES_LENGTH + SERIES_LENGTH_STEP)
@@ -113,12 +114,12 @@ def test_the_seat_that_saves_the_next_series_never_sees_its_own_sheet_say_the_se
 
     # The stream delivers the new revision while the save is still unanswered.
     answer = held[0].fetch()
-    expect(first.locator(f"{NEXT_LINE} .chip.len")).to_have_text(longer)
+    expect(first.locator(NEXT_LINE)).to_contain_text(longer)
     held[0].fulfill(response=answer)
 
     expect(sheet).to_have_count(0)
     for person in table.everyone:
-        expect(person.locator(f"{NEXT_LINE} .chip.len")).to_have_text(longer)
+        expect(person.locator(NEXT_LINE)).to_contain_text(longer)
     assert first.evaluate("window.seenStatus") == []
     assert page_errors == []
 
