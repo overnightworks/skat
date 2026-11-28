@@ -1,0 +1,8 @@
+claim_id = "2b48ac98d91e48778c3466ddbc49a2e9"
+agent = "Claude db2d61d3-8b51-4183-99c4-2e9334064f60"
+role = "builder"
+base = "a7bf80d7d26942032c9bed76c51bebe3b46eb926"
+branch = "claude/issue-921-the-new-look-unter-der-lampe-draws-the-r"
+scope = ["docs/ARCHITECTURE.md", "frontend/eslint.config.js", "frontend/src/lib/catalogs", "frontend/src/lib/looks/lampe", "frontend/src/lib/looks/look.ts", "frontend/src/lib/looks/registry.ts", "frontend/src/lib/settings.svelte.test.ts", "frontend/src/lib/settings.svelte.ts", "frontend/src/lib/table", "frontend/src/lib/ui/StylePanel.svelte", "frontend/src/lib/words", "frontend/src/routes/(start)/t/[id]/+page.svelte", "src/skat/web/words.py", "tests/e2e/conftest.py", "tests/e2e/test_table_chairs.py", "tests/e2e/test_table_new_look_switch.py"]
+opened_commit = "e318c499c1c1421e60e14b4fe91dc6d94da50ff2"
+whole_reason = "The chair facts, the renderer that draws them, the switch that reaches it and the tests' look parameter are one first slice: the contract has no caller without the renderer, and the renderer cannot be reached or proven without the switch."
