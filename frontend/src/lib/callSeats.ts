@@ -9,7 +9,13 @@ import {
     type SeatsMessage,
 } from "#lib/callFrame.ts";
 import type { Outcome, Table } from "../routes/(start)/tables.ts";
-import { CHAIRS_PER_TABLE, TABLES_PATH, TABLE_PERSON_KEYS_SUFFIX } from "#lib/wire.ts";
+import {
+    CHAIRS_PER_TABLE,
+    TABLES_PATH,
+    TABLE_PERSON_KEYS_SUFFIX,
+    type PersonKeyAnswer,
+    type PersonKeysAnswer,
+} from "#lib/wire.ts";
 
 // The pure decisions of the seats a framed table tells its call: which tile boxes go out, which chairs are see-through
 // and when the table holds back. `CallSeats.svelte` reads the page, runs the frames and writes the clip paths by them.
@@ -23,25 +29,35 @@ export interface SeatKeys {
     readonly keys: ReadonlyMap<number, string>;
 }
 
-function seatKeyOf(entry: unknown): readonly [number, string] | null {
-    if (!isPlainObject(entry)) return null;
-    const { seat, key } = entry;
-    if (typeof seat !== "number" || !Number.isSafeInteger(seat)) return null;
-    return typeof key === "string" && PERSON_KEY.test(key) ? [seat, key] : null;
+function isPersonKeyAnswer(entry: unknown): entry is PersonKeyAnswer {
+    return (
+        isPlainObject(entry) &&
+        typeof entry.seat === "number" &&
+        Number.isSafeInteger(entry.seat) &&
+        typeof entry.key === "string" &&
+        PERSON_KEY.test(entry.key)
+    );
+}
+
+function isPersonKeysAnswer(body: unknown): body is PersonKeysAnswer {
+    return (
+        isPlainObject(body) &&
+        typeof body.version === "number" &&
+        Number.isSafeInteger(body.version) &&
+        Array.isArray(body.keys) &&
+        body.keys.length <= CHAIRS_PER_TABLE &&
+        body.keys.every(isPersonKeyAnswer)
+    );
 }
 
 function seatKeysOf(body: unknown): SeatKeys | null {
-    if (!isPlainObject(body)) return null;
-    const { version, keys } = body;
-    if (typeof version !== "number" || !Number.isSafeInteger(version) || !Array.isArray(keys)) return null;
-    if (keys.length > CHAIRS_PER_TABLE) return null;
+    if (!isPersonKeysAnswer(body)) return null;
     const bySeat = new Map<number, string>();
-    for (const entry of keys) {
-        const seatKey = seatKeyOf(entry);
-        if (seatKey === null || bySeat.has(seatKey[0])) return null;
-        bySeat.set(seatKey[0], seatKey[1]);
+    for (const { seat, key } of body.keys) {
+        if (bySeat.has(seat)) return null;
+        bySeat.set(seat, key);
     }
-    return { version, keys: bySeat };
+    return { version: body.version, keys: bySeat };
 }
 
 /** The table's person keys from the signed-in route; anything but a 200 with the checked shape counts as no keys. */
