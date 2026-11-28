@@ -32,6 +32,8 @@ export interface ChairScene {
     readonly seat: number;
     readonly place: ChairPlace;
     readonly sitter: Sitter;
+    /** The word a look draws for who sits there: the sitter's name, the viewer's own word or the free chair's. */
+    readonly who: string;
     /** The viewer's own chair. */
     readonly mine: boolean;
     /** None between hands. */

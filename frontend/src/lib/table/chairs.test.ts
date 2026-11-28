@@ -106,6 +106,7 @@ describe("chairScenes", () => {
                 seat: FOREHAND,
                 place: "left",
                 sitter: { kind: "person", name: "Anna", away: false },
+                who: "Anna",
                 mine: false,
                 hand: null,
                 onTurn: false,
@@ -115,6 +116,7 @@ describe("chairScenes", () => {
                 seat: MIDDLEHAND,
                 place: "right",
                 sitter: { kind: "agent", name: "Karl", away: false },
+                who: "Karl",
                 mine: false,
                 hand: null,
                 onTurn: false,
@@ -124,6 +126,7 @@ describe("chairScenes", () => {
                 seat: REARHAND,
                 place: "near",
                 sitter: { kind: "free" },
+                who: "Frei",
                 mine: false,
                 hand: null,
                 onTurn: false,
@@ -160,7 +163,7 @@ describe("chairScenes", () => {
 
         const [away, , own] = chairScenes(seats);
 
-        expect(own).toMatchObject({ mine: true, name: "Du, Vorhand, 10 Karten" });
+        expect(own).toMatchObject({ who: "Du", mine: true, name: "Du, Vorhand, 10 Karten" });
         expect(away).toMatchObject({
             sitter: { kind: "person", name: "player 2", away: true },
             name: "player 2, nicht da, Mittelhand, 10 Karten",

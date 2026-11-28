@@ -39,15 +39,7 @@
     </span>
     <span class="plate">
         <span class="who">
-            <b class="name">
-                {#if sitter.kind === "free"}
-                    {words["table.seatFree"]}
-                {:else if chair.mine}
-                    {words["table.sideYou"]}
-                {:else}
-                    {sitter.name}
-                {/if}
-            </b>
+            <b class="name">{chair.who}</b>
             {#if sitter.kind === "agent"}
                 <span class="tag ki" aria-hidden="true">{words["table.chairAgent"]}</span>
             {/if}

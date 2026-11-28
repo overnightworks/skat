@@ -33,11 +33,16 @@ function handOf(chair: Chair, table: Table): ChairHand | null {
     };
 }
 
+function whoOf(sitter: Sitter, mine: boolean): string {
+    if (sitter.kind === "free") return words["table.seatFree"];
+    return mine ? words["table.sideYou"] : sitter.name;
+}
+
 // The name leads with who sits there, then tells each further fact that holds, in the order a look draws them.
-function nameOf(sitter: Sitter, mine: boolean, hand: ChairHand | null, onTurn: boolean): string {
+function nameOf(sitter: Sitter, who: string, hand: ChairHand | null, onTurn: boolean): string {
     if (sitter.kind === "free") return words["table.chairFree"];
     const facts = [
-        mine ? words["table.sideYou"] : sitter.name,
+        who,
         sitter.kind === "agent" ? words["table.chairAgent"] : null,
         sitter.away ? words["table.seatAway"] : null,
         hand === null ? null : positionWord(hand.position),
@@ -53,16 +58,18 @@ export function chairScenes(table: Table): ChairScene[] {
     const turn = seatOnTurn(table);
     return drawingOrder(table.chairs).map((chair, index) => {
         const sitter = sitterOf(chair);
+        const who = whoOf(sitter, chair.is_mine);
         const hand = handOf(chair, table);
         const onTurn = chair.seat === turn;
         return {
             seat: chair.seat,
             place: PLACES[index] as ChairPlace,
             sitter,
+            who,
             mine: chair.is_mine,
             hand,
             onTurn,
-            name: nameOf(sitter, chair.is_mine, hand, onTurn),
+            name: nameOf(sitter, who, hand, onTurn),
         };
     });
 }

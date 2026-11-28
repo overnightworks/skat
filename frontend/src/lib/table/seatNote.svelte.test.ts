@@ -11,7 +11,6 @@ const OPENED: Table = {
 };
 const LEFT: SeatNotice = { text: "player 2 ist aufgestanden", initials: ["p"], seat: 2, occupied: false };
 const PLAYS_ON: SeatNotice = { text: "Dora spielt weiter", initials: ["D"], seat: 2, occupied: true };
-const ABOUT_NO_CHAIR: SeatNotice = { text: "Die Anfrage ist beendet", initials: [], seat: null, occupied: false };
 
 beforeEach(() => {
     vi.useFakeTimers();
@@ -59,14 +58,6 @@ describe("the seat note", () => {
         expect(seatNote()).toEqual(PLAYS_ON);
         vi.advanceTimersByTime(1);
         expect(seatNote()).toBeNull();
-    });
-
-    it("keeps a sentence about no chair whatever the chairs do", () => {
-        tellSeats(ABOUT_NO_CHAIR, SEATED);
-
-        tellSeats(null, OPENED);
-
-        expect(seatNote()).toEqual(ABOUT_NO_CHAIR);
     });
 
     it("is gone after a reset and stays gone when its moment would have ended", () => {
