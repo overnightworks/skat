@@ -1,0 +1,8 @@
+claim_id = "5eb9f6c074bd40a3863f0f54bd6d6dc7"
+agent = "Claude db2d61d3-8b51-4183-99c4-2e9334064f60"
+role = "builder"
+base = "9ecbec5044e6b004a0a7aa0653cd34bf4519d54f"
+branch = "claude/issue-929-the-tests-off-the-table-prove-behaviour"
+scope = ["tests/e2e/test_failure_record.py", "tests/e2e/test_lobby.py", "tests/e2e/test_lobby_during_outage.py", "tests/e2e/test_my_tables.py", "tests/e2e/test_render_languages.py", "tests/e2e/test_rule_set_choice.py", "tests/e2e/test_server_port.py", "tests/e2e/test_shared_link.py", "tests/e2e/test_sign_in.py", "tests/e2e/test_sign_in_pages.py", "tests/e2e/test_start_page.py", "tests/e2e/test_tables.py"]
+opened_commit = "0a5797b2c9540a73da5d0a1bd8327810cd50f720"
+whole_reason = "One family is one lane, so parallel lanes never share a module, and the coverage rule is judged once over the family's modules together."
