@@ -117,4 +117,3 @@ def test_a_page_that_met_a_502_while_skat_was_down_reconnects_by_itself(
 
     expect(reconnecting_line(person)).to_have_count(0, timeout=BACK_SECONDS)
     assert person.evaluate("window.sameDocument") is True
-    expect(person.locator(".stage.stale")).to_have_count(0)

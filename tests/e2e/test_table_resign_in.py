@@ -11,13 +11,14 @@ from webauth.ports import AccountKind
 from skat.web.constants import AUTH_START_PATH, LOGIN_PATH, SIGNED_IN_AGAIN_QUERY_NAME
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import record_page_errors, sign_in_at_issuer
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.server import skat_on_new_database
 from tests.e2e.support.sessions import end_sessions_of
-from tests.e2e.support.tables import open_new_table, table_id_of
+from tests.e2e.support.tables import open_new_table, plate_of, table_id_of, watchers_of
 from tests.support.signed_in import seed_member
 
 if TYPE_CHECKING:
@@ -56,7 +57,7 @@ def watching_signed_in_at_the_issuer(
     ben.goto(f"{server.base_url}{path}")
     ben.get_by_role("link", name=kit_text("signIn.logIn"), exact=True).click()
     expect(ben).to_have_url(f"{server.base_url}{path}")
-    expect(ben.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(ben)
     sign_in_starts.clear()
     return ben, sign_in_starts
 
@@ -77,9 +78,9 @@ def test_a_watching_member_whose_session_ended_is_back_at_the_table_through_the_
 
     # The marker is gone once the page has been to the sign-in and loaded again.
     ben.wait_for_function("() => window.sameDocument !== true")
-    expect(ben.locator(".chair[data-seat='1'] .plate")).to_have_text("anna")
+    expect(plate_of(ben, 1)).to_have_text("anna")
     expect(ben).to_have_url(f"{e2e_server.base_url}{path}")
-    expect(ben.locator(".watchers span")).to_have_text("2")
+    expect(watchers_of(ben)).to_have_text("2")
     assert [urlsplit(url).path for url in sign_in_starts] == [AUTH_START_PATH]
     assert parse_qs(urlsplit(sign_in_starts[0]).query) == {"next": [f"{path}?{SIGNED_IN_AGAIN_QUERY_NAME}=1"]}
 
@@ -95,11 +96,11 @@ def test_a_second_refusal_soon_after_the_sign_in_shows_the_sign_in_page_instead_
     cleo = record_page_errors(open_person(username="cleo", **DESKTOP), page_errors)
     cleo.goto(f"{e2e_server.base_url}{path}")
     ben.wait_for_function("() => window.sameDocument !== true")
-    expect(ben.locator(".chair[data-seat='1'] .plate")).to_have_text("anna")
+    expect(plate_of(ben, 1)).to_have_text("anna")
     assert len(sign_in_starts) == 1
     ben.evaluate("window.sameDocument = true")
     # The count is the stream's own view, so ben's second stream has delivered before his session ends.
-    expect(ben.locator(".watchers span")).to_have_text("2")
+    expect(watchers_of(ben)).to_have_text("2")
 
     end_sessions_of(e2e_server, "ben")
     cleo.close()

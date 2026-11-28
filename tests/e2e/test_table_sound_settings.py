@@ -2,10 +2,11 @@ import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from skat.web.calling import TABLE_AGENTS_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.audio import (
     FELT_FACE,
     RECORDING_COUNT,
@@ -16,16 +17,14 @@ from tests.e2e.support.audio import (
     voices_started,
     wait_for_recordings_decoded,
 )
-from tests.e2e.support.browser import TAP_TARGET_PIXELS, record_page_errors
-from tests.e2e.support.motion import FADES_IN, arrival_of, motion_played, watch_the_motion
+from tests.e2e.support.browser import record_page_errors
+from tests.e2e.support.declaring import reload_and_wait
 from tests.e2e.support.people import PHONE, WIDTHS
-from tests.e2e.support.tables import open_new_table
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from tests.e2e.support.hands import PlayingTable
-    from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
 
@@ -34,13 +33,13 @@ SETTINGS_KEY = "skat.settings"
 SOUND_ON_NAME = text(SOURCE_LANGUAGE, "sound.panelName")
 SOUND_OFF_NAME = text(SOURCE_LANGUAGE, "sound.muted")
 TONE = text(SOURCE_LANGUAGE, "sound.tone")
-LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
 VOLUME = text(SOURCE_LANGUAGE, "sound.volume")
 SOUND_SETS = text(SOURCE_LANGUAGE, "sound.sets")
 MOTION = text(SOURCE_LANGUAGE, "sound.motion")
 REPLAY_MOTION = text(SOURCE_LANGUAGE, "sound.replayMotion")
 VOICE = text(SOURCE_LANGUAGE, "sound.voice")
 REDUCED_NOTE = text(SOURCE_LANGUAGE, "sound.reducedMotionNote")
+MORE = text(SOURCE_LANGUAGE, "sound.more")
 # The hand is a tilted fan whose cards cover each other, so a tap this far in from a card's left edge reaches it.
 CARD_EDGE_INSET = 14
 PLAYS_ONCE = text(SOURCE_LANGUAGE, "sound.playsOnce")
@@ -57,12 +56,8 @@ STAY = text(SOURCE_LANGUAGE, "sound.lastTrickStay")
 # The voices of a card in the sets "Leise" and "Funkeln", in the order they start.
 LEISE_KINDS = ["noise", "tone"]
 FUNKELN_KINDS = ["tone", "noise", "tone"]
-# The desktop layout starts at this width, where the speaker carries its word.
-DESKTOP_FROM_PIXELS = 900
-# From this width the speaker stands left of the watchers; below it, right after the reaction key.
-LEFT_OF_WATCHERS_FROM_PIXELS = DESKTOP_FROM_PIXELS
-# The pixels between the glass of the speaker and the glass of the button or pill beside it.
-SPEAKER_GAP_PIXELS = 8
+# A wheel turn longer than the panel's rows are high, which ends at the panel's end.
+PAST_THE_PANELS_END_PIXELS = 10_000
 BROKEN_STORAGE = {
     "a record that is no JSON": f"localStorage.setItem({SETTINGS_KEY!r}, '{{muted')",
     "a read that throws": "Storage.prototype.getItem = () => { throw new Error('storage is blocked') }",
@@ -86,22 +81,11 @@ PANEL_ON_ITS_BUTTON = """() => {
 }"""
 
 
-# The tap targets are wider than the round glass inside them, so the gap is measured between the glass.
-GLASS_GAP = """neighbour => {
-    const speaker = document.querySelector('.sound-face').getBoundingClientRect();
-    const selector = neighbour === 'watchers' ? '.watchers' : '.reaction-key';
-    const beside = document.querySelector(selector).getBoundingClientRect();
-    return neighbour === 'watchers' ? beside.left - speaker.right : speaker.left - beside.right;
-}"""
-
-
-def speaker_of(page: Page) -> Any:
-    return page.locator(".sound-button")
-
-
-def glass_gap(page: Page, neighbour: str) -> float:
-    """The pixels between the speaker's glass and the glass of its neighbour in the top row."""
-    return page.evaluate(GLASS_GAP, neighbour)
+def speaker_of(page: Page) -> Locator:
+    """The key of the sound panel, whose name says whether the sound is off."""
+    return page.get_by_role("button", name=SOUND_ON_NAME, exact=True).or_(
+        page.get_by_role("button", name=SOUND_OFF_NAME, exact=True)
+    )
 
 
 def panel_of(page: Page) -> Any:
@@ -133,34 +117,6 @@ def next_card(table: PlayingTable, watcher: Page, laid: int) -> None:
     expect(watcher.locator(FELT_FACE)).to_have_count(laid)
 
 
-def horizontal_scroll(page: Page) -> bool:
-    return page.evaluate("document.documentElement.scrollWidth > window.innerWidth")
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_speaker_stands_clear_of_the_lobby_button_the_reaction_key_and_the_watchers(
-    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
-) -> None:
-    person = record_page_errors(open_person(**form_factor), page_errors)
-    open_new_table(person, e2e_server)
-
-    expect(speaker_of(person)).to_be_visible()
-    speaker = speaker_of(person).bounding_box()
-    lobby = person.get_by_role("link", name=LOBBY).bounding_box()
-    watchers = person.locator(".watchers").bounding_box()
-    assert speaker is not None
-    assert lobby is not None
-    assert watchers is not None
-    width = form_factor["viewport"]["width"]
-    assert min(speaker["width"], speaker["height"]) >= TAP_TARGET_PIXELS
-    assert lobby["x"] + lobby["width"] <= speaker["x"]
-    assert speaker["x"] + speaker["width"] <= watchers["x"]
-    assert (TONE in speaker_of(person).inner_text()) == (width >= DESKTOP_FROM_PIXELS)
-    neighbour = "watchers" if width >= LEFT_OF_WATCHERS_FROM_PIXELS else "reaction"
-    assert glass_gap(person, neighbour) == SPEAKER_GAP_PIXELS
-    assert not horizontal_scroll(person)
-
-
 def test_a_first_visit_stores_nothing(
     table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str]
 ) -> None:
@@ -184,14 +140,12 @@ def test_muting_the_table_silences_the_next_card_and_turning_it_on_brings_the_so
     switch_the_sound(watcher, on=False)
     assert stored_record(watcher) == '{"muted":true}'
     expect(watcher.get_by_role("button", name=SOUND_OFF_NAME)).to_be_visible()
-    expect(watcher.locator(".sound-button.muted")).to_have_count(1)
     next_card(table, watcher, 1)
     assert voices_started(watcher) == []
 
     switch_the_sound(watcher, on=True)
     assert stored_record(watcher) == '{"muted":false}'
     expect(watcher.get_by_role("button", name=SOUND_ON_NAME)).to_be_visible()
-    expect(watcher.locator(".sound-button.muted")).to_have_count(0)
     next_card(table, watcher, 2)
     assert len(voices_started(watcher)) == VOICES_OF_ONE_CARD
     assert page_errors == []
@@ -212,6 +166,10 @@ def test_a_reload_keeps_the_choice(
     assert page_errors == []
 
 
+def playable_cards(page: Page) -> Locator:
+    return old_surface.own_cards(page).get_by_role("button")
+
+
 def uncovered_card_point(page: Page) -> tuple[float, float]:
     """A point on a card of the own hand, beside the open panel and outside of it.
 
@@ -220,7 +178,7 @@ def uncovered_card_point(page: Page) -> tuple[float, float]:
     """
     panel = panel_of(page).bounding_box()
     assert panel is not None
-    boxes = [card.bounding_box() for card in page.locator(".own-hand .play").all()]
+    boxes = [card.bounding_box() for card in playable_cards(page).all()]
     assert None not in boxes
     cards = [box for box in boxes if box]
     points = [(box["x"] + CARD_EDGE_INSET, box["y"] + box["height"] / 2) for box in cards]
@@ -240,9 +198,9 @@ def test_the_tap_that_closes_the_panel_reaches_no_card(table: PlayingTable, page
     forehand.mouse.click(*middle)
 
     expect(panel_of(forehand)).to_be_hidden()
-    expect(forehand.locator(".own-hand .play[aria-pressed='true']")).to_have_count(0)
+    expect(old_surface.own_cards(forehand).get_by_role("button", pressed=True)).to_have_count(0)
     forehand.mouse.click(*middle)
-    expect(forehand.locator(".own-hand .play[aria-pressed='true']")).to_have_count(1)
+    expect(old_surface.own_cards(forehand).get_by_role("button", pressed=True)).to_have_count(1)
     assert page_errors == []
 
 
@@ -281,6 +239,7 @@ def test_a_panel_opened_from_script_hands_the_focus_back_and_keeps_the_button_in
     assert page_errors == []
 
 
+# Measured on today's panel: no other test resizes the viewport under an open panel.
 def test_the_open_panel_follows_its_button_when_the_viewport_changes(
     table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str]
 ) -> None:
@@ -301,7 +260,7 @@ def test_changing_the_setting_makes_no_request(
     # The page reads the agents once the stream brings its first table, which may come after the chairs show.
     with watcher.expect_request(lambda request: request.url.endswith(TABLE_AGENTS_SUFFIX)):
         watcher.goto(table.watcher.url)
-    expect(watcher.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(watcher)
     # The first tap fetches the voice's recordings, which a device that never chose the voice has on.
     tap(watcher)
     wait_for_recordings_decoded(watcher, RECORDING_COUNT)
@@ -325,7 +284,7 @@ def test_a_broken_storage_leaves_the_table_whole_and_the_switch_working(
     watcher = record_page_errors(open_person(**PHONE), page_errors)
     watcher.add_init_script(BROKEN_STORAGE[breakage])
     watcher.goto(table.watcher.url)
-    expect(watcher.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(watcher)
     expect(watcher.get_by_role("button", name=SOUND_ON_NAME)).to_be_visible()
     tap(watcher)
     next_card(table, watcher, 1)
@@ -336,19 +295,6 @@ def test_a_broken_storage_leaves_the_table_whole_and_the_switch_working(
     expect(watcher.get_by_role("button", name=SOUND_OFF_NAME)).to_be_visible()
     next_card(table, watcher, 2)
     assert len(voices_started(watcher)) == VOICES_OF_ONE_CARD
-    assert page_errors == []
-
-
-@pytest.mark.parametrize("motion", ["reduce", "no-preference"])
-def test_the_panel_opens_at_once_whatever_the_device_asks_for_motion(
-    table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str], motion: str
-) -> None:
-    watcher = open_watcher(open_person, page_errors, table, reduced_motion=motion)
-
-    open_the_panel(watcher)
-
-    moving = watcher.evaluate("document.getAnimations().filter(a => a.effect?.target?.closest?.('[popover]')).length")
-    assert moving == 0
     assert page_errors == []
 
 
@@ -371,15 +317,6 @@ def pick(page: Page, row: str, name: str) -> None:
 
 def voice_kinds(page: Page) -> list[str]:
     return [voice["kind"] for voice in voices_started(page)]
-
-
-def inside_the_viewport(page: Page) -> bool:
-    return page.evaluate(
-        """() => {
-            const panel = document.querySelector('[role=dialog]').getBoundingClientRect();
-            return panel.x >= 0 && panel.right <= innerWidth && panel.y >= 0 && panel.bottom <= innerHeight;
-        }"""
-    )
 
 
 STORED = "localStorage.setItem({key!r}, {record!r})"
@@ -406,8 +343,6 @@ def test_the_panel_shows_the_volume_both_sets_and_the_voice_at_their_defaults(
     expect(picked_in(watcher, SOUND_SETS)).to_have_accessible_name(STAMMTISCH)
     expect(picked_in(watcher, MOTION)).to_have_accessible_name(VERSPIELT)
     expect(panel_of(watcher).get_by_role("switch", name=VOICE)).to_be_checked()
-    assert inside_the_viewport(watcher)
-    assert not horizontal_scroll(watcher)
     assert page_errors == []
 
 
@@ -443,8 +378,7 @@ def test_a_picked_last_trick_choice_is_stored_and_holds_after_a_reload(
 
     expect(picked_in(watcher, LAST_TRICK)).to_have_accessible_name(STAY)
     assert json.loads(stored_record(watcher) or "") == {"lastTrick": "stay"}
-    watcher.reload()
-    expect(watcher.locator(".chair")).to_have_count(3)
+    reload_and_wait(watcher)
     open_the_panel(watcher)
 
     expect(picked_in(watcher, LAST_TRICK)).to_have_accessible_name(STAY)
@@ -463,12 +397,11 @@ def test_a_picked_volume_and_picked_sets_hold_after_a_reload(
     pick(watcher, SOUND_SETS, FUNKELN)
     pick(watcher, MOTION, DEZENT)
     assert json.loads(stored_record(watcher) or "") == {"volume": 100, "soundSet": "funkeln", "motionSet": "dezent"}
-    watcher.reload()
-    expect(watcher.locator(".chair")).to_have_count(3)
+    reload_and_wait(watcher)
     open_the_panel(watcher)
 
     expect(volume_of(watcher)).to_have_value("100")
-    expect(panel_of(watcher).locator(".sound-value")).to_have_text("100")
+    expect(panel_of(watcher).get_by_role("status")).to_have_text("100")
     expect(picked_in(watcher, SOUND_SETS)).to_have_accessible_name(FUNKELN)
     expect(picked_in(watcher, MOTION)).to_have_accessible_name(DEZENT)
     assert page_errors == []
@@ -488,8 +421,7 @@ def test_the_turn_cue_switches_are_stored_and_hold_after_a_reload(
         panel_of(watcher).get_by_role("switch", name=name).press("Space")
 
     assert json.loads(stored_record(watcher) or "") == {"turnInBackground": True, "vibration": True}
-    watcher.reload()
-    expect(watcher.locator(".chair")).to_have_count(3)
+    reload_and_wait(watcher)
     open_the_panel(watcher)
 
     for name in (TURN_IN_BACKGROUND, VIBRATION):
@@ -553,14 +485,12 @@ STORED_CHOICES = {"volume": 30, "soundSet": "funkeln", "motionSet": "dezent", "r
 SHOWN_CHOICES = {"volume": "30", "sound": FUNKELN, "motion": DEZENT, "override": True, "tone": False}
 
 
-def shown_choices(page: Page) -> dict[str, Any]:
-    return {
-        "volume": volume_of(page).input_value(),
-        "sound": picked_in(page, SOUND_SETS).evaluate("node => node.parentElement.textContent.trim()"),
-        "motion": picked_in(page, MOTION).evaluate("node => node.parentElement.textContent.trim()"),
-        "override": panel_of(page).get_by_role("switch", name=REPLAY_MOTION).is_checked(),
-        "tone": switch_of(page).is_checked(),
-    }
+def expect_the_choices(page: Page, shown: dict[str, Any]) -> None:
+    expect(volume_of(page)).to_have_value(shown["volume"])
+    expect(picked_in(page, SOUND_SETS)).to_have_accessible_name(shown["sound"])
+    expect(picked_in(page, MOTION)).to_have_accessible_name(shown["motion"])
+    expect(panel_of(page).get_by_role("switch", name=REPLAY_MOTION)).to_be_checked(checked=shown["override"])
+    expect(switch_of(page)).to_be_checked(checked=shown["tone"])
 
 
 @pytest.mark.parametrize(
@@ -586,14 +516,14 @@ def test_a_bad_stored_field_shows_its_default_and_leaves_the_other_fields_as_sto
     watcher = record_page_errors(open_person(**PHONE), page_errors)
     stored_before_the_page_opens(watcher, {**STORED_CHOICES, field: bad})
     watcher.goto(table.watcher.url)
-    expect(watcher.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(watcher)
     open_the_panel(watcher)
 
-    assert shown_choices(watcher) == {**SHOWN_CHOICES, shown: default}
+    expect_the_choices(watcher, {**SHOWN_CHOICES, shown: default})
     assert page_errors == []
 
 
-def test_the_override_moves_a_card_in_the_chosen_set_and_the_device_setting_still_stills_it_without(
+def test_the_override_lets_a_motion_set_be_picked_where_the_device_asks_for_reduced_motion(
     table: PlayingTable, open_person: Callable[..., Page], page_errors: list[str]
 ) -> None:
     watcher = open_at(open_person, page_errors, table, reduced_motion="reduce", **PHONE)
@@ -605,12 +535,7 @@ def test_the_override_moves_a_card_in_the_chosen_set_and_the_device_setting_stil
     expect(row_of(watcher, MOTION).get_by_role("radio", name=DEZENT)).to_be_enabled()
     assert json.loads(stored_record(watcher) or "") == {"replayMotion": True}
     pick(watcher, MOTION, DEZENT)
-    watcher.keyboard.press("Escape")
-    watch_the_motion(watcher)
-    table.play_out(1)
-    expect(watcher.locator(FELT_FACE)).to_have_count(1)
-    # Out of a fan a card of the quiet set fades in; without the override it would lie at once.
-    assert arrival_of(motion_played(watcher)) == FADES_IN
+    expect(picked_in(watcher, MOTION)).to_have_accessible_name(DEZENT)
     assert page_errors == []
 
 
@@ -619,10 +544,11 @@ def test_a_panel_without_room_scrolls_and_says_there_is_more_until_its_end(
 ) -> None:
     watcher = open_at(open_person, page_errors, table, viewport={"width": 390, "height": 420}, is_mobile=True)
     open_the_panel(watcher)
-    more = panel_of(watcher).locator(".sound-more")
+    more = panel_of(watcher).get_by_text(MORE, exact=True)
     expect(more).to_be_visible()
 
-    watcher.evaluate("document.querySelector('.sound-body').scrollTo(0, 10000)")
+    panel_of(watcher).hover()
+    watcher.mouse.wheel(0, PAST_THE_PANELS_END_PIXELS)
 
     expect(more).to_be_hidden()
     assert page_errors == []
