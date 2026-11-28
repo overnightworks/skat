@@ -19,7 +19,7 @@
         type GiveUpAnswer,
     } from "#lib/giveUp.ts";
     import { firstCardWait, keyWord, type Stamp } from "#lib/kontra.ts";
-    import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
+    import { handWaits, lockedChairs, seatNotice } from "#lib/openChair.ts";
     import {
         bidLineOfGameDeclaredInTheStage,
         gameInPlay,
@@ -88,7 +88,7 @@
     import WeiterKey from "#lib/ui/WeiterKey.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { bockLine } from "#lib/tableRules.ts";
-    import { motionInForce } from "#lib/settings.svelte.ts";
+    import { currentSettings, motionInForce } from "#lib/settings.svelte.ts";
     import {
         chairMoving,
         isDealing,
@@ -100,6 +100,8 @@
     } from "#lib/stage.svelte.ts";
     import { lookOf } from "#lib/looks/registry.ts";
     import { tableIntents } from "#lib/table/intents.ts";
+    import { resetSeatNote, seatNote as standingSeatNote, tellSeats } from "#lib/table/seatNote.svelte.ts";
+    import Surface from "#lib/table/Surface.svelte";
     import { beatOf, receiveReactions, resetReactions, tapCounts } from "#lib/tableReactions.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
@@ -135,7 +137,6 @@
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
-    const SEAT_NOTICE_MILLISECONDS = 4000;
 
     const { data }: PageProps = $props();
     // The route has an [id] segment, so the parameter is always present.
@@ -175,28 +176,18 @@
     let streamedVersion = $state<number | null>(null);
     // How many people watch without a chair, which the agents list follows while it is open.
     let streamedWatchers = $state(0);
-    // The sentence that names who has just left or taken a chair of the table.
-    let seatNote = $state<SeatNotice | null>(null);
-    let seatNoteTimer: ReturnType<typeof setTimeout> | undefined;
+    const seatNote = $derived(standingSeatNote());
     // Which agents sit where, so a wake that folds one leaving and another sitting still changes it.
     let seatedAgents = $state("");
     // The free chair whose tap asks the question before a sit, while a hand runs.
     let asking = $state<number | null>(null);
-
-    function showSeatNote(note: SeatNotice): void {
-        seatNote = note;
-        clearTimeout(seatNoteTimer);
-        seatNoteTimer = setTimeout(() => (seatNote = null), SEAT_NOTICE_MILLISECONDS);
-    }
 
     const presentTable: Presenter = (previous, table, cues, closing, saidWithinSeconds) => {
         streamedVersion = table.version;
         streamedWatchers = table.watchers;
         seatedAgents = seatedAgentsKey(previous, table);
         const nudged = previous === undefined ? null : nudgedNote(previous, table);
-        const note = requestEndedNotice(cues, table.chairs) ?? seatNotice(cues, table) ?? nudged;
-        if (note !== null) showSeatNote(note);
-        seatNote = noticeStanding(seatNote, table);
+        tellSeats(requestEndedNotice(cues, table.chairs) ?? seatNotice(cues, table) ?? nudged, table);
         if (!handWaits(table.hand)) asking = null;
         if (previous === undefined || cues.some((cue) => cue.kind === "dealt")) playedThisHand = [];
         stamp = stampBetween(previous, table) ?? stamp;
@@ -243,7 +234,7 @@
         countedOrdinal = null;
         stillTrick = null;
         streamedVersion = null;
-        seatNote = null;
+        resetSeatNote();
         asking = null;
         playedThisHand = [];
         stamp = null;
@@ -292,7 +283,7 @@
         return () => {
             current = false;
             clearTimeout(wonTimer);
-            clearTimeout(seatNoteTimer);
+            resetSeatNote();
             stopWatching();
             tables.end();
             resetStage();
@@ -396,392 +387,405 @@
     {/if}
 {/snippet}
 
-<div
-    class="room"
-    class:framed={callMode}
-    class:dealing={isDealing()}
-    data-theme="dark"
-    data-motion={motionInForce()}
-    data-style={tableStyle()}
->
-    <div class="room-paint" aria-hidden="true" data-call-backdrop></div>
-    {#if callMode}
-        <CallSeats tableId={id} {outcome} newest={newestTable} ongreeted={() => (greeted = true)} />
-    {/if}
-    <StyleScene style={outcome?.kind === "table" ? outcome.table.style : null} />
-    <CardSprite />
-    <TableBar
-        {callMode}
-        {greeted}
-        {attention}
-        {connected}
-        bind:rulesOpen
-        bind:seriesOpen
-        live={outcome?.kind === "table" && outcome.table.ended === null
-            ? {
-                  id,
-                  version: outcome.table.version,
-                  watchers: outcome.table.watchers,
-                  options: outcome.table.options as Options,
-                  bock: outcome.table.bock,
-                  count: seriesCountText(outcome.table),
-              }
-            : null}
+{#if outcome?.kind === "table" && outcome.table.ended === null && currentSettings().newLook}
+    <Surface table={outcome.table} />
+{:else}
+    <div
+        class="room"
+        class:framed={callMode}
+        class:dealing={isDealing()}
+        data-theme="dark"
+        data-motion={motionInForce()}
+        data-style={tableStyle()}
     >
-        {#snippet menu()}
-            {@render tableMenu("bar")}
-        {/snippet}
-    </TableBar>
-    <main class="stage" class:stale={!connected} class:after-drop={greeted}>
-        {#if outcome?.kind === "table" && outcome.table.ended !== null}
-            <TableClosed ended={outcome.table.ended} />
-        {:else if outcome?.kind === "table"}
-            {@const ownCards = outcome.table.hand?.own_cards ?? []}
-            {@const declaredGame = outcome.table.hand?.declaring?.declaration?.game ?? null}
-            <!-- A chair waits only on a seated viewer, and a seated viewer's chair always carries their name. -->
-            {@const ownChair = outcome.table.chairs.find((chair) => chair.is_mine)}
-            {@const ownInitial = String(ownChair?.occupant_name).slice(0, 1)}
-            {@const bidLine = bidLineWhileDeclaring(outcome.table)}
-            {@const inPlay = gameInPlay(outcome.table)}
-            {@const ramschTable = outcome.table}
-            {@const ramsch = ramschPlaque(outcome.table)}
-            {@const trick = inPlay?.playing ?? ramschTrick(outcome.table)}
-            {@const waits = handWaits(outcome.table.hand)}
-            {@const locked = lockedChairs(outcome.table)}
-            {@const wait = firstCardWait(outcome.table)}
-            {@const turnSeat = waits || wait || trickIsMoving() ? undefined : inPlay?.playing.turn_seat}
-            {@const seriesEnd = seriesEndView(outcome.table)}
-            {@const declared = declaredResult(outcome.table)}
-            {@const view = declared === null || seriesEnd.onStage ? null : resultView(outcome.table)}
-            {@const ramschView = seriesEnd.onStage ? null : ramschResultView(outcome.table)}
-            {@const standing = standingsView(outcome.table)}
-            {@const onResult = resultOnStage(outcome.table)}
-            {@const winners =
-                standing?.winnerSeats ??
-                new Set((view ?? ramschView)?.rows.filter((row) => row.won).map((row) => row.seat))}
-            {@const current = outcome.table}
-            {@const bar = weiterBar(outcome.table)}
-            {@const passedIn = standing === null ? passedInScene(outcome.table.passed_in, outcome.table.chairs) : null}
-            {@const deciding = decidingPlaque(outcome.table, justWon)}
-            {@const giveUp = giveUpView(outcome.table)}
-            {@const abort = abortView(outcome.table)}
-            {#if seriesEnd.ask !== null}
-                {@const table = outcome.table}
-                <AskPlaque
-                    view={seriesEnd.ask}
-                    disabled={sentFromVersion === table.version}
-                    onanswer={(answer: SeriesEndAnswer) => {
-                        void send(table, answerSeriesEnd(id, crypto.randomUUID(), answer));
-                    }}
-                />
-            {:else if onResult}
-                <!-- The card carries the game and the points, so the plaque stays out while a result stands. -->
-            {:else if abort.ask !== null}
-                {@const table = outcome.table}
-                <AskPlaque
-                    view={abort.ask}
-                    disabled={sentFromVersion === table.version}
-                    onanswer={(answer: AbortAnswer) => {
-                        void send(table, answerAbort(id, crypto.randomUUID(), answer));
-                    }}
-                />
-            {:else if deciding !== null}
-                <DecidingPlaque {deciding} />
-            {:else if bidLine !== null}
-                <div class="plaque">
-                    <span>{bidLine}</span>
-                </div>
-            {:else if ramsch !== null}
-                <RamschPlaque plaque={ramsch} />
-            {:else if inPlay !== null}
-                {@const label = gameLabel(inPlay.declaration)}
-                {@const running = inPlay.playing.running_points}
-                {@const stageBid = bidLineOfGameDeclaredInTheStage(outcome.table)}
-                {#if giveUp !== null}
+        <div class="room-paint" aria-hidden="true" data-call-backdrop></div>
+        {#if callMode}
+            <CallSeats tableId={id} {outcome} newest={newestTable} ongreeted={() => (greeted = true)} />
+        {/if}
+        <StyleScene style={outcome?.kind === "table" ? outcome.table.style : null} />
+        <CardSprite />
+        <TableBar
+            {callMode}
+            {greeted}
+            {attention}
+            {connected}
+            bind:rulesOpen
+            bind:seriesOpen
+            live={outcome?.kind === "table" && outcome.table.ended === null
+                ? {
+                      id,
+                      version: outcome.table.version,
+                      watchers: outcome.table.watchers,
+                      options: outcome.table.options as Options,
+                      bock: outcome.table.bock,
+                      count: seriesCountText(outcome.table),
+                  }
+                : null}
+        >
+            {#snippet menu()}
+                {@render tableMenu("bar")}
+            {/snippet}
+        </TableBar>
+        <main class="stage" class:stale={!connected} class:after-drop={greeted}>
+            {#if outcome?.kind === "table" && outcome.table.ended !== null}
+                <TableClosed ended={outcome.table.ended} />
+            {:else if outcome?.kind === "table"}
+                {@const ownCards = outcome.table.hand?.own_cards ?? []}
+                {@const declaredGame = outcome.table.hand?.declaring?.declaration?.game ?? null}
+                <!-- A chair waits only on a seated viewer, and a seated viewer's chair always carries their name. -->
+                {@const ownChair = outcome.table.chairs.find((chair) => chair.is_mine)}
+                {@const ownInitial = String(ownChair?.occupant_name).slice(0, 1)}
+                {@const bidLine = bidLineWhileDeclaring(outcome.table)}
+                {@const inPlay = gameInPlay(outcome.table)}
+                {@const ramschTable = outcome.table}
+                {@const ramsch = ramschPlaque(outcome.table)}
+                {@const trick = inPlay?.playing ?? ramschTrick(outcome.table)}
+                {@const waits = handWaits(outcome.table.hand)}
+                {@const locked = lockedChairs(outcome.table)}
+                {@const wait = firstCardWait(outcome.table)}
+                {@const turnSeat = waits || wait || trickIsMoving() ? undefined : inPlay?.playing.turn_seat}
+                {@const seriesEnd = seriesEndView(outcome.table)}
+                {@const declared = declaredResult(outcome.table)}
+                {@const view = declared === null || seriesEnd.onStage ? null : resultView(outcome.table)}
+                {@const ramschView = seriesEnd.onStage ? null : ramschResultView(outcome.table)}
+                {@const standing = standingsView(outcome.table)}
+                {@const onResult = resultOnStage(outcome.table)}
+                {@const winners =
+                    standing?.winnerSeats ??
+                    new Set((view ?? ramschView)?.rows.filter((row) => row.won).map((row) => row.seat))}
+                {@const current = outcome.table}
+                {@const bar = weiterBar(outcome.table)}
+                {@const passedIn =
+                    standing === null ? passedInScene(outcome.table.passed_in, outcome.table.chairs) : null}
+                {@const deciding = decidingPlaque(outcome.table, justWon)}
+                {@const giveUp = giveUpView(outcome.table)}
+                {@const abort = abortView(outcome.table)}
+                {#if seriesEnd.ask !== null}
                     {@const table = outcome.table}
                     <AskPlaque
-                        view={giveUpAsk(giveUp)}
+                        view={seriesEnd.ask}
                         disabled={sentFromVersion === table.version}
-                        onanswer={(answer: GiveUpAnswer) => {
-                            void send(table, answerGiveUp(id, table.version, crypto.randomUUID(), answer));
+                        onanswer={(answer: SeriesEndAnswer) => {
+                            void send(table, answerSeriesEnd(id, crypto.randomUUID(), answer));
                         }}
-                    >
-                        {#if running !== null}
-                            <PointsBar sides={sideNames(table.chairs, inPlay.declarerSeat)} points={running} />
-                        {/if}
-                    </AskPlaque>
-                {:else}
-                    {@const bock = bockLine(outcome.table.bock)}
-                    <div
-                        class="plaque"
-                        class:wide={label.announcement !== null}
-                        class:counting={running !== null}
-                        class:deciding={waits || wait !== null}
-                    >
-                        <span class="game">
-                            {#if isSuitGame(inPlay.declaration.game)}
-                                <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
-                                    <svg viewBox="0 0 100 100"><use href={`#suit-${inPlay.declaration.game}`} /></svg>
-                                </span>
+                    />
+                {:else if onResult}
+                    <!-- The card carries the game and the points, so the plaque stays out while a result stands. -->
+                {:else if abort.ask !== null}
+                    {@const table = outcome.table}
+                    <AskPlaque
+                        view={abort.ask}
+                        disabled={sentFromVersion === table.version}
+                        onanswer={(answer: AbortAnswer) => {
+                            void send(table, answerAbort(id, crypto.randomUUID(), answer));
+                        }}
+                    />
+                {:else if deciding !== null}
+                    <DecidingPlaque {deciding} />
+                {:else if bidLine !== null}
+                    <div class="plaque">
+                        <span>{bidLine}</span>
+                    </div>
+                {:else if ramsch !== null}
+                    <RamschPlaque plaque={ramsch} />
+                {:else if inPlay !== null}
+                    {@const label = gameLabel(inPlay.declaration)}
+                    {@const running = inPlay.playing.running_points}
+                    {@const stageBid = bidLineOfGameDeclaredInTheStage(outcome.table)}
+                    {#if giveUp !== null}
+                        {@const table = outcome.table}
+                        <AskPlaque
+                            view={giveUpAsk(giveUp)}
+                            disabled={sentFromVersion === table.version}
+                            onanswer={(answer: GiveUpAnswer) => {
+                                void send(table, answerGiveUp(id, table.version, crypto.randomUUID(), answer));
+                            }}
+                        >
+                            {#if running !== null}
+                                <PointsBar sides={sideNames(table.chairs, inPlay.declarerSeat)} points={running} />
                             {/if}
-                            {label.name}
-                            {#if label.announcement !== null}
-                                <span class="announced">{label.announcement}</span>
+                        </AskPlaque>
+                    {:else}
+                        {@const bock = bockLine(outcome.table.bock)}
+                        <div
+                            class="plaque"
+                            class:wide={label.announcement !== null}
+                            class:counting={running !== null}
+                            class:deciding={waits || wait !== null}
+                        >
+                            <span class="game">
+                                {#if isSuitGame(inPlay.declaration.game)}
+                                    <span class={`suit ${inPlay.declaration.game}`} aria-hidden="true">
+                                        <svg viewBox="0 0 100 100">
+                                            <use href={`#suit-${inPlay.declaration.game}`} />
+                                        </svg>
+                                    </span>
+                                {/if}
+                                {label.name}
+                                {#if label.announcement !== null}
+                                    <span class="announced">{label.announcement}</span>
+                                {/if}
+                            </span>
+                            {#if stageBid !== null}
+                                <span class="game pushes">{stageBid}</span>
                             {/if}
-                        </span>
-                        {#if stageBid !== null}
-                            <span class="game pushes">{stageBid}</span>
-                        {/if}
-                        <KontraLines kontra={inPlay.playing.kontra} {wait} />
-                        {#if waits}
-                            <WaitingLine />
-                        {/if}
-                        {#if bock !== null}
-                            <div class="bock-line"><Marked parts={bock} marked={{ factor }} /></div>
-                        {/if}
-                        {#if running !== null}
-                            <PointsBar sides={sideNames(outcome.table.chairs, inPlay.declarerSeat)} points={running} />
-                        {/if}
+                            <KontraLines kontra={inPlay.playing.kontra} {wait} />
+                            {#if waits}
+                                <WaitingLine />
+                            {/if}
+                            {#if bock !== null}
+                                <div class="bock-line"><Marked parts={bock} marked={{ factor }} /></div>
+                            {/if}
+                            {#if running !== null}
+                                <PointsBar
+                                    sides={sideNames(outcome.table.chairs, inPlay.declarerSeat)}
+                                    points={running}
+                                />
+                            {/if}
+                        </div>
+                    {/if}
+                {:else if !outcome.table.hand?.declaring}
+                    <WaitingPlaque table={outcome.table} {passedIn} {waits} said={bidsSaid} />
+                {/if}
+                <div class="felt-paint" aria-hidden="true" data-call-backdrop></div>
+                <div class="felt">
+                    <look.renderer {look} scene={{ taps: tapCounts() }} {intents} />
+                    <ThrownEmotes chairs={outcome.table.chairs} />
+                </div>
+                {#if standing !== null}
+                    <SeriesEnd {id} table={outcome.table} view={standing} {seat} />
+                {:else if view !== null}
+                    <ResultCard
+                        {view}
+                        counts={declared?.ordinal === countedOrdinal}
+                        deciding={stillTrick?.ordinal === declared?.ordinal ? stillTrick : null}
+                    />
+                {:else if ramschView !== null}
+                    <RamschResultCard view={ramschView} />
+                {/if}
+                <TrickStage table={outcome.table} playing={trick} {playedThisHand} {turnSeat} {stamp} />
+                {@const dealerSeat = passedIn?.dealerSeat ?? outcome.table.hand?.dealer_seat}
+                {@const auction = outcome.table.hand?.auction}
+                {@const declaring = outcome.table.hand?.declaring}
+                {#if outcome.table.hand !== null && trick === null}
+                    <div class="skat-spot">
+                        <FaceDownSkat count={outcome.table.hand.skat_count} />
+                    </div>
+                {:else if passedIn !== null}
+                    <div class="skat-spot">
+                        <CardDeck />
                     </div>
                 {/if}
-            {:else if !outcome.table.hand?.declaring}
-                <WaitingPlaque table={outcome.table} {passedIn} {waits} said={bidsSaid} />
-            {/if}
-            <div class="felt-paint" aria-hidden="true" data-call-backdrop></div>
-            <div class="felt">
-                <look.renderer {look} scene={{ taps: tapCounts() }} {intents} />
-                <ThrownEmotes chairs={outcome.table.chairs} />
-            </div>
-            {#if standing !== null}
-                <SeriesEnd {id} table={outcome.table} view={standing} {seat} />
-            {:else if view !== null}
-                <ResultCard
-                    {view}
-                    counts={declared?.ordinal === countedOrdinal}
-                    deciding={stillTrick?.ordinal === declared?.ordinal ? stillTrick : null}
-                />
-            {:else if ramschView !== null}
-                <RamschResultCard view={ramschView} />
-            {/if}
-            <TrickStage table={outcome.table} playing={trick} {playedThisHand} {turnSeat} {stamp} />
-            {@const dealerSeat = passedIn?.dealerSeat ?? outcome.table.hand?.dealer_seat}
-            {@const auction = outcome.table.hand?.auction}
-            {@const declaring = outcome.table.hand?.declaring}
-            {#if outcome.table.hand !== null && trick === null}
-                <div class="skat-spot">
-                    <FaceDownSkat count={outcome.table.hand.skat_count} />
-                </div>
-            {:else if passedIn !== null}
-                <div class="skat-spot">
-                    <CardDeck />
-                </div>
-            {/if}
-            <ul class="chairs">
-                {#each drawingOrder(outcome.table.chairs) as chair (chair.seat)}
-                    {@const marks =
-                        passedIn !== null
-                            ? PASSED_IN_MARKS
-                            : declaring
-                              ? decidingMarks(declaring, chair.seat, justWon, waits)
-                              : chairMarks(auction, chair.seat, ownChair?.seat, waits)}
-                    {@const ramschMark = ramschMarks(ramschTable, chair.seat)}
-                    {@const onTurn = marks.turn || chair.seat === turnSeat || ramschMark.turn || wait?.owes(chair.seat)}
-                    {@const openCards = openCardsOf(current, chair.seat)}
-                    {@const held = giveUp?.cardsHeld === true || wait?.held(chair.seat)}
-                    <li
-                        class="chair"
-                        class:mine={chair.is_mine}
-                        class:away={chair.is_away}
-                        class:out={marks.passed}
-                        class:win={winners.has(chair.seat)}
-                        class:turn={onTurn}
-                        class:nudgeable={chair.nudge !== null}
-                        class:shaken={grumblingAt(chair.seat) !== null}
-                        data-seat={chair.seat}
-                        data-moving={chairMoving(chair.seat)}
-                    >
-                        {#if chair.is_mine}
-                            <span class="bar-pill" aria-hidden="true" data-call-backdrop></span>
-                        {/if}
-                        {#if chair.occupant_name !== null}
-                            <span class="tile" class:agent={chair.occupant_kind === "agent"}>
-                                {#if chair.occupant_kind === "agent"}
-                                    <span class="orb" aria-hidden="true">
-                                        <AgentSparkle />
-                                    </span>
-                                {:else}
-                                    <span class="initial" aria-hidden="true">{chair.occupant_name.slice(0, 1)}</span>
-                                {/if}
-                            </span>
-                            <span class="mark-row">
-                                {#if chair.hand !== null || passedIn !== null || onResult}
-                                    {#if chair.seat === dealerSeat}
-                                        <DealerMark />
-                                    {/if}
-                                    {#if chair.hand !== null}
-                                        <span class="mark pos">{positionWord(chair.hand.position)}</span>
-                                    {/if}
-                                    {#if marks.declarer || chair.seat === (declared?.declarer_seat ?? inPlay?.declarerSeat)}
-                                        <DeclarerMark won={marks.declarer === "won"} />
-                                    {/if}
-                                    <AnswerMarks
-                                        mark={(giveUp?.marks ?? abort.marks).get(chair.seat) ??
-                                            seriesEnd.marks.get(chair.seat) ??
-                                            openCardsMark(current, chair.seat)}
-                                    />
-                                    <AnswerMarks mark={wait?.marks.get(chair.seat)} />
-                                    {#if onTurn}
-                                        <span class="mark turn" aria-hidden="true">
-                                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                                <path d="M8 5l11 7-11 7z" />
-                                            </svg>
+                <ul class="chairs">
+                    {#each drawingOrder(outcome.table.chairs) as chair (chair.seat)}
+                        {@const marks =
+                            passedIn !== null
+                                ? PASSED_IN_MARKS
+                                : declaring
+                                  ? decidingMarks(declaring, chair.seat, justWon, waits)
+                                  : chairMarks(auction, chair.seat, ownChair?.seat, waits)}
+                        {@const ramschMark = ramschMarks(ramschTable, chair.seat)}
+                        {@const onTurn =
+                            marks.turn || chair.seat === turnSeat || ramschMark.turn || wait?.owes(chair.seat)}
+                        {@const openCards = openCardsOf(current, chair.seat)}
+                        {@const held = giveUp?.cardsHeld === true || wait?.held(chair.seat)}
+                        <li
+                            class="chair"
+                            class:mine={chair.is_mine}
+                            class:away={chair.is_away}
+                            class:out={marks.passed}
+                            class:win={winners.has(chair.seat)}
+                            class:turn={onTurn}
+                            class:nudgeable={chair.nudge !== null}
+                            class:shaken={grumblingAt(chair.seat) !== null}
+                            data-seat={chair.seat}
+                            data-moving={chairMoving(chair.seat)}
+                        >
+                            {#if chair.is_mine}
+                                <span class="bar-pill" aria-hidden="true" data-call-backdrop></span>
+                            {/if}
+                            {#if chair.occupant_name !== null}
+                                <span class="tile" class:agent={chair.occupant_kind === "agent"}>
+                                    {#if chair.occupant_kind === "agent"}
+                                        <span class="orb" aria-hidden="true">
+                                            <AgentSparkle />
                                         </span>
-                                    {:else if marks.passed}
-                                        <PassMark />
-                                    {:else if marks.waits}
-                                        <span class="mark waits" title={words["table.waitsForYou"]}>
-                                            <span class="dot" aria-hidden="true">{ownInitial}</span>
-                                            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                                    {:else}
+                                        <span class="initial" aria-hidden="true">
+                                            {chair.occupant_name.slice(0, 1)}
                                         </span>
                                     {/if}
-                                    <SpeechBubble
-                                        bubble={grumblingAt(chair.seat) === null ? marks.bubble : null}
-                                        initial={chair.occupant_name.slice(0, 1)}
-                                        fresh={springsUp(bidsSaid, chair.seat, marks.bubble)}
-                                    />
-                                    <RamschMarks marks={ramschMark} initial={chair.occupant_name.slice(0, 1)} />
-                                    <NudgeBell
-                                        {id}
-                                        version={current.version}
-                                        seat={chair.seat}
-                                        name={chair.occupant_name}
-                                        nudge={chair.nudge}
-                                        grumble={grumblingAt(chair.seat)}
-                                    />
-                                {/if}
-                                {#if onResult && !seriesEnd.onStage}
-                                    <AnswerMarks mark={chair.ready ? "ready" : "unready"} />
-                                {/if}
-                                {#if chair.is_away}
-                                    <AwayMark />
-                                {/if}
+                                </span>
+                                <span class="mark-row">
+                                    {#if chair.hand !== null || passedIn !== null || onResult}
+                                        {#if chair.seat === dealerSeat}
+                                            <DealerMark />
+                                        {/if}
+                                        {#if chair.hand !== null}
+                                            <span class="mark pos">{positionWord(chair.hand.position)}</span>
+                                        {/if}
+                                        {#if marks.declarer || chair.seat === (declared?.declarer_seat ?? inPlay?.declarerSeat)}
+                                            <DeclarerMark won={marks.declarer === "won"} />
+                                        {/if}
+                                        <AnswerMarks
+                                            mark={(giveUp?.marks ?? abort.marks).get(chair.seat) ??
+                                                seriesEnd.marks.get(chair.seat) ??
+                                                openCardsMark(current, chair.seat)}
+                                        />
+                                        <AnswerMarks mark={wait?.marks.get(chair.seat)} />
+                                        {#if onTurn}
+                                            <span class="mark turn" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                    <path d="M8 5l11 7-11 7z" />
+                                                </svg>
+                                            </span>
+                                        {:else if marks.passed}
+                                            <PassMark />
+                                        {:else if marks.waits}
+                                            <span class="mark waits" title={words["table.waitsForYou"]}>
+                                                <span class="dot" aria-hidden="true">{ownInitial}</span>
+                                                <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                                            </span>
+                                        {/if}
+                                        <SpeechBubble
+                                            bubble={grumblingAt(chair.seat) === null ? marks.bubble : null}
+                                            initial={chair.occupant_name.slice(0, 1)}
+                                            fresh={springsUp(bidsSaid, chair.seat, marks.bubble)}
+                                        />
+                                        <RamschMarks marks={ramschMark} initial={chair.occupant_name.slice(0, 1)} />
+                                        <NudgeBell
+                                            {id}
+                                            version={current.version}
+                                            seat={chair.seat}
+                                            name={chair.occupant_name}
+                                            nudge={chair.nudge}
+                                            grumble={grumblingAt(chair.seat)}
+                                        />
+                                    {/if}
+                                    {#if onResult && !seriesEnd.onStage}
+                                        <AnswerMarks mark={chair.ready ? "ready" : "unready"} />
+                                    {/if}
+                                    {#if chair.is_away}
+                                        <AwayMark />
+                                    {/if}
+                                </span>
+                            {:else if seated}
+                                <span class="tile empty"></span>
+                            {:else if locked.has(chair.seat)}
+                                <LockedChairTile />
+                            {:else}
+                                <FreeChairTile
+                                    ontap={() => {
+                                        tapFreeChair(chair.seat, waits, chair.is_mine_to_return);
+                                    }}
+                                />
+                            {/if}
+                            <TrickPile seat={chair.seat} playing={trick} />
+                            <span class="plate">
+                                {chair.is_mine
+                                    ? words["table.sideYou"]
+                                    : (chair.occupant_name ??
+                                      words["table.seatFree"])}{#if chair.occupant_kind === "agent"}<AiMark
+                                    />{/if}{#if chair.is_away}<small class="away-note">
+                                        {words["table.seatAway"]}
+                                    </small>{/if}
                             </span>
-                        {:else if seated}
-                            <span class="tile empty"></span>
-                        {:else if locked.has(chair.seat)}
-                            <LockedChairTile />
-                        {:else}
-                            <FreeChairTile
-                                ontap={() => {
-                                    tapFreeChair(chair.seat, waits, chair.is_mine_to_return);
-                                }}
-                            />
-                        {/if}
-                        <TrickPile seat={chair.seat} playing={trick} />
-                        <span class="plate">
-                            {chair.is_mine
-                                ? words["table.sideYou"]
-                                : (chair.occupant_name ??
-                                  words["table.seatFree"])}{#if chair.occupant_kind === "agent"}<AiMark
-                                />{/if}{#if chair.is_away}<small class="away-note">
-                                    {words["table.seatAway"]}
-                                </small>{/if}
-                        </span>
-                        {#if chair.total !== null}
-                            <button
-                                type="button"
-                                class="coaster"
-                                data-beat={beatOf("coaster")}
-                                aria-label={`${words[reactionName("coaster")]} ${withMinus(chair.total)}`}
-                                onclick={() => {
-                                    intents.tap("coaster");
-                                }}
-                            >
-                                {withMinus(chair.total)}
-                            </button>
-                        {/if}
-                        {#if chair.hand !== null}
-                            {#if openCards.length > 0}
-                                {#if chair.is_mine}
-                                    <OpenTag />
-                                {:else}
-                                    <OpenHand cards={openCards} game={declaredGame} dim={held} />
+                            {#if chair.total !== null}
+                                <button
+                                    type="button"
+                                    class="coaster"
+                                    data-beat={beatOf("coaster")}
+                                    aria-label={`${words[reactionName("coaster")]} ${withMinus(chair.total)}`}
+                                    onclick={() => {
+                                        intents.tap("coaster");
+                                    }}
+                                >
+                                    {withMinus(chair.total)}
+                                </button>
+                            {/if}
+                            {#if chair.hand !== null}
+                                {#if openCards.length > 0}
+                                    {#if chair.is_mine}
+                                        <OpenTag />
+                                    {:else}
+                                        <OpenHand cards={openCards} game={declaredGame} dim={held} />
+                                    {/if}
+                                {:else if !chair.is_mine}
+                                    <div class="fan-spot">
+                                        <BackFan count={chair.hand.card_count} dim={chair.is_away || held} />
+                                    </div>
                                 {/if}
-                            {:else if !chair.is_mine}
-                                <div class="fan-spot">
-                                    <BackFan count={chair.hand.card_count} dim={chair.is_away || held} />
-                                </div>
+                                {#if !chair.is_mine && openCards.length === 0}
+                                    <CardCountTag count={chair.hand.card_count} />
+                                {/if}
                             {/if}
-                            {#if !chair.is_mine && openCards.length === 0}
-                                <CardCountTag count={chair.hand.card_count} />
-                            {/if}
+                        </li>
+                    {/each}
+                </ul>
+                <DeclareControls {id} table={outcome.table} bind:picking={declarePicking} bind:note />
+                <PushControls {id} table={outcome.table} bind:picking={pushPicking} bind:note />
+                <PlayControls {id} table={outcome.table} bind:playing bind:note />
+                <BidControls {id} table={outcome.table} bind:note />
+                <div class="controls" class:held={giveUp?.cardsHeld === true || wait?.held(ownChair?.seat)}>
+                    {#if ownCards.length > 0}
+                        <OwnHand cards={ownCards} game={declaredGame} {picking} {playing} />
+                    {/if}
+                    <div class="actions" class:on-result={onResult}>
+                        <KontraKey {id} table={outcome.table} bind:note />
+                        <WeiterKey
+                            {bar}
+                            watching={standing !== null}
+                            newSeries={seriesOver(current)}
+                            sent={sentFromVersion === current.version}
+                            ontap={() => tapWeiter(current)}
+                            onstop={stopOffered(current)
+                                ? () => send(current, stopPlaying(id, crypto.randomUUID()))
+                                : undefined}
+                        />
+                        {#if callMode && standing === null}
+                            <SoundButton place="strip" />
+                            {@render tableMenu("strip")}
                         {/if}
-                    </li>
-                {/each}
-            </ul>
-            <DeclareControls {id} table={outcome.table} bind:picking={declarePicking} bind:note />
-            <PushControls {id} table={outcome.table} bind:picking={pushPicking} bind:note />
-            <PlayControls {id} table={outcome.table} bind:playing bind:note />
-            <BidControls {id} table={outcome.table} bind:note />
-            <div class="controls" class:held={giveUp?.cardsHeld === true || wait?.held(ownChair?.seat)}>
-                {#if ownCards.length > 0}
-                    <OwnHand cards={ownCards} game={declaredGame} {picking} {playing} />
+                        {#if seated && callAddress !== null}
+                            <CallKey address={callAddress} />
+                        {/if}
+                    </div>
+                    <p class="note" role="status">{note}</p>
+                </div>
+                {#if seatNote !== null}
+                    <SeatNoticeLine notice={seatNote} />
+                {:else if seriesEnd.refusal !== null}
+                    <SeatNoticeLine notice={seriesEnd.refusal} below />
                 {/if}
-                <div class="actions" class:on-result={onResult}>
-                    <KontraKey {id} table={outcome.table} bind:note />
-                    <WeiterKey
-                        {bar}
-                        watching={standing !== null}
-                        newSeries={seriesOver(current)}
-                        sent={sentFromVersion === current.version}
-                        ontap={() => tapWeiter(current)}
-                        onstop={stopOffered(current)
-                            ? () => send(current, stopPlaying(id, crypto.randomUUID()))
-                            : undefined}
+                {@const asked = waits
+                    ? outcome.table.chairs.find((chair) => chair.seat === asking && chair.occupant_name === null)
+                    : undefined}
+                {#if asked !== undefined}
+                    <SitQuestion
+                        formerHolder={asked.former_holder_name}
+                        onsit={() => {
+                            void seat(sitDown(id, asked.seat, crypto.randomUUID()));
+                            asking = null;
+                        }}
+                        oncancel={() => {
+                            asking = null;
+                        }}
                     />
-                    {#if callMode && standing === null}
-                        <SoundButton place="strip" />
-                        {@render tableMenu("strip")}
-                    {/if}
-                    {#if seated && callAddress !== null}
-                        <CallKey address={callAddress} />
-                    {/if}
-                </div>
-                <p class="note" role="status">{note}</p>
-            </div>
-            {#if seatNote !== null}
-                <SeatNoticeLine notice={seatNote} />
-            {:else if seriesEnd.refusal !== null}
-                <SeatNoticeLine notice={seriesEnd.refusal} below />
+                {/if}
+                {#if taken !== null}
+                    <TakenNotice name={taken} />
+                {/if}
+            {:else if outcome?.kind === "missing"}
+                <TableClosed ended={null} />
+            {:else if outcome?.kind === "failed"}
+                <section class="panel" role="alert">
+                    <h1>{words["table.loadFailed"]}</h1>
+                    <p>{words["table.loadFailedHint"]}</p>
+                </section>
             {/if}
-            {@const asked = waits
-                ? outcome.table.chairs.find((chair) => chair.seat === asking && chair.occupant_name === null)
-                : undefined}
-            {#if asked !== undefined}
-                <SitQuestion
-                    formerHolder={asked.former_holder_name}
-                    onsit={() => {
-                        void seat(sitDown(id, asked.seat, crypto.randomUUID()));
-                        asking = null;
-                    }}
-                    oncancel={() => {
-                        asking = null;
-                    }}
-                />
-            {/if}
-            {#if taken !== null}
-                <TakenNotice name={taken} />
-            {/if}
-        {:else if outcome?.kind === "missing"}
-            <TableClosed ended={null} />
-        {:else if outcome?.kind === "failed"}
-            <section class="panel" role="alert">
-                <h1>{words["table.loadFailed"]}</h1>
-                <p>{words["table.loadFailedHint"]}</p>
-            </section>
-        {/if}
-    </main>
-    <div class="reconnect" role="status" hidden={connected}>
-        <span class="spin"></span>{streamsFull ? words["table.tooManyStreams"] : words["table.reconnecting"]}
+        </main>
+        <div class="reconnect" role="status" hidden={connected}>
+            <span class="spin"></span>{streamsFull ? words["table.tooManyStreams"] : words["table.reconnecting"]}
+        </div>
     </div>
-</div>
+{/if}

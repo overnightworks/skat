@@ -1,0 +1,412 @@
+/* Unter der Lampe: the room, its light, the tilted table and the top row. Every rule stands under the look's root, so
+   nothing here reaches another surface. */
+[data-look="lampe"] {
+    --ink: #f7efdc;
+    --ink-2: #dccfb3;
+    --ink-3: #ab9d81;
+    --ink-dark: #2a1c12;
+    --brass: #e2b75c;
+    --brass-hi: #ffe6a6;
+    --room-0: #0c0805;
+    --room-1: #20140c;
+    --room-2: #3a2515;
+    --wood-0: #351b0c;
+    --wood-1: #643619;
+    --wood-2: #9b6235;
+    --felt-0: #0a2f23;
+    --felt-1: #165b45;
+    --felt-2: #2b8a62;
+    --lamp-light: 255, 204, 138;
+    --shade: #0f2c20;
+    --shade-hi: #2f6a4c;
+    --hud: rgba(22, 14, 9, 0.8);
+    --hud-line: rgba(255, 226, 160, 0.16);
+    --plate: rgba(14, 9, 6, 0.55);
+    /* The sheet the room is drawn on, in units: a phone held upright. */
+    --sheet-width: 390;
+    --sheet-height: 700;
+    --unit-floor: 0.85px;
+    --tilt: 14deg;
+    /* The room's one unit. The sheet fills the screen: it shrinks a little on a small one and grows to 1.75 times on a
+       large one, and everything in the room is measured in it, so chairs, felt and cards grow together. */
+    --u: clamp(var(--unit-floor), min(100vw / var(--sheet-width), 100dvh / var(--sheet-height)), 1.75px);
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    color: var(--ink);
+    background: var(--room-0);
+    font-family: var(--font-body);
+    font-size: calc(16 * var(--u));
+    line-height: 1.25;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* A desktop's sheet, on which the table stands free in the room with the chairs at its sides. */
+@media (min-width: 960px) {
+    [data-look="lampe"] {
+        --sheet-width: 1280;
+        --sheet-height: 800;
+        --unit-floor: 0.75px;
+        --tilt: 27deg;
+    }
+}
+
+[data-look="lampe"] * {
+    box-sizing: border-box;
+}
+
+[data-look="lampe"] .room {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 95% 62% at 50% 38%, var(--room-2), var(--room-1) 48%, var(--room-0) 100%);
+}
+
+[data-look="lampe"] .wall {
+    position: absolute;
+    inset: 0 0 55% 0;
+    opacity: 0.5;
+    background:
+        repeating-linear-gradient(
+            90deg,
+            rgba(255, 220, 160, 0.035) 0 calc(2 * var(--u)),
+            transparent calc(2 * var(--u)) calc(26 * var(--u))
+        ),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent);
+}
+
+[data-look="lampe"] .cone {
+    position: absolute;
+    left: 50%;
+    top: -6%;
+    width: 150%;
+    height: 92%;
+    transform: translateX(-50%);
+    background: radial-gradient(
+        ellipse 34% 58% at 50% 0%,
+        rgba(var(--lamp-light), 0.2),
+        rgba(var(--lamp-light), 0.06) 55%,
+        transparent 75%
+    );
+}
+
+/* The sheet, hung from the top of the room and centred: past the unit's limit the room goes on around it, and a tall
+   screen shows the floor below the table instead of an endless one. */
+[data-look="lampe"] .stage {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: calc(var(--sheet-width) * var(--u));
+    max-width: 100%;
+    height: min(100%, calc(var(--sheet-height) * var(--u) * 1.4));
+    margin-inline: auto;
+}
+
+/* A phone has no room for the lamp itself, only for its light. */
+[data-look="lampe"] .lamp {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: calc(-14 * var(--u));
+    width: calc(230 * var(--u));
+    transform: translateX(-50%);
+    z-index: 3;
+    pointer-events: none;
+}
+
+[data-look="lampe"] .lamp::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 77%;
+    width: calc(4 * var(--u));
+    height: 100vh;
+    transform: translateX(-50%);
+    background: #140d08;
+}
+
+[data-look="lampe"] .lamp::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 70%;
+    width: calc(260 * var(--u));
+    height: calc(120 * var(--u));
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(var(--lamp-light), 0.45), transparent);
+}
+
+[data-look="lampe"] .lamp svg {
+    display: block;
+    position: relative;
+    width: 100%;
+}
+
+[data-look="lampe"] .lamp .shade-top {
+    stop-color: var(--shade-hi);
+}
+
+[data-look="lampe"] .lamp .shade-bottom {
+    stop-color: var(--shade);
+}
+
+[data-look="lampe"] .lamp .bulb-core {
+    stop-color: #fffbe6;
+}
+
+[data-look="lampe"] .lamp .bulb-glow {
+    stop-color: rgba(255, 226, 160, 0.9);
+}
+
+[data-look="lampe"] .lamp .bulb-edge {
+    stop-color: rgba(255, 200, 120, 0);
+}
+
+[data-look="lampe"] .lamp .fitting {
+    fill: var(--brass);
+}
+
+[data-look="lampe"] .lamp .rim {
+    fill: #fff1c8;
+}
+
+[data-look="lampe"] .lamp .sheen {
+    stroke: rgba(255, 255, 255, 0.18);
+}
+
+/* The table: one tilted plane that holds the wooden rim and the felt. */
+[data-look="lampe"] .plane-wrap {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(168 * var(--u));
+    bottom: 0;
+    perspective: calc(1000 * var(--u));
+    perspective-origin: 50% 0%;
+    z-index: 1;
+}
+
+[data-look="lampe"] .plane {
+    position: absolute;
+    left: calc(6 * var(--u));
+    right: calc(6 * var(--u));
+    top: 0;
+    bottom: calc(-70 * var(--u));
+    transform: rotateX(var(--tilt));
+    transform-origin: 50% 100%;
+}
+
+[data-look="lampe"] .wood {
+    position: absolute;
+    inset: 0;
+    border-radius: calc(46 * var(--u));
+    background:
+        radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255, 220, 160, 0.25), transparent 70%),
+        repeating-linear-gradient(
+            92deg,
+            rgba(0, 0, 0, 0.14) 0 calc(2 * var(--u)),
+            transparent calc(2 * var(--u)) calc(9 * var(--u)),
+            rgba(255, 255, 255, 0.04) calc(9 * var(--u)) calc(10 * var(--u)),
+            transparent calc(10 * var(--u)) calc(17 * var(--u))
+        ),
+        linear-gradient(180deg, var(--wood-2), var(--wood-1) 30%, var(--wood-0));
+    box-shadow:
+        0 calc(30 * var(--u)) calc(60 * var(--u)) rgba(0, 0, 0, 0.7),
+        0 calc(2 * var(--u)) 0 rgba(255, 230, 180, 0.25) inset,
+        0 calc(-3 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, 0.5) inset;
+}
+
+[data-look="lampe"] .felt {
+    position: absolute;
+    inset: calc(15 * var(--u));
+    border-radius: calc(34 * var(--u));
+    background:
+        radial-gradient(ellipse 50% 38% at 50% 30%, rgba(var(--lamp-light), 0.16), transparent 70%),
+        radial-gradient(ellipse 80% 55% at 50% 28%, var(--felt-2), var(--felt-1) 45%, var(--felt-0) 100%);
+    box-shadow:
+        inset 0 0 0 calc(2 * var(--u)) rgba(0, 0, 0, 0.3),
+        inset 0 calc(10 * var(--u)) calc(34 * var(--u)) rgba(0, 0, 0, 0.6),
+        inset 0 calc(-20 * var(--u)) calc(40 * var(--u)) rgba(0, 0, 0, 0.35);
+}
+
+[data-look="lampe"] .felt::after {
+    content: "";
+    position: absolute;
+    inset: calc(9 * var(--u));
+    border-radius: calc(26 * var(--u));
+    border: 1px solid rgba(255, 220, 150, 0.16);
+}
+
+/* The top row: what this surface is, and the way back to today's. */
+[data-look="lampe"] .top {
+    position: absolute;
+    left: calc(8 * var(--u));
+    right: calc(8 * var(--u));
+    top: calc(6 * var(--u) + env(safe-area-inset-top));
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(8 * var(--u));
+}
+
+[data-look="lampe"] .badge,
+[data-look="lampe"] .look-switch {
+    display: flex;
+    align-items: center;
+    gap: calc(10 * var(--u));
+    min-height: max(44px, calc(50 * var(--u)));
+    border-radius: calc(16 * var(--u));
+    background: var(--hud);
+    box-shadow:
+        inset 0 0 0 1px var(--hud-line),
+        0 calc(6 * var(--u)) calc(18 * var(--u)) rgba(0, 0, 0, 0.4);
+}
+
+[data-look="lampe"] .badge {
+    padding: 0 calc(5 * var(--u));
+}
+
+[data-look="lampe"] .badge svg {
+    width: calc(40 * var(--u));
+    height: calc(40 * var(--u));
+    padding: calc(6 * var(--u));
+    border-radius: calc(12 * var(--u));
+    color: var(--ink-dark);
+    background: linear-gradient(165deg, #fffdf6, #efe3c8);
+}
+
+[data-look="lampe"] .badge .badge-bulb {
+    fill: #ffe2a0;
+}
+
+[data-look="lampe"] .badge .badge-light {
+    fill: #c98a1c;
+    opacity: 0.35;
+}
+
+/* A phone's row holds the mark alone; the look's name needs a desktop's width. */
+[data-look="lampe"] .badge b {
+    display: none;
+    padding-right: calc(9 * var(--u));
+    font-family: var(--font-display);
+    font-size: calc(19 * var(--u));
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+[data-look="lampe"] .look-switch {
+    padding: 0 calc(12 * var(--u));
+    cursor: pointer;
+}
+
+[data-look="lampe"] .look-switch-name {
+    font-size: calc(14 * var(--u));
+    font-weight: 700;
+    color: var(--ink-2);
+    white-space: nowrap;
+}
+
+[data-look="lampe"] .look-switch input {
+    appearance: none;
+    position: relative;
+    flex: none;
+    width: calc(46 * var(--u));
+    height: calc(26 * var(--u));
+    margin: 0;
+    border-radius: calc(13 * var(--u));
+    background: rgba(255, 240, 210, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(255, 240, 210, 0.4);
+    cursor: pointer;
+}
+
+/* The knob's side tells the state; the colour only follows it. */
+[data-look="lampe"] .look-switch input::before {
+    content: "";
+    position: absolute;
+    top: calc(3 * var(--u));
+    left: calc(3 * var(--u));
+    width: calc(20 * var(--u));
+    height: calc(20 * var(--u));
+    border-radius: 50%;
+    background: var(--ink-2);
+}
+
+[data-look="lampe"] .look-switch input:checked {
+    background: var(--brass);
+    box-shadow: inset 0 0 0 1px var(--brass-hi);
+}
+
+[data-look="lampe"] .look-switch input:checked::before {
+    left: calc(23 * var(--u));
+    background: var(--ink-dark);
+}
+
+[data-look="lampe"] .look-switch input:focus-visible {
+    outline: calc(3 * var(--u)) solid var(--brass-hi);
+    outline-offset: calc(3 * var(--u));
+}
+
+/* The sentence about a chair, over the table's near edge. */
+[data-look="lampe"] .notice {
+    position: absolute;
+    left: 50%;
+    bottom: calc(96 * var(--u));
+    z-index: 8;
+    max-width: calc(100% - 20 * var(--u));
+    margin: 0;
+    padding: calc(9 * var(--u)) calc(16 * var(--u));
+    transform: translateX(-50%);
+    border-radius: calc(14 * var(--u));
+    font-size: calc(16 * var(--u));
+    font-weight: 700;
+    text-align: center;
+    background: var(--hud);
+    box-shadow:
+        inset 0 0 0 1px var(--hud-line),
+        0 calc(6 * var(--u)) calc(18 * var(--u)) rgba(0, 0, 0, 0.5);
+}
+
+@media (min-width: 960px) {
+    [data-look="lampe"] .lamp {
+        display: block;
+    }
+
+    [data-look="lampe"] .plane-wrap {
+        top: calc(128 * var(--u));
+        perspective: calc(1400 * var(--u));
+    }
+
+    [data-look="lampe"] .plane {
+        left: calc(190 * var(--u));
+        right: calc(190 * var(--u));
+        bottom: calc(-40 * var(--u));
+    }
+
+    [data-look="lampe"] .wood {
+        border-radius: calc(300 * var(--u)) / calc(220 * var(--u));
+    }
+
+    [data-look="lampe"] .felt {
+        inset: calc(22 * var(--u));
+        border-radius: calc(280 * var(--u)) / calc(200 * var(--u));
+    }
+
+    [data-look="lampe"] .felt::after {
+        inset: calc(14 * var(--u));
+        border-radius: calc(266 * var(--u)) / calc(190 * var(--u));
+    }
+
+    [data-look="lampe"] .top {
+        left: calc(24 * var(--u));
+        right: calc(24 * var(--u));
+        top: calc(18 * var(--u));
+    }
+
+    [data-look="lampe"] .badge b {
+        display: block;
+    }
+}

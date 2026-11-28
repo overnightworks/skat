@@ -562,6 +562,13 @@ export type Words = {
     readonly "table.answerClock": (gaps: { readonly time: string }) => string;
     readonly "table.refusedToEndOne": (gaps: { readonly names: string }) => string;
     readonly "table.refusedToEndMany": (gaps: { readonly names: string }) => string;
+    readonly "table.newLook": string;
+    readonly "table.landmark": string;
+    readonly "table.chairFree": string;
+    readonly "table.chairAgent": string;
+    readonly "table.chairCards": (count: number) => string;
+    readonly "table.chairOnTurn": string;
+    readonly "look.lampeName": string;
 };
 // prettier-ignore
 export const words: Words = {
@@ -1220,5 +1227,19 @@ export const words: Words = {
     "table.answerClock": (gaps: { readonly time: string }) => "ohne Antwort in " + gaps.time + " = Nein",
     "table.refusedToEndOne": (gaps: { readonly names: string }) => gaps.names + " möchte weiterspielen",
     "table.refusedToEndMany": (gaps: { readonly names: string }) => gaps.names + " möchten weiterspielen",
+    "table.newLook": "Neuer Look (im Bau)",
+    "table.landmark": "Skattisch",
+    "table.chairFree": "Freier Platz",
+    "table.chairAgent": "KI",
+    "table.chairCards": (count: number) => ({
+        zero: numberFormat.format(count) + " Karten",
+        one: numberFormat.format(count) + " Karte",
+        two: numberFormat.format(count) + " Karten",
+        few: numberFormat.format(count) + " Karten",
+        many: numberFormat.format(count) + " Karten",
+        other: numberFormat.format(count) + " Karten",
+    })[pluralRules.select(count)],
+    "table.chairOnTurn": "am Zug",
+    "look.lampeName": "Unter der Lampe",
 };
 export type Key = keyof Words;

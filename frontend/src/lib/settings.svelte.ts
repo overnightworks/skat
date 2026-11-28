@@ -21,6 +21,8 @@ export interface Settings extends SoundSettings {
     readonly turnInBackground: boolean;
     /** Vibrates on „Du bist dran“, on a device that can. */
     readonly vibration: boolean;
+    /** Shows a running table in the look under construction, on this device only. */
+    readonly newLook: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -32,6 +34,7 @@ const DEFAULT_SETTINGS: Settings = {
     lastTrick: DEFAULT_LAST_TRICK_MODE,
     turnInBackground: false,
     vibration: false,
+    newLook: false,
 };
 
 const VOLUME_STEPS = 100;
@@ -48,6 +51,7 @@ const CHECKS: { readonly [Field in keyof Settings]: (value: unknown) => value is
     lastTrick: (value): value is LastTrickMode => LAST_TRICK_MODES.includes(value as LastTrickMode),
     turnInBackground: (value): value is boolean => typeof value === "boolean",
     vibration: (value): value is boolean => typeof value === "boolean",
+    newLook: (value): value is boolean => typeof value === "boolean",
 };
 
 const FIELDS = Object.keys(CHECKS) as (keyof Settings)[];

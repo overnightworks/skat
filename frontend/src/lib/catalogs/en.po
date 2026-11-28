@@ -2289,3 +2289,35 @@ msgctxt "table.refusedToEndMany"
 msgid "{names} möchten weiterspielen"
 msgstr "{names} want to play on"
 
+
+msgctxt "table.newLook"
+msgid "Neuer Look (im Bau)"
+msgstr "New look (under construction)"
+
+msgctxt "table.landmark"
+msgid "Skattisch"
+msgstr "Skat table"
+
+msgctxt "table.chairFree"
+msgid "Freier Platz"
+msgstr "Free chair"
+
+msgctxt "table.chairAgent"
+msgid "KI"
+msgstr "AI"
+
+msgctxt "table.chairCards.one"
+msgid "{count} Karte"
+msgstr "{count} card"
+
+msgctxt "table.chairCards.other"
+msgid "{count} Karten"
+msgstr "{count} cards"
+
+msgctxt "table.chairOnTurn"
+msgid "am Zug"
+msgstr "on turn"
+
+msgctxt "look.lampeName"
+msgid "Unter der Lampe"
+msgstr "Under the lamp"

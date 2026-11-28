@@ -15,6 +15,22 @@ const styleComparison = {
     message:
         "What differs between styles lives in the style's look entry under lib/looks/, never in a branch on tableStyle().",
 };
+// A look draws and never speaks: what a table says aloud goes through the one live region lib/table/ mounts.
+const liveRegionMessage = "A look holds no live region; lib/table/Announcement.svelte says what the table says aloud.";
+const liveRegions = [
+    { selector: "SvelteAttribute[key.name='aria-live']", message: liveRegionMessage },
+    {
+        selector: "SvelteAttribute[key.name='role'] > SvelteLiteral[value=/\\b(status|alert|log)\\b/]",
+        message: liveRegionMessage,
+    },
+];
+// The import rules below tell a file by its extension, so a specifier into the app's own sources always carries one:
+// with none at all, or with a store's `.svelte` alone, it would read like another file. `./$types` is SvelteKit's.
+const ownSpecifierWithoutExtension = {
+    regex: "^(?:\\.{1,2}/|#lib/|\\$lib/)(?:.*/)?(?!\\$types$)(?:[^./]+|[a-z][^/]*\\.svelte)$",
+    caseSensitive: true,
+    message: "Write the file's extension (wire.ts, settings.svelte.ts); the import rules tell a file by it.",
+};
 const signInWords = {
     group: ["**/words.ts", "**/words.js"],
     message: "Sign-in pages read their words from the layout data, never from lib/words.ts.",
@@ -25,18 +41,21 @@ const lookInternals = ["**/looks/**", "!**/looks/registry.ts", "!**/looks/look.t
 const lookMessage =
     "Only lib/looks/registry.ts and the types of lib/looks/look.ts are reached from outside the look layer.";
 const lookTypes = { group: ["**/looks/look.ts"], message: lookMessage, allowTypeImports: true };
-const outsideLooks = [{ group: lookInternals, message: lookMessage }, lookTypes];
+const outsideLooks = [{ group: lookInternals, message: lookMessage }, lookTypes, ownSpecifierWithoutExtension];
 // The layout loads the looks' sheets until each entry carries its own.
 const layoutOutsideLooks = [
     { group: [...lookInternals, "!**/looks/klassik.css", "!**/looks/strandbar.css"], message: lookMessage },
     lookTypes,
+    ownSpecifierWithoutExtension,
 ];
-// A look reads the table only through lib/table/, so it never depends on the routes, a store or the wire.
+// A look reads the table only through lib/table/, so it never depends on the routes, a store or the wire, not even
+// for a type: lib/table/ passes on each type a look draws.
 const insideLooksMessage =
     "A look reads the table through lib/table/: no routes module, no store outside lib/looks/, no wire.ts.";
 const insideLooks = [
     { group: ["**/routes/**", "**/wire.ts", "**/wire.js"], message: insideLooksMessage },
     { group: ["**/*.svelte.ts", "!./**", "!#lib/looks/**"], message: insideLooksMessage },
+    ownSpecifierWithoutExtension,
 ];
 
 export default ts.config(
@@ -77,15 +96,15 @@ export default ts.config(
         rules: { "no-restricted-syntax": ["error", styleComparison] },
     },
     {
-        // A look branches on its own style; the card back, the scene and the ambience still branch until their parts
-        // come from the look entry.
-        files: [
-            "src/lib/looks/**/*.svelte",
-            "src/lib/ui/CardBack.svelte",
-            "src/lib/ui/StyleScene.svelte",
-            "src/lib/ui/Ambience.svelte",
-        ],
+        // The card back, the scene and the ambience still branch on the style until their parts come from the look
+        // entry.
+        files: ["src/lib/ui/CardBack.svelte", "src/lib/ui/StyleScene.svelte", "src/lib/ui/Ambience.svelte"],
         rules: { "no-restricted-syntax": ["error", styleElement] },
+    },
+    {
+        // A look branches on its own style.
+        files: ["src/lib/looks/**/*.svelte"],
+        rules: { "no-restricted-syntax": ["error", styleElement, ...liveRegions] },
     },
     {
         files: ["src/**/*.{ts,js,svelte}"],

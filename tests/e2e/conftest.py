@@ -1,4 +1,5 @@
 import gc
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -14,6 +15,7 @@ from tests.e2e.support.deal_pause import HeldDealPause
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.failure_record import FailureRecord
 from tests.e2e.support.hands import deal_playing_table
+from tests.e2e.support.looks import Look
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
 from tests.e2e.support.server import RunningServer, skat_on_new_database
 from tests.support.shards import select_shard
@@ -27,6 +29,144 @@ if TYPE_CHECKING:
     from tests.e2e.support.hands import PlayingTable
 
 PAGE_NAVIGATED_AWAY = "net::ERR_ABORTED"
+
+
+class Family(StrEnum):
+    """What a module's drive needs of a table surface: the region whose controls it needs last."""
+
+    CHAIRS = "chairs"
+    SEATS = "seats"
+    AUCTION = "auction"
+    DECLARING = "declaring"
+    PLAY = "play"
+    TRICK = "trick"
+    WORDS = "words"
+    RESULT = "result"
+    SERIES = "series"
+    REACTIONS = "reactions"
+    CALL = "call"
+    FRAME = "frame"
+    OFF_TABLE = "off-table"
+
+
+# Every module of this directory by its file name. A new module names its family here, or its collection fails.
+FAMILY_OF_MODULE = {
+    "test_agent_plays": Family.TRICK,
+    "test_call_frame": Family.CALL,
+    "test_call_greeting": Family.CALL,
+    "test_call_mode_table": Family.CALL,
+    "test_call_seats": Family.CALL,
+    "test_call_sign_in": Family.CALL,
+    "test_calling_agents": Family.FRAME,
+    "test_chair_hold": Family.SEATS,
+    "test_chair_hold_between_games": Family.SEATS,
+    "test_failure_record": Family.SEATS,
+    "test_lobby": Family.SEATS,
+    "test_lobby_during_outage": Family.FRAME,
+    "test_my_tables": Family.SEATS,
+    "test_render_languages": Family.RESULT,
+    "test_rule_set_choice": Family.OFF_TABLE,
+    "test_server_port": Family.OFF_TABLE,
+    "test_shared_link": Family.FRAME,
+    "test_sign_in": Family.OFF_TABLE,
+    "test_sign_in_pages": Family.OFF_TABLE,
+    "test_start_page": Family.FRAME,
+    "test_table_abort": Family.WORDS,
+    "test_table_bid_scale": Family.AUCTION,
+    "test_table_bidding": Family.AUCTION,
+    "test_table_bock": Family.SERIES,
+    "test_table_card_lands": Family.TRICK,
+    "test_table_card_sound": Family.TRICK,
+    "test_table_cards": Family.PLAY,
+    "test_table_chair_moves": Family.SEATS,
+    "test_table_chairs": Family.CHAIRS,
+    "test_table_closed": Family.FRAME,
+    "test_table_coasters": Family.REACTIONS,
+    "test_table_deal_marks": Family.AUCTION,
+    "test_table_declaring": Family.DECLARING,
+    "test_table_durchmarsch": Family.RESULT,
+    "test_table_end": Family.FRAME,
+    "test_table_game_sheet": Family.SERIES,
+    "test_table_give_up": Family.WORDS,
+    "test_table_hand": Family.PLAY,
+    "test_table_home": Family.FRAME,
+    "test_table_kontra": Family.WORDS,
+    "test_table_kontra_first": Family.WORDS,
+    "test_table_kontra_keys": Family.WORDS,
+    "test_table_kontra_result": Family.RESULT,
+    "test_table_last_trick": Family.TRICK,
+    "test_table_new_look_switch": Family.FRAME,
+    "test_table_nudge": Family.SEATS,
+    "test_table_open_chair": Family.SEATS,
+    "test_table_open_play": Family.WORDS,
+    "test_table_ouvert": Family.PLAY,
+    "test_table_playing": Family.PLAY,
+    "test_table_ramsch_push": Family.DECLARING,
+    "test_table_ramsch_result": Family.RESULT,
+    "test_table_ramsch_stage": Family.DECLARING,
+    "test_table_reactions": Family.REACTIONS,
+    "test_table_reckoning": Family.RESULT,
+    "test_table_resign_in": Family.FRAME,
+    "test_table_restart": Family.FRAME,
+    "test_table_result": Family.RESULT,
+    "test_table_result_count": Family.RESULT,
+    "test_table_rules": Family.FRAME,
+    "test_table_seats": Family.SEATS,
+    "test_table_series": Family.SERIES,
+    "test_table_series_settings": Family.SERIES,
+    "test_table_shorten": Family.WORDS,
+    "test_table_sound_settings": Family.FRAME,
+    "test_table_stand_mid_hand": Family.SEATS,
+    "test_table_stream_alive": Family.FRAME,
+    "test_table_style": Family.FRAME,
+    "test_table_turn_cue": Family.PLAY,
+    "test_table_voice": Family.AUCTION,
+    "test_table_watch": Family.FRAME,
+    "test_tables": Family.SEATS,
+}
+
+# The families each look draws far enough for their modules to run on it. Today's surface gives a chair no name, and
+# no look takes part in a module off the table.
+FAMILIES_ON = {
+    Look.TODAY: frozenset(Family) - {Family.CHAIRS, Family.OFF_TABLE},
+    Look.LAMPE: frozenset({Family.CHAIRS}),
+}
+
+# The device switch of the look under construction, set before the page's own scripts run. A whole settings record a
+# test stores keeps the switch on; a record that names the switch, as the page writes one after its person flipped it,
+# stands as written.
+NEW_LOOK_SWITCH_SCRIPT = """(() => {
+    const key = "skat.settings";
+    const withSwitch = (text) => {
+        let record = null;
+        try {
+            record = JSON.parse(text ?? "null");
+        } catch {
+            // A record the page cannot read either gives way to one with the switch alone.
+        }
+        return JSON.stringify({ newLook: true, ...(typeof record === "object" ? record : null) });
+    };
+    try {
+        const store = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (name, value) {
+            store.call(this, name, name === key ? withSwitch(value) : value);
+        };
+        localStorage.setItem(key, localStorage.getItem(key));
+    } catch {
+        // A document without storage, like an empty tab, shows no table.
+    }
+})();"""
+
+
+def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    """A test whose pages show a table runs once per look that enables its module's family."""
+    module = metafunc.module.__name__.rpartition(".")[2]
+    if module not in FAMILY_OF_MODULE:
+        message = f"tests/e2e/{module}.py has no family: name it in FAMILY_OF_MODULE"
+        raise pytest.UsageError(message)
+    looks = [look for look in Look if FAMILY_OF_MODULE[module] in FAMILIES_ON[look]]
+    if looks and "look" in metafunc.fixturenames:
+        metafunc.parametrize("look", looks, ids=[look.value for look in looks])
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
@@ -193,9 +333,16 @@ def sign_in(
 
 
 @pytest.fixture
+def look() -> Look:
+    """The surface a test's pages show the table on; a module off the table opens none."""
+    return Look.TODAY
+
+
+@pytest.fixture
 def open_person(
     new_context: Callable[..., BrowserContext],
     e2e_server: RunningServer,
+    look: Look,
     seeded_members: dict[Page, SeededMember],
     expected_request_failures: list[str],
     browser_coverage: BrowserCoverage,
@@ -214,6 +361,7 @@ def open_person(
         username: str | None = None,
         server: RunningServer = e2e_server,
         groups: tuple[str, ...] | None = None,
+        look: Look = look,
         **device_options: Any,
     ) -> Page:
         person_number = next(person_address_offsets)
@@ -232,6 +380,8 @@ def open_person(
         )
         contexts.append(context)
         context.add_init_script(path=RECORDING_AUDIO_SCRIPT)
+        if look is not Look.TODAY:
+            context.add_init_script(NEW_LOOK_SWITCH_SCRIPT)
         browser_coverage.watch(context)
         context.on("requestfailed", note_failed_request)
         page = context.new_page()

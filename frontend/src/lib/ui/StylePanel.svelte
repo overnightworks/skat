@@ -1,6 +1,7 @@
 <script lang="ts">
     import { lookOf } from "#lib/looks/registry.ts";
     import type { PanelSide } from "#lib/panelPlace.ts";
+    import LookSwitch from "#lib/table/LookSwitch.svelte";
     import { TABLE_STYLE_TOKENS } from "#lib/wire.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
     import { words } from "#lib/words.ts";
@@ -90,5 +91,7 @@
             </div>
         </div>
         <p class="sound-note style-note">{words["table.styleNote"]}</p>
+        <!-- The look under construction shows on this device only, whatever the table's style. -->
+        <LookSwitch rowClass="sound-row" nameClass="sound-row-name" switchClass="sound-switch" />
     </div>
 </AnchoredPanel>

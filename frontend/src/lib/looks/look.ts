@@ -1,5 +1,5 @@
 import type { Component } from "svelte";
-import type { Reaction, TableScene } from "#lib/table/scene.ts";
+import type { Reaction, SurfaceScene, TableScene } from "#lib/table/scene.ts";
 import type { TableIntents } from "#lib/table/intents.ts";
 import type { Key } from "#lib/words.ts";
 
@@ -17,4 +17,13 @@ export interface LookEntry {
     readonly name: Key;
     readonly renderer: Renderer;
     readonly furniture: readonly Furnishing[];
+}
+
+/** The component that draws the whole table surface from the scene: the room, the chairs and every control on them. */
+export type SurfaceRenderer = Component<{ look: SurfaceLook; scene: SurfaceScene }>;
+
+/** A look that draws the whole surface: its name and its renderer. */
+export interface SurfaceLook {
+    readonly name: Key;
+    readonly renderer: SurfaceRenderer;
 }
