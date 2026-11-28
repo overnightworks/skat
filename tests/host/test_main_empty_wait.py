@@ -98,6 +98,7 @@ def test_a_pod_killed_during_the_wait_leaves_the_end_to_the_other_pod(pods):
 def test_both_pods_restarted_during_the_wait_end_the_table_at_the_old_stamp_plus_the_wait(pods):
     table_id = a_table_somebody_visited(pods, pods.member()[0])
     stamp = wait_until_stamped(pods, table_id)
+    pods.settle_leases()
     pods.stop_both()
     while pods.database_now() < stamp + WAIT:
         time.sleep(POLL_SECONDS)
@@ -162,6 +163,7 @@ def test_a_pod_killed_with_the_only_streams_leaves_the_table_to_end_once_after_t
 def test_a_pod_started_stamps_an_undealt_table_nobody_is_at_that_has_no_stamp_and_ends_it_once(pods):
     table_id = pods.table_opened_by(pods.first, pods.member()[0])
     pods.set_empty_since(table_id, None)
+    pods.settle_leases()
     pods.stop_both()
     pods.start_both()
 
@@ -179,6 +181,7 @@ def test_a_pod_started_leaves_a_table_somebody_streams_at_on_the_other_pod_unsta
     with pods.second.event_stream(pods.events_path(table_id), within_seconds=ENDED_WITHIN_SECONDS, cookie=cookie) as e:
         next(e)
         wait_until_cleared(pods, table_id)
+        pods.settle_leases()
         pods.first.stop()
         pods.first.start()
         # The start note stamps the control table nobody is at, so it has run before the window opens.

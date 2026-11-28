@@ -1,5 +1,6 @@
 """Two real `skat serve` processes on one database and one Redis, and what a test does at them."""
 
+import asyncio
 import secrets
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
@@ -17,7 +18,7 @@ from skat.web.sign_in import LoggingAuditSink, build_sign_in_configs
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.support.in_memory_stores import in_process_rate_limits
 from tests.support.postgres import created_database
-from tests.support.redis import fresh_database_url
+from tests.support.redis import fresh_database_url, settle_wake_epoch
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN, build_sign_in_settings
 from tests.support.signed_in import cookie_header, seed_member
 from tests.support.skat_process import SkatProcess
@@ -161,6 +162,12 @@ class Pods:
     def database_now(self):
         with self.engine.connect() as connection:
             return connection.execute(select(func.now())).scalar_one()
+
+    def settle_leases(self) -> None:
+        """End the restart grace of the leases: the roster then vouches that nobody is at a table that lists nobody,
+        where it would answer unsettled until the lease's lifetime has passed since the Redis database was filled.
+        """
+        asyncio.run(settle_wake_epoch(self.redis_url))
 
     def stop_both(self) -> None:
         """Stop both processes with SIGTERM, as a rollout does."""
