@@ -1,7 +1,9 @@
 import copy
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
+
+from agents.member import AcceptInvitationRefusal
 
 from skat.table import auction_plans
 from skat.table.auction import AUCTION_STEP_COMMAND, AuctionCommand, auction_payload, decide_step
@@ -22,11 +24,8 @@ from skat.table.member_place import (
     Acceptance,
     AcceptResult,
     InvitationId,
-    InvitationOffer,
     InviteRefusal,
-    MemberRefusal,
     TableOffers,
-    TableStanding,
     agents_seated_at,
     decide_accept,
     decide_invite,
@@ -143,6 +142,8 @@ if TYPE_CHECKING:
     import random
     from collections.abc import Callable, Sequence
     from contextlib import AbstractContextManager
+
+    from agents.member import Invitation, Standing
 
     from skat.table.member_place import CallFacts
     from skat.table.transactions import TableTransaction, TableTransactions
@@ -284,7 +285,7 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
             command.command_id,
             SEND_AWAY_COMMAND,
             send_away_payload(command),
-            lambda table: decide_send_away_by(table, command, actor, connected_accounts, is_member, self._now()),
+            lambda table: decide_send_away_by(table, command, actor, connected_accounts, is_member),
             lambda transaction, table: save_book_after_send_away(transaction, table.id, command.agent_account),
         )
 
@@ -592,12 +593,14 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
         self._tell_seats(stopped.members)
         return stopped.result
 
-    def invite_agent(self, table_id: TableId, facts: CallFacts, lasting: timedelta) -> InvitationOffer | InviteRefusal:
-        """Write the call as an invitation standing `lasting` from now, if the decision under the locks offers it."""
+    def invite_agent(self, table_id: TableId, facts: CallFacts) -> Invitation | InviteRefusal:
+        """Write the call as an invitation standing as long as core says from now, if the decision under the locks
+        offers it.
+        """
         with self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
             entry = transaction.locked_book_entry(table_id, facts.agent_account)
-            written = decide_invite(table, entry, facts, InvitationId.random(), self._now(), lasting)
+            written = decide_invite(table, entry, facts, InvitationId.random(), self._now())
             if isinstance(written, InviteRefusal):
                 return written
             book_row, offer = written
@@ -624,7 +627,7 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
         open invitation and is stale.
         """
         table_id = TableId.parse(acceptance.table_id)
-        stale = AcceptResult(MemberRefusal.STALE_INVITATION)
+        stale = AcceptResult(AcceptInvitationRefusal.STALE_INVITATION)
         if table_id is None:
             return stale
         with self._transactions.begin() as transaction:
@@ -652,8 +655,9 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
         self._tell_view(table_id, view_recipients(table, decision.table))
         return AcceptResult(decision.refusal, result_pending(decision.table))
 
-    def standings_of(self, agent_account: str) -> tuple[TableStanding, ...]:
-        return standings_of(self._transactions, agent_account, self._now())
+    def standings_of(self, agent_account: str, *, serves_view: bool) -> tuple[Standing, ...]:
+        """The agent's standing at each table; `serves_view` is whether its lease runs."""
+        return standings_of(self._transactions, agent_account, serves_view=serves_view, now=self._now())
 
     def _tell(self, accounts: frozenset[str]) -> None:
         if accounts:

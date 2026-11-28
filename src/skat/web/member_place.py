@@ -38,7 +38,6 @@ from agents.member import (
     AcceptInvitationArguments,
     AcceptInvitationRefusal,
     AcceptInvitationRefused,
-    Invitation,
     MemberStanding,
     PlaceEntry,
     PlaceRef,
@@ -66,7 +65,7 @@ from skat.engine.kontra import Word
 from skat.table.acts import Act, ActKind
 from skat.table.asking import ASK_AGAIN_AFTER, ASKS_AGAIN, asks_due, revision_of
 from skat.table.game_list import RamschResultView, ResultView
-from skat.table.member_place import Acceptance, MembershipState
+from skat.table.member_place import TABLE_PLACE_KIND, Acceptance
 from skat.table.nudging import own_nudges
 from skat.web.declaration_tokens import ANNOUNCEMENT_TOKENS, GAME_TOKENS
 from skat.web.mcp import token_carries_agent_facts
@@ -79,14 +78,12 @@ if TYPE_CHECKING:
     from agents.mcp_server import MemberResources
     from agents.tools import JsonObject
 
-    from skat.table.member_place import TableStanding
     from skat.table.member_view import MemberActs, MemberView, ViewSignal
     from skat.table.records import TableId
     from skat.table.service import TableService
     from skat.web.presence import Presence, Scheduler
     from skat.web.waits import AskClock
 
-TABLE_PLACE_KIND: Final = "table"
 NOBODY_NAME: Final = "Table"
 SIGNAL_FAILED_EVENT: Final = "member_signal.failed"
 
@@ -120,16 +117,6 @@ SET_TURN_STATE_DECLARATION: Final = ToolDeclaration(
 
 def _refused(refusal: AcceptInvitationRefusal) -> ToolOutcome:
     return ToolOutcome(AcceptInvitationRefused(refused=refusal).model_dump_json(), is_error=True)
-
-
-def _standing_of(standing: TableStanding, lease_runs: bool) -> Standing:
-    offer = standing.invitation
-    return Standing(
-        place=PlaceRef(kind=TABLE_PLACE_KIND, id=standing.table_id.value),
-        state=StandingState(standing.state.value),
-        invitation=None if offer is None else Invitation(id=offer.id, epoch=offer.epoch, expires_at=offer.expires_at),
-        serves_view=lease_runs and standing.state is MembershipState.ACTIVE,
-    )
 
 
 def _listed(standings: Iterable[Standing]) -> tuple[str, ...]:
@@ -318,9 +305,9 @@ class MemberStandings:
         return principal.sub in self._presence.live_leases()
 
     async def _standings(self, principal: Principal) -> tuple[Standing, ...]:
-        held = await run_in_threadpool(self._tables.standings_of, principal.sub)
-        lease_runs = self._lease_runs(principal)
-        return tuple(_standing_of(each, lease_runs) for each in held)
+        return await run_in_threadpool(
+            partial(self._tables.standings_of, principal.sub, serves_view=self._lease_runs(principal))
+        )
 
 
 def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTool:
@@ -342,12 +329,12 @@ def accept_invitation_tool(tables: TableService, presence: Presence) -> PersonTo
             )
         )
         if result.refusal is not None:
-            return _refused(AcceptInvitationRefusal(result.refusal.value))
+            return _refused(result.refusal)
         presence.wake_table(table_id)
         presence.chair_taken(table_id)
         if result.result_pending:
             await presence.deal_now(table_id)
-        seated = Standing(place=accepted.place, state=StandingState(MembershipState.ACTIVE.value))
+        seated = Standing(place=accepted.place, state=StandingState.ACTIVE)
         return ToolOutcome(seated.model_dump_json(), is_error=False)
 
     return PersonTool(ACCEPT_INVITATION_DECLARATION, handler)

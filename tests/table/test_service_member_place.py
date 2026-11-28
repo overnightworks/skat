@@ -7,19 +7,17 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from agents.member import INVITATION_SECONDS, AcceptInvitationRefusal, Invitation, PlaceRef, Standing, StandingState
 
 from skat.table.member_place import (
     ENDED_CALL_KEPT,
+    TABLE_PLACE_KIND,
     Acceptance,
     CallOffer,
     CallOutcome,
-    InvitationOffer,
     InviteRefusal,
-    MemberRefusal,
-    MembershipState,
     OfferState,
     SeatedOffer,
-    TableStanding,
 )
 from skat.table.records import Actor, CreateTable, HandProgress, OccupantKind, Series, TableId
 from skat.table.rules import decide_free_chair
@@ -36,7 +34,6 @@ MOZART = Actor(account_id="account-mozart", display_name="Mozart", kind=Occupant
 BACH = Actor(account_id="account-bach", display_name="Bach", kind=OccupantKind.AGENT)
 OWNER = OPENER.account_id
 START = datetime(2026, 11, 1, 12, tzinfo=UTC)
-INVITATION_SECONDS = 600
 NOBODY = frozenset()
 UNKNOWN_TABLE = "0" * 32
 
@@ -58,21 +55,24 @@ class Scene(ServiceScene):
             random_source=random.Random(1),  # noqa: S311 - a seeded source makes the deal reproducible
             now=lambda: self.now,
         )
-        self.signals: list[tuple[frozenset[str], tuple[TableStanding, ...]]] = []
+        self.signals: list[tuple[frozenset[str], tuple[Standing, ...]]] = []
         self.service = self.service.with_standing_signal(self._record_signal)
         self.table_id = self.service.create(OPENER, CreateTable(command_id="command-open")).id
         self.signals.clear()
 
     def _record_signal(self, accounts: frozenset[str]) -> None:
         """What the store shows an agent at the moment it is told: a signal comes after its commit."""
-        shown = tuple(standing for account in sorted(accounts) for standing in self.service.standings_of(account))
+        shown = tuple(
+            standing
+            for account in sorted(accounts)
+            for standing in self.service.standings_of(account, serves_view=False)
+        )
         self.signals.append((accounts, shown))
 
-    def invite(self, agent=MOZART, *, owner=OWNER, inviter=OWNER, lasting=INVITATION_SECONDS, table_id=None, **facts):
+    def invite(self, agent=MOZART, *, owner=OWNER, inviter=OWNER, table_id=None, **facts):
         return self.service.invite_agent(
             TableId(table_id or self.table_id),
             call_facts(agent.account_id, owner, inviter, **facts),
-            timedelta(seconds=lasting),
         )
 
     def accept(self, offer, agent=MOZART, *, owner=OWNER, connected=frozenset({OWNER}), **changes):
@@ -81,7 +81,7 @@ class Scene(ServiceScene):
 
     # reads this file's own MOZART
     def standing(self, agent=MOZART):
-        return self.service.standings_of(agent.account_id)
+        return self.service.standings_of(agent.account_id, serves_view=False)
 
     def book(self, agent=MOZART):
         with self.store.begin() as transaction:
@@ -102,18 +102,20 @@ def scene():
 
 
 def active_standing(scene):
-    return TableStanding(TableId(scene.table_id), MembershipState.ACTIVE)
+    return Standing(place=PlaceRef(kind=TABLE_PLACE_KIND, id=scene.table_id), state=StandingState.ACTIVE)
 
 
 def invited_standing(scene, offer):
-    return TableStanding(TableId(scene.table_id), MembershipState.INVITED, offer)
+    return Standing(
+        place=PlaceRef(kind=TABLE_PLACE_KIND, id=scene.table_id), state=StandingState.INVITED, invitation=offer
+    )
 
 
 class TestInviteAnAgent:
     def test_an_invitation_shows_in_the_agents_standing_with_its_id_epoch_and_expiry(self, scene):
         offer = scene.invite()
 
-        assert isinstance(offer, InvitationOffer)
+        assert isinstance(offer, Invitation)
         assert (offer.epoch, offer.expires_at) == (0, START + timedelta(seconds=INVITATION_SECONDS))
         assert scene.standing() == (invited_standing(scene, offer),)
 
@@ -164,16 +166,16 @@ class TestInviteAnAgent:
     def test_the_expiry_is_the_duration_after_the_services_own_clock(self, scene):
         scene.at(START + timedelta(minutes=7))
 
-        offer = scene.invite(lasting=45)
+        offer = scene.invite()
 
-        assert offer.expires_at == START + timedelta(minutes=7, seconds=45)
+        assert offer.expires_at == START + timedelta(minutes=7, seconds=INVITATION_SECONDS)
 
     def test_the_inviter_who_asks_again_gets_the_open_invitation_and_nothing_is_written_or_told(self, scene):
         first = scene.invite()
         before = scene.snapshot()
         scene.signals.clear()
 
-        again = scene.invite(lasting=5)
+        again = scene.invite()
 
         assert again == first
         assert scene.snapshot() == before
@@ -195,7 +197,7 @@ class TestInviteAnAgent:
 
         second = scene.invite()
 
-        assert isinstance(second, InvitationOffer)
+        assert isinstance(second, Invitation)
         assert second.id != first.id
         assert scene.standing() == (invited_standing(scene, second),)
 
@@ -299,7 +301,7 @@ class TestAnAcceptSeatsTheAgent:
 
         scene.accept(offer)
 
-        held = {standing.table_id.value for standing in scene.standing()}
+        held = {standing.place.id for standing in scene.standing()}
         assert held == {other, scene.table_id}
 
     def test_the_invitation_ends_and_keeps_neither_person(self, scene):
@@ -322,7 +324,7 @@ class TestAnAcceptSeatsTheAgent:
         offer = scene.invite()
         scene.accept(offer)
 
-        assert scene.accept(offer).refusal is MemberRefusal.STALE_INVITATION
+        assert scene.accept(offer).refusal is AcceptInvitationRefusal.STALE_INVITATION
 
 
 class TestTheAcceptThatFillsTheThirdChair:
@@ -401,7 +403,7 @@ class TestTheAcceptDuringARunningHand:
 
         result = scene.accept(offer)
 
-        assert result.refusal is MemberRefusal.BUSY
+        assert result.refusal is AcceptInvitationRefusal.BUSY
         assert (scene.table, scene.standing(), scene.book().invitation.ended) == (before, (), CallOutcome.BUSY)
 
     def test_an_agent_that_held_no_chair_of_the_hand_takes_the_lowest_free_chair(self, scene):
@@ -444,7 +446,7 @@ class TestStaleInvitation:
 
         result = scene.accept(offer, **changes)
 
-        assert result.refusal is MemberRefusal.STALE_INVITATION
+        assert result.refusal is AcceptInvitationRefusal.STALE_INVITATION
         assert scene.snapshot() == before
         assert scene.standing() == (invited_standing(scene, offer),)
 
@@ -453,14 +455,14 @@ class TestStaleInvitation:
         scene.at(START + timedelta(seconds=INVITATION_SECONDS))
         before = scene.snapshot()
 
-        assert scene.accept(offer).refusal is MemberRefusal.STALE_INVITATION
+        assert scene.accept(offer).refusal is AcceptInvitationRefusal.STALE_INVITATION
         assert scene.snapshot() == before
 
     def test_when_the_table_ended(self, scene):
         offer = scene.invite()
         scene.service.end_empty_table(TableId(scene.table_id), nullcontext(NOBODY), 60)
 
-        assert scene.accept(offer).refusal is MemberRefusal.STALE_INVITATION
+        assert scene.accept(offer).refusal is AcceptInvitationRefusal.STALE_INVITATION
 
     def test_when_another_agent_accepts(self, scene):
         offer = scene.invite()
@@ -468,7 +470,7 @@ class TestStaleInvitation:
 
         result = scene.accept(offer, agent=BACH)
 
-        assert result.refusal is MemberRefusal.STALE_INVITATION
+        assert result.refusal is AcceptInvitationRefusal.STALE_INVITATION
         assert scene.snapshot() == before
 
     @pytest.mark.parametrize("owner", [None, "account-someone-else"], ids=["a-token-without-an-owner", "another-owner"])
@@ -476,7 +478,7 @@ class TestStaleInvitation:
         offer = scene.invite()
         before = scene.snapshot()
 
-        assert scene.accept(offer, owner=owner).refusal is MemberRefusal.STALE_INVITATION
+        assert scene.accept(offer, owner=owner).refusal is AcceptInvitationRefusal.STALE_INVITATION
         assert scene.snapshot() == before
 
     def test_when_the_agent_sat_down_by_the_tables_link_first(self, scene):
@@ -484,7 +486,7 @@ class TestStaleInvitation:
         scene.sit(MOZART, 3)
         before = scene.snapshot()
 
-        assert scene.accept(offer).refusal is MemberRefusal.STALE_INVITATION
+        assert scene.accept(offer).refusal is AcceptInvitationRefusal.STALE_INVITATION
         assert scene.snapshot() == before
         assert scene.standing() == (active_standing(scene),)
 
@@ -493,8 +495,43 @@ class TestStaleInvitation:
 
         result = scene.accept(offer, connected=NOBODY, invitation_id="another-id")
 
-        assert result.refusal is MemberRefusal.STALE_INVITATION
+        assert result.refusal is AcceptInvitationRefusal.STALE_INVITATION
         assert scene.standing() == (invited_standing(scene, offer),)
+
+
+class TestAnEndedCallIsKeptWhileItIsTold:
+    @pytest.mark.parametrize(
+        ("full", "connected", "owner_present", "outcome", "answer"),
+        [
+            pytest.param(
+                False, NOBODY, False, CallOutcome.OWNER_ABSENT, InviteRefusal.OWNER_ABSENT, id="the-owner-was-away"
+            ),
+            pytest.param(
+                True, frozenset({OWNER}), True, CallOutcome.BUSY, InviteRefusal.NO_FREE_CHAIR, id="no-chair-was-free"
+            ),
+        ],
+    )
+    def test_a_read_inside_the_kept_time_changes_nothing_and_still_tells_the_outcome(
+        self, scene, full, connected, owner_present, outcome, answer
+    ):
+        offer = scene.invite()
+        if full:
+            scene.sit(VISITOR, 2)
+            scene.sit(CLEO, 3)
+        scene.accept(offer, connected=connected)
+        kept = scene.book()
+        scene.at(START + ENDED_CALL_KEPT - timedelta(seconds=1))
+
+        assert scene.standing() == ()
+        assert scene.book() == kept
+        assert scene.offers_to_the_caller(owner_present=owner_present) == CallOffer(answer, outcome=outcome)
+
+    def test_a_read_once_the_kept_time_has_passed_forgets_it(self, scene):
+        scene.accept(scene.invite(), connected=NOBODY)
+        scene.at(START + ENDED_CALL_KEPT)
+
+        assert scene.standing() == ()
+        assert scene.book().invitation is None
 
 
 class TestSponsorAway:
@@ -509,7 +546,7 @@ class TestSponsorAway:
 
         result = scene.accept(offer, connected=connected)
 
-        assert result.refusal is MemberRefusal.SPONSOR_AWAY
+        assert result.refusal is AcceptInvitationRefusal.SPONSOR_AWAY
         assert scene.table == before
         assert scene.standing() == ()
         assert scene.book().invitation.ended is CallOutcome.OWNER_ABSENT
@@ -523,14 +560,14 @@ class TestSponsorAway:
         result = scene.accept(offer, connected=NOBODY)
 
         assert scene.table.chairs[0].occupant.account_id == OWNER
-        assert result.refusal is MemberRefusal.SPONSOR_AWAY
+        assert result.refusal is AcceptInvitationRefusal.SPONSOR_AWAY
 
     def test_is_answered_before_the_table_is_found_full(self, scene):
         offer = scene.invite()
         scene.sit(VISITOR, 2)
         scene.sit(CLEO, 3)
 
-        assert scene.accept(offer, connected=NOBODY).refusal is MemberRefusal.SPONSOR_AWAY
+        assert scene.accept(offer, connected=NOBODY).refusal is AcceptInvitationRefusal.SPONSOR_AWAY
 
 
 class TestBusy:
@@ -542,7 +579,7 @@ class TestBusy:
 
         result = scene.accept(offer)
 
-        assert result.refusal is MemberRefusal.BUSY
+        assert result.refusal is AcceptInvitationRefusal.BUSY
         assert scene.table == before
         assert scene.standing() == ()
         assert scene.book().invitation.ended is CallOutcome.BUSY
@@ -552,7 +589,7 @@ class TestBusy:
         offer = scene.invite()
         scene.accept(offer, connected=NOBODY)
 
-        assert isinstance(scene.invite(), InvitationOffer)
+        assert isinstance(scene.invite(), Invitation)
 
 
 class TestTheStandingFollowsTheChair:
@@ -560,9 +597,9 @@ class TestTheStandingFollowsTheChair:
         scene.sit(MOZART, 2)
         opened = scene.service.create(MOZART, CreateTable(command_id="command-mozart")).id
 
-        assert {standing.table_id.value: standing.state for standing in scene.standing()} == {
-            scene.table_id: MembershipState.ACTIVE,
-            opened: MembershipState.ACTIVE,
+        assert {standing.place.id: standing.state for standing in scene.standing()} == {
+            scene.table_id: StandingState.ACTIVE,
+            opened: StandingState.ACTIVE,
         }
 
     def test_an_agent_that_stood_up_is_absent_and_sits_again(self, scene):
@@ -688,7 +725,7 @@ class TestSignals:
 
         result = refuse(scene, offer)
 
-        ended = result.refusal is MemberRefusal.SPONSOR_AWAY
+        ended = result.refusal is AcceptInvitationRefusal.SPONSOR_AWAY
         assert [accounts for accounts, _ in scene.signals] == ([frozenset({MOZART.account_id})] if ended else [])
 
     def test_an_agents_sit_stand_and_opening_signal_it_and_a_persons_signal_nobody(self, scene):

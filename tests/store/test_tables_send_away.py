@@ -3,7 +3,6 @@ under two sits at once, and the agent's book row.
 """
 
 import threading
-from datetime import timedelta
 
 import pytest
 from sqlalchemy import text
@@ -212,10 +211,10 @@ class TestTheBookRow:
     ):
         table_id = service.create(OPENER, CreateTable(command_id="command-open")).id
         service.sit(VISITOR, SitDown("command-ben", table_id, 2), NOBODY)
-        service.invite_agent(TableId(table_id), call_facts(MOZART.account_id, OPENER.account_id), timedelta(hours=1))
+        service.invite_agent(TableId(table_id), call_facts(MOZART.account_id, OPENER.account_id))
         service.sit(MOZART, SitDown("command-mozart", table_id, MOZARTS_SEAT), NOBODY)
 
         send_mozart_away(service, table_id)
 
         assert tuple(book_row(engine)) == (1, None, None, None)
-        assert service.standings_of(MOZART.account_id) == ()
+        assert service.standings_of(MOZART.account_id, serves_view=False) == ()

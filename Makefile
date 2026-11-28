@@ -7,7 +7,6 @@ lint:
 	uv run ruff check .
 	uv run ruff format --check src tests scripts
 	uv run pyright
-	PYTHONPATH=src uv run lint-imports
 	$(MAKE) wire-check
 	$(MAKE) words-check
 

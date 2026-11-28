@@ -3,7 +3,6 @@
 import json
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -23,8 +22,6 @@ from tests.web.support.agent import Agent
 from tests.web.support.changes import RecordedChanges
 from tests.web.support.member_client import MemberClient
 from tests.web.support.skat import FETCH, running_skat, streams_of
-
-INVITATION_SECONDS = 600
 
 
 @dataclass(frozen=True)
@@ -132,9 +129,7 @@ class CallingTable:
 
 
 async def inviting(skat, table_id, facts):
-    return await run_in_threadpool(
-        skat.tables.invite_agent, TableId(table_id), facts, timedelta(seconds=INVITATION_SECONDS)
-    )
+    return await run_in_threadpool(skat.tables.invite_agent, TableId(table_id), facts)
 
 
 def a_person(skat, issuer):

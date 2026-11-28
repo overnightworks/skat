@@ -3,7 +3,6 @@ token is offered every tool.
 """
 
 from contextlib import nullcontext
-from datetime import timedelta
 
 import pytest
 from agents.member import ACCEPT_INVITATION_TOOL, STANDING_URI
@@ -244,7 +243,6 @@ class TestTheNoticeComesBeforeTheTellingsOfTheSameChange:
             skat.tables.invite_agent,
             TableId(table_id),
             call_facts(agent.subject, owner[1].id, owner[1].id),
-            timedelta(minutes=10),
         )
 
         with (

@@ -25,7 +25,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, Protocol
 
 import structlog
-from agents.member import INVITATION_SECONDS, STANDING_URI
+from agents.member import STANDING_URI
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -478,10 +478,7 @@ class _Calling:
         if isinstance(fresh, AccessTokenRefusal):
             return CallRefusal.TRY_AGAIN
         written = await run_in_threadpool(
-            self.tables.invite_agent,
-            table_id,
-            replace(chosen.facts, viewer_is_member=fresh),
-            timedelta(seconds=INVITATION_SECONDS),
+            self.tables.invite_agent, table_id, replace(chosen.facts, viewer_is_member=fresh)
         )
         if written is InviteRefusal.NO_TABLE:
             raise HTTPException(status_code=404, detail=NO_TABLE_DETAIL)
