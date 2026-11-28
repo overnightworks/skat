@@ -3,6 +3,6 @@ agent = "Claude db2d61d3-8b51-4183-99c4-2e9334064f60"
 role = "builder"
 base = "897792711bd549a7009962371a62021d5c200547"
 branch = "claude/issue-905-agent-list-drops-a-lapsed-ended-row"
-scope = ["frontend/package.json", "frontend/pnpm-lock.yaml", "frontend/src/lib/ui/AgentsList.svelte", "frontend/src/lib/ui/AgentsList.svelte.test.ts", "frontend/src/lib/wire.ts", "frontend/src/routes/(start)/agents.ts", "pyproject.toml", "src/skat/web/calling.py", "tests/web/test_calling.py", "uv.lock"]
+scope = ["frontend/package.json", "frontend/pnpm-lock.yaml", "frontend/src/lib/ui/AgentsList.svelte", "frontend/src/lib/ui/AgentsList.svelte.test.ts", "frontend/src/lib/wire.ts", "frontend/src/routes/(start)/agents.test.ts", "frontend/src/routes/(start)/agents.ts", "pyproject.toml", "src/skat/web/calling.py", "tests/web/test_calling.py", "uv.lock"]
 opened_commit = "04e604255fa2366ac8814b009ad742db916eaef1"
 whole_reason = "One design release taken in: its four pins and the one app change it asks for, the server's fact on the ended row and the page's drop that reads it, which only together stop the refused call key."
