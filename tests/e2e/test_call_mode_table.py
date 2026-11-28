@@ -677,7 +677,7 @@ def test_the_reaction_key_works_in_a_hopin_frame_after_the_greeting(
 
 
 @pytest.mark.parametrize("frame_size", HOPIN_FRAME_SIZES.values(), ids=HOPIN_FRAME_SIZES)
-def test_the_menu_in_a_hopin_frame_holds_the_rules_and_the_game_count_after_the_greeting(
+def test_the_menu_in_a_hopin_frame_holds_the_game_count_only_after_the_greeting_and_always_the_rules(
     hopin_table: PlayingTable,
     browser_coverage: BrowserCoverage,
     framing_server: RunningServer,
