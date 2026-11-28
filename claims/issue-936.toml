@@ -1,0 +1,8 @@
+claim_id = "bc1ed3234f4544f3bda9abec4d21eae6"
+agent = "Claude db2d61d3-8b51-4183-99c4-2e9334064f60"
+role = "builder"
+base = "9ecbec5044e6b004a0a7aa0653cd34bf4519d54f"
+branch = "claude/issue-936-an-agent-reads-its-hand-its-skat-cards-a"
+scope = ["docs/ARCHITECTURE.md", "src/skat/table/acts.py", "src/skat/table/member_view.py", "src/skat/web/auction.py", "src/skat/web/mcp.py", "src/skat/web/member_place.py", "tests/table/test_acts.py", "tests/table/test_service_member_view.py", "tests/web/support/agent.py", "tests/web/test_auction_plan.py", "tests/web/test_mcp.py", "tests/web/test_mcp_moment.py", "tests/web/test_member_place_window.py"]
+opened_commit = "ddcd341121d2791c26ece7aabba750189c86455b"
+whole_reason = "The window lines and the plan tool are the agent's half of one release: the hand and the plan must reach the agent before the view stops carrying them."
