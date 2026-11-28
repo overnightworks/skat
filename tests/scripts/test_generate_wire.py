@@ -16,6 +16,7 @@ from skat.engine.value import Level
 from skat.table.asking import ASK_AGAIN_AFTER
 from skat.table.auction import AuctionAction
 from skat.table.awaiting import WaitingCase
+from skat.table.member_place import CallOutcome, OfferState
 from skat.table.records import (
     SERIES_LENGTH_DEFAULT,
     SERIES_LENGTH_MAX,
@@ -34,6 +35,7 @@ from skat.web.auction import (
     TABLE_AUCTION_PLAY_SUFFIX,
 )
 from skat.web.call import CALL_ORIGIN_PATH, TABLE_PERSON_KEYS_SUFFIX
+from skat.web.calling import CallRefusal
 from skat.web.constants import (
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -139,6 +141,9 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("WORD_TOKENS", Word),
         ("RAMSCH_OCCASION_TOKENS", RamschOccasion),
         ("WAITING_CASE_TOKENS", WaitingCase),
+        ("OFFER_STATE_TOKENS", OfferState),
+        ("CALL_OUTCOME_TOKENS", CallOutcome),
+        ("CALL_REFUSAL_TOKENS", CallRefusal),
     ],
 )
 def test_render_lists_every_token_of_the_answer_as_a_const_tuple(name: str, tokens: type[StrEnum]) -> None:

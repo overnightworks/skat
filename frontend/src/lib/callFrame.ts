@@ -1,5 +1,5 @@
 import { isCallMode } from "#lib/callSignIn.ts";
-import { CALL_ORIGIN_PATH, CHAIRS_PER_TABLE, TABLE_ID_PATTERN } from "#lib/wire.ts";
+import { CALL_ORIGIN_PATH, CHAIRS_PER_TABLE, TABLE_ID_PATTERN, type CallOrigin } from "#lib/wire.ts";
 
 // A call-mode address inside a frame is the table of a video call; the call shares it and the frame stays on it.
 export function isFramedInCallMode(): boolean {
@@ -151,14 +151,17 @@ export function callStartAddress(callOrigin: string, tableId: string): string {
     return address.href;
 }
 
+function isCallOrigin(data: unknown): data is CallOrigin {
+    return isPlainObject(data) && (typeof data.origin === "string" || data.origin === null);
+}
+
 /** The call's origin from the signed-in route; anything but a 200 naming one counts as no origin. */
 export async function readCallOrigin(fetchRoute: CallHost["fetch"]): Promise<string | null> {
     try {
         const answer = await fetchRoute(CALL_ORIGIN_PATH);
         if (answer.status !== OK_STATUS) return null;
         const body: unknown = await answer.json();
-        const origin = isPlainObject(body) ? body.origin : null;
-        return typeof origin === "string" ? origin : null;
+        return isCallOrigin(body) ? body.origin : null;
     } catch {
         return null;
     }
