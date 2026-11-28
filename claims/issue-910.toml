@@ -1,8 +1,0 @@
-claim_id = "11334a714cd74b6884e5a67f07e0d051"
-agent = "Claude db2d61d3-8b51-4183-99c4-2e9334064f60"
-role = "builder"
-base = "897792711bd549a7009962371a62021d5c200547"
-branch = "claude/issue-910-the-table-fits-hopin-s-call-frame"
-scope = ["frontend/src/lib/callFrame.css", "frontend/src/lib/catalogs", "frontend/src/lib/reactions.css", "frontend/src/lib/start.css", "frontend/src/lib/ui/SeriesCount.svelte", "frontend/src/lib/ui/TableBar.svelte", "frontend/src/lib/ui/TableMenu.svelte", "frontend/src/lib/ui/TableMenu.svelte.test.ts", "frontend/src/lib/ui/TableRules.svelte", "frontend/src/lib/words", "frontend/src/routes/(start)/seriesCommands.ts", "frontend/src/routes/(start)/t/[id]/+page.svelte", "frontend/src/routes/(start)/tables.test.ts", "frontend/src/routes/+layout.svelte", "src/skat/web/words.py", "tests/e2e/support/call_frame.py", "tests/e2e/test_call_mode_table.py"]
-opened_commit = "6a8ccfdb68629af9c062b849c53074754b703568"
-whole_reason = "One call-frame fix: the stage's short-frame rule for wide frames, the greeted bar's items in the table menu with their words, and the end-to-end proof at two frame sizes."
