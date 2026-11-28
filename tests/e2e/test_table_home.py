@@ -3,18 +3,24 @@ import time
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, Route, expect
+from playwright.sync_api import Locator, Page, Route, expect
 from sqlalchemy import select
 
 from skat.store.schema import tables
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.browser import TAP_TARGET_PIXELS, record_page_errors
+from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.server import skat_on_new_database
 from tests.e2e.support.table_menu import menu_button
-from tests.e2e.support.tables import RECONNECT_MILLISECONDS, assert_never_reloaded, mark_page, open_new_table
+from tests.e2e.support.tables import (
+    RECONNECT_MILLISECONDS,
+    assert_never_reloaded,
+    mark_page,
+    open_new_table,
+    watch,
+)
 from tests.e2e.support.waiting_tables import deal_a_table_that_waits_for
 from tests.support.signed_in import new_account, seed_member
 
@@ -37,7 +43,6 @@ RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
 NOT_FOUND_HEADING = text(SOURCE_LANGUAGE, "closed.notFound")
-TRANSPARENT_COLOR = "rgba(0, 0, 0, 0)"
 
 
 # its own settings: this file's constants differ from the other file's, whose fixture reads the same
@@ -70,35 +75,9 @@ def ended_table_path(ended_server: RunningServer) -> str:
     return f"{TABLE_PAGE_PREFIX}{created['id']}"
 
 
-def lobby_of(person: Page) -> Any:
-    return person.get_by_role("link", name=LOBBY)
-
-
-def expect_the_lobby_top_left_and_tappable(person: Page) -> None:
-    """The button sits in the top left quarter of the page, is a whole tap target, and clears the watchers."""
-    expect(lobby_of(person)).to_be_visible()
-    box = lobby_of(person).bounding_box()
-    viewport = person.viewport_size
-    assert box is not None
-    assert viewport is not None
-    assert box["x"] >= 0
-    assert box["x"] + box["width"] <= viewport["width"] / 2
-    assert box["y"] + box["height"] <= viewport["height"] / 4
-    assert box["width"] >= TAP_TARGET_PIXELS
-    assert box["height"] >= TAP_TARGET_PIXELS
-    watchers = person.locator(".watchers")
-    if watchers.count():
-        watchers_box = watchers.bounding_box()
-        assert watchers_box is not None
-        assert box["x"] + box["width"] <= watchers_box["x"]
-    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-
-
-def expect_the_lobby_glass_on_the_wood(person: Page) -> None:
-    """The button has a translucent fill and a hairline ring, so the wood shows through it and the ring marks it."""
-    face = person.locator(".lobby-face")
-    expect(face).not_to_have_css("background-color", TRANSPARENT_COLOR)
-    assert face.evaluate("element => getComputedStyle(element).boxShadow.includes('inset')")
+def lobby_of(person: Page, name: str = LOBBY) -> Locator:
+    """The lobby button by its whole name, which counts the person's other tables that wait for him."""
+    return person.get_by_role("link", name=name, exact=True)
 
 
 def expect_the_lobby_to_take_the_person_to_the_start_page(person: Page, base_url: str) -> None:
@@ -107,17 +86,15 @@ def expect_the_lobby_to_take_the_person_to_the_start_page(person: Page, base_url
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_seated_table_offers_the_lobby_button_top_left_and_no_wordmark_link(
+def test_a_seated_table_offers_the_lobby_button_as_its_bars_only_link(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
 
     open_new_table(person, e2e_server)
 
-    expect_the_lobby_top_left_and_tappable(person)
-    expect_the_lobby_glass_on_the_wood(person)
-    expect(person.locator(".bar a:visible")).to_have_count(1)
     expect(lobby_of(person)).to_have_attribute("href", "/")
+    expect(person.get_by_role("banner").get_by_role("link")).to_have_count(1)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -135,7 +112,7 @@ def test_the_lobby_button_takes_the_seated_person_home_and_keeps_the_seat(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_lobby_button_stays_tappable_and_undimmed_while_the_page_reconnects(
+def test_the_lobby_button_takes_the_person_home_while_the_page_reconnects(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     page_errors: list[str],
@@ -151,9 +128,6 @@ def test_the_lobby_button_stays_tappable_and_undimmed_while_the_page_reconnects(
     person.reload()
 
     expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
-    expect_the_lobby_top_left_and_tappable(person)
-    expect(lobby_of(person)).to_have_css("pointer-events", "auto")
-    expect(lobby_of(person)).to_have_css("filter", "none")
     expect_the_lobby_to_take_the_person_to_the_start_page(person, e2e_server.base_url)
 
 
@@ -163,7 +137,6 @@ def test_the_lobby_button_of_a_dealt_table_takes_the_declarer_home(
 ) -> None:
     table = deal_a_declaring_table(form_factor)
 
-    expect_the_lobby_top_left_and_tappable(table.declarer)
     expect_the_lobby_to_take_the_person_to_the_start_page(table.declarer, e2e_server.base_url)
 
 
@@ -177,7 +150,6 @@ def test_the_lobby_button_of_a_missing_table_takes_the_person_home(
     person.goto(f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{UNKNOWN_ID}")
 
     expect(person.get_by_role("heading", name=NOT_FOUND_HEADING)).to_be_visible()
-    expect_the_lobby_top_left_and_tappable(person)
     expect_the_lobby_to_take_the_person_to_the_start_page(person, e2e_server.base_url)
 
 
@@ -194,12 +166,7 @@ def test_the_lobby_button_of_an_ended_table_takes_the_person_home(
     person.goto(f"{ended_server.base_url}{ended_table_path}")
 
     expect(person.get_by_role("heading", name=CLOSED_HEADING)).to_be_visible()
-    expect_the_lobby_top_left_and_tappable(person)
     expect_the_lobby_to_take_the_person_to_the_start_page(person, ended_server.base_url)
-
-
-def badge_of(person: Page) -> Any:
-    return person.locator(".lobby-badge")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -213,27 +180,16 @@ def test_a_table_that_waits_for_the_person_puts_its_number_on_the_lobby_button_w
     person = record_page_errors(open_person(**form_factor), page_errors)
     open_new_table(person, e2e_server)
     mark_page(person)
-    expect(badge_of(person)).to_have_count(0)
-    expect(lobby_of(person)).to_have_attribute("aria-label", LOBBY)
+    expect(lobby_of(person)).to_be_visible()
 
     deal_a_table_that_waits_for(e2e_server, RawSession(e2e_server, member_of(person)))
 
-    expect(badge_of(person)).to_have_text("1")
-    expect(lobby_of(person)).to_have_attribute("aria-label", LOBBY_WAITING_ONE)
-    expect(person.get_by_role("link", name=LOBBY_WAITING_ONE)).to_be_visible()
-    face, badge = person.locator(".lobby-face").bounding_box(), badge_of(person).bounding_box()
-    assert face is not None
-    assert badge is not None
-    assert badge["width"] == badge["height"] > 0
-    assert badge["x"] <= face["x"] + face["width"] <= badge["x"] + badge["width"]
-    assert badge["y"] <= face["y"] <= badge["y"] + badge["height"]
-    expect_the_lobby_top_left_and_tappable(person)
+    expect(lobby_of(person, LOBBY_WAITING_ONE).get_by_text("1", exact=True)).to_be_visible()
     assert_never_reloaded(person)
 
     deal_a_table_that_waits_for(e2e_server, RawSession(e2e_server, member_of(person)))
 
-    expect(badge_of(person)).to_have_text("2")
-    expect(lobby_of(person)).to_have_attribute("aria-label", LOBBY_WAITING_TWO)
+    expect(lobby_of(person, LOBBY_WAITING_TWO).get_by_text("2", exact=True)).to_be_visible()
 
 
 def test_the_table_the_person_is_at_is_never_counted_even_when_it_waits_for_him(
@@ -245,11 +201,9 @@ def test_the_table_the_person_is_at_is_never_counted_even_when_it_waits_for_him(
     person = record_page_errors(open_person(**PHONE), page_errors)
     table_id = deal_a_table_that_waits_for(e2e_server, RawSession(e2e_server, member_of(person)))
 
-    person.goto(f"{e2e_server.base_url}{TABLE_PAGE_PREFIX}{table_id}")
+    watch(person, e2e_server, f"{TABLE_PAGE_PREFIX}{table_id}")
 
-    expect(person.locator(".chair")).to_have_count(3)
     expect(lobby_of(person)).to_be_visible()
-    expect(badge_of(person)).to_have_count(0)
 
 
 def test_a_lost_stream_hides_the_number_and_the_stream_coming_back_brings_it_again(
@@ -278,9 +232,8 @@ def test_a_lost_stream_hides_the_number_and_the_stream_coming_back_brings_it_aga
     person.reload()
 
     expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
-    expect(badge_of(person)).to_have_count(0)
-    expect_the_lobby_top_left_and_tappable(person)
+    expect(lobby_of(person)).to_be_visible()
     person.unroute(events, count_one_then_end_and_refuse_the_rest)
 
-    expect(badge_of(person)).to_have_text("1", timeout=RECONNECT_MILLISECONDS)
+    expect(lobby_of(person, LOBBY_WAITING_ONE)).to_be_visible(timeout=RECONNECT_MILLISECONDS)
     expect(person.get_by_role("status").filter(has_text=RECONNECTING)).to_have_count(0)
