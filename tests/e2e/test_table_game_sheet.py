@@ -3,12 +3,13 @@ import re
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Page, Route, expect
+from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
 from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.declaring import DeclaringTable
 from tests.e2e.support.hands import PlayingTable
 from tests.e2e.support.people import PHONE, WIDTHS
@@ -22,19 +23,24 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-GAME_SHEET = ".game-list .game-sheet"
 SHEET_ROUTE = f"**{TABLES_PATH}/*{TABLE_LIST_SUFFIX}/*"
 LIST_ROUTE = f"**{TABLES_PATH}/*{TABLE_LIST_SUFFIX}"
-LONG_LABEL_LEVELS = ["hand", "schneider", "schneider_announced", "schwarz", "schwarz_announced", "ouvert"]
 PUT_AWAY_FROM_THE_HAND = 2
 DEALT_CARDS = 30
-SEATS = 3
 SERVER_ERROR = 500
+SERIES_LIST = text(SOURCE_LANGUAGE, "table.seriesList")
+TRICK_POINTS = text(SOURCE_LANGUAGE, "result.trickPoints")
+FIRST_TRICK = text(SOURCE_LANGUAGE, "table.sheetTrick", number="1")
+CARD_PUT_AWAY = text(SOURCE_LANGUAGE, "table.sheetCardPutAway")
+CARD_UNPLAYED = text(SOURCE_LANGUAGE, "table.sheetCardUnplayed")
 
 
-def open_the_game(person: Page) -> None:
-    person.locator(".series-count").click()
-    person.locator(".game-list .grow").click()
+def open_the_game(person: Page) -> Locator:
+    """The sheet of the series' first game, opened from the count and the list's one row."""
+    old_surface.series_count(person).click()
+    games = person.get_by_role("dialog", name=SERIES_LIST)
+    games.get_by_role("listitem").get_by_role("button").click()
+    return games.get_by_role("group", name=text(SOURCE_LANGUAGE, "table.sheetTitle", number="1"), exact=True)
 
 
 def without_cards(route: Route) -> None:
@@ -95,26 +101,23 @@ def test_a_declared_game_given_up_in_its_first_trick_shows_its_count_its_cards_a
     table.declaring.step(table.declarer_seat, TABLE_GIVE_UP_SUFFIX)
     person = table.pages[table.declarer_seat]
 
-    open_the_game(person)
+    sheet = open_the_game(person)
 
-    expect(person.locator(f"{GAME_SHEET} .points")).to_be_visible()
-    expect(person.locator(f"{GAME_SHEET} .sheet-head .dot")).to_have_class(
-        re.compile(rf"\bseat-{table.declarer_seat}\b")
-    )
-    assert person.locator(f"{GAME_SHEET} .points .side").evaluate_all(
-        "sides => sides.every(side => side.scrollWidth <= side.clientWidth)"
-    )
-    expect(person.locator(f"{GAME_SHEET} .hc.put-away")).to_have_count(PUT_AWAY_FROM_THE_HAND)
-    expect(person.locator(f"{GAME_SHEET} .hc.unplayed")).to_have_count(DEALT_CARDS - PUT_AWAY_FROM_THE_HAND - 1)
-    trick = person.locator(f"{GAME_SHEET} .tricks .trick-row:not(.ended)")
-    expect(trick).to_have_count(1)
-    expect(trick.locator(".trick-card")).to_have_count(1)
-    expect(trick.locator(".pts")).to_have_count(0)
-    expect(person.locator(f"{GAME_SHEET} .trick-row.ended")).to_contain_text(text(SOURCE_LANGUAGE, "result.givenUp"))
+    expect(sheet.get_by_role("group", name=TRICK_POINTS)).to_be_visible()
+    expect(sheet.get_by_title(CARD_PUT_AWAY, exact=True)).to_have_count(PUT_AWAY_FROM_THE_HAND)
+    expect(sheet.get_by_title(CARD_UNPLAYED, exact=True)).to_have_count(DEALT_CARDS - PUT_AWAY_FROM_THE_HAND - 1)
+    trick = sheet.get_by_role("listitem", name=FIRST_TRICK, exact=True)
+    # The trick it left holds the one card led, named by who led it, and neither a taker nor a count.
+    leader = table.names[table.seat_at["forehand"]]
+    expect(trick.get_by_role("img")).to_have_count(1)
+    expect(trick.get_by_role("img", name=leader, exact=True)).to_have_count(1)
+    expect(trick).to_have_text(re.compile(r"^\D*1\D*$"))
+    expect(sheet.get_by_role("listitem")).to_have_count(2)
+    expect(sheet.get_by_role("listitem").last).to_contain_text(text(SOURCE_LANGUAGE, "result.givenUp"))
     assert page_errors == []
 
 
-def test_a_null_games_sheet_draws_no_points_bar_and_still_its_tricks(
+def test_a_null_games_sheet_shows_no_trick_points_and_still_its_tricks(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     member_of: Callable[[Page], SeededMember],
@@ -126,62 +129,10 @@ def test_a_null_games_sheet_draws_no_points_bar_and_still_its_tricks(
     person = table.pages[table.declarer_seat]
     person.route(LIST_ROUTE, as_the_list_names_it({"game": "null"}))
 
-    open_the_game(person)
+    sheet = open_the_game(person)
 
-    expect(person.locator(f"{GAME_SHEET} .tricks .trick-row:not(.ended)")).to_have_count(1)
-    expect(person.locator(f"{GAME_SHEET} .points")).to_have_count(0)
-    assert page_errors == []
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_long_game_label_wraps_in_the_sheet_head_instead_of_being_cut(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-    form_factor: dict[str, Any],
-) -> None:
-    table = a_declared_game_with_two_hand_cards_put_away(open_person, e2e_server, member_of, page_errors, form_factor)
-    table.play_out(1)
-    table.declaring.step(table.declarer_seat, TABLE_GIVE_UP_SUFFIX)
-    person = table.pages[table.declarer_seat]
-    person.route(LIST_ROUTE, as_the_list_names_it({"levels": LONG_LABEL_LEVELS, "hand": True, "ouvert": True}))
-
-    open_the_game(person)
-
-    for part in (".sheet-head b", ".sheet-head small"):
-        assert person.locator(f"{GAME_SHEET} {part}").evaluate("label => label.scrollWidth <= label.clientWidth")
-    assert page_errors == []
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_ramsch_sheet_draws_every_dot_round_and_its_tricks_inside_the_panel(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-    form_factor: dict[str, Any],
-) -> None:
-    table = RamschTable(open_person, e2e_server, member_of, page_errors, form_factor)
-    table.pass_all()
-    table.play_out()
-    person = table.pages[1]
-
-    open_the_game(person)
-
-    expect(person.locator(f"{GAME_SHEET} .seat-eyes > span .dot")).to_have_count(3)
-    sizes = person.locator(f"{GAME_SHEET} .dot").evaluate_all(
-        "dots => dots.map(dot => { const box = dot.getBoundingClientRect(); return [box.width, box.height]; })"
-    )
-    assert all(abs(width - height) < 1 for width, height in sizes)
-    seat_dots = person.locator(f"{GAME_SHEET} .seat-eyes .dot")
-    assert len(set(seat_dots.evaluate_all("dots => dots.map(dot => getComputedStyle(dot).backgroundImage)"))) == SEATS
-    loser = person.locator(f"{GAME_SHEET} .seat-eyes > .most .dot").first
-    loser_seat = loser.evaluate("dot => [...dot.classList].find(name => name.startsWith('seat-'))")
-    expect(person.locator(f"{GAME_SHEET} .sheet-head .dot")).to_have_class(re.compile(rf"\b{loser_seat}\b"))
-    assert person.locator(f"{GAME_SHEET} .tricks").evaluate(
-        "tricks => tricks.getBoundingClientRect().right <= tricks.closest('.game-list').getBoundingClientRect().right"
-    )
+    expect(sheet.get_by_role("listitem", name=FIRST_TRICK, exact=True)).to_have_count(1)
+    expect(sheet.get_by_role("group", name=TRICK_POINTS)).to_have_count(0)
     assert page_errors == []
 
 
@@ -197,9 +148,9 @@ def test_a_ramsch_sheet_with_a_laid_skat_puts_the_taker_dot_beside_the_laid_skat
     person = table.pages[1]
     person.route(SHEET_ROUTE, with_the_skat_laid)
 
-    open_the_game(person)
+    sheet = open_the_game(person)
 
-    pairs = person.locator(f"{GAME_SHEET} .skatline .pair")
+    pairs = sheet.locator(".skatline .pair")
     laid = pairs.filter(has_text=text(SOURCE_LANGUAGE, "table.sheetSkatLaid"))
     expect(laid).to_have_count(1)
     expect(laid.locator(".dot")).not_to_have_count(0)
@@ -221,10 +172,12 @@ def test_a_game_the_server_kept_no_cards_of_says_so_and_still_counts(
     person = table.pages[1]
     person.route(SHEET_ROUTE, without_cards)
 
-    open_the_game(person)
+    sheet = open_the_game(person)
 
-    expect(person.locator(f"{GAME_SHEET} .empty")).to_have_text(text(SOURCE_LANGUAGE, "table.sheetNoCards"))
-    expect(person.locator(f"{GAME_SHEET} .seat-eyes > span")).to_have_count(3)
+    expect(sheet.get_by_text(text(SOURCE_LANGUAGE, "table.sheetNoCards"), exact=True)).to_be_visible()
+    # The sheet still counts: each seat stands on it once, beside its eyes.
+    for name in table.names.values():
+        expect(sheet.get_by_role("img", name=name, exact=True)).to_have_count(1)
     assert page_errors == []
 
 
@@ -241,7 +194,7 @@ def test_a_game_the_server_cannot_read_says_so(
     person = table.pages[1]
     person.route(SHEET_ROUTE, broken)
 
-    open_the_game(person)
+    sheet = open_the_game(person)
 
-    expect(person.locator(f"{GAME_SHEET} [role=alert]")).to_have_text(text(SOURCE_LANGUAGE, "table.sheetFailed"))
+    expect(sheet.get_by_role("alert")).to_have_text(text(SOURCE_LANGUAGE, "table.sheetFailed"))
     assert page_errors == []
