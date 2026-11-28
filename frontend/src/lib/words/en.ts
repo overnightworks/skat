@@ -660,6 +660,20 @@ const translated = {
     "table.answerClock": (gaps: { readonly time: string }) => "no answer in " + gaps.time + " = no",
     "table.refusedToEndOne": (gaps: { readonly names: string }) => gaps.names + " wants to play on",
     "table.refusedToEndMany": (gaps: { readonly names: string }) => gaps.names + " want to play on",
+    "table.newLook": "New look (under construction)",
+    "table.landmark": "Skat table",
+    "table.chairFree": "Free chair",
+    "table.chairAgent": "AI",
+    "table.chairCards": (count: number) => ({
+        zero: numberFormat.format(count) + " cards",
+        one: numberFormat.format(count) + " card",
+        two: numberFormat.format(count) + " cards",
+        few: numberFormat.format(count) + " cards",
+        many: numberFormat.format(count) + " cards",
+        other: numberFormat.format(count) + " cards",
+    })[pluralRules.select(count)],
+    "table.chairOnTurn": "on turn",
+    "look.lampeName": "Under the lamp",
 } satisfies Words;
 // A translation that leaves out a gap of its source fails here.
 ({}) as Words satisfies typeof translated;

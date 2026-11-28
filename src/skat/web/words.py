@@ -564,6 +564,13 @@ type Key = Literal[
     'table.answerClock',
     'table.refusedToEndOne',
     'table.refusedToEndMany',
+    'table.newLook',
+    'table.landmark',
+    'table.chairFree',
+    'table.chairAgent',
+    'table.chairCards',
+    'table.chairOnTurn',
+    'look.lampeName',
 ]
 type Language = Literal[
     'de',
@@ -1184,6 +1191,16 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'table.answerClock': 'ohne Antwort in {time} = Nein',
         'table.refusedToEndOne': '{names} möchte weiterspielen',
         'table.refusedToEndMany': '{names} möchten weiterspielen',
+        'table.newLook': 'Neuer Look (im Bau)',
+        'table.landmark': 'Skattisch',
+        'table.chairFree': 'Freier Platz',
+        'table.chairAgent': 'KI',
+        'table.chairCards': {
+            'one': '{count} Karte',
+            'other': '{count} Karten',
+        },
+        'table.chairOnTurn': 'am Zug',
+        'look.lampeName': 'Unter der Lampe',
     },
     'en': {
         'app.name': 'Skat',
@@ -1785,6 +1802,16 @@ WORDS: Mapping[Language, Mapping[Key, str | Mapping[Category, str]]] = {
         'table.answerClock': 'no answer in {time} = no',
         'table.refusedToEndOne': '{names} wants to play on',
         'table.refusedToEndMany': '{names} want to play on',
+        'table.newLook': 'New look (under construction)',
+        'table.landmark': 'Skat table',
+        'table.chairFree': 'Free chair',
+        'table.chairAgent': 'AI',
+        'table.chairCards': {
+            'one': '{count} card',
+            'other': '{count} cards',
+        },
+        'table.chairOnTurn': 'on turn',
+        'look.lampeName': 'Under the lamp',
     },
 }
 

@@ -2286,3 +2286,35 @@ msgstr ""
 msgctxt "table.refusedToEndMany"
 msgid "{names} möchten weiterspielen"
 msgstr ""
+
+msgctxt "table.newLook"
+msgid "Neuer Look (im Bau)"
+msgstr ""
+
+msgctxt "table.landmark"
+msgid "Skattisch"
+msgstr ""
+
+msgctxt "table.chairFree"
+msgid "Freier Platz"
+msgstr ""
+
+msgctxt "table.chairAgent"
+msgid "KI"
+msgstr ""
+
+msgctxt "table.chairCards.one"
+msgid "{count} Karte"
+msgstr ""
+
+msgctxt "table.chairCards.other"
+msgid "{count} Karten"
+msgstr ""
+
+msgctxt "table.chairOnTurn"
+msgid "am Zug"
+msgstr ""
+
+msgctxt "look.lampeName"
+msgid "Unter der Lampe"
+msgstr ""

@@ -19,7 +19,7 @@
         type GiveUpAnswer,
     } from "#lib/giveUp.ts";
     import { firstCardWait, keyWord, type Stamp } from "#lib/kontra.ts";
-    import { handWaits, lockedChairs, noticeStanding, seatNotice, type SeatNotice } from "#lib/openChair.ts";
+    import { handWaits, lockedChairs, seatNotice } from "#lib/openChair.ts";
     import {
         bidLineOfGameDeclaredInTheStage,
         gameInPlay,
@@ -101,6 +101,7 @@
     } from "#lib/stage.svelte.ts";
     import { lookOf } from "#lib/looks/registry.ts";
     import { tableIntents } from "#lib/table/intents.ts";
+    import { resetSeatNote, seatNote as standingSeatNote, tellSeats } from "#lib/table/seatNote.svelte.ts";
     import { beatOf, receiveReactions, resetReactions, tapCounts } from "#lib/tableReactions.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
@@ -136,7 +137,6 @@
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
-    const SEAT_NOTICE_MILLISECONDS = 4000;
 
     const { data }: PageProps = $props();
     // The route has an [id] segment, so the parameter is always present.
@@ -175,28 +175,18 @@
     let streamedVersion = $state<number | null>(null);
     // How many people watch without a chair, which the agents list follows while it is open.
     let streamedWatchers = $state(0);
-    // The sentence that names who has just left or taken a chair of the table.
-    let seatNote = $state<SeatNotice | null>(null);
-    let seatNoteTimer: ReturnType<typeof setTimeout> | undefined;
+    const seatNote = $derived(standingSeatNote());
     // Which agents sit where, so a wake that folds one leaving and another sitting still changes it.
     let seatedAgents = $state("");
     // The free chair whose tap asks the question before a sit, while a hand runs.
     let asking = $state<number | null>(null);
-
-    function showSeatNote(note: SeatNotice): void {
-        seatNote = note;
-        clearTimeout(seatNoteTimer);
-        seatNoteTimer = setTimeout(() => (seatNote = null), SEAT_NOTICE_MILLISECONDS);
-    }
 
     const presentTable: Presenter = (previous, table, cues, closing, saidWithinSeconds) => {
         streamedVersion = table.version;
         streamedWatchers = table.watchers;
         seatedAgents = seatedAgentsKey(previous, table);
         const nudged = previous === undefined ? null : nudgedNote(previous, table);
-        const note = requestEndedNotice(cues, table.chairs) ?? seatNotice(cues, table) ?? nudged;
-        if (note !== null) showSeatNote(note);
-        seatNote = noticeStanding(seatNote, table);
+        tellSeats(requestEndedNotice(cues, table.chairs) ?? seatNotice(cues, table) ?? nudged, table);
         if (!handWaits(table.hand)) asking = null;
         if (previous === undefined || cues.some((cue) => cue.kind === "dealt")) playedThisHand = [];
         stamp = stampBetween(previous, table) ?? stamp;
@@ -243,7 +233,7 @@
         countedOrdinal = null;
         stillTrick = null;
         streamedVersion = null;
-        seatNote = null;
+        resetSeatNote();
         asking = null;
         playedThisHand = [];
         stamp = null;
@@ -292,7 +282,7 @@
         return () => {
             current = false;
             clearTimeout(wonTimer);
-            clearTimeout(seatNoteTimer);
+            resetSeatNote();
             stopWatching();
             tables.end();
             resetStage();
