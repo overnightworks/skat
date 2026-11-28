@@ -2662,70 +2662,6 @@ body {
     }
 }
 
-/* Once the call has greeted, the felt's top row stays free for the call's own count and the reaction key, which stands there. */
-@media (max-width: 899px) {
-    .room.framed .stage.after-drop {
-        padding-top: 46px;
-    }
-}
-
-/* A phone's call frame under 620 px gives up the air between the rows, so the hand and the call strip stay in the frame, the table bar included. */
-@media (max-width: 899px) and (max-height: 619px) {
-    .room.framed .stage {
-        padding-top: 12px;
-    }
-
-    .room.framed .plaque {
-        margin-bottom: 4px;
-    }
-
-    .room.framed .controls {
-        gap: 2px;
-        margin-top: 4px;
-    }
-
-    .room.framed .own-hand {
-        margin-bottom: 0;
-    }
-}
-
-/* A desktop's call frame under 780 px, as hopin's is, lets the trick's row and the hand give way, so the whole table, the hand and the call strip stay in the frame; the table bar, while it stands, is slimmer. The rim of the felt shows whole once the bar is gone. */
-@media (min-width: 900px) and (max-height: 779px) {
-    .room.framed .bar {
-        padding: 8px 24px;
-    }
-
-    .room.framed {
-        height: 100dvh;
-    }
-
-    .room.framed .stage {
-        min-height: 0;
-        padding-bottom: 12px;
-    }
-
-    .room.framed .stage:has(> .trick) {
-        grid-template-rows: 42px 0 minmax(200px, 418px) 0 auto;
-    }
-
-    /* A watcher's chair hangs its name plate below its box: the row keeps that room. */
-    .room.framed .stage:has(> .trick) .chair:nth-child(3):not(.mine) {
-        margin-bottom: 18px;
-    }
-
-    .room.framed .stage.after-drop {
-        --table-top: 0px;
-    }
-
-    .room.framed .own-hand {
-        --card-width: 80px;
-        --strip: 48px;
-        --strip-lifted: 66px;
-
-        margin-bottom: 6px;
-    }
-}
-
 /* On the desktop the rows stand beside their chair, on the felt's side. */
 @media (min-width: 900px) {
     .room .stage {
@@ -4721,13 +4657,6 @@ body {
 @media (max-width: 899px) and (max-height: 779px) {
     .room.framed .trick {
         height: calc(var(--card-width) * 3);
-    }
-}
-
-/* Under 620 px the trick takes less still. */
-@media (max-width: 899px) and (max-height: 619px) {
-    .room.framed .trick {
-        height: calc(var(--card-width) * 2.6);
     }
 }
 
