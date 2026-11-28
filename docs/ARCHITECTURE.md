@@ -52,7 +52,7 @@ flowchart TB
 - **`skat.store`**: those ports on Postgres, the migrations and the serving window, and the Redis clients.
 - **`skat.web`**: the adapter: sign-in gate, routes, MCP front, streams, presence and wakes. Every route is marked as a tool or an exclusion with its reason; an undecided route stops the build.
 - **`skat.host`**: reads the settings, composes the app and starts uvicorn.
-- **The frontend** (`frontend/`) builds into `src/skat/web/build` and decides no rule: it draws the server's view. Takt (`frontend/src/lib/takt/`) plays moments every seat sees alike from a seed; CSS owns where a card rests, Takt its seeded lie and travel, never a coordinate of the table.
+- **The frontend** (`frontend/`) builds into `src/skat/web/build` and decides no rule: it draws the server's view. Takt (`frontend/src/lib/takt/`) plays moments every seat sees alike from a seed; CSS owns where a card rests, Takt its seeded lie and travel, never a coordinate of the table. A table style's look is one entry in `frontend/src/lib/looks/`, found through its registry: the entry names the renderer that draws the table and the furniture on its felt, so a new look is a new entry and nothing outside the layer changes. A look reads the table only through the look-neutral contract in `frontend/src/lib/table/` (the scene it draws, the intents a person's gestures become) and never a route, a store or the wire; ESLint holds both directions. The card back, the backdrop and the ambience still branch on the style outside the layer.
 
 ## 3. Runtime View
 

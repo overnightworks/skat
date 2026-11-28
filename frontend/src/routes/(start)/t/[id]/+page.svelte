@@ -76,8 +76,6 @@
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import TakenNotice from "#lib/ui/TakenNotice.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
-    import KlassikDecor from "#lib/ui/KlassikDecor.svelte";
-    import StrandDecor from "#lib/ui/StrandDecor.svelte";
     import ThrownEmotes from "#lib/ui/ThrownEmotes.svelte";
     import StyleScene from "#lib/ui/StyleScene.svelte";
     import TrickPile from "#lib/ui/TrickPile.svelte";
@@ -100,7 +98,9 @@
         tellOnStage,
         trickIsMoving,
     } from "#lib/stage.svelte.ts";
-    import { beatOf, receiveReactions, resetReactions } from "#lib/tableReactions.svelte.ts";
+    import { lookOf } from "#lib/looks/registry.ts";
+    import { tableIntents } from "#lib/table/intents.ts";
+    import { beatOf, receiveReactions, resetReactions, tapCounts } from "#lib/tableReactions.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
     import { words } from "#lib/words.ts";
@@ -131,7 +131,7 @@
     } from "../../tables.ts";
     import { nudgedNote } from "../../nudge.ts";
     import { weiter } from "../../seriesCommands.ts";
-    import { reactionName, reactionsBetween, throwReaction } from "../../reaction.ts";
+    import { reactionName, reactionsBetween } from "../../reaction.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
@@ -140,6 +140,8 @@
     const { data }: PageProps = $props();
     // The route has an [id] segment, so the parameter is always present.
     const id = $derived(page.params.id as string);
+    const intents = $derived(tableIntents(id));
+    const look = $derived(lookOf(tableStyle()));
     let outcome = $state<Outcome | null>(null);
     // The newest table the stream brought, shown or not: the call follows who sits there, not the paced table.
     let newestTable = $state<Table | null>(null);
@@ -547,8 +549,7 @@
             {/if}
             <div class="felt-paint" aria-hidden="true" data-call-backdrop></div>
             <div class="felt">
-                <StrandDecor {id} />
-                <KlassikDecor {id} />
+                <look.renderer {look} scene={{ taps: tapCounts() }} {intents} />
                 <ThrownEmotes chairs={outcome.table.chairs} />
             </div>
             {#if standing !== null}
@@ -693,7 +694,7 @@
                                 data-beat={beatOf("coaster")}
                                 aria-label={`${words[reactionName("coaster")]} ${withMinus(chair.total)}`}
                                 onclick={() => {
-                                    void throwReaction(id, "coaster");
+                                    intents.tap("coaster");
                                 }}
                             >
                                 {withMinus(chair.total)}

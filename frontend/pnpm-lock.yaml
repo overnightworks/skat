@@ -210,8 +210,8 @@ importers:
         specifier: ^3.2.1
         version: 3.2.1
       overnightworks-design:
-        specifier: https://github.com/overnightworks/design/releases/download/v0.42.0/overnightworks-design-0.42.0.tgz
-        version: https://github.com/overnightworks/design/releases/download/v0.42.0/overnightworks-design-0.42.0.tgz(svelte@5.58.0(@typescript-eslint/types@8.73.0))
+        specifier: https://github.com/overnightworks/design/releases/download/v0.43.1/overnightworks-design-0.43.1.tgz
+        version: https://github.com/overnightworks/design/releases/download/v0.43.1/overnightworks-design-0.43.1.tgz(svelte@5.58.0(@typescript-eslint/types@8.73.0))
       prettier:
         specifier: ^3.10.1
         version: 3.10.1
@@ -1198,9 +1198,9 @@ packages:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
 
-  overnightworks-design@https://github.com/overnightworks/design/releases/download/v0.42.0/overnightworks-design-0.42.0.tgz:
-    resolution: {integrity: sha512-9l1ln13Ta4jOBXXuazgtNF8ghETAfuCt4T9q00tmIbaANoeEKWQIP3SvJV5iwOTUlAegCo4D6oonCxAGkigyCw==, tarball: https://github.com/overnightworks/design/releases/download/v0.42.0/overnightworks-design-0.42.0.tgz}
-    version: 0.42.0
+  overnightworks-design@https://github.com/overnightworks/design/releases/download/v0.43.1/overnightworks-design-0.43.1.tgz:
+    resolution: {integrity: sha512-MxE81rOi+OtsVET/6mT6sduthbnB92Hg1DxiYjbfkjhfmC/qjWtV+WOFKO32OB2TJlOpNtDlEqD6qZJEU1J8tQ==, tarball: https://github.com/overnightworks/design/releases/download/v0.43.1/overnightworks-design-0.43.1.tgz}
+    version: 0.43.1
     peerDependencies:
       svelte: ^5.20.0
 
@@ -2520,7 +2520,7 @@ snapshots:
       type-check: 0.4.0
       word-wrap: 1.2.5
 
-  overnightworks-design@https://github.com/overnightworks/design/releases/download/v0.42.0/overnightworks-design-0.42.0.tgz(svelte@5.58.0(@typescript-eslint/types@8.73.0)):
+  overnightworks-design@https://github.com/overnightworks/design/releases/download/v0.43.1/overnightworks-design-0.43.1.tgz(svelte@5.58.0(@typescript-eslint/types@8.73.0)):
     dependencies:
       svelte: 5.58.0(@typescript-eslint/types@8.73.0)
 

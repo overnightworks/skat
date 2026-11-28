@@ -133,13 +133,16 @@ class HereAgentRowAnswer(BaseModel):
 
 
 class EndedAgentRowAnswer(BaseModel):
-    """The person's own call that ended without a seat, with how it ended."""
+    """The person's own call that ended without a seat, with how it ended and whether the agent may be called again
+    once the outcome has been read: the room or the owner may stand in the way.
+    """
 
     key: str
     name: str
     state: Literal["ended"]
     outcome: CallOutcome
     ends_in_seconds: None
+    may_call_again: bool
 
 
 # One agent the person may call or send away; the four shapes keep every key in this order.
@@ -351,7 +354,12 @@ def _row_of(offered: _Offered) -> AgentRowAnswer | None:
     offer = offered.offer
     if offer.outcome is not None:
         return EndedAgentRowAnswer(
-            key=offered.key, name=offered.name, state="ended", outcome=offer.outcome, ends_in_seconds=None
+            key=offered.key,
+            name=offered.name,
+            state="ended",
+            outcome=offer.outcome,
+            ends_in_seconds=None,
+            may_call_again=offer.answer is OfferState.AVAILABLE,
         )
     if not isinstance(offer.answer, OfferState):
         return None

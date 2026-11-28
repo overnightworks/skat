@@ -716,8 +716,8 @@ mcp-server = [
 
 [[package]]
 name = "overnightworks-design"
-version = "0.42.0"
-source = { git = "https://github.com/overnightworks/design?rev=v0.42.0#adcbae4b000942e3cc8453578cef0a1929487842" }
+version = "0.43.1"
+source = { git = "https://github.com/overnightworks/design?rev=v0.43.1#a7fb454cc2c8291696f65eb7a99c61a92ada2456" }
 
 [package.optional-dependencies]
 catalogs = [
@@ -792,7 +792,7 @@ dev = [
     { name = "cryptography", specifier = ">=50.0.2" },
     { name = "httpx2", specifier = ">=2.13.1" },
     { name = "import-linter", specifier = ">=2.3" },
-    { name = "overnightworks-design", extras = ["catalogs"], git = "https://github.com/overnightworks/design?rev=v0.42.0" },
+    { name = "overnightworks-design", extras = ["catalogs"], git = "https://github.com/overnightworks/design?rev=v0.43.1" },
     { name = "pyjwt", specifier = ">=2.15.1" },
     { name = "pyright", specifier = ">=1.1.414" },
     { name = "pytest", specifier = ">=9.0.2" },
