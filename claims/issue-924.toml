@@ -1,0 +1,8 @@
+claim_id = "ddaca539d70f42bca407862eff87034e"
+agent = "Claude db2d61d3-8b51-4183-99c4-2e9334064f60"
+role = "builder"
+base = "9ecbec5044e6b004a0a7aa0653cd34bf4519d54f"
+branch = "claude/issue-924-the-kontra-and-early-end-tests-prove-beh"
+scope = ["tests/e2e/test_table_abort.py", "tests/e2e/test_table_bock.py", "tests/e2e/test_table_give_up.py", "tests/e2e/test_table_kontra.py", "tests/e2e/test_table_kontra_first.py", "tests/e2e/test_table_kontra_keys.py", "tests/e2e/test_table_kontra_result.py", "tests/e2e/test_table_shorten.py"]
+opened_commit = "25f13fd5e88f8bdddaf13040a3a097c764055857"
+whole_reason = "One family is one lane, so parallel lanes never share a module, and the coverage rule is judged once over the family's modules together."
