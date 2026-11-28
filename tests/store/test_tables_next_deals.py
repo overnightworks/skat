@@ -171,7 +171,7 @@ class TestThePause:
     ):
         service.deal_next_soon(passed_in_table)
 
-        assert [passed_in_table] == list(service.due_next_deals())
+        assert list(service.due_next_deals()) == [passed_in_table]
         assert pause_rows(engine) == [passed_in_table.value]
 
     def test_a_request_during_a_pending_pause_neither_cuts_nor_stretches_it(self, service, engine, passed_in_table):
