@@ -56,7 +56,6 @@ def expect_the_page_around_the_card(people: list[Page]) -> None:
         card = measures["card"]
         last_row = measures["lastRow"]
         assert bar is not None
-        assert card is not None
         assert last_row is not None
         assert card["y"] >= 0
         assert card["y"] + card["height"] <= bar["y"]
