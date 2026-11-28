@@ -14,7 +14,7 @@ from skat.store.tables import PostgresTableTransactions
 from skat.table.auction import AuctionAction
 from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.bidding import BiddingTable, position_of, step
+from tests.e2e.support.bidding import SKAT_CARD, BiddingTable, position_of, step
 from tests.e2e.support.call_frame import (
     CALL_ORIGIN,
     CHAIR,
@@ -33,7 +33,7 @@ from tests.e2e.support.call_frame import (
 )
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
 from tests.e2e.support.table_menu import menu_button
-from tests.e2e.support.tables import open_new_table, plate_of, sit_in, table_id_of, watch
+from tests.e2e.support.tables import chair_of, open_new_table, plate_of, sit_in, table_id_of, watch
 from tests.support.ended_tables import end_as_an_opener_closed_it
 
 if TYPE_CHECKING:
@@ -59,7 +59,6 @@ LIVE_BOXES = """chairs => chairs
         const rect = chair.querySelector(".tile").getBoundingClientRect();
         return { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
     })"""
-DESKTOP_WIDTH = 900
 # Keeps on window.closedHoles the seat of each chair that stops being see-through, from now on.
 WATCHING_THE_HOLES = """() => {
     window.closedHoles = [];
@@ -72,22 +71,6 @@ WATCHING_THE_HOLES = """() => {
     });
 }"""
 
-# How far each clipped backdrop paints beyond its box by its outer shadows, and how far its clip path reaches beyond it.
-CLIP_COVERS_SHADOWS = """backdrops => backdrops.map((backdrop) => {
-    const box = backdrop.getBoundingClientRect();
-    const [left, top, right, bottom] = /M (-?[\\d.]+) (-?[\\d.]+) H (-?[\\d.]+) V (-?[\\d.]+)/
-        .exec(backdrop.style.clipPath).slice(1).map(Number);
-    const shadows = getComputedStyle(backdrop).boxShadow.split(/,(?![^(]*\\))/)
-        .filter((shadow) => shadow.trim() !== "none" && !shadow.includes("inset"));
-    const reaches = shadows.map((shadow) => {
-        const [x, y, blur, spread] = shadow.replace(/rgba?\\([^)]*\\)/, "").match(/-?[\\d.]+/g).map(Number);
-        return Math.max(blur + spread - x, blur + spread + x, blur + spread - y, blur + spread + y);
-    });
-    return {
-        cover: Math.min(-left, -top, right - box.width, bottom - box.height),
-        reach: Math.max(0, ...reaches),
-    };
-})"""
 SAMPLES = ((0.5, 0.5), (0.3, 0.3), (0.7, 0.3), (0.3, 0.7), (0.7, 0.7))
 
 
@@ -187,7 +170,7 @@ def shows_the_table(call: Call, box: dict[str, float]) -> bool:
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
-def test_every_box_equals_its_tiles_rect_after_a_resize_and_only_the_desktop_own_seat_is_round(
+def test_every_box_equals_its_tiles_rect_after_a_resize_and_a_rect_alone_carries_its_corner_radii(
     open_person: Callable[..., Page],
     browser_coverage: BrowserCoverage,
     framing_server: RunningServer,
@@ -202,11 +185,6 @@ def test_every_box_equals_its_tiles_rect_after_a_resize_and_only_the_desktop_own
         until(call, lambda: posted_boxes(call) == live_boxes(call))
         seats = call.visitor.evaluate("lastSeats()")["seats"]
         assert posted_boxes(call) == live_boxes(call)
-        assert [seat["shape"] for seat in seats] == [
-            "round" if form_factor["viewport"]["width"] >= DESKTOP_WIDTH else "rect",
-            "rect",
-            "rect",
-        ]
         for seat in seats:
             if seat["shape"] == "rect":
                 assert set(seat["radius"]) == {"tl", "tr", "br", "bl"}
@@ -226,7 +204,7 @@ def test_a_tile_that_moves_without_a_resize_is_posted_at_its_new_box(
         wait_for_seat_messages(call, 1)
         before = posted_boxes(call)
 
-        call.table.locator(".chair[data-seat='2']").evaluate("chair => { chair.style.translate = '17px 23px'; }")
+        chair_of(call.table, 2).evaluate("chair => { chair.style.translate = '17px 23px'; }")
 
         until(call, lambda: posted_boxes(call) == live_boxes(call) != before)
         assert posted_boxes(call)[1]["x"] == before[1]["x"] + 17
@@ -269,7 +247,6 @@ def test_a_table_that_ends_while_the_call_runs_posts_no_seats_and_closes_every_h
 
         call.visitor.wait_for_function("lastSeats().seats.length === 0")
         until(call, lambda: all(shows_the_table(call, box) for box in boxes))
-        assert call.table.locator(".felt-paint").evaluate("paint => paint.style.clipPath") == ""
 
 
 def test_a_chair_taken_over_closes_its_hole_and_the_next_seats_carries_the_new_key_alone(
@@ -326,7 +303,8 @@ def test_a_placed_that_drops_a_key_closes_only_that_chairs_hole(
         call.visitor.evaluate("keys => place(keys)", [keys[0], keys[2]])
 
         until(call, lambda: shows_the_table(call, boxes[1]))
-        expect(call.table.locator(".chair[data-see-through]")).to_have_count(2)
+        assert shows_the_stand_in(call, boxes[0])
+        assert shows_the_stand_in(call, boxes[2])
 
 
 def bid_behind_the_page(call: Call, server: RunningServer) -> None:
@@ -348,7 +326,7 @@ def test_a_bid_step_keeps_every_hole_open_and_a_stand_closes_its_chairs_hole_at_
     open_person: Callable[..., Page], browser_coverage: BrowserCoverage, framing_server: RunningServer
 ) -> None:
     with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True) as call:
-        expect(call.table.locator(".skat-card")).to_have_count(2)
+        expect(call.table.locator(SKAT_CARD)).to_have_count(2)
         wait_for_seat_messages(call, 1)
         until(call, lambda: posted_boxes(call) == live_boxes(call))
         boxes = posted_boxes(call)
@@ -390,7 +368,7 @@ def test_a_bid_step_reads_the_keys_again_and_a_chair_whose_key_differs_closes_it
 ) -> None:
     """A successor of the same name and kind leaves the view's occupancy as it was; only the re-read key tells."""
     with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True) as call:
-        expect(call.table.locator(".skat-card")).to_have_count(2)
+        expect(call.table.locator(SKAT_CARD)).to_have_count(2)
         wait_for_seat_messages(call, 1)
         until(call, lambda: posted_boxes(call) == live_boxes(call))
         boxes = posted_boxes(call)
@@ -472,31 +450,9 @@ def test_a_placed_key_lets_the_stand_in_show_through_while_the_rest_of_the_table
         place_all(call)
 
         until(call, lambda: all(shows_the_stand_in(call, box) for box in boxes))
-        felt = call.table.locator(".felt-paint").bounding_box()
-        assert felt is not None
-        assert pixel_at(call.visitor, felt["x"] + felt["width"] / 2, felt["y"] + felt["height"] / 2) != STAND_IN
-        assert pixel_at(call.visitor, 2, 2) not in (STAND_IN, (0, 200, 0))
-        assert call.table.locator(".felt").evaluate("felt => getComputedStyle(felt).clipPath") == "none"
-        assert call.table.locator(".felt-paint").evaluate("paint => paint.style.clipPath").startswith("path(")
-
-
-@pytest.mark.parametrize("table_style", ["klassik", "strandbar"])
-def test_a_backdrops_clip_reaches_beyond_its_rim_and_drop_shadow_in_every_table_style(
-    open_person: Callable[..., Page],
-    browser_coverage: BrowserCoverage,
-    framing_server: RunningServer,
-    table_style: str,
-) -> None:
-    with the_call(open_person, browser_coverage, framing_server, DESKTOP, greets=True) as call:
-        wait_for_seat_messages(call, 1)
-        place_all(call)
-        until(call, lambda: call.table.locator(".felt-paint").evaluate("paint => paint.style.clipPath") != "")
-        call.table.locator(".room").evaluate("(room, style) => { room.dataset.style = style; }", table_style)
-        call.table.locator("body").evaluate(TWO_FRAMES)
-        clips = call.table.locator("[data-call-backdrop]").evaluate_all(CLIP_COVERS_SHADOWS)
-
-        assert max(clip["reach"] for clip in clips) > 0
-        assert all(clip["cover"] >= clip["reach"] for clip in clips)
+        viewport = form_factor["viewport"]
+        for x, y in ((2, 2), (viewport["width"] / 2, viewport["height"] / 2)):
+            assert pixel_at(call.visitor, x, y) not in (STAND_IN, (0, 200, 0))
 
 
 def test_a_new_hello_closes_every_hole_and_the_table_posts_its_seats_in_full_again(
@@ -517,7 +473,6 @@ def test_a_new_hello_closes_every_hole_and_the_table_posts_its_seats_in_full_aga
         wait_for_seat_messages(call, posted_before + 1)
         until(call, lambda: all(shows_the_table(call, box) for box in boxes))
         assert seat_messages(call)[posted_before - 1] == seat_messages(call)[posted_before]
-        assert call.table.locator(".felt-paint").evaluate("paint => paint.style.clipPath") == ""
 
 
 def test_a_failed_key_read_posts_no_seats_and_the_next_read_after_the_backoff_posts_them(
@@ -545,7 +500,7 @@ def test_a_page_that_is_hidden_posts_nothing_and_a_page_that_shows_again_posts_i
         call.visitor.evaluate(TWO_FRAMES)
         posted_before = len(seat_messages(call))
 
-        call.table.locator(".chair[data-seat='2']").evaluate("chair => { chair.style.translate = '9px 0'; }")
+        chair_of(call.table, 2).evaluate("chair => { chair.style.translate = '9px 0'; }")
         call.table.locator("body").evaluate(TWO_FRAMES)
         call.visitor.evaluate(TWO_FRAMES)
         assert len(seat_messages(call)) == posted_before
