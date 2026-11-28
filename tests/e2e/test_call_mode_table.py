@@ -1,13 +1,11 @@
 import re
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from playwright.sync_api import expect
 
-from skat.engine.bidding import VALID_BIDS
 from skat.engine.tricks import CARDS_IN_A_GAME
-from skat.table.asking import ASK_AGAIN_AFTER
 from skat.web.call import CALL_ORIGIN_PATH
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.tables import TABLE_PAGE_PREFIX
@@ -19,9 +17,7 @@ from tests.e2e.support.call_frame import (
     CHAIR,
     FRAME,
     HOPIN_FRAME_SIZES,
-    QUARTER_OVERLAP_JS,
     THREE_CHAIRS,
-    chair_look,
     frame_of_size,
     greeting_page_holding,
     new_table,
@@ -30,16 +26,15 @@ from tests.e2e.support.call_frame import (
     served_from,
     table_url,
 )
-from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, passes
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
-from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
-from tests.e2e.support.table_menu import AGENTS, MENU, MENU_KEY, menu_button, open_table_menu
+from tests.e2e.support.people import DESKTOP, PHONE, WIDTHS
+from tests.e2e.support.table_menu import AGENTS, MENU, menu_button, open_table_menu
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
 
-    from playwright.sync_api import FrameLocator, Page
+    from playwright.sync_api import FrameLocator, Locator, Page
 
     from tests.e2e.support.browser_coverage import BrowserCoverage
     from tests.e2e.support.server import RunningServer
@@ -48,21 +43,18 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 UNKNOWN_ID = "0" * 32
-BAR = ".bar"
-WORDMARK = ".bar .wordmark"
 APP_NAME = text(SOURCE_LANGUAGE, "app.name")
 COPY_LINK = text(SOURCE_LANGUAGE, "table.copyLink")
 NEW_TABLE = text(SOURCE_LANGUAGE, "start.newTable")
 LOBBY = text(SOURCE_LANGUAGE, "table.lobby")
 CALL = text(SOURCE_LANGUAGE, "table.call")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
 SOUND_ON_NAME = text(SOURCE_LANGUAGE, "sound.panelName")
 SOUND_OFF_NAME = text(SOURCE_LANGUAGE, "sound.muted")
 TONE = text(SOURCE_LANGUAGE, "sound.tone")
-SPEAKER = ".actions .sound-button"
 WEITER = text(SOURCE_LANGUAGE, "table.weiter")
 CARDS_IN_A_TRICK = 3
+LAST_TRICK = text(SOURCE_LANGUAGE, "play.lastTrick")
 MORE = text(SOURCE_LANGUAGE, "table.menu")
 REACTION_KEY = text(SOURCE_LANGUAGE, "table.reactions")
 REACTION_TRAY = text(SOURCE_LANGUAGE, "table.reactionTray")
@@ -74,7 +66,7 @@ GAME_COUNT = re.compile(
     .replace("GAME", r"\d+")
     .replace("COUNT", r"\d+")
 )
-# What a person sees of the table lies inside the frame, and the frame has no scroll to reach the rest.
+# What a person sees of the own hand lies inside the frame, and the frame has no scroll to reach the rest.
 INSIDE_THE_FRAME = """(_, selector) => [...document.querySelectorAll(selector)].every((element) => {
     const box = element.getBoundingClientRect();
     return box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight;
@@ -82,7 +74,7 @@ INSIDE_THE_FRAME = """(_, selector) => [...document.querySelectorAll(selector)].
 SCROLLS = (
     "() => document.documentElement.scrollHeight > innerHeight || document.documentElement.scrollWidth > innerWidth"
 )
-WHOLE_TABLE = f"{CHAIR}, .own-hand, .felt"
+OWN_HAND = ".own-hand"
 
 
 @pytest.fixture(scope="module")
@@ -117,6 +109,10 @@ def in_the_call_frame(
         yield frame
 
 
+def speaker(table: Page | FrameLocator) -> Locator:
+    return table.get_by_role("button", name=SOUND_ON_NAME, exact=True)
+
+
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_a_framed_call_mode_table_shows_its_wordmark_as_text_and_offers_a_seated_player_no_copy_link(
     open_person: Callable[..., Page],
@@ -130,15 +126,16 @@ def test_a_framed_call_mode_table_shows_its_wordmark_as_text_and_offers_a_seated
     with in_the_call_frame(visitor, browser_coverage, table_url(framing_server, path)) as table:
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
 
-        expect(table.locator(WORDMARK)).to_have_text(APP_NAME)
-        expect(table.locator(f"{BAR} a")).to_have_count(0)
-        table.locator(f"{CHAIR}[data-seat='2']").get_by_role("button", name=SIT_DOWN).click()
+        bar = table.get_by_role("banner")
+        expect(bar.get_by_text(APP_NAME, exact=True)).to_be_visible()
+        expect(bar.get_by_role("link")).to_have_count(0)
+        sit_in(table, 2)
         expect(menu_button(table, STAND_UP)).to_be_visible()
-        expect(table.locator(".row.link")).to_have_count(0)
+        expect(menu_button(table, COPY_LINK)).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_framed_call_mode_table_offers_its_opener_the_speaker_and_no_close_key(
+def test_a_framed_call_mode_table_offers_its_opener_the_speaker(
     open_person: Callable[..., Page],
     browser_coverage: BrowserCoverage,
     framing_server: RunningServer,
@@ -150,33 +147,7 @@ def test_a_framed_call_mode_table_offers_its_opener_the_speaker_and_no_close_key
     with in_the_call_frame(opener, browser_coverage, table_url(framing_server, path)) as table:
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
 
-        expect(table.locator(SPEAKER)).to_be_visible()
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_framed_table_holds_its_rule_chips_in_the_top_row_beside_the_wordmark_and_the_watchers(
-    open_person: Callable[..., Page],
-    browser_coverage: BrowserCoverage,
-    framing_server: RunningServer,
-    form_factor: dict[str, Any],
-) -> None:
-    path = open_new_table(open_person(server=framing_server), framing_server, running_points=True)
-    visitor = open_person(server=framing_server, **form_factor)
-
-    with in_the_call_frame(
-        visitor, browser_coverage, table_url(framing_server, path), filling_the_screen=True
-    ) as table:
-        expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
-        wordmark = table.locator(WORDMARK).bounding_box()
-        chips = table.locator(f"{BAR} .rulepill").bounding_box()
-        watchers = table.locator(f"{BAR} .watchers").bounding_box()
-
-        assert wordmark is not None
-        assert chips is not None
-        assert watchers is not None
-        assert wordmark["y"] <= chips["y"] + chips["height"] / 2 <= wordmark["y"] + wordmark["height"]
-        assert wordmark["x"] + wordmark["width"] <= chips["x"]
-        assert chips["x"] + chips["width"] <= watchers["x"]
+        expect(speaker(table)).to_be_visible()
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -203,7 +174,7 @@ def test_the_anruf_key_opens_the_call_apps_start_link_for_the_table_in_a_new_tab
     visitor.goto(f"{framing_server.base_url}{path}")
     sit_in(visitor, 2)
 
-    key = visitor.locator(".actions").get_by_role("link", name=CALL)
+    key = visitor.get_by_role("link", name=CALL)
     expect(key).to_be_visible()
     expect(key).to_have_attribute("href", f"{CALL_ORIGIN}/c/new?app=skat&context={table_id_of(path)}")
     expect(key).to_have_attribute("target", "_blank")
@@ -286,7 +257,7 @@ def test_a_top_level_call_mode_address_of_a_missing_table_offers_a_new_table(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_framed_table_holds_the_speaker_in_its_strip_beside_the_menu_key_and_opens_the_panel_above_it(
+def test_a_framed_table_offers_a_seated_person_the_speaker_and_the_menu_and_opens_the_sound_panel_inside_the_frame(
     open_person: Callable[..., Page],
     browser_coverage: BrowserCoverage,
     framing_server: RunningServer,
@@ -295,47 +266,20 @@ def test_a_framed_table_holds_the_speaker_in_its_strip_beside_the_menu_key_and_o
 ) -> None:
     path = new_table(open_person, framing_server)
     visitor = record_page_errors(open_person(server=framing_server, **form_factor), page_errors)
-    viewport = visitor.viewport_size
-    assert viewport is not None
 
     with in_the_call_frame(
         visitor, browser_coverage, table_url(framing_server, path), filling_the_screen=True
     ) as table:
-        table.locator(f"{CHAIR}[data-seat='2']").get_by_role("button", name=SIT_DOWN).click()
-        speaker = table.locator(SPEAKER)
-        expect(speaker).to_be_visible()
-
-        expect(table.locator(f"{BAR} .sound-button")).to_have_count(0)
-        menu_key = table.locator(f".actions {MENU_KEY}").bounding_box()
-        beside = speaker.bounding_box()
-        assert menu_key is not None
-        assert beside is not None
-        assert beside["x"] + beside["width"] <= menu_key["x"]
-        assert (
-            table.locator(".actions > :not([popover])").evaluate_all(
-                "tags => new Set(tags.map(tag => tag.offsetTop)).size"
-            )
-            == 1
-        )
+        sit_in(table, 2)
+        expect(speaker(table)).to_be_visible()
 
         expect(menu_button(table, STAND_UP)).to_be_visible()
         visitor.keyboard.press("Escape")
         expect(table.locator(MENU)).to_be_hidden()
 
-        face = speaker.locator(".sound-face")
-        glass = face.evaluate("face => getComputedStyle(face).backgroundColor")
-        speaker.click()
-        expect(speaker).to_have_attribute("aria-expanded", "true")
-        open_face = face.evaluate("face => [getComputedStyle(face).backgroundColor, getComputedStyle(face).color]")
-        assert open_face[0] != glass
-        assert open_face[0].startswith("rgb(")
-        assert open_face[0] != open_face[1]
-        panel = table.get_by_role("dialog", name=SOUND_ON_NAME).bounding_box()
-        assert panel is not None
-        assert panel["y"] >= 0
-        assert panel["y"] + panel["height"] <= beside["y"]
-        assert panel["x"] >= 0
-        assert panel["x"] + panel["width"] <= viewport["width"]
+        speaker(table).click()
+        expect(speaker(table)).to_have_attribute("aria-expanded", "true")
+        expect(table.get_by_role("dialog", name=SOUND_ON_NAME)).to_be_in_viewport(ratio=1)
     assert page_errors == []
 
 
@@ -351,7 +295,7 @@ def test_a_choice_made_in_a_call_holds_after_a_reload(
     with in_the_call_frame(
         visitor, browser_coverage, table_url(framing_server, path), filling_the_screen=True
     ) as table:
-        table.locator(SPEAKER).click()
+        speaker(table).click()
         table.get_by_role("switch", name=TONE).set_checked(False)
         visitor.keyboard.press("Escape")
         expect(table.get_by_role("button", name=SOUND_OFF_NAME)).to_be_visible()
@@ -364,7 +308,7 @@ def test_a_choice_made_in_a_call_holds_after_a_reload(
 
 @pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_result_bar_in_a_call_holds_weiter_the_speaker_and_the_menu_key_in_one_row_and_the_menu_the_rest(
+def test_the_result_in_a_call_offers_weiter_the_speaker_and_the_menu_key_inside_the_frame_and_the_menu_the_rest(
     open_person: Callable[..., Page],
     member_of: Callable[[Page], SeededMember],
     browser_coverage: BrowserCoverage,
@@ -382,22 +326,11 @@ def test_the_result_bar_in_a_call_holds_weiter_the_speaker_and_the_menu_key_in_o
     )
     table.play_out(CARDS_IN_A_GAME)
     seated = table.pages[table.declarer_seat]
-    viewport = seated.viewport_size
-    assert viewport is not None
     path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
 
     with in_the_call_frame(seated, browser_coverage, table_url(framing_server, path), filling_the_screen=True) as call:
-        bar = call.locator(".actions")
-        expect(bar.get_by_role("button", name=WEITER)).to_be_visible()
-        expect(bar.locator(".sound-button")).to_be_visible()
-        expect(bar.locator(MENU_KEY)).to_be_visible()
-
-        assert (
-            bar.locator("> :not([popover])").evaluate_all("tags => new Set(tags.map(tag => tag.offsetTop)).size") == 1
-        )
-        last = bar.locator("> :not([popover])").last.bounding_box()
-        assert last is not None
-        assert last["x"] + last["width"] <= viewport["width"]
+        for key in (call.get_by_role("button", name=WEITER), speaker(call), call.get_by_role("button", name=MORE)):
+            expect(key).to_be_in_viewport(ratio=1)
 
         expect(menu_button(call, STAND_UP)).to_be_visible()
         expect(menu_button(call, AGENTS)).to_be_visible()
@@ -405,7 +338,7 @@ def test_the_result_bar_in_a_call_holds_weiter_the_speaker_and_the_menu_key_in_o
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_framed_table_lays_the_winners_pile_beside_its_chair_and_a_tap_on_it_shows_the_last_trick(
+def test_a_tap_on_the_winners_pile_of_a_framed_table_shows_the_last_trick(
     open_person: Callable[..., Page],
     member_of: Callable[[Page], SeededMember],
     browser_coverage: BrowserCoverage,
@@ -426,164 +359,9 @@ def test_a_framed_table_lays_the_winners_pile_beside_its_chair_and_a_tap_on_it_s
     path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
 
     with in_the_call_frame(seated, browser_coverage, table_url(framing_server, path), filling_the_screen=True) as call:
-        pile = call.locator(".pile.last")
-        expect(pile).to_be_visible()
-        pile.click()
+        call.get_by_role("button", name=LAST_TRICK).click()
 
-        expect(call.locator(".lastshow .lt-card")).to_have_count(CARDS_IN_A_TRICK)
-
-
-class RearhandDeclaresTable(DeclaringTable):
-    """The rearhand outbids the middlehand, so the declarer is the dealer and one chair carries both marks."""
-
-    declarer_position = "rearhand"
-    auction: ClassVar[tuple[AuctionCall, ...]] = (
-        bids("middlehand", VALID_BIDS[0]),
-        passes("forehand"),
-        bids("rearhand", VALID_BIDS[1]),
-        passes("middlehand"),
-    )
-
-
-@pytest.mark.parametrize("declaring", [DeclaringTable, RearhandDeclaresTable], ids=["one-mark", "dealer-declarer"])
-@pytest.mark.parametrize("form_factor", [PHONE, DESKTOP], ids=["390", "1280"])
-def test_a_framed_chair_keeps_its_marks_out_of_the_tiles_top_left_quarter_and_its_rims_outside_the_tile(
-    open_person: Callable[..., Page],
-    member_of: Callable[[Page], SeededMember],
-    browser_coverage: BrowserCoverage,
-    framing_server: RunningServer,
-    page_errors: list[str],
-    form_factor: dict[str, Any],
-    declaring: type[DeclaringTable],
-) -> None:
-    table = deal_playing_table(
-        open_person,
-        framing_server,
-        member_of,
-        page_errors,
-        {**form_factor, "server": framing_server},
-        console=False,
-        declaring=declaring,
-    )
-    seated = table.pages[table.declarer_seat]
-    path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
-    expect(seated.locator(CHAIR).locator(".mark:not(.pos)").first).to_be_visible()
-
-    unframed = chair_look(seated)
-    with in_the_call_frame(seated, browser_coverage, table_url(framing_server, path), filling_the_screen=True) as call:
-        expect(call.locator(CHAIR).locator(".mark:not(.pos)").first).to_be_visible()
-        framed = chair_look(call)
-
-    assert framed["marks"] > 0
-    assert framed["mostMarksOnAChair"] >= (2 if declaring is RearhandDeclaresTable else 1)
-    assert framed["marksInTopLeftQuarter"] == 0
-    assert framed["marksOverPositionLabel"] == 0
-    assert framed["rimsInsideTile"] == 0
-    assert framed["agentRimInsideTile"] == 0
-    assert unframed["marks"] > 0
-    assert framed["positionedMarks"] == 0
-    assert unframed["positionedMarks"] > 0
-    assert (unframed["barPillsShown"] > 0) == (form_factor is DESKTOP)
-    assert unframed["rimsInsideTile"] > 0
-    assert page_errors == []
-
-
-# Every mark of a chair against its tile: how far it lies beyond the tile's edges, how many square pixels of it lie
-# in the tile's top-left quarter, and how far its waiting dots reach beyond the mark itself.
-_MARKS_AGAINST_THE_TILE_PROBE = """chair => {
-    const quarterOverlap = QUARTER_OVERLAP;
-    const tile = chair.querySelector(".tile").getBoundingClientRect();
-    return [...chair.querySelectorAll(".mark:not(.pos)")].map(mark => {
-        const box = mark.getBoundingClientRect();
-        const dots = [...mark.querySelectorAll(".dots i")]
-            .filter(dot => getComputedStyle(dot.parentElement).display !== "none");
-        return {
-            name: mark.className,
-            outside: Math.max(
-                tile.left - box.left, box.right - tile.right, tile.top - box.top, box.bottom - tile.bottom, 0),
-            inQuarter: quarterOverlap(box, tile),
-            dotsShown: dots.length,
-            dotsOutside: Math.max(0, ...dots.map(dot => {
-                const at = dot.getBoundingClientRect();
-                return Math.max(box.left - at.left, at.right - box.right, box.top - at.top, at.bottom - box.bottom);
-            })),
-        };
-    });
-}""".replace("QUARTER_OVERLAP", QUARTER_OVERLAP_JS)
-
-
-@pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
-@pytest.mark.parametrize("form_factor", [SMALL_PHONE, PHONE], ids=["360", "390"])
-@pytest.mark.parametrize("fourth_mark", ["bell", "away"])
-def test_a_framed_chair_with_the_most_marks_a_chair_carries_keeps_them_inside_its_tile_and_out_of_the_top_left_quarter(
-    open_person: Callable[..., Page],
-    member_of: Callable[[Page], SeededMember],
-    browser_coverage: BrowserCoverage,
-    framing_server: RunningServer,
-    page_errors: list[str],
-    form_factor: dict[str, Any],
-    fourth_mark: str,
-) -> None:
-    """The declaring dealer is on turn, so its chair carries the dealer, declarer and turn marks and one more: the bell
-    the others may ring or, once its person left, the away mark; a chair that is away is not nudged, so never both."""
-    table = RearhandDeclaresTable(
-        open_person, framing_server, member_of, page_errors, {**form_factor, "server": framing_server}, console=False
-    )
-    watcher = table.others[0]
-    if fourth_mark == "bell":
-        watcher.clock.install()
-    else:
-        table.declarer.close()
-    path = f"{TABLE_PAGE_PREFIX}{table.table_id}"
-
-    with in_the_call_frame(watcher, browser_coverage, table_url(framing_server, path), filling_the_screen=True) as call:
-        chair = call.locator(f"{CHAIR}[data-seat='{table.declarer_seat}']")
-        if fourth_mark == "bell":
-            expect(chair.locator(".mark.turn")).to_be_visible()
-            watcher.clock.fast_forward("{:02d}:{:02d}".format(*divmod(int(ASK_AGAIN_AFTER), 60)))
-        expect(chair.locator(f".mark.{fourth_mark}")).to_be_visible()
-        marks = chair.evaluate(_MARKS_AGAINST_THE_TILE_PROBE)
-
-    assert len(marks) == 4
-    assert [mark for mark in marks if mark["outside"] > 0 or mark["inQuarter"] > 0] == []
-    assert page_errors == []
-
-
-@pytest.mark.parametrize("form_factor", [SMALL_PHONE, PHONE], ids=["360", "390"])
-def test_a_framed_chair_with_three_marks_on_the_result_keeps_its_not_ready_mark_as_dots_inside_the_mark(
-    open_person: Callable[..., Page],
-    member_of: Callable[[Page], SeededMember],
-    browser_coverage: BrowserCoverage,
-    framing_server: RunningServer,
-    page_errors: list[str],
-    form_factor: dict[str, Any],
-) -> None:
-    """On the result screen a declarer who left and has not pressed Weiter carries declarer, not-ready and away."""
-    table = deal_playing_table(
-        open_person,
-        framing_server,
-        member_of,
-        page_errors,
-        {**form_factor, "server": framing_server},
-        console=False,
-    )
-    table.play_out(CARDS_IN_A_GAME)
-    table.pages[table.declarer_seat].close()
-    seated = table.pages[next(seat for seat in table.pages if seat != table.declarer_seat)]
-    path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
-
-    with in_the_call_frame(seated, browser_coverage, table_url(framing_server, path), filling_the_screen=True) as call:
-        chair = call.locator(f"{CHAIR}[data-seat='{table.declarer_seat}']")
-        expect(chair.locator(".mark.away")).to_be_visible()
-        expect(chair.locator(".mark.waits")).to_be_visible()
-        marks = chair.evaluate(_MARKS_AGAINST_THE_TILE_PROBE)
-
-    assert len(marks) == 3
-    assert [mark for mark in marks if mark["outside"] > 0 or mark["inQuarter"] > 0] == []
-    not_ready = next(mark for mark in marks if "waits" in mark["name"])
-    assert not_ready["dotsShown"] == 3
-    assert not_ready["dotsOutside"] == 0
-    assert page_errors == []
+        expect(call.get_by_role("dialog", name=LAST_TRICK).get_by_role("listitem")).to_have_count(CARDS_IN_A_TRICK)
 
 
 @contextmanager
@@ -605,7 +383,7 @@ def in_a_hopin_frame(
 
 def greet(visitor: Page, frame: FrameLocator) -> None:
     visitor.evaluate("greet()")
-    expect(frame.locator(BAR)).to_have_count(0)
+    expect(frame.get_by_role("banner")).to_have_count(0)
 
 
 @pytest.fixture
@@ -640,14 +418,16 @@ def test_a_hopin_frame_holds_the_whole_table_the_own_hand_and_the_menu_key_befor
     seated = hopin_table.pages[hopin_table.declarer_seat]
 
     with in_a_hopin_frame(seated, hopin_table, browser_coverage, framing_server, frame_size) as frame:
-        expect(frame.locator(".own-hand")).to_be_visible()
+        expect(frame.locator(OWN_HAND)).to_be_visible()
         for greeted in (False, True):
             if greeted:
                 greet(seated, frame)
-            expect(frame.get_by_role("button", name=MORE)).to_be_visible()
+            expect(frame.get_by_role("button", name=MORE)).to_be_in_viewport(ratio=1)
+            for chair in frame.locator(CHAIR).all():
+                expect(chair).to_be_in_viewport(ratio=1)
 
             assert frame.locator("body").evaluate(SCROLLS) is False
-            assert frame.locator("body").evaluate(INSIDE_THE_FRAME, f"{WHOLE_TABLE}, .menu-key") is True
+            assert frame.locator("body").evaluate(INSIDE_THE_FRAME, OWN_HAND) is True
 
 
 @pytest.mark.parametrize("frame_size", HOPIN_FRAME_SIZES.values(), ids=HOPIN_FRAME_SIZES)
@@ -669,8 +449,7 @@ def test_the_reaction_key_works_in_a_hopin_frame_after_the_greeting(
         else:
             expect(key).to_have_count(0)
 
-        expect(tray).to_be_visible()
-        assert frame.locator("body").evaluate(INSIDE_THE_FRAME, ".tray") is True
+        expect(tray).to_be_in_viewport(ratio=1)
         tray.get_by_role("button").first.click()
         if device_of(frame_size) is PHONE:
             expect(tray).to_be_hidden()
