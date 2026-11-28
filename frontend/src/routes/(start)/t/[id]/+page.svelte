@@ -29,7 +29,6 @@
     } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import {
-        nextSettingsRevisionOf,
         resultOnStage,
         returnsToLobby,
         seriesCountText,
@@ -133,7 +132,7 @@
         type Table,
     } from "../../tables.ts";
     import { nudgedNote } from "../../nudge.ts";
-    import { markReady, seriesNumberOf, startNewSeries } from "../../seriesCommands.ts";
+    import { weiter } from "../../seriesCommands.ts";
     import { reactionName, reactionsBetween } from "../../reaction.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
@@ -149,6 +148,7 @@
     let newestTable = $state<Table | null>(null);
     let note = $state("");
     let rulesOpen = $state(false);
+    let seriesOpen = $state(false);
     let taken: string | null = $state(null);
     let connected = $state(true);
     let streamsFull = $state(false);
@@ -345,19 +345,7 @@
         if ((await seat(command)).kind !== "table") sentFromVersion = null;
     }
 
-    // After the series' last game the same tap is „Neue Serie“, which names the series it saw as „Weiter“ does.
-    const tapWeiter = (table: Table): Promise<void> =>
-        send(
-            table,
-            seriesOver(table)
-                ? startNewSeries(id, crypto.randomUUID(), seriesNumberOf(table), nextSettingsRevisionOf(table))
-                : markReady(
-                      id,
-                      crypto.randomUUID(),
-                      (table.result as NonNullable<Table["result"]>).ordinal,
-                      seriesNumberOf(table),
-                  ),
-        );
+    const tapWeiter = (table: Table): Promise<void> => send(table, weiter(id, table));
 </script>
 
 <svelte:head>
@@ -382,6 +370,10 @@
             onrules={() => {
                 rulesOpen = true;
             }}
+            onseries={() => {
+                seriesOpen = true;
+            }}
+            count={greeted ? seriesCountText(table) : null}
             onstand={() => {
                 void seat(standUp(id, crypto.randomUUID()));
             }}
@@ -414,28 +406,28 @@
     {/if}
     <StyleScene style={outcome?.kind === "table" ? outcome.table.style : null} />
     <CardSprite />
-    {#if !greeted}
-        <TableBar
-            {callMode}
-            {attention}
-            {connected}
-            bind:rulesOpen
-            live={outcome?.kind === "table" && outcome.table.ended === null
-                ? {
-                      id,
-                      version: outcome.table.version,
-                      watchers: outcome.table.watchers,
-                      options: outcome.table.options as Options,
-                      bock: outcome.table.bock,
-                      count: seriesCountText(outcome.table),
-                  }
-                : null}
-        >
-            {#snippet menu()}
-                {@render tableMenu("bar")}
-            {/snippet}
-        </TableBar>
-    {/if}
+    <TableBar
+        {callMode}
+        {greeted}
+        {attention}
+        {connected}
+        bind:rulesOpen
+        bind:seriesOpen
+        live={outcome?.kind === "table" && outcome.table.ended === null
+            ? {
+                  id,
+                  version: outcome.table.version,
+                  watchers: outcome.table.watchers,
+                  options: outcome.table.options as Options,
+                  bock: outcome.table.bock,
+                  count: seriesCountText(outcome.table),
+              }
+            : null}
+    >
+        {#snippet menu()}
+            {@render tableMenu("bar")}
+        {/snippet}
+    </TableBar>
     <main class="stage" class:stale={!connected} class:after-drop={greeted}>
         {#if outcome?.kind === "table" && outcome.table.ended !== null}
             <TableClosed ended={outcome.table.ended} />

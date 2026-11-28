@@ -128,16 +128,30 @@ BEHIND_THE_FRAME = "rgb(0, 200, 0)"
 STAND_IN = (255, 0, 255)
 _CALL_PAGE_STYLE = f"<style>html {{ color-scheme: dark; background: {BEHIND_THE_FRAME}; }}</style>"
 FRAME_FILLING_THE_SCREEN = "position:fixed;inset:0;width:100%;height:100%;border:0;z-index:1;color-scheme:dark"
+# The boxes hopin's stage gives a Skat table under its 116 px top, on a desktop and on a phone.
+HOPIN_FRAME_SIZES = {"1264x540": (1264, 540), "374x564": (374, 564)}
+
+
+def frame_of_size(width: int, height: int) -> str:
+    return (
+        f"position:fixed;left:8px;top:116px;width:{width}px;height:{height}px;border:0;border-radius:16px;"
+        "z-index:1;color-scheme:dark"
+    )
 
 
 def greeting_page_holding(
-    frame_address: str, skat_origin: str, *, greets_every_ready: bool = False, filling_the_screen: bool = False
+    frame_address: str,
+    skat_origin: str,
+    *,
+    greets_every_ready: bool = False,
+    filling_the_screen: bool = False,
+    frame_style: str | None = None,
 ) -> str:
     """The call page of `page_holding`, recording the frame's messages and greeting as the call page does."""
     script = _GREETING_SCRIPT.replace("SKAT_ORIGIN", json.dumps(skat_origin)).replace(
         "GREET_EVERY_READY", json.dumps(greets_every_ready)
     )
-    style = FRAME_FILLING_THE_SCREEN if filling_the_screen else ""
+    style = frame_style or (FRAME_FILLING_THE_SCREEN if filling_the_screen else "")
     # A phone lays a page without this out 980 px wide, as the call's own page never does.
     viewport = '<meta name="viewport" content="width=device-width, initial-scale=1">'
     return viewport + page_holding(frame_address, style) + _CALL_PAGE_STYLE + f"<script>{script}</script>"
