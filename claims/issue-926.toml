@@ -1,0 +1,8 @@
+claim_id = "3c67289db2924c89b00e9358d71d56dd"
+agent = "Claude db2d61d3-8b51-4183-99c4-2e9334064f60"
+role = "builder"
+base = "9ecbec5044e6b004a0a7aa0653cd34bf4519d54f"
+branch = "claude/issue-926-the-seat-and-reaction-tests-prove-behavi"
+scope = ["tests/e2e/test_calling_agents.py", "tests/e2e/test_chair_hold.py", "tests/e2e/test_chair_hold_between_games.py", "tests/e2e/test_table_chair_moves.py", "tests/e2e/test_table_coasters.py", "tests/e2e/test_table_nudge.py", "tests/e2e/test_table_open_chair.py", "tests/e2e/test_table_reactions.py", "tests/e2e/test_table_seats.py", "tests/e2e/test_table_stand_mid_hand.py", "tests/e2e/test_table_watch.py"]
+opened_commit = "0591157b5da885b6eeb8a5d5cd55e67fcbc9ebd9"
+whole_reason = "One family is one lane, so parallel lanes never share a module, and the coverage rule is judged once over the family's modules together."
