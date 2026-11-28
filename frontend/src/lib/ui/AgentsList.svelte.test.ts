@@ -346,6 +346,26 @@ describe("the agents' list in the table menu", () => {
             expect(list()?.textContent).toContain(kitWords["agent.busy"]);
         });
 
+        it.each([
+            ["turns into another state", [row]],
+            ["leaves the answer", []],
+        ])("shows the outcome of the same ending again after the row %s", async (_case, between) => {
+            const fetcher = server({ control: { shown: true, rows: [ended] } });
+            await show(1, true);
+            await readOutcome();
+            const answerWith = (rows: object[]) =>
+                fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows })));
+
+            answerWith(between);
+            await closeMenu();
+            await openMenu();
+            answerWith([ended]);
+            await closeMenu();
+            await openMenu();
+
+            expect(list()?.textContent).toContain(kitWords["agent.ownerAbsent"]);
+        });
+
         it("turns into its call key when its agent may be called again", async () => {
             server({ control: { shown: true, rows: [{ ...ended, outcome: "no-answer", may_call_again: true }] } });
             await show(1, true);
