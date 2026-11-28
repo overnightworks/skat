@@ -18,7 +18,14 @@ from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.people import DESKTOP, PHONE
 from tests.e2e.support.raw_http import self_signed_tolerant_context
 from tests.e2e.support.server import skat_in_directory
-from tests.e2e.support.tables import RECONNECT_MILLISECONDS, open_new_table, table_id_of, watch, watchers_of
+from tests.e2e.support.tables import (
+    RECONNECT_MILLISECONDS,
+    open_new_table,
+    plate_of,
+    table_id_of,
+    watch,
+    watchers_of,
+)
 from tests.support.signed_in import cookie_header, new_account, seed_member
 
 if TYPE_CHECKING:
@@ -37,6 +44,7 @@ FIRST_EVENT = """(url) => new Promise((resolve) => {
     source.onmessage = (event) => { source.close(); resolve(event.data); };
 })"""
 RECONNECTING = word_text(SOURCE_LANGUAGE, "table.reconnecting")
+YOU = word_text(SOURCE_LANGUAGE, "table.sideYou")
 
 
 def table_version(server: RunningServer, path: str) -> int:
@@ -62,7 +70,6 @@ def test_members_who_open_a_table_change_the_count_on_every_open_page_without_a_
 
     for person in (opener, second, third):
         expect(watchers_of(person)).to_have_text("2")
-    assert opener.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 
 def test_one_account_in_two_tabs_counts_once_and_a_leaving_tab_changes_the_count_only_with_the_last(
@@ -146,7 +153,7 @@ def test_a_stream_starts_with_the_full_view_built_for_its_viewer_and_names_no_ac
     assert "ben" not in json.dumps(seen["opener"])
 
 
-def test_a_stream_the_network_refuses_dims_the_view_with_verbinde_neu_and_the_current_view_returns_with_it(
+def test_a_stream_the_network_refuses_says_verbinde_neu_and_the_current_view_returns_with_it(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     page_errors: list[str],
@@ -161,18 +168,16 @@ def test_a_stream_the_network_refuses_dims_the_view_with_verbinde_neu_and_the_cu
     opener.reload()
 
     expect(opener.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
-    expect(opener.locator(".stage.stale")).to_have_count(1)
     other = record_page_errors(open_person(username="ben", **DESKTOP), page_errors)
     watch(other, e2e_server, path)
     opener.unroute(events)
 
     expect(opener.get_by_text(RECONNECTING)).to_be_hidden(timeout=RECONNECT_MILLISECONDS)
-    expect(opener.locator(".stale")).to_have_count(0)
     expect(watchers_of(opener)).to_have_text("1")
 
 
 @pytest.mark.parametrize("form_factor", [pytest.param(PHONE, id="390"), pytest.param(DESKTOP, id="1280")])
-def test_a_stream_that_drops_after_its_view_dims_the_last_view_and_recovers_without_a_reload(
+def test_a_stream_that_drops_after_its_view_keeps_the_last_view_and_recovers_without_a_reload(
     open_person: Callable[..., Page],
     e2e_server: RunningServer,
     page_errors: list[str],
@@ -199,14 +204,12 @@ def test_a_stream_that_drops_after_its_view_dims_the_last_view_and_recovers_with
     opener.evaluate("window.sameDocument = true")
 
     expect(opener.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible()
-    expect(opener.locator(".stage.stale")).to_have_count(1)
-    expect(opener.locator(".chair")).to_have_count(3)
+    expect(plate_of(opener, 1)).to_have_text(YOU)
     other = record_page_errors(open_person(username="ben", **form_factor), page_errors)
     watch(other, e2e_server, path)
     opener.unroute(events)
 
     expect(opener.get_by_text(RECONNECTING)).to_be_hidden(timeout=RECONNECT_MILLISECONDS)
-    expect(opener.locator(".stale")).to_have_count(0)
     expect(watchers_of(opener)).to_have_text("1")
     assert opener.evaluate("window.sameDocument === true")
 

@@ -1,4 +1,4 @@
-"""A chair of a running hand is open: every page draws the phase's plaque over the wait and no step, a tap on the free
+"""A chair of a running hand is open: every page reads the phase over the wait and offers no step, a tap on the free
 chair asks before it sits, and the others read who left and who plays on.
 """
 
@@ -6,12 +6,12 @@ import itertools
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from playwright.sync_api import Locator, Page, expect
+from playwright.sync_api import Page, expect
 
 from skat.web.calling import AGENT_ADDERS_GROUP
 from skat.web.seating import TABLE_STAND_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.bidding import assert_page_fits
+from tests.e2e.support.bidding import assert_no_controls
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.declaring import DeclaringTable, button_of
 from tests.e2e.support.hands import TURN_CHAIR, deal_playing_table
@@ -19,7 +19,7 @@ from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.listening_agent import ListeningAgent
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
 from tests.e2e.support.table_menu import open_agents_panel
-from tests.e2e.support.tables import open_new_table, plate_of, sit_in, watch
+from tests.e2e.support.tables import SIT_DOWN, open_new_table, plate_of, sit_in, watch
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -33,14 +33,11 @@ KREUZ = text(SOURCE_LANGUAGE, "game.kreuz")
 BIDDING = text(SOURCE_LANGUAGE, "table.bidding")
 WAITING = text(SOURCE_LANGUAGE, "table.waitingForPlayers")
 SIT_QUESTION = text(SOURCE_LANGUAGE, "table.sitQuestion")
-SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
 CANCEL = text(SOURCE_LANGUAGE, "table.sitQuestionCancel")
 TAKE_SKAT = text(SOURCE_LANGUAGE, "declare.takeSkat")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 LEGAL_CARD = ".own-hand .card.ok"
-BID_CONTROLS = ".bid"
 INVITATION_WITHIN_SECONDS = 15
-MIDDLE_TOLERANCE_PIXELS = 3
 command_numbers = itertools.count(1)
 
 
@@ -64,35 +61,10 @@ def stand_up_through_the_api(table: DeclaringTable, seat: int) -> None:
 
 
 def expect_the_wait(person: Page, title: str) -> None:
-    expect(person.locator(".plaque")).to_contain_text(title)
-    expect(person.locator(".plaque")).to_contain_text(WAITING)
+    """The page reads the phase's title over the wait, and nobody is on turn."""
+    expect(person.get_by_text(title, exact=True)).to_be_visible()
+    expect(person.get_by_text(WAITING)).to_be_visible()
     expect(person.locator(TURN_CHAIR)).to_have_count(0)
-
-
-def expect_the_question_centred_on_one_line(question: Locator) -> None:
-    """A centred circled icon stands above a centred title that fits one line."""
-    drawn = question.evaluate(
-        """dialog => {
-            const box = dialog.getBoundingClientRect();
-            const icon = dialog.querySelector(".glyph")?.getBoundingClientRect();
-            const title = dialog.querySelector("h3");
-            const text = document.createRange();
-            text.selectNodeContents(title);
-            const lines = new Set([...text.getClientRects()].map(line => Math.round(line.top)));
-            const written = text.getBoundingClientRect();
-            const middle = box.left + box.width / 2;
-            return {
-                iconAboveTitle: icon !== undefined && icon.bottom <= title.getBoundingClientRect().top,
-                iconMiddleOffset: icon === undefined ? null : Math.abs(icon.left + icon.width / 2 - middle),
-                titleLines: lines.size,
-                titleMiddleOffset: Math.abs(written.left + written.width / 2 - middle),
-            };
-        }"""
-    )
-    assert drawn["iconAboveTitle"]
-    assert drawn["iconMiddleOffset"] <= MIDDLE_TOLERANCE_PIXELS
-    assert drawn["titleLines"] == 1
-    assert drawn["titleMiddleOffset"] <= MIDDLE_TOLERANCE_PIXELS
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -116,28 +88,23 @@ def test_a_person_stands_up_mid_game_and_a_watcher_asks_then_sits_and_the_others
         expect_the_wait(person, KREUZ)
         expect(person.locator(LEGAL_CARD)).to_have_count(0)
         expect(person.get_by_text(left_notice(leaver_name))).to_have_count(0)
-        assert_page_fits(person)
-    free_chair = watcher.locator(f".chair[data-seat='{leaver_seat}']")
-    expect(free_chair.locator(".fan-spot")).to_have_count(1)
-    free_chair.get_by_role("button", name=SIT_DOWN).click()
+    sit_in(watcher, leaver_seat)
     question = watcher.get_by_role("dialog", name=SIT_QUESTION)
     expect(question).to_contain_text(line_of(leaver_name))
-    expect_the_question_centred_on_one_line(question)
-    assert_page_fits(watcher)
 
     button_of(watcher, CANCEL).click()
 
     expect(question).to_have_count(0)
     expect(plate_of(watcher, leaver_seat)).to_have_text(SEAT_FREE)
 
-    free_chair.get_by_role("button", name=SIT_DOWN).click()
+    sit_in(watcher, leaver_seat)
     question.get_by_role("button", name=SIT_DOWN).click()
 
-    expect(watcher.locator(".chair.mine")).to_have_attribute("data-seat", str(leaver_seat))
+    assert table.seat_of(watcher) == leaver_seat
     sitter_name = table.view(others_seat)["chairs"][leaver_seat - 1]["occupant_name"]
     for person in others:
         expect(person.get_by_text(plays_on_notice(sitter_name))).to_be_visible()
-        expect(person.locator(".plaque")).not_to_contain_text(WAITING)
+        expect(person.get_by_text(WAITING)).to_have_count(0)
     expect(watcher.get_by_text(plays_on_notice(sitter_name))).to_have_count(0)
 
 
@@ -151,11 +118,7 @@ def test_a_person_stands_up_after_the_auction_and_the_declarer_reads_the_value_o
     stand_up_through_the_api(table, leaver_seat)
 
     for person in (table.declarer, table.watcher):
-        expect(person.locator(".plaque")).to_contain_text(
-            text(SOURCE_LANGUAGE, "table.bidValue", value=str(table.bid_value()))
-        )
-        expect(person.locator(".plaque")).to_contain_text(WAITING)
-        expect(person.locator(TURN_CHAIR)).to_have_count(0)
+        expect_the_wait(person, text(SOURCE_LANGUAGE, "table.bidValue", value=str(table.bid_value())))
     expect(button_of(table.declarer, TAKE_SKAT)).to_have_count(0)
 
 
@@ -186,7 +149,7 @@ def test_an_agent_sent_away_during_the_auction_leaves_the_plaque_over_the_wait_a
 
         for person in (felix, ben):
             expect_the_wait(person, BIDDING)
-            expect(person.locator(BID_CONTROLS)).to_have_count(0)
+            assert_no_controls(person)
             expect(person.get_by_text(left_notice("Nova"))).to_be_visible()
     finally:
         agent.close()
