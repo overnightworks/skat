@@ -1,11 +1,11 @@
-"""The reads of one table for one viewer: its view, the account's member view and acts, who is at the table, whether an
-account holds a chair and the agent in a chair.
+"""The reads of one table for one viewer: its view, the account's member view and acts, who is at the table, who holds
+each chair, whether an account holds a chair and the agent in a chair.
 """
 
 from typing import TYPE_CHECKING
 
 from skat.table.game_reads import GameListReads
-from skat.table.member_place import agent_in_chair, at_the_table
+from skat.table.member_place import SeatedAccounts, agent_in_chair, at_the_table, seated_accounts_of
 from skat.table.member_view import MemberActs, MemberView, member_acts_of, member_view_of
 from skat.table.records import Actor, EndedTable, TableId, TableRecord
 from skat.table.rules import present_at
@@ -40,6 +40,13 @@ class TableReads(GameListReads):
         """Who is at the live table for a call; an ended or missing table counts the open streams only."""
         table = self._table_read(table_id.value)
         return at_the_table(table, connected_accounts) if isinstance(table, TableRecord) else connected_accounts
+
+    def seated_accounts(self, table_id: str) -> SeatedAccounts | None:
+        """Who holds each occupied chair of the live table, from one read; None for an ended table and a table that is
+        not there.
+        """
+        table = self._table_read(table_id)
+        return seated_accounts_of(table) if isinstance(table, TableRecord) else None
 
     def member_view(self, account_id: str, table_id: str, connected_accounts: frozenset[str]) -> MemberView | None:
         """The live table's view for the account that holds a chair there, with whether the table waits for it; None

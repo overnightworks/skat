@@ -55,6 +55,7 @@ export const TABLE_ABORT_AGREE_SUFFIX = "/abort/agree";
 export const TABLE_ABORT_REFUSE_SUFFIX = "/abort/refuse";
 export const TABLE_NUDGE_SUFFIX = "/nudge";
 export const TABLE_REACTION_SUFFIX = "/reaction";
+export const TABLE_PERSON_KEYS_SUFFIX = "/person-keys";
 export const SUIT_TOKENS = ["kreuz", "pik", "herz", "karo"] as const;
 export const RANK_TOKENS = ["seven", "eight", "nine", "ten", "jack", "queen", "king", "ace"] as const;
 export const POSITION_TOKENS = ["forehand", "middlehand", "rearhand"] as const;
@@ -497,6 +498,14 @@ export type OptionsAnswer = {
     bock: BockOptionsAnswer | null;
     ramsch: RamschOptionsAnswer | null;
     give_up: GiveUpOptionsAnswer;
+};
+export type PersonKeyAnswer = {
+    seat: number;
+    key: string;
+};
+export type PersonKeysAnswer = {
+    version: number;
+    keys: PersonKeyAnswer[];
 };
 export type PlayingAnswer = {
     turn_seat: number;
