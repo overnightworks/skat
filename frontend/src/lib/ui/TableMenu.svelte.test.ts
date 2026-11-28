@@ -20,7 +20,10 @@ describe("the table menu", () => {
         vi.unstubAllGlobals();
     });
 
-    function show(table: Table, own: { callMode?: boolean; seated?: boolean; styleOffered?: boolean } = {}): void {
+    function show(
+        table: Table,
+        own: { callMode?: boolean; seated?: boolean; styleOffered?: boolean; count?: string | null } = {},
+    ): void {
         copied = 0;
         stood = 0;
         ruled = 0;
@@ -40,6 +43,8 @@ describe("the table menu", () => {
                 onrules: () => {
                     ruled += 1;
                 },
+                onseries: () => {},
+                count: own.count ?? null,
                 onstand: () => {
                     stood += 1;
                 },
@@ -120,13 +125,15 @@ describe("the table menu", () => {
         expect([asked, stood]).toEqual([0, 1]);
     });
 
-    it("stands in the strip in a call, without the link", () => {
-        show(tableWith(DECLARER, null), { callMode: true });
+    it("stands in the strip in a call, without the link, and holds the rules and the game count", () => {
+        show(tableWith(DECLARER, null), { callMode: true, count: "Spiel 2 von 36" });
 
         expect([key()?.classList.contains("strip"), rows()]).toEqual([
             true,
             [
                 words["table.style"],
+                words["rules.title"],
+                "Spiel 2 von 36",
                 words["table.standUp"],
                 words["table.shorten"],
                 words["table.giveUp"],
@@ -135,9 +142,13 @@ describe("the table menu", () => {
         ]);
     });
 
-    it("offers a watcher in a call, who has nothing to do at the table, only the account", () => {
+    it("offers a watcher in a call the link and the rules as outside a call", () => {
         show(tableWith(WATCHER, null), { callMode: true, seated: false, styleOffered: false });
 
-        expect([key()?.classList.contains("strip"), sections(), rows()]).toEqual([true, [], [words["account.title"]]]);
+        expect([key()?.classList.contains("strip"), sections(), rows()]).toEqual([
+            true,
+            [words["table.menuTable"]],
+            [words["table.copyLink"], words["rules.title"], words["account.title"]],
+        ]);
     });
 });
