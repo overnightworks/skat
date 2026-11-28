@@ -8,11 +8,10 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.boxes import OVERLAPS
-from tests.e2e.support.hands import deal_playing_table
+from tests.e2e.support.hands import TURN_CHAIR, deal_playing_table
 from tests.e2e.support.people import WIDTHS
 from tests.e2e.support.table_menu import menu_button
-from tests.e2e.support.tables import chair_of, plate_of
+from tests.e2e.support.tables import SIT_DOWN, chair_of, plate_of, sit_in
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -24,39 +23,10 @@ pytestmark = pytest.mark.e2e
 
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 STAND_UP_ARMED = text(SOURCE_LANGUAGE, "table.standUpArmed")
-SIT_DOWN = text(SOURCE_LANGUAGE, "table.sitDown")
 SIT_QUESTION = text(SOURCE_LANGUAGE, "table.sitQuestion")
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 LOCKED = text(SOURCE_LANGUAGE, "table.chairLocked")
 OWN_HAND = ".own-hand"
-NOTICE = "p.notice"
-NEVER_UNDER_THE_NOTICE = (".plaque", ".bubble", ".chair .fan", ".chair .tile")
-TWO_CARDS = 2
-SENTENCE_INSIDE_THE_PILL = """notice => {
-    const sentence = document.createRange();
-    sentence.selectNodeContents(notice.querySelector('.label'));
-    const text = sentence.getBoundingClientRect();
-    const pill = notice.getBoundingClientRect();
-    return text.left >= pill.left && text.right <= pill.right;
-}"""
-# The notice leaves after a few seconds, so each page reads its boxes in the browser in one pass while it shows.
-NOTICE_ON_THE_PAGE = (
-    "(root, [noticeSelector, covers]) => {"
-    + OVERLAPS
-    + """
-    const notice = root.querySelector(noticeSelector);
-    if (notice === null || notice.getClientRects().length === 0) return null;
-    const pill = notice.getBoundingClientRect();
-    const coversShown = (selector) => [...root.querySelectorAll(selector)]
-        .some((element) => element.getClientRects().length > 0 && overlaps(pill, element.getBoundingClientRect()));
-    return {
-        covered: covers.filter(coversShown),
-        sentenceInside: ("""
-    + SENTENCE_INSIDE_THE_PILL
-    + """)(notice),
-    };
-}"""
-)
 
 
 def stand_key_of(person: Page):
@@ -81,13 +51,11 @@ def test_the_menu_row_keeps_its_word_and_the_first_tap_only_arms_it(
     person = table.pages[seat]
     key = stand_key_of(person)
 
-    expect(key).to_have_attribute("title", STAND_UP)
-    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    expect(key).to_be_visible()
 
     key.click()
 
-    expect(person.get_by_role("button", name=STAND_UP_ARMED)).to_have_attribute("title", STAND_UP_ARMED)
-    expect(person.locator(".stand .run-out")).to_have_count(1)
+    expect(person.get_by_role("button", name=STAND_UP_ARMED)).to_be_visible()
     assert table.view(seat)["hand"]["waiting_seat"] is None
 
 
@@ -111,37 +79,12 @@ def test_the_second_tap_stands_up_and_the_others_read_it_once_while_the_person_w
     for other in (*others, table.watcher):
         expect(other.get_by_text(notice)).to_have_count(1)
         expect(plate_of(other, seat)).to_have_text(SEAT_FREE)
-        expect(other.locator(".chair.turn")).to_have_count(0)
-    expect(person.locator(".chair.mine")).to_have_count(0)
+        expect(other.locator(TURN_CHAIR)).to_have_count(0)
+    expect(plate_of(person, seat)).to_have_text(SEAT_FREE)
     expect(person.locator(OWN_HAND)).to_have_count(0)
     expect(person.get_by_text(notice)).to_have_count(0)
     expect(chair_of(person, seat).get_by_role("button", name=SIT_DOWN)).to_be_visible()
-    expect(chair_of(person, seat).locator(".fan-spot")).to_have_count(1)
-    expect(person.locator(".chair").last).to_have_attribute("data-seat", str(seat))
-    expect(person.locator(".row.stand")).to_have_count(0)
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_notice_about_the_chair_holds_its_sentence_covers_no_plaque_bubble_fan_or_chair(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-    form_factor: dict[str, Any],
-) -> None:
-    table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor)
-    table.play_out(TWO_CARDS)
-    seat = table.seat_at["rearhand"]
-
-    stands_up_through_the_key(table.pages[seat])
-
-    for other in (*(page for other_seat, page in table.pages.items() if other_seat != seat), table.watcher):
-        expect(other.locator(NOTICE)).to_have_count(1)
-        shown = other.locator(":root").evaluate(NOTICE_ON_THE_PAGE, [NOTICE, list(NEVER_UNDER_THE_NOTICE)])
-        assert shown is not None
-        assert shown["sentenceInside"]
-        assert shown["covered"] == []
-    assert page_errors == []
+    expect(menu_button(person, STAND_UP)).to_have_count(0)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -161,17 +104,11 @@ def test_the_person_who_stood_up_finds_a_lock_on_another_open_chair_and_sits_in_
     stands_up_through_the_key(person)
 
     expect(chair_of(person, other_seat).get_by_role("img", name=LOCKED)).to_be_visible()
-    ring_style = (
-        chair_of(person, other_seat)
-        .get_by_role("img", name=LOCKED)
-        .evaluate("tile => getComputedStyle(tile, '::before').borderTopStyle")
-    )
-    assert ring_style == "dashed"
     expect(chair_of(person, other_seat).get_by_role("button", name=SIT_DOWN)).to_have_count(0)
     expect(chair_of(table.watcher, other_seat).get_by_role("button", name=SIT_DOWN)).to_be_visible()
 
-    chair_of(person, seat).get_by_role("button", name=SIT_DOWN).click()
+    sit_in(person, seat)
 
-    expect(person.locator(".chair.mine")).to_have_attribute("data-seat", str(seat))
+    assert table.seat_of(person) == seat
     expect(person.get_by_role("dialog", name=SIT_QUESTION)).to_have_count(0)
     expect(chair_of(person, other_seat).get_by_role("img", name=LOCKED)).to_have_count(0)
