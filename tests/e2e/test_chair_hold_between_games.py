@@ -8,7 +8,7 @@ from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import FORM_FACTORS
 from tests.e2e.support.server import skat_on_new_database
-from tests.e2e.support.tables import SIT_DOWN, open_new_table, watch
+from tests.e2e.support.tables import SIT_DOWN, chair_of, open_new_table, watch
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -57,7 +57,7 @@ def test_a_member_who_closed_every_tab_between_games_keeps_the_chair_after_the_h
     table = a_table_between_games(form_factor)
     away_seat = next(seat for seat in table.names if seat != table.declarer_seat)
     other = table.pages[table.declarer_seat]
-    away_chair = other.locator(f".chair[data-seat='{away_seat}']")
+    away_chair = chair_of(other, away_seat)
     table.pages[away_seat].close()
     expect(away_chair).to_contain_text(SEAT_AWAY)
     # A table with no hand dealt frees a chair after the same hold, which started later than the dealt table's.
@@ -66,9 +66,7 @@ def test_a_member_who_closed_every_tab_between_games_keeps_the_chair_after_the_h
     onlooker = open_person(username="erik", **form_factor)
     watch(onlooker, e2e_server, control_path)
     control_owner.close()
-    expect(onlooker.locator(".chair[data-seat='1']").get_by_role("button", name=SIT_DOWN)).to_be_visible(
-        timeout=FREED_WITHIN_MILLISECONDS
-    )
+    expect(chair_of(onlooker, 1).get_by_role("button", name=SIT_DOWN)).to_be_visible(timeout=FREED_WITHIN_MILLISECONDS)
 
     expect(away_chair).to_contain_text(SEAT_AWAY)
     back = table.pages[away_seat].context.new_page()
