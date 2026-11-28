@@ -393,7 +393,7 @@
             onseries={() => {
                 seriesOpen = true;
             }}
-            count={seriesCountText(table)}
+            count={greeted ? seriesCountText(table) : null}
             onstand={() => {
                 void seat(standUp(id, crypto.randomUUID()));
             }}

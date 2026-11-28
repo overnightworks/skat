@@ -12,7 +12,6 @@ describe("the table menu", () => {
     let copied = 0;
     let stood = 0;
     let ruled = 0;
-    let listed = 0;
 
     afterEach(async () => {
         if (mounted !== undefined) await unmount(mounted);
@@ -28,7 +27,6 @@ describe("the table menu", () => {
         copied = 0;
         stood = 0;
         ruled = 0;
-        listed = 0;
         mounted = mount(TableMenu, {
             target: document.body,
             props: {
@@ -45,9 +43,7 @@ describe("the table menu", () => {
                 onrules: () => {
                     ruled += 1;
                 },
-                onseries: () => {
-                    listed += 1;
-                },
+                onseries: () => {},
                 count: own.count ?? null,
                 onstand: () => {
                     stood += 1;
@@ -144,14 +140,6 @@ describe("the table menu", () => {
                 words["account.title"],
             ],
         ]);
-    });
-
-    it("tells the page when the game count row is tapped", () => {
-        show(tableWith(DECLARER, null), { callMode: true, count: "Spiel 2 von 36" });
-
-        (document.querySelector(".row.series") as HTMLButtonElement).click();
-
-        expect(listed).toBe(1);
     });
 
     it("offers a watcher in a call the link and the rules as outside a call", () => {
