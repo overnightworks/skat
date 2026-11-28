@@ -2,7 +2,12 @@
     import { untrack } from "svelte";
     import { AgentControl, type AgentControlRefusal, type KitWords } from "overnightworks-design";
     import { words } from "#lib/words.ts";
-    import { followAgents, type AgentsControl, type AgentsFollower } from "../../routes/(start)/agents.ts";
+    import {
+        followAgents,
+        type AgentRow,
+        type AgentsControl,
+        type AgentsFollower,
+    } from "../../routes/(start)/agents.ts";
 
     // The kit's list of the agents the viewer may call or send away, in the panel the table menu's „Agenten“ row opens.
     // `open` is the menu or the panel while either shows; `shown` tells the menu whether the server shows the control
@@ -35,11 +40,31 @@
     // them until a read succeeds.
     let readFailed = $state(false);
     let refusal = $state<AgentControlRefusal | undefined>();
+    // The ended rows the kit let the person read and whose agent may not be called again, by key with the row as
+    // dropped. The kit cannot tell a re-read of the same ending from a new one, so a row stays dropped while reads
+    // bring it back unchanged and returns once its state, outcome or may-call-again fact changes.
+    let dropped = $state<Record<string, string>>({});
     // A read that no longer shows the control came while a refusal stands: the list stays until the person has read the
     // refusal.
     let hiddenUnderRefusal = false;
     let follower: AgentsFollower | undefined;
     let seatedAgentsAtLastTable: string | undefined;
+
+    const stateOf = (row: AgentRow) =>
+        row.state === "ended" ? `ended ${row.outcome} ${String(row.may_call_again)}` : row.state;
+    const rows = $derived(control.rows.filter((row) => dropped[row.key] !== stateOf(row)));
+
+    function dropAtOutcomeEnd(key: string) {
+        const row = control.rows.find((candidate) => candidate.key === key);
+        if (row?.state === "ended" && !row.may_call_again) dropped[key] = stateOf(row);
+    }
+
+    // A row that left or changed is no longer the one dropped.
+    function keepDropsOf(read: AgentsControl) {
+        dropped = Object.fromEntries(
+            read.rows.filter((row) => dropped[row.key] === stateOf(row)).map((row) => [row.key, stateOf(row)]),
+        );
+    }
 
     $effect(() => {
         shown = control.shown;
@@ -52,6 +77,7 @@
                 readFailed = false;
                 hiddenUnderRefusal = !answer.shown && refusal !== undefined;
                 if (hiddenUnderRefusal) return;
+                keepDropsOf(answer);
                 control = answer;
             },
             (reason) => (refusal = reason ?? undefined),
@@ -95,8 +121,9 @@
 {:else if control.shown}
     <div class="agents-list">
         <AgentControl
-            rows={control.rows}
+            {rows}
             full={control.full}
+            onOutcomeEnd={dropAtOutcomeEnd}
             onCall={(key) => void follower?.call(key)}
             onSendAway={(key) => void follower?.sendAway(key)}
             {refusal}
