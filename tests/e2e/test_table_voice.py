@@ -188,11 +188,11 @@ def test_the_switch_in_the_sound_panel_turns_the_voice_off_and_keeps_the_choice(
     watcher = table.watcher
     switch = watcher.get_by_role("switch", name=VOICE)
 
-    watcher.locator(".sound-button").click()
+    watcher.get_by_role("button", name=SOUND_PANEL, exact=True).click()
     expect(switch).to_be_checked()
     switch.set_checked(False)
     reload_and_wait(watcher)
-    watcher.locator(".sound-button").click()
+    watcher.get_by_role("button", name=SOUND_PANEL, exact=True).click()
 
     expect(watcher.get_by_role("switch", name=VOICE)).not_to_be_checked()
     assert json.loads(watcher.evaluate("key => localStorage.getItem(key)", SETTINGS_KEY))["voice"] is False
