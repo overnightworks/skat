@@ -2,7 +2,6 @@
     import type { KitWords } from "overnightworks-design";
     import { abortView } from "#lib/abort.ts";
     import { giveUpOffered, playOpenKey, shortenKey } from "#lib/giveUp.ts";
-    import { seriesEndOffered } from "#lib/series.ts";
     import { words } from "#lib/words.ts";
     import AbortKey from "./AbortKey.svelte";
     import AgentsList from "./AgentsList.svelte";

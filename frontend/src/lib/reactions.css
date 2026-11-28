@@ -104,6 +104,15 @@
     }
 }
 
+/* A desktop's short call frame has no height for the rail beside the far chair: the tray lies in a row at the bottom edge. */
+@media (min-width: 900px) and (max-height: 779px) {
+    .room.framed .tray {
+        bottom: 8px;
+        flex-direction: row;
+        border-radius: 999px;
+    }
+}
+
 /* A thrown emote lands on the felt, its thrower's initial at its corner. */
 .room .thrown {
     position: absolute;

@@ -67,6 +67,8 @@ MORE = text(SOURCE_LANGUAGE, "table.menu")
 REACTION_KEY = text(SOURCE_LANGUAGE, "table.reactions")
 REACTION_TRAY = text(SOURCE_LANGUAGE, "table.reactionTray")
 RULES = text(SOURCE_LANGUAGE, "rules.title")
+RULES_CLOSE = text(SOURCE_LANGUAGE, "rules.close")
+SERIES_LIST = text(SOURCE_LANGUAGE, "table.seriesList")
 GAME_COUNT = re.compile(
     re.escape(text(SOURCE_LANGUAGE, "table.seriesCount", game="GAME", count="COUNT"))
     .replace("GAME", r"\d+")
@@ -110,7 +112,7 @@ def in_the_call_frame(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_framed_call_mode_table_shows_its_wordmark_as_text_and_offers_no_copy_link(
+def test_a_framed_call_mode_table_shows_its_wordmark_as_text_and_offers_a_seated_player_no_copy_link(
     open_person: Callable[..., Page],
     browser_coverage: BrowserCoverage,
     framing_server: RunningServer,
@@ -124,6 +126,8 @@ def test_a_framed_call_mode_table_shows_its_wordmark_as_text_and_offers_no_copy_
 
         expect(table.locator(WORDMARK)).to_have_text(APP_NAME)
         expect(table.locator(f"{BAR} a")).to_have_count(0)
+        table.locator(f"{CHAIR}[data-seat='2']").get_by_role("button", name=SIT_DOWN).click()
+        expect(menu_button(table, STAND_UP)).to_be_visible()
         expect(table.locator(".row.link")).to_have_count(0)
 
 
@@ -698,6 +702,9 @@ def test_the_menu_in_a_hopin_frame_holds_the_rules_and_the_game_count_after_the_
         expect(menu_button(frame, COPY_LINK)).to_have_count(0)
         menu_button(frame, RULES).click()
         expect(frame.get_by_role("dialog", name=RULES)).to_be_visible()
+        frame.get_by_role("button", name=RULES_CLOSE).click()
+        menu_button(frame, GAME_COUNT).click()
+        expect(frame.get_by_role("dialog", name=SERIES_LIST)).to_be_visible()
 
 
 @pytest.mark.parametrize("frame_size", HOPIN_FRAME_SIZES.values(), ids=HOPIN_FRAME_SIZES)
