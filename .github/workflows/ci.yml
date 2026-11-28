@@ -17,7 +17,8 @@ jobs:
   unit-shard:
     name: Unit shard ${{ matrix.shard }}
     # One runner per shard, each keeping every fourth test by node id. The whole suite took 5 to 9.5 minutes on one
-    # runner; MEASUREMENT PENDING. A shard that nears half of its timeout calls for another runner.
+    # runner. With four shards the slowest took 3 min 26 s (run 46157240506), under half of the 15-minute timeout; a shard
+    # that nears half of its timeout calls for another runner.
     strategy:
       fail-fast: false
       matrix:
