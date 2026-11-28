@@ -1,5 +1,5 @@
 import copy
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import UTC, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Final, overload
@@ -49,6 +49,8 @@ if TYPE_CHECKING:
     from skat.table.records import RamschSetting, TableOptions
 
 CHAIRS_PER_TABLE: Final = 3
+# Long enough to read „Eingepasst“.
+NEXT_DEAL_PAUSE_SECONDS: Final = 4
 FIRST_VERSION: Final = 1
 CREATE_TABLE_COMMAND: Final = "create-table"
 SIT_DOWN_COMMAND: Final = "sit-down"
@@ -423,11 +425,9 @@ def with_minute_started_at(table: TableRecord, now: datetime) -> TableRecord:
     return copy.replace(table, series=replace(table.series, new_series_asked_at=now))
 
 
-def seated_if_hand_ended(before: TableRecord, after: TableRecord) -> frozenset[str]:
-    """Who sat at the table when this change ended its hand; nobody when it ended none."""
-    if not hand_runs(before) or hand_runs(after):
-        return frozenset()
-    return frozenset(chair.occupant.account_id for chair in after.chairs if chair.occupant is not None)
+def hand_ended(before: TableRecord, after: TableRecord) -> bool:
+    """Whether this change ended the hand that ran."""
+    return hand_runs(before) and not hand_runs(after)
 
 
 def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord:
@@ -470,14 +470,9 @@ def dealt(table: TableRecord, new_hand: NewHand, *, version: int) -> TableRecord
     )
 
 
-def hand_was_dealt_by(dealer: int | None) -> bool:
-    """A hand was dealt at some time, by the stored dealer: the store writes the dealer with the first hand."""
-    return dealer is not None
-
-
 def hand_was_dealt(table: TableRecord) -> bool:
-    """A hand was dealt on the table at some time."""
-    return hand_was_dealt_by(table.dealer)
+    """A hand was dealt on the table at some time: the store writes the dealer with the first hand."""
+    return table.dealer is not None
 
 
 def result_pending(table: TableRecord) -> bool:
@@ -493,6 +488,11 @@ def result_pending(table: TableRecord) -> bool:
         and not table.progress.auction
         and not table.progress.aborted
     )
+
+
+def seated_accounts(table: TableRecord) -> frozenset[str]:
+    """The accounts that sit at the table's chairs."""
+    return frozenset(chair.occupant.account_id for chair in table.chairs if chair.occupant is not None)
 
 
 @overload
@@ -513,15 +513,7 @@ def present_at(table: TableRecord, streams: frozenset[str] | None, leases: froze
     """
     if streams is None:
         return None
-    occupants = {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
-    return streams | (leases & occupants)
-
-
-def ends_empty(table: TableRecord, connected_accounts: frozenset[str] | None) -> bool:
-    """A table ends for being empty only while no hand was dealt on it and nobody is connected; a table with a dealer
-    pauses and is kept. None says the presence cannot tell any more.
-    """
-    return not hand_was_dealt(table) and connected_accounts is not None and not connected_accounts
+    return streams | (leases & seated_accounts(table))
 
 
 def unplayed_end(last_played_at: datetime, days: int) -> datetime:
@@ -545,75 +537,50 @@ class PresenceStep(Enum):
     END = "end"
 
 
-def wait_left(empty_since: datetime, now: datetime, empty_seconds: int) -> timedelta:
-    """What is left of a table's wait of `empty_seconds`, counted from the time since when nobody has been at it; the
-    wait is up when nothing is left.
+class EmptyWait(Enum):
+    """Where a table's wait for somebody stands on the store's clock: no time since when nobody has been at it is
+    set, the time is set and the wait runs, or the wait is up.
     """
-    return timedelta(seconds=empty_seconds) - (now - empty_since)
+
+    UNSET = "unset"
+    RUNNING = "running"
+    UP = "up"
 
 
-def wait_up(empty_since: datetime, now: datetime, empty_seconds: int) -> bool:
-    """Whether a table's wait is up: nothing is left of it."""
-    return wait_left(empty_since, now, empty_seconds) <= timedelta(0)
-
-
-def presence_step(
-    table: TableRecord,
-    connected_accounts: frozenset[str] | None,
-    empty_since: datetime | None,
-    now: datetime,
-    empty_seconds: int,
-) -> PresenceStep:
+def presence_step(table: TableRecord, connected_accounts: frozenset[str] | None, wait: EmptyWait) -> PresenceStep:
     """What a change of who is present does to the time since when nobody has been at the table: an empty table
     keeps an earlier time and gets one otherwise, only while no hand was dealt on it; a table someone is at loses
-    its time, and ends instead when no hand was dealt and the time was already up. None says the presence cannot
+    its time, and ends instead when no hand was dealt and the wait was already up. None says the presence cannot
     tell any more.
     """
     if connected_accounts is None:
         return PresenceStep.KEEP
     if not connected_accounts:
-        return PresenceStep.STAMP if empty_since is None and not hand_was_dealt(table) else PresenceStep.KEEP
-    if empty_since is None:
+        return PresenceStep.STAMP if wait is EmptyWait.UNSET and not hand_was_dealt(table) else PresenceStep.KEEP
+    if wait is EmptyWait.UNSET:
         return PresenceStep.KEEP
-    if not hand_was_dealt(table) and wait_up(empty_since, now, empty_seconds):
+    if not hand_was_dealt(table) and wait is EmptyWait.UP:
         return PresenceStep.END
     return PresenceStep.CLEAR
 
 
-class ResumeStep(Enum):
-    SKIP = "skip"
-    STAMP = "stamp"
-    WAIT = "wait"
-    END = "end"
-
-
-@dataclass(frozen=True)
-class Resume:
-    """What the server's start does with a live table: its step and the seconds left of the wait it starts."""
-
-    step: ResumeStep
-    seconds_left: float
-
-
-def resume_step(dealer: int | None, empty_since: datetime | None, now: datetime, empty_seconds: int) -> Resume:
-    """What the server's start does with a live table, by the same rules as `presence_step`: a table with a dealt
-    hand pauses and gets no wait; an undealt table with no time gets one and a full wait; one with a time waits for
-    what is left of it, and ends once nothing is left.
+def empty_step(table: TableRecord, connected_accounts: frozenset[str] | None, wait: EmptyWait) -> PresenceStep:
+    """What a sweep does with a table whose wait looked up: it ends one nobody is at while no hand was dealt on it and
+    the wait is up, and clears the time of one someone is at, which never ends. None says the presence cannot tell
+    any more.
     """
-    if hand_was_dealt_by(dealer):
-        return Resume(ResumeStep.SKIP, 0.0)
-    if empty_since is None:
-        return Resume(ResumeStep.STAMP, float(empty_seconds))
-    if wait_up(empty_since, now, empty_seconds):
-        return Resume(ResumeStep.END, 0.0)
-    return Resume(ResumeStep.WAIT, wait_left(empty_since, now, empty_seconds).total_seconds())
+    if connected_accounts is None or wait is EmptyWait.UNSET:
+        return PresenceStep.KEEP
+    if connected_accounts:
+        return PresenceStep.CLEAR
+    return PresenceStep.END if wait is EmptyWait.UP and not hand_was_dealt(table) else PresenceStep.KEEP
 
 
 def next_deal_due(table: TableRecord, connected_accounts: frozenset[str]) -> bool:
     """The next hand is due when no hand runs, the table has a dealer and all three occupants are connected; while a
     result is pending or at a series' end, all three chairs must be ready too.
     """
-    occupants = [chair.occupant.account_id for chair in table.chairs if chair.occupant is not None]
+    occupants = seated_accounts(table)
     return (
         not hand_runs(table)
         and hand_was_dealt(table)

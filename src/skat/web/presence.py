@@ -13,30 +13,31 @@ from logline import unit_trace
 
 from skat.web.end_answers import EndAnswers, EndAnswerWatch
 from skat.web.presence_line import PresenceTimer, TimerRuns
-from skat.web.presence_roster import PresenceUnknownError, Present, StreamLeases
+from skat.web.presence_roster import PresenceUnknownError, PresenceUnsettledError, Present, StreamLeases
 from skat.web.reaction_log import ReactionLog
 from skat.web.stream_holder import StreamHolder
 from skat.web.waits import AskClock
 from skat.web.wakes import Registration, TableTopic, WakeList
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Coroutine, Generator, Iterable, Mapping
+    from collections.abc import Awaitable, Callable, Coroutine, Generator, Iterable
     from concurrent.futures import Future
     from contextlib import AbstractContextManager
 
     from tandem import Lapse
 
 CHAIR_RELEASE_RETRY_SECONDS: Final = 15
-# Long enough to read „Eingepasst“.
-NEXT_DEAL_PAUSE_SECONDS: Final = 4
 # An open stream renews its lease this often and the pods sweep lapsed leases this often; the leases last longer than
 # a renewal, so a pod that dies loses its people within the lease plus one sweep.
 STREAM_RENEWAL_EVERY: Final = timedelta(seconds=10)
 LAPSE_SWEEP_EVERY: Final = timedelta(seconds=5)
 # A worker holding a table's row lock waits this long for the roster before the presence counts it as unknown.
 ROSTER_READ_TIMEOUT_SECONDS: Final = 3
-# Every pod looks for due chair holds this often, so a chair is freed at most this late.
+# Every pod looks for due chair holds and empty tables' ended waits this often, so a chair is freed and an empty table
+# ends at most this late.
 HOLD_SWEEP_EVERY_SECONDS: Final = 5
+# Every pod looks for pauses that are over this often, so a table is dealt at most this late after its pause.
+PAUSE_SWEEP_EVERY_SECONDS: Final = 1
 
 log = structlog.get_logger()
 
@@ -141,33 +142,56 @@ class AgentLease:
 
 @dataclass(frozen=True)
 class NextDeal:
-    """How long a table pauses after a passed-in hand, and the command that deals the next one.
+    """The next deal's commands and its stored pause; each call raises when the store fails.
 
-    `deal(table_id, connected_accounts)` answers whether it dealt, and raises when the store fails. It enters
-    `connected_accounts` in its worker once it holds the table and leaves it after the commit; that yields who is
-    connected then, and None once the presence has stopped.
+    `deal` deals at once and `after_pause` deals a table whose pause is over, dropping the pause once; both answer
+    whether they dealt, and enter `connected_accounts` in their worker once they hold the table (`after_pause` calls
+    it with those seated there). It yields who is connected then, and None once the presence has stopped; either
+    that or a `PresenceUnknownError` deals nothing and keeps the pause. `pause` stores a pause where there is none,
+    `defer` stores it as due now and `due` answers the tables whose pause is over.
     """
 
-    seconds: float
     deal: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
+    after_pause: Callable[
+        [str, Callable[[frozenset[str]], AbstractContextManager[frozenset[str] | None]]], Awaitable[bool]
+    ]
+    pause: Callable[[str], Awaitable[None]]
+    defer: Callable[[str], Awaitable[None]]
+    due: Callable[[], Awaitable[Iterable[str]]]
 
 
 @dataclass(frozen=True)
 class EmptyTable:
-    """How long a table nobody is connected to stays, the command that ends it and the one that notes who is there.
+    """The commands that end a table nobody is connected to and that note who is there; each call raises when the
+    store fails.
 
-    `end(table_id, connected_accounts)` answers whether it ended the table, and raises when the store fails. It
-    enters `connected_accounts` in its worker once it holds the table and leaves it after the commit; that yields
-    who is connected then, and None once the presence has stopped or a stream opened since the wait began.
-
-    `note(table_id, connected_accounts)` stores since when nobody has been at the table, called wherever who is
-    connected changes. It answers whether the table ended because someone arrived after the wait was up, enters
-    `connected_accounts` as `end` does, and raises when the store fails.
+    `end` settles a table whose wait looked up and `note` stores since when nobody has been at a table, wherever who
+    is connected changes; both answer whether the table ended and enter `connected_accounts` in their worker once
+    they hold the table, which yields who is connected then, and None once the presence has stopped. `due` answers
+    the tables whose wait is up on the store's clock and `unstamped` the live undealt tables with no wait started.
     """
 
-    seconds: float
     end: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
     note: Callable[[str, AbstractContextManager[frozenset[str] | None]], Awaitable[bool]]
+    due: Callable[[], Awaitable[Iterable[str]]]
+    unstamped: Callable[[], Awaitable[Iterable[str]]]
+
+
+@dataclass(frozen=True)
+class _Sweep:
+    """One kind of stored deadline every pod sweeps: `due` reads the subjects (a table id first) that are due and
+    `step` decides one under the table's row lock, answering whether it changed the table, which `changed` tells.
+    """
+
+    sweep_timer: PresenceTimer
+    step_timer: PresenceTimer
+    due: Callable[[], Awaitable[Iterable[tuple[str, ...]]]]
+    step: Callable[[tuple[str, ...]], Awaitable[bool]]
+    changed: Callable[[str], None]
+
+
+async def _table_subjects(due: Callable[[], Awaitable[Iterable[str]]]) -> list[tuple[str, ...]]:
+    return [(table_id,) for table_id in await due()]
 
 
 class Presence:
@@ -179,45 +203,34 @@ class Presence:
     subscriptions and makes it under `_state`. Otherwise a worker touches only the write markers and the lease ends,
     all under `_state`: inside a write's guard, and where `TableService`'s worker reads `live_leases`; it reads the
     roster before it takes `_state`, from the event loop that owns the client. A wake carries no data: a stream that
-    falls behind finds several changes folded into one wake and reads the latest state, which is its fresh snapshot.
+    falls behind finds several changes folded into one wake and reads the latest state.
 
     A chair hold is a deadline in the store, on the store's clock, so it outlives the pod that wrote it. A stream that
     was the account's last at the table on any pod, or whose pod cannot read the roster, stores the account's leave
     before its lease ends, even while the presence stops; a stream lapsed on a dead pod and an agent's lapsed lease
-    store it too, unless the account is back. A leave that cannot be stored is logged and stored again after
-    `CHAIR_RELEASE_RETRY_SECONDS` while the presence runs; until then the chair is kept. An arrival clears the account's
-    hold once its lease has started. Every pod sweeps the due holds every `HOLD_SWEEP_EVERY_SECONDS`; the freeing locks
-    the table and the hold, and frees the chair only while the roster vouches that the account streams on no pod and no
-    lease of it runs here. An arrival's clear waits for a freeing in flight, so it finds the chair freed instead of
-    losing it unseen. Nothing is held anew at a start.
+    store it too, unless the account is back. A leave that cannot be stored is stored again after
+    `CHAIR_RELEASE_RETRY_SECONDS` while the presence runs. An arrival clears the account's hold once its lease has
+    started. Every pod sweeps the due holds every `HOLD_SWEEP_EVERY_SECONDS`; the freeing locks the table and the hold,
+    and frees the chair only while the roster vouches that the account streams on no pod and no lease of it runs here.
+    An arrival's clear waits for a freeing in flight.
 
-    After a passed-in hand a table gets one pause; when it ends, the deal is asked for with who is connected
-    then, and a stream's first view of the table starts the next pause if none is pending. After a played game
-    the deal is asked for at once, with no pause, whenever a caller may have made it due; a lease start asks
-    through `deal_soon`, after the pause. A later hand's end replaces a pending pause, and the
-    replaced timer does nothing when it fires, so a pending timer of an earlier hand cannot shorten this one's.
-    Nothing about a pause is stored: after a restart none is pending, and all three being connected can only become
-    true by streams opening or an agent's call starting its lease, so no sweep is needed. A deal that fails is asked
-    for again after `CHAIR_RELEASE_RETRY_SECONDS` while the presence runs.
+    The next deal's pause is a deadline in the store too: a hand's end stores it in its own transaction, a stream's
+    first view of a passed-in table stores one where none is pending, and a deal that failed is stored as due now.
+    Every pod sweeps the pauses every `PAUSE_SWEEP_EVERY_SECONDS`; a pause that is over is dropped under the table's
+    row lock and the table dealt when all three are connected then; an unsettled roster that misses a seated person
+    keeps it for the next sweep.
 
     An agent holds no stream: every admitted call of it renews its lease, and while the lease runs the agent counts
     as present at the tables it sits at (`live_leases`; the table's rule intersects them with its occupants). One
     timer per lease re-arms itself to the lease's end. A lapse is the agent's leave from each of its tables: the
-    streams are woken, a hold starts as for a person and a table with no stream open waits afresh; a pending hold
-    never frees a chair while a lease runs. An agent's leases are in the process that heard its call and gone at a
-    restart.
+    streams are woken, a hold starts as for a person and a table with no stream open waits afresh. An agent's leases
+    are in the process that heard its call and gone at a restart, so a pod's start notes the tables without a wait.
 
-    A table gets one wait when it is created or found at the server's start, and another each time its last stream
-    ends or a chair is freed where no stream is open and a lease runs. An opening or a sit where no stream is open
-    starts a wait when none is pending, whether a lease runs or not, and keeps a pending one (watch_empty_table);
-    where a lease runs it also notes who is present, as a lease does. A stand-up there owes a full wait from itself.
-    A stream that opens ends the wait, so the pending timer finds itself superseded and does nothing. When it fires,
-    the end is asked for with who is connected then, and a failure is retried while the wait stays the table's
-    latest. Since when nobody has been at a table is stored: a table's last leave, a lease starting or lapsing and
-    the first arrival note who is present, each on the table's row (presence notes an empty table and the service
-    decides whether to stamp the time; an arrival or a lease start has the service clear it, or end an undealt table
-    whose wait is up), and the server's start seeds each table's wait with what is left of it, so a restart never
-    gives a table a fresh wait it had already begun.
+    Since when nobody has been at an undealt table is stored on its row, on the store's clock: creating the table stamps
+    it, and a table's last leave, a lease starting or lapsing, a lapsed stream, the first arrival and a pod's start note
+    who is present under the table's row lock (an empty table gets the time, a table someone is at loses it, and one
+    someone arrives at after its wait was up ends instead of reviving). Every pod sweeps the tables whose wait is up
+    every `HOLD_SWEEP_EVERY_SECONDS`, reading who is present again, so a table that someone is at never ends.
 
     `waits` is the one `AskClock` of the process and `reactions` the one `ReactionLog`, both on the chair hold's clock;
     the presence drops a table's entries where its end or note answers that the table ended.
@@ -244,9 +257,8 @@ class Presence:
         self._hold = hold
         self._next_deal = next_deal
         self._empty_table = empty_table
-        self._pauses: dict[str, object] = {}
-        self._empty_waits: dict[str, object] = {}
         self._timer_runs = TimerRuns()
+        self._sweeps = self._sweeps_by_cadence()
         self.end_answer_watch = EndAnswerWatch(
             end_answers,
             hold.clock,
@@ -260,6 +272,35 @@ class Presence:
         self._state = threading.Lock()
         self._writing: set[asyncio.Event] = set()
         self._reads: set[Future[Present]] = set()
+
+    def _sweeps_by_cadence(self) -> dict[int, tuple[_Sweep, ...]]:
+        return {
+            PAUSE_SWEEP_EVERY_SECONDS: (
+                _Sweep(
+                    PresenceTimer.PAUSE_SWEEP,
+                    PresenceTimer.NEXT_DEAL,
+                    partial(_table_subjects, self._next_deal.due),
+                    self._deal_after_pause,
+                    self.wake_table,
+                ),
+            ),
+            HOLD_SWEEP_EVERY_SECONDS: (
+                _Sweep(
+                    PresenceTimer.HOLD_SWEEP,
+                    PresenceTimer.CHAIR_RELEASE,
+                    self._hold.due,
+                    self._free_chair,
+                    self.wake_table,
+                ),
+                _Sweep(
+                    PresenceTimer.EMPTY_SWEEP,
+                    PresenceTimer.EMPTY_TABLE_END,
+                    partial(_table_subjects, self._empty_table.due),
+                    self._end_empty,
+                    self.table_ended,
+                ),
+            ),
+        }
 
     @property
     def stopped(self) -> bool:
@@ -306,23 +347,21 @@ class Presence:
 
     async def _leave_lapsed(self, lapse: Lapse) -> None:
         """Store the leave only where no hold exists, since tandem queues a lapse for every lease that ends, a close's
-        too; a leave that cannot be stored raises, so tandem hands the lapse again once its claim runs out.
+        too. The table notes who is present before the lapse is done, since a lapse on a dead pod may have been the last
+        stream's end; a leave or a note that fails raises, so tandem hands the lapse again once its claim runs out.
         """
         holder = StreamHolder.parse(lapse.holder)
         if not await self._is_back(holder.table_id, holder.account_id):
             await self._hold.lapse(holder.table_id, holder.account_id)
         self.wake_table(holder.table_id)
+        await self._write_presence(holder.table_id)
 
     async def _is_back(self, table_id: str, account_id: str) -> bool:
-        """Whether the account is here at the table; an unreadable roster says no, which stores a leave the freeing
-        reads the roster against again.
-        """
+        """Whether the account is here at the table; an unreadable roster says no, and the freeing reads it again."""
         return self._is_here(account_id, await self._connected_or_none(table_id))
 
     def _is_here(self, account_id: str, connected: frozenset[str]) -> bool:
-        """Whether the account counts as here at a table whose streams on every pod are `connected`: it streams there,
-        or a lease of it runs here.
-        """
+        """Whether the account streams at the table (`connected`) or a lease of it runs here."""
         return account_id in connected or account_id in self.live_leases()
 
     def live_leases(self) -> frozenset[str]:
@@ -332,10 +371,8 @@ class Presence:
 
     def renew_lease(self, account_id: str) -> None:
         """Count the account as present at every table it sits at for one more lease; call it on the event loop's
-        thread for every admitted call of an agent.
-
-        A lease that starts has its tables woken and their next deal asked for; one timer per lease re-arms itself
-        until the lease has run out without a renewal.
+        thread for every admitted call of an agent. A lease that starts has its tables woken and their next deal asked
+        for; one timer per lease re-arms itself until the lease has run out without a renewal.
         """
         if self._stopped:
             return
@@ -359,9 +396,8 @@ class Presence:
     async def _settle_lease(self, account_id: str, *, lapsed: bool) -> None:
         """Act on every table the account sits at after its lease started or lapsed, from one read of them.
 
-        A lapse wakes the streams, stores the chair's leave and, where no stream is open, a fresh wait for the empty
-        table; a start wakes them and asks for the next deal. A failed read is retried while the lease still is in
-        the state that was acted on.
+        A lapse wakes the streams and stores the chair's leave; a start wakes them and asks for the next deal; either
+        notes who is present. A failed read is retried while the lease still is in the state that was acted on.
         """
         if self._stopped or (account_id in self._lease_ends) == lapsed:
             return
@@ -378,12 +414,10 @@ class Presence:
         for table_id in table_ids:
             self.wake_table(table_id)
             self._note_soon(table_id)
-            if not lapsed:
-                self.deal_soon(table_id)
-                continue
-            await self._store_leave(table_id, account_id, lapsed=True)
-            if table_id not in self._subscriptions:
-                self._start_empty_wait(table_id)
+            if lapsed:
+                await self._store_leave(table_id, account_id, lapsed=True)
+            else:
+                await self.deal_soon(table_id)
 
     async def subscribe(self, table_id: str, account_id: str, wake: Callable[[], None]) -> Subscription:
         """Register before the stream reads its view, so a change after this call wakes it.
@@ -404,7 +438,6 @@ class Presence:
             raise
         subscription = Subscription(holder, registration, lease)
         with self._state:
-            self._empty_waits.pop(table_id, None)
             self._subscriptions.setdefault(table_id, []).append(subscription)
             first = len(self._subscriptions[table_id]) == 1
         try:
@@ -479,7 +512,6 @@ class Presence:
         if left:
             self.wake_table(table_id)
         if table_id not in self._subscriptions:
-            self._start_empty_wait(table_id)
             self._note_soon(table_id)
 
     async def _streams_elsewhere(self, holder: StreamHolder) -> bool:
@@ -513,131 +545,131 @@ class Presence:
         if not await self._is_back(table_id, account_id):
             await self._store_leave(table_id, account_id, lapsed=lapsed)
 
-    def start_hold_sweeps(self) -> None:
-        """Free the chairs whose hold is due every `HOLD_SWEEP_EVERY_SECONDS` while the presence runs."""
-        self._hold.scheduler.schedule(HOLD_SWEEP_EVERY_SECONDS, self._sweep_holds)
+    def start_sweeps(self) -> None:
+        """Act on the stored deadlines that are due, each kind at its cadence while the presence runs: the pauses every
+        `PAUSE_SWEEP_EVERY_SECONDS`, the holds and the empty waits every `HOLD_SWEEP_EVERY_SECONDS`.
+        """
+        for every in self._sweeps:
+            self._hold.scheduler.schedule(every, partial(self._sweep_every, every))
 
-    async def _sweep_holds(self) -> None:
+    async def _sweep_every(self, every: int) -> None:
         try:
-            await self._free_due_holds()
+            for sweep in self._sweeps[every]:
+                await self._sweep(sweep)
         finally:
             if not self._stopped:
-                self._hold.scheduler.schedule(HOLD_SWEEP_EVERY_SECONDS, self._sweep_holds)
+                self._hold.scheduler.schedule(every, partial(self._sweep_every, every))
 
-    async def _free_due_holds(self) -> None:
-        """Free each due hold's chair; an unknown presence ends the sweep, since it is unknown for every hold."""
-        run = self._timer_runs.start(PresenceTimer.HOLD_SWEEP)
+    async def _sweep(self, sweep: _Sweep) -> None:
+        """Decide each due subject; an unreadable roster ends the sweep, an unsettled one skips just that subject."""
+        run = self._timer_runs.start(sweep.sweep_timer)
         try:
-            due = list(await self._hold.due())
+            due = list(await sweep.due())
         except Exception as failure:
             run.failed(failure)
             return
         run.succeeded()
-        loop = asyncio.get_running_loop()
-        for table_id, account_id in due:
-            run = self._timer_runs.start(PresenceTimer.CHAIR_RELEASE, table_id, account_id, table_id=table_id)
+        for subject in due:
+            table_id = subject[0]
+            run = self._timer_runs.start(sweep.step_timer, *subject, table_id=table_id)
             try:
-                freed = await self._hold.free_chair(
-                    table_id, account_id, self._absent_while_freeing(table_id, account_id, loop)
-                )
+                changed = await sweep.step(subject)
             except PresenceUnknownError as failure:
                 run.failed(failure)
+                if isinstance(failure, PresenceUnsettledError):
+                    continue
                 return
             except Exception as failure:
                 run.failed(failure)
                 continue
             run.succeeded()
-            if freed:
-                self.wake_table(table_id)
+            if changed:
+                sweep.changed(table_id)
 
-    def watch_empty_table(self, table_id: str, seconds_left: float | None = None) -> None:
-        """Start a table's wait if nobody is connected and none is pending: a create retry neither restarts nor
-        stretches it. Routes reach it through chair_taken, on the event loop's thread; the server's start calls it
-        for each live table with what is left of its wait.
+    async def _free_chair(self, subject: tuple[str, ...]) -> bool:
+        table_id, account_id = subject
+        return await self._hold.free_chair(
+            table_id, account_id, self._absent_while_freeing(table_id, account_id, asyncio.get_running_loop())
+        )
+
+    async def _deal_after_pause(self, subject: tuple[str, ...]) -> bool:
+        (table_id,) = subject
+        loop = asyncio.get_running_loop()
+
+        def connected_for(seated: frozenset[str]) -> AbstractContextManager[frozenset[str] | None]:
+            # The pause is dropped even when nothing is dealt, so an unsettled roster must list everyone seated.
+            return self._connected_while_writing(table_id, loop, vouches=(seated - self.live_leases()).issubset)
+
+        return await self._next_deal.after_pause(table_id, connected_for)
+
+    async def _end_empty(self, subject: tuple[str, ...]) -> bool:
+        (table_id,) = subject
+        return await self._empty_table.end(
+            table_id, self._connected_while_writing(table_id, asyncio.get_running_loop())
+        )
+
+    async def note_unstamped_tables(self) -> None:
+        """At a pod's start, note who is present at every live undealt table with no wait started: an agent's lease
+        dies with its pod without a lapse, so only the roster says whether anyone is at such a table. A failed read
+        raises; a failed note is retried.
         """
-        if table_id not in self._subscriptions and table_id not in self._empty_waits:
-            self._start_empty_wait(table_id, seconds_left)
+        for table_id in await self._empty_table.unstamped():
+            self._note_soon(table_id)
 
     def chair_taken(self, table_id: str) -> None:
         """A command opened a table or seated someone at it; call it on the event loop's thread after the commit.
 
-        The table waits for its end unless a wait is pending. Where no stream is open and a lease runs, the lease may
-        have joined the table without any stream changing, so who is present is noted on the table's row.
+        Where no stream is open and a lease runs, the lease may have joined the table without any stream changing, so
+        who is present is noted on the table's row.
         """
-        if table_id in self._subscriptions:
-            return
-        self.watch_empty_table(table_id)
-        if self.live_leases():
+        if table_id not in self._subscriptions and self.live_leases():
             self._note_soon(table_id)
 
     def chair_freed(self, table_id: str) -> None:
         """A command freed a chair; call it on the event loop's thread after the commit.
 
-        Where no stream is open and a lease runs, the chair may have been the only one a lease made present: the
-        table gets a full wait from now, as when its last stream ends or a lease lapses, and who is present is noted
-        on the table's row. With no lease running, only a stream makes anyone present, and the table already waits.
+        Where no stream is open and a lease runs, the chair may have been the only one a lease made present, so who is
+        present is noted on the table's row. With no lease running, only a stream makes anyone present.
         """
-        if table_id in self._subscriptions or not self.live_leases():
-            return
-        self._start_empty_wait(table_id)
-        self._note_soon(table_id)
+        if table_id not in self._subscriptions and self.live_leases():
+            self._note_soon(table_id)
 
-    def watch_empty_tables(self, seconds_left_by_table: Mapping[str, float]) -> None:
-        """Start the wait of each live table found at the server's start with what is left of it."""
-        for table_id, seconds_left in seconds_left_by_table.items():
-            self.watch_empty_table(table_id, seconds_left)
-
-    def deal_soon(self, table_id: str) -> None:
-        """Start the pause before a table's next deal; a request during a pending one neither cuts nor stretches it."""
-        if table_id not in self._pauses:
-            self.restart_deal_pause(table_id)
-
-    def restart_deal_pause(self, table_id: str) -> None:
-        """Start a table's pause from now, whatever was pending: a hand ended, and its pause is its own."""
+    async def deal_soon(self, table_id: str) -> None:
+        """Start the pause before a table's next deal where none is pending: a request during a pending one neither
+        cuts nor stretches it. A failure is logged; the next view or lease start of the table asks again.
+        """
         if self._stopped:
             return
-        pause = object()
-        self._pauses[table_id] = pause
-        self._hold.scheduler.schedule(self._next_deal.seconds, partial(self._deal_after_pause, table_id, pause))
-
-    async def _deal_after_pause(self, table_id: str, pause: object) -> None:
-        if self._pauses.get(table_id) is not pause:
-            return
-        # The pause is over before the deal is asked for, so a stream that opens while the deal runs and finds the
-        # table still passed in starts the next pause instead of waiting on an answer that left it out.
-        del self._pauses[table_id]
-        await self.deal_now(table_id)
+        await self._store_deal(table_id, self._next_deal.pause)
 
     async def deal_now(self, table_id: str) -> None:
         """Ask for a table's next deal with no pause; the table's own rule decides under its row lock.
 
-        A failure of any kind, not only a failed roster read, is logged and the deal is asked for again after
-        `CHAIR_RELEASE_RETRY_SECONDS` while the presence runs, as `_note_presence` and `_end_if_empty` do.
+        A failure of any kind, not only a failed roster read, is logged and stored as the deal due now, which the next
+        sweep of any pod asks for again.
         """
         run = self._timer_runs.start(PresenceTimer.NEXT_DEAL, table_id, table_id=table_id)
         try:
             dealt = await self._next_deal.deal(
                 table_id,
-                self._connected_while_writing(table_id, asyncio.get_running_loop(), absence_decides=False),
+                self._connected_while_writing(table_id, asyncio.get_running_loop(), vouches=lambda _listed: True),
             )
         except Exception as failure:
             run.failed(failure)
-            if not self._stopped:
-                self._hold.scheduler.schedule(CHAIR_RELEASE_RETRY_SECONDS, partial(self.deal_now, table_id))
+            await self._store_deal(table_id, self._next_deal.defer)
             return
         run.succeeded()
         if dealt:
             self.wake_table(table_id)
 
-    def _start_empty_wait(self, table_id: str, seconds: float | None = None) -> None:
-        if self._stopped:
-            return
-        wait = object()
-        with self._state:
-            self._empty_waits[table_id] = wait
-        self._hold.scheduler.schedule(
-            self._empty_table.seconds if seconds is None else seconds, partial(self._end_if_empty, table_id, wait)
-        )
+    async def _store_deal(self, table_id: str, store: Callable[[str], Awaitable[None]]) -> None:
+        run = self._timer_runs.start(PresenceTimer.NEXT_DEAL_WRITE, table_id, table_id=table_id)
+        try:
+            await store(table_id)
+        except Exception as failure:
+            run.failed(failure)
+        else:
+            run.succeeded()
 
     def _note_soon(self, table_id: str, delay_seconds: float = 0) -> None:
         if self._stopped:
@@ -645,7 +677,14 @@ class Presence:
         self._hold.scheduler.schedule(delay_seconds, partial(self._note_presence, table_id))
 
     async def _note_presence(self, table_id: str) -> None:
-        """Store who is present now, read once the row is locked; a failure is retried while the presence runs."""
+        """Store who is present now; a failure is retried while the presence runs."""
+        try:
+            await self._write_presence(table_id)
+        except Exception:
+            self._note_soon(table_id, CHAIR_RELEASE_RETRY_SECONDS)
+
+    async def _write_presence(self, table_id: str) -> None:
+        """Store who is present now, read once the row is locked; a failure is logged and raised."""
         run = self._timer_runs.start(PresenceTimer.EMPTY_SINCE_WRITE, table_id, table_id=table_id)
         try:
             ended = await self._empty_table.note(
@@ -653,29 +692,8 @@ class Presence:
             )
         except Exception as failure:
             run.failed(failure)
-            self._note_soon(table_id, CHAIR_RELEASE_RETRY_SECONDS)
-            return
+            raise
         run.succeeded()
-        if ended:
-            self.table_ended(table_id)
-
-    async def _end_if_empty(self, table_id: str, wait: object) -> None:
-        if not self._is_latest_wait(table_id, wait):
-            return
-        loop = asyncio.get_running_loop()
-        run = self._timer_runs.start(PresenceTimer.EMPTY_TABLE_END, table_id, table_id=table_id)
-        try:
-            ended = await self._empty_table.end(
-                table_id, self._connected_while_writing(table_id, loop, partial(self._is_latest_wait, table_id, wait))
-            )
-        except Exception as failure:
-            run.failed(failure)
-            self._hold.scheduler.schedule(CHAIR_RELEASE_RETRY_SECONDS, partial(self._end_if_empty, table_id, wait))
-            return
-        run.succeeded()
-        with self._state:
-            if self._empty_waits.get(table_id) is wait:
-                del self._empty_waits[table_id]
         if ended:
             self.table_ended(table_id)
 
@@ -685,76 +703,59 @@ class Presence:
         self.reactions.drop(table_id)
         self.wake_table(table_id)
 
-    def _is_latest_wait(self, table_id: str, wait: object) -> bool:
-        return not self._stopped and self._empty_waits.get(table_id) is wait
-
     def _absent_while_freeing(
         self, table_id: str, account_id: str, loop: asyncio.AbstractEventLoop
     ) -> AbstractContextManager[bool | None]:
         """Enter on a worker once it holds the table and the hold: yields whether the account is gone, and None once
         stopped. The account is gone when, by the roster, it is not here (`_is_here`).
-        A roster that cannot be read, or that is unsettled and does not list the account, raises
-        `PresenceUnknownError`, which frees nothing. The exit runs on the worker after the commit, so `finish_writes`
-        outlives a cancelled event-loop task.
+        An unreadable roster raises `PresenceUnknownError`, one unsettled without the account `PresenceUnsettledError`;
+        neither frees anything. The exit runs on the worker after the commit, so `finish_writes` outlives its task.
         """
 
-        def connected_unless_unknown() -> frozenset[str] | None:
-            present = self._present_from_worker(loop)
-            if present is None:
-                return None
-            if not (account_id in present.at(table_id) or present.settled):
-                raise PresenceUnknownError
-            return present.at(table_id)
-
-        return _absent_from(self._guarded_write(loop, connected_unless_unknown), partial(self._is_here, account_id))
+        connected = self._connected_while_writing(table_id, loop, vouches=lambda listed: account_id in listed)
+        return _absent_from(connected, partial(self._is_here, account_id))
 
     def _connected_while_writing(
         self,
         table_id: str,
         loop: asyncio.AbstractEventLoop,
-        is_due: Callable[[], bool] = lambda: True,
         *,
-        absence_decides: bool = True,
+        vouches: Callable[[frozenset[str]], bool] = bool,
     ) -> AbstractContextManager[frozenset[str] | None]:
-        """Enter on a worker once it holds the table: yields who is connected then, and None once stopped or when
-        `is_due` says the caller's request has been superseded.
+        """Enter on a worker once it holds the table: yields who is connected then, and None once stopped.
 
-        The roster is read before `_state` is taken. A roster that cannot be read raises `PresenceUnknownError`, and
-        so does an unsettled one that lists nobody at the table when `absence_decides`, which a write that ends or
-        stamps an empty table sets and a deal does not. The exit runs on the worker after the commit, so
-        `finish_writes` outlives a cancelled event-loop task.
+        The roster is read before `_state` is taken. One that cannot be read raises `PresenceUnknownError`, an
+        unsettled one whose listing `vouches` rejects (by default: nobody) `PresenceUnsettledError`.
+        The exit runs on the worker after the commit, so `finish_writes` outlives a cancelled event-loop task.
         """
 
         def connected_at_the_table() -> frozenset[str] | None:
             present = self._present_from_worker(loop)
             if present is None:
                 return None
-            if absence_decides and not (present.at(table_id) or present.settled):
-                raise PresenceUnknownError
+            if not (present.settled or vouches(present.at(table_id))):
+                raise PresenceUnsettledError
             return present.at(table_id)
 
-        return self._guarded_write(loop, connected_at_the_table, is_due)
+        return self._guarded_write(loop, connected_at_the_table)
 
     @contextmanager
     def _guarded_write(
         self,
         loop: asyncio.AbstractEventLoop,
         read_connected: Callable[[], frozenset[str] | None],
-        is_due: Callable[[], bool] = lambda: True,
     ) -> Generator[frozenset[str] | None]:
         committing = asyncio.Event()
-        connected_before = None
-        if is_due():
-            connected_before = read_connected()
+        connected_before = read_connected()
         with self._state:
-            due = connected_before is not None and not self._stopped and is_due()
-            connected = connected_before if due else None
-            if due:
+            running = connected_before is not None and not self._stopped
+            connected = connected_before if running else None
+            if running:
                 self._writing.add(committing)
         try:
             yield connected
         finally:
-            if due:
+            if running:
                 with self._state:
                     self._writing.discard(committing)
                 loop.call_soon_threadsafe(committing.set)

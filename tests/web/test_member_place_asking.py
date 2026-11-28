@@ -20,7 +20,7 @@ from skat.table.records import EndedTable, Ending, Series, TableId
 from skat.web.mcp import AUCTION_BID_TOOL, AUCTION_HOLD_TOOL, token_carries_agent_facts
 from skat.web.member_place import MemberStandings
 from skat.web.nudging import TABLE_NUDGE_SUFFIX
-from skat.web.presence import EmptyTable, Presence
+from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS, EmptyTable, Presence
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLES_PATH
 from skat.web.waits import AskClock
@@ -31,6 +31,7 @@ from tests.support.idle_presence import (
     idle_hold,
     idle_next_deal,
     idle_wakes,
+    nothing_due,
 )
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.payload_cards import with_known_deal
@@ -477,6 +478,9 @@ class TestAnEndedTablesWaitIsDropped:
         async def answer(self, _table_id, _connected_accounts):
             return self.ended
 
+        async def due(self):
+            return [TABLE]
+
     @pytest.mark.parametrize("closing", ["an arrival", "the last leave", "the empty wait"])
     @pytest.mark.parametrize("ended", [True, False])
     def test_the_presence_drops_the_wait_when_the_empty_tables_command_ended_the_table_and_keeps_it_otherwise(
@@ -487,7 +491,7 @@ class TestAnEndedTablesWaitIsDropped:
         presence = Presence(
             idle_hold(time.clock, time),
             idle_next_deal(),
-            EmptyTable(60, ending.answer, ending.answer),
+            EmptyTable(ending.answer, ending.answer, ending.due, nothing_due),
             idle_agent_lease(),
             idle_wakes(),
             InMemoryLeases(),
@@ -506,8 +510,8 @@ class TestAnEndedTablesWaitIsDropped:
                 await time.advance(0)
             else:
                 ending.ended = ended
-                presence.watch_empty_table(TABLE, 60)
-                await time.advance(60)
+                presence.start_sweeps()
+                await time.advance(HOLD_SWEEP_EVERY_SECONDS)
 
         asyncio.run(close())
 

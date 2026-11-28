@@ -212,9 +212,6 @@ table_in = [["tests/table/test_playing.py", "table_in"]]
 [clones."tests/table/test_service.py"]
 "TestDealNext.test_changes_nothing_while_a_member_is_away" = [["tests/table/test_service_end.py", "TestEndUnplayedTable.test_a_table_with_no_hand_dealt_changes_nothing"]]
 
-[clones."tests/web/conftest.py"]
-holding = [["tests/web/test_presence_empty_table.py", "noting"]]
-
 [clones."tests/web/support/agent.py"]
 "Agent.take_step" = [["tests/web/test_mcp.py", "TestAnsweringAGiveUp.answer"], ["tests/web/test_mcp.py", "TestGiveUpGame.give_up"], ["tests/web/test_mcp.py", "TestThrowDownCards.throw_down"], ["tests/web/test_mcp_kontra.py", "TestSayNoWord.say_no_word"]]
 person_steps = [["tests/web/support/playing.py", "Table._post"]]
@@ -257,10 +254,6 @@ play = [["tests/web/test_tables_bock.py", "played_with_words"]]
 [clones."tests/web/test_playing_early_end.py"]
 "TestAfterTheEnd.test_an_expiry_reaching_the_table_right_after_the_end_committed_frees_nothing" = [["tests/web/test_playing_give_up_consent.py", "TestAfterTheYes.test_an_expiry_reaching_the_table_right_after_the_yes_committed_frees_nothing"]]
 "TestRetries.test_a_refused_retry_returns_the_same_refusal" = [["tests/web/test_playing_give_up_consent.py", "TestRetries.test_a_refused_retry_returns_the_same_refusal"]]
-
-[clones."tests/web/test_presence_empty_table.py"]
-"TestWhenTheServerStops.test_stopping_cancels_every_pending_wait" = [["tests/web/test_presence_next_deal.py", "TestNextDealPause.test_the_server_stopping_during_the_pause_cancels_the_deal_and_a_later_request_starts_none"]]
-"TestWhenTheTimerStarts.test_each_table_has_its_own_wait" = [["tests/web/test_presence_next_deal.py", "TestNextDealPause.test_asks_for_the_deal_with_who_is_connected_when_the_pause_ends"]]
 
 [clones."tests/web/test_tables.py"]
 "TestCreateTable.test_refuses_a_malformed_command_id" = [["tests/web/test_tables_series.py", "TestOpening.test_refuses_a_length_outside_the_range_or_not_an_integer_and_stores_nothing"], ["tests/web/test_tables_series.py", "TestOptions.test_refuses_options_that_are_no_strict_switch_and_stores_nothing"]]

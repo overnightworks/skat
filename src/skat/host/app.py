@@ -50,7 +50,6 @@ from skat.web.nudging import create_nudging_router
 from skat.web.paused import create_paused_router
 from skat.web.playing import create_playing_router
 from skat.web.presence import (
-    NEXT_DEAL_PAUSE_SECONDS,
     AgentLease,
     ChairHold,
     EmptyTable,
@@ -277,7 +276,21 @@ def _next_deal(tables: TableService) -> NextDeal:
     async def deal(table_id: str, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
         return await run_in_threadpool(tables.deal_next, TableId(table_id), connected_accounts)
 
-    return NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal)
+    async def after_pause(
+        table_id: str, connected_accounts: Callable[[frozenset[str]], AbstractContextManager[frozenset[str] | None]]
+    ) -> bool:
+        return await run_in_threadpool(tables.deal_after_pause, TableId(table_id), connected_accounts)
+
+    async def pause(table_id: str) -> None:
+        await run_in_threadpool(tables.pause_next_deal, TableId(table_id))
+
+    async def defer(table_id: str) -> None:
+        await run_in_threadpool(tables.deal_next_soon, TableId(table_id))
+
+    async def due() -> list[str]:
+        return [table_id.value for table_id in await run_in_threadpool(tables.due_next_deals)]
+
+    return NextDeal(deal, after_pause, pause, defer, due)
 
 
 def _end_answers(tables: TableService) -> EndAnswers:
@@ -298,7 +311,16 @@ def _empty_table(settings: ServerSettings, tables: TableService) -> EmptyTable:
             tables.note_presence, TableId(table_id), connected_accounts, settings.empty_table_seconds
         )
 
-    return EmptyTable(settings.empty_table_seconds, end, note)
+    async def due() -> list[str]:
+        return [
+            table_id.value
+            for table_id in await run_in_threadpool(tables.due_empty_tables, settings.empty_table_seconds)
+        ]
+
+    async def unstamped() -> list[str]:
+        return [table_id.value for table_id in await run_in_threadpool(tables.unstamped_tables)]
+
+    return EmptyTable(end, note, due, unstamped)
 
 
 def _presence(
@@ -522,10 +544,6 @@ def _serving(
     async def while_serving(serving: FastAPI) -> AsyncGenerator[None]:
         # The wakes come first: a pod that serves before it hears them may show a state another pod has changed.
         async with shared_wakes.following(wakes):
-            # A table already past its wait has ended before the first request; every other waits what is left of it.
-            presence.watch_empty_tables(
-                await run_in_threadpool(tables.resume_empty_waits, settings.empty_table_seconds)
-            )
             await _watch_pending_end_answers(tables, presence)
             _recover_end_answers(tables, presence, scheduler, rounds.end_answer_recovery_seconds)
             await _end_unplayed_tables(settings, tables, presence, at_start=True)
@@ -533,8 +551,9 @@ def _serving(
             forget_expired_sessions = _session_forgetter(serving, sessions)
             await forget_expired_sessions()
             _sweep_tables(settings, tables, presence, scheduler, forget_expired_sessions, rounds.unplayed_sweep_seconds)
-            # The holds are stored, so the first sweep frees those that fell due while no pod ran; none starts anew.
-            presence.start_hold_sweeps()
+            await presence.note_unstamped_tables()
+            # The holds, pauses and waits are stored, so the first sweeps act on those that fell due while no pod ran.
+            presence.start_sweeps()
             lapses = asyncio.create_task(presence.serve_lapses())
             lapses.add_done_callback(_log_if_failed)
             try:

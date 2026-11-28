@@ -8,23 +8,23 @@ import threading
 import pytest
 
 from skat.web import presence as presence_module
-from skat.web.presence import CHAIR_RELEASE_RETRY_SECONDS, HOLD_SWEEP_EVERY_SECONDS
+from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS, PAUSE_SWEEP_EVERY_SECONDS
 from skat.web.presence_line import PresenceTimer
-from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from tests.support.log_lines import logged
-from tests.web.support.presence import TABLE, connect, failed_timers, run, stop_during_a_hanging_read
+from tests.web.support.presence import OTHER_TABLE, TABLE, connect, failed_timers, run, stop_during_a_hanging_read
 
 UNREACHABLE = ConnectionError("redis is unreachable")
 
 
 class TestTheEndOfAnEmptyTable:
     def test_ends_nothing_while_the_roster_cannot_be_read_and_tries_again(self, holding, leases, time, ends, capsys):
-        holding.watch_empty_table(TABLE)
+        ends.due_now = [TABLE]
+        holding.start_sweeps()
         leases.reading_fails = [UNREACHABLE]
 
         with logged(capsys) as lines:
-            run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
-        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+            run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
         assert failed_timers(lines) == [(PresenceTimer.EMPTY_TABLE_END, "warning")]
         assert ends.calls == [(TABLE, frozenset())]
@@ -32,25 +32,27 @@ class TestTheEndOfAnEmptyTable:
     def test_ends_nothing_while_the_roster_is_unsettled_and_lists_nobody_at_the_table(
         self, holding, leases, time, ends
     ):
-        holding.watch_empty_table(TABLE)
+        ends.due_now = [TABLE]
+        holding.start_sweeps()
         leases.settled = False
 
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
         assert ends.calls == []
 
     def test_reads_who_is_listed_while_the_roster_is_unsettled(self, holding, elsewhere, leases, time, ends):
-        holding.watch_empty_table(TABLE)
+        ends.due_now = [TABLE]
+        holding.start_sweeps()
         connect(elsewhere, TABLE, "anna", lambda: None)
         leases.settled = False
 
-        run(time.advance(DEFAULT_EMPTY_TABLE_SECONDS))
+        run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
         assert ends.calls == [(TABLE, {"anna"})]
 
 
 class TestTheNextDeal:
-    def test_tries_again_after_the_retry_delay_when_the_roster_cannot_be_read_and_then_deals(
+    def test_stores_the_deal_as_due_now_when_the_roster_cannot_be_read_and_the_next_sweep_deals(
         self, holding, leases, time, deals, capsys
     ):
         connect(holding, TABLE, "anna", lambda: None)
@@ -58,11 +60,75 @@ class TestTheNextDeal:
 
         with logged(capsys) as lines:
             run(holding.deal_now(TABLE))
-        assert deals.calls == []
+        assert (deals.calls, deals.deferred) == ([], [TABLE])
         assert failed_timers(lines) == [(PresenceTimer.NEXT_DEAL, "warning")]
 
-        run(time.advance(CHAIR_RELEASE_RETRY_SECONDS))
+        deals.due_now = [TABLE]
+        holding.start_sweeps()
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
         assert deals.calls == [(TABLE, {"anna"})]
+
+    def test_a_due_pause_stays_while_the_roster_is_unsettled_and_misses_someone_seated_and_deals_once_it_lists_all(
+        self, holding, elsewhere, leases, time, deals
+    ):
+        deals.seated = frozenset({"anna", "ben"})
+        deals.due_now = [TABLE]
+        holding.start_sweeps()
+        connect(elsewhere, TABLE, "anna", lambda: None)
+        leases.settled = False
+
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+        assert (deals.calls, deals.due_now) == ([], [TABLE])
+
+        connect(elsewhere, TABLE, "ben", lambda: None)
+        leases.settled = True
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+
+        assert (deals.calls, deals.due_now) == ([(TABLE, {"anna", "ben"})], [])
+
+    def test_a_due_pause_the_unsettled_roster_cannot_vouch_for_does_not_hold_back_a_later_due_table(
+        self, holding, elsewhere, leases, time, deals
+    ):
+        deals.seated_at = {TABLE: frozenset({"anna", "ben"}), OTHER_TABLE: frozenset({"cem"})}
+        deals.due_now = [TABLE, OTHER_TABLE]
+        holding.start_sweeps()
+        connect(elsewhere, TABLE, "anna", lambda: None)
+        connect(elsewhere, OTHER_TABLE, "cem", lambda: None)
+        leases.settled = False
+
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+
+        assert (deals.calls, deals.due_now) == ([(OTHER_TABLE, {"cem"})], [TABLE])
+
+    def test_a_due_pause_is_dropped_without_a_deal_once_the_roster_settles_without_someone_seated(
+        self, holding, elsewhere, leases, time, deals, wakes
+    ):
+        deals.seated = frozenset({"anna", "ben"})
+        deals.due_now = [TABLE]
+        holding.start_sweeps()
+        connect(elsewhere, TABLE, "anna", wakes.callback("anna"))
+        leases.settled = False
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+        before = wakes.counts["anna"]
+
+        leases.settled = True
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+
+        assert (deals.calls, deals.due_now, wakes.counts["anna"]) == ([(TABLE, {"anna"})], [], before)
+
+    def test_a_due_pause_counts_a_seated_agent_whose_lease_runs_on_this_pod_as_listed(
+        self, holding, leases, time, deals
+    ):
+        deals.seated = frozenset({"agent"})
+        deals.due_now = [TABLE]
+        holding.start_sweeps()
+        holding.renew_lease("agent")
+        leases.settled = False
+
+        run(time.advance(PAUSE_SWEEP_EVERY_SECONDS))
+
+        assert (deals.calls, deals.due_now) == ([(TABLE, frozenset())], [])
 
     def test_acts_on_the_holders_an_unsettled_roster_lists_even_when_it_lists_nobody(self, holding, leases, deals):
         leases.settled = False
@@ -71,7 +137,9 @@ class TestTheNextDeal:
 
         assert deals.calls == [(TABLE, frozenset())]
 
-    def test_does_not_try_again_when_the_presence_stops_while_the_failing_deal_is_in_flight(self, holding, time, deals):
+    def test_stores_the_deal_as_due_now_even_when_the_presence_stops_while_the_failing_deal_is_in_flight(
+        self, holding, time, deals
+    ):
         async def stop_then_fail():
             holding.stop()
             raise UNREACHABLE
@@ -80,7 +148,7 @@ class TestTheNextDeal:
 
         run(holding.deal_now(TABLE))
 
-        assert time.pending == 0
+        assert (time.pending, deals.deferred) == (0, [TABLE])
 
 
 class TestAStalledRoster:
@@ -92,7 +160,7 @@ class TestAStalledRoster:
         leases.reading_hangs = True
 
         with logged(capsys) as lines:
-            holding.start_hold_sweeps()
+            holding.start_sweeps()
             run(time.advance(HOLD_SWEEP_EVERY_SECONDS))
 
         assert holds.outcomes == []

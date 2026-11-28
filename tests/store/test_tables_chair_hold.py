@@ -12,6 +12,7 @@ from sqlalchemy import delete, func, insert, select
 from skat.store.schema import chair_holds
 from skat.table.records import TableId
 from skat.web.presence_roster import PresenceUnknownError
+from tests.support.deadlines import seconds_until_due
 from tests.support.seated_tables import (
     ENDED_AT,
     NOBODY_CONNECTED,
@@ -49,12 +50,9 @@ def hold_due_in(engine, table_id, account_id, seconds):
 
 def seconds_left(engine, table_id, account_id):
     """The seconds until the stored hold is due, on the store's clock, or None without a hold."""
-    with engine.connect() as connection:
-        return connection.execute(
-            select(func.extract("epoch", chair_holds.c.due_at - func.now())).where(
-                chair_holds.c.table_id == table_id.value, chair_holds.c.account_id == account_id
-            )
-        ).scalar_one_or_none()
+    return seconds_until_due(
+        engine, chair_holds.c.due_at, chair_holds.c.table_id == table_id.value, chair_holds.c.account_id == account_id
+    )
 
 
 def holds(engine):

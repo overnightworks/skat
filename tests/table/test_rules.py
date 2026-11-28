@@ -1,6 +1,5 @@
 import random
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -25,19 +24,19 @@ from skat.table.records import (
     Visibility,
 )
 from skat.table.rules import (
+    EmptyWait,
     PresenceStep,
-    ResumeStep,
     dealt_next,
     decide_free_chair,
     decide_sit,
     decide_stand,
+    empty_step,
     hand_runs,
     hold_frees_chair,
     next_deal_due,
     presence_step,
     present_at,
     result_pending,
-    resume_step,
     seat_of,
     series_over,
     sit_deals,
@@ -521,44 +520,49 @@ def test_an_occupants_lease_counts_as_present_but_a_strangers_does_not(streams, 
     assert present_at(table, streams, leases) == present
 
 
-NOW = datetime(2026, 11, 9, 12, 0, tzinfo=UTC)
-EMPTY_SECONDS = 600
+SOMEONE = frozenset({"account-anna"})
 
 
 @pytest.mark.parametrize(
-    ("connected", "seconds_ago", "dealt", "step"),
+    ("connected", "wait", "dealt", "step"),
     [
-        pytest.param(None, None, False, PresenceStep.KEEP, id="presence-stopped-without-a-time"),
-        pytest.param(None, 700, False, PresenceStep.KEEP, id="presence-stopped-with-a-time-up"),
-        pytest.param(frozenset(), None, False, PresenceStep.STAMP, id="empty-without-a-time"),
-        pytest.param(frozenset(), 1, False, PresenceStep.KEEP, id="empty-keeps-an-earlier-time"),
-        pytest.param(frozenset(), None, True, PresenceStep.KEEP, id="empty-after-a-hand-was-dealt"),
-        pytest.param(frozenset({"account-anna"}), None, False, PresenceStep.KEEP, id="someone-without-a-time"),
-        pytest.param(frozenset({"account-anna"}), 599, False, PresenceStep.CLEAR, id="someone-before-the-time-is-up"),
-        pytest.param(frozenset({"account-anna"}), 600, False, PresenceStep.END, id="someone-when-the-time-is-up"),
-        pytest.param(frozenset({"account-anna"}), 700, True, PresenceStep.CLEAR, id="someone-at-a-dealt-table"),
+        pytest.param(None, EmptyWait.UNSET, False, PresenceStep.KEEP, id="presence-stopped-without-a-time"),
+        pytest.param(None, EmptyWait.UP, False, PresenceStep.KEEP, id="presence-stopped-with-a-time-up"),
+        pytest.param(frozenset(), EmptyWait.UNSET, False, PresenceStep.STAMP, id="empty-without-a-time"),
+        pytest.param(frozenset(), EmptyWait.RUNNING, False, PresenceStep.KEEP, id="empty-keeps-an-earlier-time"),
+        pytest.param(frozenset(), EmptyWait.UNSET, True, PresenceStep.KEEP, id="empty-after-a-hand-was-dealt"),
+        pytest.param(SOMEONE, EmptyWait.UNSET, False, PresenceStep.KEEP, id="someone-without-a-time"),
+        pytest.param(
+            SOMEONE,
+            EmptyWait.RUNNING,
+            False,
+            PresenceStep.CLEAR,
+            id="someone-before-the-wait-is-up",
+        ),
+        pytest.param(SOMEONE, EmptyWait.UP, False, PresenceStep.END, id="someone-when-the-wait-is-up"),
+        pytest.param(SOMEONE, EmptyWait.UP, True, PresenceStep.CLEAR, id="someone-at-a-dealt-table"),
     ],
 )
-def test_who_is_present_decides_what_happens_to_the_time_since_when_nobody_was(connected, seconds_ago, dealt, step):
+def test_who_is_present_decides_what_happens_to_the_time_since_when_nobody_was(connected, wait, dealt, step):
     table = replace(table_with((1, ANNA)), dealer=1 if dealt else None)
-    since = None if seconds_ago is None else NOW - timedelta(seconds=seconds_ago)
 
-    assert presence_step(table, connected, since, NOW, EMPTY_SECONDS) is step
+    assert presence_step(table, connected, wait) is step
 
 
 @pytest.mark.parametrize(
-    ("dealt", "seconds_ago", "step", "seconds_left"),
+    ("connected", "wait", "dealt", "step"),
     [
-        pytest.param(True, None, ResumeStep.SKIP, 0, id="dealt-without-a-time"),
-        pytest.param(True, 700, ResumeStep.SKIP, 0, id="dealt-with-a-time-up"),
-        pytest.param(False, None, ResumeStep.STAMP, EMPTY_SECONDS, id="undealt-without-a-time"),
-        pytest.param(False, 599, ResumeStep.WAIT, 1, id="undealt-with-a-second-left"),
-        pytest.param(False, 600, ResumeStep.END, 0, id="undealt-when-the-time-is-up"),
+        pytest.param(None, EmptyWait.UP, False, PresenceStep.KEEP, id="presence-stopped"),
+        pytest.param(frozenset(), EmptyWait.UNSET, False, PresenceStep.KEEP, id="no-time-is-set"),
+        pytest.param(frozenset(), EmptyWait.RUNNING, False, PresenceStep.KEEP, id="empty-before-the-wait-is-up"),
+        pytest.param(frozenset(), EmptyWait.UP, False, PresenceStep.END, id="empty-when-the-wait-is-up"),
+        pytest.param(frozenset(), EmptyWait.UP, True, PresenceStep.KEEP, id="empty-after-a-hand-was-dealt"),
+        pytest.param(SOMEONE, EmptyWait.UP, False, PresenceStep.CLEAR, id="someone-never-ends-it"),
+        pytest.param(SOMEONE, EmptyWait.RUNNING, False, PresenceStep.CLEAR, id="someone-clears-it"),
+        pytest.param(SOMEONE, EmptyWait.UNSET, False, PresenceStep.KEEP, id="someone-without-a-time"),
     ],
 )
-def test_the_start_gives_each_table_the_step_the_leave_rule_would(dealt, seconds_ago, step, seconds_left):
-    since = None if seconds_ago is None else NOW - timedelta(seconds=seconds_ago)
+def test_a_sweep_ends_only_an_empty_table_and_clears_the_time_of_an_occupied_one(connected, wait, dealt, step):
+    table = replace(table_with((1, ANNA)), dealer=1 if dealt else None)
 
-    resumed = resume_step(1 if dealt else None, since, NOW, EMPTY_SECONDS)
-
-    assert (resumed.step, resumed.seconds_left) == (step, seconds_left)
+    assert empty_step(table, connected, wait) is step

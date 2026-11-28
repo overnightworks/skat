@@ -6,14 +6,13 @@ from logline import current_traceparent, unit_trace
 
 from skat.web.presence import (
     HOLD_SWEEP_EVERY_SECONDS,
-    NEXT_DEAL_PAUSE_SECONDS,
+    PAUSE_SWEEP_EVERY_SECONDS,
     ChairHold,
     EmptyTable,
     LoopScheduler,
     NextDeal,
     Presence,
 )
-from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.idle_presence import (
     clear_no_hold,
@@ -22,6 +21,8 @@ from tests.support.idle_presence import (
     idle_presence,
     idle_wakes,
     note_nothing,
+    nothing_due,
+    pause_no_table,
     store_no_leave,
 )
 from tests.support.in_memory_leases import InMemoryLeases
@@ -132,31 +133,53 @@ class TestWakingATable:
         presence.wake_table(TABLE)
 
 
-async def sweeps_her_due_hold(presence):  # NOSONAR(S7503) the scenarios that start a write are awaited
-    presence.start_hold_sweeps()
+def presence_whose_only_due_row_is(swept, worker, time):
+    """A presence whose decide steps run `worker` on a thread and whose sweep finds one due row of the kind `swept`."""
 
+    async def free_on_worker(table_id, account_id, absent):
+        return await asyncio.to_thread(worker, absent)
 
-async def starts_the_pause(presence):
-    await presence.subscribe(TABLE, "anna", lambda: None)
-    presence.deal_soon(TABLE)
+    async def on_worker(table_id, connected_accounts):
+        return await asyncio.to_thread(worker, connected_accounts)
 
+    async def on_worker_for_the_pause(table_id, connected_accounts):
+        return await on_worker(table_id, connected_accounts(frozenset()))
 
-async def waits_for_nobody(presence):
-    presence.watch_empty_table(TABLE)
+    def due_when_swept(kind, due):
+        async def due_now():
+            return due if swept == kind else []
+
+        return due_now
+
+    return Presence(
+        ChairHold(
+            time.clock,
+            time,
+            store_no_leave,
+            store_no_leave,
+            clear_no_hold,
+            due_when_swept("hold", [(TABLE, "anna")]),
+            free_on_worker,
+        ),
+        NextDeal(on_worker, on_worker_for_the_pause, pause_no_table, pause_no_table, due_when_swept("pause", [TABLE])),
+        EmptyTable(on_worker, note_nothing, due_when_swept("wait", [TABLE]), nothing_due),
+        idle_agent_lease(),
+        idle_wakes(),
+        InMemoryLeases(),
+        idle_end_answers(),
+    )
 
 
 class TestFinishingWrites:
     @pytest.mark.parametrize(
-        ("anna_starts_the_write", "seconds", "entered_with"),
+        ("swept", "seconds", "entered_with"),
         [
-            pytest.param(sweeps_her_due_hold, HOLD_SWEEP_EVERY_SECONDS, True, id="freeing"),
-            pytest.param(starts_the_pause, NEXT_DEAL_PAUSE_SECONDS, frozenset({"anna"}), id="next-deal"),
-            pytest.param(waits_for_nobody, DEFAULT_EMPTY_TABLE_SECONDS, frozenset(), id="empty-table"),
+            pytest.param("hold", HOLD_SWEEP_EVERY_SECONDS, True, id="freeing"),
+            pytest.param("pause", PAUSE_SWEEP_EVERY_SECONDS, frozenset({"anna"}), id="next-deal"),
+            pytest.param("wait", HOLD_SWEEP_EVERY_SECONDS, frozenset(), id="empty-table"),
         ],
     )
-    def test_finishing_writes_waits_for_a_worker_that_outlives_its_cancelled_check(
-        self, anna_starts_the_write, seconds, entered_with
-    ):
+    def test_finishing_writes_waits_for_a_worker_that_outlives_its_cancelled_sweep(self, swept, seconds, entered_with):
         started = threading.Event()
         release = threading.Event()
         committed = []
@@ -168,30 +191,12 @@ class TestFinishingWrites:
                 committed.append(still_due)
             return still_due
 
-        async def free_on_worker(table_id, account_id, absent):
-            return await asyncio.to_thread(worker, absent)
-
-        async def anna_due():
-            return [(TABLE, "anna")]
-
-        async def deal_on_worker(table_id, connected_accounts):
-            return await asyncio.to_thread(worker, connected_accounts)
-
-        async def end_on_worker(table_id, connected_accounts):
-            return await asyncio.to_thread(worker, connected_accounts)
-
         async def scenario():
             time = FakeTime()
-            presence = Presence(
-                ChairHold(time.clock, time, store_no_leave, store_no_leave, clear_no_hold, anna_due, free_on_worker),
-                NextDeal(NEXT_DEAL_PAUSE_SECONDS, deal_on_worker),
-                EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_on_worker, note_nothing),
-                idle_agent_lease(),
-                idle_wakes(),
-                InMemoryLeases(),
-                idle_end_answers(),
-            )
-            await anna_starts_the_write(presence)
+            presence = presence_whose_only_due_row_is(swept, worker, time)
+            if swept == "pause":
+                await presence.subscribe(TABLE, "anna", lambda: None)
+            presence.start_sweeps()
             expiry = asyncio.create_task(time.advance(seconds))
             await asyncio.to_thread(started.wait, 5)
             expiry.cancel()

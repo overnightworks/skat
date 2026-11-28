@@ -10,7 +10,6 @@ from skat.table.views import EndedView
 from skat.web.ended_answer import ended_answer_of
 from skat.web.lobby import LOBBY_EVENTS_PATH
 from skat.web.presence import EmptyTable, Presence
-from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
 from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamKind, StreamRefusal, messages_with_end_log
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLES_PATH
 from tests.support.fake_tables import in_memory_tables
@@ -22,6 +21,7 @@ from tests.support.idle_presence import (
     idle_next_deal,
     idle_presence,
     idle_wakes,
+    nothing_due,
 )
 from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.log_lines import lines_of, logged
@@ -38,7 +38,7 @@ from tests.web.support.streams import (
 
 
 def end_for_nobody(service, table_id):
-    return service.end_empty_table(TableId(table_id), nullcontext(frozenset()), DEFAULT_EMPTY_TABLE_SECONDS)
+    return service.end_empty_table(TableId(table_id), nullcontext(frozenset()), 0)
 
 
 @pytest.fixture
@@ -65,7 +65,7 @@ class TestAStreamOnAnEndingTable:
         live, ended, connected = run_on_a_loop_of_its_own(scenario())
 
         assert live.ended is None
-        assert (ended.ended.reason, ended.ended.empty_seconds) == (EndReason.EMPTY, DEFAULT_EMPTY_TABLE_SECONDS)
+        assert (ended.ended.reason, ended.ended.empty_seconds) == (EndReason.EMPTY, 0)
         assert ended.version == live.version + 1
         assert connected == frozenset()
 
@@ -115,7 +115,7 @@ class TestAStreamWhoseArrivalWriteFails:
                 raise ConnectionError
             return False
 
-        empty_table = EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, end_no_table, note)
+        empty_table = EmptyTable(end_no_table, note, nothing_due, nothing_due)
         presence = Presence(
             idle_hold(),
             idle_next_deal(),

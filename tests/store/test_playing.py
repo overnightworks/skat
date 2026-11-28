@@ -31,7 +31,15 @@ from tests.support.faulty_tables import (
     FaultyTableTransactions,
     HoldsTheRowLock,
 )
-from tests.support.stored_game import a_step_appended, card_id, count_rows, nobody_connected, person, seated_game
+from tests.support.stored_game import (
+    a_step_appended,
+    card_id,
+    count_rows,
+    next_deals,
+    nobody_connected,
+    person,
+    seated_game,
+)
 from tests.support.table_rows import WorkInAThread, wait_until_a_session_waits_for_a_lock
 
 pytestmark = pytest.mark.postgres
@@ -165,6 +173,8 @@ def test_an_early_end_stores_its_entry_drops_cards_and_a_new_service_replays_the
     first = run(game.service)(declarer, command, nobody_connected())
 
     assert first.refusal is None
+    pause = next_deals(engine)
+    assert len(pause) == 1
     for hand_table in ("hand_cards", "auction_actions", "declaring_steps", "played_cards"):
         assert count_rows(engine, hand_table) == 0
     assert game.record.hand is None
@@ -175,7 +185,7 @@ def test_an_early_end_stores_its_entry_drops_cards_and_a_new_service_replays_the
     finally:
         restarted_engine.dispose()
     assert (again.view, again.refusal) == (first.view, first.refusal)
-    assert again.seated_when_hand_ended == frozenset()
+    assert next_deals(engine) == pause
     assert len(game.record.game_list) == 1
 
 

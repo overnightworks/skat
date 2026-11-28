@@ -631,7 +631,7 @@ COMMAND_RESPONSES: Final[dict[int | str, dict[str, object]]] = {
 async def command_answer(
     command: Callable[[frozenset[str]], CommandResult | None], presence: Presence, table_id: str, response: Response
 ) -> Response | TableAnswer:
-    """Run a table command off the event loop; once it committed, wake the table's streams and restart the pause."""
+    """Run a table command off the event loop; once it committed, wake the table's streams."""
     response.headers["Cache-Control"] = "no-store"
     with presence.waits.reading(table_id):
         try:
@@ -644,8 +644,6 @@ async def command_answer(
             refusal = RefusalAnswer(reason=result.refusal, holder_name=result.holder)
             return JSONResponse(refusal.model_dump(mode="json"), status_code=409, headers={"Cache-Control": "no-store"})
         presence.wake_table(table_id)
-        if result.seated_when_hand_ended:
-            presence.restart_deal_pause(table_id)
         return answer_of(result.view, presence.waits.nudges_of(result.view), presence.reactions.shown(table_id))
 
 

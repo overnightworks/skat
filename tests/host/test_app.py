@@ -164,8 +164,9 @@ class TestCreateApp:
         assert store.holds == {}
         assert store.tables[table_id].chairs[0].occupant is not None
 
-    def test_a_table_read_live_when_the_server_starts_ends_after_the_wait_when_nobody_connects(self, sign_in_settings):
-        tables = EndingSignal(FakeTableStore())
+    def test_a_table_nobody_connects_to_ends_at_the_first_sweep_after_its_wait(self, sign_in_settings):
+        time = FakeTime()
+        tables = EndingSignal(FakeTableStore(clock=time.moment))
         tables.release_end.set()
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         settings = sign_in_settings(empty_table_seconds=1).settings
@@ -175,21 +176,26 @@ class TestCreateApp:
             tables=tables,
             rule_sets=in_memory_rule_sets(),
             stores=in_memory_stores(),
+            clocks=Clocks(chair=time.clock),
+            chair_scheduler=time,
             **single_pod(),
         )
 
-        with TestClient(app):
-            assert tables.table_ended.wait(timeout=10)
+        with TestClient(app) as client:
+            assert tables.table_ended.is_set() is False
+            client.portal.call(time.advance, HOLD_SWEEP_EVERY_SECONDS)
+            assert tables.table_ended.is_set()
 
         assert tables.view(OPENER, opened.id, frozenset()).ended.empty_seconds == 1
 
-    def test_a_table_already_past_its_wait_when_the_server_starts_has_ended_before_the_first_request(
+    def test_a_table_past_its_wait_while_no_server_ran_ends_at_the_first_sweep_once_the_server_starts(
         self, sign_in_settings
     ):
-        store = FakeTableStore()
+        time = FakeTime()
+        store = FakeTableStore(clock=time.moment)
         tables = TableService(store)
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
-        store.empty_since_by_table[opened.id] = datetime(2026, 1, 1, tzinfo=UTC)
+        store.empty_since_by_table[opened.id] = time.moment() - timedelta(days=1)
         settings = sign_in_settings(empty_table_seconds=1800).settings
         stores = in_memory_stores()
         app = create_app(
@@ -198,13 +204,15 @@ class TestCreateApp:
             tables=tables,
             rule_sets=in_memory_rule_sets(),
             stores=stores,
-            chair_scheduler=IdleScheduler(),
+            clocks=Clocks(chair=time.clock),
+            chair_scheduler=time,
             **single_pod(),
         )
         member = seed_member(stores, installed_web_auth_config(app))
         headers = {"cookie": cookie_header(member.set_cookie_headers), "accept": "application/json"}
 
         with TestClient(app, base_url=TEST_PUBLIC_ORIGIN, headers=headers) as client:
+            client.portal.call(time.advance, HOLD_SWEEP_EVERY_SECONDS)
             answer = client.get(f"{TABLES_PATH}/{opened.id}")
 
         assert answer.json()["ended"] == {
@@ -244,7 +252,7 @@ class TestCreateApp:
 
     def test_a_store_failure_when_the_server_starts_fails_the_start(self, sign_in_settings):
         class Unreadable(FakeTableStore):
-            def live_empty_since(self):
+            def live_end_asks(self):
                 raise ConnectionError
 
         app = create_app(
@@ -276,33 +284,36 @@ class TestCreateApp:
 
         assert [line["error_type"] for line in lines_of(lines, "stream_lapses.stopped")] == ["RuntimeError"]
 
-    def test_a_dealt_table_is_kept_and_gets_no_wait_when_the_server_starts(self, sign_in_settings):
-        store = FakeTableStore()
+    def test_a_dealt_table_with_a_time_left_over_is_kept_by_the_sweeps(self, sign_in_settings):
+        time = FakeTime()
+        store = FakeTableStore(clock=time.moment)
         tables = EndingSignal(store)
         tables.release_end.set()
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         tables.sit(VISITOR, SitDown("command-sit-ben", opened.id, 2), frozenset())
         tables.sit(THIRD, SitDown("command-sit-cleo", opened.id, 3), frozenset())
-        store.empty_since_by_table[opened.id] = datetime(2026, 1, 1, tzinfo=UTC)
+        store.empty_since_by_table[opened.id] = time.moment() - timedelta(days=1)
         settings = sign_in_settings(empty_table_seconds=1).settings
         app = create_app(
             settings,
             page_build=fixture_page_build(),
             tables=tables,
             rule_sets=in_memory_rule_sets(),
-            chair_scheduler=IdleScheduler(),
+            clocks=Clocks(chair=time.clock),
+            chair_scheduler=time,
             stores=in_memory_stores(),
             **single_pod(),
         )
 
-        with TestClient(app):
-            pass
+        with TestClient(app) as client:
+            client.portal.call(time.advance, HOLD_SWEEP_EVERY_SECONDS)
 
         assert tables.end_checked.is_set() is False
         assert tables.view(OPENER, opened.id, frozenset()).ended is None
 
     def test_the_lifespan_returns_only_after_an_end_whose_check_passed_has_committed(self, sign_in_settings):
-        tables = EndingSignal(FakeTableStore())
+        time = FakeTime()
+        tables = EndingSignal(FakeTableStore(clock=time.moment))
         opened = tables.create(OPENER, CreateTable(command_id="command-open"))
         settings = sign_in_settings(empty_table_seconds=1).settings
         app = create_app(
@@ -311,10 +322,13 @@ class TestCreateApp:
             tables=tables,
             rule_sets=in_memory_rule_sets(),
             stores=in_memory_stores(),
+            clocks=Clocks(chair=time.clock),
+            chair_scheduler=time,
             **single_pod(),
         )
         client = TestClient(app)
         client.__enter__()
+        client.portal.start_task_soon(time.advance, HOLD_SWEEP_EVERY_SECONDS)
         assert tables.end_entered.wait(timeout=10)
         app.state.stop_streams()
 

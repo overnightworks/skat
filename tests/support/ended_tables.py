@@ -1,16 +1,38 @@
 from contextlib import nullcontext
 from dataclasses import replace
 
+from sqlalchemy import func, update
+
+from skat.store.schema import tables
 from skat.table.records import Ending, EndReason, HandProgress, Series, TableId
 
-EMPTY_SECONDS = 60
+EMPTY_SECONDS = 0
+POSTGRES_EMPTY_SECONDS = 1
 OLD_CLOSER = "Anna"
 
 
-def end_the_table(service, table_id):
+def end_the_table(service, table_id, empty_seconds=EMPTY_SECONDS):
     """End the live table nobody was dealt a hand at, as the server ends one nobody came to."""
-    ended = service.end_empty_table(TableId(table_id), nullcontext(frozenset()), EMPTY_SECONDS)
+    ended = service.end_empty_table(TableId(table_id), nullcontext(frozenset()), empty_seconds)
     assert ended
+
+
+def end_the_table_nobody_is_at(store, service, table_id):
+    """End the live table in the in-memory store as the server does once the last one left: its note stamped the
+    time since when nobody has been there, and the empty wait of no seconds is up at once.
+    """
+    store.stamp_empty_since(TableId(table_id))
+    end_the_table(service, table_id)
+
+
+def lapse_the_empty_wait(engine, table_id):
+    """Make the wait of a table in Postgres up: its stamp is the database clock's, so it is moved back."""
+    with engine.begin() as connection:
+        connection.execute(
+            update(tables)
+            .where(tables.c.id == str(table_id))
+            .values(empty_since=func.now() - func.make_interval(0, 0, 0, 0, 0, 0, POSTGRES_EMPTY_SECONDS + 1))
+        )
 
 
 def be_at_the_series_end(store, table_id):

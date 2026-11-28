@@ -1,26 +1,30 @@
 """Two real `skat serve` processes on one database and one Redis, and what a test does at them."""
 
+import asyncio
 import secrets
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import httpx2
+from sqlalchemy import func, select, text, update
 from sqlalchemy.engine import make_url
 
 from skat.store.migrate import create_store_engine
+from skat.store.schema import next_deals, tables
 from skat.store.sign_in import PostgresSignInStores
+from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.constants import ACCOUNT_PATH
 from skat.web.sign_in import LoggingAuditSink, build_sign_in_configs
-from skat.web.tables import TABLE_SIT_SUFFIX, TABLES_PATH
+from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLES_PATH
 from tests.support.in_memory_stores import in_process_rate_limits
 from tests.support.postgres import created_database
-from tests.support.redis import fresh_database_url
+from tests.support.redis import fresh_database_url, settle_wake_epoch
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN, build_sign_in_settings
 from tests.support.signed_in import cookie_header, seed_member
 from tests.support.skat_process import SkatProcess
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
     from datetime import timedelta
     from pathlib import Path
 
@@ -76,6 +80,94 @@ class Pods:
     def table_at(self, process: SkatProcess, table_id: str, cookie: str) -> dict:
         """The table's view as the process answers it, read once."""
         return process.request("GET", f"{TABLES_PATH}/{table_id}", cookie=cookie, **FETCH).json()
+
+    def three_seated(self) -> tuple[str, list[str]]:
+        """A table with three members seated, which deals the first hand: its id and their cookies by seat."""
+        cookies = [self.member()[0] for _ in range(3)]
+        table_id = self.table_opened_by(self.first, cookies[0])
+        for seat in (2, 3):
+            self.sit(self.first, cookies[seat - 1], table_id, seat)
+        return table_id, cookies
+
+    def pass_hand_in(self, process: SkatProcess, table_id: str, cookies: list[str]) -> None:
+        """Every seat passes in its turn through the bid route, which ends the hand where nobody bids."""
+        for _ in cookies:
+            view = self.table_at(process, table_id, cookies[0])
+            passed = process.request(
+                "POST",
+                f"{TABLES_PATH}/{table_id}{TABLE_AUCTION_PASS_SUFFIX}",
+                cookie=cookies[view["hand"]["auction"]["turn_seat"] - 1],
+                json={"command_id": new_command_id(), "version": view["version"]},
+                **SAME_ORIGIN,
+            )
+            assert passed.status_code == httpx2.codes.OK, passed.text
+
+    def events_path(self, table_id: str) -> str:
+        return f"{TABLES_PATH}/{table_id}{TABLE_EVENTS_SUFFIX}"
+
+    def table_row(self, table_id: str):
+        """The table's stored row: its version, wait and end."""
+        with self.engine.connect() as connection:
+            return connection.execute(
+                select(
+                    tables.c.version,
+                    tables.c.empty_since,
+                    tables.c.empty_seconds,
+                    tables.c.ended_at,
+                    tables.c.end_reason,
+                ).where(tables.c.id == table_id)
+            ).one()
+
+    def set_empty_since(self, table_id: str, since) -> None:
+        """Store the table's time since when nobody was there, as a pod that is gone left it."""
+        with self.engine.begin() as connection:
+            connection.execute(update(tables).where(tables.c.id == table_id).values(empty_since=since))
+
+    def next_deal_due_at(self, table_id: str):
+        """When the table's stored pause is over, or None where it has none."""
+        with self.engine.connect() as connection:
+            return connection.execute(select(next_deals.c.due_at).where(next_deals.c.table_id == table_id)).scalar()
+
+    @contextmanager
+    def next_deals_held(self) -> Iterator[Callable[[], None]]:
+        """No stored pause is dropped until the yielded release is called or the block ends, so none is dealt or lost
+        and its due time stays as written.
+
+        The database refuses every delete of a pause, which rolls back the sweeping pod's deal and keeps the row.
+        """
+        with self.engine.begin() as connection:
+            connection.execute(
+                text(
+                    "CREATE FUNCTION hold_next_deals() RETURNS trigger LANGUAGE plpgsql AS "
+                    "$$ BEGIN RAISE EXCEPTION 'the stored pauses are held'; END $$"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE TRIGGER hold_next_deals BEFORE DELETE ON next_deals "
+                    "FOR EACH ROW EXECUTE FUNCTION hold_next_deals()"
+                )
+            )
+
+        def release() -> None:
+            with self.engine.begin() as connection:
+                connection.execute(text("DROP TRIGGER IF EXISTS hold_next_deals ON next_deals"))
+                connection.execute(text("DROP FUNCTION IF EXISTS hold_next_deals()"))
+
+        try:
+            yield release
+        finally:
+            release()
+
+    def database_now(self):
+        with self.engine.connect() as connection:
+            return connection.execute(select(func.now())).scalar_one()
+
+    def settle_leases(self) -> None:
+        """End the restart grace of the leases: the roster then vouches that nobody is at a table that lists nobody,
+        where it would answer unsettled until the lease's lifetime has passed since the Redis database was filled.
+        """
+        asyncio.run(settle_wake_epoch(self.redis_url))
 
     def stop_both(self) -> None:
         """Stop both processes with SIGTERM, as a rollout does."""

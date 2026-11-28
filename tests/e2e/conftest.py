@@ -3,10 +3,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from playwright.sync_api import expect
 from webauth.admission import AppRole
 from webauth.ports import AccountKind
 
 from skat.table.records import TableStyle
+from skat.table.rules import NEXT_DEAL_PAUSE_SECONDS
+from skat.web.presence import PAUSE_SWEEP_EVERY_SECONDS
 from skat.web.words import SOURCE_LANGUAGE
 from tests.e2e.support.audio import RECORDING_AUDIO_SCRIPT, playing_table
 from tests.e2e.support.browser_coverage import BrowserCoverage
@@ -27,6 +30,9 @@ if TYPE_CHECKING:
     from tests.e2e.support.hands import PlayingTable
 
 PAGE_NAVIGATED_AWAY = "net::ERR_ABORTED"
+# What a page waits for a next deal at most: the pause, the sweep that finds it over, and a slow runner's margin.
+EXPECTATION_MARGIN_SECONDS = 5
+EXPECTATION_MILLISECONDS = (NEXT_DEAL_PAUSE_SECONDS + PAUSE_SWEEP_EVERY_SECONDS + EXPECTATION_MARGIN_SECONDS) * 1000
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
@@ -59,6 +65,14 @@ def garbage_collected_before_the_test(garbage_collection_held_back: None) -> Non
     """Collects what the last test left, then moves the survivors, which the session keeps, out of later collections."""
     gc.collect()
     gc.freeze()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def expectations_that_outlast_a_next_deal() -> None:
+    """A page shows the next deal once its pause is over and a sweep has found it, later than Playwright's default
+    wait for an expectation.
+    """
+    expect.set_options(timeout=EXPECTATION_MILLISECONDS)
 
 
 @pytest.fixture(scope="session")

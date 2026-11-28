@@ -2,13 +2,18 @@ import asyncio
 from contextlib import contextmanager
 
 from logline import Outcome
+from tandem import Lapse
+from tandem.deadlines import Due
 
 from skat.table.server_steps import EndAnswerLapse
 from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
-from skat.web.presence import ChairHold
+from skat.web.presence import ChairHold, EmptyTable, NextDeal, Presence
 from skat.web.presence_line import EVENT
+from skat.web.stream_holder import StreamHolder
 from skat.web.tables import TABLES_PATH
 from tests.support.fake_tables import FakeTableStore
+from tests.support.idle_presence import idle_agent_lease, idle_end_answers, idle_wakes, note_nothing, nothing_due
+from tests.support.in_memory_leases import InMemoryLeases
 from tests.support.log_lines import lines_of
 from tests.support.played_game import after_the_first_game
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
@@ -122,14 +127,39 @@ def chair_hold(time, holds):
     return ChairHold(time.clock, time, holds.leave, holds.lapse, holds.clear, holds.due, holds.free_chair)
 
 
+def presence_on(time, holds, deals, ends, *, note=note_nothing, lease=None, leases=None, end_answers=None):
+    """A presence on the test's time over the fakes of the stores, idle where a part is not given."""
+    return Presence(
+        chair_hold(time, holds),
+        deals.port(),
+        EmptyTable(ends.end, note, ends.due, nothing_due),
+        lease or idle_agent_lease(),
+        idle_wakes(),
+        leases or InMemoryLeases(),
+        end_answers or idle_end_answers(),
+    )
+
+
 class Deals:
-    """The deal command as the presence calls it: what it was asked, and what it answers or raises next."""
+    """The deal commands as the presence calls them, with the pauses stored for them: what each was asked, the tables
+    whose pause is over, and what the commands answer or raise next.
+    """
 
     def __init__(self):
         self.calls = []
+        self.paused = []
+        self.deferred = []
+        self.due_now = []
         self.failures = []
+        self.due_failures = []
+        self.write_failures = []
         self.dealt = True
+        self.seated = frozenset()
+        self.seated_at = {}
         self.meanwhile = None
+
+    def port(self):
+        return NextDeal(self.deal_next, self.after_pause, self.pause, self.defer, self.due)
 
     async def deal_next(self, table_id, connected_accounts):
         if self.failures:
@@ -138,6 +168,32 @@ class Deals:
             await self.meanwhile()
         await on_a_worker(connected_accounts, lambda connected: self.calls.append((table_id, connected)))
         return self.dealt
+
+    async def after_pause(self, table_id, connected_accounts):
+        """The pause step: it deals only when everyone seated is connected, and drops the pause once the presence
+        answered; a presence that raises leaves it. Who is seated is `seated`, or `seated_at` for a table it names.
+        """
+        seated = self.seated_at.get(table_id, self.seated)
+        dealt = await self.deal_next(table_id, connected_accounts(seated))
+        connected = self.calls[-1][1]
+        if connected is not None and table_id in self.due_now:
+            self.due_now.remove(table_id)
+        return dealt and connected is not None and seated <= connected
+
+    async def pause(self, table_id):
+        if self.write_failures:
+            raise self.write_failures.pop(0)
+        self.paused.append(table_id)
+
+    async def defer(self, table_id):
+        if self.write_failures:
+            raise self.write_failures.pop(0)
+        self.deferred.append(table_id)
+
+    async def due(self):
+        if self.due_failures:
+            raise self.due_failures.pop(0)
+        return list(self.due_now)
 
 
 class Lapses:
@@ -176,6 +232,18 @@ class Notes:
 # one asyncio.run, which the store tests' `run` also is; a one-line wrapper that no neutral support module is worth
 def run(scenario):
     return asyncio.run(scenario)
+
+
+def lapse_of(table_id, account_id):
+    return Lapse(StreamHolder(table_id, account_id, "stream").encoded(), "generation", Due("key", "claim"))
+
+
+async def serve_lapses(holding, leases):
+    """Serve the lapses `leases` lists until each is handed, then stop serving."""
+    serving = asyncio.create_task(holding.serve_lapses())
+    await asyncio.wait_for(leases.lapses_handed.wait(), 5)
+    serving.cancel()
+    await asyncio.gather(serving, return_exceptions=True)
 
 
 def stop_during_a_hanging_read(holding, leases, work):

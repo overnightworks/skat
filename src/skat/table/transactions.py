@@ -11,11 +11,11 @@ if TYPE_CHECKING:
 
     from skat.table.game_cards import GameCards
     from skat.table.records import Chair, EndedTable, Ending, Receipt, Replay, TableId, TableRecord
+    from skat.table.rules import EmptyWait
 
 __all__ = [
     "DuplicateReceiptError",
     "HeldChair",
-    "LiveWait",
     "OccupiedChair",
     "PausedFacts",
     "TableTransaction",
@@ -103,23 +103,35 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         """
         ...
 
-    def empty_since(self, table_id: TableId) -> datetime | None:
-        """Since when nobody has been at the table, or None while it is unset."""
+    def empty_wait(self, table_id: TableId, empty_seconds: int) -> EmptyWait:
+        """Where the table's wait of `empty_seconds` stands, judged on the store's clock: unset while no time since
+        when nobody has been at the table is set, up once `empty_seconds` have passed since it.
+        """
         ...
 
     def paused_facts(self, table_id: TableId) -> PausedFacts:
         """The last played time and the opener's name of a live table."""
         ...
 
-    def set_empty_since(self, table_id: TableId, since: datetime | None) -> None:
-        """Write the time since when nobody has been at the table, on the row this transaction locked; it changes
-        nothing else, not even the version.
+    def stamp_empty_since(self, table_id: TableId) -> None:
+        """Set the time since when nobody has been at the table to the store's clock, on the row this transaction
+        locked; it changes nothing else, not even the version.
         """
         ...
 
-    def live_empty_since(self) -> tuple[LiveWait, ...]:
-        """Every live table with whether a hand was dealt on it and its time since when nobody has been there, each
-        row locked by this transaction.
+    def clear_empty_since(self, table_id: TableId) -> None:
+        """Unset the time since when nobody has been at the table, on the row this transaction locked."""
+        ...
+
+    def due_empty_tables(self, empty_seconds: int, limit: int) -> tuple[TableId, ...]:
+        """At most `limit` live tables on which no hand was dealt and whose wait of `empty_seconds` is up on the
+        store's clock, the longest waiting first; no row is locked, so the list is a candidate list.
+        """
+        ...
+
+    def unstamped_tables(self) -> tuple[TableId, ...]:
+        """Every live table on which no hand was dealt and that has no time since when nobody has been at it, in id
+        order; no row is locked, so the list is a candidate list.
         """
         ...
 
@@ -163,6 +175,28 @@ class TableTransaction(MemberBook, Protocol):  # pragma: no cover - a port's met
         """
         ...
 
+    def store_next_deal(self, table_id: TableId, seconds: float, *, replace: bool) -> None:
+        """Store the table's next-deal pause as due `seconds` from now on the store's clock, in place of a pending one
+        when `replace`, else only where it has none; nothing is stored unless a hand was dealt on the live table.
+        """
+        ...
+
+    def locked_next_deal_due(self, table_id: TableId) -> bool:
+        """Whether the table's pause is over on the store's clock, its row locked by this transaction; False without
+        a pause.
+        """
+        ...
+
+    def delete_next_deal(self, table_id: TableId) -> None:
+        """Drop the table's pause, if any."""
+        ...
+
+    def due_next_deals(self, limit: int) -> tuple[TableId, ...]:
+        """At most `limit` tables whose pause is over on the store's clock, the earliest due first; no row is locked,
+        so the list is a candidate list.
+        """
+        ...
+
     def tables_of(self, account_id: str) -> tuple[TableVersion, ...]:
         """The live tables the account holds a chair at, each with its version and turn statement times, in id order;
         no row is locked, so the list is a candidate list: a table may end or a chair move before the caller uses it,
@@ -201,13 +235,6 @@ def save_traced(
 ) -> None:
     """Save `after`, a change of `before` made in a request of `trace`, with the traces its version and acts are in."""
     transaction.save_table(replace(after, traces=traces_after(before, after, trace)), played_at=played_at)
-
-
-@dataclass(frozen=True)
-class LiveWait:
-    table_id: TableId
-    dealer: int | None
-    empty_since: datetime | None
 
 
 @dataclass(frozen=True)

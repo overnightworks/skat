@@ -32,6 +32,7 @@ STORE_TABLES = {
     "rule_sets",
     "member_book",
     "chair_holds",
+    "next_deals",
     "accounts",
     "sessions",
     "serving_revisions",

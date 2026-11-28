@@ -8,16 +8,9 @@ from agents.member import LEASE_SECONDS
 from skat.web.end_answers import EndAnswers
 from skat.web.presence import (
     CHAIR_RELEASE_RETRY_SECONDS,
-    NEXT_DEAL_PAUSE_SECONDS,
     AgentLease,
-    EmptyTable,
-    NextDeal,
-    Presence,
 )
-from skat.web.settings import DEFAULT_EMPTY_TABLE_SECONDS
-from tests.support.idle_presence import idle_wakes
-from tests.support.in_memory_leases import InMemoryLeases
-from tests.web.support.presence import FAILURE_NAMING_AN_ACCOUNT, TABLE, Notes, chair_hold, run
+from tests.web.support.presence import FAILURE_NAMING_AN_ACCOUNT, TABLE, presence_on, run
 
 MINUTE = 60
 ANOTHER_TABLE = "b" * 32
@@ -29,14 +22,13 @@ async def no_tables(_account_id):
 
 @pytest.fixture
 def presence(time, holds, deals, ends, lapses):
-    return Presence(
-        chair_hold(time, holds),
-        NextDeal(NEXT_DEAL_PAUSE_SECONDS, deals.deal_next),
-        EmptyTable(DEFAULT_EMPTY_TABLE_SECONDS, ends.end, Notes().note),
-        AgentLease(LEASE_SECONDS, no_tables),
-        idle_wakes(),
-        InMemoryLeases(),
-        EndAnswers(lapses.lapse),
+    return presence_on(
+        time,
+        holds,
+        deals,
+        ends,
+        lease=AgentLease(LEASE_SECONDS, no_tables),
+        end_answers=EndAnswers(lapses.lapse),
     )
 
 

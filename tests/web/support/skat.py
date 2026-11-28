@@ -16,7 +16,7 @@ from skat.engine.deal import positions_from
 from skat.host.app import END_ANSWER_RECOVERY_SECONDS, UNPLAYED_SWEEP_SECONDS, Clocks, create_app
 from skat.table.rule_sets import RuleSetService
 from skat.table.service import TableService
-from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS
+from skat.web.presence import HOLD_SWEEP_EVERY_SECONDS, PAUSE_SWEEP_EVERY_SECONDS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_SIT_SUFFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from tests.support.fake_rule_sets import FakeRuleSetStore, in_memory_rule_sets
 from tests.support.fake_tables import FakeTableStore, in_memory_tables
@@ -32,7 +32,12 @@ NAVIGATION = {"accept": "text/html"}
 UNKNOWN_ID = "0" * 32
 SERVER_START_SECONDS = 1000.0
 FAKE_EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
-SWEEP_SECONDS = (UNPLAYED_SWEEP_SECONDS, HOLD_SWEEP_EVERY_SECONDS, END_ANSWER_RECOVERY_SECONDS)
+SWEEP_SECONDS = (
+    UNPLAYED_SWEEP_SECONDS,
+    HOLD_SWEEP_EVERY_SECONDS,
+    PAUSE_SWEEP_EVERY_SECONDS,
+    END_ANSWER_RECOVERY_SECONDS,
+)
 
 
 def stored(skat):

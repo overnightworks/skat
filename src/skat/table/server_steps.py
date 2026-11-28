@@ -1,9 +1,9 @@
 """The steps the server takes on its own account, with no actor, command id or receipt: storing, clearing and
-freeing a chair hold, the next deal, a table's end for being empty and the presence's bookkeeping. Each is one
-transaction, over the table's row lock where it decides; `TableService` forwards to them.
+freeing a chair hold, the next deal and its pause, a table's end for being empty and the presence's bookkeeping. Each
+is one transaction, over the table's row lock where it decides; `TableService` forwards to them.
 """
 
-from contextlib import ExitStack, nullcontext
+from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
@@ -11,18 +11,18 @@ from skat.table.member_place import agents_seated_at, ended_by_owner_leaving
 from skat.table.member_view import view_recipients
 from skat.table.records import Ending, TableRecord
 from skat.table.rules import (
+    NEXT_DEAL_PAUSE_SECONDS,
     PresenceStep,
-    ResumeStep,
     dealt_next,
     decide_free_chair,
     drawn_hand,
-    ends_empty,
+    empty_step,
     hold_frees_chair,
     next_deal_due,
     presence_step,
     present_at,
-    resume_step,
     seat_of,
+    seated_accounts,
 )
 from skat.table.series_end import (
     answer_left,
@@ -40,10 +40,11 @@ if TYPE_CHECKING:
 
     from skat.table.member_view import ViewSignal
     from skat.table.records import TableId
+    from skat.table.rules import EmptyWait
     from skat.table.transactions import HeldChair, TableTransaction, TableTransactions
 
-# The most due holds one sweep frees; the rest wait for the next.
-DUE_HOLDS_PER_SWEEP: Final = 100
+# The most due holds, pauses or waits one sweep acts on; the rest wait for the next.
+DUE_PER_SWEEP: Final = 100
 
 
 @dataclass(frozen=True)
@@ -117,9 +118,9 @@ class ServerSteps:
             transaction.delete_hold(table_id, account_id)
 
     def due_holds(self) -> tuple[HeldChair, ...]:
-        """The chair holds due now, the earliest first and at most `DUE_HOLDS_PER_SWEEP`: a candidate list."""
+        """The chair holds due now, the earliest first and at most `DUE_PER_SWEEP`: a candidate list."""
         with self._transactions.begin() as transaction:
-            return transaction.due_holds(DUE_HOLDS_PER_SWEEP)
+            return transaction.due_holds(DUE_PER_SWEEP)
 
     def free_held_chair(self, table_id: TableId, account_id: str, absent: AbstractContextManager[bool | None]) -> bool:
         """Free the chair of an account whose stored hold is due, on the server's own account, with no actor, command
@@ -159,7 +160,8 @@ class ServerSteps:
         return True
 
     def deal_next(self, table_id: TableId, connected_accounts: AbstractContextManager[frozenset[str] | None]) -> bool:
-        """Deal the next hand on the server's own account, with no actor, command id or receipt.
+        """Deal the next hand at once, whether or not a pause is pending, on the server's own account, with no actor,
+        command id or receipt; the pause of a table that dealt is dropped.
 
         `connected_accounts` is entered once the row is locked and left after the commit; it yields who holds an open
         stream then, or None once the presence cannot tell, which deals nothing; a live lease counts for its occupant.
@@ -170,13 +172,84 @@ class ServerSteps:
             table = transaction.locked_table(table_id)
             if table is None:
                 return False
-            connected = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
-            if connected is None or not next_deal_due(table, connected):
+            dealt = self._dealt_if_due(table, after_commit.enter_context(connected_accounts))
+            if dealt is None:
                 return False
-            dealt = dealt_next(table, drawn_hand(table, self._random_source))
+            transaction.delete_next_deal(table_id)
             save_traced(transaction, table, dealt, self._trace(), played_at=self._now())
         self._tell_view(table_id, view_recipients(table, dealt))
         return True
+
+    def pause_next_deal(self, table_id: TableId) -> None:
+        """Start the table's pause before its next deal, from now on the store's clock, where it has none: a request
+        during a pending pause neither cuts nor stretches it. A table that was not dealt on or has ended gets none.
+        """
+        with self._transactions.begin() as transaction:
+            transaction.store_next_deal(table_id, NEXT_DEAL_PAUSE_SECONDS, replace=False)
+
+    def deal_next_soon(self, table_id: TableId) -> None:
+        """Make the table's next deal due now, for the sweep to ask for again after a deal that failed."""
+        with self._transactions.begin() as transaction:
+            transaction.store_next_deal(table_id, 0, replace=True)
+
+    def due_next_deals(self) -> tuple[TableId, ...]:
+        """The tables whose pause is over, the earliest first and at most `DUE_PER_SWEEP`: a candidate list."""
+        with self._transactions.begin() as transaction:
+            return transaction.due_next_deals(DUE_PER_SWEEP)
+
+    def deal_after_pause(
+        self,
+        table_id: TableId,
+        connected_accounts: Callable[[frozenset[str]], AbstractContextManager[frozenset[str] | None]],
+    ) -> bool:
+        """Deal the next hand of a table whose pause is over, on the server's own account, with no actor, command id
+        or receipt, and drop the pause in the same transaction, so it deals once.
+
+        The table's row is locked first, then the pause's. A pause not over, or gone, changes nothing. A pause that is
+        over is dropped whether or not the table is dealt: its deal is due only while the three are connected, and a
+        player who comes back starts the next pause. `connected_accounts` is called with the accounts seated at the
+        table and its result entered then, as for `deal_next`; None keeps the pause for another pod, and a guard
+        that raises, as for a roster that cannot say whether those seated are gone, rolls everything back and keeps
+        it. The pause of an ended or forgotten table is dropped. True when it dealt.
+        """
+        with ExitStack() as after_commit, self._transactions.begin() as transaction:
+            table = transaction.locked_table(table_id)
+            if table is None:
+                transaction.delete_next_deal(table_id)
+                return False
+            if not transaction.locked_next_deal_due(table_id):
+                return False
+            connected = after_commit.enter_context(connected_accounts(seated_accounts(table)))
+            if connected is None:
+                return False
+            transaction.delete_next_deal(table_id)
+            dealt = self._dealt_if_due(table, connected)
+            if dealt is None:
+                return False
+            save_traced(transaction, table, dealt, self._trace(), played_at=self._now())
+        self._tell_view(table_id, view_recipients(table, dealt))
+        return True
+
+    def _dealt_if_due(self, table: TableRecord, connected_accounts: frozenset[str] | None) -> TableRecord | None:
+        """The table with its next hand when the rules make it due for those connected, else None."""
+        connected = present_at(table, connected_accounts, self._live_leases())
+        if connected is None or not next_deal_due(table, connected):
+            return None
+        return dealt_next(table, drawn_hand(table, self._random_source))
+
+    def due_empty_tables(self, empty_seconds: int) -> tuple[TableId, ...]:
+        """The tables whose wait for somebody is up, the longest waiting first and at most `DUE_PER_SWEEP`: a
+        candidate list.
+        """
+        with self._transactions.begin() as transaction:
+            return transaction.due_empty_tables(empty_seconds, DUE_PER_SWEEP)
+
+    def unstamped_tables(self) -> tuple[TableId, ...]:
+        """The live undealt tables that have no time since when nobody was there, for a pod's start to note who is
+        present at: a candidate list.
+        """
+        with self._transactions.begin() as transaction:
+            return transaction.unstamped_tables()
 
     def end_empty_table(
         self,
@@ -184,25 +257,54 @@ class ServerSteps:
         connected_accounts: AbstractContextManager[frozenset[str] | None],
         empty_seconds: int,
     ) -> bool:
-        """End a table nobody is connected to and on which no hand was dealt, on the server's own account, with no
-        actor, command id or receipt.
+        """Settle a table whose wait for somebody looked up, on the server's own account, with no actor, command id or
+        receipt: end it when nobody is connected and its wait is up on the store's clock, and clear the time since when
+        nobody was there when somebody is, which never ends it.
 
         `connected_accounts` is entered once the row is locked and left after the commit; it yields who holds an open
-        stream then, or None once the presence cannot tell. The decision reads who is present under the row lock, so a
-        repeat, a table that ended meanwhile, or a stream that opened since changes nothing. `empty_seconds` is the
-        wait the answer will name. True when it ended the table.
+        stream then, or None once the presence cannot tell. The decision reads who is present and the wait under the
+        row lock, so a repeat, a table that ended meanwhile, or a stream that opened since ends nothing twice.
+        `empty_seconds` is the wait the answer will name. True when it ended the table.
         """
+        return self._settle_presence(table_id, connected_accounts, empty_seconds, empty_step)
+
+    def note_presence(
+        self,
+        table_id: TableId,
+        connected_accounts: AbstractContextManager[frozenset[str] | None],
+        empty_seconds: int,
+    ) -> bool:
+        """Bring the time since when nobody has been at the table in line with who is present, on the server's own
+        account, with no actor, command id, receipt or version change.
+
+        `connected_accounts` is entered once the row is locked and left after the commit, as for `end_empty_table`,
+        so the last write after any change reflects the latest truth. A table someone arrives at after its wait was
+        up ends instead of reviving. True when it ended the table.
+        """
+        return self._settle_presence(table_id, connected_accounts, empty_seconds, presence_step)
+
+    def _settle_presence(
+        self,
+        table_id: TableId,
+        connected_accounts: AbstractContextManager[frozenset[str] | None],
+        empty_seconds: int,
+        decide: Callable[[TableRecord, frozenset[str] | None, EmptyWait], PresenceStep],
+    ) -> bool:
         with ExitStack() as after_commit, self._transactions.begin() as transaction:
             table = transaction.locked_table(table_id)
             if table is None:
                 return False
             present = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
-            if not ends_empty(table, present):
-                return False
-            members = members_of(transaction, table)
-            transaction.end_table(table_id, self._now(), Ending.empty(empty_seconds))
+            step = decide(table, present, transaction.empty_wait(table_id, empty_seconds))
+            members: frozenset[str] = members_of(transaction, table) if step is PresenceStep.END else frozenset()
+            if step is PresenceStep.END:
+                transaction.end_table(table_id, self._now(), Ending.empty(empty_seconds))
+            elif step is PresenceStep.STAMP:
+                transaction.stamp_empty_since(table_id)
+            elif step is PresenceStep.CLEAR:
+                transaction.clear_empty_since(table_id)
         self._tell(members)
-        return True
+        return step is PresenceStep.END
 
     def lapse_end_answers(self, table_id: TableId) -> EndAnswerLapse:
         """End what the table's minute of answers decides once it is over, on the server's own account, with no actor,
@@ -241,56 +343,3 @@ class ServerSteps:
         with self._transactions.begin() as transaction:
             asks = transaction.live_end_asks()
         return {ask.table_id.value: max(0.0, answer_left(ask.asked_at, now).total_seconds()) for ask in asks}
-
-    def note_presence(
-        self,
-        table_id: TableId,
-        connected_accounts: AbstractContextManager[frozenset[str] | None],
-        empty_seconds: int,
-    ) -> bool:
-        """Bring the time since when nobody has been at the table in line with who is present, on the server's own
-        account, with no actor, command id, receipt or version change.
-
-        `connected_accounts` is entered once the row is locked and left after the commit, as for `end_empty_table`,
-        so the last write after any change reflects the latest truth. A table someone arrives at after its time was
-        up ends instead of reviving. True when it ended the table.
-        """
-        with ExitStack() as after_commit, self._transactions.begin() as transaction:
-            table = transaction.locked_table(table_id)
-            if table is None:
-                return False
-            present = present_at(table, after_commit.enter_context(connected_accounts), self._live_leases())
-            now = self._now()
-            step = presence_step(table, present, transaction.empty_since(table_id), now, empty_seconds)
-            members: frozenset[str] = members_of(transaction, table) if step is PresenceStep.END else frozenset()
-            if step is PresenceStep.END:
-                transaction.end_table(table_id, now, Ending.empty(empty_seconds))
-            elif step is not PresenceStep.KEEP:
-                transaction.set_empty_since(table_id, now if step is PresenceStep.STAMP else None)
-        self._tell(members)
-        return step is PresenceStep.END
-
-    def resume_empty_waits(self, empty_seconds: int) -> dict[str, float]:
-        """At the server's start: give every live table on which no hand was dealt and that has no time one, end
-        every such table whose wait is already up, and answer each remaining table's id with the seconds left of its
-        wait; a table with a dealt hand pauses and is left out.
-        """
-        now = self._now()
-        with self._transactions.begin() as transaction:
-            resumed = tuple(
-                (wait.table_id, resume_step(wait.dealer, wait.empty_since, now, empty_seconds))
-                for wait in transaction.live_empty_since()
-            )
-            for table_id, resume in resumed:
-                if resume.step is ResumeStep.STAMP:
-                    transaction.set_empty_since(table_id, now)
-        left: dict[str, float] = {}
-        for table_id, resume in resumed:
-            if resume.step is ResumeStep.SKIP:
-                continue
-            if resume.step is ResumeStep.END and self.end_empty_table(
-                table_id, nullcontext(frozenset()), empty_seconds
-            ):
-                continue
-            left[table_id.value] = resume.seconds_left
-        return left

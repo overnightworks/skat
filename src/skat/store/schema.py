@@ -443,6 +443,15 @@ chair_holds = Table(
     Index("chair_holds_by_due", "due_at"),
 )
 
+# A table's next-deal pause: the deadline after which any pod deals its next hand, on the database's clock.
+next_deals = Table(
+    "next_deals",
+    metadata,
+    Column("table_id", Text, ForeignKey(tables.c.id, ondelete="CASCADE"), primary_key=True),
+    Column("due_at", DateTime(timezone=True), nullable=False),
+    Index("next_deals_by_due", "due_at"),
+)
+
 member_book = Table(
     "member_book",
     metadata,
