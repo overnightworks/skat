@@ -7,7 +7,8 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.web.constants import AUTH_CALLBACK_PATH, AUTH_START_PATH, LOGIN_PATH
-from tests.e2e.support.browser import ACCOUNT_AVATAR, NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
+from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import FORM_FACTORS, playwright_cookie
 from tests.e2e.support.server import LOOPBACK_HOST
@@ -20,6 +21,8 @@ if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
 
 pytestmark = pytest.mark.e2e
+
+ACCOUNT = text(SOURCE_LANGUAGE, "account.title")
 
 
 def open_documents(page: Page) -> list[str]:
@@ -43,7 +46,7 @@ def test_a_member_signs_in_at_the_issuer_and_reaches_the_start_page(
     person.get_by_role("link", name=kit_text("signIn.logIn"), exact=True).click()
 
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
-    expect(person.locator(ACCOUNT_AVATAR)).to_be_visible()
+    expect(person.get_by_role("button", name=ACCOUNT, exact=True)).to_be_visible()
     assert any(cookie["name"] == e2e_server.config.session_cookie_name for cookie in person.context.cookies())
 
 
@@ -59,7 +62,7 @@ def test_a_member_the_group_does_not_admit_sees_the_refusal_and_no_start_page(
 
     expect(person.get_by_role("button", name=kit_text("signIn.logOut"))).to_be_visible()
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_have_count(0)
-    expect(person.locator(ACCOUNT_AVATAR)).to_have_count(0)
+    expect(person.get_by_role("button", name=ACCOUNT, exact=True)).to_have_count(0)
     assert not any(cookie["name"] == e2e_server.config.session_cookie_name for cookie in person.context.cookies())
 
 

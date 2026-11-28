@@ -5,10 +5,11 @@ from playwright.sync_api import Page, expect
 
 from skat.web.constants import VERSION_FILE_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import NEW_TABLE_BUTTON
 from tests.e2e.support.edge import BehindEdge, skat_behind_an_edge
 from tests.e2e.support.people import PHONE, WIDTHS
-from tests.e2e.support.tables import open_new_table, watch
+from tests.e2e.support.tables import assert_never_reloaded, mark_page, open_new_table, watch
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -57,7 +58,7 @@ def sit_cold_at_a_table(open_person: Callable[..., Page], server: RunningServer,
     guest = open_person(server=server, **form_factor)
     guest.clock.install()
     watch(guest, server, path)
-    guest.evaluate("window.sameDocument = true")
+    mark_page(guest)
     return guest
 
 
@@ -73,7 +74,7 @@ def test_tapping_lobby_while_skat_is_away_shows_the_notice_and_opens_the_lobby_w
 
     expect(person).to_have_url(f"{server.base_url}/")
     expect(notice(person)).to_be_visible()
-    expect(person.locator(".room")).to_have_count(0)
+    expect(old_surface.room(person)).to_have_count(0)
     expect(person.get_by_text(PAGE_FAILED)).to_have_count(0)
     expect(person.get_by_text(UNREACHABLE)).to_have_count(0)
     person.clock.fast_forward(A_MINUTE_AND_MORE_MILLISECONDS)
@@ -86,7 +87,7 @@ def test_tapping_lobby_while_skat_is_away_shows_the_notice_and_opens_the_lobby_w
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible(timeout=BACK_SECONDS)
     expect(notice(person)).to_have_count(0)
     expect(person.get_by_text(UNREACHABLE)).to_have_count(0)
-    assert person.evaluate("window.sameDocument") is True
+    assert_never_reloaded(person)
 
 
 def test_a_start_page_that_fails_though_the_edge_answers_ends_in_its_status_and_sentence_without_looping(

@@ -8,9 +8,11 @@ from playwright.sync_api import Page, expect
 from skat.web.constants import LOGIN_PATH, NO_ACCESS_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import record_page_errors, sign_in_at_issuer
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS
+from tests.e2e.support.tables import plate_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -61,7 +63,7 @@ def test_a_signed_out_member_signs_in_through_a_shared_link_and_lands_at_the_tab
 
     expect(visitor).to_have_url(f"{e2e_server.base_url}{path}")
     expect(visitor.get_by_text(text(SOURCE_LANGUAGE, "table.waitingForPlayers"))).to_be_visible()
-    expect(visitor.locator(".chair[data-seat='1'] .plate")).to_contain_text("anna")
+    expect(plate_of(visitor, 1)).to_contain_text("anna")
 
 
 def test_a_signed_out_member_signs_in_through_a_link_to_an_unknown_table_and_sees_it_is_not_found(
@@ -88,4 +90,4 @@ def test_a_signed_out_person_the_group_does_not_admit_reaches_the_no_access_page
     expect(outsider.get_by_role("button", name=kit_text("signIn.logOut"))).to_be_visible()
     assert urlsplit(outsider.url).path == NO_ACCESS_PATH
     expect(outsider.get_by_text(text(SOURCE_LANGUAGE, "table.waitingForPlayers"))).to_have_count(0)
-    expect(outsider.locator(".chair")).to_have_count(0)
+    expect(old_surface.chairs(outsider)).to_have_count(0)
