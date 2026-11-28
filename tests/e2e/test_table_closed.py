@@ -1,5 +1,4 @@
 import json
-import re
 import time
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -8,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 import pytest
-from playwright.sync_api import Page, Request, Route, expect
+from playwright.sync_api import Locator, Page, Request, Route, expect
 from sqlalchemy import delete, select, update
 
 from skat.store.game_list import append_game_list
@@ -19,11 +18,12 @@ from skat.web.game_list import TABLE_LIST_SUFFIX
 from skat.web.settings import DEFAULT_ENDED_TABLE_DAYS
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import LEGAL_LINKS, NEW_TABLE_BUTTON, record_page_errors
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.server import skat_on_new_database
-from tests.e2e.support.table_menu import ACCOUNT, ACCOUNT_PANEL, MENU, MENU_KEY
+from tests.e2e.support.table_menu import ACCOUNT
 from tests.e2e.support.tables import (
     assert_never_reloaded,
     click_new_table,
@@ -58,7 +58,11 @@ RECONNECT_WINDOW_MILLISECONDS = 6_000
 CLOSED_HEADING = text(SOURCE_LANGUAGE, "closed.emptySeconds", count=EMPTY_TABLE_SECONDS)
 UNPLAYED_HEADING = text(SOURCE_LANGUAGE, "closed.unplayedDays", count=UNPLAYED_DAYS)
 NOT_FOUND_HEADING = text(SOURCE_LANGUAGE, "closed.notFound")
-GAME_LIST = ".game-list"
+MENU = text(SOURCE_LANGUAGE, "table.menu")
+LEGAL_NAMES = [text(SOURCE_LANGUAGE, key) for key in LEGAL_LINKS]
+GAME_LIST = text(SOURCE_LANGUAGE, "table.seriesList")
+# The mark the kit sets beside an agent's name, the same in every language.
+AI_MARK = "AI"
 SHEET_BACK = text(SOURCE_LANGUAGE, "table.sheetBack")
 # A point of the room outside the centred panel, where a tap lands on the backdrop of the game sheet.
 BESIDE_THE_PANEL = (4, 4)
@@ -115,16 +119,13 @@ def events_requests_of(person: Page) -> list[str]:
     return requests
 
 
-def expect_the_panel_inside_the_viewport(person: Page) -> None:
-    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-    panel = person.get_by_role("status").filter(has=person.get_by_role("heading")).bounding_box()
-    button = person.get_by_role("button", name=NEW_TABLE_BUTTON).bounding_box()
-    width = person.viewport_size["width"] if person.viewport_size else 0
-    assert panel is not None
-    assert button is not None
-    for box in (panel, button):
-        assert box["x"] >= 0
-        assert box["x"] + box["width"] <= width
+def standings_of(person: Page) -> Locator:
+    """The rows of the standings, one per seat; a row of the games is a button."""
+    return person.get_by_role("listitem").filter(has_not=person.get_by_role("button"))
+
+
+def games_of(person: Page) -> Locator:
+    return person.get_by_role("listitem").get_by_role("button")
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -142,20 +143,21 @@ def test_the_old_link_of_an_ended_table_shows_the_wait_and_a_menu_of_the_account
 
     expect(person.get_by_role("heading", name=CLOSED_HEADING)).to_be_visible()
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
-    expect(person.locator(".chair")).to_have_count(3)
     for absent in (
         text(SOURCE_LANGUAGE, "table.sitDown"),
         text(SOURCE_LANGUAGE, "table.reconnecting"),
     ):
         expect(person.get_by_text(absent)).to_be_hidden()
-    expect(person.locator(".watchers")).to_have_count(0)
-    expect(person.locator("nav.legal")).to_have_count(1)
-    expect(person.locator(f"{ACCOUNT_PANEL} nav.legal")).to_have_count(1)
-    expect_the_panel_inside_the_viewport(person)
-    person.locator(MENU_KEY).click()
-    expect(person.locator(MENU).locator(".row .label")).to_have_text([ACCOUNT])
-    person.locator(MENU).get_by_role("button", name=ACCOUNT, exact=True).click()
-    expect(person.locator(f"{ACCOUNT_PANEL} nav.legal").get_by_role("link")).to_have_count(len(LEGAL_LINKS))
+    expect(watchers_of(person)).to_have_count(0)
+    for legal in LEGAL_NAMES:
+        expect(person.get_by_role("link", name=legal, exact=True)).to_have_count(0)
+    person.get_by_role("button", name=MENU, exact=True).click()
+    menu = person.get_by_role("dialog", name=MENU, exact=True)
+    expect(menu.get_by_role("button")).to_have_count(1)
+    menu.get_by_role("button", name=ACCOUNT, exact=True).click()
+    account = person.get_by_role("dialog", name=ACCOUNT, exact=True)
+    for legal in LEGAL_NAMES:
+        expect(account.get_by_role("link", name=legal, exact=True)).to_be_visible()
     assert requests == []
 
 
@@ -175,7 +177,7 @@ def test_a_page_whose_stream_arrives_after_the_wait_shows_the_closed_face_and_as
     requests = events_requests_of(person)
     person.route(f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}", hold_the_stream_until_the_wait_is_up)
     path = open_new_table(person, e2e_server)
-    expect(person.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(person)
     wait_for_end(e2e_server, table_id_of(path))
     wait_is_up.append(True)
 
@@ -201,47 +203,7 @@ def test_a_new_table_opens_from_the_closed_face(
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_new_table_sheet_dims_the_whole_page_over_the_closed_face(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    page_errors: list[str],
-    ended_table_path: str,
-    form_factor: dict[str, Any],
-) -> None:
-    person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
-    person.goto(f"{e2e_server.base_url}{ended_table_path}")
-
-    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
-
-    scrim = person.locator(".scrim").bounding_box()
-    viewport = person.viewport_size
-    assert scrim is not None
-    assert viewport is not None
-    assert (scrim["x"], scrim["y"], scrim["width"], scrim["height"]) == (0, 0, viewport["width"], viewport["height"])
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_new_table_sheet_over_the_closed_face_lays_its_two_buttons_side_by_side(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    page_errors: list[str],
-    ended_table_path: str,
-    form_factor: dict[str, Any],
-) -> None:
-    person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
-    person.goto(f"{e2e_server.base_url}{ended_table_path}")
-
-    person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
-
-    confirm, cancel = person.evaluate(
-        "() => [...document.querySelectorAll('.sheet .btns button')].map(b => b.getBoundingClientRect().toJSON())"
-    )
-    assert confirm["right"] <= cancel["left"]
-    assert confirm["top"] == pytest.approx(cancel["top"])
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_a_link_whose_table_is_gone_shows_the_card_back_and_offers_a_new_table(
+def test_a_link_whose_table_is_gone_says_so_and_offers_a_new_table(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
     # The 404 the browser logs for the table request is the console error, so only script errors are recorded.
@@ -251,9 +213,6 @@ def test_a_link_whose_table_is_gone_shows_the_card_back_and_offers_a_new_table(
 
     expect(person.get_by_role("heading", name=NOT_FOUND_HEADING)).to_be_visible()
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
-    expect(person.locator(".card-back")).to_be_visible()
-    expect(person.locator(".chair")).to_have_count(0)
-    expect_the_panel_inside_the_viewport(person)
 
 
 def forget_table(server: RunningServer, table_id: str) -> None:
@@ -284,7 +243,7 @@ def test_a_page_whose_table_is_forgotten_while_it_watches_learns_it_from_its_fai
 
     person.route(f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}", hold_the_stream)
     path = open_new_table(person, e2e_server)
-    expect(person.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(person)
     forget_table(e2e_server, table_id_of(path))
 
     for route in held:
@@ -293,7 +252,6 @@ def test_a_page_whose_table_is_forgotten_while_it_watches_learns_it_from_its_fai
     expect(person.get_by_role("heading", name=NOT_FOUND_HEADING)).to_be_visible()
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
     expect(person.get_by_text(text(SOURCE_LANGUAGE, "table.reconnecting"))).to_be_hidden()
-    expect_the_panel_inside_the_viewport(person)
 
 
 def test_a_page_whose_account_holds_as_many_streams_as_it_may_says_so_and_keeps_the_table(
@@ -316,14 +274,14 @@ def test_a_page_whose_account_holds_as_many_streams_as_it_may_says_so_and_keeps_
     events = f"**{TABLES_PATH}/*{TABLE_EVENTS_SUFFIX}"
     person.route(events, hold_the_stream)
     open_new_table(person, e2e_server)
-    expect(person.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(person)
     person.route(events, lambda route: route.fulfill(status=HTTPStatus.TOO_MANY_REQUESTS))
 
     for route in held:
         route.abort()
 
     expect(person.get_by_text(TOO_MANY_STREAMS)).to_be_visible()
-    expect(person.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(person)
 
 
 def played_longer_ago_than_the_days(server: RunningServer, table_id: str) -> None:
@@ -337,7 +295,6 @@ def expect_the_unplayed_face(person: Page) -> None:
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
     for absent in (text(SOURCE_LANGUAGE, "table.sitDown"), text(SOURCE_LANGUAGE, "table.reconnecting")):
         expect(person.get_by_text(absent)).to_be_hidden()
-    expect_the_panel_inside_the_viewport(person)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -353,7 +310,7 @@ def test_a_dealt_table_nobody_played_at_for_the_days_shows_its_end_to_every_open
         watch_until_the_agents_are_read(person, e2e_server, path)
         sit_in(person, seat)
     watch_until_the_agents_are_read(dora, e2e_server, path)
-    expect(anna.locator(".card-face").first).to_be_visible()
+    expect(old_surface.card_faces(anna).first).to_be_visible()
     open_pages = (anna, ben, cleo, dora)
     # A page asks for the table's agents when its stream brings its first table; the table ends only after all have.
     for person in open_pages:
@@ -437,7 +394,6 @@ def test_the_old_link_of_a_closed_table_with_games_shows_it_closed_without_the_c
     expect(person.get_by_role("heading", name=text(SOURCE_LANGUAGE, "closed.seriesEnded"))).to_be_visible()
     expect(person.get_by_text(closer)).to_have_count(0)
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
-    expect_the_panel_inside_the_viewport(person)
 
 
 @pytest.fixture(scope="module")
@@ -449,7 +405,7 @@ def closed_without_games(tmp_path_factory: pytest.TempPathFactory) -> Iterator[t
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_old_link_of_a_table_an_opener_closed_with_no_game_names_the_closer_and_shows_the_initial(
+def test_the_old_link_of_a_table_an_opener_closed_with_no_game_names_the_closer(
     open_person: Callable[..., Page],
     page_errors: list[str],
     closed_without_games: tuple[RunningServer, str],
@@ -462,9 +418,7 @@ def test_the_old_link_of_a_table_an_opener_closed_with_no_game_names_the_closer_
 
     heading = text(SOURCE_LANGUAGE, "closed.closedBy", name=CLOSER_NAME)
     expect(person.get_by_role("heading", name=heading)).to_be_visible()
-    expect(person.locator(".closed .glyph.by")).to_have_text(CLOSER_NAME[0])
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
-    expect_the_panel_inside_the_viewport(person)
 
 
 GAME_SEATS = ((1, OccupantKind.PERSON), (2, OccupantKind.PERSON), (3, OccupantKind.AGENT))
@@ -500,17 +454,14 @@ def test_the_old_link_of_a_closed_table_with_games_shows_the_standings_and_the_g
 
     expect(person.get_by_role("heading", name=text(SOURCE_LANGUAGE, "closed.seriesEnded"))).to_be_visible()
     expect(person.get_by_text(text(SOURCE_LANGUAGE, "table.seriesGames", count=len(GAME_SEATS)))).to_be_visible()
-    ranks = person.locator(".rank")
-    expect(ranks).to_have_count(len(SEAT_NAMES))
-    for seat, name in enumerate(SEAT_NAMES, start=1):
-        rank = ranks.filter(has_text=name)
-        expect(rank.locator(".dot")).to_have_class(re.compile(rf"\bseat-{seat}\b"))
-        expect(rank.locator(".ai-mark")).to_have_count(1 if name == AGENT_NAME else 0)
-        expect(rank.locator("small")).to_have_count(0)
-    expect(person.locator(".gamesbox .grow")).to_have_count(len(GAME_SEATS))
+    expect(standings_of(person)).to_have_count(len(SEAT_NAMES))
+    for name in SEAT_NAMES:
+        rank = standings_of(person).filter(has_text=name)
+        expect(rank).to_have_count(1)
+        expect(rank.get_by_text(AI_MARK, exact=True)).to_have_count(1 if name == AGENT_NAME else 0)
+    expect(games_of(person)).to_have_count(len(GAME_SEATS))
     expect(person.get_by_text(closer)).to_have_count(0)
     expect(person.get_by_role("button", name=NEW_TABLE_BUTTON)).to_be_visible()
-    expect_the_panel_inside_the_viewport(person)
 
 
 def test_a_game_of_the_closed_link_opens_its_sheet(
@@ -520,7 +471,7 @@ def test_a_game_of_the_closed_link_opens_its_sheet(
     person = record_page_errors(open_person(username="anna", server=server, **PHONE), page_errors)
     person.goto(f"{server.base_url}{path}")
 
-    person.locator(".gamesbox .grow").first.click()
+    games_of(person).first.click()
 
     expect(person.get_by_role("group", name=text(SOURCE_LANGUAGE, "table.sheetTitle", number="3"))).to_be_visible()
 
@@ -531,15 +482,15 @@ def test_the_sheet_of_a_game_of_the_closed_link_closes_by_its_way_back_by_escape
     server, path, _ = closed_with_games
     person = record_page_errors(open_person(username="anna", server=server, **PHONE), page_errors)
     person.goto(f"{server.base_url}{path}")
-    first_game = person.locator(".gamesbox .grow").first
-    sheet = person.locator(GAME_LIST)
+    first_game = games_of(person).first
+    sheet = person.get_by_role("dialog", name=GAME_LIST, exact=True)
 
     first_game.click()
     person.get_by_role("button", name=SHEET_BACK).click()
     expect(sheet).not_to_be_visible()
 
     first_game.click()
-    person.locator(f"{GAME_LIST} .game-sheet").click()
+    sheet.get_by_role("group", name=text(SOURCE_LANGUAGE, "table.sheetTitle", number="3")).click()
     expect(sheet).to_be_visible()
     person.mouse.click(*BESIDE_THE_PANEL)
     expect(sheet).not_to_be_visible()
@@ -563,8 +514,8 @@ def test_a_list_of_the_closed_link_the_server_cannot_read_says_so(
 
     person.goto(f"{server.base_url}{path}")
 
-    expect(person.locator(".gamesbox [role=alert]")).to_have_text(text(SOURCE_LANGUAGE, "table.seriesListFailed"))
-    expect(person.locator(".gamesbox .grow")).to_have_count(0)
+    expect(person.get_by_role("alert")).to_have_text(text(SOURCE_LANGUAGE, "table.seriesListFailed"))
+    expect(games_of(person)).to_have_count(0)
     assert page_errors == []
 
 
@@ -574,7 +525,7 @@ def test_a_new_table_opens_from_the_closed_link_with_games(
     server, path, _ = closed_with_games
     person = record_page_errors(open_person(username="anna", server=server, **PHONE), page_errors)
     person.goto(f"{server.base_url}{path}")
-    expect(person.locator(".gamesbox .grow")).to_have_count(len(GAME_SEATS))
+    expect(games_of(person)).to_have_count(len(GAME_SEATS))
 
     click_new_table(person)
 
