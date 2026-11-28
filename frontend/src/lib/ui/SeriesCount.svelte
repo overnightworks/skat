@@ -7,17 +7,31 @@
     import { readSeriesList } from "../../routes/(start)/seriesList.ts";
 
     // The quiet mark on the felt; a tap opens the list of every game of the series, which reads again whenever the table
-    // moves on while it is open.
-    const { id, text, version }: { id: string; text: string; version: number } = $props();
+    // moves on while it is open. A table whose bar is gone shows no mark and opens the list from its menu through `open`.
+    let {
+        id,
+        text,
+        version,
+        key = true,
+        open = $bindable(false),
+    }: { id: string; text: string; version: number; key?: boolean; open?: boolean } = $props();
 
     let sheet: HTMLDialogElement | undefined = $state();
-    let open = $state(false);
     let rows = $state<GameRow[] | null>(null);
     let failed = $state(false);
     // The game opened from the list, which replaces the list in the panel until the way back is tapped.
     let opened = $state<GameRow | null>(null);
 
     const wanted = $derived(open ? { id, version } : null);
+
+    $effect(() => {
+        if (open && sheet !== undefined && !sheet.open) {
+            rows = null;
+            failed = false;
+            opened = null;
+            sheet.showModal();
+        }
+    });
 
     $effect(() => {
         if (wanted === null) return;
@@ -33,33 +47,31 @@
     });
 </script>
 
-<button
-    type="button"
-    class="series-count"
-    class:unfolded={open}
-    aria-expanded={open}
-    aria-label={words["table.seriesList"]}
-    onclick={() => {
-        rows = null;
-        failed = false;
-        opened = null;
-        open = true;
-        sheet?.showModal();
-    }}
->
-    <span>{text}</span>
-    <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.4"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
+{#if key}
+    <button
+        type="button"
+        class="series-count"
+        class:unfolded={open}
+        aria-expanded={open}
+        aria-label={words["table.seriesList"]}
+        onclick={() => {
+            open = true;
+        }}
     >
-        <path d="M6 9l6 6 6-6" />
-    </svg>
-</button>
+        <span>{text}</span>
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+        >
+            <path d="M6 9l6 6 6-6" />
+        </svg>
+    </button>
+{/if}
 <dialog
     bind:this={sheet}
     class="game-list"

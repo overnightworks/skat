@@ -45,6 +45,15 @@
     height: 22px;
 }
 
+/* After a call's greeting the table has no top row: the key stands at the felt's top left, where the call's pictures draw it beside the call's own count. */
+.room .greeted-keys .reaction-key {
+    position: fixed;
+    top: 3px;
+    left: 82px;
+    z-index: 20;
+    margin: 0;
+}
+
 /* The tray: a phone opens it from its key, and the script sets --tray-top, so that it hangs below the key; a wide screen shows it as a rail at the edge. */
 .room .tray {
     position: fixed;

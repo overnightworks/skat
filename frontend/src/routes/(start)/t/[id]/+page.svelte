@@ -146,6 +146,7 @@
     let newestTable = $state<Table | null>(null);
     let note = $state("");
     let rulesOpen = $state(false);
+    let seriesOpen = $state(false);
     let taken: string | null = $state(null);
     let connected = $state(true);
     let streamsFull = $state(false);
@@ -389,6 +390,10 @@
             onrules={() => {
                 rulesOpen = true;
             }}
+            onseries={() => {
+                seriesOpen = true;
+            }}
+            count={seriesCountText(table)}
             onstand={() => {
                 void seat(standUp(id, crypto.randomUUID()));
             }}
@@ -416,28 +421,28 @@
     {/if}
     <StyleScene style={outcome?.kind === "table" ? outcome.table.style : null} />
     <CardSprite />
-    {#if !greeted}
-        <TableBar
-            {callMode}
-            {attention}
-            {connected}
-            bind:rulesOpen
-            live={outcome?.kind === "table" && outcome.table.ended === null
-                ? {
-                      id,
-                      version: outcome.table.version,
-                      watchers: outcome.table.watchers,
-                      options: outcome.table.options as Options,
-                      bock: outcome.table.bock,
-                      count: seriesCountText(outcome.table),
-                  }
-                : null}
-        >
-            {#snippet menu()}
-                {@render tableMenu("bar")}
-            {/snippet}
-        </TableBar>
-    {/if}
+    <TableBar
+        {callMode}
+        {greeted}
+        {attention}
+        {connected}
+        bind:rulesOpen
+        bind:seriesOpen
+        live={outcome?.kind === "table" && outcome.table.ended === null
+            ? {
+                  id,
+                  version: outcome.table.version,
+                  watchers: outcome.table.watchers,
+                  options: outcome.table.options as Options,
+                  bock: outcome.table.bock,
+                  count: seriesCountText(outcome.table),
+              }
+            : null}
+    >
+        {#snippet menu()}
+            {@render tableMenu("bar")}
+        {/snippet}
+    </TableBar>
     <main class="stage" class:stale={!connected} class:after-drop={greeted}>
         {#if outcome?.kind === "table" && outcome.table.ended !== null}
             <TableClosed ended={outcome.table.ended} />

@@ -5,8 +5,13 @@
 
     import type { Bock, Options } from "../../routes/(start)/tables.ts";
 
-    // `open` shows the sheet; the chips and the table's menu both set it.
-    let { options, bock, open = $bindable(false) }: { options: Options; bock: Bock | null; open?: boolean } = $props();
+    // `open` shows the sheet; the chips and the table's menu both set it. A table whose bar is gone shows no chips.
+    let {
+        options,
+        bock,
+        chips: chipsShown = true,
+        open = $bindable(false),
+    }: { options: Options; bock: Bock | null; chips?: boolean; open?: boolean } = $props();
 
     const rules = $derived(tableRules(options, bock));
     let chips: HTMLButtonElement | undefined = $state();
@@ -21,29 +26,31 @@
     });
 </script>
 
-<div class="rules-slot">
-    <button
-        bind:this={chips}
-        type="button"
-        class="rulepill"
-        aria-haspopup="dialog"
-        aria-label={words["rules.button"]}
-        onclick={() => {
-            open = true;
-        }}
-    >
-        <span class="chips">
-            {#each rules.chips as chip (chip.id)}
-                <span class="chip" class:official={chip.id === "official"}>
-                    <RuleMark id={chip.id} />{chip.word}
-                    {#if chip.count !== null}
-                        <b class="n" role="img" aria-label={chip.count.label}>{chip.count.number}</b>
-                    {/if}
-                </span>
-            {/each}
-        </span>
-    </button>
-</div>
+{#if chipsShown}
+    <div class="rules-slot">
+        <button
+            bind:this={chips}
+            type="button"
+            class="rulepill"
+            aria-haspopup="dialog"
+            aria-label={words["rules.button"]}
+            onclick={() => {
+                open = true;
+            }}
+        >
+            <span class="chips">
+                {#each rules.chips as chip (chip.id)}
+                    <span class="chip" class:official={chip.id === "official"}>
+                        <RuleMark id={chip.id} />{chip.word}
+                        {#if chip.count !== null}
+                            <b class="n" role="img" aria-label={chip.count.label}>{chip.count.number}</b>
+                        {/if}
+                    </span>
+                {/each}
+            </span>
+        </button>
+    </div>
+{/if}
 <dialog
     bind:this={sheet}
     class="rules-sheet"
