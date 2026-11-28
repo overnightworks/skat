@@ -22,7 +22,7 @@ from tests.e2e.support.call_frame import (
 )
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import WIDTHS
-from tests.e2e.support.tables import SIT_DOWN, table_id_of
+from tests.e2e.support.tables import SIT_DOWN, chair_of, plate_of, sit_in, table_id_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -34,7 +34,6 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-BAR = ".bar"
 SEAT_FREE = text(SOURCE_LANGUAGE, "table.seatFree")
 YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 OTHER_ORIGIN = f"https://{OTHER_HOST}:{OTHER_PORT}"
@@ -84,7 +83,7 @@ def test_a_valid_hello_drops_the_bar_and_the_table_plays_on(
         table = visitor.frame_locator(FRAME)
 
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
-        expect(table.locator(BAR)).to_have_count(0)
+        expect(table.get_by_role("banner")).to_have_count(0)
 
 
 def test_a_call_that_never_greets_leaves_the_bar(
@@ -98,7 +97,7 @@ def test_a_call_that_never_greets_leaves_the_bar(
         table = visitor.frame_locator(FRAME)
 
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
-        expect(table.locator(BAR)).to_be_visible()
+        expect(table.get_by_role("banner")).to_be_visible()
 
 
 def test_the_frame_posts_exactly_one_ready_naming_its_own_table_to_the_call_origin(
@@ -166,10 +165,10 @@ def test_a_message_that_fails_a_check_leaves_the_bar_until_the_valid_hello_comes
 
         send(data, marker)
         skat.wait_for_function("marker => markers.includes(marker)", arg=marker)
-        expect(table.locator(BAR)).to_be_visible()
+        expect(table.get_by_role("banner")).to_be_visible()
         visitor.evaluate("greet()")
 
-        expect(table.locator(BAR)).to_have_count(0)
+        expect(table.get_by_role("banner")).to_have_count(0)
 
 
 @pytest.mark.parametrize("reduced_motion", ["no-preference", "reduce"])
@@ -191,14 +190,14 @@ def test_a_tap_at_the_moment_the_bar_drops_seats_nobody_and_a_tap_after_it_seats
         expect(table.get_by_role("button", name=SIT_DOWN)).to_have_count(THREE_CHAIRS - 1)
 
         visitor.evaluate("greet()")
-        expect(table.locator(BAR)).to_have_count(0)
-        box = table.locator(".chair[data-seat='2']").get_by_role("button", name=SIT_DOWN).bounding_box()
+        expect(table.get_by_role("banner")).to_have_count(0)
+        box = chair_of(table, 2).get_by_role("button", name=SIT_DOWN).bounding_box()
         assert box is not None
         visitor.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-        table.locator(".chair[data-seat='3']").get_by_role("button", name=SIT_DOWN).click()
+        sit_in(table, 3)
 
-        expect(table.locator(".chair[data-seat='3'] .plate")).to_have_text(YOU)
-        expect(table.locator(".chair[data-seat='2'] .plate")).to_have_text(SEAT_FREE)
+        expect(plate_of(table, 3)).to_have_text(YOU)
+        expect(plate_of(table, 2)).to_have_text(SEAT_FREE)
 
 
 def test_a_reloaded_frame_greets_again(
@@ -214,12 +213,12 @@ def test_a_reloaded_frame_greets_again(
         # A reload that cuts the first load short leaves no first ready, so only the second is ever recorded.
         wait_for_ready(visitor)
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
-        expect(table.locator(BAR)).to_have_count(0)
+        expect(table.get_by_role("banner")).to_have_count(0)
 
         skat.evaluate("location.reload()")
         wait_for_ready(visitor, readies=2)
 
-        expect(table.locator(BAR)).to_have_count(0)
+        expect(table.get_by_role("banner")).to_have_count(0)
         assert len([message for message in messages_of_the_frame(visitor) if message["type"] == "ready"]) == 2
 
 
@@ -234,7 +233,7 @@ def test_a_top_level_table_page_posts_no_ready_and_keeps_its_bar(
     visitor.goto(f"{framing_server.base_url}{path}{search}")
 
     expect(visitor.locator(CHAIR)).to_have_count(THREE_CHAIRS)
-    expect(visitor.locator(BAR)).to_be_visible()
+    expect(visitor.get_by_role("banner")).to_be_visible()
     assert visitor.evaluate("window.posted") == []
 
 
