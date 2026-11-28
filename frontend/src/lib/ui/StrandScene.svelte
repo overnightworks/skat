@@ -7,7 +7,7 @@
     const SIZES: readonly BeachSize[] = ["phone", "desktop"];
 </script>
 
-<div class="strand-scene" aria-hidden="true">
+<div class="strand-scene" aria-hidden="true" data-call-backdrop>
     {#each SIZES as size (size)}
         {@const beach = beachOf(size)}
         {@const view = BEACH_VIEWS[size]}

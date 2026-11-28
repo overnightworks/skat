@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { lookOf } from "#lib/looks/registry.ts";
     import type { PanelSide } from "#lib/panelPlace.ts";
     import { TABLE_STYLE_TOKENS } from "#lib/wire.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
@@ -25,11 +26,6 @@
     const PHONE_PANEL_WIDTH = 328;
     const DESKTOP_PANEL_WIDTH = 360;
     const DESKTOP_FROM = 900;
-
-    const NAMES: Record<TableStyle, "table.styleKlassik" | "table.styleStrandbar"> = {
-        klassik: "table.styleKlassik",
-        strandbar: "table.styleStrandbar",
-    };
 
     let viewportWidth = $state(0);
     let shown = $derived(tableStyle());
@@ -81,10 +77,12 @@
                                         stroke-width="2.8"
                                         stroke-linecap="round"
                                         stroke-linejoin="round"
-                                        aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg
+                                        aria-hidden="true"
                                     >
+                                        <path d="M5 12.5l4.5 4.5L19 7.5" />
+                                    </svg>
                                 {/if}
-                                {words[NAMES[style]]}
+                                {words[lookOf(style).name]}
                             </span>
                         </span>
                     </label>

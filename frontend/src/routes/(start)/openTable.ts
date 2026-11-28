@@ -1,26 +1,23 @@
 // Opening a table: the request that opens it with a visibility and the rule sets a person saves to open it with.
 
-import { RULE_SETS_PATH, TABLES_PATH, type VISIBILITY_TOKENS } from "#lib/wire.ts";
 import {
-    ask,
-    CONFLICT_STATUS,
-    fetchSigningInAgain,
-    type Options,
-    type OptionsRequest,
-    type Outcome,
-} from "./tables.ts";
+    RULE_SET_REFUSAL_TOKENS,
+    RULE_SETS_PATH,
+    TABLES_PATH,
+    type RuleSetAnswer,
+    type RuleSetRefusalAnswer,
+    type RuleSetsAnswer,
+    type VISIBILITY_TOKENS,
+} from "#lib/wire.ts";
+import { ask, CONFLICT_STATUS, fetchSigningInAgain, isRefusal, type OptionsRequest, type Outcome } from "./tables.ts";
 
 export type Visibility = (typeof VISIBILITY_TOKENS)[number];
 // A rule set the person saved: the options a table opens with when it is picked.
-export type RuleSet = { id: string; name: string; options: Options };
+export type RuleSet = RuleSetAnswer;
 // The person's own sets in the order the server answers them; a set that cannot be read is its own outcome.
 export type RuleSetsOutcome = { kind: "sets"; sets: RuleSet[] } | { kind: "failed" };
 // A name the person already holds with other options is refused and saves nothing.
 export type SaveRuleSetOutcome = { kind: "saved"; set: RuleSet } | { kind: "taken" } | { kind: "failed" };
-
-function isNameTaken(body: unknown): boolean {
-    return typeof body === "object" && body !== null && "reason" in body && body.reason === "name-taken";
-}
 
 // The command id is the retry key: asking again with the same one, the same length, the same options and the same
 // visibility returns the table the first ask opened. A table opened without options plays the official rules, and one
@@ -42,7 +39,7 @@ export async function readRuleSets(): Promise<RuleSetsOutcome> {
     const answer = await fetchSigningInAgain(RULE_SETS_PATH);
     if (!answer?.ok) return { kind: "failed" };
     try {
-        const body = (await answer.json()) as { sets?: RuleSet[] };
+        const body = (await answer.json()) as Partial<RuleSetsAnswer>;
         return Array.isArray(body.sets) ? { kind: "sets", sets: body.sets } : { kind: "failed" };
     } catch {
         return { kind: "failed" };
@@ -59,8 +56,10 @@ export async function saveRuleSet(name: string, options: OptionsRequest | undefi
     if (answer === null) return { kind: "failed" };
     try {
         const body: unknown = await answer.json();
-        if (answer.ok) return { kind: "saved", set: body as RuleSet };
-        return answer.status === CONFLICT_STATUS && isNameTaken(body) ? { kind: "taken" } : { kind: "failed" };
+        if (answer.ok) return { kind: "saved", set: body as RuleSetAnswer };
+        return answer.status === CONFLICT_STATUS && isRefusal<RuleSetRefusalAnswer>(body, RULE_SET_REFUSAL_TOKENS)
+            ? { kind: "taken" }
+            : { kind: "failed" };
     } catch {
         return { kind: "failed" };
     }

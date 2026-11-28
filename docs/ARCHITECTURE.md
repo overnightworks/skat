@@ -52,7 +52,7 @@ flowchart TB
 - **`skat.store`**: those ports on Postgres, the migrations and the serving window, and the Redis clients.
 - **`skat.web`**: the adapter: sign-in gate, routes, MCP front, streams, presence and wakes. Every route is marked as a tool or an exclusion with its reason; an undecided route stops the build.
 - **`skat.host`**: reads the settings, composes the app and starts uvicorn.
-- **The frontend** (`frontend/`) builds into `src/skat/web/build` and decides no rule: it draws the server's view. Takt (`frontend/src/lib/takt/`) plays moments every seat sees alike from a seed; CSS owns where a card rests, Takt its seeded lie and travel, never a coordinate of the table.
+- **The frontend** (`frontend/`) builds into `src/skat/web/build` and decides no rule: it draws the server's view. Takt (`frontend/src/lib/takt/`) plays moments every seat sees alike from a seed; CSS owns where a card rests, Takt its seeded lie and travel, never a coordinate of the table. A table style's look is one entry in `frontend/src/lib/looks/`, found through its registry: the entry names the renderer that draws the table and the furniture on its felt, so a new look is a new entry and nothing outside the layer changes. A look reads the table only through the look-neutral contract in `frontend/src/lib/table/` (the scene it draws, the intents a person's gestures become) and never a route, a store or the wire; ESLint holds both directions. The card back, the backdrop and the ambience still branch on the style outside the layer.
 
 ## 3. Runtime View
 
@@ -85,6 +85,10 @@ sequenceDiagram
 
 Sign-in is webauth's OIDC code flow. The issuer refuses to be framed, so a framed table signs in through a separate window (`frontend/src/lib/callSignIn.ts`).
 
+A framed table's listener for the call's `hello` stays for the page's life. The first `hello` drops the page's own bar and blocks the stage's taps for one second; every later `hello` leaves the bar alone, empties the placed set and asks for a full `seats`.
+
+A framed table tells the call where each chair is. After the call's `hello` it posts `seats` to the call origin, never `*`: one entry per occupied chair, in seat order and at most three, each with the chair's person key and its tile's box, shape and corner radii (`frontend/src/lib/callSeats.ts`, `frontend/src/lib/ui/CallSeats.svelte`). The call answers with `placed`, the person keys whose video it places, and a chair is see-through only while its key is in the last `placed` and in the last posted entry and the chair still holds the occupant it held then, so a freed or taken-over chair never shows the previous video. A see-through chair has its box cut out of the page's backdrops by a `clip-path`; its marks, name and coaster lie on the video. The person key is the hex SHA-256 over `hallucinai/skat/person-key/v1`, the issuer, the occupant's account id and the table id, joined by NUL; `GET /api/tables/{id}/person-keys` answers it per occupied chair under the table read's admission, names no account and is no agent tool. While the keys are older than the view, the call keeps its last layout, so an ordinary table event never blinks a video shut; a failed read, an ended table or a gone table posts `seats: []`.
+
 ## 4. Deployment View
 
 Skat runs from the image the `Release` workflow pushes to `ghcr.io/overnightworks/skat`. Any number of pods share one Postgres and one Redis. `skat migrate` alone changes the schema, under an advisory lock; `skat serve` never migrates.
@@ -108,7 +112,7 @@ Redis holds nothing durable: its restart resets the limit windows and each pod r
 - **Calling an agent** needs the group `/agent-adders`, read fresh from the issuer at the act; sending a seated agent away needs that group or being the owner its chair stores. The control's rows carry a derived key, never an account id.
 - **A table's id** is an unguessable link, not a secret. A **rule set** is read only by the account that saved it.
 - **A table's cards** reach a viewer only through the view built for that viewer's seat (`skat.table.views`), so no route or tool can leak a hidden card.
-- **The call origin** (`SKAT_CALL_ORIGIN`) alone may frame Skat; framing grants it nothing, though a compromised one could trick people into clicks.
+- **The call origin** (`SKAT_CALL_ORIGIN`) alone may frame Skat; framing grants it nothing, though a compromised one could trick people into clicks and misplace videos with `placed`, which controls only which chairs are see-through and reads nothing of the table. The person key is an unkeyed pseudonym: whoever holds the subjects (the call's server, the realm's admins) can derive and link it across tables; to anyone else it is opaque.
 - **The proxy hops** in `SKAT_TRUSTED_PROXIES` may state the client address.
 - **The shared Redis** holds client addresses, table and account ids and agents' names and owners, each only briefly. Whoever reaches it can spend or clear limits and show a false agent name or owner, but cannot seat an agent or grant a call.
 - **The operator's settings and secret files** are trusted fully. Secrets come from files, never the environment; a wrong setting is named, never echoed.
@@ -141,7 +145,7 @@ Unit tests cover the logic, with a fake issuer for sign-in. Store and end-to-end
 
 - **The layer rule.** `host` depends on `web` and `store`, which know nothing of each other; both depend on `table`, and `engine` sits below `table`; never the other way. import-linter enforces it, and a second contract keeps `skat.table` and `skat.engine` free of every framework, driver and adapter. So the rules stay pure and testable without a process.
 - **A strict content security policy:** no inline script, style or handler; only the shell's bootstrap and the call sign-in page's script, admitted by hash.
-- **The Python path constants own the browser's paths;** `make wire` generates the TypeScript, so a drifting path fails a check, not a page.
+- **The Python path constants, token enums and table answer models own the browser's paths, tokens and answer types;** `make wire` generates the TypeScript, so a drifting path, token or answer shape fails a check, not a page.
 - **The test issuer** exists only in tests.
 
 ## 7. Not chosen

@@ -12,9 +12,9 @@
     {#if row.agent}<AgentSparkle />{:else}{row.initial}{/if}
 </span>
 <span class="txt">
-    <b
-        >{row.name}{#if row.agent}<AiMark />{/if}</b
-    >
+    <b>
+        {row.name}{#if row.agent}<AiMark />{/if}
+    </b>
     {#if row.line !== null}<small>{row.line}</small>{/if}
 </span>
 <span class="val">{row.value}</span>

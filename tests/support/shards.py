@@ -1,4 +1,4 @@
-"""Splits the end-to-end suite across CI runners: each runner keeps every count-th collected test."""
+"""Splits a suite across CI runners: each runner keeps every count-th test of the suite in node-id order."""
 
 import os
 from typing import TYPE_CHECKING
@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 import pytest
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
     from pathlib import Path
 
-SHARD_VARIABLE = "SKAT_E2E_SHARD"
-SHARDS_VARIABLE = "SKAT_E2E_SHARDS"
+SHARD_VARIABLE = "SKAT_SHARD"
+SHARDS_VARIABLE = "SKAT_SHARDS"
 
 
 def shard_from_environment(environment: Mapping[str, str]) -> tuple[int, int] | None:
@@ -36,13 +36,17 @@ def shard_from_environment(environment: Mapping[str, str]) -> tuple[int, int] | 
     return index, count
 
 
-def select_shard(config: pytest.Config, items: list[pytest.Item], suite_directory: Path) -> None:
-    """Keeps this shard's share of the suite's items in place; the rest are reported as deselected."""
+def select_shard(config: pytest.Config, items: list[pytest.Item], in_suite: Callable[[Path], bool]) -> None:
+    """Keeps this shard's share of the items whose path is in the suite; the rest are reported as deselected.
+
+    The share is cut from the node-id order, so runners that shuffle their collection differently still partition the
+    same suite without gap or overlap.
+    """
     shard = shard_from_environment(os.environ)
     if shard is None:
         return
     index, count = shard
-    suite_items = [item for item in items if item.path.is_relative_to(suite_directory)]
+    suite_items = sorted((item for item in items if in_suite(item.path)), key=lambda item: item.nodeid)
     rejected = {id(item) for position, item in enumerate(suite_items) if position % count != index}
     items[:] = [item for item in items if id(item) not in rejected]
     config.hook.pytest_deselected(items=[item for item in suite_items if id(item) in rejected])

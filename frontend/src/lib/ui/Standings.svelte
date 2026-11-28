@@ -39,10 +39,9 @@
                     {#if row.agent}<AgentSparkle />{:else}{row.initial}{/if}
                 </span>
                 <span class="txt">
-                    <b
-                        >{row.name}{#if row.agent}<AiMark />{/if}{#if row.gone}<em>{words["table.seriesGone"]}</em
-                            >{/if}</b
-                    >
+                    <b>
+                        {row.name}{#if row.agent}<AiMark />{/if}{#if row.gone}<em>{words["table.seriesGone"]}</em>{/if}
+                    </b>
                 </span>
                 <span class="sum">{row.total}</span>
             </li>

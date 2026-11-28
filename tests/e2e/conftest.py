@@ -19,7 +19,7 @@ from tests.e2e.support.failure_record import FailureRecord
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets, playwright_cookie
 from tests.e2e.support.server import RunningServer, skat_on_new_database
-from tests.e2e.support.shards import select_shard
+from tests.support.shards import select_shard
 from tests.support.signed_in import SeededMember, new_account, seed_member
 
 if TYPE_CHECKING:
@@ -36,7 +36,7 @@ EXPECTATION_MILLISECONDS = (NEXT_DEAL_PAUSE_SECONDS + PAUSE_SWEEP_EVERY_SECONDS 
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    select_shard(config, items, Path(__file__).parent)
+    select_shard(config, items, lambda path: path.is_relative_to(Path(__file__).parent))
 
 
 @pytest.fixture(scope="session")

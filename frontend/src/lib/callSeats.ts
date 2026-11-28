@@ -1,0 +1,252 @@
+import {
+    CALL_CHANNEL_VERSION,
+    OK_STATUS,
+    PERSON_KEY,
+    isPlainObject,
+    type CallHost,
+    type Corners,
+    type SeatEntry,
+    type SeatsMessage,
+} from "#lib/callFrame.ts";
+import type { Outcome, Table } from "../routes/(start)/tables.ts";
+import {
+    CHAIRS_PER_TABLE,
+    TABLES_PATH,
+    TABLE_PERSON_KEYS_SUFFIX,
+    type PersonKeyAnswer,
+    type PersonKeysAnswer,
+} from "#lib/wire.ts";
+
+// The pure decisions of the seats a framed table tells its call: which tile boxes go out, which chairs are see-through
+// and when the table holds back. `CallSeats.svelte` reads the page, runs the frames and writes the clip paths by them.
+
+/** The farthest a backdrop paints beyond its box, rim and drop shadow of the felt included, with room to spare. */
+const OUTER_MARGIN = 96;
+
+/** The person key of each occupied chair of a table at one version. */
+export interface SeatKeys {
+    readonly version: number;
+    readonly keys: ReadonlyMap<number, string>;
+}
+
+function isPersonKeyAnswer(entry: unknown): entry is PersonKeyAnswer {
+    return (
+        isPlainObject(entry) &&
+        typeof entry.seat === "number" &&
+        Number.isSafeInteger(entry.seat) &&
+        typeof entry.key === "string" &&
+        PERSON_KEY.test(entry.key)
+    );
+}
+
+function isPersonKeysAnswer(body: unknown): body is PersonKeysAnswer {
+    return (
+        isPlainObject(body) &&
+        typeof body.version === "number" &&
+        Number.isSafeInteger(body.version) &&
+        Array.isArray(body.keys) &&
+        body.keys.length <= CHAIRS_PER_TABLE &&
+        body.keys.every(isPersonKeyAnswer)
+    );
+}
+
+function seatKeysOf(body: unknown): SeatKeys | null {
+    if (!isPersonKeysAnswer(body)) return null;
+    const bySeat = new Map<number, string>();
+    for (const { seat, key } of body.keys) {
+        if (bySeat.has(seat)) return null;
+        bySeat.set(seat, key);
+    }
+    return { version: body.version, keys: bySeat };
+}
+
+/** The table's person keys from the signed-in route; anything but a 200 with the checked shape counts as no keys. */
+export async function readPersonKeys(fetchRoute: CallHost["fetch"], tableId: string): Promise<SeatKeys | null> {
+    try {
+        const answer = await fetchRoute(`${TABLES_PATH}/${tableId}${TABLE_PERSON_KEYS_SUFFIX}`);
+        return answer.status === OK_STATUS ? seatKeysOf(await answer.json()) : null;
+    } catch {
+        return null;
+    }
+}
+
+/** What the page read of one chair's tile in one frame, the browser's numbers unchanged. */
+export interface TileReading {
+    readonly seat: number;
+    /** The chair's person key when it is current, else undefined. */
+    readonly key: string | undefined;
+    /** What the chair held when it was read: `occupancyOf` its view. */
+    readonly occupancy: string;
+    readonly rect: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
+    /** The tile's `--call-tile-shape`. */
+    readonly shape: string;
+    /** The tile's computed corner radii. */
+    readonly radii: Corners;
+}
+
+/** A chair of the last posted `seats`, with what it held when it was posted. */
+export interface PostedSeat {
+    readonly seat: number;
+    readonly occupancy: string;
+    readonly entry: SeatEntry;
+}
+
+const isFiniteNumber = (value: number): boolean => Number.isFinite(value);
+const isCorner = (value: number): boolean => Number.isFinite(value) && value >= 0;
+
+function entryOf(tile: TileReading): SeatEntry | null {
+    const { key, rect, shape, radii } = tile;
+    if (key === undefined) return null;
+    if (![rect.x, rect.y].every(isFiniteNumber)) return null;
+    if (![rect.width, rect.height].every((side) => Number.isFinite(side) && side > 0)) return null;
+    const box = { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
+    if (shape === "round") return { key, box, shape };
+    if (shape === "rect" && Object.values(radii).every(isCorner)) return { key, box, shape, radius: radii };
+    return null;
+}
+
+/** The chairs whose tile read as a valid entry, in seat order and at most one per chair of the table. */
+export function postedSeats(tiles: readonly TileReading[]): PostedSeat[] {
+    return tiles
+        .toSorted((first, second) => first.seat - second.seat)
+        .flatMap((tile) => {
+            const entry = entryOf(tile);
+            return entry === null ? [] : [{ seat: tile.seat, occupancy: tile.occupancy, entry }];
+        })
+        .slice(0, CHAIRS_PER_TABLE);
+}
+
+export function seatsMessage(tableId: string, seats: readonly PostedSeat[]): SeatsMessage {
+    return { v: CALL_CHANNEL_VERSION, type: "seats", table: tableId, seats: seats.map(({ entry }) => entry) };
+}
+
+function cornerPath(box: SeatEntry["box"], corners: Corners): string {
+    // A box scales corners that do not fit a side down together, as the browser draws them.
+    const scale = Math.min(
+        1,
+        box.w / (corners.tl + corners.tr),
+        box.w / (corners.bl + corners.br),
+        box.h / (corners.tl + corners.bl),
+        box.h / (corners.tr + corners.br),
+    );
+    const [tl, tr, br, bl] = [corners.tl, corners.tr, corners.br, corners.bl].map((corner) => corner * scale) as [
+        number,
+        number,
+        number,
+        number,
+    ];
+    const { x, y, w, h } = box;
+    return [
+        `M ${String(x + tl)} ${String(y)}`,
+        `H ${String(x + w - tr)}`,
+        `A ${String(tr)} ${String(tr)} 0 0 1 ${String(x + w)} ${String(y + tr)}`,
+        `V ${String(y + h - br)}`,
+        `A ${String(br)} ${String(br)} 0 0 1 ${String(x + w - br)} ${String(y + h)}`,
+        `H ${String(x + bl)}`,
+        `A ${String(bl)} ${String(bl)} 0 0 1 ${String(x)} ${String(y + h - bl)}`,
+        `V ${String(y + tl)}`,
+        `A ${String(tl)} ${String(tl)} 0 0 1 ${String(x + tl)} ${String(y)}`,
+        "Z",
+    ].join(" ");
+}
+
+function ellipsePath(box: SeatEntry["box"]): string {
+    const [radiusX, radiusY] = [box.w / 2, box.h / 2].map(String) as [string, string];
+    const centerY = String(box.y + box.h / 2);
+    const [left, right] = [String(box.x), String(box.x + box.w)];
+    const arc = `A ${radiusX} ${radiusY} 0 1 0`;
+    return `M ${left} ${centerY} ${arc} ${right} ${centerY} ${arc} ${left} ${centerY} Z`;
+}
+
+/**
+ * A clip path that keeps all of the element and its rim and shadow but the holes: an outer rectangle and one rounded
+ * rectangle or ellipse per hole, cut out by the even-odd rule. It is written in the element's own coordinates, so a
+ * hole is the tile's box less the element's top-left corner.
+ */
+export function holesPath(
+    owner: { readonly left: number; readonly top: number; readonly width: number; readonly height: number },
+    holes: readonly SeatEntry[],
+): string {
+    const outer = [
+        `M ${String(-OUTER_MARGIN)} ${String(-OUTER_MARGIN)}`,
+        `H ${String(owner.width + OUTER_MARGIN)}`,
+        `V ${String(owner.height + OUTER_MARGIN)}`,
+        `H ${String(-OUTER_MARGIN)}`,
+        "Z",
+    ].join(" ");
+    const cuts = holes.map((hole) => {
+        const local = { ...hole.box, x: hole.box.x - owner.left, y: hole.box.y - owner.top };
+        return hole.shape === "round" ? ellipsePath(local) : cornerPath(local, hole.radius);
+    });
+    return `path(evenodd, "${[outer, ...cuts].join(" ")}")`;
+}
+
+/** The table an answer shows, or null while the page has none, or an answer that is no table. */
+export function shownTable(outcome: Outcome | null): Table | null {
+    return outcome?.kind === "table" ? outcome.table : null;
+}
+
+/** The occupancy of each chair of a table's chairs, by seat. */
+export function occupancyBySeat(
+    chairs: readonly (Occupant & { readonly seat: number })[],
+): ReadonlyMap<number, string> {
+    return new Map(chairs.map((chair) => [chair.seat, occupancyOf(chair)]));
+}
+
+/**
+ * The tiles that show who sits at their chair in the newest view. The person keys are those of the newest view, while
+ * the page may still show an older table (an auction is told word by word, a closing trick waits); a tile that shows
+ * someone else than the newest view seats is not told to the call, so no key lands on a chair that shows another person.
+ */
+export function shownAsInView(tiles: readonly TileReading[], occupancyNow: ReadonlyMap<number, string>): TileReading[] {
+    return tiles.filter(({ seat, occupancy }) => occupancyNow.get(seat) === occupancy);
+}
+
+interface Occupant {
+    readonly occupant_name: string | null;
+    readonly occupant_kind: string | null;
+    readonly is_mine: boolean;
+}
+
+/** What a chair of the table view holds, as far as a person key can go stale: who sits, of which kind, and whether it is mine. */
+export function occupancyOf(chair: Occupant): string {
+    return JSON.stringify([chair.occupant_name, chair.occupant_kind, chair.is_mine]);
+}
+
+/**
+ * Whether the table posts, holds back or tells the call that it has no chairs: a failed read and a table that ended or
+ * is gone post an empty list; keys of an older version than the view are not posted and leave the call its last layout.
+ */
+export type Hold = "closed" | "failed" | "held" | "current";
+
+export function holdOf(state: { readonly closed: boolean; readonly failed: boolean; readonly fits: boolean }): Hold {
+    if (state.closed) return "closed";
+    if (state.failed) return "failed";
+    return state.fits ? "current" : "held";
+}
+
+/** The keys of a `placed` that the last posted `seats` carries; any other key is ignored on its own. */
+export function acceptedPlacements(keys: readonly string[], posted: readonly PostedSeat[]): ReadonlySet<string> {
+    const postedKeys = new Set(posted.map(({ entry }) => entry.key));
+    return new Set(keys.filter((key) => postedKeys.has(key)));
+}
+
+/**
+ * The chairs that are see-through: the key is in the placed set and in the last posted `seats` entry for that chair, the
+ * chair still holds who it held when it was posted and the person key last read for it is still the posted one. A hole so
+ * stays open through any table event that leaves a chair as it was and shuts at once for a chair whose occupant changed,
+ * whether the view shows it (a name, a kind) or only a re-read key does (a new sitter of the same name and kind).
+ */
+export function openSeats(state: {
+    readonly posted: readonly PostedSeat[];
+    readonly placed: ReadonlySet<string>;
+    readonly occupancyNow: ReadonlyMap<number, string>;
+    readonly keysNow: ReadonlyMap<number, string>;
+}): PostedSeat[] {
+    return state.posted.filter(
+        ({ seat, occupancy, entry }) =>
+            state.placed.has(entry.key) &&
+            state.occupancyNow.get(seat) === occupancy &&
+            state.keysNow.get(seat) === entry.key,
+    );
+}

@@ -2,6 +2,11 @@ body {
     margin: 0;
 }
 
+/* A framed table lies over the call's video, so the page is dark and transparent as the call's frame is: a frame of another colour scheme than the page around it would get an opaque canvas. */
+:root:has(.room.framed) {
+    color-scheme: dark;
+}
+
 /* The wood backdrop of the start page and the table page: the pendant lamp pool, the vignette, the wood stripes and the dark base, as the scenes draw it. The table paints it with a childless element, so a call can clip it without clipping the table. */
 .start,
 .room-paint {
@@ -2117,6 +2122,8 @@ body {
 }
 
 .room .tile {
+    /* How the call draws its video in the tile's box: the own seat's bar from 900 px is round. */
+    --call-tile-shape: rect;
     position: absolute;
     inset: 0;
     display: grid;
@@ -2854,7 +2861,7 @@ body {
     grid-row: 6;
 }
 
-/* In a call the video lies in the tile's box, so the tile's rim, the own ring and the agent's dashed line lie outside it, clear of the call's own ring inside the box; no mark lies in the top-left quarter, where the call draws its own, so the marks stand in one row at the top right, the first of them rightmost, and wrap before they cross the tile's midline. The position's label keeps its place on the corner, so the row starts below it. */
+/* In a call the video lies in the tile's box, so the tile's rim, the own ring and the agent's dashed line lie outside it, clear of the call's own ring inside the box; no mark lies in the top-left quarter, where the call draws its own, so the marks stand in one row at the top right, the first of them rightmost, and wrap before they cross the tile's midline. The position's label keeps its place on the corner, so the row starts below it. On a phone a chair with three or more marks shrinks them to 20px, two to a line, so the right half of the smallest tile holds the four a chair can carry; the waits mark then shows its dot alone. */
 .room.framed .tile {
     box-shadow: var(--tile-framed-shadow);
 }
@@ -2891,10 +2898,85 @@ body {
     pointer-events: auto;
 }
 
+@media (max-width: 899px) {
+    .room.framed .mark-row:has(> .mark:not(.pos) ~ .mark:not(.pos) ~ .mark:not(.pos)) {
+        gap: 2px;
+        padding-right: 2px;
+    }
+
+    .room.framed .mark-row:has(> .mark:not(.pos) ~ .mark:not(.pos) ~ .mark:not(.pos)) > .mark:not(.pos) {
+        box-sizing: border-box;
+        width: 20px;
+        height: 20px;
+        padding: 0;
+    }
+
+    .room.framed .mark-row:has(> .mark:not(.pos) ~ .mark:not(.pos) ~ .mark:not(.pos)) > .mark:not(.pos) svg {
+        width: 12px;
+        height: 12px;
+    }
+
+    .room.framed .mark-row:has(> .mark:not(.pos) ~ .mark:not(.pos) ~ .mark:not(.pos)) > .mark.waits .dot {
+        width: 14px;
+        height: 14px;
+        font-size: 8px;
+    }
+
+    .room.framed .mark-row:has(> .mark:not(.pos) ~ .mark:not(.pos) ~ .mark:not(.pos)) > .mark.waits:has(.dot) .dots {
+        display: none;
+    }
+
+    .room.framed .mark-row:has(> .mark:not(.pos) ~ .mark:not(.pos) ~ .mark:not(.pos)) > .mark:not(.pos) .dots {
+        gap: 2px;
+    }
+
+    .room.framed .mark-row:has(> .mark:not(.pos) ~ .mark:not(.pos) ~ .mark:not(.pos)) > .mark:not(.pos) .dots i {
+        width: 3px;
+        height: 3px;
+    }
+}
+
 /* The position label is 26px tall at the tile's top-right from 900px up, so an opponent's row starts below it. */
 @media (min-width: 900px) {
     .room.framed .chair:not(.mine) .mark-row {
         padding-top: 38px;
+    }
+}
+
+/* The call shows its video in the box of a tile it placed, and the page's backdrops are cut out there: the tile fills nothing and its rims lie outside the box. The turn glow behind the chair would tint the video, so it goes; the turn ring stays. */
+.room.framed .chair[data-see-through] .tile {
+    background: none;
+    box-shadow: 0 0 0 2px rgba(240, 214, 150, 0.2);
+}
+
+.room.framed .chair[data-see-through] .tile :is(.initial, .orb) {
+    display: none;
+}
+
+.room.framed .chair.turn[data-see-through]::before {
+    display: none;
+}
+
+@media (max-width: 899px) {
+    .room.framed .chair.mine[data-see-through] .tile {
+        box-shadow: 0 0 0 3px var(--brass);
+    }
+}
+
+.room.framed .chair.win[data-see-through] .tile {
+    box-shadow: 0 0 0 3px #f3cf7a;
+}
+
+.room.framed .chair.turn[data-see-through] .tile {
+    box-shadow:
+        0 0 0 3px var(--accent-stage, #7aa7f0),
+        0 18px 30px -12px rgba(0, 0, 0, 0.9);
+}
+
+/* The own seat's bar carries the turn and the win rings itself. */
+@media (min-width: 900px) {
+    .room.framed .chair.mine[data-see-through] .tile {
+        box-shadow: none;
     }
 }
 
@@ -8300,8 +8382,15 @@ body {
     outline-offset: 2px;
 }
 
-/* A phone has no room for the count in the first row between the back key, the reaction key, the speaker, the watchers and the menu key, which closes the row; the count stands in the second row beside the rules' chips. */
+/* A phone keeps the first row for the back key, the reaction key, the speaker, the watchers and the menu key, which closes it; the count stands in the second row beside the rules' chips, so a break after the first row keeps it from joining the row behind the menu key. */
 @media (max-width: 899px) {
+    .room:not(.framed) .bar:has(.series-count)::after {
+        content: "";
+        order: 2;
+        flex: 0 0 100%;
+        height: 0;
+    }
+
     .room .series-count {
         position: relative;
         top: auto;
@@ -8310,7 +8399,7 @@ body {
         transform: none;
     }
 
-    .room .rules-slot {
+    .room:not(.framed) .bar:has(.series-count) .rules-slot {
         flex: 1 1 auto;
     }
 }
@@ -9622,6 +9711,7 @@ body {
 
     .room .chair.mine .tile,
     .room .chair.mine.turn .tile {
+        --call-tile-shape: round;
         position: static;
         flex: none;
         width: 34px;

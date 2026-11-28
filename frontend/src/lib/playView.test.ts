@@ -43,6 +43,7 @@ function chairs(mine: number, positions: Record<number, Position> = POSITIONS): 
         former_holder_name: null,
         is_mine_to_return: false,
         nudge: null,
+        turn_state: null,
     }));
 }
 
@@ -406,7 +407,14 @@ describe("the cards the viewer may play", () => {
     });
 
     it("are none while the first card waits for a Kontra word", () => {
-        const kontra = { said: [], factor: 1, my_word: null, first_card_waits_on: [2], first_card_declined: [] };
+        const kontra = {
+            said: [],
+            factor: 1,
+            my_word: null,
+            my_word_answered: false,
+            first_card_waits_on: [2],
+            first_card_declined: [],
+        };
 
         expect(cardsToPlay(table(1, { turn_seat: 1, legal_cards: legal, kontra }))).toBeNull();
     });

@@ -1,4 +1,4 @@
-import { REACTION_TOKENS, TABLE_REACTION_SUFFIX } from "#lib/wire.ts";
+import { REACTION_TOKENS, TABLE_REACTION_SUFFIX, type ReactionAnswer } from "#lib/wire.ts";
 import { words, type Key } from "#lib/words.ts";
 import { post, type Table } from "./tables.ts";
 
@@ -8,9 +8,7 @@ type TextKey = { [Name in Key]: (typeof words)[Name] extends string ? Name : nev
 // What a person throws at the table: an emote from the tray, or the tap on an object of the table.
 export type Reaction = (typeof REACTION_TOKENS)[number];
 
-// A reaction the table's answer carries for a few seconds; `number` counts them at the table, so a page plays each
-// once. A watcher's has no seat and no name.
-export type Thrown = { number: number; reaction: Reaction; by_seat: number | null; by_name: string | null };
+export type Thrown = ReactionAnswer;
 
 // The catalog's name of each reaction, and the glyph an emote is drawn as; an object of the table is drawn by the table
 // and has no glyph.

@@ -100,17 +100,58 @@ REFUSAL_TOKENS: Final = {
 }
 
 
-class AgentRowAnswer(BaseModel):
-    """One agent the person may call or send away; `key` is opaque and the same in every state of the row, an
-    `inviting` row says in whole seconds on the server's clock how long its invitation stays open, and an `ended` row
-    is the person's own call that ended without a seat, with how it ended.
+class AvailableAgentRowAnswer(BaseModel):
+    """An agent the person may call; `key` is opaque and the same in every state of the row."""
+
+    key: str
+    name: str
+    state: Literal[OfferState.AVAILABLE]
+    outcome: None
+    ends_in_seconds: None
+
+
+class InvitingAgentRowAnswer(BaseModel):
+    """An agent the person called and who has not answered yet, which says in whole seconds on the server's clock how
+    long its invitation stays open.
     """
 
     key: str
     name: str
-    state: OfferState | Literal["ended"]
-    outcome: CallOutcome | None
-    ends_in_seconds: int | None
+    state: Literal[OfferState.INVITING]
+    outcome: None
+    ends_in_seconds: int
+
+
+class HereAgentRowAnswer(BaseModel):
+    """An agent seated at the table, whom the person may send away."""
+
+    key: str
+    name: str
+    state: Literal[OfferState.HERE]
+    outcome: None
+    ends_in_seconds: None
+
+
+class EndedAgentRowAnswer(BaseModel):
+    """The person's own call that ended without a seat, with how it ended and whether the agent may be called again
+    once the outcome has been read: the room or the owner may stand in the way.
+    """
+
+    key: str
+    name: str
+    state: Literal["ended"]
+    outcome: CallOutcome
+    ends_in_seconds: None
+    may_call_again: bool
+
+
+# One agent the person may call or send away; the four shapes keep every key in this order.
+AgentRowAnswer = AvailableAgentRowAnswer | InvitingAgentRowAnswer | HereAgentRowAnswer | EndedAgentRowAnswer
+_OPEN_ROW_MODELS: Final[Mapping[OfferState, type[AgentRowAnswer]]] = {
+    OfferState.AVAILABLE: AvailableAgentRowAnswer,
+    OfferState.INVITING: InvitingAgentRowAnswer,
+    OfferState.HERE: HereAgentRowAnswer,
+}
 
 
 class AgentControlAnswer(BaseModel):
@@ -312,13 +353,24 @@ class _Offered:
 def _row_of(offered: _Offered) -> AgentRowAnswer | None:
     offer = offered.offer
     if offer.outcome is not None:
-        return AgentRowAnswer(
-            key=offered.key, name=offered.name, state="ended", outcome=offer.outcome, ends_in_seconds=None
+        return EndedAgentRowAnswer(
+            key=offered.key,
+            name=offered.name,
+            state="ended",
+            outcome=offer.outcome,
+            ends_in_seconds=None,
+            may_call_again=offer.answer is OfferState.AVAILABLE,
         )
     if not isinstance(offer.answer, OfferState):
         return None
-    return AgentRowAnswer(
-        key=offered.key, name=offered.name, state=offer.answer, outcome=None, ends_in_seconds=offer.ends_in_seconds
+    return _OPEN_ROW_MODELS[offer.answer].model_validate(
+        {
+            "key": offered.key,
+            "name": offered.name,
+            "state": offer.answer,
+            "outcome": None,
+            "ends_in_seconds": offer.ends_in_seconds,
+        }
     )
 
 

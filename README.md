@@ -54,7 +54,7 @@ Every setting is an environment variable. The secrets are read from the files na
 
 ## Release
 
-A release is the `Release` workflow, which the operator dispatches with a version `YYYY.MM.DD.N`. It gates `main`, builds and attests the image `ghcr.io/overnightworks/skat` and tags `vYYYY.MM.DD.N`. CI builds the same image without pushing it.
+A release is the `Release` workflow, which is dispatched with a version `YYYY.MM.DD.N` once the review and CI of `main` are green. It gates `main`, builds and attests the image `ghcr.io/overnightworks/skat` and tags `vYYYY.MM.DD.N`. CI builds the same image without pushing it.
 
 ## Licence
 

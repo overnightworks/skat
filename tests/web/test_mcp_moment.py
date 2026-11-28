@@ -46,8 +46,8 @@ from skat.web.member_place import ACCEPT_INVITATION_DECLARATION, SET_TURN_STATE_
 from tests.support.calls import call_facts
 from tests.web.support.agent import Agent, agent_account_id, person_passes, person_steps, view_uri_of, window_uri_of
 from tests.web.support.calling import a_person
+from tests.web.support.member_client import TOOLS_CHANGED, MemberClient
 from tests.web.support.playing import MIDDLEHAND, REARHAND, card, card_body
-from tests.web.support.sdk_agent import TOOLS_CHANGED, SdkAgent
 from tests.web.support.skat import running_skat, stored, streams_of
 
 READS = {READ_TABLE_TOOL, READ_SERIES_LIST_TOOL, READ_PAUSED_TABLES_TOOL, READ_RULE_SETS_TOOL}
@@ -235,7 +235,7 @@ class TestTheNoticeComesBeforeTheTellingsOfTheSameChange:
     def test_the_stream_writes_the_notice_of_an_accepted_invitation_before_the_window_and_the_view(self, skat, issuer):
         owner = skat.member()
         agent = Agent(skat, issuer, agent_owner=owner[1].id)
-        sdk = SdkAgent(skat, issuer, agent_owner=owner[1].id)
+        sdk = MemberClient(skat, issuer, agent_owner=owner[1].id)
         agent.admitted()
         table_id = skat.create(owner[0]).json()["id"]
         skat.client.cookies.clear()

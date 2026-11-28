@@ -345,6 +345,7 @@ def _presence(
 def _include_edge_routers(
     app: FastAPI,
     settings: ServerSettings,
+    tables: TableService,
     page_build: PageBuild,
     sessions: SessionRecordStore,
     web_auth: WebAuthConfig,
@@ -353,7 +354,7 @@ def _include_edge_routers(
     app.include_router(create_router(page_build, sessions, web_auth, database_ready))
     app.add_exception_handler(HTTPException, unknown_address_handler(page_build, sessions, web_auth))
     app.include_router(create_account_router(settings.oidc_issuer))
-    app.include_router(create_call_router(settings.call_origin))
+    app.include_router(create_call_router(settings.call_origin, settings.oidc_issuer, tables))
 
 
 def _include_table_routers(
@@ -641,7 +642,7 @@ def create_app(
             wakes,
         )
     )
-    _include_edge_routers(app, settings, page_build, stores.sessions, sign_in_configs.web_auth, database_ready)
+    _include_edge_routers(app, settings, tables, page_build, stores.sessions, sign_in_configs.web_auth, database_ready)
     _include_table_routers(app, tables, page_build, presence, wakes, stores.sessions, sign_in_configs.web_auth)
     membership = _caller_membership(relying_party, sign_in_configs, stores, clocks.chair)
     app.include_router(create_calling_router(tables, presence, roster, membership))

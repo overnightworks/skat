@@ -28,6 +28,7 @@ function chairs(mine: number): Table["chairs"] {
         former_holder_name: null,
         is_mine_to_return: false,
         nudge: null,
+        turn_state: null,
     }));
 }
 

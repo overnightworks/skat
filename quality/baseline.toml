@@ -1,5 +1,47 @@
 # Measured by `quality check --fix`. Entries only ever go down.
 
+[file_lines]
+"frontend/src/lib/start.css" = 9840
+
+[ccn."frontend/src/lib/cues.ts"]
+cuesBetween = 16
+
+[ccn."frontend/src/lib/result.ts"]
+resultView = 16
+
+[ccn."frontend/src/routes/(start)/openingRules.ts"]
+switchRule = 16
+
+[ccn."frontend/src/routes/(start)/t/[id]/+page.svelte"]
+presentTable = 18
+
+[function_lines."frontend/src/lib/callSignIn.ts"]
+createCallSignIn = 103
+
+[function_lines."frontend/src/lib/closingHand.ts"]
+tableShowing = 138
+
+[function_lines."frontend/src/lib/giveUp.fixtures.ts"]
+tableWith = 80
+
+[function_lines."frontend/src/lib/pushView.fixtures.ts"]
+table = 60
+
+[function_lines."frontend/src/lib/stream.ts"]
+openStream = 70
+
+[function_lines."frontend/src/lib/tableRules.ts"]
+rulesOf = 63
+
+[function_lines."frontend/src/lib/tableSound.ts"]
+createTableSound = 102
+
+[function_lines."frontend/src/lib/webAudio.ts"]
+createWebAudioPort = 87
+
+[function_lines."frontend/src/routes/(start)/agents.ts"]
+followAgents = 69
+
 [clones."src/skat/store/declaring.py"]
 append_declaring_steps = [["src/skat/store/pushing.py", "append_pushing_steps"]]
 read_declaring_steps = [["src/skat/store/pushing.py", "read_pushing_steps"]]

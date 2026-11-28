@@ -4,7 +4,10 @@ from contextlib import nullcontext
 import pytest
 from logline import REQUEST_EVENT, Outcome
 
+from skat.table.game_list import Standing
 from skat.table.records import EndReason, TableId
+from skat.table.views import EndedView
+from skat.web.ended_answer import ended_answer_of
 from skat.web.lobby import LOBBY_EVENTS_PATH
 from skat.web.presence import EmptyTable, Presence
 from skat.web.streams import IDLE_HEARTBEAT, SourceMessage, StreamKind, StreamRefusal, messages_with_end_log
@@ -169,6 +172,40 @@ class TestAnUnplayedEnd:
         }
         assert (message["ended"], old_link["ended"]) == (expected, expected)
         assert (old_link["chairs"], old_link["hand"], old_link["watchers"]) == ([], None, 0)
+
+
+class TestEveryEndOfATable:
+    PLAYED = (Standing("anna", "Anna", 1, None, 120, 2, 1, 1), Standing("ben", "Ben", 2, None, -30, 1, 2, 2))
+
+    @pytest.mark.parametrize(
+        "ended",
+        [
+            pytest.param(EndedView(EndReason.EMPTY, 60, None, None, None, None), id="empty-without-games"),
+            pytest.param(EndedView(EndReason.EMPTY, 60, None, None, PLAYED, 3), id="empty-with-games"),
+            pytest.param(EndedView(EndReason.UNPLAYED, None, 2, None, None, None), id="unplayed-without-games"),
+            pytest.param(EndedView(EndReason.UNPLAYED, None, 2, None, PLAYED, 3), id="unplayed-with-games"),
+            pytest.param(EndedView(EndReason.CLOSED, None, None, "Anna", None, None), id="closed-without-games"),
+            pytest.param(EndedView(EndReason.CLOSED, None, None, None, PLAYED, 3), id="closed-with-games"),
+        ],
+    )
+    def test_the_answer_keeps_what_the_view_says(self, ended):
+        answer = ended_answer_of(ended)
+
+        assert (
+            answer.reason,
+            answer.empty_seconds,
+            answer.unplayed_days,
+            answer.closed_by_name,
+            None if answer.standings is None else [each.seat for each in answer.standings],
+            answer.game_count,
+        ) == (
+            ended.reason,
+            ended.empty_seconds,
+            ended.unplayed_days,
+            ended.closed_by_name,
+            None if ended.standings is None else [each.seat for each in ended.standings],
+            ended.game_count,
+        )
 
 
 class ProducerFailedError(Exception):
