@@ -75,8 +75,10 @@
 
 [data-look="lampe"] .avatar {
     color: #fff8ec;
-    font-size: calc(24 * var(--u));
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-size: calc(26 * var(--u));
+    font-weight: 500;
+    text-transform: uppercase;
     background: radial-gradient(circle at 34% 28%, hsl(var(--hue) 72% 72%), hsl(var(--hue) 52% 36%) 70%);
     box-shadow:
         0 0 0 calc(2 * var(--u)) rgba(255, 236, 200, 0.5),
