@@ -1,18 +1,19 @@
 """Today's table surface as the end-to-end helpers read it.
 
-Every selector, class and attribute of the table page's markup that a helper of this package uses stands here, and the
-helpers reach the page only through this module. A function gives the part of the page a helper acts on, or runs the
-script that names markup. A constant is a selector or an in-page reader for a helper's script that takes one, and a
-selector for a test module that locates by it.
+The helpers of this package reach the table page's markup (its selectors, classes, attributes and structure) only
+through this module, and find controls by role and name directly; only `boxes`, `motion` and the paint half of `style`
+stand outside this rule. A function gives the part of the page a helper acts on, or runs the script that names markup.
+A constant is a selector or an in-page reader for a helper's script that takes one, and a selector for a test module
+that locates by it.
 """
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from playwright.sync_api import expect
 
 if TYPE_CHECKING:
-    from playwright.sync_api import FrameLocator, Locator, Page
+    from playwright.sync_api import FloatRect, FrameLocator, Locator, Page
 
 type Scope = Page | FrameLocator
 
@@ -262,10 +263,39 @@ RESULT_CARD = ".result"
 SERIES_COUNT = ".series-count"
 NEXT_SERIES_LINE = ".result.standing .nextline"
 NEXT_SERIES_SHEET = ".sheet.next-series"
+# Every measure of the page around the result card in one round trip, taken before the card is scrolled to its end
+# and the last row after it.
+_PAGE_AROUND_THE_RESULT_CARD = """(card, barSelector) => {
+    const root = document.documentElement;
+    const box = element => element && element.getBoundingClientRect();
+    const bar = box(document.querySelector(barSelector));
+    const cardBox = box(card);
+    card.scrollTop = card.scrollHeight;
+    return {
+        scrolls: root.scrollWidth > window.innerWidth || root.scrollHeight > window.innerHeight,
+        viewportHeight: window.innerHeight,
+        bar,
+        card: cardBox,
+        lastRow: box(card.lastElementChild),
+    };
+}"""
+
+
+class PageAroundTheResultCard(TypedDict):
+    scrolls: bool
+    viewportHeight: float
+    bar: FloatRect | None
+    card: FloatRect
+    lastRow: FloatRect | None
 
 
 def result_card(scope: Scope) -> Locator:
     return scope.locator(RESULT_CARD)
+
+
+def page_around_the_result_card(scope: Scope) -> PageAroundTheResultCard:
+    """The page around the result card as `_PAGE_AROUND_THE_RESULT_CARD` measures it, leaving the card at its end."""
+    return result_card(scope).evaluate(_PAGE_AROUND_THE_RESULT_CARD, ACTIONS)
 
 
 def result_stamp(scope: Scope) -> Locator:
