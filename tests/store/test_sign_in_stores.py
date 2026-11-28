@@ -4,19 +4,21 @@ import hashlib
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import SecretStr
 from sqlalchemy import select, text
-from sqlalchemy.exc import DataError
-from webauth.ports import AccountEvent, AccountEventKind, AccountKind
+from webauth.ports import AccountEvent, AccountEventKind, AccountKind, StoreUnavailableError
+from webauth.postgres import SessionStoreError
 from webauth.store_contract import STORE_CHECKS, StoreAdapter
 
 from skat.store.accounts import PostgresAccounts
 from skat.store.migrate import SIGN_IN_LOCK_KEY, create_store_engine
 from skat.store.schema import accounts, sessions
+from skat.store.sessions import PostgresSessionRecords
 from skat.store.sign_in import PostgresSignInStores
 from skat.web.sign_in import LoggingAuditSink
 from tests.support.postgres import row_count
@@ -141,7 +143,7 @@ class TestASignInEntry:
         assert (row_count(engine, accounts), row_count(engine, sessions)) == (0, 0)
 
     def test_whose_session_write_fails_keeps_the_tokens_out_of_the_error_text(self, stores):
-        with pytest.raises(DataError, match="NUL") as failure:
+        with pytest.raises(SessionStoreError) as failure:
             sign_in(stores, refresh_token="secret-refresh-token\x00")
 
         assert "secret-refresh-token" not in str(failure.value)
@@ -194,6 +196,136 @@ class TestASignInEntry:
             thread.join(WAIT_DEADLINE_SECONDS)
 
         assert (failures, row_count(engine, accounts), row_count(engine, sessions)) == ([], 1, 2)
+
+
+def a_transaction_waits_for_a_row(engine):
+    with engine.connect() as connection:
+        return connection.execute(
+            text(
+                "SELECT count(*) FROM pg_locks JOIN pg_stat_activity USING (pid)"
+                " WHERE locktype = 'transactionid' AND NOT granted AND datname = current_database()"
+            )
+        ).scalar_one()
+
+
+def cut_every_other_connection(engine):
+    with engine.connect() as cutter:
+        cutter.execute(
+            text(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity"
+                " WHERE datname = current_database() AND pid <> pg_backend_pid()"
+            )
+        )
+        cutter.commit()
+
+
+@pytest.fixture
+def cut_connection(engine):
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+        cut_every_other_connection(engine)
+        yield connection
+
+
+def _enter_the_sign_in_transaction(stores):
+    with stores.transaction():
+        pytest.fail("the entry opened")
+
+
+class TestAnUnreachableDatabase:
+    @pytest.fixture
+    def nowhere(self):
+        engine = create_store_engine("postgresql://nobody:none@127.0.0.1:1/none")
+        yield PostgresSignInStores(engine, audit=RecordingAudit())
+        engine.dispose()
+
+    @pytest.mark.parametrize(
+        "enter",
+        [lambda stores: stores.sessions.load("session-unknown"), _enter_the_sign_in_transaction],
+        ids=["a session store call", "the sign-in transaction"],
+    )
+    def test_raises_store_unavailable_when_the_transaction_cannot_be_opened(self, nowhere, enter):
+        with pytest.raises(StoreUnavailableError):
+            enter(nowhere)
+
+    @pytest.mark.parametrize(
+        "call",
+        [lambda entry: entry.accounts.get(SUBJECT), lambda entry: entry.sessions.load("session-unknown")],
+        ids=["an account call", "a session call"],
+    )
+    def test_raises_store_unavailable_from_a_call_after_the_connection_was_cut(self, engine, stores, call):
+        def cut_then_call():
+            with stores.transaction() as entry:
+                cut_every_other_connection(engine)
+                call(entry)
+
+        with pytest.raises(StoreUnavailableError):
+            cut_then_call()
+
+    @pytest.mark.parametrize(
+        "call",
+        [
+            lambda accounts: accounts.get(SUBJECT),
+            lambda accounts: accounts.create_for_subject(SUBJECT, "Anna", "user", AccountKind.PERSON),
+            lambda accounts: accounts.set_role(SUBJECT, "admin"),
+            lambda accounts: accounts.set_kind(SUBJECT, AccountKind.AGENT),
+        ],
+        ids=["get", "create_for_subject", "set_role", "set_kind"],
+    )
+    def test_raises_store_unavailable_from_an_account_call_on_a_cut_connection(self, cut_connection, call):
+        with pytest.raises(StoreUnavailableError):
+            call(PostgresAccounts(cut_connection))
+
+    def test_raises_store_unavailable_when_a_sign_in_entry_cannot_commit(self, engine, stores):
+        with pytest.raises(StoreUnavailableError), stores.transaction():
+            cut_every_other_connection(engine)
+
+    def test_raises_store_unavailable_when_a_session_call_cannot_commit(self, engine):
+        @contextmanager
+        def cutting_before_the_commit():
+            with engine.begin() as connection:
+                yield connection
+                cut_every_other_connection(engine)
+
+        records = PostgresSessionRecords(cutting_before_the_commit)
+
+        with pytest.raises(StoreUnavailableError):
+            records.delete("session-unknown")
+
+
+class TestADeadlock:
+    def test_raises_session_store_error_not_store_unavailable(self, engine, stores):
+        first = sign_in(stores).id
+        second = sign_in(stores).id
+        failures = []
+
+        def entry_that_locks_the_second_then_the_first():
+            try:
+                with stores.transaction() as entry:
+                    entry.sessions.touch(second, expires_at=NOW + LIFETIME)
+                    entry.sessions.touch(first, expires_at=NOW + LIFETIME)
+            except Exception as failure:
+                failures.append(failure)
+
+        def lock(connection, session_id):
+            connection.execute(
+                sessions.update()
+                .where(sessions.c.id_hash == hashlib.sha256(session_id.encode()).hexdigest())
+                .values(expires_at=NOW)
+            )
+
+        with engine.begin() as holder:
+            lock(holder, first)
+            thread = threading.Thread(target=entry_that_locks_the_second_then_the_first)
+            thread.start()
+            deadline = time.monotonic() + WAIT_DEADLINE_SECONDS
+            while not a_transaction_waits_for_a_row(engine):
+                assert time.monotonic() < deadline
+                time.sleep(POLL_SECONDS)
+            lock(holder, second)
+            thread.join(WAIT_DEADLINE_SECONDS)
+
+        assert [type(failure) for failure in failures] == [SessionStoreError]
 
 
 class TestAnAccount:

@@ -1,9 +1,10 @@
-from sqlalchemy import func, select, table
+from sqlalchemy import func, insert, select, table
 
 from skat.engine.deal import Position, positions_from
 from skat.engine.declaration import Announcement, Declare
 from skat.engine.games import GameKind
 from skat.engine.play import legal_cards
+from skat.store.hand_log import hand_steps
 from skat.table.auction import AuctionAction, AuctionCommand
 from skat.table.declaring import DeclaringCommand
 from skat.table.hand_state import playing_of
@@ -21,6 +22,15 @@ def nobody_connected() -> frozenset[str]:
 
 def card_id(number):
     return f"card-{number}"
+
+
+def a_step_appended(engine, table_id, kind, **columns):
+    """The table's stored log with one step of `kind` after its last, as a store the engine refuses could hold it."""
+    with engine.begin() as connection:
+        last = connection.execute(
+            select(func.max(hand_steps.c.ordinal)).where(hand_steps.c.table_id == table_id)
+        ).scalar_one()
+        connection.execute(insert(hand_steps).values(table_id=table_id, ordinal=last + 1, kind=kind.value, **columns))
 
 
 def count_rows(engine, name="played_cards"):

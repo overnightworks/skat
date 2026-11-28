@@ -8,7 +8,9 @@ import { language, words } from "#lib/words.ts";
 
 const TABLE_ID = "b".repeat(32);
 const CONTROL_PATH = `${TABLES_PATH}/${TABLE_ID}${TABLE_AGENTS_SUFFIX}`;
-const row = { key: "key-nova", name: "Nova", state: "available", ends_in_seconds: null };
+const row = { key: "key-nova", name: "Nova", state: "available", outcome: null, ends_in_seconds: null };
+// How long the kit shows a call's outcome before it draws the row as it would any other.
+const OUTCOME_MILLISECONDS = 4000;
 
 type Answer = { control: object; call?: Response };
 
@@ -300,6 +302,80 @@ describe("the agents' list in the table menu", () => {
             expect(callKey()).toBeNull();
         },
     );
+
+    describe("a call that ended and whose outcome has been read", () => {
+        const ended = { ...row, state: "ended", outcome: "owner-absent", may_call_again: false };
+
+        beforeEach(() => {
+            vi.useFakeTimers({ shouldAdvanceTime: true });
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        async function readOutcome() {
+            await vi.advanceTimersByTimeAsync(OUTCOME_MILLISECONDS);
+            flushSync();
+        }
+
+        it("leaves the list when its agent may not be called again, and stays away across a read of the same row", async () => {
+            const fetcher = server({ control: { shown: true, rows: [ended] } });
+            await show(1, true);
+            expect(list()?.textContent).toContain(kitWords["agent.ownerAbsent"]);
+
+            await readOutcome();
+            expect(list()?.textContent).not.toContain("Nova");
+
+            await closeMenu();
+            await openMenu();
+            expect([fetcher.mock.calls.length > 2, list()?.textContent.includes("Nova")]).toEqual([true, false]);
+        });
+
+        it("returns once the row changes", async () => {
+            const fetcher = server({ control: { shown: true, rows: [ended] } });
+            await show(1, true);
+            await readOutcome();
+            fetcher.mockImplementation(() =>
+                Promise.resolve(Response.json({ shown: true, rows: [{ ...ended, outcome: "busy" }] })),
+            );
+
+            await closeMenu();
+            await openMenu();
+
+            expect(list()?.textContent).toContain(kitWords["agent.busy"]);
+        });
+
+        it.each([
+            ["turns into another state", [row]],
+            ["leaves the answer", []],
+        ])("shows the outcome of the same ending again after the row %s", async (_case, between) => {
+            const fetcher = server({ control: { shown: true, rows: [ended] } });
+            await show(1, true);
+            await readOutcome();
+            const answerWith = (rows: object[]) =>
+                fetcher.mockImplementation(() => Promise.resolve(Response.json({ shown: true, rows })));
+
+            answerWith(between);
+            await closeMenu();
+            await openMenu();
+            answerWith([ended]);
+            await closeMenu();
+            await openMenu();
+
+            expect(list()?.textContent).toContain(kitWords["agent.ownerAbsent"]);
+        });
+
+        it("turns into its call key when its agent may be called again", async () => {
+            server({ control: { shown: true, rows: [{ ...ended, outcome: "no-answer", may_call_again: true }] } });
+            await show(1, true);
+            expect(callKey()).toBeNull();
+
+            await readOutcome();
+
+            expect(callKey()?.getAttribute("aria-label")).toBe(kitWords["agent.callLabel"]({ name: "Nova" }));
+        });
+    });
 
     it("asks a here row's agent to leave with a tap on Bitten zu gehen and shows the row available again", async () => {
         const here = { ...row, state: "here" };

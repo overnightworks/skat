@@ -56,8 +56,10 @@
                 stroke-width="2.4"
                 stroke-linecap="round"
                 stroke-linejoin="round"
-                aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg
+                aria-hidden="true"
             >
+                <path d="M6 9l6 6 6-6" />
+            </svg>
         </button>
         <span class="grow">
             <GameRowFace {row} />
@@ -124,8 +126,9 @@
                                         : each.state === "put-away"
                                           ? words["table.sheetCardPutAway"]
                                           : words["table.sheetCardUnplayed"]}
-                                    ><span class="mini"><CardFace card={each.card} /></span></span
                                 >
+                                    <span class="mini"><CardFace card={each.card} /></span>
+                                </span>
                             {/each}
                         </span>
                     </div>

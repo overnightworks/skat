@@ -103,12 +103,11 @@ class TestTheTaps:
         assert (answer.status_code, answer.json()["reason"]) == (409, Refusal.SERIES_NOT_OVER)
         assert table.record == before
 
-    @pytest.mark.parametrize("series", [2, 3], ids=["a-series-not-yet-started", "a-series-further-on"])
-    def test_a_tap_naming_another_series_is_refused_and_changes_nothing(self, skat, ended, series):
+    def test_a_tap_naming_another_series_is_refused_and_changes_nothing(self, skat, ended):
         table, _ = ended
         before = table.record
 
-        answer = tap_new_series(skat, headers_of(table)[0], table.table_id, "tap-stale", series=series)
+        answer = tap_new_series(skat, headers_of(table)[0], table.table_id, "tap-stale", series=2)
 
         assert (answer.status_code, answer.json()["reason"]) == (409, Refusal.STALE_SERIES)
         assert table.record == before

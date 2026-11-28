@@ -4,13 +4,12 @@
 
 `make -n <target>` prints a target; the targets are the `.PHONY` line of the `Makefile`.
 
-- `make check`: lint, unit tests, dead-code scan and frontend checks; the local gate. Needs `make install` once and the Node and pnpm the frontend declares.
-- `make lint`: ruff, pyright, import-linter and the generated-file checks.
-- `make test`: the unit tests against a throwaway Postgres container, so Docker must run.
-- `make e2e`: the end-to-end tests in Chromium; builds the page first, needs Playwright's Chromium installed once and Docker, and drives through `probe-run`, which the global contract installs.
+- `make lint`: ruff, pyright, import-linter and the generated-file checks; the static check to run locally. Needs `make install` once.
+- `scripts/test_stores.sh uv run pytest <module or -k expression>`: the named unit tests against a throwaway Postgres and Redis, so Docker must run. The full suite (`make test`, `make check`) runs in CI, not locally.
+- `scripts/test_stores.sh probe-run uv run pytest tests/e2e/<module>.py --no-cov --output test-results`: one end-to-end module in Chromium; run `make frontend` first, and install Playwright's Chromium once. The full run (`make e2e`) runs in CI, not locally.
+- `cd frontend && pnpm check && pnpm lint`: svelte-check and the frontend linter, which stay local; needs the Node and pnpm the frontend declares. `pnpm exec vitest run <file>...` runs named Vitest files; `make frontend-check` and `pnpm test` over the whole tree run in CI, not locally.
 - `make run`: builds the page, then serves the app; the server refuses to start without that build.
-- `make frontend-check`: svelte-check, the frontend linter and Vitest.
-- `make wire`: regenerates `frontend/src/lib/wire.ts` from the Python path constants.
+- `make wire`: regenerates `frontend/src/lib/wire.ts` from the Python path constants, token enums and table answer models.
 - `make words-sync`: brings every further language's catalog in line with `de.po` by key; the model that writes a translation runs it before translating.
 - `make words`: regenerates `frontend/src/lib/words/` and `src/skat/web/words.py` from the catalogs in `frontend/src/lib/catalogs/`.
 - `make voice`: records the voice, one MP3 per `voice.` catalog key and language, through a local run of overnightworks/speech; the script's docstring names the settings it needs. It keeps recordings that exist; `--again` makes all anew. Needs `ffmpeg`.

@@ -20,7 +20,7 @@ from tests.support.sign_in_settings import MCP_GROUP, TEST_PUBLIC_ORIGIN
 from tests.support.signed_in import new_account
 from tests.web.support.agent import Agent
 from tests.web.support.changes import RecordedChanges
-from tests.web.support.sdk_agent import SdkAgent
+from tests.web.support.member_client import MemberClient
 from tests.web.support.skat import FETCH, running_skat, streams_of
 
 
@@ -77,7 +77,7 @@ def only_row(skat, who, table_id):
 @contextmanager
 def listening(skat, issuer, owner, name, subject):
     """The agent `name` of `owner`, listening on its standing as a runner does, for as long as the block runs."""
-    session = SdkAgent(skat, issuer, subject, agent_owner=owner.id, agent_name=name)
+    session = MemberClient(skat, issuer, subject, agent_owner=owner.id, agent_name=name)
     with session.connected() as connected, connected.listening():
         yield Agent(skat, issuer, subject, agent_owner=owner.id, agent_name=name)
 

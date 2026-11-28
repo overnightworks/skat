@@ -1,4 +1,4 @@
-import { ACCOUNT_PATH } from "#lib/wire.ts";
+import { ACCOUNT_PATH, type AccountName } from "#lib/wire.ts";
 import { words } from "#lib/words.ts";
 
 const SIGNED_OUT_STATUS = 401;
@@ -28,6 +28,6 @@ export async function readAccount(): Promise<void> {
         return;
     }
     if (!answer.ok) return;
-    const { name } = (await answer.json()) as { name?: unknown };
+    const { name } = (await answer.json()) as Partial<AccountName>;
     if (typeof name === "string") account.name = name;
 }

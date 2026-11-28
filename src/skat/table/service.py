@@ -35,7 +35,6 @@ from skat.table.member_place import (
 )
 from skat.table.member_view import (
     ViewSignal,
-    moment_recipients,
     view_recipients,
 )
 from skat.table.playing import (
@@ -202,9 +201,8 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
         return clone
 
     def with_tools_signal(self, signal: Callable[[frozenset[str]], None]) -> TableService:
-        """The same service where each commit that seats an agent, frees its chair or moves its seat on to another
-        moment tells `signal` the agents it concerns, after the commit and on the thread the command ran on; no change
-        tells it nothing.
+        """The same service where each commit that seats an agent or frees its chair tells `signal` the agents it
+        concerns, after the commit and on the thread the command ran on; no change tells it nothing.
         """
         clone = copy.copy(self)
         clone._tools_changed = signal  # noqa: SLF001 - the clone is this class's own instance
@@ -566,7 +564,6 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
             self._random_source,
             self._tell_seats,
             self._tell_view,
-            self._tell_moments,
             self._trace,
         )
 
@@ -652,9 +649,7 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
                 transaction.save_book_entry(decision.entry)
             if decision.table is not table:
                 self._save_decided(transaction, SIT_DOWN_COMMAND, table, decision.table)
-        self._tell_moments(
-            moment_recipients(table, decision.table) | (agents_seated_at(decision.table) - agents_seated_at(table))
-        )
+        self._tell_tools(agents_seated_at(decision.table) - agents_seated_at(table))
         if decision.entry != entry:
             self._tell(frozenset({agent.account_id}))
         self._tell_view(table_id, view_recipients(table, decision.table))
@@ -672,14 +667,14 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
         """Tell agents that sat down or left: the tools they are offered changed and, with them, their standing; the
         tools notice goes first, so a stream writes it before the `changed` of the same change.
         """
-        self._tell_moments(accounts)
+        self._tell_tools(accounts)
         self._tell(accounts)
 
     def _tell_view(self, table_id: TableId, accounts: frozenset[str]) -> None:
         if accounts:
             self._view_changed(table_id, accounts)
 
-    def _tell_moments(self, accounts: frozenset[str]) -> None:
+    def _tell_tools(self, accounts: frozenset[str]) -> None:
         if accounts:
             self._tools_changed(accounts)
 
@@ -722,7 +717,6 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
             seated_when_hand_ended: frozenset[str] = frozenset()
             told: frozenset[str] = frozenset()
             viewers: frozenset[str] = frozenset()
-            moved_on: frozenset[str] = frozenset()
             if replay is None:
                 decision = decide(table)
                 if decision.refusal is None:
@@ -731,7 +725,6 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
                         after_accepted(transaction, decision.table)
                     told = agents_seated_at(table) ^ agents_seated_at(decision.table)
                     viewers = view_recipients(table, decision.table)
-                    moved_on = moment_recipients(table, decision.table)
                 if decision.refusal is not Refusal.NOT_ALLOWED:
                     # A refused authority is no outcome: the id stays free once the person has the right.
                     transaction.add_receipt(command_receipt(actor, command_id, command, payload, decision))
@@ -746,7 +739,6 @@ class TableService(LobbyReads, TableReads, ServerStepCalls):
                 decision.holder,
                 seated_when_hand_ended,
             )
-        self._tell_moments(moved_on)
         self._tell_seats(told)
         self._tell_view(identifier, viewers)
         return result

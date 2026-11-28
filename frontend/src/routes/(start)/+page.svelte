@@ -46,8 +46,10 @@
                 stroke="currentColor"
                 stroke-width="2.2"
                 stroke-linecap="round"
-                aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg
+                aria-hidden="true"
             >
+                <path d="M6 9l6 6 6-6" />
+            </svg>
         </button>
     </header>
     <div id="accountMenu" class="account-menu" popover bind:this={accountMenu}>

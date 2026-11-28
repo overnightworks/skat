@@ -20,6 +20,7 @@ function chairOf(seat: number, name: string | null, kind: Chair["occupant_kind"]
         former_holder_name: former,
         is_mine_to_return: false,
         nudge: null,
+        turn_state: null,
     };
 }
 

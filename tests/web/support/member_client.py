@@ -1,21 +1,18 @@
-"""An agent's MCP SDK client against the app in this process.
+"""The agents library's member client against the app in this process.
 
-The SDK client is asynchronous and its listen is an open stream, so it runs on the event loop the app's lifespan runs
-on, reached through the test client's portal; the test body stays synchronous. A person's move in the body reaches the
-app through the test client as everywhere else in the web tests.
+The member session is asynchronous and its listen is an open stream, so it runs on the event loop the app's lifespan
+runs on, reached through the test client's portal; the test body stays synchronous. A person's move in the body reaches
+the app through the test client as everywhere else in the web tests.
 """
 
-import json
 from contextlib import asynccontextmanager, contextmanager, suppress
 
 import anyio
 import httpx2
+from agents.mcp_client import ResourceWake, open_member_session
 from agents.mcp_wire import MCP_ENDPOINT_PATH
-from agents.member import STANDING_URI
-from mcp.client import Client
-from mcp.client.streamable_http import streamable_http_client
-from mcp.shared.subscriptions import ResourceUpdated, ToolsListChanged
-from mcp_types import TextContent, TextResourceContents
+from agents.member import PlaceRef
+from pydantic import SecretStr
 
 from tests.support.sign_in_settings import TEST_PUBLIC_ORIGIN
 from tests.web.support.agent import SUBJECT, ToolAnswer, view_uri_of, window_uri_of
@@ -102,9 +99,9 @@ class InProcessApp(httpx2.AsyncBaseTransport):
         return httpx2.Response(start["status"], headers=start["headers"], stream=_Streamed(chunks_out, disconnected))
 
 
-class SdkAgent:
-    """The agent through the SDK's `Client`: its own token at every request, tools called, resources read and listened
-    to like a runner does. Its methods are synchronous; the client runs on the app's loop.
+class MemberClient:
+    """The agent through the agents library's `MemberSession`: its own token at every request, tools called, places read
+    and the standing listened to like a runner does. Its methods are synchronous; the session runs on the app's loop.
     """
 
     def __init__(self, skat, issuer, subject=SUBJECT, **claims):
@@ -115,80 +112,71 @@ class SdkAgent:
     async def _connected(self):
         async with anyio.create_task_group() as tasks:
             transport = InProcessApp(self._skat.app, tasks)
-            headers = {"authorization": f"Bearer {self._token}"}
-            async with httpx2.AsyncClient(transport=transport, headers=headers) as http:
-                url = TEST_PUBLIC_ORIGIN + MCP_ENDPOINT_PATH
-                async with Client(streamable_http_client(url, http_client=http)) as client:
-                    yield client
+            url = TEST_PUBLIC_ORIGIN + MCP_ENDPOINT_PATH
+            async with open_member_session(url, lambda: SecretStr(self._token), transport=transport) as session:
+                yield session
             tasks.cancel_scope.cancel()
 
     @contextmanager
     def connected(self):
-        """A client session; leaving it ends its streams."""
+        """A member session; leaving it ends its streams."""
         portal = self._skat.client.portal
-        with portal.wrap_async_context_manager(self._connected()) as client:
-            yield SdkSession(portal, client)
+        with portal.wrap_async_context_manager(self._connected()) as session:
+            yield MemberCalls(portal, session)
 
 
-class SdkSession:
-    def __init__(self, portal, client):
+class MemberCalls:
+    def __init__(self, portal, session):
         self._portal = portal
-        self._client = client
+        self._session = session
 
     def call(self, tool, **arguments):
-        result = self._portal.call(self._client.call_tool, tool, arguments)
-        text = next(block.text for block in result.content if isinstance(block, TextContent))
-        return ToolAnswer(bool(result.is_error), text)
+        outcome = self._portal.call(self._session.invoke, tool, arguments)
+        return ToolAnswer(outcome.is_error, outcome.content)
 
     def view(self, table_id):
-        result = self._portal.call(self._client.read_resource, view_uri_of(table_id))
-        content = result.contents[0]
-        assert isinstance(content, TextResourceContents)
-        return json.loads(content.text)
-
-    def tools(self):
-        """The names of the tools the front lists for this client now, in the order it lists them."""
-        return [tool.name for tool in self._portal.call(self._client.list_tools).tools]
+        """The table's view as the app serves it: revision, awaits_you, state and traceparent."""
+        view = self._portal.call(self._session.read_view, PlaceRef(kind="table", id=table_id))
+        assert view is not None, f"the app shows this member no view of table {table_id}"
+        return view.model_dump(mode="json")
 
     @contextmanager
     def listening(self, *, tools_list_changed=False):
-        """A `subscriptions/listen` stream on the agent's standing, which delivers the views it lists too, and the
-        change of the tool list when asked.
+        """A listen stream on the agent's standing, which delivers the views it lists too, and the change of the tool
+        list when asked.
         """
-        with self._portal.wrap_async_context_manager(
-            self._client.listen(resource_subscriptions=[STANDING_URI], tools_list_changed=tools_list_changed)
-        ) as events:
-            yield SdkEvents(self, self._portal, events)
+        with self._portal.wrap_async_context_manager(self._session.listen()) as wakes:
+            yield MemberEvents(self, self._portal, wakes, tools_list_changed)
 
 
-class SdkEvents:
-    def __init__(self, session, portal, events):
-        self._session = session
+class MemberEvents:
+    def __init__(self, calls, portal, wakes, tools_list_changed):
+        self._calls = calls
         self._portal = portal
-        self._events = events
+        self._wakes = wakes
+        self._tools_list_changed = tools_list_changed
 
     def next_uri(self):
         """The URI the next change of the stream names."""
-
-        async def next_event():
-            with anyio.fail_after(EVENT_WITHIN_SECONDS):
-                event = await self._events.__anext__()
-            assert isinstance(event, ResourceUpdated)
-            return event.uri
-
-        return self._portal.call(next_event)
+        kind = self.next_kind()
+        assert kind != TOOLS_CHANGED
+        return kind
 
     def next_kind(self):
         """What the next event of the stream is: `TOOLS_CHANGED` for the notice that the tool list changed, else the
         URI that changed.
         """
 
-        async def next_event():
+        async def next_wake():
             with anyio.fail_after(EVENT_WITHIN_SECONDS):
-                event = await self._events.__anext__()
-            return TOOLS_CHANGED if isinstance(event, ToolsListChanged) else event.uri
+                async for wake in self._wakes:
+                    if isinstance(wake, ResourceWake):
+                        return wake.uri
+                    if self._tools_list_changed:
+                        return TOOLS_CHANGED
+            raise AssertionError("the stream ended")
 
-        return self._portal.call(next_event)
+        return self._portal.call(next_wake)
 
     def woken_view(self, table_id):
         """Waits for the pulse of the table's view, which a commit tells after the pulse of its window, and reads the
@@ -198,4 +186,4 @@ class SdkEvents:
         if uri == window_uri_of(table_id):
             uri = self.next_uri()
         assert uri == view_uri_of(table_id)
-        return self._session.view(table_id)
+        return self._calls.view(table_id)

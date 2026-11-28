@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount, untrack } from "svelte";
+    import { onMount } from "svelte";
     import { goto } from "$app/navigation";
     import { resolve } from "$app/paths";
     import { page } from "$app/state";
@@ -9,13 +9,7 @@
     import { grumblingAt, ring, stopRinging } from "#lib/bell.svelte.ts";
     import { tableShowing, type DecidingTrick, type Presenter } from "#lib/closingHand.ts";
     import { springsUp, stampBetween, type BidSaid } from "#lib/cues.ts";
-    import {
-        browserCallHost,
-        callStartAddress,
-        greetCall,
-        isFramedInCallMode,
-        readCallOrigin,
-    } from "#lib/callFrame.ts";
+    import { browserCallHost, callStartAddress, isFramedInCallMode, readCallOrigin } from "#lib/callFrame.ts";
     import {
         answerGiveUp,
         giveUpAsk,
@@ -52,6 +46,7 @@
     import AwayMark from "#lib/ui/AwayMark.svelte";
     import CallKey from "#lib/ui/CallKey.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
+    import CallSeats from "#lib/ui/CallSeats.svelte";
     import DecidingPlaque from "#lib/ui/DecidingPlaque.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
@@ -82,8 +77,6 @@
     import SitQuestion from "#lib/ui/SitQuestion.svelte";
     import TakenNotice from "#lib/ui/TakenNotice.svelte";
     import SoundButton from "#lib/ui/SoundButton.svelte";
-    import KlassikDecor from "#lib/ui/KlassikDecor.svelte";
-    import StrandDecor from "#lib/ui/StrandDecor.svelte";
     import ThrownEmotes from "#lib/ui/ThrownEmotes.svelte";
     import StyleScene from "#lib/ui/StyleScene.svelte";
     import TrickPile from "#lib/ui/TrickPile.svelte";
@@ -106,7 +99,9 @@
         tellOnStage,
         trickIsMoving,
     } from "#lib/stage.svelte.ts";
-    import { beatOf, receiveReactions, resetReactions } from "#lib/tableReactions.svelte.ts";
+    import { lookOf } from "#lib/looks/registry.ts";
+    import { tableIntents } from "#lib/table/intents.ts";
+    import { beatOf, receiveReactions, resetReactions, tapCounts } from "#lib/tableReactions.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
     import { words } from "#lib/words.ts";
@@ -137,7 +132,7 @@
     } from "../../tables.ts";
     import { nudgedNote } from "../../nudge.ts";
     import { markReady, seriesNumberOf, startNewSeries } from "../../seriesCommands.ts";
-    import { reactionName, reactionsBetween, throwReaction } from "../../reaction.ts";
+    import { reactionName, reactionsBetween } from "../../reaction.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
     const WON_MOMENT_MILLISECONDS = 2500;
@@ -146,7 +141,11 @@
     const { data }: PageProps = $props();
     // The route has an [id] segment, so the parameter is always present.
     const id = $derived(page.params.id as string);
+    const intents = $derived(tableIntents(id));
+    const look = $derived(lookOf(tableStyle()));
     let outcome = $state<Outcome | null>(null);
+    // The newest table the stream brought, shown or not: the call follows who sits there, not the paced table.
+    let newestTable = $state<Table | null>(null);
     let note = $state("");
     let rulesOpen = $state(false);
     let taken: string | null = $state(null);
@@ -236,6 +235,7 @@
     // SvelteKit keeps this component when the address changes from one table to another.
     $effect(() => {
         outcome = null;
+        newestTable = null;
         connected = true;
         streamsFull = false;
         attention = 0;
@@ -256,11 +256,15 @@
         void readTable(id).then((answer) => {
             if (!current) return;
             outcome = answer;
+            newestTable = answer.kind === "table" ? answer.table : null;
             if (answer.kind === "table" && answer.table.ended === null) {
                 tables.begin(answer.table);
                 stopWatching = watchTable(
                     id,
-                    tables.show,
+                    (table) => {
+                        newestTable = table;
+                        tables.show(table);
+                    },
                     (count) => {
                         attention = count;
                     },
@@ -313,16 +317,6 @@
         void readCallOrigin(browserCallHost().fetch.bind(browserCallHost())).then((origin) => {
             callOrigin = origin;
         });
-    });
-    onMount(() => {
-        if (!callMode) return;
-        return greetCall(
-            untrack(() => id),
-            browserCallHost(),
-            () => {
-                greeted = true;
-            },
-        );
     });
 
     // While a hand runs the sit asks first, because the sitter takes over the open chair's cards; a person returns to
@@ -418,7 +412,10 @@
     data-motion={motionInForce()}
     data-style={tableStyle()}
 >
-    <div class="room-paint" aria-hidden="true"></div>
+    <div class="room-paint" aria-hidden="true" data-call-backdrop></div>
+    {#if callMode}
+        <CallSeats tableId={id} {outcome} newest={newestTable} ongreeted={() => (greeted = true)} />
+    {/if}
     <StyleScene style={outcome?.kind === "table" ? outcome.table.style : null} />
     <CardSprite />
     {#if !greeted}
@@ -558,10 +555,9 @@
             {:else if !outcome.table.hand?.declaring}
                 <WaitingPlaque table={outcome.table} {passedIn} {waits} said={bidsSaid} />
             {/if}
-            <div class="felt-paint" aria-hidden="true"></div>
+            <div class="felt-paint" aria-hidden="true" data-call-backdrop></div>
             <div class="felt">
-                <StrandDecor {id} />
-                <KlassikDecor {id} />
+                <look.renderer {look} scene={{ taps: tapCounts() }} {intents} />
                 <ThrownEmotes chairs={outcome.table.chairs} />
             </div>
             {#if standing !== null}
@@ -613,7 +609,7 @@
                         data-moving={chairMoving(chair.seat)}
                     >
                         {#if chair.is_mine}
-                            <span class="bar-pill" aria-hidden="true"></span>
+                            <span class="bar-pill" aria-hidden="true" data-call-backdrop></span>
                         {/if}
                         {#if chair.occupant_name !== null}
                             <span class="tile" class:agent={chair.occupant_kind === "agent"}>
@@ -690,14 +686,15 @@
                             />
                         {/if}
                         <TrickPile seat={chair.seat} playing={trick} />
-                        <span class="plate"
-                            >{chair.is_mine
+                        <span class="plate">
+                            {chair.is_mine
                                 ? words["table.sideYou"]
                                 : (chair.occupant_name ??
                                   words["table.seatFree"])}{#if chair.occupant_kind === "agent"}<AiMark
-                                />{/if}{#if chair.is_away}<small class="away-note">{words["table.seatAway"]}</small
-                                >{/if}</span
-                        >
+                                />{/if}{#if chair.is_away}<small class="away-note">
+                                    {words["table.seatAway"]}
+                                </small>{/if}
+                        </span>
                         {#if chair.total !== null}
                             <button
                                 type="button"
@@ -705,7 +702,7 @@
                                 data-beat={beatOf("coaster")}
                                 aria-label={`${words[reactionName("coaster")]} ${withMinus(chair.total)}`}
                                 onclick={() => {
-                                    void throwReaction(id, "coaster");
+                                    intents.tap("coaster");
                                 }}
                             >
                                 {withMinus(chair.total)}

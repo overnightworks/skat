@@ -24,7 +24,7 @@ from skat.table.records import Chair, Occupant, OpaqueId, TableId, TableRecord, 
 from skat.table.rules import free_seat_for, seat_of
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Sequence
+    from collections.abc import Callable, Iterable, Mapping, Sequence
     from datetime import datetime
 
     from skat.table.records import Actor, NewHand
@@ -45,6 +45,7 @@ __all__ = [
     "MemberBook",
     "OfferState",
     "OpenInvitation",
+    "SeatedAccounts",
     "SeatedAgent",
     "SeatedOffer",
     "TableOffers",
@@ -61,6 +62,7 @@ __all__ = [
     "may_send_away",
     "offer_of",
     "offers_at",
+    "seated_accounts_of",
     "seated_agents",
     "seated_call_facts",
     "standings_among",
@@ -371,6 +373,20 @@ def agents_seated_at(table: TableRecord) -> frozenset[str]:
 def at_the_table(table: TableRecord, connected_accounts: frozenset[str]) -> frozenset[str]:
     """Who counts as at the table for a person's call: whoever holds an open stream on it and whoever holds a chair."""
     return connected_accounts | {chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
+
+
+@dataclass(frozen=True)
+class SeatedAccounts:
+    """Who holds each occupied chair of a live table, with the version of the table that read them."""
+
+    version: int
+    account_by_seat: Mapping[int, str]
+
+
+def seated_accounts_of(table: TableRecord) -> SeatedAccounts:
+    return SeatedAccounts(
+        table.version, {chair.seat: chair.occupant.account_id for chair in table.chairs if chair.occupant is not None}
+    )
 
 
 def control_shown(*, viewer_present: bool, viewer_is_member: bool, sends_agent_away: bool) -> bool:

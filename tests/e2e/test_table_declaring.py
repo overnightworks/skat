@@ -11,6 +11,7 @@ from skat.web.declaring import (
     TABLE_DECLARING_TAKE_SUFFIX,
 )
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support.boxes import covered_by
 from tests.e2e.support.declaring import DeclaringTable, button_of, reload_and_wait
 from tests.e2e.support.hands import PlayingTable, tap
 from tests.e2e.support.people import PHONE, WIDTHS
@@ -414,15 +415,6 @@ def expect_the_hand_panel(declarer: Page) -> None:
     expect(declarer.locator(HAND_CARD)).to_have_count(CARDS_IN_A_HAND)
 
 
-def overlaps(first: dict[str, float], second: dict[str, float]) -> bool:
-    return (
-        first["x"] < second["x"] + second["width"]
-        and second["x"] < first["x"] + first["width"]
-        and first["y"] < second["y"] + second["height"]
-        and second["y"] < first["y"] + first["height"]
-    )
-
-
 @pytest.mark.parametrize("form_factor", WIDTHS)
 @pytest.mark.parametrize(("token", "word_key"), HAND_GAMES)
 def test_the_declarer_declares_each_game_as_hand_after_a_page_step_and_a_reload_returns_to_the_choice(
@@ -453,8 +445,7 @@ def test_the_declarer_declares_each_game_as_hand_after_a_page_step_and_a_reload_
     button_of(declarer, HAND).click()
     button_of(declarer, text(SOURCE_LANGUAGE, word_key)).click()
     expect(button_of(declarer, ANNOUNCE)).to_be_enabled()
-    for far_fan in declarer.locator(".chair:not(.mine) .fan").all():
-        assert not overlaps(far_fan.bounding_box(), declarer.locator(".declare").bounding_box())
+    assert covered_by(declarer, ".declare", (".chair:not(.mine) .fan",)) == []
     assert declarer.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     button_of(declarer, ANNOUNCE).click()
     expect_no_controls(declarer)
@@ -648,8 +639,6 @@ def test_an_announced_hand_game_is_stored_with_one_command_and_every_plaque_name
             text(SOURCE_LANGUAGE, "game.handName", game=text(SOURCE_LANGUAGE, word_key))
         )
         expect(person.locator(ANNOUNCED_MARK)).to_have_text(ANNOUNCED_WORDS[level])
-        plaque = person.locator(PLAQUE).bounding_box()
-        for covered in (*person.locator(".fan-spot").all(), *person.locator(".own-hand").all()):
-            assert not overlaps(plaque, covered.bounding_box())
+        assert covered_by(person, PLAQUE, (".fan-spot", ".own-hand")) == []
         assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     assert page_errors == []

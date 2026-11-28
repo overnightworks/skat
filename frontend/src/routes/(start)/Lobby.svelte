@@ -138,9 +138,9 @@
 
 {#snippet plateOf(seat: SeatCard)}
     <span class="lobby-plate">
-        <b
-            >{seat.name}{#if seat.agent}<AiMark />{/if}</b
-        >
+        <b>
+            {seat.name}{#if seat.agent}<AiMark />{/if}
+        </b>
         {#if seat.hold !== null}
             <small title={seat.hold.title}>{seat.hold.note}</small>
         {/if}
@@ -227,8 +227,10 @@
                     class="lock"
                     role="img"
                     aria-label={words["lobby.private"]}
-                    title={words["lobby.private"]}><LockIcon /></span
-                >{/if}
+                    title={words["lobby.private"]}
+                >
+                    <LockIcon />
+                </span>{/if}
         </h3>
         <span class="side">
             {#if card.progress !== null}
