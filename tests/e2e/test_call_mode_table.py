@@ -31,7 +31,7 @@ from tests.e2e.support.call_frame import (
     table_url,
 )
 from tests.e2e.support.declaring import AuctionCall, DeclaringTable, bids, passes
-from tests.e2e.support.hands import deal_playing_table
+from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
 from tests.e2e.support.table_menu import AGENTS, MENU, MENU_KEY, menu_button, open_table_menu
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of
@@ -583,12 +583,13 @@ def test_a_framed_chair_with_three_marks_on_the_result_keeps_its_not_ready_mark_
 @contextmanager
 def in_a_hopin_frame(
     visitor: Page,
+    table: PlayingTable,
     browser_coverage: BrowserCoverage,
     server: RunningServer,
-    path: str,
     frame_size: tuple[int, int],
 ) -> Generator[FrameLocator]:
     """The table in a frame of the size hopin's stage gives it, before the call's greeting."""
+    path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
     page = greeting_page_holding(table_url(server, path), server.base_url, frame_style=frame_of_size(*frame_size))
     with served_from(CALL_ORIGIN, visitor, browser_coverage, page):
         visitor.evaluate("url => location.assign(url)", f"{CALL_ORIGIN}/")
@@ -598,20 +599,20 @@ def in_a_hopin_frame(
         yield table
 
 
-def device_of(frame_size: tuple[int, int]) -> dict[str, Any]:
-    return DESKTOP if frame_size[0] > PHONE["viewport"]["width"] else PHONE
+def greet(visitor: Page, frame: FrameLocator) -> None:
+    visitor.evaluate("greet()")
+    expect(frame.locator(BAR)).to_have_count(0)
 
 
-@pytest.mark.parametrize("frame_size", HOPIN_FRAME_SIZES.values(), ids=HOPIN_FRAME_SIZES)
-def test_a_hopin_frame_holds_the_whole_table_the_own_hand_and_the_menu_key_before_and_after_the_greeting(
+@pytest.fixture
+def hopin_table(
     open_person: Callable[..., Page],
     member_of: Callable[[Page], SeededMember],
-    browser_coverage: BrowserCoverage,
     framing_server: RunningServer,
     page_errors: list[str],
     frame_size: tuple[int, int],
-) -> None:
-    table = deal_playing_table(
+) -> PlayingTable:
+    return deal_playing_table(
         open_person,
         framing_server,
         member_of,
@@ -619,15 +620,26 @@ def test_a_hopin_frame_holds_the_whole_table_the_own_hand_and_the_menu_key_befor
         {**device_of(frame_size), "server": framing_server},
         console=False,
     )
-    path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
-    seated = table.pages[table.declarer_seat]
 
-    with in_a_hopin_frame(seated, browser_coverage, framing_server, path, frame_size) as frame:
+
+def device_of(frame_size: tuple[int, int]) -> dict[str, Any]:
+    return DESKTOP if frame_size[0] > PHONE["viewport"]["width"] else PHONE
+
+
+@pytest.mark.parametrize("frame_size", HOPIN_FRAME_SIZES.values(), ids=HOPIN_FRAME_SIZES)
+def test_a_hopin_frame_holds_the_whole_table_the_own_hand_and_the_menu_key_before_and_after_the_greeting(
+    hopin_table: PlayingTable,
+    browser_coverage: BrowserCoverage,
+    framing_server: RunningServer,
+    frame_size: tuple[int, int],
+) -> None:
+    seated = hopin_table.pages[hopin_table.declarer_seat]
+
+    with in_a_hopin_frame(seated, hopin_table, browser_coverage, framing_server, frame_size) as frame:
         expect(frame.locator(".own-hand")).to_be_visible()
         for greeted in (False, True):
             if greeted:
-                seated.evaluate("greet()")
-                expect(frame.locator(BAR)).to_have_count(0)
+                greet(seated, frame)
             expect(frame.get_by_role("button", name=MORE)).to_be_visible()
 
             assert frame.locator("body").evaluate(SCROLLS) is False
@@ -636,27 +648,15 @@ def test_a_hopin_frame_holds_the_whole_table_the_own_hand_and_the_menu_key_befor
 
 @pytest.mark.parametrize("frame_size", HOPIN_FRAME_SIZES.values(), ids=HOPIN_FRAME_SIZES)
 def test_the_reaction_key_works_in_a_hopin_frame_after_the_greeting(
-    open_person: Callable[..., Page],
-    member_of: Callable[[Page], SeededMember],
+    hopin_table: PlayingTable,
     browser_coverage: BrowserCoverage,
     framing_server: RunningServer,
-    page_errors: list[str],
     frame_size: tuple[int, int],
 ) -> None:
-    table = deal_playing_table(
-        open_person,
-        framing_server,
-        member_of,
-        page_errors,
-        {**device_of(frame_size), "server": framing_server},
-        console=False,
-    )
-    path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
-    seated = table.pages[table.declarer_seat]
+    seated = hopin_table.pages[hopin_table.declarer_seat]
 
-    with in_a_hopin_frame(seated, browser_coverage, framing_server, path, frame_size) as frame:
-        seated.evaluate("greet()")
-        expect(frame.locator(BAR)).to_have_count(0)
+    with in_a_hopin_frame(seated, hopin_table, browser_coverage, framing_server, frame_size) as frame:
+        greet(seated, frame)
         tray = frame.get_by_role("group", name=REACTION_TRAY)
         key = frame.get_by_role("button", name=REACTION_KEY)
         if device_of(frame_size) is PHONE:
@@ -674,27 +674,15 @@ def test_the_reaction_key_works_in_a_hopin_frame_after_the_greeting(
 
 @pytest.mark.parametrize("frame_size", HOPIN_FRAME_SIZES.values(), ids=HOPIN_FRAME_SIZES)
 def test_the_menu_in_a_hopin_frame_holds_the_rules_and_the_game_count_after_the_greeting(
-    open_person: Callable[..., Page],
-    member_of: Callable[[Page], SeededMember],
+    hopin_table: PlayingTable,
     browser_coverage: BrowserCoverage,
     framing_server: RunningServer,
-    page_errors: list[str],
     frame_size: tuple[int, int],
 ) -> None:
-    table = deal_playing_table(
-        open_person,
-        framing_server,
-        member_of,
-        page_errors,
-        {**device_of(frame_size), "server": framing_server},
-        console=False,
-    )
-    path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
-    seated = table.pages[table.declarer_seat]
+    seated = hopin_table.pages[hopin_table.declarer_seat]
 
-    with in_a_hopin_frame(seated, browser_coverage, framing_server, path, frame_size) as frame:
-        seated.evaluate("greet()")
-        expect(frame.locator(BAR)).to_have_count(0)
+    with in_a_hopin_frame(seated, hopin_table, browser_coverage, framing_server, frame_size) as frame:
+        greet(seated, frame)
         open_table_menu(frame)
 
         expect(menu_button(frame, RULES)).to_be_visible()
@@ -709,26 +697,14 @@ def test_the_menu_in_a_hopin_frame_holds_the_rules_and_the_game_count_after_the_
 
 @pytest.mark.parametrize("frame_size", HOPIN_FRAME_SIZES.values(), ids=HOPIN_FRAME_SIZES)
 def test_a_watchers_menu_in_a_hopin_frame_holds_the_link_and_the_rules(
-    open_person: Callable[..., Page],
-    member_of: Callable[[Page], SeededMember],
+    hopin_table: PlayingTable,
     browser_coverage: BrowserCoverage,
     framing_server: RunningServer,
-    page_errors: list[str],
     frame_size: tuple[int, int],
 ) -> None:
-    table = deal_playing_table(
-        open_person,
-        framing_server,
-        member_of,
-        page_errors,
-        {**device_of(frame_size), "server": framing_server},
-        console=False,
-    )
-    path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
 
-    with in_a_hopin_frame(table.watcher, browser_coverage, framing_server, path, frame_size) as frame:
-        table.watcher.evaluate("greet()")
-        expect(frame.locator(BAR)).to_have_count(0)
+    with in_a_hopin_frame(hopin_table.watcher, hopin_table, browser_coverage, framing_server, frame_size) as frame:
+        greet(hopin_table.watcher, frame)
         open_table_menu(frame)
 
         expect(menu_button(frame, COPY_LINK)).to_be_visible()
