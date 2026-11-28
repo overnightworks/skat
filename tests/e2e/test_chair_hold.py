@@ -10,6 +10,7 @@ from tests.e2e.support.server import skat_on_new_database
 from tests.e2e.support.tables import (
     SIT_DOWN,
     assert_never_reloaded,
+    chair_of,
     mark_page,
     open_new_table,
     plate_of,
@@ -52,9 +53,7 @@ def test_an_away_members_chair_turns_free_on_every_open_page_after_the_hold_and_
     opener.close()
     expect(plate_of(onlooker, 1)).to_contain_text(SEAT_AWAY)
 
-    expect(onlooker.locator(".chair[data-seat='1']").get_by_role("button", name=SIT_DOWN)).to_be_visible(
-        timeout=FREED_WITHIN_MILLISECONDS
-    )
+    expect(chair_of(onlooker, 1).get_by_role("button", name=SIT_DOWN)).to_be_visible(timeout=FREED_WITHIN_MILLISECONDS)
     expect(plate_of(onlooker, 1)).not_to_contain_text("anna")
     sit_in(onlooker, 1)
 
