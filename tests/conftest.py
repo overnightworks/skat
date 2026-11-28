@@ -1,4 +1,5 @@
 from functools import partial
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -13,11 +14,18 @@ pytest.register_assert_rewrite("tests.support", "tests.e2e.support")
 from tests.support.database_relay import DatabaseRelay  # noqa: E402
 from tests.support.postgres import created_database, migrated_template  # noqa: E402
 from tests.support.redis import fresh_database_url  # noqa: E402
+from tests.support.shards import select_shard  # noqa: E402
 from tests.support.sign_in_settings import SignInSettings, build_sign_in_settings  # noqa: E402
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
-    from pathlib import Path
+
+END_TO_END_DIRECTORY = Path(__file__).parent / "e2e"
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Shards the unit suite; the end-to-end conftest shards its own tests the same way."""
+    select_shard(config, items, lambda path: not path.is_relative_to(END_TO_END_DIRECTORY))
 
 
 @pytest.fixture
