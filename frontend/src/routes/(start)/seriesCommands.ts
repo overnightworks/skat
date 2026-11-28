@@ -1,3 +1,4 @@
+import { nextSettingsRevisionOf, seriesOver } from "#lib/series.ts";
 import { TABLE_NEW_SERIES_SUFFIX, TABLE_NEXT_SETTINGS_SUFFIX, TABLE_READY_SUFFIX } from "#lib/wire.ts";
 import { post, type OptionsRequest, type Outcome, type Table } from "./tables.ts";
 
@@ -15,6 +16,18 @@ export function markReady(id: string, commandId: string, ordinal: number, series
 // and the revision of the next series' settings it saw, so a tap on settings that have since been saved over is too.
 export function startNewSeries(id: string, commandId: string, series: number, settings: number): Promise<Outcome> {
     return post(id, TABLE_NEW_SERIES_SUFFIX, { command_id: commandId, series, settings });
+}
+
+// After the series' last game the same tap is „Neue Serie“, which names the series it saw as „Weiter“ does.
+export function weiter(id: string, table: Table): Promise<Outcome> {
+    return seriesOver(table)
+        ? startNewSeries(id, crypto.randomUUID(), seriesNumberOf(table), nextSettingsRevisionOf(table))
+        : markReady(
+              id,
+              crypto.randomUUID(),
+              (table.result as NonNullable<Table["result"]>).ordinal,
+              seriesNumberOf(table),
+          );
 }
 
 // Saving the next series' settings names the series it saw and the revision of the settings its sheet started from, so a

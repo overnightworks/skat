@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from skat.web.constants import CALL_MODE, MODE_QUERY_NAME
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.server import loopback_sign_in, running_skat
 from tests.e2e.support.tables import open_new_table
@@ -38,7 +39,8 @@ CALL_FRAME_ATTRIBUTES = (
     'allow="" referrerpolicy="no-referrer"'
 )
 FRAME = "#stage"
-CHAIR = ".chair"
+CHAIR = old_surface.CHAIR
+QUARTER_OVERLAP_JS = old_surface.QUARTER_OVERLAP_JS
 THREE_CHAIRS = 3
 
 
@@ -128,16 +130,30 @@ BEHIND_THE_FRAME = "rgb(0, 200, 0)"
 STAND_IN = (255, 0, 255)
 _CALL_PAGE_STYLE = f"<style>html {{ color-scheme: dark; background: {BEHIND_THE_FRAME}; }}</style>"
 FRAME_FILLING_THE_SCREEN = "position:fixed;inset:0;width:100%;height:100%;border:0;z-index:1;color-scheme:dark"
+# The boxes hopin's stage gives a Skat table under its 116 px top, on a desktop and on a phone.
+HOPIN_FRAME_SIZES = {"1264x540": (1264, 540), "374x564": (374, 564)}
+
+
+def frame_of_size(width: int, height: int) -> str:
+    return (
+        f"position:fixed;left:8px;top:116px;width:{width}px;height:{height}px;border:0;border-radius:16px;"
+        "z-index:1;color-scheme:dark"
+    )
 
 
 def greeting_page_holding(
-    frame_address: str, skat_origin: str, *, greets_every_ready: bool = False, filling_the_screen: bool = False
+    frame_address: str,
+    skat_origin: str,
+    *,
+    greets_every_ready: bool = False,
+    filling_the_screen: bool = False,
+    frame_style: str | None = None,
 ) -> str:
     """The call page of `page_holding`, recording the frame's messages and greeting as the call page does."""
     script = _GREETING_SCRIPT.replace("SKAT_ORIGIN", json.dumps(skat_origin)).replace(
         "GREET_EVERY_READY", json.dumps(greets_every_ready)
     )
-    style = FRAME_FILLING_THE_SCREEN if filling_the_screen else ""
+    style = frame_style or (FRAME_FILLING_THE_SCREEN if filling_the_screen else "")
     # A phone lays a page without this out 980 px wide, as the call's own page never does.
     viewport = '<meta name="viewport" content="width=device-width, initial-scale=1">'
     return viewport + page_holding(frame_address, style) + _CALL_PAGE_STYLE + f"<script>{script}</script>"
@@ -198,53 +214,9 @@ def new_table(open_person: Callable[..., Page], server: RunningServer) -> str:
     return open_new_table(open_person(server=server), server)
 
 
-# A JS function giving how many square pixels of a mark's box lie in the top-left quarter of a tile's box.
-QUARTER_OVERLAP_JS = """(mark, tile) =>
-    Math.max(0, Math.min(mark.right, tile.left + tile.width / 2) - Math.max(mark.left, tile.left))
-    * Math.max(0, Math.min(mark.bottom, tile.top + tile.height / 2) - Math.max(mark.top, tile.top))"""
-
-# What the page's chairs draw, read in the frame: which marks lie in a tile's top-left quarter or under its position
-# label, whether an own-seat bar shows its glass, whether any tile rim lies inside its box, and how the dashed
-# agent rim lies against its box (the probe gives each tile the agent class).
-_CHAIR_LOOK_PROBE = """chairs => {
-    const quarterOverlap = QUARTER_OVERLAP;
-    const look = {
-        marks: 0, marksInTopLeftQuarter: 0, positionedMarks: 0, marksOverPositionLabel: 0, barPillsShown: 0,
-        rimsInsideTile: 0, agentRimInsideTile: 0, mostMarksOnAChair: 0,
-    };
-    for (const chair of chairs) {
-        const tile = chair.querySelector(".tile");
-        if (!tile) continue;
-        const box = tile.getBoundingClientRect();
-        const label = chair.querySelector(".mark.pos");
-        const labelBox = label && label.getBoundingClientRect();
-        const pill = chair.querySelector(".bar-pill");
-        if (pill && getComputedStyle(pill).display !== "none") look.barPillsShown += 1;
-        const chairMarks = chair.querySelectorAll(".mark:not(.pos)");
-        look.mostMarksOnAChair = Math.max(look.mostMarksOnAChair, chairMarks.length);
-        for (const mark of chairMarks) {
-            look.marks += 1;
-            const at = mark.getBoundingClientRect();
-            if (labelBox && at.right > labelBox.left && at.left < labelBox.right
-                && at.bottom > labelBox.top && at.top < labelBox.bottom) look.marksOverPositionLabel += 1;
-            if (quarterOverlap(at, box) > 0) look.marksInTopLeftQuarter += 1;
-            if (getComputedStyle(mark).position === "absolute") look.positionedMarks += 1;
-        }
-        if (getComputedStyle(tile).boxShadow.includes("inset")) look.rimsInsideTile += 1;
-        tile.classList.add("agent");
-        const rim = getComputedStyle(tile, "::before");
-        if (parseFloat(rim.top) + parseFloat(rim.borderTopWidth) > 0
-            || parseFloat(rim.left) + parseFloat(rim.borderLeftWidth) > 0) look.agentRimInsideTile += 1;
-        tile.classList.remove("agent");
-    }
-    return look;
-}""".replace("QUARTER_OVERLAP", QUARTER_OVERLAP_JS)
-
-
 def chair_look(scope: Page | FrameLocator) -> dict[str, int]:
-    """Counts of the chairs' marks and rims as `_CHAIR_LOOK_PROBE` reads them in `scope`."""
-    look: dict[str, int] = scope.locator(CHAIR).evaluate_all(_CHAIR_LOOK_PROBE)
-    return look
+    """Counts of the chairs' marks and rims in `scope`."""
+    return old_surface.chair_look(scope)
 
 
 def call_label(name: str) -> str:
