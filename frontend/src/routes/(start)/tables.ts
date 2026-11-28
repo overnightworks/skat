@@ -20,6 +20,7 @@ import {
     type STOP_OUTCOME_TOKENS,
     type TableAnswer,
     AUTH_START_PATH,
+    REFUSAL_TOKENS,
     type ANNOUNCEMENT_TOKENS,
     type LEVEL_TOKENS,
     type GAME_TOKENS,
@@ -140,8 +141,21 @@ export type Table = Omit<TableAnswer, "hand" | "series"> & { hand: Hand | null; 
 export type Outcome =
     { kind: "table"; table: Table } | { kind: "taken"; holder: string } | { kind: "missing" } | { kind: "failed" };
 
+// A 409 body is a refusal when its reason is one of the generated tokens the answer type names.
+export function isRefusal<Answer extends { reason: string }>(
+    body: unknown,
+    reasons: readonly Answer["reason"][],
+): body is Answer {
+    return (
+        typeof body === "object" &&
+        body !== null &&
+        "reason" in body &&
+        (reasons as readonly unknown[]).includes(body.reason)
+    );
+}
+
 function isTakenChair(body: unknown): body is RefusalAnswer & { reason: "seat-taken"; holder_name: string } {
-    return typeof body === "object" && body !== null && "reason" in body && body.reason === "seat-taken";
+    return isRefusal<RefusalAnswer>(body, REFUSAL_TOKENS) && body.reason === "seat-taken";
 }
 
 // The answer is null when the server cannot be reached.

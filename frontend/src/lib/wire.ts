@@ -199,6 +199,15 @@ export const NUDGE_REFUSAL_TOKENS = [
     "already-nudged",
 ] as const;
 export const REACTION_REFUSAL_TOKENS = ["not-at-the-table", "too-fast"] as const;
+export const OFFER_STATE_TOKENS = ["available", "inviting", "here"] as const;
+export const CALL_OUTCOME_TOKENS = ["no-answer", "busy", "owner-absent"] as const;
+export const CALL_REFUSAL_TOKENS = [
+    "not-allowed",
+    "owner-absent",
+    "place-full",
+    "agent-unavailable",
+    "try-again",
+] as const;
 export const VALID_BIDS = [
     18, 20, 22, 23, 24, 27, 30, 33, 35, 36, 40, 44, 45, 46, 48, 50, 54, 55, 59, 60, 63, 66, 70, 72, 77, 80, 81, 84, 88,
     90, 96, 99, 100, 108, 110, 117, 120, 121, 126, 130, 132, 135, 140, 143, 144, 150, 153, 154, 156, 160, 162, 165, 168,
@@ -242,6 +251,11 @@ export const SWITCH_ON_OPTIONS = {
 export type AccountName = {
     name: string;
 };
+export type AgentControlAnswer = {
+    shown: boolean;
+    full: boolean;
+    rows: (AvailableAgentRowAnswer | InvitingAgentRowAnswer | HereAgentRowAnswer | EndedAgentRowAnswer)[];
+};
 export type AuctionAnswer = {
     turn_seat: number | null;
     facing_seat: number | null;
@@ -268,6 +282,13 @@ export type AuctionWordAnswer = {
     action: (typeof AUCTION_ACTION_TOKENS)[number];
     value: number | null;
 };
+export type AvailableAgentRowAnswer = {
+    key: string;
+    name: string;
+    state: "available";
+    outcome: null;
+    ends_in_seconds: null;
+};
 export type BockAnswer = {
     games_left: number;
     factor: number;
@@ -278,6 +299,9 @@ export type BockOptionsAnswer = {
 };
 export type CallOrigin = {
     origin: string | null;
+};
+export type CallRefusalAnswer = {
+    reason: (typeof CALL_REFUSAL_TOKENS)[number];
 };
 export type CardAnswer = {
     suit: (typeof SUIT_TOKENS)[number];
@@ -360,6 +384,13 @@ export type EmptyWithGamesAnswer = {
     standings: StandingAnswer[];
     game_count: number;
 };
+export type EndedAgentRowAnswer = {
+    key: string;
+    name: string;
+    state: "ended";
+    outcome: (typeof CALL_OUTCOME_TOKENS)[number];
+    ends_in_seconds: null;
+};
 export type GameSheetAnswer = {
     number: number;
     seat_names: (string | null)[];
@@ -392,6 +423,20 @@ export type HandAnswer = {
 export type HandValueAnswer = {
     game: (typeof GAME_TOKENS)[number];
     value: number;
+};
+export type HereAgentRowAnswer = {
+    key: string;
+    name: string;
+    state: "here";
+    outcome: null;
+    ends_in_seconds: null;
+};
+export type InvitingAgentRowAnswer = {
+    key: string;
+    name: string;
+    state: "inviting";
+    outcome: null;
+    ends_in_seconds: number;
 };
 export type KontraAnswer = {
     said: SaidWordAnswer[];
