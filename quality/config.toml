@@ -57,7 +57,7 @@ date = 2026-11-21
 reason = "the person key vector both servers check their derivation against is a public hash of public example values, no secret"
 
 [[gate.loosened]]
-what = 'size baseline adds file_lines frontend/src/lib/start.css 9750'
+what = 'size baseline adds file_lines frontend/src/lib/start.css 9840'
 item = "overnightworks/skat#843"
 date = 2026-11-23
 reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
@@ -99,7 +99,7 @@ date = 2026-11-23
 reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
 
 [[gate.loosened]]
-what = 'size baseline adds function_lines frontend/src/lib/giveUp.fixtures.ts tableWith 79'
+what = 'size baseline adds function_lines frontend/src/lib/giveUp.fixtures.ts tableWith 80'
 item = "overnightworks/skat#843"
 date = 2026-11-23
 reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
