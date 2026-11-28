@@ -29,7 +29,6 @@
     } from "#lib/playView.ts";
     import { ramschMarks, ramschPlaque, ramschTrick } from "#lib/ramschView.ts";
     import {
-        nextSettingsRevisionOf,
         resultOnStage,
         returnsToLobby,
         seriesCountText,
@@ -131,7 +130,7 @@
         type Table,
     } from "../../tables.ts";
     import { nudgedNote } from "../../nudge.ts";
-    import { markReady, seriesNumberOf, startNewSeries } from "../../seriesCommands.ts";
+    import { weiter } from "../../seriesCommands.ts";
     import { reactionName, reactionsBetween, throwReaction } from "../../reaction.ts";
 
     const TAKEN_NOTICE_MILLISECONDS = 4000;
@@ -353,19 +352,7 @@
         if ((await seat(command)).kind !== "table") sentFromVersion = null;
     }
 
-    // After the series' last game the same tap is „Neue Serie“, which names the series it saw as „Weiter“ does.
-    const tapWeiter = (table: Table): Promise<void> =>
-        send(
-            table,
-            seriesOver(table)
-                ? startNewSeries(id, crypto.randomUUID(), seriesNumberOf(table), nextSettingsRevisionOf(table))
-                : markReady(
-                      id,
-                      crypto.randomUUID(),
-                      (table.result as NonNullable<Table["result"]>).ordinal,
-                      seriesNumberOf(table),
-                  ),
-        );
+    const tapWeiter = (table: Table): Promise<void> => send(table, weiter(id, table));
 </script>
 
 <svelte:head>
