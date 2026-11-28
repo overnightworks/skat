@@ -1,0 +1,8 @@
+claim_id = "2eb460fd66f044c6ad8ab86e60b9f289"
+agent = "Claude db2d61d3-8b51-4183-99c4-2e9334064f60"
+role = "builder"
+base = "9ecbec5044e6b004a0a7aa0653cd34bf4519d54f"
+branch = "claude/issue-943-skat-offers-its-rules-as-a-skill-an-agen"
+scope = ["docs/ARCHITECTURE.md", "src/skat/web", "tests/web"]
+opened_commit = "07bf798037c03a356072c7a9a6343d05cef15dfb"
+whole_reason = "The skill's text, its serving through the skills extension and its proof through the real front are one change."
