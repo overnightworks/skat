@@ -686,6 +686,11 @@ def test_the_menu_in_a_hopin_frame_holds_the_rules_and_the_game_count_after_the_
     seated = hopin_table.pages[hopin_table.declarer_seat]
 
     with in_a_hopin_frame(seated, hopin_table, browser_coverage, framing_server, frame_size) as frame:
+        expect(menu_button(frame, RULES)).to_be_visible()
+        expect(menu_button(frame, GAME_COUNT)).to_have_count(0)
+        seated.keyboard.press("Escape")
+        expect(frame.locator(MENU)).to_be_hidden()
+
         greet(seated, frame)
         open_table_menu(frame)
 
