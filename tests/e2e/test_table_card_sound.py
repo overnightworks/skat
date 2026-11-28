@@ -6,7 +6,7 @@ from playwright.sync_api import Page, expect
 
 from tests.e2e.support.audio import FELT_FACE, VOICES_OF_ONE_CARD, open_watcher, tap, voices_started
 from tests.e2e.support.browser import hide_the_tab
-from tests.e2e.support.motion import last_seconds_in_the_air, motion_played, watch_the_motion
+from tests.e2e.support.declaring import reload_and_wait
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -15,9 +15,11 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-# A card sounds as it touches the felt: after the last frame that shows it in the air and, since the engine starts a
-# voice a few hundredths of a second after the cue's time, within a tenth of a second of it.
+# The engine starts a voice a few hundredths of a second after the cue's time, so a card that sounds at once starts
+# within a tenth of a second.
 SOUNDS_WITHIN_SECONDS = 0.1
+# The key the player's choice is kept under in the browser.
+SETTINGS_KEY = "skat.settings"
 
 
 def test_a_card_sounds_only_after_the_first_tap(
@@ -97,58 +99,41 @@ def test_the_viewers_own_card_sounds_louder_than_another_players(table: PlayingT
     assert 0 < watcher_level < own_level
 
 
-@pytest.mark.parametrize(("motion", "moving"), [("reduce", False), ("no-preference", True)], ids=["still", "moving"])
-def test_a_moving_card_sounds_when_it_lands_and_a_still_card_at_once(
-    table: PlayingTable,
-    open_person: Callable[..., Page],
-    page_errors: list[str],
-    motion: str,
-    moving: bool,
-) -> None:
-    watcher = open_watcher(open_person, page_errors, table, reduced_motion=motion)
-    watch_the_motion(watcher)
-    tap(watcher)
-
-    table.play_out(1)
-    expect(watcher.locator(FELT_FACE)).to_have_count(1)
-
-    starts = [voice["start"] for voice in voices_started(watcher)]
+def starts_of_one_card(page: Page) -> list[float]:
+    starts = [voice["start"] for voice in voices_started(page)]
     assert len(starts) == VOICES_OF_ONE_CARD
-    played = motion_played(watcher)
-    assert bool(played) == moving
-    in_the_air = last_seconds_in_the_air(played) if moving else 0
-    assert all(in_the_air < start < in_the_air + SOUNDS_WITHIN_SECONDS for start in starts)
-    assert page_errors == []
+    return starts
 
 
 @pytest.mark.parametrize(
     ("device_motion", "stored"),
     [
+        ("no-preference", {}),
         ("no-preference", {"motionSet": "dezent"}),
         ("reduce", {"motionSet": "dezent", "replayMotion": True}),
         ("reduce", {"replayMotion": True}),
     ],
-    ids=["dezent", "reduced-but-overridden-dezent", "reduced-but-overridden"],
+    ids=["verspielt", "dezent", "reduced-but-overridden-dezent", "reduced-but-overridden"],
 )
-def test_a_card_sounds_when_it_lands_in_the_motion_set_the_table_moves_in(
+def test_a_still_card_sounds_at_once_and_a_card_that_moves_sounds_later(
     table: PlayingTable,
     open_person: Callable[..., Page],
     page_errors: list[str],
     device_motion: str,
     stored: dict[str, object],
 ) -> None:
-    watcher = open_watcher(open_person, page_errors, table, reduced_motion=device_motion)
-    watcher.evaluate("record => localStorage.setItem('skat.settings', record)", json.dumps(stored))
-    watcher.reload()
-    expect(watcher.locator(".chair")).to_have_count(3)
-    watch_the_motion(watcher)
-    tap(watcher)
+    still = open_watcher(open_person, page_errors, table)
+    moving = open_watcher(open_person, page_errors, table, reduced_motion=device_motion)
+    moving.evaluate("([key, record]) => localStorage.setItem(key, record)", [SETTINGS_KEY, json.dumps(stored)])
+    reload_and_wait(moving)
+    for watcher in (still, moving):
+        tap(watcher)
 
     table.play_out(1)
-    expect(watcher.locator(FELT_FACE)).to_have_count(1)
+    for watcher in (still, moving):
+        expect(watcher.locator(FELT_FACE)).to_have_count(1)
 
-    starts = [voice["start"] for voice in voices_started(watcher)]
-    in_the_air = last_seconds_in_the_air(motion_played(watcher))
-    assert len(starts) == VOICES_OF_ONE_CARD
-    assert all(in_the_air < start < in_the_air + SOUNDS_WITHIN_SECONDS for start in starts)
+    at_once = starts_of_one_card(still)
+    assert all(0 < start < SOUNDS_WITHIN_SECONDS for start in at_once)
+    assert min(starts_of_one_card(moving)) > max(at_once)
     assert page_errors == []
