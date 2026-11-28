@@ -7,8 +7,8 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.conftest import Look
 from tests.e2e.support.browser import record_page_errors
+from tests.e2e.support.looks import Look
 from tests.e2e.support.people import DESKTOP
 from tests.e2e.support.style import STYLE_KEY, STYLES, give_the_table_its_style
 from tests.e2e.support.table_menu import menu_button
