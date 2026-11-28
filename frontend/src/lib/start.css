@@ -2701,6 +2701,7 @@ body {
 
     .room.framed .stage {
         min-height: 0;
+        padding-bottom: 12px;
     }
 
     .room.framed .stage:has(> .trick) {
@@ -2714,10 +2715,6 @@ body {
 
     .room.framed .stage.after-drop {
         --table-top: 0px;
-    }
-
-    .room.framed .stage {
-        padding-bottom: 12px;
     }
 
     .room.framed .own-hand {
