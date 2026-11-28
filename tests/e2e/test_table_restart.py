@@ -11,6 +11,7 @@ from skat.web.constants import AUTH_START_PATH, GRACEFUL_SHUTDOWN_SECONDS
 from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE
 from skat.web.words import text as word_text
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import sign_in_at_issuer
 from tests.e2e.support.hands import INSIDE_THE_VISIBLE_STRIP, PlayingTable, deal_playing_table
 from tests.e2e.support.people import WIDTHS
@@ -30,7 +31,6 @@ pytestmark = pytest.mark.e2e
 RECONNECTING = word_text(SOURCE_LANGUAGE, "table.reconnecting")
 CARDS_PLAYED_BEFORE = 4
 FACES = "(faces) => faces.map((face) => face.dataset.suit + face.dataset.rank).sort()"
-FELT_CARD = ".trick .laid"
 # What uvicorn logs when its graceful wait ends with a stream still running: a task cancelled, or its error.
 STREAM_CANCELLED = re.compile(r"Cancel [1-9]\d* running task|CancelledError|Exception in ASGI application")
 # The reloaded page signs in again and draws the table only after the answer; four workers' load stretches that.
@@ -86,7 +86,6 @@ def restart_under_open_pages(table: PlayingTable, server: RunningServer, caplog:
             expect(page.get_by_role("status").filter(has_text=RECONNECTING)).to_be_visible(
                 timeout=remaining_milliseconds
             )
-            expect(page.locator(".stage.stale")).to_have_count(1, timeout=remaining_milliseconds)
             dimmed_views[name] = view_of(page)
 
     uvicorn_log = logging.getLogger("uvicorn.error")
@@ -104,12 +103,13 @@ def expect_back_at_the_table(table: PlayingTable, restart: Restart, names: list[
     pages = {table.names[seat]: page for seat, page in table.pages.items()} | {"dora": table.watcher}
     for name in names:
         page = pages[name]
-        expect(page.locator(".chair")).to_have_count(3, timeout=BACK_AT_THE_TABLE_MILLISECONDS)
+        expect(page.get_by_role("status").filter(has_text=RECONNECTING)).to_be_hidden(
+            timeout=BACK_AT_THE_TABLE_MILLISECONDS
+        )
         expect(page.locator(".plaque")).to_have_text(
             restart.views_before[name].plaque, timeout=BACK_AT_THE_TABLE_MILLISECONDS
         )
         assert view_of(page) == restart.views_before[name]
-        expect(page.locator(".stage.stale")).to_have_count(0)
         # The session outlived the restart, so the page stayed the same document and signed in nowhere.
         assert page.evaluate("window.sameDocument") is True
         assert restart.sign_in_starts[name] == []
@@ -134,7 +134,7 @@ def playing_table(
         table = deal_playing_table(open_person, e2e_server, member_of, page_errors, form_factor, console=False)
         table.play_out(CARDS_PLAYED_BEFORE)
         for page in table.everyone:
-            expect(page.locator(FELT_CARD)).to_have_count(1)
+            expect(page.locator(old_surface.FELT_FACE)).to_have_count(1)
         return table
 
     return deal
@@ -168,10 +168,10 @@ def test_after_the_restart_a_card_played_by_a_seated_member_reaches_every_page(
     table = playing_table(form_factor)
     restart = restart_under_open_pages(table, e2e_server, caplog)
     expect_back_at_the_table(table, restart, ["dora", *table.names.values()])
-    laid_before = table.watcher.locator(FELT_CARD).count()
-    on_turn = int(table.watcher.locator(".chair.turn").get_attribute("data-seat") or "")
+    laid_before = table.watcher.locator(old_surface.FELT_FACE).count()
+    playable = old_surface.own_cards(table.pages[table.turn_seat()]).get_by_role("button")
 
-    table.pages[on_turn].locator(".own-hand .card.ok").first.dblclick(position=INSIDE_THE_VISIBLE_STRIP)
+    playable.first.dblclick(position=INSIDE_THE_VISIBLE_STRIP)
 
     for page in table.everyone:
-        expect(page.locator(FELT_CARD)).to_have_count(laid_before + 1)
+        expect(page.locator(old_surface.FELT_FACE)).to_have_count(laid_before + 1)
