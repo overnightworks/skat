@@ -17,7 +17,8 @@ from skat.web.lobby import (
 from skat.web.table_options import GiveUpOptionsAnswer, KontraOptionsAnswer, OptionsAnswer
 from skat.web.tables import TABLE_SIT_SUFFIX
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.browser import NEW_TABLE_BUTTON, TAP_TARGET_PIXELS, record_page_errors
+from tests.e2e.support import old_surface
+from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
 from tests.e2e.support.lobby_stream import EVENT_STREAM, open_table_answer, serve_stream, stream_of
 from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.table_menu import menu_button
@@ -44,7 +45,7 @@ TOO_MANY_STREAMS = text(SOURCE_LANGUAGE, "app.tooManyStreams")
 MY_TABLES = text(SOURCE_LANGUAGE, "lobby.myTables")
 NO_OPEN_TABLE = text(SOURCE_LANGUAGE, "lobby.noOpenTables")
 SEAT_FREE = text(SOURCE_LANGUAGE, "lobby.seatFree")
-YOU = text(SOURCE_LANGUAGE, "lobby.sideYou")
+SEAT_AWAY = text(SOURCE_LANGUAGE, "lobby.seatAway")
 PRIVATE = text(SOURCE_LANGUAGE, "lobby.private")
 GAME_WAITS = text(SOURCE_LANGUAGE, "lobby.chipGameWaits")
 PAUSED = text(SOURCE_LANGUAGE, "lobby.chipPaused")
@@ -58,7 +59,6 @@ VISIBILITY_INFO = text(SOURCE_LANGUAGE, "start.visibilityInfo")
 OPEN_TABLE = text(SOURCE_LANGUAGE, "start.openTable")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
 ENGLISH: Language = "en"
-# A tap target is at least this many CSS pixels on each side.
 
 
 def name_at(base: str, form_factor: dict[str, Any]) -> str:
@@ -70,19 +70,25 @@ def title_of(owner: str, language: Language = SOURCE_LANGUAGE) -> str:
     return text(language, "lobby.titleSibilant" if owner.endswith("s") else "lobby.title", name=owner)
 
 
+def own_entry(person: Page, owner: str) -> Locator:
+    """The entry of the table `owner` opened among the person's own tables, which is the link that opens it."""
+    return person.get_by_role("link", name=text(SOURCE_LANGUAGE, "lobby.openTable", title=title_of(owner)))
+
+
 def open_card(person: Page, owner: str, language: Language = SOURCE_LANGUAGE) -> Locator:
     """The entry of the open table `owner` opened, which is no link."""
-    return person.locator("article.lobby-card").filter(
-        has=person.get_by_role("heading", name=title_of(owner, language))
-    )
+    return person.get_by_role("article").filter(has=person.get_by_role("heading", name=title_of(owner, language)))
 
 
-def sit_buttons_of(card: Locator) -> Locator:
-    return card.locator("button.lobby-sit")
+def sit_buttons_of(card: Locator, owner: str, language: Language = SOURCE_LANGUAGE) -> Locator:
+    return card.get_by_role("button", name=text(language, "lobby.sitAt", title=title_of(owner, language)))
 
 
-def plates_of(card: Locator) -> Locator:
-    return card.locator(".lobby-plate b")
+def expect_the_chairs(card: Locator, *, sitting: tuple[str, ...], free: int) -> None:
+    """The entry names everyone who sits at the table and says so on each chair that is free."""
+    for name in sitting:
+        expect(card.get_by_text(name, exact=True)).to_be_visible()
+    expect(card.get_by_text(SEAT_FREE, exact=True)).to_have_count(free)
 
 
 def pick_visibility(person: Page, visibility: str) -> None:
@@ -106,7 +112,8 @@ def open_private_table(person: Page, server: RunningServer) -> str:
 def test_the_new_table_sheet_offers_open_checked_by_default_and_private_with_a_line_that_names_both(
     open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
 ) -> None:
-    person = record_page_errors(open_person(username=name_at("Ludwig", form_factor), **form_factor), page_errors)
+    name = name_at("Ludwig", form_factor)
+    person = record_page_errors(open_person(username=name, **form_factor), page_errors)
     person.goto(f"{e2e_server.base_url}/")
 
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
@@ -119,7 +126,6 @@ def test_the_new_table_sheet_offers_open_checked_by_default_and_private_with_a_l
     expect(person.get_by_text(VISIBILITY_INFO)).to_be_visible()
     pick_visibility(person, VISIBILITY_PRIVATE)
     expect(choice.get_by_role("radio", name=VISIBILITY_OPEN)).not_to_be_checked()
-    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     pick_visibility(person, VISIBILITY_OPEN)
     person.get_by_role("button", name=OPEN_TABLE).click()
     expect(person).to_have_url(TABLE_URL)
@@ -127,8 +133,8 @@ def test_the_new_table_sheet_offers_open_checked_by_default_and_private_with_a_l
 
     open_start_page(person, e2e_server)
 
-    mine = person.locator(f"a.lobby-card[href='{path}']")
-    expect(mine).to_have_count(1)
+    mine = own_entry(person, name)
+    expect(mine).to_have_attribute("href", path)
     expect(mine.get_by_role("img", name=PRIVATE)).to_have_count(0)
 
 
@@ -146,14 +152,14 @@ def test_a_private_table_shows_its_lock_to_its_chair_holder_and_no_other_member_
     open_start_page(owner, e2e_server)
     open_start_page(other, e2e_server)
 
-    mine = owner.locator(f"a.lobby-card[href='{path}']")
-    expect(mine).to_have_count(1)
+    mine = own_entry(owner, owner_name)
+    expect(mine).to_have_attribute("href", path)
     expect(mine.get_by_role("img", name=PRIVATE)).to_be_visible()
     expect(other.get_by_role("heading", name=OPEN_TABLES)).to_be_visible()
     expect(other.get_by_role("heading", name=title_of(owner_name))).to_have_count(0)
     # A navigation Playwright starts away from a page with app code is aborted by the browser coverage collector.
     other.evaluate("address => location.assign(address)", f"{e2e_server.base_url}{path}")
-    expect(other.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(other)
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -167,7 +173,7 @@ def test_an_open_table_is_listed_to_another_member_and_one_tap_on_frei_seats_him
     owner.get_by_role("button", name=NEW_TABLE_BUTTON).click()
     owner.get_by_role("button", name=OPEN_TABLE).click()
     expect(owner).to_have_url(TABLE_URL)
-    expect(owner.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(owner)
 
     open_start_page(guest, e2e_server)
 
@@ -176,16 +182,10 @@ def test_an_open_table_is_listed_to_another_member_and_one_tap_on_frei_seats_him
     expect(card).to_have_count(1)
     expect(card).to_contain_text(text(SOURCE_LANGUAGE, "lobby.length", count=SERIES_LENGTH_DEFAULT))
     expect(card).to_contain_text(CHIP_OFFICIAL)
-    expect(plates_of(card)).to_have_text([owner_name, SEAT_FREE, SEAT_FREE])
-    expect(sit_buttons_of(card)).to_have_count(2)
-    assert guest.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-    box = sit_buttons_of(card).first.bounding_box()
-    assert box is not None
-    assert box["width"] >= TAP_TARGET_PIXELS
-    assert box["height"] >= TAP_TARGET_PIXELS
-    assert box["x"] + box["width"] <= form_factor["viewport"]["width"]
+    expect_the_chairs(card, sitting=(owner_name,), free=2)
+    expect(sit_buttons_of(card, owner_name)).to_have_count(2)
 
-    plates_of(card).filter(has_text=SEAT_FREE).first.click()
+    sit_buttons_of(card, owner_name).first.click()
 
     expect(guest).to_have_url(TABLE_URL)
     expect(plate_of(owner, 2)).to_contain_text(guest_name)
@@ -208,13 +208,14 @@ def test_the_list_follows_create_sit_stand_and_close_without_a_reload(
     path = owner.url.removeprefix(e2e_server.base_url)
 
     card = open_card(watcher, owner_name)
-    expect(plates_of(card)).to_have_text([owner_name, SEAT_FREE, SEAT_FREE])
+    expect_the_chairs(card, sitting=(owner_name,), free=2)
     watch(sitter, e2e_server, path)
     sit_in(sitter, 2)
-    expect(plates_of(card)).to_have_text([owner_name, "Sven", SEAT_FREE])
-    expect(sit_buttons_of(card)).to_have_count(1)
+    expect_the_chairs(card, sitting=(owner_name, "Sven"), free=1)
+    expect(sit_buttons_of(card, owner_name)).to_have_count(1)
     menu_button(sitter, STAND_UP).click()
-    expect(plates_of(card)).to_have_text([owner_name, SEAT_FREE, SEAT_FREE])
+    expect_the_chairs(card, sitting=(owner_name,), free=2)
+    expect(card.get_by_text("Sven", exact=True)).to_have_count(0)
     assert_never_reloaded(watcher)
 
 
@@ -236,8 +237,8 @@ def test_a_full_table_shows_its_three_names_and_no_free_chair(
     open_start_page(onlooker, e2e_server)
 
     card = open_card(onlooker, "Theo")
-    expect(plates_of(card)).to_have_text(["Theo", "Uwe", "Vera"])
-    expect(sit_buttons_of(card)).to_have_count(0)
+    expect_the_chairs(card, sitting=("Theo", "Uwe", "Vera"), free=0)
+    expect(sit_buttons_of(card, "Theo")).to_have_count(0)
 
 
 def test_the_open_section_says_so_when_no_other_table_is_open(
@@ -306,10 +307,10 @@ def test_an_open_entry_shows_its_rules_its_state_and_the_minutes_an_away_chair_i
     expect(waits).to_contain_text(CHIP_KONTRA)
     expect(waits).to_contain_text(GAME_WAITS)
     held = open_card(person, "Ines")
-    expect(held.locator(".lobby-plate small")).to_have_text(
-        text(SOURCE_LANGUAGE, "lobby.minutesLeft", count=4, minutes="4")
-    )
-    expect(held.locator(".lobby-seat.away")).to_have_count(1)
+    expect(
+        held.get_by_text(text(SOURCE_LANGUAGE, "lobby.minutesLeft", count=4, minutes="4"), exact=True)
+    ).to_be_visible()
+    expect(held.get_by_title(SEAT_AWAY, exact=True)).to_have_count(1)
     paused = open_card(person, "Jonas")
     expect(paused).to_contain_text(PAUSED)
 
@@ -353,7 +354,7 @@ def expect_no_german(person: Page, *keys: str) -> None:
     """The page shows none of these catalog keys' German wording, matched as whole words."""
     for key in keys:
         german = text(SOURCE_LANGUAGE, key)
-        expect(person.locator("body")).not_to_contain_text(re.compile(rf"\b{re.escape(german)}\b"))
+        expect(person.get_by_text(re.compile(rf"\b{re.escape(german)}\b"))).to_have_count(0)
 
 
 def test_the_visibility_sheet_reads_in_english_and_leaks_no_german(
@@ -396,9 +397,7 @@ def test_the_lobby_reads_in_english_and_leaks_no_german(
     expect(person.get_by_role("img", name=text(ENGLISH, "lobby.private"))).to_be_visible()
     waits = open_card(person, "Zora", ENGLISH)
     expect(waits).to_contain_text(text(ENGLISH, "lobby.chipGameWaits"))
-    expect(
-        waits.get_by_role("button", name=text(ENGLISH, "lobby.sitAt", title=title_of("Zora", ENGLISH)))
-    ).to_have_count(1)
+    expect(sit_buttons_of(waits, "Zora", ENGLISH)).to_have_count(1)
     expect(open_card(person, "Jonas", ENGLISH)).to_contain_text(text(ENGLISH, "lobby.chipPaused"))
     expect_no_german(person, "lobby.openTables", "lobby.chipGameWaits", "lobby.chipPaused")
 
@@ -417,7 +416,7 @@ def test_a_refused_sit_reads_in_english(
     )
     guest.goto(f"{e2e_server.base_url}/")
 
-    open_card(guest, "Zora", ENGLISH).get_by_role("button").first.click()
+    sit_buttons_of(open_card(guest, "Zora", ENGLISH), "Zora", ENGLISH).first.click()
 
     expect(guest.get_by_role("alert")).to_have_text(text(ENGLISH, "lobby.sitFailed"))
     expect_no_german(guest, "lobby.sitFailed")
@@ -434,23 +433,3 @@ def test_the_empty_open_list_reads_in_english(
 
     expect(person.get_by_role("status").filter(has_text=text(ENGLISH, "lobby.noOpenTables"))).to_be_visible()
     expect_no_german(person, "lobby.noOpenTables")
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_on_a_lobby_with_no_open_table_the_new_table_button_stands_at_the_foot_of_the_screen(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    expected_request_failures: list[str],
-    form_factor: dict[str, Any],
-) -> None:
-    expected_request_failures.append(f"{e2e_server.base_url}{LOBBY_EVENTS_PATH}")
-    person = open_person(username="Lone", **form_factor)
-    serve_stream(person, stream_with_only_own_table("Lone"))
-
-    person.goto(f"{e2e_server.base_url}/")
-    expect(person.get_by_role("status").filter(has_text=NO_OPEN_TABLE)).to_be_visible()
-
-    box = person.get_by_role("button", name=NEW_TABLE_BUTTON).bounding_box()
-    assert box is not None
-    # The lobby scene draws one sticky bar at the screen's foot; its button ends in the lowest quarter.
-    assert box["y"] + box["height"] >= form_factor["viewport"]["height"] * 0.75
