@@ -12,6 +12,7 @@ from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.seating import TABLE_STAND_SUFFIX
 from skat.web.tables import RANK_TOKENS, SUIT_TOKENS
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.declaring import DEFAULT_JOINERS, DEFAULT_OPENER, DeclaringTable
 from tests.e2e.support.people import PERSON_ADDRESS_BASE, person_address_offsets
 from tests.e2e.support.raw_http import RawSession
@@ -22,13 +23,10 @@ if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
-# The fan shows each card's left strip, and the next card covers its middle, where a plain click lands. A touch within
-# a few pixels of a card's edge reaches the neighbouring card although the point lies on the aimed one, so a tap
-# aims at the strip's middle, where a finger lands too.
-INSIDE_THE_VISIBLE_STRIP = {"x": 15, "y": 40}
+INSIDE_THE_VISIBLE_STRIP = old_surface.INSIDE_THE_VISIBLE_STRIP
 WE = text(SOURCE_LANGUAGE, "play.sideUs")
 THEY = text(SOURCE_LANGUAGE, "play.sideThem")
-TURN_CHAIR = ".chair.turn"
+TURN_CHAIR = old_surface.TURN_CHAIR
 
 command_numbers = itertools.count(1)
 
@@ -40,7 +38,7 @@ def leave_the_last_trick_on_the_felt(pages: Iterable[Page]) -> None:
     for person in pages:
         person.evaluate("localStorage.setItem('skat.settings', JSON.stringify({ lastTrick: 'stay' }))")
         person.reload()
-        expect(person.locator(".chair")).to_have_count(3)
+        expect(old_surface.chairs(person)).to_have_count(3)
 
 
 class AddressedSession(RawSession):
@@ -80,14 +78,14 @@ class PlayingTable:
         self.names = {chair["seat"]: chair["occupant_name"] for chair in chairs}
         self.seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
         for person in self.everyone:
-            expect(person.locator(TURN_CHAIR)).to_have_attribute("data-seat", str(self.seat_at["forehand"]))
+            old_surface.expect_the_turn_at(person, self.seat_at["forehand"])
 
     def leave_the_last_trick_on_the_felt(self) -> None:
         leave_the_last_trick_on_the_felt(self.everyone)
 
     @staticmethod
     def seat_of(person: Page) -> int:
-        return int(person.locator(".chair.mine").get_attribute("data-seat") or "")
+        return old_surface.own_seat(person)
 
     def view(self, seat: int) -> dict[str, Any]:
         return json.loads(self.declaring.sessions[seat].get(self.declaring.api_path))
@@ -218,4 +216,4 @@ def deal_playing_table(
 
 
 def tap(card: Locator) -> None:
-    card.click(position=INSIDE_THE_VISIBLE_STRIP)
+    old_surface.tap_card(card)

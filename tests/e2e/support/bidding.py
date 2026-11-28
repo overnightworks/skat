@@ -18,6 +18,7 @@ from skat.web.auction import (
 )
 from skat.web.tables import TABLES_PATH, PlanKind
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.style import give_the_table_its_style
 from tests.e2e.support.tables import open_new_table, sit_in, table_id_of, watch
@@ -32,15 +33,15 @@ UP_TO = text(SOURCE_LANGUAGE, "bid.upTo")
 YOU = text(SOURCE_LANGUAGE, "table.sideYou")
 # A request on a connection the server closed for idling meets a reset; Playwright retries only that error.
 RESET_RETRIES = 3
-SKAT_CARD = ".skat-card"
-BAR = ".bid"
-STEP_KEY = ".bid-keys .button-stage"
-LIMIT_KEY = ".bid-keys .button-brass"
-PASS_KEY = ".bid-chips .button-glass"
-CHIPS = ".bid-chip:not(.more)"
-MORE = ".bid-chip.more"
-SCALE = ".scale"
-LIMIT_VALUE = ".bid-line .bis b"
+SKAT_CARD = old_surface.SKAT_CARD
+BAR = old_surface.BID_BAR
+STEP_KEY = old_surface.BID_STEP_KEY
+LIMIT_KEY = old_surface.BID_LIMIT_KEY
+PASS_KEY = old_surface.BID_PASS_KEY
+CHIPS = old_surface.BID_CHIPS
+MORE = old_surface.BID_MORE_CHIP
+SCALE = old_surface.BID_SCALE
+LIMIT_VALUE = old_surface.BID_LIMIT_VALUE
 
 
 @dataclass(frozen=True)
@@ -84,10 +85,10 @@ def dealt_table(
     for looker in (ben, cleo, dora):
         watch(looker, server, path)
     sit_in(ben, 2)
-    expect(ben.locator(".chair[data-seat='2'] .plate")).to_contain_text(YOU)
+    expect(old_surface.plate(ben, 2)).to_contain_text(YOU)
     sit_in(cleo, 3)
     for looker in (anna, ben, cleo, dora):
-        expect(looker.locator(SKAT_CARD)).to_have_count(2)
+        expect(old_surface.skat_cards(looker)).to_have_count(2)
     table_id = table_id_of(path)
     by_position = {position_of(player, server, table_id): player for player in (anna, ben, cleo)}
     give_the_table_its_style(anna, (anna, ben, cleo, dora), style)
@@ -160,11 +161,11 @@ def first_bid_above(value: int) -> int:
 
 
 def chip(person: Page, value: int) -> Locator:
-    return person.locator(".bid-chips").get_by_role("button", name=f"{UP_TO} {value}", exact=True)
+    return old_surface.bid_chip_row(person).get_by_role("button", name=f"{UP_TO} {value}", exact=True)
 
 
 def on_the_scale(person: Page, value: int) -> Locator:
-    return person.locator(SCALE).get_by_role("button", name=str(value), exact=True)
+    return old_surface.bid_scale(person).get_by_role("button", name=str(value), exact=True)
 
 
 def pass_key(person: Page) -> Locator:
@@ -172,7 +173,7 @@ def pass_key(person: Page) -> Locator:
 
 
 def assert_no_controls(person: Page) -> None:
-    expect(person.locator(BAR)).to_have_count(0)
+    expect(old_surface.bid_bar(person)).to_have_count(0)
     expect(pass_key(person)).to_have_count(0)
 
 

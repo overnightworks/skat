@@ -10,6 +10,7 @@ from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.pushing import TABLE_PUSHING_PUSH_SUFFIX, TABLE_PUSHING_PUT_BACK_SUFFIX, TABLE_PUSHING_TAKE_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLE_STAND_SUFFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import AddressedSession
 from tests.e2e.support.tables import sit_in, watch
@@ -22,24 +23,12 @@ if TYPE_CHECKING:
     from tests.e2e.support.server import RunningServer
     from tests.support.signed_in import SeededMember
 
-PLAQUE = ".plaque.ramsch"
-TURN_CHAIR = ".chair.turn"
-BUBBLE = ".chair .bubble.word"
+PLAQUE = old_surface.RAMSCH_PLAQUE
+TURN_CHAIR = old_surface.TURN_CHAIR
+BUBBLE = old_surface.PUSH_BUBBLE
 BIDDING = text(SOURCE_LANGUAGE, "table.bidding")
 AGENT_SEAT = 3
 TWO_LINES = 2
-# What the push bubble shares a box with: any other bubble and every key on the page, as the names of their classes.
-COVERED_BY_THE_PUSH_BUBBLE = """() => {
-    const inside = (box, other) => box.left < other.right && box.right > other.left
-        && box.top < other.bottom && box.bottom > other.top;
-    return [...document.querySelectorAll('.chair .bubble.word')].flatMap((push) => {
-        const box = push.getBoundingClientRect();
-        return [...document.querySelectorAll('.bubble, button')]
-            .filter((other) => other !== push && other.getClientRects().length > 0
-                && inside(box, other.getBoundingClientRect()))
-            .map((other) => other.textContent.trim() || other.className);
-    });
-}"""
 
 
 def ramsch_options(rule: str, grand_hand: str) -> dict[str, Any]:
@@ -104,13 +93,13 @@ class RamschStageTable:
         self.pages = {seat: people[username] for seat, username in enumerate(seated, start=1)}
         self.watcher = people["dora"]
         self.everyone = [*self.pages.values(), self.watcher]
-        expect(self.watcher.locator(".counter .word")).to_have_text(BIDDING)
+        expect(old_surface.counter_word(self.watcher)).to_have_text(BIDDING)
         chairs = self.view(1)["chairs"]
         self.seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
         self.names = {chair["seat"]: chair["occupant_name"] for chair in chairs}
         for position in ("middlehand", "rearhand", "forehand"):
             self.step(self.seat_at[position], TABLE_AUCTION_PASS_SUFFIX)
-        expect(self.watcher.locator(PLAQUE)).to_be_visible()
+        expect(old_surface.ramsch_plaque(self.watcher)).to_be_visible()
 
     def _seat_agent(self, agent: McpAgent) -> None:
         failed, reason = agent.call(
@@ -177,26 +166,26 @@ class RamschStageTable:
     def reload_everyone(self) -> None:
         for person in self.everyone:
             person.reload()
-            expect(person.locator(".chair")).to_have_count(3)
+            expect(old_surface.chairs(person)).to_have_count(3)
 
     def chair(self, person: Page, position: str):
-        return person.locator(f".chair[data-seat='{self.seat_of(position)}']")
+        return old_surface.chair(person, self.seat_of(position))
 
     def expect_the_turn_at(self, position: str) -> None:
         for person in self.everyone:
-            expect(person.locator(TURN_CHAIR)).to_have_count(1)
-            expect(person.locator(TURN_CHAIR)).to_have_attribute("data-seat", str(self.seat_of(position)))
+            expect(old_surface.turn_chair(person)).to_have_count(1)
+            old_surface.expect_the_turn_at(person, self.seat_of(position))
 
     def expect_nothing_to_overflow(self, people: list[Page] | None = None) -> None:
         for person in self.everyone if people is None else people:
             assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-            plaque = person.locator(PLAQUE).bounding_box()
+            plaque = old_surface.ramsch_plaque(person).bounding_box()
             viewport = person.viewport_size
             assert plaque is not None
             assert viewport is not None
             assert plaque["x"] >= 0
             assert plaque["x"] + plaque["width"] <= viewport["width"]
-            for bubble in person.locator(BUBBLE).all():
+            for bubble in old_surface.push_bubbles(person).all():
                 box = bubble.bounding_box()
                 assert box is not None
                 assert box["x"] >= 0
@@ -204,12 +193,12 @@ class RamschStageTable:
 
     def expect_the_push_bubble_to_overlap_no_other_bubble_or_key(self) -> None:
         for person in self.everyone:
-            expect(person.locator(BUBBLE)).to_have_count(1)
-            assert person.evaluate(COVERED_BY_THE_PUSH_BUBBLE) == []
+            expect(old_surface.push_bubbles(person)).to_have_count(1)
+            assert old_surface.covered_by_the_push_bubble(person) == []
 
     def expect_the_plaque_lines_to_read_alike(self, people: list[Page]) -> None:
         for person in people:
-            sizes = person.locator(f"{PLAQUE} .game:not(.pushes)").evaluate_all(
+            sizes = old_surface.ramsch_plaque_lines(person).evaluate_all(
                 "lines => lines.map(line => getComputedStyle(line).fontSize)"
             )
             assert len(sizes) >= TWO_LINES

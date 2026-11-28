@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 from playwright.sync_api import Page, expect
 
 from skat.web.words import SOURCE_LANGUAGE, WORDS
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
     from tests.support.signed_in import SeededMember
 
 RECORDING_AUDIO_SCRIPT = Path(__file__).with_name("recording_audio.js")
-FELT_FACE = ".trick .laid .face"
+FELT_FACE = old_surface.FELT_FACE
 # A card in the set a device starts with, „Stammtisch“, sounds as two noise bursts and one tone, and its voices start at
 # the cue's time plus the engine's lead.
 VOICES_OF_ONE_CARD = 3
@@ -47,7 +48,7 @@ def open_at(open_person: Callable[..., Page], page_errors: list[str], table: Pla
     """The table's watcher page, opened in the browser context the keywords describe."""
     watcher = record_page_errors(open_person(**context), page_errors)
     watcher.goto(table.watcher.url)
-    expect(watcher.locator(".chair")).to_have_count(3)
+    expect(old_surface.chairs(watcher)).to_have_count(3)
     return watcher
 
 
