@@ -1,5 +1,5 @@
+import { turnOf } from "#lib/cues.ts";
 import { firstCardWait } from "#lib/kontra.ts";
-import { handWaits } from "#lib/openChair.ts";
 import { words } from "#lib/words.ts";
 import { drawingOrder, positionWord, type Chair, type Table } from "../../routes/(start)/tables.ts";
 import type { ChairHand, ChairPlace, ChairScene, Sitter } from "./scene.ts";
@@ -12,12 +12,7 @@ const PLACES: readonly ChairPlace[] = ["left", "right", "near"];
  * between hands, while the hand waits for a sitter and while the first card waits for a word.
  */
 export function seatOnTurn(table: Table): number | null {
-    const hand = table.hand;
-    if (hand === null || handWaits(hand) || firstCardWait(table) !== null) return null;
-    if (hand.pushing !== null) return hand.pushing.turn_seat;
-    if (hand.playing !== null) return hand.playing.turn_seat;
-    if (hand.declaring !== null) return hand.declaring.stage === "declared" ? null : hand.declaring.declarer_seat;
-    return hand.auction.awaiting === null ? null : hand.auction.turn_seat;
+    return firstCardWait(table) !== null ? null : (turnOf(table)?.seat ?? null);
 }
 
 function sitterOf(chair: Chair): Sitter {

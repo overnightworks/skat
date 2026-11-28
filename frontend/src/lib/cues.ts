@@ -180,7 +180,7 @@ type Turn = { phase: "auction" | "declare" | "push" | "play"; seat: number | nul
 // Where the hand waits for one chair: the auction's bidder, the declarer who chooses the game, the player of the stage
 // before a Ramsch or of the play. A turn is the chair together with that phase, so a chair that acts in two phases in a row
 // is on turn twice, and the steps inside one phase make one turn. No chair is on turn while the hand waits for a sitter.
-function turnOf(table: Table): Turn | null {
+export function turnOf(table: Table): Turn | null {
     const hand = table.hand;
     if (hand === null || handWaits(hand)) return null;
     if (hand.playing !== null) return { phase: "play", seat: hand.playing.turn_seat };
