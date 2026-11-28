@@ -20,7 +20,7 @@ export interface LookEntry {
 }
 
 /** The component that draws the whole table surface from the scene: the room, the chairs and every control on them. */
-export type SurfaceRenderer = Component<{ look: SurfaceLook; scene: SurfaceScene; intents: TableIntents }>;
+export type SurfaceRenderer = Component<{ look: SurfaceLook; scene: SurfaceScene }>;
 
 /** A look that draws the whole surface: its name and its renderer. */
 export interface SurfaceLook {

@@ -388,7 +388,7 @@
 {/snippet}
 
 {#if outcome?.kind === "table" && outcome.table.ended === null && currentSettings().newLook}
-    <Surface {id} table={outcome.table} />
+    <Surface table={outcome.table} />
 {:else}
     <div
         class="room"
