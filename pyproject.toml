@@ -8,7 +8,7 @@ dependencies = [
     "alembic>=1.16",
     "fastapi>=0.123.7",
     "overnightworks-agents[mcp-server,mcp-client] @ git+https://github.com/overnightworks/agents@v0.78.0",
-    "overnightworks-logline @ git+https://github.com/overnightworks/logline@v1.9.0",
+    "overnightworks-logline @ git+https://github.com/overnightworks/logline@v1.12.0",
     "overnightworks-tandem @ git+https://github.com/overnightworks/tandem@v0.17.0",
     "overnightworks-webauth[redis,postgres] @ git+https://github.com/overnightworks/webauth@v0.46.0",
     "psycopg[binary]>=3.2",
