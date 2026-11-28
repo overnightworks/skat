@@ -14,7 +14,7 @@ from tests.e2e.support.bidding import answer_of, dealt_table
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.people import DESKTOP, McpAgent
-from tests.e2e.support.tables import open_new_table, table_id_of
+from tests.e2e.support.tables import open_new_table, sit_in, table_id_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -139,8 +139,7 @@ def test_the_page_says_once_who_left_a_chair_and_who_plays_on(
     expect(said).to_have_count(1)
     expect(chair(viewer, FREE_CHAIR)).to_be_visible()
 
-    free_chair = table.watcher.locator(f".chair[data-seat='{leaver_seat}']")
-    free_chair.get_by_role("button", name=SIT_DOWN).click()
+    sit_in(table.watcher, leaver_seat)
     table.watcher.get_by_role("dialog", name=SIT_QUESTION).get_by_role("button", name=SIT_DOWN).click()
 
     expect(chair(viewer, FREE_CHAIR)).to_have_count(0)
