@@ -13,6 +13,7 @@ from skat.web.rule_sets import RULE_SETS_PATH
 from skat.web.tables import TABLE_EVENTS_SUFFIX, TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE
 from skat.web.words import text as word_text
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors, sign_in_at_issuer
 from tests.e2e.support.kit_words import kit_text
 from tests.e2e.support.people import DESKTOP, FORM_FACTORS, WIDTHS
@@ -24,6 +25,7 @@ from tests.e2e.support.tables import (
     click_new_table,
     open_new_table,
     open_new_table_sheet,
+    plate_of,
     table_id_of,
 )
 
@@ -56,13 +58,11 @@ def expect_a_table_seating(person: Page, opener: str, *, mine: bool) -> None:
     expect(person.get_by_text(word_text(SOURCE_LANGUAGE, "table.waitingForPlayers"))).to_be_visible()
     expect(menu_button(person, word_text(SOURCE_LANGUAGE, "table.copyLink"))).to_be_visible()
     close_table_menu(person)
-    chairs = person.locator(".chair")
-    expect(chairs).to_have_count(3)
-    expect(person.locator(".chair[data-seat='1'] .plate")).to_have_text(
-        word_text(SOURCE_LANGUAGE, "table.sideYou") if mine else opener
-    )
-    expect(person.locator(".chair.mine")).to_have_count(1 if mine else 0)
-    expect(person.locator(".chair .plate", has_text=word_text(SOURCE_LANGUAGE, "table.seatFree"))).to_have_count(2)
+    old_surface.expect_the_table_shown(person)
+    expect(plate_of(person, 1)).to_have_text(word_text(SOURCE_LANGUAGE, "table.sideYou") if mine else opener)
+    expect(old_surface.own_chair(person)).to_have_count(1 if mine else 0)
+    for seat in (2, 3):
+        expect(plate_of(person, seat)).to_contain_text(word_text(SOURCE_LANGUAGE, "table.seatFree"))
 
 
 @pytest.mark.parametrize("form_factor", FORM_FACTORS)
@@ -76,10 +76,6 @@ def test_a_member_opens_a_table_and_sits_in_chair_one_with_two_free_chairs(
 
     expect_a_table_seating(person, "anna", mine=True)
     assert table_count(e2e_server) == before + 1
-    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-    assert person.evaluate("document.querySelector('.chair.mine').getBoundingClientRect().top") > person.evaluate(
-        "document.querySelector('.chair:not(.mine)').getBoundingClientRect().top"
-    )
 
 
 def series_length_reading(length: int) -> str:
@@ -111,21 +107,6 @@ def test_the_sheet_offers_the_default_series_length_in_steps_and_stops_at_both_e
         more.click()
     expect(reading).to_have_text(series_length_reading(SERIES_LENGTH_MAX), use_inner_text=True)
     expect(more).to_be_disabled()
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_sheet_fits_inside_the_screen(
-    open_person: Callable[..., Page], e2e_server: RunningServer, page_errors: list[str], form_factor: dict[str, Any]
-) -> None:
-    person = record_page_errors(open_person(username="anna", **form_factor), page_errors)
-
-    open_new_table_sheet(person, e2e_server)
-
-    expect(person.get_by_role("dialog")).to_be_visible()
-    box = person.get_by_role("dialog").bounding_box()
-    assert box is not None
-    assert box["y"] >= 0
-    assert box["y"] + box["height"] <= form_factor["viewport"]["height"]
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)

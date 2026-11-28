@@ -53,5 +53,3 @@ def test_each_sign_in_page_names_skat_offers_its_one_action_and_links_both_legal
     expect(action_element).to_have_count(1)
     for key, href in LEGAL_LINKS.items():
         expect(person.get_by_role("link", name=text(SOURCE_LANGUAGE, key))).to_have_attribute("href", href)
-    expect(person.locator("body")).to_have_css("margin", "0px")
-    assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")

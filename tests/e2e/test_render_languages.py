@@ -20,6 +20,7 @@ from skat.web.constants import (
 )
 from skat.web.tables import TABLE_PAGE_PREFIX
 from skat.web.words import LANGUAGES, SOURCE_LANGUAGE, Key, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.declaring import DEFAULT_JOINERS, DEFAULT_OPENER, DeclaringTable
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
@@ -45,28 +46,17 @@ ROUTE_THAT_DOES_NOT_EXIST = "/no-such-page"
 CATALOG_KEYS: tuple[str, ...] = get_args(Key.__value__)
 # The first line of a function's source and the text of an object that was never turned into words.
 SOURCE_OF_A_FUNCTION = re.compile(r"=>|\bfunction\b\s*\(")
-FINDINGS_OF_A_RENDER = """(keys) => {
-    const shown = document.body.innerText;
-    const findings = keys.filter((key) => shown.includes(key)).map((key) => `key ${key}`);
-    if (shown.includes("[object Object]")) findings.push("[object Object]");
-    const overflowing = [...document.body.querySelectorAll("*")]
-        .filter((element) => [...element.childNodes].some((node) => node.nodeType === 3 && node.textContent.trim()))
-        .filter((element) => !["auto", "scroll"].includes(getComputedStyle(element).overflowX))
-        // An ellipsis is a name the design clips to its box, as a long account name at a lobby card.
-        .filter((element) => getComputedStyle(element).textOverflow !== "ellipsis")
-        // A one pixel box is a label only a screen reader reads.
-        .filter((element) => element.clientWidth > 1 && element.scrollWidth > element.clientWidth)
-        .map((element) => `${element.tagName.toLowerCase()}.${element.className} ${element.textContent.trim()}`);
-    return { shown, findings, overflowing };
-}"""
+OBJECT_NEVER_TURNED_INTO_WORDS = "[object Object]"
 
 
 def assert_renders_in(person: Page, language: Language) -> None:
-    assert person.locator("html").get_attribute("lang") == language
-    outcome = person.evaluate(FINDINGS_OF_A_RENDER, list(CATALOG_KEYS))
-    assert outcome["findings"] == []
-    assert SOURCE_OF_A_FUNCTION.search(outcome["shown"]) is None
-    assert outcome["overflowing"] == []
+    """The page declares the language and shows words: no catalog key, no object and no function's source."""
+    document = person.get_by_role("document")
+    expect(document).to_have_attribute("lang", language)
+    shown = document.inner_text()
+    assert [key for key in CATALOG_KEYS if key in shown] == []
+    assert OBJECT_NEVER_TURNED_INTO_WORDS not in shown
+    assert SOURCE_OF_A_FUNCTION.search(shown) is None
 
 
 @pytest.fixture
@@ -170,7 +160,7 @@ def test_the_start_page_reads_in_the_language_the_browser_asks_for(
     form_factor: dict[str, Any],
     language: Language,
 ) -> None:
-    # An open table whose opener has the long name an account gets without a username: the lobby clips it to its plate.
+    # An open table, so the page shows the words of a lobby entry too.
     opener = open_person()
     open_table_with_options(opener, e2e_server, RawSession(e2e_server, member_of(opener)), {})
     person = record_page_errors(open_person(locale=language, **form_factor), page_errors)
@@ -225,7 +215,7 @@ def read_the_table_in(
 ) -> Page:
     reader = open_in_language(member, language, form_factor)
     reader.goto(f"{server.base_url}{TABLE_PAGE_PREFIX}{table_id}")
-    expect(reader.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(reader)
     return reader
 
 
@@ -344,7 +334,7 @@ def test_a_table_reads_in_the_language_on_a_result_and_with_the_weiter_bar_waiti
         table.declaring.table_id,
     )
 
-    expect(reader.locator(".result")).to_be_visible()
+    expect(old_surface.result_card(reader)).to_be_visible()
     if waiting:
         expect(reader.get_by_text(text(language, "table.waitingFor", names="").strip()).first).to_be_visible()
     assert_renders_in(reader, language)

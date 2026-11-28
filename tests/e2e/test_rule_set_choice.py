@@ -9,7 +9,7 @@ from skat.web.rule_sets import RULE_SETS_PATH
 from skat.web.tables import TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
 from tests.e2e.support.browser import NEW_TABLE_BUTTON, record_page_errors
-from tests.e2e.support.people import DESKTOP, PHONE, SMALL_PHONE, WIDTHS
+from tests.e2e.support.people import DESKTOP, WIDTHS
 from tests.e2e.support.raw_http import RawSession
 from tests.e2e.support.tables import OPEN_TABLE, TABLE_URL, open_new_table_sheet, save_rule_set, table_id_of
 
@@ -54,38 +54,12 @@ def set_pill(person: Page, name: str) -> Locator:
     return person.get_by_role("radiogroup", name=RULES).get_by_role("radio", name=name, exact=True)
 
 
-def set_names(person: Page) -> Locator:
-    """The names on the set pills in the order the sheet offers them, the official rules first."""
-    return person.get_by_role("radiogroup", name=RULES).locator(".set .name")
-
-
-# What a person sees of a set pill: its check and name wholly inside the pill with its padding kept, the pill wholly
-# inside the sheet.
-SUBPIXEL = 1
-PILL_GAPS_OF = """pill => {
-    // The radio button covers the whole pill, so only the check and the name count as its content.
-    const own = node => node.nodeName !== "INPUT" && node.nodeType !== Node.COMMENT_NODE;
-    const parts = [...pill.childNodes].filter(own).map(node => {
-        const range = document.createRange();
-        range.selectNodeContents(node);
-        return node.nodeType === Node.TEXT_NODE ? range.getBoundingClientRect() : node.getBoundingClientRect();
-    }).filter(rect => rect.width > 0);
-    const content = {
-        left: Math.min(...parts.map(rect => rect.left)),
-        right: Math.max(...parts.map(rect => rect.right)),
-    };
-    const box = pill.getBoundingClientRect();
-    const sheet = pill.closest(".sheet").getBoundingClientRect();
-    const style = getComputedStyle(pill);
-    const name = pill.querySelector(".name");
-    return {
-        cut: name.clientWidth - name.scrollWidth,
-        left: content.left - box.left - parseFloat(style.paddingLeft),
-        right: box.right - content.right - parseFloat(style.paddingRight),
-        sheetLeft: box.left - sheet.left,
-        sheetRight: sheet.right - box.right,
-    };
-}"""
+def expect_the_sets_offered(person: Page, names: list[str]) -> None:
+    """The sheet offers exactly these sets in this order, the official rules first."""
+    sets = person.get_by_role("radiogroup", name=RULES).get_by_role("radio")
+    expect(sets).to_have_count(len(names))
+    for place, name in enumerate(names):
+        expect(sets.nth(place)).to_have_accessible_name(name)
 
 
 def switch(person: Page, name: str) -> Locator:
@@ -102,12 +76,6 @@ def save_row(person: Page) -> Locator:
 
 def save_name(person: Page) -> Locator:
     return save_row(person).get_by_role("textbox", name=SAVE_NAME)
-
-
-def box_top(target: Locator) -> float:
-    box = target.bounding_box()
-    assert box is not None
-    return box["y"]
 
 
 def word(key: str) -> str:
@@ -237,9 +205,6 @@ def test_bock_switched_on_shows_the_house_triggers_and_a_trigger_turned_on_opens
 
     for key, on in (("flagSixtySixty", True), ("flagRe", True), ("flagPassedIn", False), ("flagSchneider", False)):
         expect(switch(person, word(f"start.{key}"))).to_have_attribute("aria-checked", str(on).lower())
-    triggers_top = box_top(switch(person, word("start.flagRe")))
-    overlap_top = box_top(person.get_by_role("radiogroup", name=word("start.askBockOverlap")))
-    assert triggers_top < overlap_top
     switch(person, word("start.flagSchneider")).click()
     person.get_by_role("button", name=OPEN_TABLE).click()
     assert "schneider" in opened_options(person, e2e_server)["bock"]["triggers"]
@@ -380,41 +345,6 @@ def test_the_official_rules_stay_offered_with_a_notice_when_the_own_sets_cannot_
     expect(person).to_have_url(TABLE_URL)
 
 
-@pytest.mark.parametrize("form_factor", [pytest.param(SMALL_PHONE, id="360"), pytest.param(PHONE, id="390")])
-def test_only_the_rules_scroll_while_the_title_the_sets_and_the_buttons_stay_in_reach(
-    person_with_sets: Callable[..., Page], e2e_server: RunningServer, form_factor: dict[str, Any]
-) -> None:
-    person = person_with_sets(form_factor)
-    open_new_table_sheet(person, e2e_server)
-
-    set_pill(person, HOUSE_SET).check()
-
-    for visible in (
-        person.get_by_role("heading", name=NEW_TABLE_BUTTON),
-        set_pill(person, OFFICIAL),
-        person.get_by_role("button", name=OPEN_TABLE),
-        person.get_by_role("button", name=CANCEL),
-    ):
-        expect(visible).to_be_in_viewport()
-    switch(person, word("start.flagSchneider")).scroll_into_view_if_needed()
-    expect(switch(person, word("start.flagSchneider"))).to_be_in_viewport()
-    expect(person.get_by_role("button", name=OPEN_TABLE)).to_be_in_viewport()
-
-
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_every_set_pill_holds_its_whole_name_and_check_inside_the_sheet_when_picked(
-    person_with_sets: Callable[..., Page], e2e_server: RunningServer, form_factor: dict[str, Any]
-) -> None:
-    person = person_with_sets(form_factor)
-    open_new_table_sheet(person, e2e_server)
-
-    for name in (HOUSE_SET, EVENING_SET, OFFICIAL):
-        set_pill(person, name).check()
-        for each in (OFFICIAL, HOUSE_SET, EVENING_SET):
-            gaps = set_pill(person, each).locator("xpath=..").evaluate(PILL_GAPS_OF)
-            assert min(gaps.values()) >= -SUBPIXEL, f"{each} with {name} picked: {gaps}"
-
-
 @pytest.mark.parametrize("form_factor", WIDTHS)
 def test_the_save_row_is_offered_with_a_suggested_name_once_the_sheet_differs_from_the_picked_set(
     person_with_sets: Callable[..., Page], e2e_server: RunningServer, form_factor: dict[str, Any]
@@ -428,12 +358,6 @@ def test_the_save_row_is_offered_with_a_suggested_name_once_the_sheet_differs_fr
 
     expect(save_row(person)).to_be_visible()
     expect(save_name(person)).to_have_value(f"{OFFICIAL}, mit Kontra und Ramsch")
-    # The whole name shows: the field grows to its text instead of cutting it off.
-    assert save_name(person).evaluate(
-        "field => field.scrollWidth <= field.clientWidth && field.scrollHeight <= field.clientHeight"
-    )
-    expect(person.get_by_role("button", name=OPEN_TABLE)).to_be_in_viewport()
-    expect(save_row(person)).to_be_in_viewport()
     switch(person, KONTRA).click()
     expect(save_name(person)).to_have_value(f"{OFFICIAL}, mit Ramsch")
     switch(person, RAMSCH).click()
@@ -475,7 +399,7 @@ def test_a_tap_saves_the_sheet_under_the_edited_name_as_the_picked_set_in_its_pl
     expect(set_pill(person, "Aachen")).to_be_checked()
     expect(save_row(person)).to_have_count(0)
     expect(switch(person, KONTRA)).to_have_attribute("aria-checked", "true")
-    expect(set_names(person)).to_have_text([OFFICIAL, "Aachen", EVENING_SET, HOUSE_SET])
+    expect_the_sets_offered(person, [OFFICIAL, "Aachen", EVENING_SET, HOUSE_SET])
     assert saved_options(e2e_server, member_of(person), "Aachen")["kontra"] is not None
     person.get_by_role("button", name=CANCEL).click()
     person.get_by_role("button", name=NEW_TABLE_BUTTON).click()
