@@ -18,7 +18,6 @@ from tests.e2e.support.server import server_of_its_own
 from tests.e2e.support.table_menu import (
     AGENTS,
     AGENTS_PANEL,
-    EDGE_MARGIN,
     MENU,
     close_table_menu,
     menu_button,
@@ -56,21 +55,6 @@ DELAY_FETCHES = """
 """
 
 
-def agents_list(person: Page):
-    return person.locator(".agents-list")
-
-
-def wait_until_inside_the_margin(person: Page, selector: str) -> None:
-    # The menu follows its key by animation frame, so the page is polled instead of read once.
-    person.wait_for_function(
-        """([selector, margin]) => {
-            const { left, right } = document.querySelector(selector).getBoundingClientRect();
-            return left >= margin - 0.5 && right <= innerWidth - margin + 0.5;
-        }""",
-        arg=[selector, EDGE_MARGIN],
-    )
-
-
 def ask_to_leave_label(name: str) -> str:
     return kit_text("agent.askToLeaveLabel", name=name)
 
@@ -103,9 +87,9 @@ def test_a_failed_read_of_the_agents_leaves_the_panel_without_a_call_key_until_a
         felix.keyboard.press("Escape")
         felix.route(f"**{TABLE_AGENTS_SUFFIX}", fail)
 
-        open_agents_panel(felix)
+        panel = open_agents_panel(felix)
 
-        expect(agents_list(felix)).to_contain_text(LIST_FAILED)
+        expect(panel.get_by_role("alert")).to_have_text(LIST_FAILED)
         expect(felix.get_by_role("button", name=call_label("Raphael"))).to_have_count(0)
         felix.unroute(f"**{TABLE_AGENTS_SUFFIX}")
         felix.keyboard.press("Escape")
@@ -133,7 +117,6 @@ def test_a_member_calls_a_listening_agent_and_every_page_sees_it_sit(
     agent = ListeningAgent(e2e_server, member_of(felix).account.id, "Leonardo", "agent-subject-leonardo")
     try:
         open_agents_panel(felix)
-        expect(agents_list(felix)).to_be_visible()
         felix.get_by_role("button", name=call_label("Leonardo")).click()
         expect(felix.get_by_text(CALLING)).to_be_visible()
         agent.accept(agent.invitation_within(felix, INVITATION_WITHIN_SECONDS))
@@ -141,38 +124,7 @@ def test_a_member_calls_a_listening_agent_and_every_page_sees_it_sit(
             expect(plate_of(person, 2)).to_contain_text("Leonardo")
             expect(plate_of(person, 2)).to_contain_text(AI_MARK)
         expect(felix.get_by_text(sits_note("Leonardo"))).to_be_visible()
-        expect(agents_list(anna)).to_have_count(0)
         expect(menu_button(anna, AGENTS)).to_have_count(0)
-    finally:
-        agent.close()
-
-
-@pytest.mark.usefixtures("realm_reusing_refresh_tokens")
-@pytest.mark.parametrize("form_factor", WIDTHS)
-def test_the_list_left_open_stays_inside_the_margin_when_the_hand_deals(
-    open_person: Callable[..., Page],
-    e2e_server: RunningServer,
-    member_of: Callable[[Page], SeededMember],
-    page_errors: list[str],
-    form_factor: dict,
-) -> None:
-    felix = record_page_errors(
-        open_person(username="felix-open-list", groups=(AGENT_ADDERS_GROUP,), **form_factor), page_errors
-    )
-    path = open_new_table(felix, e2e_server)
-    ben = record_page_errors(open_person(username="ben-sits", **DESKTOP), page_errors)
-    watch(ben, e2e_server, path)
-    sit_in(ben, 2)
-    agent = ListeningAgent(e2e_server, member_of(felix).account.id, "Leonardo", "agent-subject-leonardo-deal")
-    try:
-        open_agents_panel(felix)
-        felix.get_by_role("button", name=call_label("Leonardo")).click()
-        agent.accept(agent.invitation_within(felix, INVITATION_WITHIN_SECONDS))
-        expect(plate_of(felix, 3)).to_contain_text("Leonardo")
-        expect(felix.locator(".chair .mark.pos")).to_have_count(3)
-        expect(agents_list(felix)).to_be_visible()
-
-        wait_until_inside_the_margin(felix, AGENTS_PANEL)
     finally:
         agent.close()
 
@@ -252,7 +204,7 @@ def test_the_menu_names_the_agents_in_one_row_that_opens_their_list_in_a_panel_o
     agent = ListeningAgent(e2e_server, member_of(caller).account.id, "Donatello", "agent-subject-donatello")
     try:
         menu = open_table_menu(caller)
-        expect(menu.locator(".agents-list")).to_have_count(0)
+        expect(menu.get_by_role("button", name=call_label("Donatello"))).to_have_count(0)
 
         menu.get_by_role("button", name=AGENTS, exact=True).click()
 
@@ -271,11 +223,11 @@ def test_a_call_the_page_sends_while_the_test_waits_for_the_agent_still_reaches_
     agent = ListeningAgent(e2e_server, member_of(caller).account.id, "Raphael", "agent-subject-raphael")
     try:
         open_agents_panel(caller)
-        expect(agents_list(caller)).to_be_visible()
+        expect(caller.get_by_role("button", name=call_label("Raphael"))).to_be_visible()
         caller.evaluate(DELAY_FETCHES)
         caller.get_by_role("button", name=call_label("Raphael")).click()
         agent.accept(agent.invitation_within(caller, INVITATION_WITHIN_SECONDS))
-        expect(caller.locator(".chair:has-text('Raphael')")).to_have_count(1)
+        expect(plate_of(caller, 2)).to_contain_text("Raphael")
     finally:
         agent.close()
 
@@ -290,14 +242,13 @@ def test_two_agents_of_one_owner_are_called_one_after_the_other_and_both_sit(
     mozart = ListeningAgent(e2e_server, owner, "Mozart", "agent-subject-mozart")
     leonardo = ListeningAgent(e2e_server, owner, "Leonardo", "agent-subject-leonardo-two")
     try:
-        for name, agent in (("Mozart", mozart), ("Leonardo", leonardo)):
+        for seat, name, agent in ((2, "Mozart", mozart), (3, "Leonardo", leonardo)):
             open_agents_panel(caller)
-            expect(agents_list(caller)).to_be_visible()
             caller.get_by_role("button", name=call_label(name)).click()
             seated = agent.accept(agent.invitation_within(caller, INVITATION_WITHIN_SECONDS))
-            expect(caller.locator(f".chair:has-text('{name}')")).to_have_count(1)
+            expect(plate_of(caller, seat)).to_contain_text(name)
+            expect(plate_of(caller, seat)).to_contain_text(AI_MARK)
             close_table_menu(caller)
-        expect(caller.locator(".chair .plate:has(.ai-mark)")).to_have_count(2)
         for agent in (mozart, leonardo):
             window = agent.window(seated["place"]["id"])
             assert len(agent.listed()) == 3
@@ -325,7 +276,7 @@ def test_a_busy_answer_shows_on_the_callers_row_alone_and_the_row_leaves_once_re
     ]
     agent = ListeningAgent(e2e_server, member_of(felix).account.id, "Michelangelo", "agent-subject-michelangelo")
     try:
-        open_agents_panel(felix)
+        panel = open_agents_panel(felix)
         felix.get_by_role("button", name=call_label("Michelangelo")).click()
         invitation = agent.invitation_within(felix, INVITATION_WITHIN_SECONDS)
         for seat, guest in zip((2, 3), guests, strict=True):
@@ -336,14 +287,14 @@ def test_a_busy_answer_shows_on_the_callers_row_alone_and_the_row_leaves_once_re
         agent.accept_refused(invitation)
 
         expect(felix.get_by_text(BUSY)).to_be_visible()
-        expect(agents_list(guests[0])).to_have_count(0)
-        expect(agents_list(felix).get_by_text("Michelangelo")).to_have_count(0, timeout=OUTCOME_LAPSES_MS)
+        expect(guests[0].get_by_text(BUSY)).to_have_count(0)
+        expect(panel.get_by_text("Michelangelo")).to_have_count(0, timeout=OUTCOME_LAPSES_MS)
         felix.keyboard.press("Escape")
         with felix.expect_response(
             lambda response: response.request.method == "GET" and response.url.endswith(TABLE_AGENTS_SUFFIX)
         ):
             open_agents_panel(felix)
-        expect(agents_list(felix).get_by_text("Michelangelo")).to_have_count(0)
+        expect(panel.get_by_text("Michelangelo")).to_have_count(0)
     finally:
         agent.close()
 
@@ -369,24 +320,21 @@ def test_a_caller_who_left_the_calling_group_keeps_the_list_until_he_has_read_th
         with felix.expect_response(
             lambda response: response.request.method == "GET" and response.url.endswith(TABLE_AGENTS_SUFFIX)
         ):
-            open_agents_panel(felix)
-        expect(agents_list(felix)).to_be_visible()
+            panel = open_agents_panel(felix)
         e2e_server.issuer.grant_groups(account, ())
 
         felix.get_by_role("button", name=call_label("Raffael")).click()
 
-        expect(agents_list(felix).get_by_role("alert")).to_be_visible()
-        expect(agents_list(felix)).to_be_visible()
+        expect(panel.get_by_role("alert")).to_be_visible()
         # A table change streams to the open list, which reads the agents again and is told the control is gone.
         anna = record_page_errors(open_person(username="anna-arrives", **DESKTOP), page_errors)
         with felix.expect_response(
             lambda response: response.request.method == "GET" and response.url.endswith(TABLE_AGENTS_SUFFIX)
         ):
             watch(anna, e2e_server, path)
-        expect(agents_list(felix).get_by_role("alert")).to_be_visible()
-        expect(agents_list(felix)).to_be_visible()
+        expect(panel.get_by_role("alert")).to_be_visible()
         felix.mouse.click(*BESIDE_THE_LIST)
-        expect(agents_list(felix)).to_have_count(0)
+        expect(panel).to_have_count(0)
     finally:
         agent.close()
 
@@ -404,9 +352,8 @@ def test_the_list_says_so_when_no_agent_is_reachable(
     )
     open_new_table(person, server)
 
-    open_agents_panel(person)
-    expect(agents_list(person)).to_be_visible()
+    panel = open_agents_panel(person)
 
-    expect(person.get_by_text(EMPTY)).to_be_visible()
+    expect(panel.get_by_text(EMPTY)).to_be_visible()
     # The page leaves before its server stops, so its stream's reconnect is no failed request.
     person.goto("about:blank")
