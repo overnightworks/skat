@@ -1,0 +1,8 @@
+claim_id = "6b76c29eac664b24803ac9c195e9bb32"
+agent = "Claude db2d61d3-8b51-4183-99c4-2e9334064f60"
+role = "builder"
+base = "9ecbec5044e6b004a0a7aa0653cd34bf4519d54f"
+branch = "claude/issue-927-the-frame-settings-and-sound-tests-prove"
+scope = ["tests/e2e/test_table_card_sound.py", "tests/e2e/test_table_closed.py", "tests/e2e/test_table_home.py", "tests/e2e/test_table_resign_in.py", "tests/e2e/test_table_restart.py", "tests/e2e/test_table_rules.py", "tests/e2e/test_table_sound_settings.py", "tests/e2e/test_table_stream_alive.py", "tests/e2e/test_table_style.py", "tests/e2e/test_table_voice.py"]
+opened_commit = "b220e473f87615f57c9a6acfca38290e52e8c890"
+whole_reason = "One family is one lane, so parallel lanes never share a module, and the coverage rule is judged once over the family's modules together."
