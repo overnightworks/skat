@@ -155,4 +155,4 @@ reason = "the person key vector both servers check their derivation against: a p
 [[layout.allow]]
 path = "tests/scripts/test_shards.py"
 rule = "test-layout"
-reason = "tests tests/e2e/support/shards.py, which the end-to-end conftest uses; a test under tests/e2e would itself be sharded and need the browser stack"
+reason = "tests tests/support/shards.py, which both conftests use; a test under tests/e2e would itself be sharded and need the browser stack"
