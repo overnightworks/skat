@@ -100,15 +100,21 @@ def page_filling_the_screen(address: str) -> str:
 
 
 @contextmanager
-def in_the_call_frame(
-    visitor: Page, browser_coverage: BrowserCoverage, address: str, *, filling_the_screen: bool = False
-) -> Generator[FrameLocator]:
-    page = page_filling_the_screen(address) if filling_the_screen else page_holding(address)
+def in_the_frame_of(visitor: Page, browser_coverage: BrowserCoverage, page: str) -> Generator[FrameLocator]:
     with served_from(CALL_ORIGIN, visitor, browser_coverage, page):
         # A page that already ran the app has its first navigation away cancelled and re-issued by the coverage
         # collector, which aborts a `goto`; the assignment leaves the page to follow the re-issue.
         visitor.evaluate("url => location.assign(url)", f"{CALL_ORIGIN}/")
         yield visitor.frame_locator(FRAME)
+
+
+@contextmanager
+def in_the_call_frame(
+    visitor: Page, browser_coverage: BrowserCoverage, address: str, *, filling_the_screen: bool = False
+) -> Generator[FrameLocator]:
+    page = page_filling_the_screen(address) if filling_the_screen else page_holding(address)
+    with in_the_frame_of(visitor, browser_coverage, page) as frame:
+        yield frame
 
 
 @pytest.mark.parametrize("form_factor", WIDTHS)
@@ -591,9 +597,7 @@ def in_a_hopin_frame(
     """The table in a frame of the size hopin's stage gives it, before the call's greeting."""
     path = f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}"
     page = greeting_page_holding(table_url(server, path), server.base_url, frame_style=frame_of_size(*frame_size))
-    with served_from(CALL_ORIGIN, visitor, browser_coverage, page):
-        visitor.evaluate("url => location.assign(url)", f"{CALL_ORIGIN}/")
-        table = visitor.frame_locator(FRAME)
+    with in_the_frame_of(visitor, browser_coverage, page) as table:
         expect(table.locator(CHAIR)).to_have_count(THREE_CHAIRS)
         visitor.wait_for_function('window.messages.some((message) => message?.type === "ready")')
         yield table
