@@ -1,10 +1,10 @@
-"""Tests for the split of the end-to-end suite across CI runners."""
+"""Tests for the split of a suite across CI runners."""
 
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
-from tests.e2e.support import shards
+from tests.support import shards
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -31,7 +31,7 @@ def kept_node_ids(monkeypatch: pytest.MonkeyPatch, items: list[SimpleNamespace],
     monkeypatch.setenv(shards.SHARDS_VARIABLE, str(SHARD_COUNT))
     config = SimpleNamespace(hook=SimpleNamespace(pytest_deselected=ignore_deselected))
     kept = list(items)
-    shards.select_shard(config, kept, SUITE_DIRECTORY)  # type: ignore[arg-type]
+    shards.select_shard(config, kept, lambda path: path.is_relative_to(SUITE_DIRECTORY))  # type: ignore[arg-type]
     return {item.nodeid for item in kept}
 
 
@@ -47,3 +47,10 @@ def test_shards_that_collect_in_different_orders_partition_the_suite(monkeypatch
 
     assert sum(len(share) for share in kept) == 12
     assert set().union(*kept) == {item.nodeid for item in suite_items(12)}
+
+
+def test_items_outside_the_suite_stay_in_every_shard(monkeypatch: pytest.MonkeyPatch) -> None:
+    outsider = SimpleNamespace(path=Path("elsewhere") / "test_other.py", nodeid="test_other.py::test_only")
+
+    for index in range(SHARD_COUNT):
+        assert "test_other.py::test_only" in kept_node_ids(monkeypatch, [*suite_items(6), outsider], index)
