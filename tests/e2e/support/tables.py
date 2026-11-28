@@ -12,6 +12,7 @@ from skat.web.calling import TABLE_AGENTS_SUFFIX
 from skat.web.rule_sets import RULE_SETS_PATH
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import NEW_TABLE_BUTTON
 
 if TYPE_CHECKING:
@@ -92,7 +93,7 @@ def table_id_of(path: str) -> str:
 
 def watch(person: Page, server: RunningServer, path: str) -> None:
     person.goto(f"{server.base_url}{path}")
-    expect(person.locator(".chair")).to_have_count(3)
+    old_surface.expect_the_table_shown(person)
 
 
 def watch_until_the_agents_are_read(person: Page, server: RunningServer, path: str) -> None:
@@ -102,15 +103,15 @@ def watch_until_the_agents_are_read(person: Page, server: RunningServer, path: s
 
 def watchers_of(person: Page):
     """The count of people who watch, which a page shows only from a table its own stream brought."""
-    return person.locator(".watchers span")
+    return old_surface.watchers(person)
 
 
 def plate_of(person: Page, seat: int):
-    return person.locator(f".chair[data-seat='{seat}'] .plate")
+    return old_surface.plate(person, seat)
 
 
 def sit_in(person: Page, seat: int) -> None:
-    person.locator(f".chair[data-seat='{seat}']").get_by_role("button", name=SIT_DOWN).click()
+    old_surface.chair(person, seat).get_by_role("button", name=SIT_DOWN).click()
 
 
 def mark_page(person: Page) -> None:
@@ -124,7 +125,7 @@ def assert_never_reloaded(*people: Page) -> None:
 
 
 def chair_of(person: Page, seat: int) -> Locator:
-    return person.locator(f".chair[data-seat='{seat}']")
+    return old_surface.chair(person, seat)
 
 
 def open_new_table_sheet(person: Page, server: RunningServer) -> None:

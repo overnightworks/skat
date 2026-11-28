@@ -22,6 +22,7 @@ from urllib.parse import urlsplit
 from playwright.sync_api import Error as PlaywrightError
 
 from skat.web.words import SOURCE_LANGUAGE, text
+from tests.e2e.support import old_surface
 
 if TYPE_CHECKING:
     from playwright.sync_api import CDPSession, Page
@@ -39,7 +40,7 @@ RECONNECTING = text(SOURCE_LANGUAGE, "table.reconnecting")
 PAGE_STATE_SCRIPT = f"""() => {{
     const line = [...document.querySelectorAll('[role="status"]')]
         .find((element) => element.textContent.includes({json.dumps(RECONNECTING)}));
-    const watchers = document.querySelector('.watchers span');
+    const watchers = document.querySelector({json.dumps(old_surface.WATCHERS)});
     return {{
         url: location.pathname + location.search.replace(/=[^&]*/g, ''),
         now: performance.now() / {MILLISECONDS},

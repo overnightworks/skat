@@ -1,20 +1,16 @@
+import json
 from typing import TYPE_CHECKING, Any
+
+from tests.e2e.support import old_surface
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
-# Keeps on window.auctionShown what the page shows of its auction each time that changes, from now on: the digits on
-# the counter's drums and, by seat, the word in each chair's bubble and whether the chair is out. Names are left out,
-# since each seat reads its own as „Du“. Beside each entry window.auctionHeard keeps how many recordings the page's
-# voice had started by then.
+# Keeps on window.auctionShown what the page shows of its auction each time that changes, from now on, as the surface's
+# reader gives it. Beside each entry window.auctionHeard keeps how many recordings the page's voice had started by
+# then.
 WATCHING_THE_AUCTION = """() => {
-    const shown = () => JSON.stringify({
-        counter: [...document.querySelectorAll('.counter .drum')].map((drum) => drum.textContent.trim()).join(''),
-        chairs: Object.fromEntries([...document.querySelectorAll('.chair[data-seat]')].map((chair) => [
-            chair.dataset.seat,
-            { says: chair.querySelector('.bubble .said')?.textContent ?? null, out: chair.classList.contains('out') },
-        ])),
-    });
+    const shown = AUCTION_AS_SHOWN;
     window.auctionShown = [shown()];
     window.auctionHeard = [window.recordingsStarted.length];
     new MutationObserver(() => {
@@ -22,10 +18,10 @@ WATCHING_THE_AUCTION = """() => {
         if (now === window.auctionShown.at(-1)) return;
         window.auctionShown.push(now);
         window.auctionHeard.push(window.recordingsStarted.length);
-    }).observe(document.querySelector('.stage'), {
+    }).observe(document.querySelector(STAGE), {
         subtree: true, childList: true, characterData: true, attributes: true,
     });
-}"""
+}""".replace("AUCTION_AS_SHOWN", old_surface.AUCTION_AS_SHOWN).replace("STAGE", json.dumps(old_surface.STAGE))
 
 
 def watch_the_auction(page: Page) -> None:

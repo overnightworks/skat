@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal
 from playwright.sync_api import Locator, Page, Route, expect
 
 from skat.web.words import SOURCE_LANGUAGE, text
-from tests.e2e.support.result_card import CARD
+from tests.e2e.support import old_surface
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -14,17 +14,13 @@ if TYPE_CHECKING:
 
 COMMAND_FAILED = text(SOURCE_LANGUAGE, "table.commandFailed")
 CARDS_AFTER_TWO_TRICKS = 6
-REQUEST = ".plaque.ask"
-CROSS = ".mark.declined"
-OPEN_CARDS = ".open"
-OPEN_TAG = ".open-tag"
-NOTICE = ".notice.seat"
+REQUEST = old_surface.REQUEST
+CROSS = old_surface.DECLINED_MARK
+OPEN_CARDS = old_surface.OPEN_CARDS
+OPEN_TAG = old_surface.OPEN_TAG
+NOTICE = old_surface.SEAT_NOTICE
 NOTICE_MILLISECONDS = 4000
 THREE_SECONDS_MILLISECONDS = 3000
-STRIP = ".actions"
-OWN_CARDS = ".own-hand .card"
-OWN_HAND = ".own-hand"
-COUNT_TAG = ".count-tag"
 
 
 def opponents(table: PlayingTable) -> list[int]:
@@ -36,25 +32,24 @@ def expect_the_page_to_show_every_card_played(person: Page, played: int) -> None
     key sends the table's latest version and is not refused as stale.
     """
     cards_left = 10 - played // 3
-    expect(person.locator(OWN_CARDS)).to_have_count(cards_left)
-    expect(person.locator(COUNT_TAG)).to_have_text([str(cards_left)] * 2)
+    expect(old_surface.own_cards(person)).to_have_count(cards_left)
+    expect(old_surface.count_tags(person)).to_have_text([str(cards_left)] * 2)
 
 
 def mark_on(person: Page, seat: int, selector: str) -> Locator:
-    return person.locator(f".chair[data-seat='{seat}'] {selector}")
+    return old_surface.in_chair(person, seat, selector)
 
 
 def expect_the_stamp(
     table: PlayingTable, word_key: Literal["result.shortened", "result.playedOpen"], by_seat: int
 ) -> None:
     for person in table.everyone:
-        stamp = person.locator(f"{CARD} .stamp")
-        expect(stamp).to_contain_text(text(SOURCE_LANGUAGE, word_key))
-        expect(stamp.locator(".by")).to_have_text(table.names[by_seat][0])
-        expect(person.locator(REQUEST)).to_have_count(0)
+        expect(old_surface.result_stamp(person)).to_contain_text(text(SOURCE_LANGUAGE, word_key))
+        expect(old_surface.result_stamp_author(person)).to_have_text(table.names[by_seat][0])
+        expect(old_surface.requests(person)).to_have_count(0)
 
 
-def expect_nothing_to_overflow(person: Page, parts: str = f"{REQUEST}, {NOTICE}") -> None:
+def expect_nothing_to_overflow(person: Page, parts: str = old_surface.REQUEST_AND_NOTICE) -> None:
     """The page does not scroll sideways and every part the selector names lies inside the viewport."""
     assert person.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     viewport = person.viewport_size
@@ -72,7 +67,7 @@ def expect_the_hand_and_the_strip_on_the_first_screen(person: Page) -> None:
     """The own hand and the strip of keys lie above the lower edge of the screen."""
     viewport = person.viewport_size
     assert viewport is not None
-    for part in person.locator(f"{OWN_HAND}, {STRIP}").all():
+    for part in old_surface.own_hand_and_actions(person).all():
         box = part.bounding_box()
         assert box is not None
         assert box["y"] + box["height"] <= viewport["height"]
@@ -86,4 +81,4 @@ def expect_a_refused_tap_to_show_the_failure_note(person: Page, command_path: st
 
     person.route(f"**{command_path}", refuse)
     tap()
-    expect(person.locator(".note")).to_have_text(COMMAND_FAILED)
+    expect(old_surface.note(person)).to_have_text(COMMAND_FAILED)
