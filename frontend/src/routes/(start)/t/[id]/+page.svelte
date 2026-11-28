@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount, untrack } from "svelte";
+    import { onMount } from "svelte";
     import { goto } from "$app/navigation";
     import { resolve } from "$app/paths";
     import { page } from "$app/state";
@@ -9,13 +9,7 @@
     import { grumblingAt, ring, stopRinging } from "#lib/bell.svelte.ts";
     import { tableShowing, type DecidingTrick, type Presenter } from "#lib/closingHand.ts";
     import { springsUp, stampBetween, type BidSaid } from "#lib/cues.ts";
-    import {
-        browserCallHost,
-        callStartAddress,
-        greetCall,
-        isFramedInCallMode,
-        readCallOrigin,
-    } from "#lib/callFrame.ts";
+    import { browserCallHost, callStartAddress, isFramedInCallMode, readCallOrigin } from "#lib/callFrame.ts";
     import {
         answerGiveUp,
         giveUpAsk,
@@ -52,6 +46,7 @@
     import AwayMark from "#lib/ui/AwayMark.svelte";
     import CallKey from "#lib/ui/CallKey.svelte";
     import BackFan from "#lib/ui/BackFan.svelte";
+    import CallSeats from "#lib/ui/CallSeats.svelte";
     import DecidingPlaque from "#lib/ui/DecidingPlaque.svelte";
     import OpenHand from "#lib/ui/OpenHand.svelte";
     import OpenTag from "#lib/ui/OpenTag.svelte";
@@ -147,6 +142,8 @@
     // The route has an [id] segment, so the parameter is always present.
     const id = $derived(page.params.id as string);
     let outcome = $state<Outcome | null>(null);
+    // The newest table the stream brought, shown or not: the call follows who sits there, not the paced table.
+    let newestTable = $state<Table | null>(null);
     let note = $state("");
     let rulesOpen = $state(false);
     let taken: string | null = $state(null);
@@ -236,6 +233,7 @@
     // SvelteKit keeps this component when the address changes from one table to another.
     $effect(() => {
         outcome = null;
+        newestTable = null;
         connected = true;
         streamsFull = false;
         attention = 0;
@@ -256,11 +254,15 @@
         void readTable(id).then((answer) => {
             if (!current) return;
             outcome = answer;
+            newestTable = answer.kind === "table" ? answer.table : null;
             if (answer.kind === "table" && answer.table.ended === null) {
                 tables.begin(answer.table);
                 stopWatching = watchTable(
                     id,
-                    tables.show,
+                    (table) => {
+                        newestTable = table;
+                        tables.show(table);
+                    },
                     (count) => {
                         attention = count;
                     },
@@ -313,16 +315,6 @@
         void readCallOrigin(browserCallHost().fetch.bind(browserCallHost())).then((origin) => {
             callOrigin = origin;
         });
-    });
-    onMount(() => {
-        if (!callMode) return;
-        return greetCall(
-            untrack(() => id),
-            browserCallHost(),
-            () => {
-                greeted = true;
-            },
-        );
     });
 
     // While a hand runs the sit asks first, because the sitter takes over the open chair's cards; a person returns to
@@ -418,7 +410,10 @@
     data-motion={motionInForce()}
     data-style={tableStyle()}
 >
-    <div class="room-paint" aria-hidden="true"></div>
+    <div class="room-paint" aria-hidden="true" data-call-backdrop></div>
+    {#if callMode}
+        <CallSeats tableId={id} {outcome} newest={newestTable} ongreeted={() => (greeted = true)} />
+    {/if}
     <StyleScene style={outcome?.kind === "table" ? outcome.table.style : null} />
     <CardSprite />
     {#if !greeted}
@@ -558,7 +553,7 @@
             {:else if !outcome.table.hand?.declaring}
                 <WaitingPlaque table={outcome.table} {passedIn} {waits} said={bidsSaid} />
             {/if}
-            <div class="felt-paint" aria-hidden="true"></div>
+            <div class="felt-paint" aria-hidden="true" data-call-backdrop></div>
             <div class="felt">
                 <StrandDecor {id} />
                 <KlassikDecor {id} />
@@ -613,7 +608,7 @@
                         data-moving={chairMoving(chair.seat)}
                     >
                         {#if chair.is_mine}
-                            <span class="bar-pill" aria-hidden="true"></span>
+                            <span class="bar-pill" aria-hidden="true" data-call-backdrop></span>
                         {/if}
                         {#if chair.occupant_name !== null}
                             <span class="tile" class:agent={chair.occupant_kind === "agent"}>

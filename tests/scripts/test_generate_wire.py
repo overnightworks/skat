@@ -33,7 +33,7 @@ from skat.web.auction import (
     TABLE_AUCTION_PASS_SUFFIX,
     TABLE_AUCTION_PLAY_SUFFIX,
 )
-from skat.web.call import CALL_ORIGIN_PATH
+from skat.web.call import CALL_ORIGIN_PATH, TABLE_PERSON_KEYS_SUFFIX
 from skat.web.constants import (
     ACCOUNT_CONSOLE_PATH,
     ACCOUNT_PATH,
@@ -93,6 +93,7 @@ def test_render_names_every_path_the_page_uses() -> None:
         ("ACCOUNT_PATH", ACCOUNT_PATH),
         ("VERSION_FILE_PATH", VERSION_FILE_PATH),
         ("CALL_ORIGIN_PATH", CALL_ORIGIN_PATH),
+        ("TABLE_PERSON_KEYS_SUFFIX", TABLE_PERSON_KEYS_SUFFIX),
         ("ACCOUNT_CONSOLE_PATH", ACCOUNT_CONSOLE_PATH),
         ("TABLES_PATH", TABLES_PATH),
         ("RULE_SETS_PATH", RULE_SETS_PATH),
