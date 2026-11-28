@@ -56,6 +56,90 @@ item = "overnightworks/skat#756"
 date = 2026-11-21
 reason = "the person key vector both servers check their derivation against is a public hash of public example values, no secret"
 
+[[gate.loosened]]
+what = 'size baseline adds file_lines frontend/src/lib/start.css 9840'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn frontend/src/lib/cues.ts cuesBetween 16'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn frontend/src/lib/result.ts resultView 16'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn frontend/src/routes/(start)/openingRules.ts switchRule 16'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn frontend/src/routes/(start)/t/[id]/+page.svelte presentTable 18'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines frontend/src/lib/callSignIn.ts createCallSignIn 103'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines frontend/src/lib/closingHand.ts tableShowing 138'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines frontend/src/lib/giveUp.fixtures.ts tableWith 80'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines frontend/src/lib/pushView.fixtures.ts table 60'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines frontend/src/lib/stream.ts openStream 70'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines frontend/src/lib/tableRules.ts rulesOf 63'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines frontend/src/lib/tableSound.ts createTableSound 102'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines frontend/src/lib/webAudio.ts createWebAudioPort 87'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines frontend/src/routes/(start)/agents.ts followAgents 69'
+item = "overnightworks/skat#843"
+date = 2026-11-23
+reason = "quality v0.25.0 measures script and CSS files; the operator ruled this adoption path on quality#884"
+
 [[secrets.allow]]
 rule = "generic-api-key"
 file = "tests/web/test_call_person_keys.py"
@@ -67,3 +151,8 @@ rule = "generic-api-key"
 file = "tests/web/test_person_keys.py"
 secret_sha256 = "6b6e35d2426e4ea854b1008bc978746538966e99c8d02edb634532d7e9b477f2"
 reason = "the person key vector both servers check their derivation against: a public hash of public example values, no secret"
+
+[[layout.allow]]
+path = "tests/scripts/test_shards.py"
+rule = "test-layout"
+reason = "tests tests/e2e/support/shards.py, which the end-to-end conftest uses; a test under tests/e2e would itself be sharded and need the browser stack"
