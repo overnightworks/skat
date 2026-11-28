@@ -1,8 +1,0 @@
-claim_id = "f6b0ef41be0b475bbbcf6a6aa73648ef"
-agent = "Claude db2d61d3-8b51-4183-99c4-2e9334064f60"
-role = "builder"
-base = "b6cce70452b2a4ccb8324d09d89b1ef3b4490317"
-branch = "claude/issue-756-seats-tell-the-call"
-scope = ["docs/ARCHITECTURE.md", "docs/mockups/table.html", "frontend/src", "quality/config.toml", "scripts/generate_wire.py", "src/skat/host", "src/skat/table", "src/skat/web", "tests"]
-opened_commit = "642396eec4ce9ccc7600de674aaa2199e6d8e7a4"
-whole_reason = "The table's half of the video-at-chair seam: the seats message and its key, the call's `placed` answer and the see-through chair."
