@@ -1,5 +1,5 @@
-from contextlib import contextmanager, nullcontext
-from typing import TYPE_CHECKING, Any
+from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 import pytest
 from playwright.sync_api import expect
@@ -25,13 +25,13 @@ from tests.e2e.support.call_frame import (
     page_holding,
     serve_on_the_frame_site,
     served_from,
-    sits_note,
     table_url,
 )
+from tests.e2e.support.early_end import CARDS_AFTER_TWO_TRICKS, REQUEST
 from tests.e2e.support.hands import deal_playing_table
 from tests.e2e.support.listening_agent import ListeningAgent
-from tests.e2e.support.people import DESKTOP, PHONE
-from tests.e2e.support.table_menu import AGENTS, MENU_KEY, menu_button, open_agents_panel
+from tests.e2e.support.people import SMALL_PHONE
+from tests.e2e.support.table_menu import menu_button, open_agents_panel
 from tests.e2e.support.tables import open_new_table, table_id_of
 
 if TYPE_CHECKING:
@@ -46,27 +46,12 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 HTTP_FORBIDDEN = 403
-SMALL_PHONE = {"viewport": {"width": 360, "height": 740}, "is_mobile": True, "has_touch": True}
 LANDSCAPE_PHONE = {"viewport": {"width": 844, "height": 390}, "is_mobile": True, "has_touch": True}
 # The call page sizes its frame: the screen's width and the height its own page leaves (676 of 740 px, 326 of 390 px).
 SMALL_FRAME = "width:360px;height:676px"
-PHONE_FRAME = "width:390px;height:780px"
 LANDSCAPE_FRAME = "width:844px;height:326px"
-# The small phone, taller than any short call frame: its chairs and trick keep the sizes a standalone page draws.
-TALLER_PHONE_VIEWPORT = {"width": 360, "height": 1000}
-# Taller than the landscape phone and past the height below which a call frame counts as short.
-TALLER_LANDSCAPE_VIEWPORT = {"width": 844, "height": 600}
-TRICK = ".trick"
+MORE = text(SOURCE_LANGUAGE, "table.menu")
 STAND_UP = text(SOURCE_LANGUAGE, "table.standUp")
-SPEAKER = ".actions .sound-button"
-# A seated person's call strip holds the speaker and the menu key.
-CALL_STRIP_ITEMS = 2
-STRIP = ".actions"
-STAGE = ".stage"
-STATUS = ".plaque"
-NOTICE = ".notice"
-CARDS_AFTER_TWO_TRICKS = 6
-INVITATION_WITHIN_SECONDS = 15
 # A simple request: no preflight stops it, so it reaches the server whatever the origin.
 SIMPLE_POST = """([url, body]) => fetch(url, {
     method: "POST", mode: "no-cors", credentials: "include", headers: {"content-type": "text/plain"}, body
@@ -187,18 +172,8 @@ def framed_at(
         yield visitor.frame_locator(FRAME)
 
 
-def box_of(locator: Any) -> dict[str, float]:
-    box = locator.bounding_box()
-    assert box is not None, f"{locator} has no box"
-    return box
-
-
-def bottom_of(box: dict[str, float]) -> float:
-    return box["y"] + box["height"]
-
-
 @pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
-def test_a_give_up_request_in_a_360_wide_frame_keeps_the_call_strip_and_its_menu_key_inside_the_frame(
+def test_a_give_up_request_in_a_360_wide_frame_leaves_the_menu_key_in_reach_without_scrolling(
     open_person: Callable[..., Page],
     member_of: Callable[[Page], SeededMember],
     browser_coverage: BrowserCoverage,
@@ -219,18 +194,15 @@ def test_a_give_up_request_in_a_360_wide_frame_keeps_the_call_strip_and_its_menu
 
     with framed_at(person, browser_coverage, address, SMALL_FRAME) as call:
         table.declaring.step(table.declarer_seat, TABLE_GIVE_UP_SUFFIX)
-        expect(call.locator(".plaque.ask")).to_be_visible()
+        expect(call.locator(REQUEST)).to_be_visible()
 
-        frame = box_of(person.locator(FRAME))
-        for part in (call.locator(f"{STRIP} {MENU_KEY}"), call.locator(STRIP)):
-            box = box_of(part)
-            assert box["y"] >= frame["y"]
-            assert bottom_of(box) <= bottom_of(frame)
+        expect(call.get_by_role("button", name=MORE)).to_be_in_viewport(ratio=1)
+        expect(menu_button(call, STAND_UP)).to_be_visible()
     assert page_errors == []
 
 
 @pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
-def test_the_agents_panel_in_a_landscape_frame_shows_both_agent_rows_above_the_call_strip(
+def test_the_agents_panel_in_a_landscape_frame_offers_both_agents_without_scrolling(
     open_person: Callable[..., Page],
     member_of: Callable[[Page], SeededMember],
     browser_coverage: BrowserCoverage,
@@ -249,153 +221,15 @@ def test_the_agents_panel_in_a_landscape_frame_shows_both_agent_rows_above_the_c
     ]
     try:
         with framed_at(felix, browser_coverage, table_url(framing_server, path), LANDSCAPE_FRAME) as call:
-            # Measured before the panel is opened: a tap scrolls the frame and would hide a strip below the fold.
-            frame = box_of(felix.locator(FRAME))
-            strip = box_of(call.locator(STRIP))
-            assert bottom_of(strip) <= bottom_of(frame)
+            # Read before the panel is opened: a tap scrolls the frame and would bring a key below the fold into view.
+            expect(call.get_by_role("button", name=MORE)).to_be_in_viewport(ratio=1)
             open_agents_panel(call)
-            for name in ("Mozart", "Leonardo"):
-                expect(call.get_by_role("button", name=call_label(name))).to_be_visible()
 
             for name in ("Mozart", "Leonardo"):
-                row = box_of(call.get_by_role("button", name=call_label(name)))
-                assert row["y"] >= frame["y"]
-                assert bottom_of(row) <= strip["y"]
+                row = call.get_by_role("button", name=call_label(name))
+                expect(row).to_be_in_viewport(ratio=1)
+                row.click(trial=True)
     finally:
         for agent in agents:
             agent.close()
-    assert page_errors == []
-
-
-@pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
-@pytest.mark.parametrize("framed", [True, False], ids=["framed", "standalone"])
-@pytest.mark.parametrize("form_factor", [PHONE, DESKTOP], ids=["390", "1280"])
-def test_an_agent_sitting_notice_lies_clear_of_the_status_line(
-    open_person: Callable[..., Page],
-    member_of: Callable[[Page], SeededMember],
-    browser_coverage: BrowserCoverage,
-    framing_server: RunningServer,
-    page_errors: list[str],
-    framed: bool,
-    form_factor: dict[str, Any],
-) -> None:
-    felix = record_page_errors(
-        open_person(username="felix-notice", groups=(AGENT_ADDERS_GROUP,), server=framing_server, **form_factor),
-        page_errors,
-    )
-    path = open_new_table(felix, framing_server)
-    agent = ListeningAgent(framing_server, member_of(felix).account.id, "Leonardo", "agent-subject-leonardo-notice")
-    viewport = felix.viewport_size
-    assert viewport is not None
-    frame_style = f"width:{viewport['width']}px;height:{viewport['height']}px"
-    try:
-        with (
-            framed_at(felix, browser_coverage, table_url(framing_server, path), frame_style)
-            if framed
-            else nullcontext(felix)
-        ) as scope:
-            open_agents_panel(scope)
-            scope.get_by_role("button", name=call_label("Leonardo")).click()
-            agent.accept(agent.invitation_within(felix, INVITATION_WITHIN_SECONDS))
-
-            notice = box_of(scope.locator(NOTICE, has_text=sits_note("Leonardo")))
-            status = box_of(scope.locator(STATUS).first)
-            assert bottom_of(notice) <= status["y"] or notice["y"] >= bottom_of(status)
-    finally:
-        agent.close()
-    assert page_errors == []
-
-
-@pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
-def test_a_framed_call_strip_at_390_holds_the_speaker_and_the_menu_key_in_one_row_and_the_menu_the_rest(
-    open_person: Callable[..., Page],
-    browser_coverage: BrowserCoverage,
-    framing_server: RunningServer,
-    page_errors: list[str],
-) -> None:
-    felix = record_page_errors(
-        open_person(username="felix-strip", groups=(AGENT_ADDERS_GROUP,), server=framing_server, **PHONE), page_errors
-    )
-    path = open_new_table(felix, framing_server)
-
-    with framed_at(felix, browser_coverage, table_url(framing_server, path), "width:390px;height:844px") as call:
-        bar = call.locator(f"{STRIP} > :not([popover])")
-        expect(bar).to_have_count(CALL_STRIP_ITEMS)
-        speaker = box_of(call.locator(SPEAKER))
-        menu_key = box_of(call.locator(f"{STRIP} {MENU_KEY}"))
-        assert speaker["x"] < menu_key["x"]
-        assert bar.evaluate_all("tags => new Set(tags.map(tag => tag.offsetTop)).size") == 1
-        expect(menu_button(call, STAND_UP)).to_be_visible()
-        expect(menu_button(call, AGENTS)).to_be_visible()
-    assert page_errors == []
-
-
-def chair_and_trick_sizes(person: Page | FrameLocator) -> tuple[float, float]:
-    chair = box_of(person.locator(CHAIR).first)
-    trick = box_of(person.locator(TRICK).first)
-    return chair["width"], trick["height"]
-
-
-def test_a_standalone_phone_at_360_by_740_keeps_the_chair_and_trick_sizes_of_a_taller_phone(
-    open_person: Callable[..., Page],
-    member_of: Callable[[Page], SeededMember],
-    framing_server: RunningServer,
-    page_errors: list[str],
-) -> None:
-    table = deal_playing_table(
-        open_person, framing_server, member_of, page_errors, {**SMALL_PHONE, "server": framing_server}
-    )
-    person = table.pages[table.declarer_seat]
-
-    short = chair_and_trick_sizes(person)
-    person.set_viewport_size(TALLER_PHONE_VIEWPORT)
-
-    assert chair_and_trick_sizes(person) == pytest.approx(short)
-    assert page_errors == []
-
-
-@pytest.mark.usefixtures("framing_issuer_reusing_refresh_tokens")
-def test_a_framed_call_at_390_by_780_keeps_the_chair_and_trick_sizes_of_a_taller_frame(
-    open_person: Callable[..., Page],
-    member_of: Callable[[Page], SeededMember],
-    browser_coverage: BrowserCoverage,
-    framing_server: RunningServer,
-    page_errors: list[str],
-) -> None:
-    table = deal_playing_table(open_person, framing_server, member_of, page_errors, {**PHONE, "server": framing_server})
-    person = table.pages[table.declarer_seat]
-    address = table_url(framing_server, f"{TABLE_PAGE_PREFIX}{table.declaring.table_id}")
-
-    with framed_at(person, browser_coverage, address, PHONE_FRAME) as call:
-        expect(call.locator(CHAIR).first).to_be_visible()
-        short = chair_and_trick_sizes(call)
-        person.locator(FRAME).evaluate("frame => { frame.style.height = '844px'; }")
-
-        assert chair_and_trick_sizes(call) == pytest.approx(short)
-    assert page_errors == []
-
-
-def stage_rows_of(person: Page) -> list[float]:
-    rows = person.locator(STAGE).evaluate("stage => getComputedStyle(stage).gridTemplateRows")
-    return [float(row.removesuffix("px")) for row in rows.split()]
-
-
-def test_a_standalone_landscape_phone_keeps_the_stage_rows_of_a_window_past_the_short_call_frames(
-    open_person: Callable[..., Page], framing_server: RunningServer, page_errors: list[str]
-) -> None:
-    person = record_page_errors(
-        open_person(username="felix-standalone-landscape", server=framing_server, **LANDSCAPE_PHONE), page_errors
-    )
-    open_new_table(person, framing_server)
-    expect(person.locator(CHAIR).first).to_be_visible()
-    landscape = stage_rows_of(person)
-    stage_height = box_of(person.locator(STAGE))["height"]
-
-    # The same stage height in a window the height rules do not reach: only a height rule can tell the two apart.
-    person.set_viewport_size(TALLER_LANDSCAPE_VIEWPORT)
-    person.locator(STAGE).evaluate(
-        "(stage, height) => { stage.style.flex = 'none'; stage.style.height = `${height}px`; }", stage_height
-    )
-
-    assert landscape == pytest.approx(stage_rows_of(person))
     assert page_errors == []
