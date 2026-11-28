@@ -1,8 +1,0 @@
-claim_id = "1eaa65a152124a6f8098b57289402912"
-agent = "Claude db2d61d3-8b51-4183-99c4-2e9334064f60"
-role = "builder"
-base = "52edf075ed447d067fd803073c633f6e74e87dc2"
-branch = "claude/issue-918-the-end-to-end-helpers-read-the-table-pa"
-scope = ["tests/e2e/support"]
-opened_commit = "d003b23819f5ea30789039f75af1f464e4e8aefe"
-whole_reason = "The seam is honest only when every support helper reads the table through it; a partial move leaves T1–T8 colliding on the helpers it skipped."
