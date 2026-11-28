@@ -10,6 +10,7 @@ from skat.web.auction import TABLE_AUCTION_PASS_SUFFIX
 from skat.web.playing import TABLE_CARD_SUFFIX
 from skat.web.ready import TABLE_READY_SUFFIX
 from skat.web.tables import TABLE_PAGE_PREFIX, TABLES_PATH
+from tests.e2e.support import old_surface
 from tests.e2e.support.browser import record_page_errors
 from tests.e2e.support.hands import AddressedSession
 from tests.e2e.support.tables import sit_in, watch
@@ -76,7 +77,7 @@ class RamschTable:
             return
         for seat, username in ((2, "ben"), (3, "cleo")):
             sit_in(people[username], seat)
-        expect(self.watcher.locator(".mark.pos")).to_have_count(3)
+        expect(old_surface.position_marks(self.watcher)).to_have_count(3)
         chairs = self.view(1)["chairs"]
         self.names = {chair["seat"]: chair["occupant_name"] for chair in chairs}
         self.seat_at = {chair["hand"]["position"]: chair["seat"] for chair in chairs}
