@@ -1,6 +1,7 @@
 <script lang="ts">
     import { lookOf } from "#lib/looks/registry.ts";
     import type { PanelSide } from "#lib/panelPlace.ts";
+    import { changeSetting, currentSettings } from "#lib/settings.svelte.ts";
     import { TABLE_STYLE_TOKENS } from "#lib/wire.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
     import { words } from "#lib/words.ts";
@@ -90,5 +91,18 @@
             </div>
         </div>
         <p class="sound-note style-note">{words["table.styleNote"]}</p>
+        <!-- The look under construction shows on this device only, whatever the table's style. -->
+        <label class="sound-row">
+            <span class="sound-row-name">{words["table.newLook"]}</span>
+            <input
+                type="checkbox"
+                role="switch"
+                class="sound-switch"
+                checked={currentSettings().newLook}
+                onchange={(event) => {
+                    changeSetting("newLook", event.currentTarget.checked);
+                }}
+            />
+        </label>
     </div>
 </AnchoredPanel>

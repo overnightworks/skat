@@ -104,6 +104,7 @@ describe("chairScenes", () => {
         expect(chairScenes(seats)).toEqual([
             {
                 seat: FOREHAND,
+                place: "left",
                 sitter: { kind: "person", name: "Anna", away: false },
                 mine: false,
                 hand: null,
@@ -112,13 +113,22 @@ describe("chairScenes", () => {
             },
             {
                 seat: MIDDLEHAND,
+                place: "right",
                 sitter: { kind: "agent", name: "Karl", away: false },
                 mine: false,
                 hand: null,
                 onTurn: false,
                 name: "Karl, KI",
             },
-            { seat: REARHAND, sitter: { kind: "free" }, mine: false, hand: null, onTurn: false, name: "Freier Platz" },
+            {
+                seat: REARHAND,
+                place: "near",
+                sitter: { kind: "free" },
+                mine: false,
+                hand: null,
+                onTurn: false,
+                name: "Freier Platz",
+            },
         ]);
     });
 
@@ -148,7 +158,7 @@ describe("chairScenes", () => {
         let seats = withChair(inHand(), FOREHAND, { is_mine: true });
         seats = withChair(seats, MIDDLEHAND, { is_away: true });
 
-        const [own, away] = chairScenes(seats);
+        const [away, , own] = chairScenes(seats);
 
         expect(own).toMatchObject({ mine: true, name: "Du, Vorhand, 10 Karten" });
         expect(away).toMatchObject({
@@ -157,10 +167,14 @@ describe("chairScenes", () => {
         });
     });
 
-    it("lists the chairs in seat order whatever order the table brings", () => {
-        const reversed = { ...inHand(), chairs: inHand().chairs.toReversed() };
+    it("stands the viewer's own chair near and the two others left and right in playing order", () => {
+        const seats = withChair(inHand(), MIDDLEHAND, { is_mine: true });
 
-        expect(chairScenes(reversed).map((chair) => chair.seat)).toEqual([FOREHAND, MIDDLEHAND, REARHAND]);
+        expect(chairScenes(seats).map(({ seat, place }) => ({ seat, place }))).toEqual([
+            { seat: REARHAND, place: "left" },
+            { seat: FOREHAND, place: "right" },
+            { seat: MIDDLEHAND, place: "near" },
+        ]);
     });
 });
 

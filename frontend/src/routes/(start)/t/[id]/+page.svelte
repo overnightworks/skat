@@ -89,7 +89,7 @@
     import WeiterKey from "#lib/ui/WeiterKey.svelte";
     import SpeechBubble from "#lib/ui/SpeechBubble.svelte";
     import { bockLine } from "#lib/tableRules.ts";
-    import { motionInForce } from "#lib/settings.svelte.ts";
+    import { currentSettings, motionInForce } from "#lib/settings.svelte.ts";
     import {
         chairMoving,
         isDealing,
@@ -102,6 +102,7 @@
     import { lookOf } from "#lib/looks/registry.ts";
     import { tableIntents } from "#lib/table/intents.ts";
     import { resetSeatNote, seatNote as standingSeatNote, tellSeats } from "#lib/table/seatNote.svelte.ts";
+    import Surface from "#lib/table/Surface.svelte";
     import { beatOf, receiveReactions, resetReactions, tapCounts } from "#lib/tableReactions.svelte.ts";
     import { armSound, soundForCues } from "#lib/tableSound.ts";
     import { tableStyle } from "#lib/tableStyle.svelte.ts";
@@ -394,6 +395,11 @@
     {/if}
 {/snippet}
 
+<!-- Today's surface keeps its lines under this one branch until it goes, so a change to it merges untouched. -->
+<!-- prettier-ignore -->
+{#if outcome?.kind === "table" && outcome.table.ended === null && currentSettings().newLook}
+    <Surface {id} table={outcome.table} />
+{:else}
 <div
     class="room"
     class:framed={callMode}
@@ -783,3 +789,4 @@
         <span class="spin"></span>{streamsFull ? words["table.tooManyStreams"] : words["table.reconnecting"]}
     </div>
 </div>
+{/if}

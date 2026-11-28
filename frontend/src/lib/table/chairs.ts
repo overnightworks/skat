@@ -1,8 +1,11 @@
 import { firstCardWait } from "#lib/kontra.ts";
 import { handWaits } from "#lib/openChair.ts";
 import { words } from "#lib/words.ts";
-import { positionWord, type Chair, type Table } from "../../routes/(start)/tables.ts";
-import type { ChairHand, ChairScene, Sitter } from "./scene.ts";
+import { drawingOrder, positionWord, type Chair, type Table } from "../../routes/(start)/tables.ts";
+import type { ChairHand, ChairPlace, ChairScene, Sitter } from "./scene.ts";
+
+// Where the chairs of the drawing order stand: the two others in playing order, then the viewer's own.
+const PLACES: readonly ChairPlace[] = ["left", "right", "near"];
 
 /**
  * The seat the table waits for, whatever the phase: the auction, the declaring, a Ramsch's pushing and the play. None
@@ -50,22 +53,21 @@ function nameOf(sitter: Sitter, mine: boolean, hand: ChairHand | null, onTurn: b
     return facts.filter((fact) => fact !== null).join(", ");
 }
 
-/** The table's chairs in seat order, each with its facts and the accessible name composed from them. */
+/** The table's three chairs, each with its place, its facts and the accessible name composed from them. */
 export function chairScenes(table: Table): ChairScene[] {
     const turn = seatOnTurn(table);
-    return table.chairs
-        .toSorted((one, other) => one.seat - other.seat)
-        .map((chair) => {
-            const sitter = sitterOf(chair);
-            const hand = handOf(chair, table);
-            const onTurn = chair.seat === turn;
-            return {
-                seat: chair.seat,
-                sitter,
-                mine: chair.is_mine,
-                hand,
-                onTurn,
-                name: nameOf(sitter, chair.is_mine, hand, onTurn),
-            };
-        });
+    return drawingOrder(table.chairs).map((chair, index) => {
+        const sitter = sitterOf(chair);
+        const hand = handOf(chair, table);
+        const onTurn = chair.seat === turn;
+        return {
+            seat: chair.seat,
+            place: PLACES[index] as ChairPlace,
+            sitter,
+            mine: chair.is_mine,
+            hand,
+            onTurn,
+            name: nameOf(sitter, chair.is_mine, hand, onTurn),
+        };
+    });
 }

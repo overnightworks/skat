@@ -24,9 +24,13 @@ export interface ChairHand {
     readonly cardsLeft: number;
 }
 
+/** Where a chair stands as the viewer sees the table: the viewer's own is near, a watcher's third chair too. */
+export type ChairPlace = "left" | "right" | "near";
+
 /** One chair of the table. A look draws it as a group that carries `name`, so every look tells a chair the same way. */
 export interface ChairScene {
     readonly seat: number;
+    readonly place: ChairPlace;
     readonly sitter: Sitter;
     /** The viewer's own chair. */
     readonly mine: boolean;
@@ -40,7 +44,7 @@ export interface ChairScene {
 /** The whole table for a look that draws the whole surface. Its root is the page's main landmark and carries `name`. */
 export interface SurfaceScene extends TableScene {
     readonly name: string;
-    /** The three chairs in seat order. */
+    /** The three chairs, the viewer's own last. */
     readonly chairs: readonly ChairScene[];
     /** The sentence about who has just taken or left a chair, while it stands. */
     readonly notice: string | null;

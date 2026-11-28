@@ -1,0 +1,330 @@
+/* Unter der Lampe: the three chairs and who sits on them. A chair stands upright beside the tilted table, so its name
+   and marks read undistorted. */
+[data-look="lampe"] .chair {
+    --hue: 32;
+    position: absolute;
+    z-index: 5;
+    display: grid;
+    align-items: center;
+    column-gap: calc(10 * var(--u));
+    row-gap: calc(6 * var(--u));
+}
+
+/* Each seat keeps its colour wherever the viewer sees it. */
+[data-look="lampe"] .chair[data-seat="1"] {
+    --hue: 340;
+}
+
+[data-look="lampe"] .chair[data-seat="2"] {
+    --hue: 208;
+}
+
+[data-look="lampe"] .chair[data-place="left"],
+[data-look="lampe"] .chair[data-place="right"] {
+    top: calc(62 * var(--u));
+    width: calc(50% - 14 * var(--u));
+}
+
+[data-look="lampe"] .chair[data-place="left"] {
+    left: calc(10 * var(--u));
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "portrait plate" "backs backs";
+}
+
+[data-look="lampe"] .chair[data-place="right"] {
+    right: calc(10 * var(--u));
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "plate portrait" "backs backs";
+    justify-items: end;
+    text-align: right;
+}
+
+/* The viewer's side of the table: a low bar, which leaves the near edge to the own hand. */
+[data-look="lampe"] .chair[data-place="near"] {
+    left: calc(10 * var(--u));
+    bottom: calc(16 * var(--u) + env(safe-area-inset-bottom));
+    max-width: calc(100% - 20 * var(--u));
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "portrait plate backs";
+    padding: calc(4 * var(--u)) calc(12 * var(--u)) calc(4 * var(--u)) calc(4 * var(--u));
+    border-radius: calc(28 * var(--u));
+    background: var(--plate);
+}
+
+[data-look="lampe"] .portrait {
+    grid-area: portrait;
+    position: relative;
+    display: block;
+    width: calc(60 * var(--u));
+    height: calc(60 * var(--u));
+}
+
+[data-look="lampe"] .chair[data-place="near"] .portrait {
+    width: calc(40 * var(--u));
+    height: calc(40 * var(--u));
+}
+
+[data-look="lampe"] .avatar,
+[data-look="lampe"] .free {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+}
+
+[data-look="lampe"] .avatar {
+    color: #fff8ec;
+    font-size: calc(24 * var(--u));
+    font-weight: 700;
+    background: radial-gradient(circle at 34% 28%, hsl(var(--hue) 72% 72%), hsl(var(--hue) 52% 36%) 70%);
+    box-shadow:
+        0 0 0 calc(2 * var(--u)) rgba(255, 236, 200, 0.5),
+        0 calc(6 * var(--u)) calc(14 * var(--u)) rgba(0, 0, 0, 0.55);
+}
+
+[data-look="lampe"] .chair[data-place="near"] .avatar {
+    font-size: calc(17 * var(--u));
+}
+
+/* A free chair is an empty outline: nobody sits there, and nothing on it can be tapped. */
+[data-look="lampe"] .free {
+    border: calc(2.5 * var(--u)) dashed rgba(255, 226, 160, 0.6);
+    background: rgba(255, 226, 160, 0.06);
+}
+
+/* An agent has a face of its own shape, so it never reads as a person. */
+[data-look="lampe"] .agent {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+[data-look="lampe"] .agent-body {
+    fill: hsl(var(--hue) 70% 48%);
+    stroke: rgba(255, 255, 255, 0.45);
+    stroke-width: 1.5;
+}
+
+[data-look="lampe"] .agent-visor {
+    fill: #10131c;
+    opacity: 0.88;
+}
+
+[data-look="lampe"] .agent-eye {
+    fill: #bff7ff;
+}
+
+/* The chair on turn stands in the lamp's light inside a brass ring; the ring and the word carry the turn, the light
+   only follows them. */
+[data-look="lampe"] .chair[data-turn="true"] .portrait::before {
+    content: "";
+    position: absolute;
+    inset: calc(-7 * var(--u));
+    border-radius: 50%;
+    border: calc(3 * var(--u)) solid var(--brass-hi);
+    box-shadow: 0 0 calc(14 * var(--u)) rgba(255, 210, 120, 0.8);
+}
+
+[data-look="lampe"] .chair[data-turn="true"] .portrait::after {
+    content: "";
+    position: absolute;
+    inset: calc(-46 * var(--u));
+    z-index: -1;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(var(--lamp-light), 0.34), transparent);
+}
+
+[data-look="lampe"] .chair[data-away="true"] .portrait {
+    opacity: 0.45;
+}
+
+[data-look="lampe"] .plate {
+    grid-area: plate;
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    padding: calc(6 * var(--u)) calc(9 * var(--u)) calc(7 * var(--u));
+    border-radius: calc(12 * var(--u));
+    background: var(--plate);
+    box-shadow: inset 0 0 0 1px rgba(255, 226, 160, 0.08);
+}
+
+[data-look="lampe"] .chair[data-place="near"] .plate {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+}
+
+[data-look="lampe"] .who,
+[data-look="lampe"] .tags {
+    display: flex;
+    align-items: center;
+    gap: calc(6 * var(--u));
+}
+
+[data-look="lampe"] .tags {
+    flex-wrap: wrap;
+    margin-top: calc(5 * var(--u));
+}
+
+[data-look="lampe"] .chair[data-place="right"] :is(.who, .tags) {
+    justify-content: flex-end;
+}
+
+[data-look="lampe"] .chair[data-place="near"] .tags {
+    margin-top: calc(2 * var(--u));
+}
+
+[data-look="lampe"] .name {
+    min-width: 0;
+    overflow: hidden;
+    font-size: calc(17 * var(--u));
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px calc(2 * var(--u)) rgba(0, 0, 0, 0.7);
+}
+
+[data-look="lampe"] .tag {
+    flex: none;
+    padding: calc(2 * var(--u)) calc(6 * var(--u));
+    border-radius: calc(6 * var(--u));
+    font-size: calc(12 * var(--u));
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+[data-look="lampe"] .pos {
+    color: var(--ink);
+    background: rgba(255, 240, 210, 0.12);
+    box-shadow: inset 0 0 0 1px rgba(255, 240, 210, 0.3);
+}
+
+/* A phone's plate holds the position's letter; a desktop's the whole word. */
+[data-look="lampe"] .pos-rest {
+    display: none;
+}
+
+[data-look="lampe"] .ki {
+    color: #bff7ff;
+    background: #10131c;
+    box-shadow: inset 0 0 0 1px #58d4e4;
+}
+
+[data-look="lampe"] .dealer {
+    color: var(--ink-dark);
+    background: #e9dcc0;
+}
+
+[data-look="lampe"] .turn {
+    color: var(--ink-dark);
+    background: var(--brass-hi);
+    box-shadow: 0 0 calc(14 * var(--u)) rgba(255, 210, 120, 0.7);
+}
+
+[data-look="lampe"] .away {
+    color: var(--ink-2);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+/* The cards a chair still holds, face down in a fan, with their number. */
+[data-look="lampe"] .backs {
+    grid-area: backs;
+    display: flex;
+    align-items: center;
+    height: calc(34 * var(--u));
+    padding-left: calc(14 * var(--u));
+}
+
+[data-look="lampe"] .chair[data-place="right"] .backs {
+    flex-direction: row-reverse;
+    padding: 0 calc(14 * var(--u)) 0 0;
+}
+
+[data-look="lampe"] .backs i {
+    width: calc(21 * var(--u));
+    height: calc(30 * var(--u));
+    margin-left: calc(-12 * var(--u));
+    border-radius: calc(3 * var(--u));
+    background: linear-gradient(135deg, #8c1f2f, #5a101d);
+    box-shadow:
+        inset 0 0 0 calc(1.5 * var(--u)) #efe4cc,
+        0 calc(2 * var(--u)) calc(3 * var(--u)) rgba(0, 0, 0, 0.5);
+}
+
+[data-look="lampe"] .chair[data-place="right"] .backs i {
+    margin-left: 0;
+    margin-right: calc(-12 * var(--u));
+}
+
+[data-look="lampe"] .backs b {
+    margin: 0 calc(8 * var(--u));
+    font-size: calc(14 * var(--u));
+    color: var(--ink-2);
+}
+
+@media (min-width: 960px) {
+    [data-look="lampe"] .chair[data-place="left"],
+    [data-look="lampe"] .chair[data-place="right"] {
+        top: calc(300 * var(--u));
+        width: calc(190 * var(--u));
+        grid-template-columns: 1fr;
+        grid-template-areas: "portrait" "plate" "backs";
+        justify-items: center;
+        row-gap: calc(8 * var(--u));
+        text-align: center;
+    }
+
+    [data-look="lampe"] .chair[data-place="left"] {
+        left: calc(28 * var(--u));
+    }
+
+    [data-look="lampe"] .chair[data-place="right"] {
+        right: calc(28 * var(--u));
+    }
+
+    [data-look="lampe"] .chair[data-place="near"] {
+        left: calc(28 * var(--u));
+        bottom: calc(24 * var(--u));
+    }
+
+    [data-look="lampe"] .chair:not([data-place="near"]) .portrait {
+        width: calc(88 * var(--u));
+        height: calc(88 * var(--u));
+    }
+
+    [data-look="lampe"] .chair:not([data-place="near"]) .avatar {
+        font-size: calc(34 * var(--u));
+    }
+
+    [data-look="lampe"] .chair:not([data-place="near"]) :is(.who, .tags),
+    [data-look="lampe"] .chair[data-place="right"] :is(.who, .tags) {
+        justify-content: center;
+    }
+
+    [data-look="lampe"] .name {
+        font-size: calc(20 * var(--u));
+    }
+
+    [data-look="lampe"] .tag {
+        font-size: calc(13 * var(--u));
+    }
+
+    [data-look="lampe"] .pos-rest {
+        display: inline;
+    }
+
+    [data-look="lampe"] .chair:not([data-place="near"]) .backs,
+    [data-look="lampe"] .chair[data-place="right"] .backs {
+        flex-direction: row;
+        height: calc(40 * var(--u));
+        padding: 0 0 0 calc(15 * var(--u));
+    }
+
+    [data-look="lampe"] .chair:not([data-place="near"]) .backs i,
+    [data-look="lampe"] .chair[data-place="right"] .backs i {
+        width: calc(26 * var(--u));
+        height: calc(37 * var(--u));
+        margin: 0 0 0 calc(-15 * var(--u));
+    }
+}
