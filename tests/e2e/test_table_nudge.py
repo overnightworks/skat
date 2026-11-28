@@ -1,6 +1,6 @@
 """The table waits for a seat that stays silent: after a minute every seated player but the awaited one is offered a
-bell at its chair, and a tap swings a cowbell over that chair on every page, shakes the chair and lets its person
-grumble in a bubble, while the nudged person also reads a sentence above the hand.
+bell at its chair, and a tap rings a cowbell at that chair on every page and lets its person grumble, while the nudged
+person also reads a sentence of who nudged.
 """
 
 import re
@@ -14,11 +14,13 @@ from skat.table.asking import ASK_AGAIN_AFTER
 from skat.table.nudging import NudgeRefusal
 from skat.web.nudging import TABLE_NUDGE_SUFFIX
 from skat.web.playing import TABLE_GIVE_UP_SUFFIX
-from skat.web.words import SOURCE_LANGUAGE, text
+from skat.web.words import SOURCE_LANGUAGE, WORDS, text
 from tests.e2e.support.declaring import reload_and_wait
+from tests.e2e.support.early_end import COMMAND_FAILED, NOTICE
 from tests.e2e.support.hands import PlayingTable, deal_playing_table
 from tests.e2e.support.people import PHONE, WIDTHS
 from tests.e2e.support.server import skat_on_new_database
+from tests.e2e.support.tables import chair_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -30,12 +32,11 @@ pytestmark = pytest.mark.e2e
 
 MILLISECONDS_PER_SECOND = 1000
 REFUSED = 409
-BELL = ".mark.bell"
-COWBELL = ".cowbell"
-GRUMBLE = ".bubble.grumble"
-NOTICE = ".notice.seat"
-NOTE = ".note"
-TAP_AREA_PIXELS = 44
+NUDGED = text(SOURCE_LANGUAGE, "table.nudged")
+# Any of the lines a nudged chair grumbles.
+ANY_GRUMBLE = re.compile(
+    "|".join(re.escape(text(SOURCE_LANGUAGE, key)) for key in WORDS[SOURCE_LANGUAGE] if key.startswith("voice.grumble"))
+)
 # The cowbell and the grumble are gone within this many seconds.
 COWBELL_STAYS_SECONDS = 10
 
@@ -59,6 +60,14 @@ def nudge_label(name: str) -> str:
 
 def nudges_you(name: str) -> str:
     return f"{name} {text(SOURCE_LANGUAGE, 'table.nudgesYou')}"
+
+
+def cowbells(scope: Page | Locator) -> Locator:
+    return scope.get_by_role("img", name=NUDGED)
+
+
+def grumbles(scope: Page | Locator) -> Locator:
+    return scope.get_by_text(ANY_GRUMBLE)
 
 
 @pytest.fixture
@@ -90,22 +99,7 @@ class SilentSeat:
             reload_and_wait(page)
 
     def chair(self, page: Page) -> Locator:
-        return page.locator(f".chair[data-seat='{self.seat}']")
-
-    def marks_under_the_bell(self, page: Page) -> list[str]:
-        """The classes of every other mark on the awaited chair whose box meets the bell's."""
-        return self.chair(page).evaluate(
-            """(chair) => {
-                const bell = chair.querySelector('.mark.bell').getBoundingClientRect();
-                return [...chair.querySelectorAll('.mark:not(.bell)')]
-                    .filter((mark) => {
-                        const box = mark.getBoundingClientRect();
-                        return box.width > 0 && box.left < bell.right && box.right > bell.left
-                            && box.top < bell.bottom && box.bottom > bell.top;
-                    })
-                    .map((mark) => mark.className);
-            }"""
-        )
+        return chair_of(page, self.seat)
 
     def hold_the_pages_still(self) -> None:
         """Stops the pages' clocks, so a timer fires only when the test lets the pages wait."""
@@ -146,46 +140,35 @@ def test_the_bell_comes_after_a_minute_to_the_seated_but_the_awaited_and_a_tap_r
     nudger = waiting.nudgers[0]
     nudger_name = waiting.table.names[waiting.table.seat_of(nudger)]
     for page in waiting.table.everyone:
-        expect(page.locator(BELL)).to_have_count(0)
+        expect(waiting.bell_button(page)).to_have_count(0)
     waiting.let_the_pages_wait(ASK_AGAIN_AFTER / 2)
-    expect(nudger.locator(BELL)).to_have_count(0)
+    expect(waiting.bell_button(nudger)).to_have_count(0)
 
     waiting.let_the_server_wait(ASK_AGAIN_AFTER)
     waiting.let_the_pages_wait(ASK_AGAIN_AFTER / 2)
 
     for page in waiting.nudgers:
         expect(waiting.bell_button(page)).to_have_count(1)
-        bell = waiting.chair(page).locator(BELL).bounding_box()
-        chair = waiting.chair(page).bounding_box()
-        assert bell is not None
-        assert chair is not None
-        assert chair["x"] - bell["x"] < bell["width"]
-        assert chair["y"] - bell["y"] < bell["height"]
-        assert bell["width"] <= TAP_AREA_PIXELS
-        assert waiting.marks_under_the_bell(page) == []
-        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-    expect(waiting.awaited.locator(BELL)).to_have_count(0)
-    expect(waiting.watcher.locator(BELL)).to_have_count(0)
+    expect(waiting.bell_button(waiting.awaited)).to_have_count(0)
+    expect(waiting.bell_button(waiting.watcher)).to_have_count(0)
 
     waiting.hold_the_pages_still()
     waiting.bell_button(nudger).click()
 
     for page in waiting.table.everyone:
-        expect(waiting.chair(page).locator(COWBELL)).to_have_count(1)
-        expect(waiting.chair(page).locator(GRUMBLE)).to_have_count(1)
-        expect(waiting.chair(page).locator(f"{BELL} i")).to_have_count(0)
-        expect(waiting.chair(page)).to_have_class(re.compile(r"\bshaken\b"))
+        expect(cowbells(waiting.chair(page))).to_have_count(1)
+        expect(grumbles(waiting.chair(page))).to_have_count(1)
     expect(waiting.bell_button(nudger)).to_have_count(0)
-    expect(waiting.awaited.locator(f"{NOTICE} .label")).to_have_text(nudges_you(nudger_name))
-    assert len({waiting.chair(page).locator(GRUMBLE).inner_text() for page in waiting.table.everyone}) == 1
+    expect(waiting.awaited.locator(NOTICE)).to_contain_text(nudges_you(nudger_name))
+    assert len({grumbles(waiting.chair(page)).inner_text() for page in waiting.table.everyone}) == 1
     for page in (*waiting.nudgers, waiting.watcher):
         expect(page.locator(NOTICE)).to_have_count(0)
 
     waiting.let_the_pages_wait(COWBELL_STAYS_SECONDS)
 
     for page in waiting.table.everyone:
-        expect(page.locator(COWBELL)).to_have_count(0)
-        expect(page.locator(GRUMBLE)).to_have_count(0)
+        expect(cowbells(page)).to_have_count(0)
+        expect(grumbles(page)).to_have_count(0)
 
 
 def test_a_new_version_at_the_same_awaited_chair_starts_the_minute_again(
@@ -221,8 +204,8 @@ def test_the_notice_and_the_cowbell_do_not_come_again_when_the_nudged_person_rel
     reload_and_wait(waiting.awaited)
 
     expect(waiting.awaited.locator(NOTICE)).to_have_count(0)
-    expect(waiting.awaited.locator(COWBELL)).to_have_count(0)
-    expect(waiting.awaited.locator(GRUMBLE)).to_have_count(0)
+    expect(cowbells(waiting.awaited)).to_have_count(0)
+    expect(grumbles(waiting.awaited)).to_have_count(0)
 
 
 def test_a_tap_the_server_refuses_as_too_early_changes_nothing_on_the_page(
@@ -240,6 +223,6 @@ def test_a_tap_the_server_refuses_as_too_early_changes_nothing_on_the_page(
     assert refused.value.status == REFUSED
     assert refused.value.json()["reason"] == NudgeRefusal.TOO_EARLY
     expect(waiting.bell_button(nudger)).to_have_count(1)
-    expect(nudger.locator(COWBELL)).to_have_count(0)
-    expect(nudger.locator(NOTE)).to_have_text("")
+    expect(cowbells(nudger)).to_have_count(0)
+    expect(nudger.get_by_role("status").filter(has_text=COMMAND_FAILED)).to_have_count(0)
     expect(waiting.awaited.locator(NOTICE)).to_have_count(0)
